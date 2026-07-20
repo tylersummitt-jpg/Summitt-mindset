@@ -833,8 +833,9 @@ describe("APP-041F2 no-scope / reachability proofs", () => {
     expect(routeSrc).toContain('Cache-Control": "no-store"');
 
     const userSrc = readFileSync(USER_PAGE, "utf8");
-    // F3: Danger Zone mounts only behind exact initiation === "true".
-    expect(userSrc).toContain('=== "true"');
+    // F4b: Danger Zone mounts only via shared server access decision.
+    expect(userSrc).toContain("shouldShowAccountDeletionDangerZone");
+    expect(userSrc).toContain("await auth()");
     expect(userSrc).toContain("AccountDeletionDangerZone");
     expect(userSrc).not.toMatch(/Danger zone|Delete account/i);
     expect(userSrc).not.toContain("/api/account/delete");

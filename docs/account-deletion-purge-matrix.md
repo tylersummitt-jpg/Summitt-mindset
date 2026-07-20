@@ -332,13 +332,15 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041F3:** **COMPLETE** at `ad3fc20d8ecb9022ec3195fb4f1b093aeb6ab7fd` — `/user` Danger Zone behind exact `ACCOUNT_DELETION_INITIATION_ENABLED === "true"`; Clerk `useReverification`; browser-safe initiation contract (client/server boundary); Vercel build passed; production `/user` smoke: no Danger zone / Delete account UI while flag off. Backend remains dual-gated; both flags remain off; **no** real deletion request created.
 
-**APP-041F4a:** **IMPLEMENTED — HIDDEN — PENDING REVIEW** — pre-activation initiation hardening: strict existing-row coherence via canonical structural consistency; wrapper race coverage; route body override rejection; runtime UI/reverification tests; focus/keyboard hardening; `/user` `force-dynamic`. Both flags remain off; **no** public visibility; **no** real deletion request created; **no** scheduler enablement; **no** designated test-account allowlist yet.
+**APP-041F4a:** **COMPLETE** at `066d0045c2495a75dd5b1992816a10fba142cf0d` — pre-activation initiation hardening: strict existing-row coherence via canonical structural consistency; wrapper race coverage; route body override rejection; runtime UI/reverification tests; focus/keyboard hardening; `/user` `force-dynamic`. Production build green; Danger Zone remains hidden; both flags remain off; **no** real deletion request created.
+
+**APP-041F4b:** **IMPLEMENTED — INERT — PENDING REVIEW** — designated test-account allowlist foundation: centralized public vs designated-test initiation access; exact Clerk user ID + exact `ACCOUNT_DELETION_TEST_MODE_ENABLED` + scheduler required for test path; shared by route and `/user`. **No** environment variables configured; **no** real test account chosen; **no** real deletion request created; public initiation remains off; scheduler remains off; Danger Zone remains hidden.
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**Next after F4a review:** independent F4a review → commit/deploy hidden → repeat hidden production smoke → design designated test-account allowlist and controlled F4b test window → no public activation yet.
+**Next after F4b review:** independent F4b review → commit/deploy inert → choose/create disposable designated test account → prepare controlled environment-variable window → execute one end-to-end test only after explicit approval → no public activation yet.
 
-Do **not** claim: users can delete accounts; initiation is enabled; scheduler is active for processing; initiation is publicly available; automatic deletion works; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted; a real deletion was tested.
+Do **not** claim: users can delete accounts; initiation is enabled; scheduler is active for processing; initiation is publicly available; automatic deletion works; admin can retry/unlock/process; end-to-end deletion complete; store compliance complete; a real account was deleted; a real deletion was tested; deletion testing has begun; test mode is enabled; a designated account exists.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 

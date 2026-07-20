@@ -1,11 +1,12 @@
 /**
  * APP-041F2 — unreachable authenticated account-deletion initiation route.
+ * APP-041F4b — centralized public / designated-test access (inert until env set).
  *
  * Deployed does not mean activated:
- * - ACCOUNT_DELETION_INITIATION_ENABLED must be exactly "true"
- * - ACCOUNT_DELETION_SCHEDULER_ENABLED must be exactly "true"
- * - Both flags remain off in production for F2/F3
- * - Danger Zone UI (F3) is separately gated by initiation flag only
+ * - Public: ACCOUNT_DELETION_INITIATION_ENABLED + ACCOUNT_DELETION_SCHEDULER_ENABLED
+ * - Designated test: exact test user ID + ACCOUNT_DELETION_TEST_MODE_ENABLED
+ *   + ACCOUNT_DELETION_SCHEDULER_ENABLED (never bypasses scheduler)
+ * - All remain off / unset in production for F4b
  *
  * When disabled or unauthorized: no repository call, no providers, no stages.
  * When enabled (future): durable request only — no inline deletion stages.
@@ -20,12 +21,14 @@ import { NextResponse } from "next/server";
 
 import { initiateAccountDeletionRequestForUser } from "@/lib/account-deletion/initiate-account-deletion-request";
 import {
+  isAccountDeletionInitiationAccessGranted,
+  readAccountDeletionInitiationAccessEnv,
+  resolveAccountDeletionInitiationAccess,
+} from "@/lib/account-deletion/account-deletion-initiation-access.server";
+import {
   ACCOUNT_DELETION_INITIATION_DISABLED_CODE,
-  ACCOUNT_DELETION_INITIATION_ENABLED_ENV,
-  isAccountDeletionInitiationFullyEnabled,
   runAccountDeletionInitiation,
 } from "@/lib/account-deletion/run-account-deletion-initiation";
-import { ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV } from "@/lib/account-deletion/run-account-deletion-scheduler";
 import { verifyAccountDeletionReauthenticationWithClerk } from "@/lib/account-deletion/verify-account-deletion-reauthentication";
 
 export const runtime = "nodejs";
@@ -59,15 +62,17 @@ export async function POST(req: Request) {
     return jsonResponse({ ok: false, code: "unauthorized" }, 401);
   }
 
-  // 2. Dual exact-string flags — disabled short-circuit before body/reauth/repo.
-  const initiationRaw = process.env[ACCOUNT_DELETION_INITIATION_ENABLED_ENV];
-  const schedulerRaw = process.env[ACCOUNT_DELETION_SCHEDULER_ENABLED_ENV];
-  if (!isAccountDeletionInitiationFullyEnabled(initiationRaw, schedulerRaw)) {
+  // 2. Centralized access — disabled short-circuit before body/reauth/repo.
+  //    Response never reveals public vs designated-test vs missing allowlist.
+  const access = resolveAccountDeletionInitiationAccess(userId);
+  if (!isAccountDeletionInitiationAccessGranted(access)) {
     return jsonResponse(
       { ok: false, code: ACCOUNT_DELETION_INITIATION_DISABLED_CODE },
       503
     );
   }
+
+  const accessEnv = readAccountDeletionInitiationAccessEnv();
 
   // 3. Parse body (malformed JSON → invalid_confirmation).
   let confirmationBody: unknown;
@@ -86,8 +91,10 @@ export async function POST(req: Request) {
   const result = await runAccountDeletionInitiation({
     authenticatedUserId: userId,
     confirmationBody,
-    initiationEnabledRaw: initiationRaw,
-    schedulerEnabledRaw: schedulerRaw,
+    initiationEnabledRaw: accessEnv.publicInitiationFlag,
+    schedulerEnabledRaw: accessEnv.schedulerFlag,
+    testModeEnabledRaw: accessEnv.testModeFlag,
+    designatedTestUserIdRaw: accessEnv.designatedTestUserId,
     verifyReauthentication: async () =>
       verifyAccountDeletionReauthenticationWithClerk(hasFn),
     createOrGetRequest: (clerkUserId) =>

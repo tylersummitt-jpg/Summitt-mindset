@@ -1,9 +1,10 @@
 /**
  * APP-041F2 — injectable account-deletion initiation core.
+ * APP-041F4b — access uses centralized public / designated-test decision.
  *
  * Fail-closed order (testable):
  * 1. authenticated user id present
- * 2. dual exact-string flags (initiation AND scheduler)
+ * 2. initiation access (public dual gate OR designated test + scheduler)
  * 3. confirmation body === exact "DELETE"
  * 4. reauthentication verifier
  * 5. create-or-get durable request
@@ -14,6 +15,7 @@
  *
  * Browser-safe wire constants/types live in
  * account-deletion-initiation-contract.ts (no server-only).
+ * Access decision lives in account-deletion-initiation-access.ts.
  */
 
 import "server-only";
@@ -24,6 +26,10 @@ import {
   type AccountDeletionInitiationCode,
   validateAccountDeletionConfirmation,
 } from "./account-deletion-initiation-contract";
+import {
+  evaluateAccountDeletionInitiationAccess,
+  isAccountDeletionInitiationAccessGranted,
+} from "./account-deletion-initiation-access";
 
 export {
   ACCOUNT_DELETION_CONFIRMATION_VALUE,
@@ -33,21 +39,16 @@ export {
   type AccountDeletionInitiationCode,
 } from "./account-deletion-initiation-contract";
 
-export const ACCOUNT_DELETION_INITIATION_ENABLED_ENV =
-  "ACCOUNT_DELETION_INITIATION_ENABLED" as const;
-
-/** Exact-string: only the literal "true" enables a flag. */
-export function isExactTrueFlag(raw: string | undefined | null): boolean {
-  return raw === "true";
-}
-
-/** Dual hard gate: both flags must be exactly "true". */
-export function isAccountDeletionInitiationFullyEnabled(
-  initiationRaw: string | undefined | null,
-  schedulerRaw: string | undefined | null
-): boolean {
-  return isExactTrueFlag(initiationRaw) && isExactTrueFlag(schedulerRaw);
-}
+export {
+  ACCOUNT_DELETION_INITIATION_ENABLED_ENV,
+  ACCOUNT_DELETION_TEST_CLERK_USER_ID_ENV,
+  ACCOUNT_DELETION_TEST_MODE_ENABLED_ENV,
+  evaluateAccountDeletionInitiationAccess,
+  isAccountDeletionInitiationAccessGranted,
+  isAccountDeletionInitiationFullyEnabled,
+  isExactTrueFlag,
+  type AccountDeletionInitiationAccess,
+} from "./account-deletion-initiation-access";
 
 export type AccountDeletionInitiationResult = {
   httpStatus: number;
@@ -71,6 +72,10 @@ export type RunAccountDeletionInitiationInput = {
   confirmationBody: unknown;
   initiationEnabledRaw: string | undefined | null;
   schedulerEnabledRaw: string | undefined | null;
+  /** APP-041F4b — exact "true" enables designated-test path (with scheduler + ID). */
+  testModeEnabledRaw?: string | undefined | null;
+  /** APP-041F4b — exact full Clerk user ID; unset/empty = no designated user. */
+  designatedTestUserIdRaw?: string | undefined | null;
   verifyReauthentication: () => Promise<AccountDeletionReauthVerificationResult>;
   createOrGetRequest: (
     clerkUserId: string
@@ -120,12 +125,14 @@ export async function runAccountDeletionInitiation(
     return response(401, false, "unauthorized");
   }
 
-  if (
-    !isAccountDeletionInitiationFullyEnabled(
-      input.initiationEnabledRaw,
-      input.schedulerEnabledRaw
-    )
-  ) {
+  const access = evaluateAccountDeletionInitiationAccess({
+    authenticatedUserId: userId,
+    publicInitiationFlag: input.initiationEnabledRaw,
+    schedulerFlag: input.schedulerEnabledRaw,
+    testModeFlag: input.testModeEnabledRaw,
+    designatedTestUserId: input.designatedTestUserIdRaw,
+  });
+  if (!isAccountDeletionInitiationAccessGranted(access)) {
     return response(503, false, ACCOUNT_DELETION_INITIATION_DISABLED_CODE);
   }
 

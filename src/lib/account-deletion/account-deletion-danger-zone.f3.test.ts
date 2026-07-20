@@ -180,15 +180,16 @@ describe("APP-041F3 flag gating (exact true only)", () => {
     expect(isExactTrueFlag("true")).toBe(true);
   });
 
-  it("5. server page gates with exact === \"true\"; no env string to client props", () => {
+  it("5. server page gates via shared access helper; no env string to client props", () => {
     const page = readFileSync(PAGE, "utf8");
-    expect(page).toContain('=== "true"');
-    expect(page).toContain(ACCOUNT_DELETION_INITIATION_ENABLED_ENV);
+    expect(page).toContain("shouldShowAccountDeletionDangerZone");
+    expect(page).toContain("await auth()");
     expect(page).toContain("AccountDeletionDangerZone");
     expect(page).toContain("showDangerZone ? <AccountDeletionDangerZone");
     expect(page).not.toContain('"use client"');
     expect(page).not.toMatch(/dangerZone=\{process\.env/);
     expect(page).not.toMatch(/enabled=\{process\.env/);
+    expect(page).not.toMatch(/userId=\{/);
   });
 });
 
@@ -416,7 +417,7 @@ describe("APP-041F3 no-scope / no-activation", () => {
     }
 
     const route = readFileSync(ROUTE, "utf8");
-    expect(route).toContain("isAccountDeletionInitiationFullyEnabled");
+    expect(route).toContain("resolveAccountDeletionInitiationAccess");
     expect(route).toContain("reverificationError");
     expect(route).toContain('code === "reauth_required"');
 

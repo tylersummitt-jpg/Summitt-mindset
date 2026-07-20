@@ -392,7 +392,7 @@ describe("APP-041F4a dynamic / hidden / no-scope", () => {
   it("50–53. force-dynamic; hidden wiring preserved", () => {
     const page = readFileSync(USER_PAGE, "utf8");
     expect(page).toContain('export const dynamic = "force-dynamic"');
-    expect(page).toContain('=== "true"');
+    expect(page).toContain("shouldShowAccountDeletionDangerZone");
     expect(page).not.toContain('"use client"');
     expect(page).not.toMatch(/dangerZone=\{process\.env/);
 

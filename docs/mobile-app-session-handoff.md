@@ -1202,3 +1202,74 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 
 ### Explicit non-claims
 - Users cannot delete accounts; initiation is not enabled; Danger Zone is not publicly visible; scheduler processing is not active; no real deletion request created; no real deletion was tested; store compliance is not complete; both flags are not enabled
+
+## SESSION 35 — 2026-07-20 — APP-041F4b designated test-account allowlist foundation (worktree)
+
+### Session summary
+- Date: 2026-07-20
+- Tasks attempted (IDs): APP-041F4b
+- Tasks completed (IDs): none (IMPLEMENTED — INERT — PENDING REVIEW)
+- Tasks partially completed (IDs + % + what remains): APP-041F4b ~95% code/tests/docs; independent review + inert deploy remain
+- Tasks blocked (IDs + blocker): none
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Current branch: main
+- Latest commit (hash + subject): 066d0045c2495a75dd5b1992816a10fba142cf0d — test: harden account deletion initiation before activation
+- Exact `git status --short`: worktree dirty with F4b files (uncommitted)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+- Untracked files: F4b access modules + f4b tests (as implemented)
+- Non-Git configuration changes (and where they live): none
+- `git add .` safety verdict: SAFE — F4b-only worktree; no secrets/env/migrations/vercel
+
+### Testing state
+- Automated checks run: focused F4b (20); all account-deletion (428); runtime Danger Zone; F2/F3/F4a; ESLint changed files; npm run build
+- Checks passed: all listed checks passed; `/user` remains ƒ dynamic; build TypeScript finished
+- Checks failed: none
+- Manual device checks completed: none
+- Manual checks still needed: independent F4b review; inert deploy; later controlled env window
+- Vercel status: F4a already green in production; F4b not deployed
+- iOS build status: n/a
+- Android build status: n/a
+
+### External state
+- Apple Developer status: unchanged
+- Google Play status: unchanged
+- TestFlight status: unchanged
+- Google test-track status: unchanged
+- Store-review status: unchanged
+- Required Tyler actions or access: independent F4b review; later choose disposable designated Clerk test account (not in this slice)
+
+### Exact resume point
+- Next task ID: APP-041F4b review
+- Exact next action: independent adversarial review of inert allowlist foundation → commit/deploy inert → then prepare designated account + controlled env window (separate explicit approval)
+- Dependencies: F4a COMPLETE at 066d004…
+- Files or systems likely involved: initiation access helper/adapter; `/api/account/delete`; `/user` page
+- Known risks: misconfigured future env could enable one designated user; scheduler must stay required
+- What must NOT be repeated: enabling flags without explicit approval; choosing/committing a real Clerk ID in repo
+- What must NOT be touched: mobile repo; vercel.json/cron; migrations; SMS brain; provider/reconciler/lease paths
+
+### F4a production truth
+- COMPLETE at `066d0045c2495a75dd5b1992816a10fba142cf0d`
+- Vercel build green; `/user` force-dynamic; Danger Zone hidden; both flags off; no real deletion request
+
+### F4b what changed (worktree; pending review)
+- Centralized `evaluateAccountDeletionInitiationAccess` (public vs designated_test vs disabled)
+- Server env adapter; route + `/user` share decision via `auth().userId`
+- Designated path requires exact Clerk user ID + exact test-mode flag + scheduler enabled
+- No environment variables configured; no real test account chosen; no real deletion request
+- Public initiation remains off; Danger Zone remains hidden
+
+### Status
+- **APP-041F4a:** COMPLETE (`066d0045c2495a75dd5b1992816a10fba142cf0d`)
+- **APP-041F4b:** IMPLEMENTED — INERT — PENDING REVIEW
+- **APP-041F3:** COMPLETE
+- **APP-041F2:** COMPLETE
+
+### Exact next
+- Independent F4b review → commit/deploy inert → choose/create disposable designated test account → prepare controlled environment-variable window → execute one end-to-end test only after explicit approval
+
+### Explicit non-claims
+- Deletion testing has not begun; scheduler is not enabled; test mode is not enabled; a designated account does not exist in env; public deletion is not available; store compliance is not complete; no real deletion request created
