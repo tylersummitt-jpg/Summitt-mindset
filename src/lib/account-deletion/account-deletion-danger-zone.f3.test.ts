@@ -27,6 +27,13 @@ import {
 } from "./account-deletion-danger-zone";
 import {
   ACCOUNT_DELETION_CONFIRMATION_VALUE,
+  ACCOUNT_DELETION_INITIATION_CODES,
+  ACCOUNT_DELETION_INITIATION_DISABLED_CODE,
+  ACCOUNT_DELETION_POST_PATH as CONTRACT_POST_PATH,
+  isAccountDeletionInitiationCode,
+  validateAccountDeletionConfirmation,
+} from "./account-deletion-initiation-contract";
+import {
   ACCOUNT_DELETION_INITIATION_ENABLED_ENV,
   isExactTrueFlag,
 } from "./run-account-deletion-initiation";
@@ -40,12 +47,126 @@ const HELPERS = join(
   ROOT,
   "src/lib/account-deletion/account-deletion-danger-zone.ts"
 );
+const CONTRACT = join(
+  ROOT,
+  "src/lib/account-deletion/account-deletion-initiation-contract.ts"
+);
+const SERVER_CORE = join(
+  ROOT,
+  "src/lib/account-deletion/run-account-deletion-initiation.ts"
+);
 const NAVBAR = join(ROOT, "src/components/Navbar.tsx");
 const DASHBOARD_LAYOUT = join(ROOT, "src/app/dashboard/layout.tsx");
 const ONBOARDING = join(ROOT, "src/app/onboarding/page.tsx");
 const FILM_ROOM = join(ROOT, "src/app/film-room/page.tsx");
 const VERCEL = join(ROOT, "vercel.json");
 const ROUTE = join(ROOT, "src/app/api/account/delete/route.ts");
+
+const SERVER_ONLY_IMPORT =
+  /from\s+["'](\.?\.?\/)?(.*run-account-deletion-initiation|.*initiate-account-deletion-request|.*verify-account-deletion-reauthentication|.*\/repository|.*supabase-server)["']/;
+
+function existsAsTs(p: string): boolean {
+  try {
+    readFileSync(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function collectLocalImports(
+  filePath: string,
+  seen = new Set<string>()
+): string[] {
+  const abs = filePath;
+  if (seen.has(abs)) return [...seen];
+  seen.add(abs);
+  const src = readFileSync(abs, "utf8");
+  const dir = join(abs, "..");
+  const re =
+    /from\s+["'](@\/lib\/account-deletion\/[^"']+|\.\.?\/[^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src))) {
+    let spec = m[1];
+    if (spec.startsWith("@/lib/account-deletion/")) {
+      spec = join(
+        ROOT,
+        "src/lib/account-deletion",
+        spec.slice("@/lib/account-deletion/".length)
+      );
+    } else {
+      spec = join(dir, spec);
+    }
+    if (!spec.endsWith(".ts") && !spec.endsWith(".tsx")) {
+      if (existsAsTs(spec + ".ts")) spec = spec + ".ts";
+      else if (existsAsTs(spec + ".tsx")) spec = spec + ".tsx";
+      else continue;
+    }
+    collectLocalImports(spec, seen);
+  }
+  return [...seen];
+}
+
+describe("APP-041F3 client/server import boundary", () => {
+  it("1–5. client + helpers + contract never import server-only modules", () => {
+    const serverOnlyStmt = /^\s*import\s+["']server-only["']\s*;?\s*$/m;
+
+    const contractSrc = readFileSync(CONTRACT, "utf8");
+    expect(contractSrc).not.toMatch(serverOnlyStmt);
+    expect(contractSrc).not.toMatch(
+      /from\s+["'][^"']*(supabase|repository|verify-account-deletion|initiate-account-deletion-request)[^"']*["']/i
+    );
+    expect(contractSrc).not.toMatch(/\bprocess\.env\b/);
+
+    const helperSrc = readFileSync(HELPERS, "utf8");
+    expect(helperSrc).not.toContain("run-account-deletion-initiation");
+    expect(helperSrc).toContain("account-deletion-initiation-contract");
+    expect(helperSrc).not.toMatch(SERVER_ONLY_IMPORT);
+
+    const zoneSrc = readFileSync(ZONE, "utf8");
+    expect(zoneSrc).not.toContain("run-account-deletion-initiation");
+    expect(zoneSrc).not.toMatch(SERVER_ONLY_IMPORT);
+    expect(zoneSrc).toContain("account-deletion-danger-zone");
+
+    const graph = collectLocalImports(ZONE);
+    for (const file of graph) {
+      const src = readFileSync(file, "utf8");
+      expect(src).not.toMatch(serverOnlyStmt);
+      expect(file).not.toMatch(/run-account-deletion-initiation\.ts$/);
+      expect(file).not.toMatch(/initiate-account-deletion-request\.ts$/);
+      expect(file).not.toMatch(/verify-account-deletion-reauthentication\.ts$/);
+      expect(file).not.toMatch(/repository\.ts$/);
+      expect(file).not.toMatch(/supabase-server/);
+    }
+
+    const serverCore = readFileSync(SERVER_CORE, "utf8");
+    expect(serverCore).toMatch(serverOnlyStmt);
+    expect(serverCore).toContain("account-deletion-initiation-contract");
+  });
+
+  it("6–7. response-code union complete; mapping handles every code", () => {
+    expect(ACCOUNT_DELETION_INITIATION_CODES).toEqual([
+      ACCOUNT_DELETION_INITIATION_DISABLED_CODE,
+      "unauthorized",
+      "reauth_required",
+      "reauth_unavailable",
+      "invalid_confirmation",
+      "accepted_new",
+      "accepted_existing",
+      "already_completed",
+      "failed_terminal",
+      "conflict",
+      "internal_error",
+    ]);
+    for (const code of ACCOUNT_DELETION_INITIATION_CODES) {
+      expect(isAccountDeletionInitiationCode(code)).toBe(true);
+      const mapped = mapAccountDeletionInitiationResponse({ ok: false, code });
+      expect(mapped.message.length).toBeGreaterThan(0);
+      expect(mapped.message).not.toContain(code);
+      expect(mapped.message).not.toMatch(/\{.*ok.*\}/);
+    }
+  });
+});
 
 describe("APP-041F3 flag gating (exact true only)", () => {
   it("1–4. only exact true enables UI gate", () => {
@@ -75,7 +196,9 @@ describe("APP-041F3 placement / reachability source proofs", () => {
   it("6–7. no public nav / dashboard / onboarding / Film Room exposure", () => {
     for (const file of [NAVBAR, DASHBOARD_LAYOUT, ONBOARDING, FILM_ROOM]) {
       const src = readFileSync(file, "utf8");
-      expect(src).not.toMatch(/Danger zone|Delete account|AccountDeletionDangerZone/i);
+      expect(src).not.toMatch(
+        /Danger zone|Delete account|AccountDeletionDangerZone/i
+      );
       expect(src).not.toContain("/api/account/delete");
     }
   });
@@ -101,7 +224,9 @@ describe("APP-041F3 placement / reachability source proofs", () => {
       expect(helpers).toContain(bullet);
     }
     expect(zone).toContain("ACCOUNT_DELETION_CONSEQUENCE_BULLETS");
-    expect(zone).not.toMatch(/discount|special offer|stay for|are you sure you want to leave/i);
+    expect(zone).not.toMatch(
+      /discount|special offer|stay for|are you sure you want to leave/i
+    );
     expect(zone).not.toMatch(/checkbox|type=\"checkbox\"/);
   });
 });
@@ -110,12 +235,17 @@ describe("APP-041F3 confirmation + flow helpers", () => {
   it("14–21. exact DELETE only; submit gating", () => {
     expect(isExactAccountDeletionConfirmationInput("DELETE")).toBe(true);
     expect(ACCOUNT_DELETION_CONFIRMATION_VALUE).toBe("DELETE");
+    expect(CONTRACT_POST_PATH).toBe("/api/account/delete");
+    expect(
+      validateAccountDeletionConfirmation({ confirmation: "DELETE" }).ok
+    ).toBe(true);
+    expect(
+      validateAccountDeletionConfirmation({ confirmation: "delete" }).ok
+    ).toBe(false);
     for (const v of ["delete", "Delete", " DELETE", "DELETE ", "", "DEL"]) {
       expect(isExactAccountDeletionConfirmationInput(v)).toBe(false);
     }
-    expect(
-      canSubmitAccountDeletionConfirmation("idle", "DELETE")
-    ).toBe(false);
+    expect(canSubmitAccountDeletionConfirmation("idle", "DELETE")).toBe(false);
     expect(
       canSubmitAccountDeletionConfirmation("confirmation", "DELETE")
     ).toBe(true);
@@ -136,7 +266,9 @@ describe("APP-041F3 reauth wiring", () => {
     expect(zone).toContain("isReverificationCancelledError");
     expect(zone).not.toMatch(/password|otp|one-time|totp/i);
     expect(zone).not.toMatch(/defaultAllow|bypassReauth|skipReauth/);
-    expect(zone).not.toContain("verifyAccountDeletionReauthenticationWithClerk(() => true)");
+    expect(zone).not.toContain(
+      "verifyAccountDeletionReauthenticationWithClerk(() => true)"
+    );
   });
 });
 
@@ -161,7 +293,11 @@ describe("APP-041F3 request contract", () => {
 describe("APP-041F3 response mapping", () => {
   it("33–44. maps codes to safe copy; no raw JSON/codes in messages", () => {
     const cases: Array<[unknown, string, string, boolean?]> = [
-      [{ ok: true, code: "accepted_new" }, "accepted", ACCOUNT_DELETION_UI_COPY.accepted],
+      [
+        { ok: true, code: "accepted_new" },
+        "accepted",
+        ACCOUNT_DELETION_UI_COPY.accepted,
+      ],
       [
         { ok: true, code: "accepted_existing" },
         "existing",
@@ -192,7 +328,11 @@ describe("APP-041F3 response mapping", () => {
         "error",
         ACCOUNT_DELETION_UI_COPY.support,
       ],
-      [{ ok: false, code: "conflict" }, "error", ACCOUNT_DELETION_UI_COPY.support],
+      [
+        { ok: false, code: "conflict" },
+        "error",
+        ACCOUNT_DELETION_UI_COPY.support,
+      ],
       [
         { ok: false, code: "internal_error" },
         "error",
@@ -229,7 +369,7 @@ describe("APP-041F3 accessibility + UX wiring", () => {
     expect(zone).toContain("aria-labelledby");
     expect(zone).toContain('aria-live="polite"');
     expect(zone).toContain("aria-busy");
-    expect(zone).toContain('htmlFor={inputId}');
+    expect(zone).toContain("htmlFor={inputId}");
     expect(zone).toContain("inFlightRef.current");
     expect(zone).toContain('event.key !== "Escape"');
     expect(zone).toContain('autoComplete="off"');
@@ -261,12 +401,14 @@ describe("APP-041F3 PII / server-client boundary", () => {
 describe("APP-041F3 no-scope / no-activation", () => {
   it("57–66. no migration/vercel/cron/providers; flags off; route still dual-gated", () => {
     const migrations = readdirSync(join(ROOT, "supabase/migrations"));
-    expect(migrations.some((f) => /f3|danger.?zone/i.test(f))).toBe(false);
+    expect(
+      migrations.some((f) => /f3|danger.?zone|initiation-contract/i.test(f))
+    ).toBe(false);
 
     const vercel = readFileSync(VERCEL, "utf8");
     expect(vercel).not.toMatch(/ACCOUNT_DELETION_INITIATION|Danger zone/i);
 
-    for (const file of [ZONE, HELPERS, PAGE, CLIENT]) {
+    for (const file of [ZONE, HELPERS, PAGE, CLIENT, CONTRACT]) {
       const src = readFileSync(file, "utf8");
       expect(src).not.toMatch(
         /executeTrustedAccountDeletionReconcile|suppressSmsForDeletion|acquireAccountDeletionLease|orchestrateClerkDeletion|purgeAppDataForDeletion/
@@ -302,7 +444,6 @@ describe("APP-041F3 fetch wrapper behavior (mocked)", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     try {
-      // Helper body builder never calls fetch by itself.
       expect(buildAccountDeletionInitiationRequestBody()).toEqual({
         confirmation: "DELETE",
       });

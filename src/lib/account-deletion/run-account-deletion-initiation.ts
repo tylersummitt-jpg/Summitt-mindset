@@ -11,17 +11,30 @@
  *
  * Does not read environment. Does not construct providers.
  * Does not call SMS/Stripe/purge/Clerk/reconciler/lease APIs.
+ *
+ * Browser-safe wire constants/types live in
+ * account-deletion-initiation-contract.ts (no server-only).
  */
 
 import "server-only";
 
+import {
+  ACCOUNT_DELETION_INITIATION_DISABLED_CODE,
+  type AccountDeletionInitiationBody,
+  type AccountDeletionInitiationCode,
+  validateAccountDeletionConfirmation,
+} from "./account-deletion-initiation-contract";
+
+export {
+  ACCOUNT_DELETION_CONFIRMATION_VALUE,
+  ACCOUNT_DELETION_INITIATION_DISABLED_CODE,
+  validateAccountDeletionConfirmation,
+  type AccountDeletionInitiationBody,
+  type AccountDeletionInitiationCode,
+} from "./account-deletion-initiation-contract";
+
 export const ACCOUNT_DELETION_INITIATION_ENABLED_ENV =
   "ACCOUNT_DELETION_INITIATION_ENABLED" as const;
-
-export const ACCOUNT_DELETION_INITIATION_DISABLED_CODE =
-  "account_deletion_initiation_disabled" as const;
-
-export const ACCOUNT_DELETION_CONFIRMATION_VALUE = "DELETE" as const;
 
 /** Exact-string: only the literal "true" enables a flag. */
 export function isExactTrueFlag(raw: string | undefined | null): boolean {
@@ -35,24 +48,6 @@ export function isAccountDeletionInitiationFullyEnabled(
 ): boolean {
   return isExactTrueFlag(initiationRaw) && isExactTrueFlag(schedulerRaw);
 }
-
-export type AccountDeletionInitiationCode =
-  | typeof ACCOUNT_DELETION_INITIATION_DISABLED_CODE
-  | "unauthorized"
-  | "reauth_required"
-  | "reauth_unavailable"
-  | "invalid_confirmation"
-  | "accepted_new"
-  | "accepted_existing"
-  | "already_completed"
-  | "failed_terminal"
-  | "conflict"
-  | "internal_error";
-
-export type AccountDeletionInitiationBody = {
-  ok: boolean;
-  code: AccountDeletionInitiationCode;
-};
 
 export type AccountDeletionInitiationResult = {
   httpStatus: number;
@@ -88,27 +83,6 @@ function response(
   code: AccountDeletionInitiationCode
 ): AccountDeletionInitiationResult {
   return { httpStatus, body: { ok, code } };
-}
-
-/**
- * Validate confirmation body: exactly `{ confirmation: "DELETE" }`.
- * No trim, no case folding, no extra keys, no coercion.
- */
-export function validateAccountDeletionConfirmation(
-  body: unknown
-): { ok: true } | { ok: false } {
-  if (body === null || typeof body !== "object" || Array.isArray(body)) {
-    return { ok: false };
-  }
-  const obj = body as Record<string, unknown>;
-  const keys = Object.keys(obj);
-  if (keys.length !== 1 || keys[0] !== "confirmation") {
-    return { ok: false };
-  }
-  if (obj.confirmation !== ACCOUNT_DELETION_CONFIRMATION_VALUE) {
-    return { ok: false };
-  }
-  return { ok: true };
 }
 
 function mapCreateOutcome(

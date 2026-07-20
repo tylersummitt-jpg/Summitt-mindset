@@ -3,9 +3,16 @@
  *
  * UI gating uses initiation flag only (exact "true") on the server page.
  * Backend remains dual-gated (initiation AND scheduler).
+ *
+ * Imports only the browser-safe initiation contract — never server-only modules.
  */
 
-import { ACCOUNT_DELETION_CONFIRMATION_VALUE } from "./run-account-deletion-initiation";
+import { ACCOUNT_DELETION_CONFIRMATION_VALUE } from "./account-deletion-initiation-contract";
+
+export {
+  ACCOUNT_DELETION_POST_PATH,
+  buildAccountDeletionInitiationRequestBody,
+} from "./account-deletion-initiation-contract";
 
 export const ACCOUNT_DELETION_DANGER_ZONE_HEADING = "Danger zone" as const;
 export const ACCOUNT_DELETION_DANGER_ZONE_SUPPORT =
@@ -36,8 +43,6 @@ export const ACCOUNT_DELETION_CONFIRM_INSTRUCTION =
 
 export const ACCOUNT_DELETION_FINAL_ACTION =
   "Permanently delete my account" as const;
-
-export const ACCOUNT_DELETION_POST_PATH = "/api/account/delete" as const;
 
 export const ACCOUNT_DELETION_UI_COPY = {
   accepted:
@@ -75,12 +80,6 @@ export function isExactAccountDeletionConfirmationInput(
   value: string
 ): boolean {
   return value === ACCOUNT_DELETION_CONFIRMATION_VALUE;
-}
-
-export function buildAccountDeletionInitiationRequestBody(): {
-  confirmation: typeof ACCOUNT_DELETION_CONFIRMATION_VALUE;
-} {
-  return { confirmation: ACCOUNT_DELETION_CONFIRMATION_VALUE };
 }
 
 /**
