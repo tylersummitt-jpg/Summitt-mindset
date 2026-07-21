@@ -507,7 +507,9 @@ describe("APP-041F4b UI gating source + pure show decision", () => {
     expect(page).toContain('export const dynamic = "force-dynamic"');
     expect(page).toContain("await auth()");
     expect(page).toContain("shouldShowAccountDeletionDangerZone");
-    expect(page).toContain("showDangerZone ? <AccountDeletionDangerZone />");
+    expect(page).toContain(
+      'showDangerZone ? <AccountDeletionDangerZone surface="dark" />'
+    );
     expect(page).not.toContain('"use client"');
     expect(page).not.toMatch(/dangerZone=\{process\.env/);
     expect(page).not.toMatch(/userId=\{/);

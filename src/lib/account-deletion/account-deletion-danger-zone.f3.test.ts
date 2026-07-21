@@ -186,6 +186,7 @@ describe("APP-041F3 flag gating (exact true only)", () => {
     expect(page).toContain("await auth()");
     expect(page).toContain("AccountDeletionDangerZone");
     expect(page).toContain("showDangerZone ? <AccountDeletionDangerZone");
+    expect(page).toContain('surface="dark"');
     expect(page).not.toContain('"use client"');
     expect(page).not.toMatch(/dangerZone=\{process\.env/);
     expect(page).not.toMatch(/enabled=\{process\.env/);
@@ -211,9 +212,22 @@ describe("APP-041F3 placement / reachability source proofs", () => {
     );
     expect(membership).toContain("shouldShowAccountDeletionDangerZone");
     expect(membership).toContain("AccountDeletionDangerZone");
+    expect(membership).toContain('surface="light"');
     expect(membership).toContain('export const dynamic = "force-dynamic"');
     expect(membership).not.toMatch(/userId=\{/);
     expect(membership).not.toContain("ACCOUNT_DELETION_INITIATION_ENABLED");
+  });
+
+  it("surface variants keep dark /user and light /app/membership treatments", () => {
+    const zone = readFileSync(ZONE, "utf8");
+    expect(zone).toContain('surface = "dark"');
+    expect(zone).toContain('"light"');
+    expect(zone).toContain("data-account-deletion-surface");
+    expect(zone).toContain("bg-red-50");
+    expect(zone).toContain("text-red-950");
+    expect(zone).toContain("bg-red-800");
+    expect(zone).toContain("text-white");
+    expect(zone).not.toMatch(/\$29|\$249|free trial|Subscribe|Checkout/i);
   });
 
   it("8–13. Danger Zone below membership; copy + no dark patterns", () => {

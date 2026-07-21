@@ -7,6 +7,9 @@
  * Mounted by the server Account page only when the initiation flag is
  * exactly enabled. Backend remains dual-gated. No Clerk IDs, request IDs,
  * or env values in props.
+ *
+ * Visual `surface` is presentation-only: "dark" for /user, "light" for
+ * /app/membership. Behavior and API contract are identical.
  */
 
 import {
@@ -45,6 +48,70 @@ import {
   utSectionTitle,
 } from "@/components/utility-page-visual";
 
+export type AccountDeletionDangerZoneSurface = "dark" | "light";
+
+type SurfaceStyles = {
+  card: string;
+  heading: string;
+  support: string;
+  body: string;
+  bodyMuted: string;
+  list: string;
+  consequencesTitle: string;
+  panelDivider: string;
+  triggerBtn: string;
+  continueBtn: string;
+  finalBtn: string;
+  secondaryBtn: string;
+  formField: string;
+  errorPanel: string;
+};
+
+const SURFACE_STYLES: Record<AccountDeletionDangerZoneSurface, SurfaceStyles> =
+  {
+    dark: {
+      card: "rounded-lg border border-red-500/35 bg-red-950/20 px-3 py-3 sm:px-4",
+      heading: `${utSectionTitle} text-red-100`,
+      support: `${utBodyMuted} mt-1`,
+      body: utBody,
+      bodyMuted: utBodyMuted,
+      list: "list-disc space-y-1 pl-5 text-sm text-stone-300",
+      consequencesTitle: "font-semibold text-stone-100 outline-none",
+      panelDivider: "mt-4 space-y-4 border-t border-red-500/25 pt-4",
+      triggerBtn:
+        "inline-flex w-full justify-center rounded-md border border-red-400/50 bg-transparent px-5 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-400/60 focus:ring-offset-2 focus:ring-offset-[#111827] sm:w-auto",
+      continueBtn:
+        "inline-flex w-full justify-center rounded-md border border-red-400/50 bg-red-900/40 px-5 py-2 text-sm font-semibold text-red-50 transition hover:bg-red-800/50 focus:outline-none focus:ring-2 focus:ring-red-400/60 focus:ring-offset-2 focus:ring-offset-[#111827] sm:w-auto",
+      finalBtn:
+        "inline-flex w-full justify-center rounded-md border border-red-400/60 bg-red-700/70 px-5 py-2 text-sm font-semibold text-white transition hover:bg-red-600/80 focus:outline-none focus:ring-2 focus:ring-red-400/60 focus:ring-offset-2 focus:ring-offset-[#111827] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto",
+      secondaryBtn: utSecondaryBtn,
+      formField: utFormField,
+      errorPanel: utErrorPanel,
+    },
+    light: {
+      card: "rounded-lg border border-red-300 bg-red-50 px-3 py-3 sm:px-4",
+      heading: "font-semibold text-red-950",
+      support: "mt-1 text-sm leading-relaxed text-stone-700 sm:text-base",
+      body: "text-sm leading-relaxed text-stone-800 sm:text-base",
+      bodyMuted: "text-sm leading-relaxed text-stone-600 sm:text-base",
+      list: "list-disc space-y-1 pl-5 text-sm text-stone-700 sm:text-base",
+      consequencesTitle: "font-semibold text-red-950 outline-none",
+      panelDivider: "mt-4 space-y-4 border-t border-red-200 pt-4",
+      triggerBtn:
+        "inline-flex w-full justify-center rounded-md border border-red-800 bg-red-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2 focus:ring-offset-red-50 disabled:cursor-not-allowed disabled:bg-red-800/50 disabled:text-white/80 sm:w-auto",
+      continueBtn:
+        "inline-flex w-full justify-center rounded-md border border-red-800 bg-red-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2 focus:ring-offset-red-50 sm:w-auto",
+      finalBtn:
+        "inline-flex w-full justify-center rounded-md border border-red-900 bg-red-800 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2 focus:ring-offset-red-50 disabled:cursor-not-allowed disabled:border-red-300 disabled:bg-red-300 disabled:text-white sm:w-auto",
+      secondaryBtn:
+        "inline-flex w-full justify-center rounded-md border border-stone-400 bg-white px-5 py-2.5 text-sm font-semibold text-stone-800 transition hover:bg-stone-100 focus:outline-none focus:ring-2 focus:ring-stone-500 focus:ring-offset-2 focus:ring-offset-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto",
+      formField:
+        "w-full rounded-lg border border-stone-300 bg-white px-4 py-3 text-base text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2 focus:ring-offset-red-50 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-500",
+      errorPanel:
+        "rounded-lg border border-red-300 bg-red-100 px-4 py-3 text-sm text-red-900",
+    },
+  };
+
 async function postAccountDeletionInitiation(): Promise<unknown> {
   const res = await fetch(ACCOUNT_DELETION_POST_PATH, {
     method: "POST",
@@ -58,7 +125,12 @@ async function postAccountDeletionInitiation(): Promise<unknown> {
   }
 }
 
-export default function AccountDeletionDangerZone() {
+export default function AccountDeletionDangerZone({
+  surface = "dark",
+}: {
+  surface?: AccountDeletionDangerZoneSurface;
+}) {
+  const styles = SURFACE_STYLES[surface];
   const titleId = useId();
   const panelId = useId();
   const inputId = useId();
@@ -202,19 +274,19 @@ export default function AccountDeletionDangerZone() {
     uiState === "disabled";
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-lg border border-red-500/35 bg-red-950/20 px-3 py-3 sm:px-4">
-        <h2 id={titleId} className={`${utSectionTitle} text-red-100`}>
+    <div className="space-y-3" data-account-deletion-surface={surface}>
+      <div className={styles.card}>
+        <h2 id={titleId} className={styles.heading}>
           {ACCOUNT_DELETION_DANGER_ZONE_HEADING}
         </h2>
-        <p className={`${utBodyMuted} mt-1`}>{ACCOUNT_DELETION_DANGER_ZONE_SUPPORT}</p>
+        <p className={styles.support}>{ACCOUNT_DELETION_DANGER_ZONE_SUPPORT}</p>
 
         {uiState === "idle" ? (
           <div className="mt-3">
             <button
               ref={triggerRef}
               type="button"
-              className="inline-flex w-full justify-center rounded-md border border-red-400/50 bg-transparent px-5 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20 focus:outline-none focus:ring-2 focus:ring-red-400/60 focus:ring-offset-2 focus:ring-offset-[#111827] sm:w-auto"
+              className={styles.triggerBtn}
               onClick={openConsequences}
             >
               {ACCOUNT_DELETION_DANGER_ZONE_TRIGGER}
@@ -227,7 +299,7 @@ export default function AccountDeletionDangerZone() {
             id={panelId}
             role="region"
             aria-labelledby={titleId}
-            className="mt-4 space-y-4 border-t border-red-500/25 pt-4"
+            className={styles.panelDivider}
           >
             {uiState === "consequences" ||
             uiState === "confirmation" ||
@@ -238,20 +310,20 @@ export default function AccountDeletionDangerZone() {
                   id={consequencesHeadingId}
                   ref={consequencesHeadingRef}
                   tabIndex={-1}
-                  className="font-semibold text-stone-100 outline-none"
+                  className={styles.consequencesTitle}
                 >
                   {ACCOUNT_DELETION_CONSEQUENCES_TITLE}
                 </h3>
-                <p className={utBody}>{ACCOUNT_DELETION_CONSEQUENCES_INTRO}</p>
-                <p className={utBody}>
+                <p className={styles.body}>{ACCOUNT_DELETION_CONSEQUENCES_INTRO}</p>
+                <p className={styles.body}>
                   {ACCOUNT_DELETION_CONSEQUENCES_MEMBERSHIP_NOTE}
                 </p>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-stone-300">
+                <ul className={styles.list}>
                   {ACCOUNT_DELETION_CONSEQUENCE_BULLETS.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
-                <p className={utBodyMuted}>{ACCOUNT_DELETION_RETENTION_CAVEAT}</p>
+                <p className={styles.bodyMuted}>{ACCOUNT_DELETION_RETENTION_CAVEAT}</p>
               </>
             ) : null}
 
@@ -259,7 +331,7 @@ export default function AccountDeletionDangerZone() {
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <button
                   type="button"
-                  className={utSecondaryBtn}
+                  className={styles.secondaryBtn}
                   onClick={onCancel}
                 >
                   Cancel
@@ -267,7 +339,7 @@ export default function AccountDeletionDangerZone() {
                 <button
                   ref={continueRef}
                   type="button"
-                  className="inline-flex w-full justify-center rounded-md border border-red-400/50 bg-red-900/40 px-5 py-2 text-sm font-semibold text-red-50 transition hover:bg-red-800/50 focus:outline-none focus:ring-2 focus:ring-red-400/60 focus:ring-offset-2 focus:ring-offset-[#111827] sm:w-auto"
+                  className={styles.continueBtn}
                   onClick={openConfirmation}
                 >
                   Continue
@@ -279,7 +351,7 @@ export default function AccountDeletionDangerZone() {
             uiState === "submitting" ||
             uiState === "error" ? (
               <div className="space-y-3">
-                <label htmlFor={inputId} className={utBody}>
+                <label htmlFor={inputId} className={styles.body}>
                   {ACCOUNT_DELETION_CONFIRM_INSTRUCTION}
                 </label>
                 <input
@@ -294,7 +366,7 @@ export default function AccountDeletionDangerZone() {
                   value={confirmationInput}
                   disabled={uiState === "submitting"}
                   onChange={(e) => setConfirmationInput(e.target.value)}
-                  className={utFormField}
+                  className={styles.formField}
                   aria-invalid={
                     message != null && uiState === "confirmation"
                       ? true
@@ -302,14 +374,14 @@ export default function AccountDeletionDangerZone() {
                   }
                 />
                 {message && (uiState === "confirmation" || uiState === "error") ? (
-                  <p className={utErrorPanel} role="alert">
+                  <p className={styles.errorPanel} role="alert">
                     {message}
                   </p>
                 ) : null}
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   <button
                     type="button"
-                    className={utSecondaryBtn}
+                    className={styles.secondaryBtn}
                     onClick={onCancel}
                     disabled={uiState === "submitting"}
                   >
@@ -317,7 +389,7 @@ export default function AccountDeletionDangerZone() {
                   </button>
                   <button
                     type="button"
-                    className="inline-flex w-full justify-center rounded-md border border-red-400/60 bg-red-700/70 px-5 py-2 text-sm font-semibold text-white transition hover:bg-red-600/80 focus:outline-none focus:ring-2 focus:ring-red-400/60 focus:ring-offset-2 focus:ring-offset-[#111827] disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                    className={styles.finalBtn}
                     disabled={
                       !canSubmitAccountDeletionConfirmation(
                         uiState,
@@ -343,18 +415,22 @@ export default function AccountDeletionDangerZone() {
           <div
             ref={resultRef}
             tabIndex={-1}
-            className="mt-4 space-y-3 border-t border-red-500/25 pt-4 outline-none"
+            className={`${styles.panelDivider} outline-none`}
             role="status"
             aria-live="polite"
             id={liveId}
           >
-            <p className={utBody}>{message}</p>
+            <p className={styles.body}>{message}</p>
             {uiState === "accepted" || uiState === "existing" ? (
-              <Link href="/sign-out" className={utSecondaryBtn}>
+              <Link href="/sign-out" className={styles.secondaryBtn}>
                 Sign out
               </Link>
             ) : (
-              <button type="button" className={utSecondaryBtn} onClick={resetFlow}>
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={resetFlow}
+              >
                 Close
               </button>
             )}

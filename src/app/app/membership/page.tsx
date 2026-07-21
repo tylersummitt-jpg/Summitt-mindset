@@ -116,7 +116,7 @@ export default async function AppMembershipPage() {
           data-testid="account-danger-zone-slot"
           aria-label="Delete account"
         >
-          <AccountDeletionDangerZone />
+          <AccountDeletionDangerZone surface="light" />
         </section>
       ) : null}
 

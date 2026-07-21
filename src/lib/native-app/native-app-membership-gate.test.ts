@@ -101,6 +101,7 @@ describe("native membership gate surfaces", () => {
     expect(page).toContain('export const dynamic = "force-dynamic"');
     expect(page).toContain("shouldShowAccountDeletionDangerZone");
     expect(page).toContain("AccountDeletionDangerZone");
+    expect(page).toContain('surface="light"');
     expect(page).toContain("showDangerZone ? (");
     expect(page).toContain('data-testid="account-danger-zone-slot"');
     expect(page).toContain("Sign out");
@@ -119,6 +120,7 @@ describe("native membership gate surfaces", () => {
     const page = readSrc("src/app/user/[[...user]]/page.tsx");
     expect(page).toContain("shouldShowAccountDeletionDangerZone");
     expect(page).toContain("AccountDeletionDangerZone");
+    expect(page).toContain('surface="dark"');
     expect(page).toContain("showDangerZone ? <AccountDeletionDangerZone");
   });
 

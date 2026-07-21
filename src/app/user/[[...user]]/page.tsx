@@ -24,7 +24,9 @@ export default async function UserProfilePage() {
 
   return (
     <UserAccountClient
-      dangerZone={showDangerZone ? <AccountDeletionDangerZone /> : null}
+      dangerZone={
+        showDangerZone ? <AccountDeletionDangerZone surface="dark" /> : null
+      }
     />
   );
 }
