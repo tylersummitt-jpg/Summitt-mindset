@@ -1471,3 +1471,41 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - Clerk Dashboard bot-protection settings not changed
 - IAP / Sign in with Apple not added
 - Mobile repo not modified
+
+## SESSION 41 — 2026-07-21 — Physical Create account + membership-gate PASS (docs)
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): documentation-only reconciliation of physical native Create account + membership-gate PASS
+- Tasks completed (IDs): master plan v1.5.13 status + SESSION 41 handoff; no application code edited
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `830357c8db2bde1906b56a93dc2146951e36bee3`
+- Mobile repository: **not edited** (read-only)
+- Mobile HEAD discovered: `522a3a9294bbf080dc6e070ff6fdfbf0cd382185` (`record app sign-up pass`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded (physical iPhone, 2026-07-21)
+1. `/app/sign-in` showed explicit **Sign in** and **Create account**; Google and Sign in with Apple absent; website auth unchanged.
+2. Create account used Clerk email verification code; `#clerk-captcha` initialized successfully; production Clerk password-required signup was disabled; account creation completed; new Clerk user identity; **no** membership entitlement assigned.
+3. New inactive account routed via `/post-sign-in` → `/app/membership`; “Membership required” correct; no price, free-trial CTA, Subscribe/Upgrade, or Stripe Checkout link; Support / Privacy / Terms / Data Deletion links present.
+4. Native new-subscription Stripe Checkout remains blocked; browser checkout unchanged; subscribed users still reach Victory Room; account management available; no native IAP.
+5. Mobile repo `522a3a9…` records Debug-only Safari Web Inspector (`#if DEBUG`); Release builds remain non-inspectable; Debug and Release builds passed; troubleshooting-only, not production behavior.
+6. Production app icon and splash/launch assets remain **intentionally paused** until Brooke supplies final files — **not** complete.
+7. Apple Developer / App Store Connect / TestFlight / App Review / public deletion activation / Android remain **open / not claimed**.
+
+### Status language superseded (historical sessions remain)
+- SESSION 39–40 language requiring physical create-account retest / “do not mark PASS yet” is **superseded** by this SESSION 41 PASS record.
+- Current critical path advances to Apple portal identity, assets when ready, discoverability, TestFlight, then deletion activation before submission.
+
+### Explicit non-claims
+- Apple Developer enrollment / App Store Connect app / TestFlight / App Review not claimed
+- Public account-deletion activation not enabled
+- App icon / launch screen not complete
+- Android / Google Play not started
+- Website and mobile application code not edited in this documentation session
