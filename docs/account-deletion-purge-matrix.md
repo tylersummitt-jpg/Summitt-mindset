@@ -1,13 +1,13 @@
 # APP-041C1 — Account deletion purge / anonymization matrix
 
-**Status:** C1–C3 COMPLETE; D0–D1 COMPLETE; E1–E4d COMPLETE; F1 APPROVED; F2–F4b COMPLETE; **controlled production E2E PASS (2026-07-20)**; **public initiation intentionally disabled**
+**Status:** C1–C3 COMPLETE; D0–D1 COMPLETE; E1–E4d COMPLETE; F1 APPROVED; F2–F4b COMPLETE; **controlled production E2E PASS (2026-07-20)**; **code-side public discoverability implemented (2026-07-21)** on `/user` + `/app/membership`; **production initiation/scheduler env gates still intentionally OFF** until explicit enablement + physical public-path E2E
 **Canonical for:** APP-041C data-deletion specification
 **Website HEAD at F4b COMPLETE:** `e56b9f14fa86afb6d608d2f6d6c48da167d8b523`
-**Date:** 2026-07-19 (matrix freeze); **reconciled 2026-07-20**
+**Date:** 2026-07-19 (matrix freeze); **reconciled 2026-07-20**; **discoverability 2026-07-21**
 
-This document freezes product policy and dependency order for Summitt Mindset account-deletion app-data purge. C2 purge SQL/RPC is applied and was validated with transactional fake-user target/survivor + post-rollback zero-residue proof. The coordinated pipeline was additionally proven on a disposable production account (2026-07-20). This document does **not** authorize public deletion UI.
+This document freezes product policy and dependency order for Summitt Mindset account-deletion app-data purge. C2 purge SQL/RPC is applied and was validated with transactional fake-user target/survivor + post-rollback zero-residue proof. The coordinated pipeline was additionally proven on a disposable production account (2026-07-20). Code-side public UI discoverability reuses the proven Danger Zone; this document does **not** claim production env activation PASS.
 
-**Do not claim:** public account deletion is enabled; privacy policy was updated; legal review occurred; store compliance package is complete; portal apps are reserved.
+**Do not claim:** production initiation/scheduler flags are enabled; physical public-path self-serve deletion E2E PASS; store compliance package is complete; portal apps are reserved.
 
 ---
 
@@ -338,13 +338,15 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041 controlled production E2E:** **PASS (2026-07-20)** — disposable designated test account completed the full coordinated workflow (request via hidden designated-test UI → SMS suppression → live Stripe trial cancellation → Supabase purge → Clerk deletion last → `completed`/`completed`; consistency ok; lease released; no error code). Sanitized preconditions: active live Stripe trial; active SMS number; real production Supabase data; 28 pre-deletion purgeable rows across 18 nonzero tables; zero pre-existing deletion requests. **No private identifiers recorded here.**
 
-**Post-E2E production state:** temporary env vars `ACCOUNT_DELETION_SCHEDULER_ENABLED`, `ACCOUNT_DELETION_TEST_MODE_ENABLED`, and `ACCOUNT_DELETION_TEST_CLERK_USER_ID` were **removed**; `ACCOUNT_DELETION_INITIATION_ENABLED` remains **absent**; production redeployed green. **Public account deletion remains intentionally disabled.**
+**Post-E2E production state:** temporary env vars `ACCOUNT_DELETION_SCHEDULER_ENABLED`, `ACCOUNT_DELETION_TEST_MODE_ENABLED`, and `ACCOUNT_DELETION_TEST_CLERK_USER_ID` were **removed**; `ACCOUNT_DELETION_INITIATION_ENABLED` remains **absent**; production redeployed green. **Public account deletion remained intentionally disabled after the controlled E2E.**
+
+**Code-side discoverability (2026-07-21):** `ACCOUNT_DELETION_PUBLIC_IN_APP_AVAILABLE = true`; `/user` and `/app/membership` mount the same `AccountDeletionDangerZone` behind `shouldShowAccountDeletionDangerZone` (dual env gate). Backend pipeline unchanged. **Production env gates are still OFF** in this documentation update — enable only after deploy review, then run physical disposable new-account public-path E2E before claiming PASS.
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**Exact next (store-facing):** finish APP-041 privacy/deletion documentation (privacy wording, retained-data explanation, improve `/data-deletion` as Google’s external resource) → verify deletion discoverability in the native shell → only later explicitly approved public activation. Do **not** rebuild the deletion backend.
+**Exact next (activation):** deploy discoverability → enable `ACCOUNT_DELETION_INITIATION_ENABLED=true` + `ACCOUNT_DELETION_SCHEDULER_ENABLED=true` on Vercel → physical disposable-account public-path deletion E2E. Do **not** rebuild the deletion backend.
 
-Do **not** claim: public initiation is enabled; users can self-serve delete today; store compliance is complete; privacy policy was updated; Apple/Google portals reserved apps; Android exists.
+Do **not** claim: production env gates are enabled today; physical public-path self-serve deletion E2E PASS; store compliance is complete; Apple/Google portals reserved apps; Android exists.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 
@@ -358,11 +360,10 @@ C2 migrations are **applied** and were structurally verified in production; tran
 
 That does **not** mean:
 
-- public account deletion is enabled today
-- privacy policy was updated
+- production initiation/scheduler env gates are enabled today
+- physical public-path self-serve deletion E2E has passed
 - legal counsel reviewed the schedule
 - app-store deletion compliance package is complete
 - all legacy email-only challenge rows were removed across the entire product
-- users can self-serve account deletion without designated-test or public flags
 - Apple App Store Connect / Google Play apps are reserved
 - Android deletion parity was tested

@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import AccountDeletionDangerZone from "@/components/account-deletion-danger-zone";
 import ResumeMembershipButton from "@/components/resume-membership-button";
+import { shouldShowAccountDeletionDangerZone } from "@/lib/account-deletion/account-deletion-initiation-access.server";
 import {
   ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY,
   ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
@@ -18,6 +20,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/**
+ * force-dynamic: evaluate deletion Danger Zone visibility per request from
+ * server initiation access (same dual-gate helper as /user). Does not bake
+ * env flags into the client.
+ */
+export const dynamic = "force-dynamic";
+
 function isSubscribedFromMetadata(md: Record<string, unknown>): boolean {
   const subscribedRaw = md?.summittSubscribed;
   const plan = md?.summittPlan;
@@ -31,6 +40,7 @@ function isSubscribedFromMetadata(md: Record<string, unknown>): boolean {
 
 /**
  * Neutral native-app membership surface — no pricing, trial, or purchase CTAs.
+ * Reuses AccountDeletionDangerZone when production initiation access is granted.
  */
 export default async function AppMembershipPage() {
   const { userId } = await auth();
@@ -47,6 +57,7 @@ export default async function AppMembershipPage() {
   }
 
   const isPaused = isPausedFromPublicMetadata(md);
+  const showDangerZone = shouldShowAccountDeletionDangerZone(userId);
 
   return (
     <main
@@ -98,6 +109,16 @@ export default async function AppMembershipPage() {
           </>
         )}
       </div>
+
+      {showDangerZone ? (
+        <section
+          className="mt-10"
+          data-testid="account-danger-zone-slot"
+          aria-label="Delete account"
+        >
+          <AccountDeletionDangerZone />
+        </section>
+      ) : null}
 
       <nav
         className="mt-10 flex flex-col gap-3 text-center text-sm"

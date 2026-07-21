@@ -34,6 +34,8 @@ import {
   mapAccountDeletionInitiationResponse,
   type AccountDeletionDangerZoneUiState,
 } from "@/lib/account-deletion/account-deletion-danger-zone";
+import { useIsNativeSummittMindsetIos } from "@/components/native-app/NativeAppProvider";
+import { signInPathForClient } from "@/lib/native-app/membership-paths";
 import {
   utBody,
   utBodyMuted,
@@ -69,6 +71,7 @@ export default function AccountDeletionDangerZone() {
   const resultRef = useRef<HTMLDivElement>(null);
   const inFlightRef = useRef(false);
   const prevUiStateRef = useRef<AccountDeletionDangerZoneUiState>("idle");
+  const isNativeIos = useIsNativeSummittMindsetIos();
 
   const [uiState, setUiState] =
     useState<AccountDeletionDangerZoneUiState>("idle");
@@ -165,7 +168,7 @@ export default function AccountDeletionDangerZone() {
         setMessage(mapped.message);
         setUiState("error");
         inFlightRef.current = false;
-        window.location.assign("/sign-in");
+        window.location.assign(signInPathForClient(isNativeIos));
         return;
       }
       setMessage(mapped.message);
@@ -184,7 +187,7 @@ export default function AccountDeletionDangerZone() {
     } finally {
       inFlightRef.current = false;
     }
-  }, [confirmationInput, enhancedPost, uiState]);
+  }, [confirmationInput, enhancedPost, isNativeIos, uiState]);
 
   const panelOpen =
     uiState === "consequences" ||

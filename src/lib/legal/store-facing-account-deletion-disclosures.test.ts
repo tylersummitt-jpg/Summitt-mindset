@@ -28,20 +28,32 @@ const INTERNAL_LEAK_PATTERNS = [
 ];
 
 describe("store-facing account deletion disclosures", () => {
-  it("keeps public in-app deletion availability false until activation", () => {
-    expect(ACCOUNT_DELETION_PUBLIC_IN_APP_AVAILABLE).toBe(false);
+  it("public in-app deletion availability is active in copy", () => {
+    expect(ACCOUNT_DELETION_PUBLIC_IN_APP_AVAILABLE).toBe(true);
     const availability = getAccountDeletionPublicAvailability();
-    expect(availability.inAppAvailable).toBe(false);
-    expect(availability.statusBody).toMatch(
+    expect(availability.inAppAvailable).toBe(true);
+    expect(availability.statusBody).toMatch(/Delete account/i);
+    expect(availability.statusBody).toMatch(/Danger zone/i);
+    expect(availability.statusBody).toMatch(/Account/i);
+    expect(availability.statusBody).toMatch(/Membership required/i);
+    expect(availability.statusBody).toMatch(/permanent/i);
+    expect(availability.statusBody).toMatch(/may take time/i);
+    expect(availability.statusBody).not.toMatch(
       /being finalized for public availability/i
     );
-    expect(availability.statusBody).toMatch(/not shown to every member yet/i);
-    expect(availability.statusBody).toContain(
+    expect(availability.statusBody).not.toMatch(
+      /not shown to every member yet/i
+    );
+    expect(availability.howToDeleteBody).toMatch(/Canceling membership/i);
+    expect(availability.howToDeleteBody).toMatch(
+      /Limited legally required records/i
+    );
+    expect(availability.howToDeleteBody).toContain(
       ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY
     );
   });
 
-  it("renders truthful transitional /data-deletion copy", () => {
+  it("renders truthful activated /data-deletion copy", () => {
     const page = readSrc("src/app/data-deletion/page.tsx");
     const notice = readSrc(
       "src/components/legal/AccountDeletionAvailabilityNotice.tsx"
@@ -65,6 +77,7 @@ describe("store-facing account deletion disclosures", () => {
     expect(page).toContain("AccountDeletionAvailabilityNotice");
     expect(notice).toContain("getAccountDeletionPublicAvailability");
     expect(availabilitySrc).toContain(ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY);
+    expect(availabilitySrc).toContain("Membership required");
     expect(ACCOUNT_DELETION_SUPPORT_EMAIL_HREF).toBe(
       "mailto:support@summittmindset.com"
     );
@@ -73,9 +86,11 @@ describe("store-facing account deletion disclosures", () => {
   it("privacy policy covers deletion, retention, providers, and contact", () => {
     const privacy = readSrc("src/app/privacy/page.tsx");
 
-    expect(ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE).toBe("July 20, 2026");
+    expect(ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE).toBe("July 21, 2026");
     expect(privacy).toContain("ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE");
     expect(privacy).toContain("Account deletion");
+    expect(privacy).toContain("Danger zone");
+    expect(privacy).toContain("Membership required");
     expect(privacy).toContain("Limited retained records");
     expect(privacy).toContain("Clerk");
     expect(privacy).toContain("Supabase");
@@ -88,6 +103,7 @@ describe("store-facing account deletion disclosures", () => {
     expect(privacy).toContain('href="/data-deletion"');
     expect(privacy).toContain("ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY");
     expect(privacy).not.toMatch(/OpenAI trains on/i);
+    expect(privacy).not.toMatch(/being finalized for public availability/i);
   });
 
   it("terms distinguish cancellation from deletion without inventing refunds", () => {
@@ -127,11 +143,10 @@ describe("store-facing account deletion disclosures", () => {
     }
   });
 
-  it("activation flip changes copy without rewriting pages", () => {
-    const activated = getAccountDeletionPublicAvailability(true);
-    expect(activated.inAppAvailable).toBe(true);
-    expect(activated.statusBody).toMatch(/Account.*Danger zone.*Delete account/i);
-    expect(activated.statusBody).not.toMatch(
+  it("rollback copy path still available via helper argument", () => {
+    const transitional = getAccountDeletionPublicAvailability(false);
+    expect(transitional.inAppAvailable).toBe(false);
+    expect(transitional.statusBody).toMatch(
       /being finalized for public availability/i
     );
   });

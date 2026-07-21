@@ -162,19 +162,23 @@ export default function PrivacyPage() {
           access the service.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
-          In-app deletion is being finalized for public availability. Until that
-          control is available to members in Account, email{" "}
+          Signed-in members can open Account, select Delete account in the
+          Danger zone, confirm by typing DELETE, and re-verify their identity.
+          Inactive or new app users without an active membership can start the
+          same deletion flow from the Membership required screen. Deletion is
+          permanent and may take time to finish processing. Support remains
+          available at{" "}
           <a
             href={ACCOUNT_DELETION_SUPPORT_EMAIL_HREF}
             className="underline underline-offset-4 break-all"
           >
             {ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY}
-          </a>{" "}
-          for help. See{" "}
+          </a>
+          . See{" "}
           <Link href="/data-deletion" className="underline underline-offset-4">
             Data Deletion
           </Link>{" "}
-          for the current request process.
+          for details.
         </p>
       </section>
 

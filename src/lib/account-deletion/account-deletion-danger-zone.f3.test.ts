@@ -204,6 +204,18 @@ describe("APP-041F3 placement / reachability source proofs", () => {
     }
   });
 
+  it("membership page reuses the same Danger Zone behind the same server helper", () => {
+    const membership = readFileSync(
+      join(ROOT, "src/app/app/membership/page.tsx"),
+      "utf8"
+    );
+    expect(membership).toContain("shouldShowAccountDeletionDangerZone");
+    expect(membership).toContain("AccountDeletionDangerZone");
+    expect(membership).toContain('export const dynamic = "force-dynamic"');
+    expect(membership).not.toMatch(/userId=\{/);
+    expect(membership).not.toContain("ACCOUNT_DELETION_INITIATION_ENABLED");
+  });
+
   it("8–13. Danger Zone below membership; copy + no dark patterns", () => {
     const client = readFileSync(CLIENT, "utf8");
     const zone = readFileSync(ZONE, "utf8");
@@ -356,7 +368,9 @@ describe("APP-041F3 response mapping", () => {
     expect(unauth.redirectToSignIn).toBe(true);
 
     const zone = readFileSync(ZONE, "utf8");
-    expect(zone).toContain('window.location.assign("/sign-in")');
+    expect(zone).toContain("signInPathForClient");
+    expect(zone).toContain("useIsNativeSummittMindsetIos");
+    expect(zone).toContain("window.location.assign(signInPathForClient(isNativeIos))");
     expect(zone).toContain("mapAccountDeletionInitiationResponse");
     expect(zone).not.toMatch(/JSON\.stringify\(body\)/);
     expect(zone).not.toMatch(/\{JSON\.stringify/);

@@ -96,6 +96,32 @@ describe("native membership gate surfaces", () => {
     expect(page).not.toMatch(/App Store|\bIAP\b|WebView|Stripe policy/i);
   });
 
+  it("/app/membership reuses AccountDeletionDangerZone behind server initiation access", () => {
+    const page = readSrc("src/app/app/membership/page.tsx");
+    expect(page).toContain('export const dynamic = "force-dynamic"');
+    expect(page).toContain("shouldShowAccountDeletionDangerZone");
+    expect(page).toContain("AccountDeletionDangerZone");
+    expect(page).toContain("showDangerZone ? (");
+    expect(page).toContain('data-testid="account-danger-zone-slot"');
+    expect(page).toContain("Sign out");
+    // Sign out remains a separate control from deletion.
+    expect(page.indexOf("account-danger-zone-slot")).toBeLessThan(
+      page.indexOf("Sign out")
+    );
+    expect(page).not.toContain('href="/data-deletion">Delete account');
+    expect(page).not.toMatch(/dangerZone=\{process\.env/);
+    expect(page).not.toMatch(/userId=\{/);
+    expect(page).not.toContain("ACCOUNT_DELETION_INITIATION_ENABLED");
+    expect(page).not.toContain("create-checkout-session");
+  });
+
+  it("/user still gates Danger Zone with the same server helper", () => {
+    const page = readSrc("src/app/user/[[...user]]/page.tsx");
+    expect(page).toContain("shouldShowAccountDeletionDangerZone");
+    expect(page).toContain("AccountDeletionDangerZone");
+    expect(page).toContain("showDangerZone ? <AccountDeletionDangerZone");
+  });
+
   it("Navbar suppresses Start Free Trial and Subscribe in native context", () => {
     const nav = readSrc("src/components/Navbar.tsx");
     expect(nav).toContain("useIsNativeSummittMindsetIos");

@@ -1509,3 +1509,35 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - App icon / launch screen not complete
 - Android / Google Play not started
 - Website and mobile application code not edited in this documentation session
+
+## SESSION 42 — 2026-07-21 — Public deletion discoverability (code-side)
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): public account-deletion activation copy + inactive-user discoverability
+- Tasks completed (IDs): code-side discoverability on `/user` + `/app/membership`; public `/data-deletion` active wording; env gates remain OFF
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `fd1b9678a8f7f2efbe534953478f5f2f49806f04`
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. `ACCOUNT_DELETION_PUBLIC_IN_APP_AVAILABLE = true` (copy/disclosure only).
+2. `/user` continues to mount proven `AccountDeletionDangerZone` when `shouldShowAccountDeletionDangerZone` grants access.
+3. `/app/membership` now mounts the **same** `AccountDeletionDangerZone` for inactive/paused users (no second deletion implementation).
+4. `/data-deletion` + privacy wording describe Account Danger zone and Membership required paths; cancellation ≠ deletion; retention + support preserved.
+5. Proven deletion backend / purge order / providers / reconciler / scheduler **unchanged**.
+6. Destructive actions remain fail-closed until Vercel `ACCOUNT_DELETION_INITIATION_ENABLED=true` **and** `ACCOUNT_DELETION_SCHEDULER_ENABLED=true`.
+7. **Do not claim public activation PASS** until those env gates are enabled and a physical disposable new-account public-path E2E completes.
+
+### Explicit non-claims
+- Production environment gates not enabled by this session
+- Physical public-path deletion E2E not claimed
+- Mobile repo not edited
+- Backend pipeline not rebuilt
