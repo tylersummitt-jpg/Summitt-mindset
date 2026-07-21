@@ -1,8 +1,8 @@
 # Google Play Data Safety — Draft Answers
 
-**Status:** Implementation-grounded draft for Play Console Data Safety form.  
-**Scope:** Same product backend as iOS (website + providers). Android binary not shipped yet; answers describe the Summitt Mindset product data practices.  
-**Last updated:** 2026-07-21  
+**Status:** Implementation-grounded draft for Play Console Data Safety form.
+**Scope:** Same product backend as iOS (website + providers). Android binary not shipped yet; answers describe the Summitt Mindset product data practices.
+**Last updated:** 2026-07-21
 
 **Hard rule:** Do **not** claim “No data collected” or “No data shared.”
 
@@ -135,12 +135,14 @@
 
 | Field | Answer |
 |---|---|
-| Collected in **native iOS app**? | **No (code):** RootLayout omits `MetaPixelRoot` for `SummittMindsetiOS` UA — no `fbevents.js` / `fbq`. **Physical iPhone verification still required** before marking fully proven. |
+| Collected in **native iOS app**? | **No — COMPLETE / physical PASS (2026-07-21).** Web Inspector: zero facebook/fbevents/connect.facebook rows; `typeof window.fbq === "undefined"` on Victory Room and in-app `/`. |
 | Collected on **website/Safari**? | **Yes when configured** — production has `NEXT_PUBLIC_META_PIXEL_ID`; Pixel remains for normal browser traffic |
-| Shared? | Yes with Meta **on the website** when enabled; **not via native WebView** after suppression |
+| Shared? | Yes with Meta **on the website** when enabled; **not via native WebView** |
 | Purposes | Website marketing analytics / advertising measurement (browser only) |
-| Confidence | **high** for code split; **medium** until physical native proof |
-| Action | Website privacy policy should still disclose Meta for Safari users; native tracking rows improved but review other providers |
+| Confidence | **high** |
+| Action | Website privacy policy should still disclose Meta for Safari users; native Data Safety does **not** declare Meta Pixel advertising sharing in-app |
+
+Sharing note: native advertising/analytics sharing **through Meta Pixel is not present in-app**.
 
 ### Physical address
 
@@ -165,9 +167,9 @@
 | OpenAI | AI coaching generation | high |
 | Resend | Transactional email | high |
 | Vimeo | Embedded video player | high (embed); unresolved player cookies |
-| Meta | Pixel (if enabled) | unresolved prod |
+| Meta | Pixel on **website/Safari only** (native suppressed; physical PASS 2026-07-21) | high |
 
-Sharing is for **service provision**, not selling personal information for SMS opt-in marketing lists (privacy policy stance). Pixel advertising measurement is a separate counsel question if enabled.
+Sharing is for **service provision**, not selling personal information for SMS opt-in marketing lists (privacy policy stance). Website Meta Pixel advertising measurement remains a website disclosure topic; it is **not** present in the native iOS WebView after physical PASS.
 
 ---
 
@@ -192,7 +194,7 @@ Sharing is for **service provision**, not selling personal information for SMS o
 
 ## Explicit non-claims
 
-- Not HIPAA compliant (unsupported)  
-- Not COPPA compliant / not directed to children (do not claim COPPA)  
-- Not “Google approved”  
-- Not “no data shared”  
+- Not HIPAA compliant (unsupported)
+- Not COPPA compliant / not directed to children (do not claim COPPA)
+- Not “Google approved”
+- Not “no data shared”

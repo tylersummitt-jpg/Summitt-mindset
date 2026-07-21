@@ -22,6 +22,7 @@
   - `https://summittmindset.com/data-deletion`
   - Support display: `Support@SummittMindset.com`
 - Product facts grounded in implementation: email-code app auth; native purchase suppression; in-app deletion proven; no native IAP; no ATT/ad SDK in native binary
+- **Native Meta Pixel suppression COMPLETE / physical PASS (2026-07-21):** zero facebook/fbevents/connect.facebook network rows; `typeof window.fbq === "undefined"` on Victory Room and in-app `/`. Website Pixel remains when configured. Pixel is **not** an unresolved native store-submission item.
 
 ---
 
@@ -31,7 +32,7 @@
 |---|---|
 | Apple Developer organization enrollment | **D-U-N-S** / Apple verification |
 | Google Play organization verification | Play Console org verification (when Android starts) |
-| Legal counsel sign-off on Pixel / tracking disclosure | External counsel (if engaged) |
+| Legal counsel sign-off on final portal tracking radios (all providers) | External counsel (if engaged) |
 
 ---
 
@@ -64,11 +65,10 @@
 3. **Promotional / keyword final language**
 4. **Review support contact** phone/email for ASC
 5. **Target age posture** (confirm 18+)
-6. ~~Production Meta Pixel in native?~~ **Code: suppressed in native iOS** (2026-07-21). Website Pixel remains when ID configured. **Physical iPhone verification still required.** Portal tracking answers still need counsel/review vs other providers.
-7. **Whether to update privacy policy** to name Meta / Vimeo / Resend before submit (**website Meta disclosure still needed**)
-8. **Whether mobile `PrivacyInfo.xcprivacy` must be expanded** to declare website-collected data types before iOS submit (mobile edit would be a separate authorized task)
-9. **Support URL** choice (Data Deletion page vs future `/support`)
-10. **iPhone-only vs Universal** screenshot/device set
+6. **Whether to update privacy policy** to name Meta / Vimeo / Resend before submit (**website Meta disclosure still needed**; native Pixel PASS does not remove website disclosure)
+7. **Whether mobile `PrivacyInfo.xcprivacy` must be expanded** to declare website-collected product data types before iOS submit (separate authorized mobile task if needed)
+8. **Support URL** choice (Data Deletion page vs future `/support`)
+9. **iPhone-only vs Universal** screenshot/device set
 
 ---
 
@@ -76,13 +76,12 @@
 
 | Item | Why unresolved | Suggested resolution |
 |---|---|---|
-| Physical native Meta script absence | Code deployed/proven on device not yet recorded | Tyler Safari Web Inspector / proxy check on iPhone |
-| Apple “Used for Tracking” final radio | Counsel + other providers (not Pixel alone) | Review after physical Pixel check |
-| OpenAI / Twilio / Stripe / Resend retention schedules | Provider dashboards | Optional counsel; deletion matrix already documents EXTERNAL logs |
+| Final portal privacy questionnaire entry | Must be clicked in ASC / Play | Use drafts; review other providers |
+| OpenAI / Twilio / Stripe / Resend retention schedules | Provider dashboards | Optional counsel; deletion matrix documents EXTERNAL logs |
 | Vimeo player cookies / tech data | Third-party player | Disclose embed; optional policy update |
 | Clerk website Google OAuth exact dashboard toggles | Dashboard | Confirm before review notes if website Google mentioned |
 | At-rest encryption claims beyond provider defaults | Not custom app crypto | Stick to “encrypted in transit = Yes” |
-| Empty native PrivacyInfo vs WebView-collected data | Policy/product | Separate mobile task if required |
+| Empty native PrivacyInfo vs WebView-collected product data | Policy/product | Separate mobile task if required |
 
 ---
 
@@ -97,10 +96,11 @@ This package does **not** claim:
 - Play Billing policy approval
 - Native IAP existence
 - Final portal age rating numbers
-- Physical native Meta Pixel suppression PASS (code complete; device proof open)
+- No tracking anywhere on the website
+- Final legal advice
 
 ---
 
 ## Recommended next single Tyler decision
 
-**Physically verify on iPhone** that native WebView network/HTML shows no `connect.facebook.net` / `fbevents.js` / `fbq`, then finalize App Privacy tracking radios with counsel (website Meta disclosure still required).
+**Finalize store listing copy** (subtitle / category) or **privacy-policy Meta disclosure for the website**, then proceed to Apple enrollment when D-U-N-S arrives. Native Meta Pixel is no longer blocking.

@@ -1719,3 +1719,39 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - Apple/Google portal acceptance not claimed
 - Vercel variables not changed
 - Mobile repository not edited
+
+## SESSION 48 — 2026-07-21 — Native Meta Pixel suppression physical PASS (docs)
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): documentation closeout for native Meta Pixel physical PASS
+- Tasks completed (IDs): master plan v1.5.19 + SESSION 48 + store-submission privacy/open-items updates; application code not edited; mobile repo not edited
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `bec12b64bc1e8c38a317323941b05a3f4d3b5109` (suppress meta pixel in mobile app)
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded (physical iPhone + Safari Web Inspector, 2026-07-21)
+1. Victory Room loaded in native WKWebView.
+2. Network filters for `facebook`, `fbevents`, and `connect.facebook` returned **zero rows**.
+3. Console: `typeof window.fbq` → `undefined`.
+4. Marketing homepage `/` also opened **inside** the native WKWebView; same Meta/Facebook filters returned **zero rows**; no `connect.facebook.net` / `fbevents.js`; no `fbq` runtime.
+5. Code posture unchanged: RootLayout omits `MetaPixelRoot` for exact `SummittMindsetiOS` UA; website Pixel remains when configured; Vercel vars unchanged; mobile repo unchanged.
+6. **Native Meta Pixel suppression = COMPLETE / physical PASS.** Pixel is no longer an unresolved native store-submission item.
+7. Website Meta disclosure remains necessary. This does **not** mean “no data collected.”
+
+### Status language superseded (historical sessions remain)
+- SESSION 47 “Physical iPhone verification remains required / PASS not claimed” is **superseded** by this SESSION 48 PASS record.
+
+### Explicit non-claims
+- No data collected / no third-party processing not claimed
+- Apple or Google approval not claimed
+- No tracking anywhere on the website not claimed
+- Final legal advice not claimed
+- Website and mobile application code not edited in this documentation session
