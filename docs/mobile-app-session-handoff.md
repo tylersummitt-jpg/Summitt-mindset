@@ -1405,3 +1405,38 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - IAP not added
 - Public account deletion not enabled
 - Mobile repo not modified in this session
+
+## SESSION 39 — 2026-07-21 — Combined native /app/sign-in + Create account
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): combined native-app Sign in + Create account on `/app/sign-in`
+- Tasks completed (IDs): website `/app/sign-in` explicit Sign in + Create account (email-code only)
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `84d6ff1db9375a6827d4a9a6356c7433719fa70e`
+- Mobile repository: **not edited** (HEAD `0474753dbd2b950b396cfc3df09fc12d7b6415fb`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. `/app/sign-in` now has an explicit chooser: **Sign in** and **Create account**.
+2. Both paths use Clerk email verification codes on the **same** production Clerk instance.
+3. No Google / Apple / social / password on the app surface.
+4. Unknown-email sign-in offers **Create account** (does not auto-create).
+5. Existing-email create-account offers **Sign in instead** (does not duplicate).
+6. Successful auth activates a Clerk session and routes via `/post-sign-in`.
+7. New accounts receive **no** membership entitlement and land on **/app/membership**.
+8. Native purchase suppression remains active (no pricing/Checkout from app auth).
+9. Website `/sign-in` and `/sign-up` (including Google) unchanged.
+10. **Physical-device sign-up verification is required next.**
+
+### Explicit non-claims
+- Physical-device create-account proof not claimed
+- IAP / Sign in with Apple not added
+- Public account deletion not enabled
+- Mobile repo not modified
