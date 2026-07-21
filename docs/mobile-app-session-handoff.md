@@ -1618,3 +1618,42 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - Physical-device link PASS not claimed
 - Mobile repo not edited
 - Apple enrollment / TestFlight / App Review not claimed
+
+## SESSION 45 — 2026-07-21 — Physical native link/navigation audit PASS (docs)
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): documentation closeout for APP-015 physical iPhone PASS
+- Tasks completed (IDs): master plan v1.5.16 + SESSION 45; application code not edited; mobile repo not edited
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `e17bc157d5184733047fae33dd496dd1433fe9bf`
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded (physical iPhone, 2026-07-21)
+1. Signed-out app showed Sign in and Create account.
+2. No pricing, trial, Subscribe, Upgrade, or Checkout appeared in the native app experience under review.
+3. Privacy Policy, Terms, and Data Deletion opened correctly and remained usable within the native app.
+4. Inactive Membership required screen contained no purchase path.
+5. Support email opened correctly to `support@summittmindset.com`.
+6. Sign out and Delete account remained separate.
+7. Normal Safari website retained the standard Free Trial / Subscribe flow.
+8. Film Room Vimeo playback worked; Vimeo did not create a blank screen or trap the user outside the app.
+9. **No native-shell change was required.**
+10. **APP-015 = COMPLETE. Physical native link/navigation audit = PASS.**
+
+### Status language superseded (historical sessions remain)
+- SESSION 44 “Physical-device link checklist is required next — not marked PASS” is **superseded** by this SESSION 45 PASS record.
+- Current critical path advances to store metadata/privacy answers, Apple enrollment (D-U-N-S), icon/splash, App Store Connect / TestFlight; Android deferred.
+
+### Explicit non-claims
+- Apple Developer enrollment / App Store Connect app / TestFlight / App Review not claimed
+- App icon / launch screen not complete
+- Android / Google Play not started
+- Website and mobile application code not edited in this documentation session
