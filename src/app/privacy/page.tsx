@@ -152,6 +152,10 @@ export default function PrivacyPage() {
             measurement via Meta Pixel on the normal website (browser), where
             configured. Meta Pixel is not loaded in the Summitt Mindset iOS app.
           </li>
+          <li>
+            Vimeo — embedded video playback for Film Room and related lessons
+            (see section 6)
+          </li>
         </ul>
         <p className="text-base leading-7 text-[var(--muted)]">
           These providers process information only as needed to provide their
@@ -208,7 +212,31 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">6. Account deletion</h2>
+        <h2 className="text-xl font-semibold">6. Embedded video (Vimeo)</h2>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          Summitt Mindset embeds Vimeo videos for Film Room and related lessons.
+          When an embedded Vimeo player loads, Vimeo may receive technical and
+          device information, page or referrer context, video identifiers,
+          cookies or similar identifiers, and playback or interaction
+          information. We use this sharing to provide and operate embedded video
+          playback.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          Summitt Mindset does not place journals, Ask Pat conversations, goals,
+          SMS content, payment-card information, email, phone, or Clerk user IDs
+          into Vimeo embed URLs. Our embeds use Vimeo’s Do Not Track player
+          option where implemented; that does not guarantee zero technical
+          logging or zero essential storage by Vimeo.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          Vimeo’s handling of information is also governed by Vimeo’s own privacy
+          practices. Account deletion at Summitt Mindset does not claim to erase
+          technical logs retained independently by Vimeo.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">7. Account deletion</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           You may request permanent deletion of your Summitt Mindset account.
           Deletion is separate from canceling membership. Canceling membership
@@ -244,7 +272,7 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">7. Limited retained records</h2>
+        <h2 className="text-xl font-semibold">8. Limited retained records</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           We do not claim that all data is instantly or universally erased. After
           deletion, limited records may be retained when required for:
@@ -260,7 +288,7 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">8. Your choices</h2>
+        <h2 className="text-xl font-semibold">9. Your choices</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           You may update account preferences in the product where available,
           manage SMS consent with STOP/HELP/START as described above, cancel
@@ -289,7 +317,7 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">9. Contact</h2>
+        <h2 className="text-xl font-semibold">10. Contact</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           <a
             href={ACCOUNT_DELETION_SUPPORT_EMAIL_HREF}

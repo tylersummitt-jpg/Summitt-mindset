@@ -201,10 +201,13 @@ For each type: Collected / Shared / Linked to identity / Used for tracking / Req
 
 | Field | Answer |
 |---|---|
-| Collected by Summitt? | Film video IDs stored; player loads Vimeo iframe |
-| Shared? | User’s player session may share technical data with **Vimeo** |
-| Tracking? | **Unresolved** (Vimeo practices) |
-| Confidence | **high** embeds exist; **unresolved** Vimeo cookies |
+| Collected by Summitt? | Film video IDs stored; player loads Vimeo iframe via shared helper (`dnt=1`) |
+| Shared? | **Yes for app functionality / video playback** — when the embedded player loads, Vimeo may receive technical/device info, page or referrer context, video identifiers, cookies or similar identifiers, and playback/interaction info |
+| Tracking? | **Not classified as Meta-style cross-app advertising tracking** on this evidence alone. Vimeo is a third-party player for functionality; final ASC “tracking” answers remain **manual portal entry** |
+| Purpose | App Functionality (embedded video playback) |
+| Evidence | `/privacy` §6; `buildVimeoPlayerEmbedUrl` → `https://player.vimeo.com/video/{id}?dnt=1` on Film Room detail, coach how-it-works, challenge day |
+| Confidence | **high** for disclosure + `dnt=1` implementation; **pending** physical iPhone playback verification after `dnt=1` |
+| Note | `dnt=1` does **not** guarantee zero technical logging or zero essential storage by Vimeo |
 
 ---
 
@@ -226,7 +229,7 @@ Do **not** select **Third-Party Advertising** or **Developer’s Advertising** w
 
 - Privacy Policy: `https://summittmindset.com/privacy`
 - Data Deletion: `https://summittmindset.com/data-deletion`
-- User Privacy Choices URL: optional; browser cookie / Meta ad-preference guidance is in Privacy Policy §8. Dedicated choices URL still optional.
+- User Privacy Choices URL: optional; browser cookie / Meta ad-preference guidance is in Privacy Policy §9. Dedicated choices URL still optional.
 
 ---
 
@@ -236,5 +239,6 @@ Do **not** select **Third-Party Advertising** or **Developer’s Advertising** w
 |---|---|
 | Privacy policy lists Clerk, Supabase, Stripe, Twilio, Vercel, OpenAI | Aligned |
 | Privacy policy names Meta and describes website Meta Pixel | **Aligned (2026-07-21)** — public `/privacy` §5; native iOS excluded |
-| Privacy policy names Vimeo / Resend | Optional remaining disclosure (not Meta blockers) |
+| Privacy policy names Vimeo | **Aligned (2026-07-21)** — public `/privacy` §6; embeds use `dnt=1`; physical playback after `dnt=1` still pending |
+| Privacy policy names Resend | Optional remaining disclosure (not a Vimeo/Meta blocker) |
 | Native PrivacyInfo empty collected types | **Likely under-declares website-collected product data — mobile PrivacyInfo update may be required before submission** (report-only; this task does not edit mobile) |

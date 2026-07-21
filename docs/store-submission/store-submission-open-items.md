@@ -66,7 +66,7 @@
 3. **Promotional / keyword final language**
 4. **Review support contact** phone/email for ASC
 5. **Target age posture** (confirm 18+)
-6. **Whether to also name Vimeo / Resend** in privacy policy (optional; Meta disclosure done)
+6. **Whether to also name Resend** in privacy policy (optional; Meta + Vimeo disclosures done)
 7. **Whether mobile `PrivacyInfo.xcprivacy` must be expanded** to declare website-collected product data types before iOS submit (separate authorized mobile task if needed)
 8. **Support URL** choice (Data Deletion page vs future `/support`)
 9. **iPhone-only vs Universal** screenshot/device set
@@ -77,9 +77,9 @@
 
 | Item | Why unresolved | Suggested resolution |
 |---|---|---|
-| Final portal privacy questionnaire entry | Must be clicked in ASC / Play | Use drafts; review other providers |
+| Final portal privacy questionnaire entry (incl. Vimeo) | Must be clicked in ASC / Play | Use drafts; Vimeo disclosed as functionality sharing, not Meta-style ad tracking |
 | OpenAI / Twilio / Stripe / Resend retention schedules | Provider dashboards | Optional counsel; deletion matrix documents EXTERNAL logs |
-| Vimeo player cookies / tech data | Third-party player | Optional policy naming; disclose embed |
+| Physical iPhone Vimeo playback after `dnt=1` | Code embeds updated; not yet re-verified on device | Film Room + related lessons play in Safari Web Inspector / native WKWebView |
 | Clerk website Google OAuth exact dashboard toggles | Dashboard | Confirm before review notes if website Google mentioned |
 | At-rest encryption claims beyond provider defaults | Not custom app crypto | Stick to “encrypted in transit = Yes” |
 | Empty native PrivacyInfo vs WebView-collected product data | Policy/product | Separate mobile task if required |
@@ -104,4 +104,4 @@ This package does **not** claim:
 
 ## Recommended next single Tyler decision
 
-**Finalize store listing copy** (subtitle / category), then proceed to Apple enrollment when D-U-N-S arrives. Public Meta Privacy Policy disclosure and native Pixel PASS are complete.
+**Finalize store listing copy** (subtitle / category), then proceed to Apple enrollment when D-U-N-S arrives. Public Meta + Vimeo Privacy Policy disclosures and native Pixel PASS are complete; physical Vimeo playback after `dnt=1` remains pending.

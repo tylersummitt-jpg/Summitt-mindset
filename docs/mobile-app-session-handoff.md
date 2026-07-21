@@ -1787,3 +1787,36 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - “No data collected” / GDPR/CCPA/Apple/Google approval not claimed
 - Mobile repository not edited
 - Vercel environment variables not changed
+
+## SESSION 50 — 2026-07-21 — Harden Vimeo embeds + Privacy Policy disclosure
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): shared Vimeo player URL helper with `dnt=1`; apply to all user-facing embeds; Privacy Policy Vimeo section; store-submission / master-plan updates; focused tests
+- Tasks completed (IDs): website embed hardening + `/privacy` §6 + docs + tests; mobile repo not edited; physical playback after `dnt=1` **pending**
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `d8e20c0bcca599097d7f582d84ee4dff1cb6554f` (Disclose website meta pixel privacy practices)
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Safari Web Inspector (prior physical evidence): Film Room list = thumbnails only (`i.vimeocdn.com`); detail player loads `player.vimeo.com` / CDN / stats; prior embeds lacked `dnt=1`. Meta Pixel native suppression does not affect Vimeo.
+2. Shared helper `buildVimeoPlayerEmbedUrl` returns `https://player.vimeo.com/video/{id}?dnt=1` for validated numeric IDs; invalid IDs → null; no autoplay=1; no identity/PII in URL.
+3. All three user-facing iframes use the helper: Film Room detail, coach how-it-works, challenge day. Film Room list unchanged (thumbnails, no player iframe).
+4. Every Vimeo iframe has a descriptive `title`, `allowFullScreen`, existing allow permissions preserved.
+5. Public Privacy Policy names Vimeo; discloses technical/playback data sharing for embedded playback; states Summitt does not put journals/Ask Pat/goals/SMS/PANs/email/phone/Clerk IDs in embed URLs; `dnt=1` does not guarantee zero logging/storage; Vimeo’s own practices apply; no unsupported deletion promises.
+6. Store drafts record Vimeo as functionality/video-playback sharing, not Meta-style cross-app advertising tracking; final portal answers remain manual; physical playback verify after `dnt=1` remains open.
+7. `dnt=1` does **not** claim anonymous or cookie-free playback.
+
+### Explicit non-claims
+- Physical iPhone playback after `dnt=1` not yet re-verified
+- Vimeo retention/deletion control by Summitt not claimed
+- Mobile repository not edited
+- Film Room content/entitlements/navigation not changed
+- Meta Pixel / auth / SMS / Stripe behavior not changed

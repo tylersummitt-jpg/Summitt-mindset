@@ -8,6 +8,7 @@ import {
   COACH_SIGN_UP_HREF,
   COACH_SUBSCRIBE_PATH,
 } from "@/lib/coach-funnel-links";
+import { buildVimeoPlayerEmbedUrl } from "@/lib/vimeo-player-embed";
 
 const COACH_HOW_PATH = "/coach-leadership-kit/how-it-works";
 
@@ -51,10 +52,7 @@ export default async function CoachHowItWorksPage() {
   }
 
   const video = (data ?? null) as CoachExplainerRow | null;
-  const vimeoId =
-    video?.vimeo_video_id && String(video.vimeo_video_id).trim() !== ""
-      ? String(video.vimeo_video_id).trim()
-      : null;
+  const playerSrc = buildVimeoPlayerEmbedUrl(video?.vimeo_video_id);
 
   const iframeTitle =
     video?.title && video.title.trim() !== ""
@@ -104,12 +102,12 @@ export default async function CoachHowItWorksPage() {
           </header>
 
           <div className="w-full space-y-6">
-            {video && vimeoId ? (
+            {video && playerSrc ? (
               <div className="w-full overflow-hidden rounded-xl border border-[var(--border)] bg-white shadow-sm">
                 <div className="relative w-full aspect-video">
                   <iframe
                     title={iframeTitle}
-                    src={`https://player.vimeo.com/video/${vimeoId}`}
+                    src={playerSrc}
                     className="absolute inset-0 w-full h-full"
                     allow="fullscreen; picture-in-picture"
                     allowFullScreen

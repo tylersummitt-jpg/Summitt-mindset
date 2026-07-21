@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { challengeLessons } from "@/lib/challenge-lessons";
+import { buildVimeoPlayerEmbedUrl } from "@/lib/vimeo-player-embed";
 
 type PageProps = {
   params: Promise<{ day: string }>;
@@ -35,9 +36,10 @@ export default async function ChallengeDayPage({ params }: PageProps) {
     );
   }
 
-  const videoId = lesson.videoId;
+  const playerSrc = buildVimeoPlayerEmbedUrl(lesson.videoId);
   const speaker = lesson.speaker ?? "Pat Summitt";
   const description = lesson.challenge ?? lesson.lesson;
+  const iframeTitle = `Day ${lesson.day}: ${lesson.title} — Summitt Mindset Challenge`;
 
   return (
     <main className="min-h-screen bg-[var(--bg)]">
@@ -52,11 +54,12 @@ export default async function ChallengeDayPage({ params }: PageProps) {
           7-Day Pat Summitt Leadership Challenge
         </p>
 
-        {videoId ? (
+        {playerSrc ? (
           <div className="mb-8">
             <div className="w-full max-w-3xl mx-auto aspect-video mb-4">
               <iframe
-                src={`https://player.vimeo.com/video/${videoId}`}
+                title={iframeTitle}
+                src={playerSrc}
                 width="800"
                 height="450"
                 className="w-full h-full"
