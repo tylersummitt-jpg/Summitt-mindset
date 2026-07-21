@@ -413,89 +413,81 @@ export default function AppEmailCodeSignIn() {
           </form>
         ) : null}
 
-        {mode === "sign-up" && step === "email" ? (
-          <form className="space-y-4" onSubmit={handleSignUpSendCode} noValidate>
-            <label className="block space-y-2">
-              <span className="text-sm font-medium text-[var(--text)]">
-                Email
-              </span>
-              <input
-                type="email"
-                name="email"
-                autoComplete="email"
-                inputMode="email"
-                enterKeyHint="send"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={submitting}
-                className={fieldClass}
-                placeholder="you@example.com"
-              />
-            </label>
-            <button type="submit" disabled={submitting} className={primaryBtnClass}>
-              {submitting ? "Sending code…" : "Send verification code"}
-            </button>
-            <p className="text-center text-xs leading-5 text-[var(--muted)]">
-              {APP_SIGN_IN_LEGAL_PREFIX}{" "}
-              <Link href="/terms" className="underline underline-offset-4">
-                Terms
-              </Link>{" "}
-              {APP_SIGN_IN_LEGAL_MID}{" "}
-              <Link href="/privacy" className="underline underline-offset-4">
-                Privacy Policy
-              </Link>
-              .
-            </p>
-            <button
-              type="button"
-              disabled={submitting}
-              className={linkBtnClass}
-              onClick={() => goToMode("choose", true)}
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              className={linkBtnClass}
-              onClick={() => goToMode("sign-in", true)}
-            >
-              Sign in instead
-            </button>
-          </form>
-        ) : null}
-
-        {mode === "sign-up" && step === "code" ? (
+        {mode === "sign-up" ? (
           <form
             className="space-y-4"
-            onSubmit={handleSignUpVerifyCode}
+            onSubmit={
+              step === "email" ? handleSignUpSendCode : handleSignUpVerifyCode
+            }
             noValidate
           >
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              Enter the verification code we sent to your email. Check your spam
-              folder if you do not see it.
-            </p>
-            <label className="block space-y-2">
-              <span className="text-sm font-medium text-[var(--text)]">
-                Verification code
-              </span>
-              <input
-                type="text"
-                name="code"
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                enterKeyHint="done"
-                required
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                disabled={submitting}
-                className={`${fieldClass} tracking-widest`}
-                placeholder="123456"
-              />
-            </label>
+            {step === "email" ? (
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-[var(--text)]">
+                  Email
+                </span>
+                <input
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  enterKeyHint="send"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={submitting}
+                  className={fieldClass}
+                  placeholder="you@example.com"
+                />
+              </label>
+            ) : (
+              <>
+                <p className="text-sm leading-6 text-[var(--muted)]">
+                  Enter the verification code we sent to your email. Check your
+                  spam folder if you do not see it.
+                </p>
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-[var(--text)]">
+                    Verification code
+                  </span>
+                  <input
+                    type="text"
+                    name="code"
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    enterKeyHint="done"
+                    required
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    disabled={submitting}
+                    className={`${fieldClass} tracking-widest`}
+                    placeholder="123456"
+                  />
+                </label>
+              </>
+            )}
+
+            {/*
+              Clerk custom sign-up CAPTCHA mount. Must remain in the DOM before
+              signUp.create() and through the create/verify cycle. Keep visible
+              layout space so a Smart challenge can render on small iPhones.
+            */}
+            <div
+              id="clerk-captcha"
+              data-cl-theme="light"
+              data-cl-size="flexible"
+              data-cl-language="auto"
+              className="w-full min-w-0"
+            />
+
             <button type="submit" disabled={submitting} className={primaryBtnClass}>
-              {submitting ? "Verifying…" : "Create account"}
+              {step === "email"
+                ? submitting
+                  ? "Sending code…"
+                  : "Send verification code"
+                : submitting
+                  ? "Verifying…"
+                  : "Create account"}
             </button>
             <p className="text-center text-xs leading-5 text-[var(--muted)]">
               {APP_SIGN_IN_LEGAL_PREFIX}{" "}
@@ -508,18 +500,29 @@ export default function AppEmailCodeSignIn() {
               </Link>
               .
             </p>
-            <button
-              type="button"
-              disabled={submitting}
-              className={linkBtnClass}
-              onClick={() => {
-                setStep("email");
-                setCode("");
-                clearFeedback();
-              }}
-            >
-              Use a different email
-            </button>
+            {step === "email" ? (
+              <button
+                type="button"
+                disabled={submitting}
+                className={linkBtnClass}
+                onClick={() => goToMode("choose", true)}
+              >
+                Back
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={submitting}
+                className={linkBtnClass}
+                onClick={() => {
+                  setStep("email");
+                  setCode("");
+                  clearFeedback();
+                }}
+              >
+                Use a different email
+              </button>
+            )}
             <button
               type="button"
               disabled={submitting}

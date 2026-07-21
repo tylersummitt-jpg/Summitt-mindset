@@ -7,7 +7,8 @@ export type AppAuthErrorKind =
   | "code_incorrect"
   | "code_expired"
   | "rate_limited"
-  | "strategy_unavailable";
+  | "strategy_unavailable"
+  | "captcha";
 
 export type AppAuthMappedError = {
   kind: AppAuthErrorKind;
@@ -61,6 +62,15 @@ export function mapAppAuthError(error: unknown): AppAuthMappedError {
           kind: "strategy_unavailable",
           message:
             "Email verification is not available for this account right now.",
+        };
+      case "captcha_invalid":
+      case "captcha_unavailable":
+      case "requires_captcha":
+      case "form_captcha_invalid":
+        return {
+          kind: "captcha",
+          message:
+            "Please complete the security check and try again.",
         };
       default:
         break;

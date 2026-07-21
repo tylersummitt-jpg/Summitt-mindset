@@ -120,6 +120,64 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(client).toContain("Sign in instead");
   });
 
+  it("Create account mode mounts clerk-captcha before signUp.create", () => {
+    const client = readSrc(
+      "src/components/app-sign-in/AppEmailCodeSignIn.tsx"
+    );
+
+    // Exact supported mount id, once.
+    expect(client).toContain('id="clerk-captcha"');
+    expect(client.match(/id="clerk-captcha"/g)?.length).toBe(1);
+
+    // Supported customization attributes only.
+    expect(client).toContain('data-cl-theme="light"');
+    expect(client).toContain('data-cl-size="flexible"');
+    expect(client).toContain('data-cl-language="auto"');
+
+    // Present in Create account mode; not required for Sign in mode.
+    expect(client).toContain('mode === "sign-up"');
+    const captchaIdx = client.indexOf('id="clerk-captcha"');
+    const signUpModeIdx = client.indexOf('mode === "sign-up"');
+    const createCallIdx = client.indexOf(
+      "await signUp.create({ emailAddress: trimmed })"
+    );
+    expect(signUpModeIdx).toBeGreaterThan(-1);
+    expect(captchaIdx).toBeGreaterThan(signUpModeIdx);
+    // Element is in JSX rendered for sign-up; create() runs only after that UI.
+    expect(createCallIdx).toBeGreaterThan(-1);
+    expect(client).toContain("handleSignUpSendCode");
+
+    // Must not be invisibly styled or zero-dimensioned on the element itself.
+    const captchaOpen = client.indexOf("<div", captchaIdx - 80);
+    const captchaClose = client.indexOf("/>", captchaIdx) + 2;
+    const captchaEl = client.slice(captchaOpen, captchaClose);
+    expect(captchaEl).toContain('id="clerk-captcha"');
+    expect(captchaEl).not.toMatch(/display:\s*none/i);
+    expect(captchaEl).not.toMatch(/opacity:\s*0/i);
+    expect(captchaEl).not.toMatch(/visibility:\s*hidden/i);
+    expect(captchaEl).not.toMatch(/(?:^|[\s"'])(?:h-0|w-0)(?:[\s"']|$)/);
+    expect(captchaEl).not.toMatch(/height:\s*0|width:\s*0/i);
+    expect(captchaEl).not.toMatch(/-left-\[|translate-x-\[|sr-only/);
+    expect(captchaEl).toContain('className="w-full min-w-0"');
+    expect(captchaEl).not.toContain("hidden");
+    expect(captchaEl).not.toContain("invisible");
+    expect(captchaEl).not.toContain("sr-only");
+
+    // Sign-in path unchanged: no captcha requirement there.
+    expect(client).toContain("handleSignInSendCode");
+    expect(client).toContain("prepareFirstFactor");
+  });
+
+  it("maps captcha-related Clerk errors to safe copy", () => {
+    const helpers = readSrc("src/lib/app-sign-in/app-sign-in-helpers.ts");
+    expect(helpers).toContain('case "captcha_invalid"');
+    expect(helpers).toContain('case "captcha_unavailable"');
+    expect(helpers).toContain('kind: "captcha"');
+    expect(helpers).toContain(
+      "Please complete the security check and try again."
+    );
+  });
+
   it("post-auth destinations keep purchase gate intact", () => {
     const post = readSrc("src/app/post-sign-in/page.tsx");
     expect(post).toContain("inactiveMembershipRedirectPath");

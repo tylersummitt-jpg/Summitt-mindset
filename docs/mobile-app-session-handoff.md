@@ -1440,3 +1440,34 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - IAP / Sign in with Apple not added
 - Public account deletion not enabled
 - Mobile repo not modified
+
+## SESSION 40 — 2026-07-21 — Clerk CAPTCHA mount for app Create account
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): fix failed custom Clerk email-code account creation (missing CAPTCHA mount)
+- Tasks completed (IDs): add supported `clerk-captcha` element to `/app/sign-in` Create account flow
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `ddf045015c84f02d9db858ba776b1a8eb4319e5f`
+- Mobile repository: **not edited** (intentional uncommitted Debug Safari inspection change left untouched)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Physical-device Create account delivered an email code, then failed verification with generic UI error; Safari showed missing `clerk-captcha` → Invisible CAPTCHA fallback.
+2. Fix: Create account mode renders `#clerk-captcha` with `data-cl-theme="light"`, `data-cl-size="flexible"`, `data-cl-language="auto"` before `signUp.create()`, kept mounted through the sign-up create/verify cycle.
+3. Element is not hidden via display:none / zero size / off-screen tricks.
+4. Sign in vs Create account chooser, email-code-only auth, handoffs, `/post-sign-in` routing, membership/Checkout gates, and website `/sign-in`/`/sign-up` unchanged.
+5. Safe captcha error mapping added; no verification-code or full-email logging.
+6. **Physical-device create-account retest is required next. Do not mark physical account creation PASS yet.**
+
+### Explicit non-claims
+- Physical-device create-account PASS not claimed
+- Clerk Dashboard bot-protection settings not changed
+- IAP / Sign in with Apple not added
+- Mobile repo not modified
