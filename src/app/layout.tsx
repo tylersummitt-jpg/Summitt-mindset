@@ -61,7 +61,8 @@ export default async function RootLayout({
           <NativeAppProvider
             isNativeSummittMindsetIos={isNativeSummittMindsetIos}
           >
-            <MetaPixelRoot />
+            {/* Meta Pixel: browser/marketing only. Native iOS UA never mounts fbq / fbevents.js. */}
+            {!isNativeSummittMindsetIos ? <MetaPixelRoot /> : null}
             <div className="flex flex-col min-h-screen">
               <Navbar />
 

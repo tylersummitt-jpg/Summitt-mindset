@@ -13,11 +13,11 @@
 
 | Question | Draft | Confidence | Evidence |
 |---|---|---|---|
-| Does the app use data for tracking (linking with third-party data for targeted ads / ad measurement across apps/websites)? | **Unresolved → conservative lean: Yes if Meta Pixel is enabled in production and can run in the WKWebView; No if production Pixel is disabled/unset.** | unresolved | Website Meta Pixel: `src/lib/meta-pixel.ts`, `MetaPixelRoot` in `src/app/layout.tsx`, route allowlist `src/lib/meta-pixel-route-policy.ts`. Native: no ATT prompt; `NSPrivacyTracking=false`. Production env values not in git. |
-| Tracking domains | If tracking declared: Meta/Facebook domains used by Pixel | unresolved | Code loads Meta Pixel when ID enabled |
-| Privacy Nutrition Label “Used for Tracking” | Match the tracking answer above per data type | unresolved | — |
+| Does the app use data for tracking (linking with third-party data for targeted ads / ad measurement across apps/websites)? | **Improved native posture (code):** Meta Pixel is **not mounted** when the request UA contains exact `SummittMindsetiOS` (`RootLayout` omits `MetaPixelRoot`). Native iOS therefore does not load `fbevents.js` / initialize `fbq`. **Website Safari still loads Meta Pixel** when `NEXT_PUBLIC_META_PIXEL_ID` is set. Final App Privacy “tracking” answer should still be reviewed against **all** SDKs/providers (not Pixel alone) and counsel; physical iPhone verification of zero Meta script remains required before treating native suppression as production-proven. | medium (code high; physical proof open) | `src/app/layout.tsx` native gate; `MetaPixelRoot.tsx`; UA token `SummittMindsetiOS` |
+| Tracking domains | Native: none from Meta Pixel (script omitted). Website: Meta/Facebook domains when Pixel enabled | high for code path | — |
+| Privacy Nutrition Label “Used for Tracking” | Prefer **not** attributing Meta Pixel tracking to the **iOS app** after native suppression is physically verified. Website advertising measurement still exists outside the app. | medium | Do not claim “no data collected” |
 
-**Do not claim “no tracking” without confirming production Pixel state.**
+**Do not claim the product collects no data.** Website Meta disclosure remains necessary for Safari users.
 
 ---
 
@@ -188,13 +188,14 @@ For each type: Collected / Shared / Linked to identity / Used for tracking / Req
 
 | Field | Answer |
 |---|---|
-| Collected? | **Unresolved — possible Yes** if production Meta Pixel ID is enabled. Pixel is marketing-route gated; app starts at `/app/sign-in` (PageView blocked for that path), but script may still load when enabled. |
-| Shared? | **Yes with Meta** if enabled |
-| Linked? | Pixel code sanitizes email/phone/user id from custom payloads; Meta may still process IP/cookies |
-| Tracking? | **Likely Yes under Apple’s tracking definition if used for ads measurement** — confirm with counsel + prod config |
-| Purpose | Analytics / Advertising (if enabled) |
-| Evidence | `meta-pixel.ts`, README env docs |
-| Confidence | **unresolved** for production enablement |
+| Collected in native iOS? | **No (code):** `MetaPixelRoot` omitted for `SummittMindsetiOS` — no `fbevents.js` / `fbq`. Physical device verification still required. |
+| Collected on website? | **Yes when configured** (`NEXT_PUBLIC_META_PIXEL_ID`); marketing PageView allowlist unchanged for browsers |
+| Shared? | Meta on website only (after native suppression) |
+| Linked? | Pixel code sanitizes email/phone/user id from custom payloads; Meta may still process IP/cookies **in browser** |
+| Tracking? | Website advertising measurement may still qualify as tracking **outside** the native app; native Meta Pixel tracking path removed in code |
+| Purpose | Analytics / Advertising (website) |
+| Evidence | `layout.tsx` native gate; `meta-pixel.ts` |
+| Confidence | **high** code; **medium** until physical proof |
 
 ### Other — Vimeo embeds
 

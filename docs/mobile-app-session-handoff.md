@@ -1689,3 +1689,33 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - Production Meta Pixel state not asserted
 - Mobile PrivacyInfo not edited
 - Website and mobile application code not edited in this documentation session
+
+## SESSION 47 — 2026-07-21 — Native Meta Pixel suppression (website)
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): suppress Meta Pixel inside native iOS WKWebView only
+- Tasks completed (IDs): RootLayout omits `MetaPixelRoot` when server-derived `SummittMindsetiOS`; tests + docs; mobile repo not edited; Vercel env not changed
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `dc027e7adb72f9b25078bb71d7621ed033a9c0dd`
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Native iOS requests reuse existing `isNativeSummittMindsetIosRequest()` — when true, `MetaPixelRoot` is not rendered (no fbq stub, no `connect.facebook.net` / `fbevents.js`).
+2. Normal website/browser Meta Pixel behavior unchanged (ID / ENABLED / PageView allowlist / coach events / sanitization).
+3. No second UA detector; no query/cookie/localStorage spoof gate.
+4. Store-submission privacy drafts updated: native Meta tracking path removed in code; website Meta disclosure still required; **not** “no data collected.”
+5. **Physical iPhone verification remains required** before marking native Pixel suppression fully proven.
+
+### Explicit non-claims
+- Physical native Meta Pixel PASS not claimed
+- Apple/Google portal acceptance not claimed
+- Vercel variables not changed
+- Mobile repository not edited

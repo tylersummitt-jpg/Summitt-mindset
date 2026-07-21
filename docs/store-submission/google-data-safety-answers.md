@@ -135,11 +135,12 @@
 
 | Field | Answer |
 |---|---|
-| Collected? | **Unresolved** — website Meta Pixel may be production-enabled |
-| Shared? | Yes with Meta if enabled |
-| Purposes | Analytics / Advertising (if enabled) |
-| Confidence | **unresolved** |
-| Action | Tyler confirm production Pixel ID/enabled before final Data Safety submit |
+| Collected in **native iOS app**? | **No (code):** RootLayout omits `MetaPixelRoot` for `SummittMindsetiOS` UA — no `fbevents.js` / `fbq`. **Physical iPhone verification still required** before marking fully proven. |
+| Collected on **website/Safari**? | **Yes when configured** — production has `NEXT_PUBLIC_META_PIXEL_ID`; Pixel remains for normal browser traffic |
+| Shared? | Yes with Meta **on the website** when enabled; **not via native WebView** after suppression |
+| Purposes | Website marketing analytics / advertising measurement (browser only) |
+| Confidence | **high** for code split; **medium** until physical native proof |
+| Action | Website privacy policy should still disclose Meta for Safari users; native tracking rows improved but review other providers |
 
 ### Physical address
 

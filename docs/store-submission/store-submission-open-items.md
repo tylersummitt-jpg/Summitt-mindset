@@ -1,27 +1,27 @@
 # Store Submission — Open Items
 
-**Last updated:** 2026-07-21  
-**Package location:** `docs/store-submission/`  
+**Last updated:** 2026-07-21
+**Package location:** `docs/store-submission/`
 
 ---
 
 ## READY NOW
 
-- Draft Apple metadata (`apple-app-store-metadata.md`)  
-- Draft Apple App Privacy answers with evidence (`apple-app-privacy-answers.md`)  
-- Draft Apple Review Notes (`apple-review-notes.md`)  
-- Draft Google Play metadata (`google-play-metadata.md`)  
-- Draft Google Data Safety answers (`google-data-safety-answers.md`)  
-- Content / age-rating questionnaire drafts (`store-content-rating-answers.md`)  
-- Reviewer account plan without secrets (`reviewer-test-account-plan.md`)  
-- Screenshot shot list (`screenshot-shot-list.md`)  
+- Draft Apple metadata (`apple-app-store-metadata.md`)
+- Draft Apple App Privacy answers with evidence (`apple-app-privacy-answers.md`)
+- Draft Apple Review Notes (`apple-review-notes.md`)
+- Draft Google Play metadata (`google-play-metadata.md`)
+- Draft Google Data Safety answers (`google-data-safety-answers.md`)
+- Content / age-rating questionnaire drafts (`store-content-rating-answers.md`)
+- Reviewer account plan without secrets (`reviewer-test-account-plan.md`)
+- Screenshot shot list (`screenshot-shot-list.md`)
 - Public URLs ready:
   - `https://summittmindset.com`
   - `https://summittmindset.com/privacy`
   - `https://summittmindset.com/terms`
   - `https://summittmindset.com/data-deletion`
   - Support display: `Support@SummittMindset.com`
-- Product facts grounded in implementation: email-code app auth; native purchase suppression; in-app deletion proven; no native IAP; no ATT/ad SDK in native binary  
+- Product facts grounded in implementation: email-code app auth; native purchase suppression; in-app deletion proven; no native IAP; no ATT/ad SDK in native binary
 
 ---
 
@@ -59,16 +59,16 @@
 
 ## NEEDS TYLER DECISION
 
-1. **Final subtitle** (≤30 chars) — options in Apple metadata  
-2. **Primary category** (Lifestyle vs Health & Fitness vs Productivity)  
-3. **Promotional / keyword final language**  
-4. **Review support contact** phone/email for ASC  
-5. **Target age posture** (confirm 18+)  
-6. **Production Meta Pixel enabled?** — drives Apple Tracking + Data Safety advertising rows  
-7. **Whether to update privacy policy** to name Meta / Vimeo / Resend before submit  
-8. **Whether mobile `PrivacyInfo.xcprivacy` must be expanded** to declare website-collected data types before iOS submit (mobile edit would be a separate authorized task)  
-9. **Support URL** choice (Data Deletion page vs future `/support`)  
-10. **iPhone-only vs Universal** screenshot/device set  
+1. **Final subtitle** (≤30 chars) — options in Apple metadata
+2. **Primary category** (Lifestyle vs Health & Fitness vs Productivity)
+3. **Promotional / keyword final language**
+4. **Review support contact** phone/email for ASC
+5. **Target age posture** (confirm 18+)
+6. ~~Production Meta Pixel in native?~~ **Code: suppressed in native iOS** (2026-07-21). Website Pixel remains when ID configured. **Physical iPhone verification still required.** Portal tracking answers still need counsel/review vs other providers.
+7. **Whether to update privacy policy** to name Meta / Vimeo / Resend before submit (**website Meta disclosure still needed**)
+8. **Whether mobile `PrivacyInfo.xcprivacy` must be expanded** to declare website-collected data types before iOS submit (mobile edit would be a separate authorized task)
+9. **Support URL** choice (Data Deletion page vs future `/support`)
+10. **iPhone-only vs Universal** screenshot/device set
 
 ---
 
@@ -76,8 +76,8 @@
 
 | Item | Why unresolved | Suggested resolution |
 |---|---|---|
-| Production `NEXT_PUBLIC_META_PIXEL_ID` / enabled | Not in git | Tyler check Vercel production env |
-| Apple “Used for Tracking” | Depends on Pixel + counsel | Decide after env check |
+| Physical native Meta script absence | Code deployed/proven on device not yet recorded | Tyler Safari Web Inspector / proxy check on iPhone |
+| Apple “Used for Tracking” final radio | Counsel + other providers (not Pixel alone) | Review after physical Pixel check |
 | OpenAI / Twilio / Stripe / Resend retention schedules | Provider dashboards | Optional counsel; deletion matrix already documents EXTERNAL logs |
 | Vimeo player cookies / tech data | Third-party player | Disclose embed; optional policy update |
 | Clerk website Google OAuth exact dashboard toggles | Dashboard | Confirm before review notes if website Google mentioned |
@@ -90,16 +90,17 @@
 
 This package does **not** claim:
 
-- “No data collected” / “No data shared”  
-- COPPA compliant  
-- HIPAA compliant  
-- Apple approved / Google approved  
-- Play Billing policy approval  
-- Native IAP existence  
-- Final portal age rating numbers  
+- “No data collected” / “No data shared”
+- COPPA compliant
+- HIPAA compliant
+- Apple approved / Google approved
+- Play Billing policy approval
+- Native IAP existence
+- Final portal age rating numbers
+- Physical native Meta Pixel suppression PASS (code complete; device proof open)
 
 ---
 
 ## Recommended next single Tyler decision
 
-**Confirm production Meta Pixel on/off**, then lock Tracking / Advertising rows and decide whether privacy policy + PrivacyInfo need updates before first binary submit.
+**Physically verify on iPhone** that native WebView network/HTML shows no `connect.facebook.net` / `fbevents.js` / `fbq`, then finalize App Privacy tracking radios with counsel (website Meta disclosure still required).
