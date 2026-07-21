@@ -166,7 +166,7 @@ Sharing note: native advertising/analytics sharing **through Meta Pixel is not p
 | Vercel | Hosting | high |
 | OpenAI | AI coaching generation | high |
 | Resend | Transactional email | high |
-| Vimeo | Embedded video player for Film Room / related lessons; shared via player for **app functionality**; public `/privacy` §6; embeds use `dnt=1` (does not guarantee zero technical logging). Not classified here as Meta-style advertising tracking. Physical playback after `dnt=1` pending. Final Play Console answers remain manual. | high (disclosure + `dnt=1`); pending physical verify |
+| Vimeo | Embedded video player for Film Room / related lessons; shared via player for **app functionality**; public `/privacy` §6; embeds use `dnt=1`. **Physical iPhone PASS (2026-07-21)** — player URL included `dnt=1`, HTTP 200, config `dnt = 1`, playback worked in WKWebView. Not anonymous/cookie-free; Vimeo still processes necessary technical/playback data. Not classified here as Meta-style advertising tracking. Final Play Console answers remain manual. | **high** (disclosure + `dnt=1` + physical PASS) |
 | Meta | Pixel on **website/Safari only** (native suppressed; physical PASS 2026-07-21) | high |
 
 Sharing is for **service provision**, not selling personal information for SMS opt-in marketing lists (privacy policy stance). Website Meta Pixel is disclosed in `/privacy`; it is **not** present in the native iOS WebView after physical PASS.

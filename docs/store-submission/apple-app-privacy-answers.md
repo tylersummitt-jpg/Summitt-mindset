@@ -205,9 +205,9 @@ For each type: Collected / Shared / Linked to identity / Used for tracking / Req
 | Shared? | **Yes for app functionality / video playback** — when the embedded player loads, Vimeo may receive technical/device info, page or referrer context, video identifiers, cookies or similar identifiers, and playback/interaction info |
 | Tracking? | **Not classified as Meta-style cross-app advertising tracking** on this evidence alone. Vimeo is a third-party player for functionality; final ASC “tracking” answers remain **manual portal entry** |
 | Purpose | App Functionality (embedded video playback) |
-| Evidence | `/privacy` §6; `buildVimeoPlayerEmbedUrl` → `https://player.vimeo.com/video/{id}?dnt=1` on Film Room detail, coach how-it-works, challenge day |
-| Confidence | **high** for disclosure + `dnt=1` implementation; **pending** physical iPhone playback verification after `dnt=1` |
-| Note | `dnt=1` does **not** guarantee zero technical logging or zero essential storage by Vimeo |
+| Evidence | `/privacy` §6; `buildVimeoPlayerEmbedUrl` → `https://player.vimeo.com/video/{id}?dnt=1` on Film Room detail, coach how-it-works, challenge day. **Physical iPhone PASS (2026-07-21):** Safari Web Inspector showed player request `https://player.vimeo.com/video/1151027178?dnt=1` HTTP 200; Vimeo player config `dnt = 1`; Film Room list thumbnails-only; playback functional in WKWebView; no blank/Safari trap |
+| Confidence | **high** for disclosure + `dnt=1` implementation + physical playback PASS |
+| Note | `dnt=1` does **not** make playback anonymous or cookie-free; Vimeo still processes necessary technical and playback-related information |
 
 ---
 
@@ -239,6 +239,6 @@ Do **not** select **Third-Party Advertising** or **Developer’s Advertising** w
 |---|---|
 | Privacy policy lists Clerk, Supabase, Stripe, Twilio, Vercel, OpenAI | Aligned |
 | Privacy policy names Meta and describes website Meta Pixel | **Aligned (2026-07-21)** — public `/privacy` §5; native iOS excluded |
-| Privacy policy names Vimeo | **Aligned (2026-07-21)** — public `/privacy` §6; embeds use `dnt=1`; physical playback after `dnt=1` still pending |
+| Privacy policy names Vimeo | **Aligned (2026-07-21)** — public `/privacy` §6; embeds use `dnt=1`; physical iPhone playback PASS |
 | Privacy policy names Resend | Optional remaining disclosure (not a Vimeo/Meta blocker) |
 | Native PrivacyInfo empty collected types | **Likely under-declares website-collected product data — mobile PrivacyInfo update may be required before submission** (report-only; this task does not edit mobile) |

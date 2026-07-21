@@ -1820,3 +1820,37 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - Mobile repository not edited
 - Film Room content/entitlements/navigation not changed
 - Meta Pixel / auth / SMS / Stripe behavior not changed
+
+## SESSION 51 — 2026-07-21 — Physical Vimeo `dnt=1` playback PASS (docs)
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): documentation closeout for physical iPhone verification of hardened Vimeo embeds
+- Tasks completed (IDs): store-submission + master-plan + handoff updates; application code not edited; mobile repo not edited
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `efb5e95e7c38fc0bf2421a628c9933f2018010fe`
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Safari Web Inspector against the physical iPhone app: Film Room list loaded Vimeo thumbnail assets only; no Vimeo player iframe on the list.
+2. Opening a Film Room video loaded the Vimeo player successfully inside WKWebView.
+3. Player document request URL: `https://player.vimeo.com/video/1151027178?dnt=1` — HTTP **200**.
+4. Vimeo’s returned player configuration showed **`dnt = 1`**.
+5. Embedded video remained functional; no blank screen; no external Safari trap.
+6. Vimeo still processed necessary technical and playback-related information. **`dnt=1` is not anonymous, cookie-free, or zero-data.**
+7. Code posture (unchanged this session): centralized `buildVimeoPlayerEmbedUrl`; HTTPS + `dnt=1` on all user-facing embeds; no `autoplay=1`; iframe titles present; Film Room list thumbnails-only; `/privacy` names Vimeo; Apple/Google drafts describe functionality sharing (not Meta-style ad tracking).
+8. **Status:** Vimeo embed privacy hardening = COMPLETE; `dnt=1` implementation = COMPLETE; physical iPhone playback verification = **PASS**; centralized builder = COMPLETE; public Vimeo disclosure = COMPLETE. Vimeo is **no longer** an unresolved implementation/privacy blocker. Final ASC/Play questionnaire entry remains **manual**.
+
+### Explicit non-claims
+- Vimeo processes no data — **not claimed**
+- Anonymous / cookie-free playback — **not claimed**
+- Apple/Google portal approval — **not claimed**
+- Mobile repository / application code not edited in this documentation session
+- SESSION 50 historical “pending” language is **superseded** by this PASS record

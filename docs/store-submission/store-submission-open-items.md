@@ -77,9 +77,8 @@
 
 | Item | Why unresolved | Suggested resolution |
 |---|---|---|
-| Final portal privacy questionnaire entry (incl. Vimeo) | Must be clicked in ASC / Play | Use drafts; Vimeo disclosed as functionality sharing, not Meta-style ad tracking |
+| Final portal privacy questionnaire entry (incl. Vimeo) | Must be clicked in ASC / Play | Use drafts; Vimeo disclosed as functionality sharing, not Meta-style ad tracking; physical `dnt=1` playback PASS recorded |
 | OpenAI / Twilio / Stripe / Resend retention schedules | Provider dashboards | Optional counsel; deletion matrix documents EXTERNAL logs |
-| Physical iPhone Vimeo playback after `dnt=1` | Code embeds updated; not yet re-verified on device | Film Room + related lessons play in Safari Web Inspector / native WKWebView |
 | Clerk website Google OAuth exact dashboard toggles | Dashboard | Confirm before review notes if website Google mentioned |
 | At-rest encryption claims beyond provider defaults | Not custom app crypto | Stick to “encrypted in transit = Yes” |
 | Empty native PrivacyInfo vs WebView-collected product data | Policy/product | Separate mobile task if required |
@@ -104,4 +103,4 @@ This package does **not** claim:
 
 ## Recommended next single Tyler decision
 
-**Finalize store listing copy** (subtitle / category), then proceed to Apple enrollment when D-U-N-S arrives. Public Meta + Vimeo Privacy Policy disclosures and native Pixel PASS are complete; physical Vimeo playback after `dnt=1` remains pending.
+**Finalize store listing copy** (subtitle / category), then proceed to Apple enrollment when D-U-N-S arrives. Public Meta + Vimeo Privacy Policy disclosures, native Pixel PASS, and physical Vimeo `dnt=1` playback PASS are complete.
