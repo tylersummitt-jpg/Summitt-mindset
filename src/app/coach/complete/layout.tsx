@@ -3,6 +3,11 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { redirectIfOnboardingIncomplete } from "@/lib/onboarding-incomplete-redirect";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
+import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import {
+  inactiveMembershipRedirectPath,
+  signInPathForClient,
+} from "@/lib/native-app/membership-paths";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +20,12 @@ export default async function CoachCompleteLayout({
   children: ReactNode;
 }): Promise<ReactElement> {
   const user = await currentUser();
+  const isNativeIos = await isNativeSummittMindsetIosRequest();
 
   if (!user) {
-    redirect("/sign-in?redirect_url=/coach/complete");
+    redirect(
+      `${signInPathForClient(isNativeIos)}?redirect_url=${encodeURIComponent("/coach/complete")}`
+    );
   }
 
   const md = user.publicMetadata as Record<string, unknown> | undefined;
@@ -27,7 +35,11 @@ export default async function CoachCompleteLayout({
   }
 
   if (!isSubscribedFromPublicMetadata(md)) {
-    redirect("/subscribe?src=coach");
+    redirect(
+      isNativeIos
+        ? inactiveMembershipRedirectPath(true)
+        : "/subscribe?src=coach"
+    );
   }
 
   await redirectIfOnboardingIncomplete(user.id, md);

@@ -9,7 +9,15 @@ import {
   isCoachAttributionEnabled,
   shouldSyncCoachAttribution,
 } from "@/lib/coach-attribution";
-import { getOnboardingSobStatus, MEMBER_APP_HOME_PATH } from "@/lib/onboarding-sob-gates";
+import {
+  getOnboardingSobStatus,
+  MEMBER_APP_HOME_PATH,
+} from "@/lib/onboarding-sob-gates";
+import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import {
+  inactiveMembershipRedirectPath,
+  signInPathForClient,
+} from "@/lib/native-app/membership-paths";
 
 /**
  * ======================================================
@@ -19,7 +27,7 @@ import { getOnboardingSobStatus, MEMBER_APP_HOME_PATH } from "@/lib/onboarding-s
  * This is the single redirect truth after login.
  *
  * Order:
- * 1. Subscribe (if not subscribed)
+ * 1. Subscribe / app membership (if not subscribed)
  * 2. Onboarding (if incomplete)
  * 3. Victory Room (primary member home)
  *
@@ -40,9 +48,10 @@ function isSubscribedFromMetadata(md: Record<string, any>) {
 
 export default async function PostSignInPage() {
   const user = await currentUser();
+  const isNativeIos = await isNativeSummittMindsetIosRequest();
 
   if (!user) {
-    redirect("/sign-in");
+    redirect(signInPathForClient(isNativeIos));
   }
 
   const md = (user.publicMetadata || {}) as Record<string, any>;
@@ -50,7 +59,9 @@ export default async function PostSignInPage() {
 
   if (isCoachAttributionEnabled()) {
     const cookieStore = await cookies();
-    const attributionCookieValue = cookieStore.get(COACH_ATTRIBUTION_COOKIE_NAME)?.value;
+    const attributionCookieValue = cookieStore.get(
+      COACH_ATTRIBUTION_COOKIE_NAME
+    )?.value;
     const acquisitionSource = md?.acquisitionSource;
 
     const shouldSync = shouldSyncCoachAttribution({
@@ -87,6 +98,9 @@ export default async function PostSignInPage() {
   if (!isSubscribed) {
     if (effectiveMd?.summittPlan === "paused") {
       redirect("/user");
+    }
+    if (isNativeIos) {
+      redirect(inactiveMembershipRedirectPath(true));
     }
     redirect(
       effectiveMd.acquisitionSource === "coach"

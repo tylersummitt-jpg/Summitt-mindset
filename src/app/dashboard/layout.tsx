@@ -5,6 +5,11 @@ import { DashboardBackgroundFrame } from "@/app/dashboard/DashboardBackgroundFra
 import { PendingResolutionBanner } from "@/app/dashboard/pending-resolution-banner";
 import { resolveActionablePendingResolutionKindForDashboard } from "@/lib/v2-dashboard-pending-resolution";
 import { getOnboardingSobStatus } from "@/lib/onboarding-sob-gates";
+import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import {
+  inactiveMembershipRedirectPath,
+  signInPathForClient,
+} from "@/lib/native-app/membership-paths";
 
 /**
  * ======================================================
@@ -36,9 +41,10 @@ export default async function DashboardLayout({
   children: ReactNode;
 }) {
   const user = await currentUser();
+  const isNativeIos = await isNativeSummittMindsetIosRequest();
 
   if (!user) {
-    redirect("/sign-in");
+    redirect(signInPathForClient(isNativeIos));
   }
 
   const md = (user.publicMetadata || {}) as Record<string, any>;
@@ -47,7 +53,7 @@ export default async function DashboardLayout({
 
   // 🔒 HARD GATE — subscription required
   if (!isSubscribed) {
-    redirect("/subscribe");
+    redirect(inactiveMembershipRedirectPath(isNativeIos));
   }
 
   const onboardingCompleted = md?.onboardingCompleted === true;
@@ -61,7 +67,9 @@ export default async function DashboardLayout({
     redirect("/onboarding/identity");
   }
 
-  const pendingKind = await resolveActionablePendingResolutionKindForDashboard(user.id);
+  const pendingKind = await resolveActionablePendingResolutionKindForDashboard(
+    user.id
+  );
 
   return (
     <DashboardBackgroundFrame>

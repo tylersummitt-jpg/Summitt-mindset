@@ -3,7 +3,12 @@
 import { ReactNode, useEffect, Suspense, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useIsNativeSummittMindsetIos } from "@/components/native-app/NativeAppProvider";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
+import {
+  APP_MEMBERSHIP_PATH,
+  signInPathForClient,
+} from "@/lib/native-app/membership-paths";
 
 type SubscriptionGateProps = {
   children: ReactNode;
@@ -17,6 +22,7 @@ function SubscriptionGateInner({
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isNativeIos = useIsNativeSummittMindsetIos();
 
   const fromParam = searchParams?.get("from");
 
@@ -37,25 +43,16 @@ function SubscriptionGateInner({
 
     if (!isSignedIn) {
       const currentPath = window.location.pathname;
-
-      /**
-       * ======================================================
-       * IMPORTANT
-       * ======================================================
-       *
-       * We pass redirect_url so that if a user tries to access:
-       * /ask-pat
-       * /film-room
-       * etc.
-       *
-       * They return to that page after signing in.
-       *
-       * If no redirect_url is present, /post-sign-in will
-       * send them to Today by default.
-       */
-      router.push(`/sign-in?redirect_url=${encodeURIComponent(currentPath)}`);
+      const signInBase = signInPathForClient(isNativeIos);
+      if (isNativeIos) {
+        router.push(signInBase);
+      } else {
+        router.push(
+          `${signInBase}?redirect_url=${encodeURIComponent(currentPath)}`
+        );
+      }
     }
-  }, [isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn, isNativeIos, router]);
 
   // --- LOADING STATE ---
   if (!isLoaded) {
@@ -107,6 +104,27 @@ function SubscriptionGateInner({
 
   // --- NOT SUBSCRIBED ---
   if (!isSubscribed) {
+    if (isNativeIos) {
+      return (
+        <main className="flex min-h-screen flex-col items-center justify-center px-6">
+          <div className="max-w-lg w-full space-y-6 text-center">
+            <h1 className="text-3xl font-semibold">Membership required</h1>
+            <p className="text-sm text-gray-600">
+              Your account does not currently have an active Summitt Mindset
+              membership. Memberships are managed on the Summitt Mindset website.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push(APP_MEMBERSHIP_PATH)}
+              className="rounded-md bg-[var(--text)] px-6 py-3 font-semibold text-[var(--bg)]"
+            >
+              Continue
+            </button>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className="flex min-h-screen flex-col items-center justify-center px-6">
         <div className="max-w-lg w-full space-y-6 text-center">
@@ -137,6 +155,7 @@ function SubscriptionGateInner({
   }
 
   // ✅ SUBSCRIBED
+  void redirectAfterSubscribe;
   return <>{children}</>;
 }
 

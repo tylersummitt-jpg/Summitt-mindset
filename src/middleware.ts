@@ -8,6 +8,8 @@ import {
   isCoachAttributionEnabled,
   isCoachAttributionPath,
 } from "@/lib/coach-attribution";
+import { isNativeSummittMindsetIosUserAgent } from "@/lib/native-app/ua-token";
+import { signInPathForClient } from "@/lib/native-app/membership-paths";
 
 /**
  * ======================================================
@@ -112,7 +114,10 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
 
   if (!userId) {
-    const signInUrl = new URL("/sign-in", req.url);
+    const signInPath = signInPathForClient(
+      isNativeSummittMindsetIosUserAgent(req.headers.get("user-agent"))
+    );
+    const signInUrl = new URL(signInPath, req.url);
     const res = NextResponse.redirect(signInUrl);
     if (shouldSetCoachAttributionCookie) {
       res.cookies.set(COACH_ATTRIBUTION_COOKIE_NAME, COACH_ATTRIBUTION_COOKIE_VALUE_COACH, {

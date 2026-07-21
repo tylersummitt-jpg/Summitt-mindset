@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
+import { useIsNativeSummittMindsetIos } from "@/components/native-app/NativeAppProvider";
+import { APP_SIGN_IN_PATH } from "@/lib/app-sign-in/app-sign-in-constants";
+import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
 
 /**
  * ======================================================
@@ -42,6 +45,7 @@ export function Navbar() {
   const pathname = usePathname();
   const { user, isSignedIn } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const isNativeIos = useIsNativeSummittMindsetIos();
 
   const subscribedRaw = user?.publicMetadata?.summittSubscribed;
   const plan = user?.publicMetadata?.summittPlan as string | undefined;
@@ -63,10 +67,12 @@ export function Navbar() {
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  // Native-app sign-in surface: suppress website marketing chrome in WKWebView.
+  // Native-app dedicated surfaces: suppress website marketing chrome in WKWebView.
   if (
     pathname === "/app/sign-in" ||
-    (pathname?.startsWith("/app/sign-in/") ?? false)
+    (pathname?.startsWith("/app/sign-in/") ?? false) ||
+    pathname === APP_MEMBERSHIP_PATH ||
+    (pathname?.startsWith(`${APP_MEMBERSHIP_PATH}/`) ?? false)
   ) {
     return null;
   }
@@ -75,9 +81,11 @@ export function Navbar() {
     ? SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT
     : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
 
-  const signInHref = isCoachLeadershipKitPath(pathname)
-    ? SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT
-    : "/sign-in";
+  const signInHref = isNativeIos
+    ? APP_SIGN_IN_PATH
+    : isCoachLeadershipKitPath(pathname)
+      ? SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT
+      : "/sign-in";
 
   // --------------------------------------------------
   // PUBLIC NAV (logged out) — mirrors product structure
@@ -86,11 +94,15 @@ export function Navbar() {
     { href: "/", label: "Home", key: "home" },
     { href: "/ask-pat-preview", label: "Ask Pat", key: "ask-pat-preview" },
     { href: "/film-room-preview", label: "Film Room", key: "film-room-preview" },
-    {
-      href: startFreeTrialHref,
-      label: "Start Free Trial",
-      key: "start-trial",
-    },
+    ...(!isNativeIos
+      ? [
+          {
+            href: startFreeTrialHref,
+            label: "Start Free Trial",
+            key: "start-trial",
+          },
+        ]
+      : []),
     { href: signInHref, label: "Sign In", key: "sign-in" },
   ];
 
@@ -103,7 +115,7 @@ export function Navbar() {
     { href: "/ask-pat", label: "Ask Pat", key: "ask-pat" },
     { href: "/film-room", label: "Film Room", key: "film-room" },
     { href: "/user", label: "Account", key: "user" },
-    ...(!isSubscribed && !isPaused
+    ...(!isNativeIos && !isSubscribed && !isPaused
       ? [{ href: "/subscribe", label: "Subscribe", key: "subscribe" }]
       : []),
   ];

@@ -3,6 +3,8 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { OnboardingShellMain } from "@/components/onboarding-shell-main";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
+import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { inactiveMembershipRedirectPath } from "@/lib/native-app/membership-paths";
 
 /**
  * ======================================================
@@ -98,8 +100,10 @@ export default async function OnboardingLayout({
 
   if (!isSubscribed) {
     const mdSub = user.publicMetadata as Record<string, unknown> | undefined;
-    const subscribePath =
-      mdSub?.acquisitionSource === "coach"
+    const isNativeIos = await isNativeSummittMindsetIosRequest();
+    const subscribePath = isNativeIos
+      ? inactiveMembershipRedirectPath(true)
+      : mdSub?.acquisitionSource === "coach"
         ? "/subscribe?from=onboarding&src=coach"
         : "/subscribe?from=onboarding";
     logOnboardingLayoutEvent({

@@ -12,6 +12,11 @@ import {
   utWatchLink,
 } from "@/components/utility-page-visual";
 import { supabaseServer } from "@/lib/supabase-server";
+import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import {
+  inactiveMembershipRedirectPath,
+  signInPathForClient,
+} from "@/lib/native-app/membership-paths";
 
 function isSubscribedFromMetadata(md: Record<string, unknown>) {
   return (
@@ -44,11 +49,12 @@ const PROGRAM_ORDER = [
 export default async function FilmRoomPage() {
   // ✅ SERVER-SIDE MEMBERSHIP CHECK
   const user = await currentUser();
-  if (!user) redirect("/sign-in");
+  const isNativeIos = await isNativeSummittMindsetIosRequest();
+  if (!user) redirect(signInPathForClient(isNativeIos));
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
   if (!isSubscribedFromMetadata(md)) {
-    redirect("/subscribe");
+    redirect(inactiveMembershipRedirectPath(isNativeIos));
   }
 
   // ✅ Load videos

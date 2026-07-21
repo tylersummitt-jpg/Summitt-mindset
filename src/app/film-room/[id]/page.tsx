@@ -7,6 +7,11 @@ import {
   utPageTitle,
 } from "@/components/utility-page-visual";
 import { supabaseServer } from "@/lib/supabase-server";
+import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import {
+  inactiveMembershipRedirectPath,
+  signInPathForClient,
+} from "@/lib/native-app/membership-paths";
 
 function isSubscribedFromMetadata(md: Record<string, unknown>) {
   return (
@@ -23,13 +28,14 @@ export default async function FilmRoomVideoPage({
   params: Promise<{ id: string }>;
 }) {
   const user = await currentUser();
+  const isNativeIos = await isNativeSummittMindsetIosRequest();
   if (!user) {
-    redirect("/sign-in");
+    redirect(signInPathForClient(isNativeIos));
   }
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
   if (!isSubscribedFromMetadata(md)) {
-    redirect("/subscribe");
+    redirect(inactiveMembershipRedirectPath(isNativeIos));
   }
 
   const { id } = await params;

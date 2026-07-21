@@ -18,6 +18,7 @@ import {
 
 type Props = {
   isSubscribed: boolean;
+  isNativeSummittMindsetIos?: boolean;
   firstName: string;
 };
 
@@ -33,7 +34,10 @@ type AskPatResponse =
       limitPerDay?: number;
     };
 
-export default function AskPatClient({ isSubscribed }: Props) {
+export default function AskPatClient({
+  isSubscribed,
+  isNativeSummittMindsetIos = false,
+}: Props) {
   const router = useRouter();
 
   const [question, setQuestion] = useState("");
@@ -45,10 +49,38 @@ export default function AskPatClient({ isSubscribed }: Props) {
     router.push("/subscribe?from=ask-pat");
   }
 
+  function handleMembershipInfo() {
+    router.push("/app/membership");
+  }
+
   // ======================================================
   // 🔶 NOT SUBSCRIBED VIEW
   // ======================================================
   if (!isSubscribed) {
+    if (isNativeSummittMindsetIos) {
+      return (
+        <main className={utPageCanvas}>
+          <div className={`${utPageInnerAskPat} space-y-8`}>
+            <section>
+              <h1 className={`${utHeroTitle} mb-4`}>Ask Pat</h1>
+              <p className={`${utBody} mb-6`}>
+                Ask Pat is available to members with an active Summitt Mindset
+                membership. Memberships are managed on the Summitt Mindset
+                website.
+              </p>
+              <button
+                type="button"
+                onClick={handleMembershipInfo}
+                className={utPrimaryBtn}
+              >
+                Membership info
+              </button>
+            </section>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main className={utPageCanvas}>
         <div className={`${utPageInnerAskPat} space-y-8`}>

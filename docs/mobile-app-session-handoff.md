@@ -1370,3 +1370,38 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - Physical-device proof of `/app/sign-in` inside the native shell not claimed
 - Sign in with Apple not added
 - Google not globally disabled
+
+## SESSION 38 — 2026-07-21 — Native iOS membership gate + Checkout suppression (website)
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): native iOS membership gate / Stripe Checkout suppression (website)
+- Tasks completed (IDs): website detection + `/app/membership` + Checkout 403 + CTA suppression
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `49461363261a5678feb97666f8ec03af67e1db32`
+- Mobile path: `/Users/tylersummitt/Desktop/summitt-mindset-mobile` (**not edited**)
+- Mobile HEAD verified: `0474753dbd2b950b396cfc3df09fc12d7b6415fb` (UA token `SummittMindsetiOS` present)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Native app detected server-side via exact User-Agent token `SummittMindsetiOS` (case-sensitive substring).
+2. Inactive/unsubscribed native users → neutral `/app/membership` (no price/trial/Subscribe/Checkout).
+3. Native requests to `/subscribe` redirect to `/app/membership`.
+4. `POST /api/stripe/create-checkout-session` returns 403 `native_app_checkout_unavailable` for native UA before Stripe is called.
+5. Browser `/subscribe`, pricing, trial, and Checkout remain unchanged.
+6. Existing account management preserved (`/user`, cancel/pause, resume existing subscription — not Checkout).
+7. Paused native users can Resume Membership on `/app/membership` (existing Stripe resume API).
+8. Native IAP still not added.
+9. **Physical-device verification remains required.**
+
+### Explicit non-claims
+- Physical-device proof of gate/Checkout block not claimed
+- IAP not added
+- Public account deletion not enabled
+- Mobile repo not modified in this session

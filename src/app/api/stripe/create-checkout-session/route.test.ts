@@ -176,6 +176,28 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(createSessionMock).not.toHaveBeenCalled();
   });
 
+  it("rejects native iOS User-Agent before calling Stripe", async () => {
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent":
+            "Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 SummittMindsetiOS",
+        },
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "native_app_checkout_unavailable",
+    });
+    expect(authMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(retrieveMock).not.toHaveBeenCalled();
+  });
+
   it("Path A: active → already_subscribed", async () => {
     getClerkPublicMetadataMock.mockResolvedValue({
       stripeCustomerId: "cus_1",

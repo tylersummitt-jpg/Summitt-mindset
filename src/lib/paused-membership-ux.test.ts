@@ -10,7 +10,7 @@ function read(rel: string): string {
 
 describe("paused membership UX wiring (source)", () => {
   it("account shows Resume and hides manage/cancel while paused", () => {
-    const page = read("src/app/user/[[...user]]/page.tsx");
+    const page = read("src/app/user/[[...user]]/user-account-client.tsx");
     expect(page).toContain("ResumeMembershipButton");
     expect(page).toContain(
       "Your membership is paused. Resume to continue on your existing plan."
@@ -46,7 +46,7 @@ describe("paused membership UX wiring (source)", () => {
   it("navbar hides Subscribe for paused users", () => {
     const nav = read("src/components/Navbar.tsx");
     expect(nav).toContain("const isPaused = plan === \"paused\"");
-    expect(nav).toContain("!isSubscribed && !isPaused");
+    expect(nav).toContain("!isNativeIos && !isSubscribed && !isPaused");
   });
 
   it("home page shows Phase 2 monthly pricing copy", () => {
