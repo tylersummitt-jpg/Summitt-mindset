@@ -17,7 +17,7 @@
 | Tracking domains | Native: none from Meta Pixel. Website: Meta/Facebook when Pixel enabled | high | — |
 | Privacy Nutrition Label “Used for Tracking” | Do **not** attribute Meta Pixel tracking to the **iOS app**. Website advertising measurement still exists outside the app. | high (Pixel) | Do not claim “no data collected” |
 
-**Do not claim the product collects no data.** Website Meta disclosure remains necessary for Safari users.
+**Do not claim the product collects no data.** Public Privacy Policy (`/privacy`) now names Meta and describes website Meta Pixel behavior; native iOS remains Pixel-free.
 
 ---
 
@@ -226,7 +226,7 @@ Do **not** select **Third-Party Advertising** or **Developer’s Advertising** w
 
 - Privacy Policy: `https://summittmindset.com/privacy`
 - Data Deletion: `https://summittmindset.com/data-deletion`
-- User Privacy Choices URL: omit until dedicated page exists (**unresolved** if Pixel requires additional disclosure — privacy policy currently does **not** name Meta/Vimeo/Resend; flagged in open items)
+- User Privacy Choices URL: optional; browser cookie / Meta ad-preference guidance is in Privacy Policy §8. Dedicated choices URL still optional.
 
 ---
 
@@ -235,5 +235,6 @@ Do **not** select **Third-Party Advertising** or **Developer’s Advertising** w
 | Topic | Status |
 |---|---|
 | Privacy policy lists Clerk, Supabase, Stripe, Twilio, Vercel, OpenAI | Aligned |
-| Privacy policy names Meta Pixel / Vimeo / Resend | **Gap — needs Tyler/counsel decision before relying on “complete disclosure”** |
-| Native PrivacyInfo empty collected types | **Likely under-declares website-collected data — mobile PrivacyInfo update may be required before submission** (report-only; this task does not edit mobile) |
+| Privacy policy names Meta and describes website Meta Pixel | **Aligned (2026-07-21)** — public `/privacy` §5; native iOS excluded |
+| Privacy policy names Vimeo / Resend | Optional remaining disclosure (not Meta blockers) |
+| Native PrivacyInfo empty collected types | **Likely under-declares website-collected product data — mobile PrivacyInfo update may be required before submission** (report-only; this task does not edit mobile) |

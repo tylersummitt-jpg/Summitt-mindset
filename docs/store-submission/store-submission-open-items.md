@@ -23,6 +23,7 @@
   - Support display: `Support@SummittMindset.com`
 - Product facts grounded in implementation: email-code app auth; native purchase suppression; in-app deletion proven; no native IAP; no ATT/ad SDK in native binary
 - **Native Meta Pixel suppression COMPLETE / physical PASS (2026-07-21):** zero facebook/fbevents/connect.facebook network rows; `typeof window.fbq === "undefined"` on Victory Room and in-app `/`. Website Pixel remains when configured. Pixel is **not** an unresolved native store-submission item.
+- **Public Privacy Policy Meta disclosure COMPLETE (2026-07-21):** `/privacy` names Meta Platforms, Inc., describes website Pixel purposes/data classes, states no intentional advanced matching of email/phone/name, and states Meta Pixel is not loaded in the iOS app. Website Meta disclosure is **no longer an open blocker**.
 
 ---
 
@@ -51,7 +52,7 @@
 | Item | Notes |
 |---|---|
 | Final age-rating number | Generated after questionnaire in ASC / IARC |
-| Final privacy nutrition labels / Data Safety submit | Must click through portals |
+| Final privacy nutrition labels / Data Safety submit | Must click through portals (manual entry still required) |
 | App Store Connect app record | Needs enrollment |
 | Play Console app record | Needs Android + Play account |
 | Export compliance final radio buttons | Confirm at binary upload |
@@ -65,7 +66,7 @@
 3. **Promotional / keyword final language**
 4. **Review support contact** phone/email for ASC
 5. **Target age posture** (confirm 18+)
-6. **Whether to update privacy policy** to name Meta / Vimeo / Resend before submit (**website Meta disclosure still needed**; native Pixel PASS does not remove website disclosure)
+6. **Whether to also name Vimeo / Resend** in privacy policy (optional; Meta disclosure done)
 7. **Whether mobile `PrivacyInfo.xcprivacy` must be expanded** to declare website-collected product data types before iOS submit (separate authorized mobile task if needed)
 8. **Support URL** choice (Data Deletion page vs future `/support`)
 9. **iPhone-only vs Universal** screenshot/device set
@@ -78,7 +79,7 @@
 |---|---|---|
 | Final portal privacy questionnaire entry | Must be clicked in ASC / Play | Use drafts; review other providers |
 | OpenAI / Twilio / Stripe / Resend retention schedules | Provider dashboards | Optional counsel; deletion matrix documents EXTERNAL logs |
-| Vimeo player cookies / tech data | Third-party player | Disclose embed; optional policy update |
+| Vimeo player cookies / tech data | Third-party player | Optional policy naming; disclose embed |
 | Clerk website Google OAuth exact dashboard toggles | Dashboard | Confirm before review notes if website Google mentioned |
 | At-rest encryption claims beyond provider defaults | Not custom app crypto | Stick to “encrypted in transit = Yes” |
 | Empty native PrivacyInfo vs WebView-collected product data | Policy/product | Separate mobile task if required |
@@ -103,4 +104,4 @@ This package does **not** claim:
 
 ## Recommended next single Tyler decision
 
-**Finalize store listing copy** (subtitle / category) or **privacy-policy Meta disclosure for the website**, then proceed to Apple enrollment when D-U-N-S arrives. Native Meta Pixel is no longer blocking.
+**Finalize store listing copy** (subtitle / category), then proceed to Apple enrollment when D-U-N-S arrives. Public Meta Privacy Policy disclosure and native Pixel PASS are complete.

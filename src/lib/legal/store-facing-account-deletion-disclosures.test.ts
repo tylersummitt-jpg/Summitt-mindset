@@ -83,7 +83,7 @@ describe("store-facing account deletion disclosures", () => {
     );
   });
 
-  it("privacy policy covers deletion, retention, providers, and contact", () => {
+  it("privacy policy covers deletion, retention, providers, Meta Pixel, and contact", () => {
     const privacy = readSrc("src/app/privacy/page.tsx");
 
     expect(ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE).toBe("July 21, 2026");
@@ -98,12 +98,20 @@ describe("store-facing account deletion disclosures", () => {
     expect(privacy).toContain("Twilio");
     expect(privacy).toContain("Vercel");
     expect(privacy).toContain("OpenAI");
+    expect(privacy).toMatch(/Meta Platforms, Inc\.|Meta Pixel/);
+    expect(privacy).toMatch(/website analytics|marketing performance/i);
+    expect(privacy).toMatch(/cookies or similar identifiers/i);
+    expect(privacy).toMatch(/not loaded in the Summitt Mindset iOS app/i);
+    expect(privacy).toMatch(/advanced matching/i);
     expect(privacy).toMatch(/do not sell personal information/i);
     expect(privacy).toContain("STOP");
     expect(privacy).toContain('href="/data-deletion"');
     expect(privacy).toContain("ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY");
     expect(privacy).not.toMatch(/OpenAI trains on/i);
     expect(privacy).not.toMatch(/being finalized for public availability/i);
+    expect(privacy).not.toMatch(/Meta receives no personal data/i);
+    expect(privacy).not.toMatch(/GDPR compliant|CCPA compliant/i);
+    expect(privacy).not.toMatch(/Apple approved|Google approved/i);
   });
 
   it("terms distinguish cancellation from deletion without inventing refunds", () => {

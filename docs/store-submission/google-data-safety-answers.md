@@ -140,7 +140,7 @@
 | Shared? | Yes with Meta **on the website** when enabled; **not via native WebView** |
 | Purposes | Website marketing analytics / advertising measurement (browser only) |
 | Confidence | **high** |
-| Action | Website privacy policy should still disclose Meta for Safari users; native Data Safety does **not** declare Meta Pixel advertising sharing in-app |
+| Action | Public Privacy Policy (`/privacy`) names Meta and describes website Pixel; native Data Safety does **not** declare Meta Pixel advertising sharing in-app |
 
 Sharing note: native advertising/analytics sharing **through Meta Pixel is not present in-app**.
 
@@ -169,7 +169,7 @@ Sharing note: native advertising/analytics sharing **through Meta Pixel is not p
 | Vimeo | Embedded video player | high (embed); unresolved player cookies |
 | Meta | Pixel on **website/Safari only** (native suppressed; physical PASS 2026-07-21) | high |
 
-Sharing is for **service provision**, not selling personal information for SMS opt-in marketing lists (privacy policy stance). Website Meta Pixel advertising measurement remains a website disclosure topic; it is **not** present in the native iOS WebView after physical PASS.
+Sharing is for **service provision**, not selling personal information for SMS opt-in marketing lists (privacy policy stance). Website Meta Pixel is disclosed in `/privacy`; it is **not** present in the native iOS WebView after physical PASS.
 
 ---
 

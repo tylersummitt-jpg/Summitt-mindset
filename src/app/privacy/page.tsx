@@ -74,6 +74,16 @@ export default function PrivacyPage() {
             — limited device/browser or usage signals needed to operate and
             secure the service, and messages you send to support.
           </li>
+          <li>
+            <strong className="font-medium text-[var(--text)]">
+              Website analytics and marketing measurement
+            </strong>
+            — on the normal Summitt Mindset website (browser), we may use Meta
+            Pixel and related tools to measure page views, selected marketing
+            interactions, and advertising performance. See section 5. This does
+            not apply inside the Summitt Mindset iOS app, where Meta Pixel is not
+            loaded.
+          </li>
         </ul>
       </section>
 
@@ -91,6 +101,11 @@ export default function PrivacyPage() {
           <li>Operate AI-assisted coaching features where enabled</li>
           <li>Respond to support requests and protect against abuse or fraud</li>
           <li>Meet legal, tax, dispute, and compliance obligations</li>
+          <li>
+            On the website, measure usage and marketing performance and evaluate
+            selected marketing funnel actions to improve advertising
+            effectiveness (including via Meta Pixel where configured)
+          </li>
         </ul>
       </section>
 
@@ -132,6 +147,11 @@ export default function PrivacyPage() {
             OpenAI — AI processing used to generate or support coaching-related
             content where those features are enabled
           </li>
+          <li>
+            Meta Platforms, Inc. (Meta) — website analytics and marketing
+            measurement via Meta Pixel on the normal website (browser), where
+            configured. Meta Pixel is not loaded in the Summitt Mindset iOS app.
+          </li>
         </ul>
         <p className="text-base leading-7 text-[var(--muted)]">
           These providers process information only as needed to provide their
@@ -147,7 +167,48 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">5. Account deletion</h2>
+        <h2 className="text-xl font-semibold">
+          5. Website analytics and Meta Pixel
+        </h2>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          On the normal Summitt Mindset website viewed in a browser, we may use
+          Meta Pixel (a technology provided by Meta Platforms, Inc.) when it is
+          configured for our site. We use it to help measure website usage,
+          understand marketing performance, evaluate selected marketing funnel
+          actions, and improve advertising effectiveness.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          When Meta Pixel runs, Meta may receive browser, device, and interaction
+          information such as IP address, browser or device information,
+          cookies or similar identifiers, page URLs, page views, and selected
+          interaction or event data. This is not an exhaustive list; Meta’s
+          script may also process technical information according to Meta’s own
+          practices.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          Summitt Mindset does not intentionally provide Meta Pixel with
+          journal entries, Ask Pat conversations, goals, SMS message content,
+          payment card numbers, or email address, phone number, or name through
+          advanced matching. Page-view measurement on our site is limited to
+          selected marketing routes; we do not enable Meta Pixel for the
+          Summitt Mindset iOS app experience.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          Meta Pixel is not loaded in the Summitt Mindset iOS app. Opening
+          Summitt Mindset in the iOS app does not initialize Meta Pixel for that
+          in-app experience. The normal website in a browser may still use Meta
+          Pixel when configured.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          We do not operate a separate server-side Meta Conversions API as part
+          of the product described here. Meta remains a third party involved in
+          website analytics and marketing measurement; its use of information is
+          also governed by Meta’s own terms and policies.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">6. Account deletion</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           You may request permanent deletion of your Summitt Mindset account.
           Deletion is separate from canceling membership. Canceling membership
@@ -183,7 +244,7 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">6. Limited retained records</h2>
+        <h2 className="text-xl font-semibold">7. Limited retained records</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           We do not claim that all data is instantly or universally erased. After
           deletion, limited records may be retained when required for:
@@ -199,7 +260,7 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">7. Your choices</h2>
+        <h2 className="text-xl font-semibold">8. Your choices</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           You may update account preferences in the product where available,
           manage SMS consent with STOP/HELP/START as described above, cancel
@@ -217,10 +278,18 @@ export default function PrivacyPage() {
           </a>
           .
         </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          For website analytics and advertising technologies such as Meta Pixel,
+          you may also use browser controls—for example adjusting cookie
+          settings, clearing cookies, or using private browsing—and, where
+          available, Meta’s ad-preference or related controls. These steps may
+          limit some measurement; they do not guarantee that all tracking or
+          third-party processing is blocked in every browser or configuration.
+        </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">8. Contact</h2>
+        <h2 className="text-xl font-semibold">9. Contact</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           <a
             href={ACCOUNT_DELETION_SUPPORT_EMAIL_HREF}

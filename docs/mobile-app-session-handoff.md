@@ -1755,3 +1755,35 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - No tracking anywhere on the website not claimed
 - Final legal advice not claimed
 - Website and mobile application code not edited in this documentation session
+
+## SESSION 49 — 2026-07-21 — Privacy Policy Meta website disclosure
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): align public Privacy Policy with website Meta Pixel behavior
+- Tasks completed (IDs): `/privacy` Meta disclosure + focused tests + store-submission / master-plan updates; Meta Pixel loading behavior unchanged; mobile repo not edited
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `cef878901d3e689902984f30ad01c2c23a1e4eea` (Record native meta pixel supression pass)
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Public Privacy Policy now names Meta Platforms, Inc. and describes website Meta Pixel purposes (usage measurement, marketing performance, funnel actions, advertising effectiveness).
+2. Conservative data classes disclosed (IP, browser/device, cookies/similar IDs, page URLs, page views, selected events); not claimed exhaustive.
+3. States Summitt Mindset does not intentionally provide journals, Ask Pat, goals, SMS content, PANs, or email/phone/name via advanced matching to Meta Pixel.
+4. States Meta Pixel is not loaded in the Summitt Mindset iOS app; website browser Pixel remains when configured.
+5. Browser-level choices disclosed without promising total blocking or inventing a CMP.
+6. Existing Clerk/Supabase/Stripe/Twilio/Vercel/OpenAI, deletion, retention, no-sale, and support disclosures preserved.
+7. Website Meta disclosure is **no longer an open blocker**; final portal privacy answers still need manual entry. Do not claim Apple/Google approval.
+
+### Explicit non-claims
+- Meta Pixel loading / native suppression behavior not changed in this session beyond policy copy
+- “No data collected” / GDPR/CCPA/Apple/Google approval not claimed
+- Mobile repository not edited
+- Vercel environment variables not changed
