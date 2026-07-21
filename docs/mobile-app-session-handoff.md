@@ -1541,3 +1541,39 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - Physical public-path deletion E2E not claimed
 - Mobile repo not edited
 - Backend pipeline not rebuilt
+
+## SESSION 43 — 2026-07-21 — Public in-app deletion E2E PASS (docs)
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): documentation closeout for public production in-app deletion E2E PASS
+- Tasks completed (IDs): master plan v1.5.15 + SESSION 43 + purge-matrix reconciliation; no application code edited
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `3918c53f9fc28d33e3596ab135734e5f1368523b`
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded (physical iPhone, 2026-07-21)
+1. Disposable newly created inactive account deleted via `/app/membership` → Membership required → readable Danger Zone → Delete account → consequences → Clerk re-verification → exact typed `DELETE` → `POST /api/account/delete`.
+2. Production gates enabled: `ACCOUNT_DELETION_INITIATION_ENABLED=true`, `ACCOUNT_DELETION_SCHEDULER_ENABLED=true`.
+3. Scheduler completed the proven pipeline. Final admin state: `completed`/`completed`; attempts 4; lease free; discoverable no; consistency ok; no error code; IN PROGRESS 0; DISCOVERABLE 0; completed count increased.
+4. Inactive-account stage outcomes (valid): sms `already_absent`; stripe `skipped`; purge `already_absent`; clerk `succeeded`.
+5. Prior controlled E2E (2026-07-20) remains authoritative for subscribed/trial path with live Stripe trial, SMS, real Supabase data, SMS suppress, Stripe cancel, purge, Clerk last.
+6. Together: subscribed/trial path + inactive native path proven; deletion does not require subscribing; public discoverability works; idempotent already-absent/skipped safe; Clerk deletion succeeds; production deletion publicly enabled for store submission.
+7. **Account deletion is no longer a store-submission blocker.**
+
+### Status language superseded (historical sessions remain)
+- SESSION 42 “env gates remain OFF / do not claim public activation PASS” is **superseded** by this SESSION 43 PASS record.
+- Current critical path advances to Apple Developer enrollment (D-U-N-S), external-link review, store metadata, icon/splash, TestFlight.
+
+### Explicit non-claims
+- Apple Developer enrollment / App Store Connect app / TestFlight / App Review not claimed
+- App icon / launch screen not complete
+- Android / Google Play not started
+- Website and mobile application code not edited in this documentation session

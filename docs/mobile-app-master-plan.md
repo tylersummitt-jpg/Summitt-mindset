@@ -1,5 +1,5 @@
 # SUMMITT MINDSET — MOBILE APP MASTER PLAN
-*Project-control document. Version 1.5.14. Created 2026-07-17. Read-only-audit basis. v1.1–v1.5.13 history retained in prior revisions. **v1.5.14 (2026-07-21) — code-side public deletion discoverability:** `ACCOUNT_DELETION_PUBLIC_IN_APP_AVAILABLE = true`; `/user` + `/app/membership` reuse proven `AccountDeletionDangerZone`; backend unchanged; **production env gates not enabled by this change**; physical public-path E2E still required. **v1.5.13 (2026-07-21):** physical Create account + membership-gate PASS; mobile `522a3a9…` Debug inspector. **v1.5.12 (2026-07-20):** APP-021/022/041 E2E PASS; public env activation still later.*
+*Project-control document. Version 1.5.15. Created 2026-07-17. Read-only-audit basis. v1.1–v1.5.14 history retained in prior revisions. **v1.5.15 (2026-07-21) — public in-app deletion E2E PASS:** production gates enabled; physical inactive `/app/membership` deletion PASS; prior subscribed/trial controlled E2E PASS retained; deletion no longer a store-submission blocker. **v1.5.14:** code-side discoverability. **v1.5.13:** Create account + membership-gate PASS. **v1.5.12:** APP-021/022 + controlled backend E2E.*
 
 ---
 
@@ -7,19 +7,19 @@
 
 | Field | Value |
 |---|---|
-| Plan version | 1.5.14 |
+| Plan version | 1.5.15 |
 | Last verified date | 2026-07-21 |
-| Current phase | **APP-041 public activation path** — code-side discoverability implemented (`/user` + `/app/membership`); **production initiation/scheduler env gates still OFF** until explicit enablement + physical disposable-account E2E. Auth + membership gate physically PASS. Apple portal / icon / TestFlight still open. Android deferred. |
-| Current assigned task IDs | APP-041 (enable production env gates after deploy review + physical public-path E2E), APP-049+ (Apple Developer / App Store Connect), APP-046–048 (icon/splash when assets ready), APP-015, APP-040, APP-042, APP-065, APP-066 |
-| Last completed task IDs | Code-side public deletion discoverability (`ACCOUNT_DELETION_PUBLIC_IN_APP_AVAILABLE=true`; membership + Account Danger Zone); physical `/app/sign-in` Create account + CAPTCHA + membership-gate PASS (2026-07-21); APP-041 controlled E2E PASS (2026-07-20); APP-022; APP-021 |
-| Current blocker | **Production deletion env gates not yet enabled** (`ACCOUNT_DELETION_INITIATION_ENABLED` + `ACCOUNT_DELETION_SCHEDULER_ENABLED`). After deploy: enable gates → physical disposable new-account public-path deletion E2E. Also open: Apple portal identity; Brooke icon/splash; APP-065. |
+| Current phase | **Store / portal path** — public in-app account deletion **COMPLETE / production-proven** (2026-07-21). Auth + membership gate physically PASS. Apple Developer enrollment waiting on **D-U-N-S**. Icon/splash open (Brooke). TestFlight open. Android deferred. |
+| Current assigned task IDs | APP-049+ (Apple Developer when D-U-N-S available / App Store Connect), APP-046–048 (icon/splash/screenshots when assets ready), APP-015 (external-link review), APP-040, APP-042, APP-065, APP-066 |
+| Last completed task IDs | **Public in-app deletion E2E PASS (2026-07-21)** inactive `/app/membership` path; production `ACCOUNT_DELETION_INITIATION_ENABLED` + `ACCOUNT_DELETION_SCHEDULER_ENABLED` enabled; light Danger Zone readability; code-side discoverability; Create account + CAPTCHA + membership-gate PASS; APP-041 controlled subscribed/trial E2E PASS (2026-07-20); APP-022; APP-021 |
+| Current blocker | **Apple Developer organization enrollment waiting on D-U-N-S.** Also open: Brooke icon/splash; external-link review; store metadata / TestFlight. **Account deletion is no longer a store-submission blocker.** APP-065 elapsed-time proof parallel. Android unstarted. |
 | Production shell architecture | **Candidate A2 FORMALLY ACCEPTED for V1 iOS-first** (APP-021 COMPLETE / DEC-020 CLOSED for iOS). Separate Capacitor mobile repo; custom Swift `LiveShellViewController`; one persistent native `WKWebView`; live production site; **no `server.url`**; website remains product/source of truth. Candidate B remains fallback only if a later blocker appears. **Android not validated** and not yet in the mobile repo. Production use of Capacitor `server.url` remains **prohibited**. **Debug-only** Safari Web Inspector (`#if DEBUG` / `isInspectable`) recorded at mobile `522a3a9…`; **Release builds remain non-inspectable**. |
 | Production mobile identity | **Recorded (mobile repo `5aba6f2333eec0c28b97a6659eb867241cb797ff`, 2026-07-20):** display name **Summitt Mindset**; Apple bundle ID **com.summittmindset.app**; intended future Android package ID **com.summittmindset.app**. Temporary POC identity removed from active configuration. **Mobile HEAD with create-account PASS docs + Debug inspector:** `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`. **Not claimed:** Apple App ID / App Store Connect record / Google Play app / package already reserved in a portal. |
 | V1 login posture | **DECIDED (DEC-018 ACTIVE) + physically PASS (2026-07-21):** app-only first-party **email verification-code** Sign in + Create account on `/app/sign-in` (same Clerk instance; `clerk-captcha` mount). Google and Sign in with Apple **absent** in app; website Google unchanged. Production Clerk **password-required signup disabled** for this path. New accounts get **no** membership entitlement → `/post-sign-in` → **/app/membership** (no price/trial/Subscribe/Checkout). Existing subscribed users still reach Victory Room. Native Checkout remains blocked. **Sign in with Apple not required for V1.** |
 | Session-lifetime standard | **Production Clerk Dashboard configured:** maximum lifetime **ENABLED at 180 days**; inactivity timeout **DISABLED** (DEC-022; APP-062–064 COMPLETE). **Not permanent / not indefinite.** Website application code never enforced a 7-day limit. Short-cycle force-close/reopen after the change **PASS**. **Multi-month / full 180-day elapsed persistence is NOT proven** — that is **APP-065 (IN PROGRESS)**. Client Trust formal requirements remain with APP-066. |
 | Mobile repository | Separate repo `summitt-mindset-mobile` — **exists**; Stage 1 POC PASS; production iOS identity at `5aba6f2…`; create-account PASS + Debug inspector at **`522a3a9294bbf080dc6e070ff6fdfbf0cd382185`**. This document lives in the website/SMS repo. Do not edit the mobile repo from website-doc tasks. **No Android project yet.** |
-| Account deletion | **Backend production-proven** (controlled E2E PASS 2026-07-20). **Code-side public discoverability implemented** (Account Danger Zone + Membership required Delete account; `/data-deletion` active copy). **Destructive API remains fail-closed** until both production env flags are exactly `"true"`. **Do not claim public activation PASS** until env enablement + physical disposable-account test. |
-| Exact next task | **1)** Review/commit/deploy this discoverability slice. **2)** Enable Vercel `ACCOUNT_DELETION_INITIATION_ENABLED=true` and `ACCOUNT_DELETION_SCHEDULER_ENABLED=true` only after review. **3)** Physical public-path deletion E2E on a **disposable new account** (Membership required → Delete account). **4)** Apple Developer / App Store Connect. **5)** Icon/splash when Brooke finishes. **6)** TestFlight → public deletion already on before App Review. **7)** Android later. Parallel: APP-065. Do **not** add IAP. Do **not** add Sign in with Apple for V1. |
+| Account deletion | **COMPLETE / production-proven for public in-app use (2026-07-21).** Two-path evidence: (1) controlled subscribed/trial disposable E2E PASS 2026-07-20 (SMS → Stripe cancel → purge → Clerk last); (2) physical inactive new-account `/app/membership` public-path PASS 2026-07-21 (readable Danger Zone → re-verify → typed DELETE → scheduler → Clerk succeeded; sms/stripe/purge already_absent/skipped valid). Production gates **enabled**: `ACCOUNT_DELETION_INITIATION_ENABLED=true`, `ACCOUNT_DELETION_SCHEDULER_ENABLED=true`. Public `/data-deletion` available. Deletion does **not** require subscribing. **No longer a store-submission blocker.** |
+| Exact next task | **1)** Apple Developer organization enrollment when **D-U-N-S** is available (APP-049+). **2)** Remaining external-link review (APP-015). **3)** Store metadata, privacy answers, review credentials. **4)** Icon + launch assets when Brooke finishes (APP-046–047). **5)** App Store Connect record, signing, archive, TestFlight (APP-050). **6)** Android + Play Console after iOS stabilizes. Parallel: **APP-065**, **APP-066**. Do **not** add IAP. Do **not** add Sign in with Apple for V1. |
 
 > **How to use this document:** This is the single durable control document for the mobile-app project. It is designed so a brand-new ChatGPT conversation or a fresh Cursor session can resume with zero prior context. Read this file plus `docs/mobile-app-session-handoff.md` before doing anything. Never mark a task COMPLETE without recorded evidence. Move every scope addition to the parking lot (§12). Do not touch the SMS system. The production mobile shell lives in a **separate repository** (`summitt-mindset-mobile`); every task must confirm repository identity before editing (see DEC-013–DEC-017).
 
@@ -76,7 +76,7 @@
 - Core reused surfaces load and function: **Victory Room (primary), Ask Pat, Film Room/Vimeo, Account** (`/user`).
 - **No in-app selling in V1.** V1 does **not** show the Stripe checkout inside the app. Existing web subscribers access their membership normally; unsubscribed users receive a **neutral inactive-membership state** (no purchase UI). *(APP-004 finding; do not rely on reader-app classification; external-purchase language is storefront-dependent and must be re-verified before submission.)*
 - **App-only first-party email authentication (DECIDED — DEC-018 ACTIVE).** The app shows Clerk **email verification code** (password optional) on the **same** Clerk production instance and **does not** show Google/social. The **website keeps Google unchanged**. Because the app offers no social login, **Sign in with Apple is not required in V1** (Apple 4.8 not triggered). Existing Google-origin users sign in with the **same verified email + a one-time code**, resolving to the **same existing Clerk identity** (**APP-010 / APP-069 COMPLETE** — Tyler privately verified; no private identifiers committed). Never create a second Clerk instance, never a separate user pool, never globally disable Google.
-- **In-app account deletion action** (moved into Required for V1 per APP-005). Apple 5.1.1(v) requires an in-app deletion path when the app supports account creation, and Google requires both an in-app path and an external web resource. **APP-041 backend is built and production-proven** (controlled disposable-account E2E PASS 2026-07-20 — SMS suppress → Stripe trial cancel → Supabase purge → Clerk delete last). **Public initiation remains intentionally disabled.** Remaining store-facing work: privacy wording, retained-data explanation, Google external `/data-deletion` resource, native-shell discoverability verification, then explicitly approved public activation. **DEC-023:** implemented for backend; public activation not yet approved. **SMS principle:** do not broadly refactor or endanger the SMS system; required STOP/opt-out evidence must not be blindly destroyed.
+- **In-app account deletion action** (moved into Required for V1 per APP-005). Apple 5.1.1(v) requires an in-app deletion path when the app supports account creation, and Google requires both an in-app path and an external web resource. **APP-041 COMPLETE / production-proven for public in-app use (2026-07-21):** controlled subscribed/trial disposable E2E PASS (2026-07-20) + physical inactive `/app/membership` public-path PASS (2026-07-21). Production initiation + scheduler gates **enabled**. Public `/data-deletion` available. Deletion does **not** require subscribing. **DEC-023** backend unchanged. **SMS principle:** do not broadly refactor or endanger the SMS system; required STOP/opt-out evidence must not be blindly destroyed.
 - App icon + splash screen + correct app name (**production display name locked: Summitt Mindset**; iOS bundle ID **com.summittmindset.app**).
 - Safe-area/status-bar handling; Android hardware back button behaves sanely.
 - Basic loading + network-error state so a failed load isn't a white screen.
@@ -248,14 +248,14 @@ Equivalent critical checks (1–13, 15) are added to the Android POC (Phase 3).
 
 ## APP-041 account deletion — 2026-07-18
 
-*Control record for APP-041. Updated 2026-07-20 (v1.5.12 reconciliation): F4b COMPLETE; controlled production E2E PASS on a disposable designated test account; temporary test env vars removed; public initiation remains intentionally disabled. No private identifiers are stored here.*
+*Control record for APP-041. Updated 2026-07-21 (v1.5.15): public in-app deletion E2E PASS on physical iPhone inactive path; production initiation + scheduler gates enabled; deletion no longer a store-submission blocker. Prior controlled subscribed/trial E2E PASS (2026-07-20) retained. No private identifiers are stored here.*
 
 ### Status
-- **APP-041 (parent):** **IN PROGRESS** — Required for V1. **Backend built + production-proven.** Remaining work is **store-facing** privacy/deletion documentation, discoverability, Google external resource, and later explicitly approved **public** activation — **not** rebuilding the deletion backend.
-- **APP-041A through APP-041F4a:** **COMPLETE** (see slice list below; prior applied/validated notes retained).
-- **APP-041F4b:** **COMPLETE** at website `e56b9f14fa86afb6d608d2f6d6c48da167d8b523` — designated test-account allowlist foundation committed/deployed; shared by route and `/user`.
-- **APP-041 controlled production E2E:** **PASS (2026-07-20)** — see dedicated subsection below.
-- **Public initiation:** intentionally **disabled**. `ACCOUNT_DELETION_INITIATION_ENABLED` remains absent. Temporary test flags used for the controlled E2E were **removed afterward**; production redeployed green.
+- **APP-041 (parent):** **COMPLETE for public in-app deletion compliance** — Required for V1. Backend + public discoverability + production gates + two-path E2E proven. Remaining App Store work is portal/enrollment/assets (not rebuilding deletion).
+- **APP-041A through APP-041F4b:** **COMPLETE** (see slice list below; prior applied/validated notes retained).
+- **APP-041 controlled production E2E (subscribed/trial path):** **PASS (2026-07-20)** — see dedicated subsection below.
+- **APP-041 public in-app production E2E (inactive native path):** **PASS (2026-07-21)** — see dedicated subsection below.
+- **Public initiation:** **enabled** in production — `ACCOUNT_DELETION_INITIATION_ENABLED=true` and `ACCOUNT_DELETION_SCHEDULER_ENABLED=true`. Public `/data-deletion` available. Account Danger Zone on `/user` and `/app/membership`.
 
 ### APP-041B3b protections (COMPLETE at `aab8b02…`)
 - Checkout creation, checkout confirmation, and resume membership blocked during account deletion.
@@ -294,23 +294,63 @@ Disposable-account preconditions (sanitized): active live Stripe trial; active S
 - `ACCOUNT_DELETION_TEST_MODE_ENABLED`
 - `ACCOUNT_DELETION_TEST_CLERK_USER_ID`
 
-`ACCOUNT_DELETION_INITIATION_ENABLED` was **never** left enabled for the public and **remains absent**. Production was redeployed green after the temporary variables were removed.
+`ACCOUNT_DELETION_INITIATION_ENABLED` was **never** left enabled for the public at that time and was **absent after** the controlled E2E window. Production was redeployed green after the temporary variables were removed.
 
-**Therefore:** the backend pipeline is built; the backend pipeline is production-proven; **public account deletion remains intentionally disabled**; remaining store-facing work is public discoverability/activation, privacy wording, retained-data explanation, and Google’s external deletion resource.
+**Therefore (as of 2026-07-20):** the backend pipeline was built and production-proven on the subscribed/trial path; public account deletion remained intentionally disabled pending discoverability + explicit public activation.
+
+### Public in-app production E2E — PASS (2026-07-21)
+
+*Sanitized operational proof on a disposable newly created inactive account. No Clerk user ID, phone, email, or provider IDs are recorded here.*
+
+Physical iPhone path:
+
+- `/app/membership` → Membership required → readable Danger Zone → Delete account → consequence confirmation → Clerk re-verification → exact typed `DELETE` → `POST /api/account/delete`
+
+Production controls enabled:
+
+- `ACCOUNT_DELETION_INITIATION_ENABLED=true`
+- `ACCOUNT_DELETION_SCHEDULER_ENABLED=true`
+
+Scheduler processed through the proven pipeline. Final admin state (sanitized):
+
+| Observation | Result |
+|---|---|
+| status / current step | `completed` / `completed` |
+| attempts | 4 |
+| lease | free |
+| discoverable | no |
+| consistency | ok |
+| error code | none |
+| IN PROGRESS / DISCOVERABLE counts | 0 / 0 |
+| completed request count | increased |
+
+Stage outcomes for this **inactive** account (valid for a never-subscribed recreate):
+
+| Stage | Outcome |
+|---|---|
+| sms | `already_absent` |
+| stripe | `skipped` |
+| purge | `already_absent` |
+| clerk | `succeeded` |
+
+**Together with the 2026-07-20 controlled E2E**, this proves: subscribed/trial deletion path; brand-new inactive native-app deletion path; deletion does not require subscribing; public in-app discoverability works; idempotent already-absent/skipped outcomes complete safely; Clerk deletion succeeds; production deletion remains publicly enabled for store submission.
 
 ### Still open (do not claim otherwise)
-- Public account-deletion activation (explicit future approval required)
-- Privacy/data-deletion copy update for STOP/Stripe/testimonial/tombstone/provider retention (required before public UI)
-- Improved `/data-deletion` external web resource for Google
-- Native-shell deletion discoverability verification before public activation
+- Apple Developer organization enrollment (waiting on D-U-N-S) / App Store Connect / TestFlight / App Review
+- App icon + launch/splash assets (Brooke)
+- Remaining external-link review (APP-015)
 - Admin recovery UX for failed/stuck rows (if needed beyond read-only observability)
-- App-store deletion compliance package (complete only after public path + privacy docs are ready)
+- Final refund-on-deletion policy/counsel confirmation (product/legal; not a deletion-path blocker)
+- Android deletion parity
 
 ### Legal / store open questions (concise)
 - Purge/retention product decisions are governed by `docs/account-deletion-purge-matrix.md`.
 - V1 has **no** self-serve undo / grace period (F1 / matrix).
-- **Refund handling on account deletion** still needs final policy/counsel confirmation before public activation.
-- Retained-data wording must be reflected in privacy/store materials (APP-041F / APP-042) before public activation.
+- **Refund handling on account deletion** still needs final policy/counsel confirmation (not blocking the proven deletion path).
+- Privacy / `/data-deletion` public wording is live for store-facing disclosure.
+
+### Exact next action
+**Apple Developer organization enrollment when D-U-N-S is available**, then external-link review, store metadata/privacy answers/review credentials, icon/splash when Brooke finishes, App Store Connect / signing / archive / TestFlight. Android after iOS stabilizes. **Do not** rebuild the deletion backend. **Account deletion is no longer a store-submission blocker.**
 
 ### Known risks (honest)
 - Stripe, Supabase, and Clerk are **not** one atomic transaction.
@@ -328,11 +368,11 @@ Disposable-account preconditions (sanitized): active live Stripe trial; active S
   - **Onboarding:** HTTP 500 → client retry; no successful-send latch is written.
 
 ### Slice completion (abbreviated — full history in handoff)
-- **APP-041A–E4d, F1–F4a:** COMPLETE (commits recorded in tracker / prior sections).
-- **APP-041F4b:** COMPLETE (`e56b9f1…`).
-- **Controlled E2E:** PASS (2026-07-20).
+- **APP-041A–E4d, F1–F4b:** COMPLETE (commits recorded in tracker / prior sections).
+- **Controlled subscribed/trial E2E:** PASS (2026-07-20).
+- **Public inactive `/app/membership` E2E:** PASS (2026-07-21); production gates enabled.
 
-### DEC-023 — V1 deletion architecture (**IMPLEMENTED for backend**; public activation not approved)
+### DEC-023 — V1 deletion architecture (**IMPLEMENTED + publicly activated**)
 One **website-owned** deletion flow usable in normal browsers and inside the iPhone WKWebView (no native-only delete UI required for V1):
 1. Authenticate; deliberate confirmation; recent reauthentication.
 2. Target **only** the authenticated user’s own account (never a client-supplied user id as authority).
@@ -346,11 +386,7 @@ One **website-owned** deletion flow usable in normal browsers and inside the iPh
 10. Idempotent retry/reconciliation for partial failure.
 11. Deletion-aware webhook/cron protections to prevent entitlement/SMS **resurrection**.
 
-`/data-deletion` remains Google’s external resource and should be improved (APP-041F / APP-042), not removed.
-
-### Exact next action
-**Finish APP-041 store-facing privacy/deletion documentation** (privacy wording, retained-data explanation, `/data-deletion` external resource). Then implement/verify app-specific email-only sign-in; verify deletion discoverability in the native shell; complete iOS production hardening/assets; Apple Developer/TestFlight path. **Do not** rebuild the deletion backend. **Do not** enable public deletion without explicit approval.
----
+`/data-deletion` is Google’s external resource and is live with active public availability wording.
 
 ## Production Clerk 180-day session decision — 2026-07-18
 
@@ -591,15 +627,13 @@ Run against a **real dedicated subscribed test account originally created throug
 **APP-021 is COMPLETE for iOS-first Candidate A2 acceptance (2026-07-20 reconciliation).** Explicit iOS-first amendment recorded (DEC-019 ACTIVE). DEC-020 CLOSED for V1 iOS. Android Checkpoint B **deferred** — Android has not been validated and is not yet in the mobile repo. Estimate remains the responsible range in §6 / end summary (confirm/revise may still occur as store work progresses, but architecture selection is closed).
 
 ### Next master-plan work block (priority order)
-1. **Deploy + enable deletion env gates** — after review: `ACCOUNT_DELETION_INITIATION_ENABLED=true` and `ACCOUNT_DELETION_SCHEDULER_ENABLED=true` on Vercel (not part of this code commit).
-2. **Physical public-path deletion E2E** — disposable new account via Membership required → Delete account (same proven pipeline).
-3. **Apple Developer Program / App Store Connect identity** — APP-049+.
+1. **Apple Developer organization enrollment** — when D-U-N-S is available (APP-049+).
+2. **External-link review** — APP-015.
+3. **Store metadata** — privacy answers, review credentials, screenshots prep (APP-048 / APP-053).
 4. **App icon + launch/splash assets** — when Brooke supplies final files (APP-046–047); do **not** mark complete until then.
-5. **External-link checks** — APP-015 as needed.
-6. **App Store metadata** — privacy answers, screenshots, review account (APP-048 / APP-053 prep).
-7. **Archive + TestFlight** — APP-050 (public deletion already enabled before App Review).
-8. **APP-065 / APP-066** — elapsed-time session proof; Client Trust formal confirmation (parallel).
-9. **Android later** — when iOS is sufficiently stable (APP-018+ / Play path).
+5. **App Store Connect / signing / archive / TestFlight** — APP-050 (public deletion already production-proven).
+6. **APP-065 / APP-066** — elapsed-time session proof; Client Trust formal confirmation (parallel).
+7. **Android later** — when iOS is sufficiently stable (APP-018+ / Play path).
 
 ---
 
@@ -654,7 +688,7 @@ Run against a **real dedicated subscribed test account originally created throug
 
 **U10 — Web-purchased subscription access inside app.** Structurally fine (entitlement in Clerk metadata via webhook). **APP-016 COMPLETE (2026-07-18):** subscribed entitlement matched the private baseline (formally verified, not UI-inferred only); subscribed account reached expected Victory Room/account surfaces; existing member data preserved. Tyler privately verified; **no private identifiers committed**. Hours at risk (formal entitlement residual): ~0. Unsubscribed negative control and exhaustive member-data coverage remain outside this closure.
 
-**U11 — Account deletion compliance. Backend PRODUCTION-PROVEN 2026-07-20; public path still open.** Apple 5.1.1(v) requires an **in-app deletion path**; Google requires **both** in-app **and** an external web resource. Coordinated website-owned workflow (DEC-023) is **implemented and production-proven** on a disposable designated test account (SMS → Stripe → purge → Clerk last). **Public initiation intentionally disabled.** Remaining hours: privacy/store docs, discoverability, explicit public activation. `/data-deletion` still needs improvement as Google’s external resource.
+**U11 — Account deletion compliance. COMPLETE / production-proven 2026-07-21.** Apple 5.1.1(v) requires an **in-app deletion path**; Google requires **both** in-app **and** an external web resource. Coordinated website-owned workflow (DEC-023) proven on (1) disposable subscribed/trial path 2026-07-20 and (2) physical inactive `/app/membership` public path 2026-07-21. Production initiation + scheduler gates **enabled**. Public `/data-deletion` live. **No longer a store-submission blocker.** Hours at risk for deletion path: 0 remaining for V1 compliance proof.
 
 **U12 — Sign in with Apple requirement. RESOLVED 2026-07-17.** APP-007 confirmed Google is enabled (Apple not). Because **V1 shows no social in the app** (DEC-018 ACTIVE), Apple 4.8 is **not triggered** and **SIWA is not required in V1**. Hours at risk (V1): 0. Revisit only if the app later adds social login.
 
@@ -971,7 +1005,7 @@ Run against a **real dedicated subscribed test account originally created throug
 | APP-038 | 9 | MOBILE | Handle `target="_blank"` links (no blank dead-ends) | NOT STARTED | 1.5 | | APP-037 | | onboarding/sms + marketing |
 | APP-039 | 9 | MOBILE | Deep links (SMS/marketing → app) | NOT STARTED | 1.5 | | APP-037 | | DEFERRABLE |
 | APP-040 | 10 | MOBILE | Store-compliant subscribe/purchase messaging in app (V1 = neutral inactive-membership state, no in-app selling) | NOT STARTED | 4 | | APP-004,APP-021 | | U8/U9 |
-| APP-041 | 10 | WEBSITE | In-app account-deletion **parent workstream** — **REQUIRED before submission** (Apple 5.1.1(v)/Google) | IN PROGRESS | 24–40 | | APP-005 | "APP-041 account deletion"; DEC-023; E2E PASS 2026-07-20 | **Backend production-proven.** Public initiation intentionally off. Remaining: store-facing privacy/docs, discoverability, public activation. Do **not** rebuild backend |
+| APP-041 | 10 | WEBSITE | In-app account-deletion **parent workstream** — **REQUIRED before submission** (Apple 5.1.1(v)/Google) | COMPLETE | 24–40 | | APP-005 | "APP-041 account deletion"; DEC-023; E2E PASS 2026-07-20 + public inactive PASS 2026-07-21 | **Public in-app deletion production-proven.** Gates enabled. No longer a store-submission blocker. Do **not** rebuild backend |
 | APP-041A | 10 | WEBSITE | Live Supabase schema + Clerk Dashboard verification (read-only) | COMPLETE | 2–4 | NOT RECORDED | APP-041 | "APP-041 account deletion — 2026-07-18" | Repo audit + three read-only `information_schema` queries + Clerk inspect. No settings/data/schema changed. Existing-user apply **not** clicked. Implementation contract may now be designed from real schema evidence |
 | APP-041B | 10 | WEBSITE | Durable deletion state + backend orchestrator (parent) | IN PROGRESS | 8–14 | | APP-041A | APP-041B1 + B2a applied | **Not COMPLETE.** B1+B2a foundation live in production DB; Stripe/purge/Clerk delete not started. No public initiate until APP-041C |
 | APP-041B1 | 10 | WEBSITE | Durable `account_deletion_requests` + repository/tests (no HTTP) | COMPLETE | 3–5 | NOT RECORDED | APP-041A | migration `20260718120000_account_deletion_requests.sql` applied + validated | **Applied/validated in production.** No endpoint/UI/Stripe/Clerk/purge. No account deletable via this slice |
@@ -1000,7 +1034,7 @@ Run against a **real dedicated subscribed test account originally created throug
 | APP-041C | 10 | WEBSITE | Account UI + deliberate confirmation + reauthentication (**legacy parent ID**) | SUPERSEDED — covered by F2–F4b | 3–5 | | APP-041B | F2–F4b + controlled E2E | **Do not treat as unfinished backend.** Initiation UI/reauth/hardening implemented under F2–F4b; public activation still intentionally off. Child/history rows F2–F4b remain authoritative |
 | APP-041D | 10 | WEBSITE | Stripe/SMS race and resurrection hardening (**legacy parent ID**) | SUPERSEDED — covered by B2b/B3b (+ related guards) | 4–8 | | APP-041B | B2b/B3b | **Do not treat as unfinished backend.** Provider race/anti-resurrection implemented under B2b/B3b. Child rows remain authoritative |
 | APP-041E | 10 | WEBSITE | Automated tests + physical-iPhone validation (**legacy parent ID**) | SUPERSEDED — covered by suite + production E2E | 6–10 | | APP-041C,APP-041D | Controlled E2E 2026-07-20 | **Do not treat as unfinished backend.** Backend orchestration/reconciler/purge proven; remaining native-shell deletion discoverability is store-facing (not this legacy parent). Child E1–E4d + F slices remain authoritative |
-| APP-041F | 10 | WEBSITE | Privacy/store documentation + final evidence | IN PROGRESS | 1–2 | | APP-041E | `/data-deletion`, privacy, terms, footer | Public `/data-deletion` + privacy/terms/retention copy + footer link shipped (transitional; public initiation still off). Remaining: native-shell discoverability verification, store-form evidence, explicit public activation |
+| APP-041F | 10 | WEBSITE | Privacy/store documentation + final evidence | COMPLETE | 1–2 | | APP-041E | `/data-deletion`, privacy, terms, footer; public inactive E2E 2026-07-21 | Public `/data-deletion` + privacy/terms + `/user` + `/app/membership` Danger Zone + production gates enabled + physical public-path PASS |
 | APP-042 | 10 | WEBSITE | Draft accurate privacy/data-safety content | NOT STARTED | 2 | | APP-005,APP-006 | | Tyler + forms |
 | APP-043 | 11 | MOBILE | Integrate crash reporting in shell | NOT STARTED | 2.5 | | APP-022 | | |
 | APP-044 | 11 | MOBILE | Minimal analytics events (launch/login/VR/error) | NOT STARTED | 2 | | APP-043 | | |
@@ -1035,11 +1069,11 @@ Run against a **real dedicated subscribed test account originally created throug
 
 ## 9. DEPENDENCY MAP
 
-- **Critical path:** APP-000 → policy (COMPLETE) → APP-007/061 (COMPLETE) → APP-059 (COMPLETE) → APP-008 Stage 1 PASS + APP-070 → APP-062–064 COMPLETE → APP-010/016/069 COMPLETE → **APP-021 COMPLETE (iOS-first A2)** → **APP-022 iOS identity COMPLETE** → **APP-041 backend E2E PASS** → **app Sign in + Create account + membership gate physically PASS (2026-07-21)** → Apple Developer / App Store Connect (APP-049+) → icon/splash when Brooke finishes (APP-046–047) → external-link + deletion discoverability (APP-015 / APP-041) → store metadata / screenshots / review account → archive + TestFlight (APP-050) → **public deletion activation before submit** → App Review → **Android later** when iOS stable → launch. Parallel: APP-065, APP-066.
+- **Critical path:** APP-000 → policy (COMPLETE) → APP-007/061 (COMPLETE) → APP-059 (COMPLETE) → APP-008 Stage 1 PASS + APP-070 → APP-062–064 COMPLETE → APP-010/016/069 COMPLETE → **APP-021 COMPLETE (iOS-first A2)** → **APP-022 iOS identity COMPLETE** → **APP-041 backend + public in-app deletion COMPLETE (2026-07-21)** → **app Sign in + Create account + membership gate physically PASS** → **Apple Developer when D-U-N-S available (APP-049+)** → external-link review (APP-015) → store metadata / privacy answers / review credentials → icon/splash when Brooke finishes (APP-046–047) → App Store Connect / signing / archive / TestFlight (APP-050) → App Review → **Android later** when iOS stable → launch. Parallel: APP-065, APP-066.
 - **Repo ownership on the path:** planning/policy/deletion-endpoint/docs are **WEBSITE**; shell/config/store builds are **MOBILE** (`summitt-mindset-mobile`); POC tasks are disposable **POC** projects. No task edits both repos without explicit authorization (DEC-016).
-- **v1.5.13 dependency notes:** **APP-021 COMPLETE** (iOS-first). **APP-022** iOS identity COMPLETE (`com.summittmindset.app`). Native auth + membership gate **physically PASS**. **APP-041** backend production-proven; public activation still off. Icon/splash open. Apple portal/TestFlight open. **APP-065 IN PROGRESS**. Android APP-018+ deferred. APP-053/APP-055 still depend on APP-041 public/store closure + APP-065.
+- **v1.5.15 dependency notes:** **APP-021 COMPLETE** (iOS-first). **APP-022** iOS identity COMPLETE. Native auth + membership gate **physically PASS**. **APP-041 public in-app deletion COMPLETE** (gates enabled; two-path E2E PASS). Icon/splash open. Apple portal waiting on D-U-N-S. TestFlight open. **APP-065 IN PROGRESS**. Android APP-018+ deferred.
 - **Session-lifetime chain:** APP-062–064 COMPLETE → **APP-065 (IN PROGRESS)** + APP-066. Production max lifetime **180 days** (DEC-022). Elapsed 180-day persistence not proven.
-- **APP-041 chain:** A–F4b COMPLETE + controlled E2E PASS → remaining **APP-041F** privacy/store docs + discoverability + explicit public activation. Parent stays IN PROGRESS until store-facing closure.
+- **APP-041 chain:** A–F4b COMPLETE + controlled E2E PASS + public inactive E2E PASS + production gates enabled → **parent COMPLETE for deletion compliance**. Remaining store work is enrollment/assets/TestFlight, not deletion rebuild.
 - **Parallelizable:** APP-065; APP-015; APP-066; APP-042 drafting; icons/splash; Android only after iOS stable.
 - **Require Tyler:** APP-065, APP-060, APP-042/048, device testing, store-account tasks.
 - **Require Apple Developer access:** APP-049, APP-050, APP-053, APP-054.
@@ -1257,7 +1291,7 @@ Deferred: push, native IAP, deep links, offline, redesigns (see parking lot). Re
 **Checkpoint A — After iPhone POC (Phase 2).**
 - *Evidence:* iOS POC results table (APP-017), recorded in "APP-008 Stage 1 + APP-070 architecture evidence — 2026-07-17", plus APP-069 private baseline comparison PASS (2026-07-18). Run against an existing subscribed Google-origin test account using email-code auth (DEC-018).
 - *Status (v1.5.1 / 2026-07-18):* **PASS for short-cycle iPhone shell/auth/member-surface evidence.** **APP-010 COMPLETE** — intended email-code login posture; same existing Clerk identity confirmed; no duplicate Clerk user; relationship/member state intact. **APP-016 COMPLETE** — subscribed entitlement matched private baseline (formally verified, not UI-inferred only); expected Victory Room/account surfaces reached; member data preserved. **APP-069 COMPLETE** — Tyler privately verified the baseline comparison; comparison **passed**; **no private identifiers committed**. Identity continuity and no-duplicate-user result formally verified. Subscribed entitlement formally verified. Short-cycle force-close/reboot persistence (APP-011) and Stage 1 member surfaces (APP-009/013/014/017) remain PASS.
-- *Limitations kept explicit:* **APP-065 remains IN PROGRESS** — 180-day elapsed persistence is **not** proven. **APP-015** external-link policy remains open. Client Trust formal closure (APP-066) remains open unless separately evidenced. Android remains unstarted. Account deletion **backend is production-proven**; **public activation + store-facing privacy docs remain open**. App Store readiness remains open.
+- *Limitations kept explicit:* **APP-065 remains IN PROGRESS** — 180-day elapsed persistence is **not** proven. **APP-015** external-link policy remains open. Client Trust formal closure (APP-066) remains open unless separately evidenced. Android remains unstarted. **Account deletion public in-app path is COMPLETE / production-proven (2026-07-21)** and is **not** a store-submission blocker. App Store readiness remains open (D-U-N-S / portal / assets / TestFlight).
 - *Pass:* app shows **email-code login with no Google**; the Google-origin user signs in by email code and resolves to the **same existing Clerk identity** (no duplicate); entitlement + Victory Room + Current Goal + history + relationship state intact; **session persists after force-close**; Client Trust challenges only once for the new device (not repeatedly); session valid across multiple days; expiry degrades to a clean login (no blank/redirect loop); reaches VR; API call works; Vimeo plays.
 - *Fail:* session doesn't persist, login unusable, duplicate user created, entitlement lost, or repeated new-device challenges.
 - *Decides:* Tyler.
@@ -1307,26 +1341,26 @@ Deferred: push, native IAP, deep links, offline, redesigns (see parking lot). Re
 **A polished iOS-first native shell that renders the live `https://summittmindset.com` member experience**, opening to `/dashboard/victory-room`, built in a **separate repository** (`summitt-mindset-mobile`). **Candidate A2 is FORMALLY ACCEPTED for V1 iOS-first (APP-021 COMPLETE / DEC-020 CLOSED for iOS):** custom Swift `LiveShellViewController` hosting exactly one native `WKWebView` (`WKWebsiteDataStore.default()`) inside the Capacitor-generated iOS project, loading the live website directly — **not** CapBridge as the visible root, and **not** Capacitor `server.url`. Candidate B remains the fallback only if a later blocker appears. **Android is deferred** until iOS is sufficiently stable and has **not** been validated. React Native is explicitly rejected; website screens must not be duplicated. Production iOS identity: display name **Summitt Mindset**, bundle ID **com.summittmindset.app** (mobile `5aba6f2333eec0c28b97a6659eb867241cb797ff`); intended Android package **com.summittmindset.app**. Portal App ID / Play reservation **not** claimed. Confirm Apple's tolerance for a shell that renders a website (RISK-04) early; mitigate by keeping it members-only and adding a native feature if review demands it.
 
 ### VERIFIED CURRENT BASELINE
-Next.js **16.0.5** App Router; Clerk `@clerk/nextjs` ^6.35.5; Victory Room at `/dashboard/victory-room`; entitlement in Clerk `publicMetadata`; Stripe **web checkout** (not sold in-app in V1); Supabase **service-role server-only**; Vimeo **iframe**; SMS = Twilio + crons + `lib/` brain; domain `https://summittmindset.com`; mobile shell in `summitt-mindset-mobile` with Candidate A2 live shell + production identity. **Account deletion backend production-proven** (2026-07-20 controlled E2E); **public deletion intentionally disabled**. Website repo still has **no** PWA/Capacitor/RN product code.
+Next.js **16.0.5** App Router; Clerk `@clerk/nextjs` ^6.35.5; Victory Room at `/dashboard/victory-room`; entitlement in Clerk `publicMetadata`; Stripe **web checkout** (not sold in-app in V1); Supabase **service-role server-only**; Vimeo **iframe**; SMS = Twilio + crons + `lib/` brain; domain `https://summittmindset.com`; mobile shell in `summitt-mindset-mobile` with Candidate A2 live shell + production identity. **Account deletion public in-app path COMPLETE / production-proven (2026-07-21)**; production initiation + scheduler gates enabled. Website repo still has **no** PWA/Capacitor/RN product code.
 
 ### MOST-LIKELY TOTAL HOURS
-**Working target shorthand remains ≈ 115 focused hours; current responsible range ≈ 130–175 focused hours.** APP-041 backend consumed a large share of its planning band; remaining APP-041 hours are primarily store-facing privacy/docs + public activation. Remaining risk hours concentrate in APP-065, store assets/listings, Apple review cycles, and later Android.
+**Working target shorthand remains ≈ 115 focused hours; current responsible range ≈ 130–175 focused hours.** APP-041 deletion compliance is COMPLETE for V1 public in-app use. Remaining risk hours concentrate in APP-065, store assets/listings, Apple enrollment (D-U-N-S), review cycles, and later Android.
 
 ### CRITICAL PATH
-**iPhone Stage 1 POC PASS (A2)** → **Clerk 180-day config COMPLETE** → **APP-010/016/069 COMPLETE** → **APP-021 COMPLETE (iOS-first A2)** → **APP-022 iOS identity COMPLETE** → **APP-041 backend E2E PASS** → **APP-041 store-facing privacy/docs** → app-specific email-only sign-in → native-shell deletion discoverability → iOS hardening/assets → Apple Developer/TestFlight/submit → **Android later** when iOS stable. Parallel: APP-065, APP-015, APP-066.
+**iPhone Stage 1 POC PASS (A2)** → **Clerk 180-day config COMPLETE** → **APP-010/016/069 COMPLETE** → **APP-021 COMPLETE (iOS-first A2)** → **APP-022 iOS identity COMPLETE** → **APP-041 public in-app deletion COMPLETE (2026-07-21)** → **app Sign in + Create account + membership gate PASS** → **Apple Developer when D-U-N-S available** → external-link review → store metadata → icon/splash when Brooke finishes → App Store Connect / TestFlight / submit → **Android later** when iOS stable. Parallel: APP-065, APP-015, APP-066.
 
 ### FIRST GO/NO-GO TEST
-**Does the Clerk session persist in an iOS WKWebView after force-close/reopen and land the user in Victory Room without re-login?** (Checkpoint A / APP-011.) **Stage 1: PASS** (including full reboot). Production max lifetime **180 days** (DEC-022); short-cycle post-change reopen PASS. Identity/entitlement formally verified. Remaining: **APP-065 elapsed-time proof**, APP-015, Client Trust, store-facing deletion/privacy, App Store posture, Android.
+**Does the Clerk session persist in an iOS WKWebView after force-close/reopen and land the user in Victory Room without re-login?** (Checkpoint A / APP-011.) **Stage 1: PASS** (including full reboot). Production max lifetime **180 days** (DEC-022); short-cycle post-change reopen PASS. Identity/entitlement formally verified. Remaining: **APP-065 elapsed-time proof**, APP-015, Client Trust, App Store posture (D-U-N-S / assets / TestFlight), Android.
 
 ### BIGGEST TECHNICAL RISK
 **APP-065 elapsed-time long-session validation + Android WebView unknown** (RISK-03 / U2). Short-cycle iOS persistence under A2 is evidence-backed; production Dashboard is configured for 180 days; **multi-month / full-window persistence remains unproven**. OAuth-in-WebView is out of V1 scope (DEC-018).
 
 ### BIGGEST STORE-REVIEW RISK
-**Apple** — the combination of **4.2 minimum-functionality** and **3.1.1** payments posture. Re-verify before submission. **Account deletion backend is proven**; remaining risk is **public discoverability + privacy wording** before activation and submission.
+**Apple** — the combination of **4.2 minimum-functionality** and **3.1.1** payments posture. Re-verify before submission. **Account deletion is production-proven and publicly enabled** (no longer the primary deletion blocker). Remaining store risks: enrollment/D-U-N-S, assets, metadata, TestFlight, review.
 
 ### EXACT NEXT CURSOR PROMPT
-**APP-021 COMPLETE** (iOS-first A2). **APP-022** iOS identity COMPLETE (`com.summittmindset.app` / Summitt Mindset at mobile `5aba6f2…`). **APP-041F4b COMPLETE** (`e56b9f1…`). **APP-041 controlled production E2E PASS (2026-07-20)**; temporary test flags removed; public deletion still off. Exact next: **1)** APP-041 store-facing privacy/deletion documentation (`/data-deletion` + privacy wording). **2)** App-specific email-only sign-in/access (DEC-018 / APP-061 mechanism). **3)** Verify deletion discoverability in the native shell before public activation. **4)** iOS production hardening/privacy/assets. **5)** Apple Developer / App Store Connect / TestFlight. **6)** Android later. Parallel: APP-065, APP-015, APP-066. Do **not** rebuild the deletion backend. Do **not** enable public deletion without explicit approval.
+**APP-041 public in-app deletion COMPLETE (2026-07-21).** Production gates enabled; inactive `/app/membership` physical PASS + prior subscribed/trial controlled E2E PASS. Exact next: **1)** Apple Developer organization enrollment when **D-U-N-S** is available. **2)** External-link review (APP-015). **3)** Store metadata / privacy answers / review credentials. **4)** Icon + launch assets when Brooke finishes. **5)** App Store Connect / signing / archive / TestFlight. **6)** Android later. Parallel: APP-065, APP-066. Do **not** rebuild the deletion backend. Do **not** claim Apple enrollment / TestFlight / App Review / Android complete.
 
 ---
 
-*End of master plan v1.5.12. Maintained per §14. Do not let it become aspirational fiction — update statuses and evidence every session.*
+*End of master plan v1.5.15. Maintained per §14. Do not let it become aspirational fiction — update statuses and evidence every session.*

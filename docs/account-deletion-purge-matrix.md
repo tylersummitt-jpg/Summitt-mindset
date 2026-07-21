@@ -1,13 +1,13 @@
 # APP-041C1 — Account deletion purge / anonymization matrix
 
-**Status:** C1–C3 COMPLETE; D0–D1 COMPLETE; E1–E4d COMPLETE; F1 APPROVED; F2–F4b COMPLETE; **controlled production E2E PASS (2026-07-20)**; **code-side public discoverability implemented (2026-07-21)** on `/user` + `/app/membership`; **production initiation/scheduler env gates still intentionally OFF** until explicit enablement + physical public-path E2E
+**Status:** C1–C3 COMPLETE; D0–D1 COMPLETE; E1–E4d COMPLETE; F1 APPROVED; F2–F4b COMPLETE; **controlled subscribed/trial production E2E PASS (2026-07-20)**; **public inactive `/app/membership` in-app deletion E2E PASS (2026-07-21)**; production initiation + scheduler gates **enabled**; public in-app deletion **COMPLETE / production-proven**
 **Canonical for:** APP-041C data-deletion specification
 **Website HEAD at F4b COMPLETE:** `e56b9f14fa86afb6d608d2f6d6c48da167d8b523`
-**Date:** 2026-07-19 (matrix freeze); **reconciled 2026-07-20**; **discoverability 2026-07-21**
+**Date:** 2026-07-19 (matrix freeze); **reconciled 2026-07-20**; **discoverability 2026-07-21**; **public E2E PASS 2026-07-21**
 
-This document freezes product policy and dependency order for Summitt Mindset account-deletion app-data purge. C2 purge SQL/RPC is applied and was validated with transactional fake-user target/survivor + post-rollback zero-residue proof. The coordinated pipeline was additionally proven on a disposable production account (2026-07-20). Code-side public UI discoverability reuses the proven Danger Zone; this document does **not** claim production env activation PASS.
+This document freezes product policy and dependency order for Summitt Mindset account-deletion app-data purge. C2 purge SQL/RPC is applied and was validated with transactional fake-user target/survivor + post-rollback zero-residue proof. The coordinated pipeline was proven on a disposable subscribed/trial production account (2026-07-20) and again on a disposable inactive native-app account via the public Danger Zone path (2026-07-21).
 
-**Do not claim:** production initiation/scheduler flags are enabled; physical public-path self-serve deletion E2E PASS; store compliance package is complete; portal apps are reserved.
+**Do not claim:** Apple Developer enrollment complete; App Store Connect app created; TestFlight uploaded; App Review submitted; Android complete; Google Play submitted.
 
 ---
 
@@ -338,15 +338,19 @@ Copy update does **not** block private, unreachable C2 implementation and testin
 
 **APP-041 controlled production E2E:** **PASS (2026-07-20)** — disposable designated test account completed the full coordinated workflow (request via hidden designated-test UI → SMS suppression → live Stripe trial cancellation → Supabase purge → Clerk deletion last → `completed`/`completed`; consistency ok; lease released; no error code). Sanitized preconditions: active live Stripe trial; active SMS number; real production Supabase data; 28 pre-deletion purgeable rows across 18 nonzero tables; zero pre-existing deletion requests. **No private identifiers recorded here.**
 
-**Post-E2E production state:** temporary env vars `ACCOUNT_DELETION_SCHEDULER_ENABLED`, `ACCOUNT_DELETION_TEST_MODE_ENABLED`, and `ACCOUNT_DELETION_TEST_CLERK_USER_ID` were **removed**; `ACCOUNT_DELETION_INITIATION_ENABLED` remains **absent**; production redeployed green. **Public account deletion remained intentionally disabled after the controlled E2E.**
+**Post-E2E production state (historical after 2026-07-20 controlled test):** temporary env vars `ACCOUNT_DELETION_SCHEDULER_ENABLED`, `ACCOUNT_DELETION_TEST_MODE_ENABLED`, and `ACCOUNT_DELETION_TEST_CLERK_USER_ID` were **removed**; `ACCOUNT_DELETION_INITIATION_ENABLED` was **absent** after that window; production redeployed green. **Public account deletion remained intentionally disabled immediately after the controlled E2E.**
 
-**Code-side discoverability (2026-07-21):** `ACCOUNT_DELETION_PUBLIC_IN_APP_AVAILABLE = true`; `/user` and `/app/membership` mount the same `AccountDeletionDangerZone` behind `shouldShowAccountDeletionDangerZone` (dual env gate). Backend pipeline unchanged. **Production env gates are still OFF** in this documentation update — enable only after deploy review, then run physical disposable new-account public-path E2E before claiming PASS.
+**Code-side discoverability (2026-07-21):** `ACCOUNT_DELETION_PUBLIC_IN_APP_AVAILABLE = true`; `/user` and `/app/membership` mount the same `AccountDeletionDangerZone` behind `shouldShowAccountDeletionDangerZone` (dual env gate). Backend pipeline unchanged.
+
+**Public in-app production E2E — PASS (2026-07-21):** disposable newly created inactive account deleted on physical iPhone via `/app/membership` → readable Danger Zone → Delete account → consequences → Clerk re-verification → exact typed `DELETE` → `POST /api/account/delete`. Production gates enabled: `ACCOUNT_DELETION_INITIATION_ENABLED=true`, `ACCOUNT_DELETION_SCHEDULER_ENABLED=true`. Final admin state: `completed`/`completed`; attempts 4; lease free; discoverable no; consistency ok; no error code; IN PROGRESS 0; DISCOVERABLE 0; completed count increased. Stage outcomes (valid for never-subscribed recreate): sms `already_absent`; stripe `skipped`; purge `already_absent`; clerk `succeeded`.
+
+**Together the two E2Es prove:** subscribed/trial deletion path; brand-new inactive native-app deletion path; deletion does not require subscribing; public discoverability works; idempotent already-absent/skipped outcomes complete safely; Clerk deletion succeeds; production deletion remains publicly enabled for store submission.
 
 **Residual risk (D1):** provider-success-before-marker crash window (next invocation may re-call adapter → `already_absent` recovery). Not exactly-once.
 
-**Exact next (activation):** deploy discoverability → enable `ACCOUNT_DELETION_INITIATION_ENABLED=true` + `ACCOUNT_DELETION_SCHEDULER_ENABLED=true` on Vercel → physical disposable-account public-path deletion E2E. Do **not** rebuild the deletion backend.
+**Exact next (store path):** Apple Developer organization enrollment when D-U-N-S is available → external-link review → store metadata → icon/splash when Brooke finishes → App Store Connect / TestFlight. Do **not** rebuild the deletion backend. **Account deletion is no longer a store-submission blocker.**
 
-Do **not** claim: production env gates are enabled today; physical public-path self-serve deletion E2E PASS; store compliance is complete; Apple/Google portals reserved apps; Android exists.
+Do **not** claim: Apple Developer enrollment complete; App Store Connect app created; TestFlight uploaded; App Review submitted; Android complete; Google Play submitted.
 
 ### APP-041D0 production rollout SOP (historical — COMPLETED)
 
@@ -360,10 +364,10 @@ C2 migrations are **applied** and were structurally verified in production; tran
 
 That does **not** mean:
 
-- production initiation/scheduler env gates are enabled today
-- physical public-path self-serve deletion E2E has passed
-- legal counsel reviewed the schedule
-- app-store deletion compliance package is complete
+- Apple Developer enrollment / App Store Connect / TestFlight / App Review are complete
+- legal counsel reviewed every retention schedule item
+- app-store listing metadata package is finished
 - all legacy email-only challenge rows were removed across the entire product
-- Apple App Store Connect / Google Play apps are reserved
+- Google Play apps are reserved
 - Android deletion parity was tested
+- icon/splash assets are final
