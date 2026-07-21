@@ -13,8 +13,11 @@ import {
   utSectionTitle,
 } from "@/components/utility-page-visual";
 import { supabaseServer } from "@/lib/supabase-server";
-
-const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
+import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import {
+  marketingAcquisitionHref,
+  marketingTrialCtaLabel,
+} from "@/lib/native-app/native-safe-marketing-cta";
 
 type FilmVideoPreview = {
   id: string;
@@ -27,7 +30,12 @@ type FilmVideoPreview = {
 
 export default async function FilmRoomPreviewPage() {
   const user = await currentUser();
-  const trialHref = user ? "/subscribe" : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
+  const isNativeIos = await isNativeSummittMindsetIosRequest();
+  const trialHref = marketingAcquisitionHref({
+    isNativeIos,
+    isSignedIn: Boolean(user),
+  });
+  const trialLabel = marketingTrialCtaLabel(isNativeIos);
 
   const [{ count: videoCount }, { data: videos }] = await Promise.all([
     supabaseServer
@@ -144,7 +152,7 @@ export default async function FilmRoomPreviewPage() {
           </h2>
           <p className={`${utBodyMuted} mb-8`}>Explore the Film Room inside Summitt Mindset.</p>
           <Link href={trialHref} className={utCtaOnDark}>
-            Start 7-Day Free Trial
+            {trialLabel}
           </Link>
         </section>
       </div>

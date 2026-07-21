@@ -13,6 +13,10 @@ import type { ReactNode } from "react";
 import ManageMembershipButton from "@/components/manage-membership-button";
 import ResumeMembershipButton from "@/components/resume-membership-button";
 import {
+  ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY,
+  ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
+} from "@/lib/legal/account-deletion-public-availability";
+import {
   utBody,
   utCard,
   utCardDivider,
@@ -97,8 +101,8 @@ function AccountTopCard({ dangerZone }: { dangerZone?: ReactNode }) {
         <h2 className={utSectionTitle}>Need help?</h2>
         <p className={utBody}>
           Email us anytime —{" "}
-          <a href="mailto:Support@SummittMindset.com" className={utLink}>
-            Support@SummittMindset.com
+          <a href={ACCOUNT_DELETION_SUPPORT_EMAIL_HREF} className={utLink}>
+            {ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY}
           </a>
         </p>
       </section>

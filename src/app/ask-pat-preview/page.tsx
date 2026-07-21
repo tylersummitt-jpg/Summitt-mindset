@@ -12,8 +12,12 @@ import {
   utPreviewSectionHeading,
   utSectionTitle,
 } from "@/components/utility-page-visual";
-
-const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
+import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import {
+  marketingAcquisitionHref,
+  marketingTrialCtaLabel,
+  shouldShowMarketingPricingCopy,
+} from "@/lib/native-app/native-safe-marketing-cta";
 
 /** Primary CTA — hero only (ring offset for neutral-950 hero). */
 const ctaHeroPrimaryClass =
@@ -24,7 +28,13 @@ const HERO_IMAGE_ALT =
 
 export default async function AskPatPreviewPage() {
   const user = await currentUser();
-  const trialHref = user ? "/subscribe" : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
+  const isNativeIos = await isNativeSummittMindsetIosRequest();
+  const trialHref = marketingAcquisitionHref({
+    isNativeIos,
+    isSignedIn: Boolean(user),
+  });
+  const trialLabel = marketingTrialCtaLabel(isNativeIos);
+  const showPricingCopy = shouldShowMarketingPricingCopy(isNativeIos);
 
   return (
     <div className="min-h-screen overflow-x-hidden">
@@ -70,13 +80,15 @@ export default async function AskPatPreviewPage() {
 
               <div className="w-full max-w-md">
                 <Link href={trialHref} className={ctaHeroPrimaryClass}>
-                  Start 7-Day Free Trial
+                  {trialLabel}
                 </Link>
               </div>
 
-              <p className="text-sm text-white/80 drop-shadow-sm">
-                7-day free trial • Cancel anytime
-              </p>
+              {showPricingCopy ? (
+                <p className="text-sm text-white/80 drop-shadow-sm">
+                  7-day free trial • Cancel anytime
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -164,7 +176,7 @@ export default async function AskPatPreviewPage() {
             of your accountability.
           </p>
           <Link href={trialHref} className={utCtaOnDark}>
-            Start 7-Day Free Trial
+            {trialLabel}
           </Link>
         </section>
       </div>

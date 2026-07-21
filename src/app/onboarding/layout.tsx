@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { OnboardingShellMain } from "@/components/onboarding-shell-main";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
 import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
-import { inactiveMembershipRedirectPath } from "@/lib/native-app/membership-paths";
+import {
+  inactiveMembershipRedirectPath,
+  signInPathForClient,
+} from "@/lib/native-app/membership-paths";
 
 /**
  * ======================================================
@@ -81,13 +84,18 @@ export default async function OnboardingLayout({
   });
 
   if (!user) {
+    const isNativeIos = await isNativeSummittMindsetIosRequest();
+    const signInPath = signInPathForClient(isNativeIos);
+    const redirectTarget = isNativeIos
+      ? signInPath
+      : `${signInPath}?redirect_url=${encodeURIComponent("/onboarding")}`;
     logOnboardingLayoutEvent({
       stage: "redirect_sign_in",
       outcome: "redirect",
       userId: null,
-      redirect: "/sign-in?redirect_url=/onboarding",
+      redirect: redirectTarget,
     });
-    redirect("/sign-in?redirect_url=/onboarding");
+    redirect(redirectTarget);
   }
 
   const isSubscribed = isSubscribedFromPublicMetadata(user.publicMetadata);

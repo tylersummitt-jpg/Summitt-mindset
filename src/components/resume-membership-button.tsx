@@ -54,7 +54,7 @@ export default function ResumeMembershipButton({
         );
       } else if (code === "subscription_not_recoverable") {
         setError(
-          "This membership can’t be resumed. You can start a new membership from Subscribe."
+          "This membership can’t be resumed. Contact support for help with your account."
         );
       } else if (code === "not_paused") {
         setError(

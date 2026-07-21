@@ -1577,3 +1577,44 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - App icon / launch screen not complete
 - Android / Google Play not started
 - Website and mobile application code not edited in this documentation session
+
+## SESSION 44 — 2026-07-21 — Native-app link/navigation audit + website fixes
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): APP-015 native-app external links and reviewer navigation audit/fix
+- Tasks completed (IDs): website-only link audit + native-safe marketing CTA fixes; focused tests + build green; mobile repo not edited
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `47efd635e63b1cd71e28eda25f109daf0fdb03e7` (Tyler documentation commit after SESSION 43)
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Legal pages `/privacy`, `/terms`, `/data-deletion`, `/sms`, `/twilio` remain public middleware routes with support contact.
+2. Native purchase solicitation gaps closed on Home + Ask Pat / Film Room previews (native CTAs → `/app/sign-in` or `/app/membership`; no Free Trial / $29 copy in native).
+3. `/cancel` and onboarding unauth redirects use native-aware `/app/sign-in`.
+4. Account support mailto uses canonical `mailto:support@summittmindset.com` with branded display `Support@SummittMindset.com`.
+5. Onboarding SMS consent legal links are relative same-origin (no `target="_blank"` absolute www URLs).
+6. Resume error copy no longer directs users to Subscribe.
+7. Mobile shell allowlist unchanged; **no mobile-repo edit required**. Vimeo iframe remains in-shell third-party media (physical playback check remaining).
+8. **Physical-device link checklist is required next — not marked PASS in this session.**
+
+### Physical-device checklist (Tyler — APP-015 verification)
+1. Signed-out Home CTAs say Sign in (not Free Trial / pricing) and land on `/app/sign-in`.
+2. Ask Pat / Film Room previews: no Free Trial / Subscribe; Sign in / membership path only.
+3. Footer legal links open Privacy / Terms / Data Deletion / SMS / Twilio in-shell.
+4. `/app/membership` support mailto opens Mail; legal links work; Sign out works; Delete account separate.
+5. `/user` support mailto + Sign out + Delete account; no Stripe Checkout.
+6. Film Room Vimeo playback stays usable; unexpected top-level leave is noted (if leave fails due to allowlist, report — do not edit mobile until then).
+7. Browser Safari still shows Free Trial / Subscribe acquisition unchanged.
+
+### Explicit non-claims
+- Physical-device link PASS not claimed
+- Mobile repo not edited
+- Apple enrollment / TestFlight / App Review not claimed

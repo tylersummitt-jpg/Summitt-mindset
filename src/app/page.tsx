@@ -4,6 +4,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { currentUser } from "@clerk/nextjs/server";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
+import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import {
+  marketingAcquisitionHref,
+  marketingSubscribeCtaLabel,
+  marketingTrialCtaLabel,
+  marketingTrialCtaLabelLong,
+  shouldShowMarketingPricingCopy,
+} from "@/lib/native-app/native-safe-marketing-cta";
 
 function isSubscribedFromMetadata(md: Record<string, any>) {
   const subscribedRaw = md?.summittSubscribed;
@@ -179,6 +187,7 @@ const howItWorksStepCardClass =
 
 export default async function HomePage() {
   const user = await currentUser();
+  const isNativeIos = await isNativeSummittMindsetIosRequest();
   const md = (user?.publicMetadata ?? {}) as Record<string, any>;
 
   const onboardingCompleted = md?.onboardingCompleted === true;
@@ -210,7 +219,18 @@ export default async function HomePage() {
     data = {};
   }
 
-  const signInSubscribeHref = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
+  const signInSubscribeHref = marketingAcquisitionHref({
+    isNativeIos,
+    isSignedIn: false,
+  });
+  const showPricingCopy = shouldShowMarketingPricingCopy(isNativeIos);
+  const subscribeCtaHref = marketingAcquisitionHref({
+    isNativeIos,
+    isSignedIn: true,
+  });
+  const subscribeCtaLabel = marketingSubscribeCtaLabel(isNativeIos);
+  const trialCtaLabel = marketingTrialCtaLabel(isNativeIos);
+  const trialCtaLabelLong = marketingTrialCtaLabelLong(isNativeIos);
 
   return (
     <div>
@@ -285,11 +305,13 @@ export default async function HomePage() {
                   {showSubscribe && (
                     <>
                       <p className="text-sm text-[var(--muted)]">
-                        Start your membership to turn on daily text accountability and the full app.
+                        {isNativeIos
+                          ? "Memberships are managed on the Summitt Mindset website."
+                          : "Start your membership to turn on daily text accountability and the full app."}
                       </p>
 
-                      <Link href="/subscribe" className={ctaHeroPrimaryClass}>
-                        Start Membership →
+                      <Link href={subscribeCtaHref} className={ctaHeroPrimaryClass}>
+                        {subscribeCtaLabel}
                       </Link>
                     </>
                   )}
@@ -300,13 +322,15 @@ export default async function HomePage() {
                 <>
                   <div className="w-full max-w-md">
                     <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
-                      Start 7-Day Free Trial
+                      {trialCtaLabel}
                     </Link>
                   </div>
                   <div className="flex flex-col gap-3 md:gap-4">
-                    <p className="text-sm text-white/80 drop-shadow-sm">
-                      Then $29 a month • Cancel anytime
-                    </p>
+                    {showPricingCopy ? (
+                      <p className="text-sm text-white/80 drop-shadow-sm">
+                        Then $29 a month • Cancel anytime
+                      </p>
+                    ) : null}
                     <ul
                       className={heroValuePropGridClass}
                       aria-label="What's included"
@@ -482,7 +506,7 @@ export default async function HomePage() {
 
           <div className="mt-12 flex justify-center sm:mt-14">
             <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
-              Start Your 7-Day Free Trial
+              {trialCtaLabelLong}
             </Link>
           </div>
         </div>
@@ -570,7 +594,7 @@ export default async function HomePage() {
 
           <div className="mt-8 flex justify-center sm:mt-10">
             <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
-              Start Your 7-Day Free Trial
+              {trialCtaLabelLong}
             </Link>
           </div>
         </div>

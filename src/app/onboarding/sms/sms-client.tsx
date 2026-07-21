@@ -123,31 +123,16 @@ export default function SmsClient({
               Summitt Mindset does not send marketing or promotional SMS messages
               and does not share mobile opt-in data with third parties for
               marketing purposes. Privacy:{" "}
-              <a
-                href="https://www.summittmindset.com/privacy"
-                className={legalLinkClass}
-                target="_blank"
-                rel="noreferrer"
-              >
-                https://www.summittmindset.com/privacy
+              <a href="/privacy" className={legalLinkClass}>
+                Privacy Policy
               </a>{" "}
               • Terms:{" "}
-              <a
-                href="https://www.summittmindset.com/terms"
-                className={legalLinkClass}
-                target="_blank"
-                rel="noreferrer"
-              >
-                https://www.summittmindset.com/terms
+              <a href="/terms" className={legalLinkClass}>
+                Terms
               </a>{" "}
               • SMS:{" "}
-              <a
-                href="https://www.summittmindset.com/sms"
-                className={legalLinkClass}
-                target="_blank"
-                rel="noreferrer"
-              >
-                https://www.summittmindset.com/sms
+              <a href="/sms" className={legalLinkClass}>
+                SMS Disclosure
               </a>
               .
             </label>
