@@ -1657,3 +1657,35 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - App icon / launch screen not complete
 - Android / Google Play not started
 - Website and mobile application code not edited in this documentation session
+
+## SESSION 46 — 2026-07-21 — Store-submission prep package (docs)
+
+### Session summary
+- Date: 2026-07-21
+- Tasks attempted (IDs): APP-042 Apple + Google metadata / privacy / reviewer package
+- Tasks completed (IDs): `docs/store-submission/` nine-file package + master plan v1.5.17; application code not edited; mobile repo not edited
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `3d8411c02961313dc08bd215b45f5d4e3455a32d` (Tyler physical-link PASS documentation commit)
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Created `docs/store-submission/` with Apple metadata, App Privacy drafts, review notes, Google metadata, Data Safety drafts, content-rating drafts, reviewer account plan, screenshot shot list, and open items.
+2. Privacy answers grounded in implementation: Clerk email/name/user ID; optional SMS phone via Twilio; journals/Ask Pat/goals via Supabase; OpenAI processing; Stripe subscription linkage; HTTPS in transit; in-app + public deletion; native purchase blocked; no native IAP/ATT/ad SDK.
+3. Explicitly **did not** claim “no data collected,” COPPA, HIPAA, or store approval.
+4. Unresolved flagged: production Meta Pixel enablement; Apple Tracking declaration; privacy-policy gaps (Meta/Vimeo/Resend); empty native PrivacyInfo vs WebView-collected data; provider retention schedules.
+5. Reviewer plan uses placeholders only — no real credentials in git.
+6. Package is **copy-ready as drafts**; portal submit still blocked by D-U-N-S, assets, and Tyler decisions.
+
+### Explicit non-claims
+- Apple/Google portal acceptance not claimed
+- Final age-rating numbers not invented
+- Production Meta Pixel state not asserted
+- Mobile PrivacyInfo not edited
+- Website and mobile application code not edited in this documentation session
