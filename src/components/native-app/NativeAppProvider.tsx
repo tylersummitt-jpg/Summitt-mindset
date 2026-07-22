@@ -9,23 +9,24 @@ import {
 const NativeAppContext = createContext(false);
 
 /**
- * Server-derived native iOS flag for client CTA suppression.
+ * Server-derived native-app flag for client CTA suppression.
  * Never trust a client-parsed User-Agent as the sole enforcement layer.
+ * True for iOS or Android Summitt Mindset shells.
  */
 export function NativeAppProvider({
-  isNativeSummittMindsetIos,
+  isNativeSummittMindsetApp,
   children,
 }: {
-  isNativeSummittMindsetIos: boolean;
+  isNativeSummittMindsetApp: boolean;
   children: ReactNode;
 }) {
   return (
-    <NativeAppContext.Provider value={isNativeSummittMindsetIos}>
+    <NativeAppContext.Provider value={isNativeSummittMindsetApp}>
       {children}
     </NativeAppContext.Provider>
   );
 }
 
-export function useIsNativeSummittMindsetIos(): boolean {
+export function useIsNativeSummittMindsetApp(): boolean {
   return useContext(NativeAppContext);
 }

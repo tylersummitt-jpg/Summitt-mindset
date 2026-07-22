@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, Suspense, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useIsNativeSummittMindsetIos } from "@/components/native-app/NativeAppProvider";
+import { useIsNativeSummittMindsetApp } from "@/components/native-app/NativeAppProvider";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import {
   APP_MEMBERSHIP_PATH,
@@ -22,7 +22,7 @@ function SubscriptionGateInner({
   const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isNativeIos = useIsNativeSummittMindsetIos();
+  const isNativeApp = useIsNativeSummittMindsetApp();
 
   const fromParam = searchParams?.get("from");
 
@@ -43,8 +43,8 @@ function SubscriptionGateInner({
 
     if (!isSignedIn) {
       const currentPath = window.location.pathname;
-      const signInBase = signInPathForClient(isNativeIos);
-      if (isNativeIos) {
+      const signInBase = signInPathForClient(isNativeApp);
+      if (isNativeApp) {
         router.push(signInBase);
       } else {
         router.push(
@@ -52,7 +52,7 @@ function SubscriptionGateInner({
         );
       }
     }
-  }, [isLoaded, isSignedIn, isNativeIos, router]);
+  }, [isLoaded, isSignedIn, isNativeApp, router]);
 
   // --- LOADING STATE ---
   if (!isLoaded) {
@@ -104,7 +104,7 @@ function SubscriptionGateInner({
 
   // --- NOT SUBSCRIBED ---
   if (!isSubscribed) {
-    if (isNativeIos) {
+    if (isNativeApp) {
       return (
         <main className="flex min-h-screen flex-col items-center justify-center px-6">
           <div className="max-w-lg w-full space-y-6 text-center">

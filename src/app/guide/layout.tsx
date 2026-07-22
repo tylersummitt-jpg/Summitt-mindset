@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { redirectIfOnboardingIncomplete } from "@/lib/onboarding-incomplete-redirect";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import {
   inactiveMembershipRedirectPath,
   signInPathForClient,
@@ -26,16 +26,16 @@ export default async function GuideLayout({
   children: ReactNode;
 }) {
   const user = await currentUser();
-  const isNativeIos = await isNativeSummittMindsetIosRequest();
+  const isNativeApp = await isNativeSummittMindsetAppRequest();
 
   if (!user) {
-    redirect(signInPathForClient(isNativeIos));
+    redirect(signInPathForClient(isNativeApp));
   }
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
 
   if (!isSubscribedFromMetadata(md)) {
-    redirect(inactiveMembershipRedirectPath(isNativeIos));
+    redirect(inactiveMembershipRedirectPath(isNativeApp));
   }
 
   await redirectIfOnboardingIncomplete(user.id, md);

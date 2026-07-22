@@ -12,7 +12,7 @@ import {
   utPreviewSectionHeading,
   utSectionTitle,
 } from "@/components/utility-page-visual";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import {
   marketingAcquisitionHref,
   marketingTrialCtaLabel,
@@ -28,13 +28,13 @@ const HERO_IMAGE_ALT =
 
 export default async function AskPatPreviewPage() {
   const user = await currentUser();
-  const isNativeIos = await isNativeSummittMindsetIosRequest();
+  const isNativeApp = await isNativeSummittMindsetAppRequest();
   const trialHref = marketingAcquisitionHref({
-    isNativeIos,
+    isNativeApp,
     isSignedIn: Boolean(user),
   });
-  const trialLabel = marketingTrialCtaLabel(isNativeIos);
-  const showPricingCopy = shouldShowMarketingPricingCopy(isNativeIos);
+  const trialLabel = marketingTrialCtaLabel(isNativeApp);
+  const showPricingCopy = shouldShowMarketingPricingCopy(isNativeApp);
 
   return (
     <div className="min-h-screen overflow-x-hidden">

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { signInPathForClient } from "@/lib/native-app/membership-paths";
 import CancelFlowClient from "./cancel-flow-client";
 
@@ -9,8 +9,8 @@ export default async function CancelPage() {
   const user = await currentUser();
 
   if (!user) {
-    const isNativeIos = await isNativeSummittMindsetIosRequest();
-    redirect(signInPathForClient(isNativeIos));
+    const isNativeApp = await isNativeSummittMindsetAppRequest();
+    redirect(signInPathForClient(isNativeApp));
   }
 
   const metadata = user.publicMetadata as any;

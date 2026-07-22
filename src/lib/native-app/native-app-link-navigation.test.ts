@@ -37,16 +37,16 @@ const REVIEWER_SURFACES = [
 describe("native-safe marketing CTA helper", () => {
   it("routes native users away from subscribe acquisition", () => {
     expect(
-      marketingAcquisitionHref({ isNativeIos: true, isSignedIn: false })
+      marketingAcquisitionHref({ isNativeApp: true, isSignedIn: false })
     ).toBe("/app/sign-in");
     expect(
-      marketingAcquisitionHref({ isNativeIos: true, isSignedIn: true })
+      marketingAcquisitionHref({ isNativeApp: true, isSignedIn: true })
     ).toBe("/app/membership");
     expect(
-      marketingAcquisitionHref({ isNativeIos: false, isSignedIn: false })
+      marketingAcquisitionHref({ isNativeApp: false, isSignedIn: false })
     ).toContain("/sign-in");
     expect(
-      marketingAcquisitionHref({ isNativeIos: false, isSignedIn: true })
+      marketingAcquisitionHref({ isNativeApp: false, isSignedIn: true })
     ).toBe("/subscribe");
     expect(marketingTrialCtaLabel(true)).toBe("Sign in");
     expect(marketingTrialCtaLabel(false)).toMatch(/Free Trial/i);
@@ -116,7 +116,7 @@ describe("reviewer-visible link and navigation audit", () => {
     ]) {
       const src = readSrc(rel);
       expect(src).toContain("marketingAcquisitionHref");
-      expect(src).toContain("isNativeSummittMindsetIosRequest");
+      expect(src).toContain("isNativeSummittMindsetAppRequest");
       expect(src).not.toMatch(
         /const trialHref = user \? "\/subscribe"/
       );
@@ -130,7 +130,7 @@ describe("reviewer-visible link and navigation audit", () => {
 
     const onboarding = readSrc("src/app/onboarding/layout.tsx");
     expect(onboarding).toContain("signInPathForClient");
-    expect(onboarding).toContain("isNativeSummittMindsetIosRequest");
+    expect(onboarding).toContain("isNativeSummittMindsetAppRequest");
   });
 
   it("onboarding SMS consent uses relative legal links without target blank", () => {
@@ -169,7 +169,7 @@ describe("reviewer-visible link and navigation audit", () => {
 
   it("browser purchase path remains on website subscribe surfaces", () => {
     const subscribe = readSrc("src/app/subscribe/page.tsx");
-    expect(subscribe).toContain("isNativeSummittMindsetIosRequest");
+    expect(subscribe).toContain("isNativeSummittMindsetAppRequest");
     expect(subscribe).toContain("redirect(APP_MEMBERSHIP_PATH)");
     expect(subscribe).toContain("SubscribeCheckoutPanel");
   });

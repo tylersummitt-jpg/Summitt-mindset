@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
-import { useIsNativeSummittMindsetIos } from "@/components/native-app/NativeAppProvider";
+import { useIsNativeSummittMindsetApp } from "@/components/native-app/NativeAppProvider";
 import { APP_SIGN_IN_PATH } from "@/lib/app-sign-in/app-sign-in-constants";
 import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
 
@@ -45,7 +45,7 @@ export function Navbar() {
   const pathname = usePathname();
   const { user, isSignedIn } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const isNativeIos = useIsNativeSummittMindsetIos();
+  const isNativeApp = useIsNativeSummittMindsetApp();
 
   const subscribedRaw = user?.publicMetadata?.summittSubscribed;
   const plan = user?.publicMetadata?.summittPlan as string | undefined;
@@ -81,7 +81,7 @@ export function Navbar() {
     ? SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT
     : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
 
-  const signInHref = isNativeIos
+  const signInHref = isNativeApp
     ? APP_SIGN_IN_PATH
     : isCoachLeadershipKitPath(pathname)
       ? SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT
@@ -94,7 +94,7 @@ export function Navbar() {
     { href: "/", label: "Home", key: "home" },
     { href: "/ask-pat-preview", label: "Ask Pat", key: "ask-pat-preview" },
     { href: "/film-room-preview", label: "Film Room", key: "film-room-preview" },
-    ...(!isNativeIos
+    ...(!isNativeApp
       ? [
           {
             href: startFreeTrialHref,
@@ -115,7 +115,7 @@ export function Navbar() {
     { href: "/ask-pat", label: "Ask Pat", key: "ask-pat" },
     { href: "/film-room", label: "Film Room", key: "film-room" },
     { href: "/user", label: "Account", key: "user" },
-    ...(!isNativeIos && !isSubscribed && !isPaused
+    ...(!isNativeApp && !isSubscribed && !isPaused
       ? [{ href: "/subscribe", label: "Subscribe", key: "subscribe" }]
       : []),
   ];

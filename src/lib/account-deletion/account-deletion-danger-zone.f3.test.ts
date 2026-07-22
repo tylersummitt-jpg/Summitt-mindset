@@ -383,8 +383,8 @@ describe("APP-041F3 response mapping", () => {
 
     const zone = readFileSync(ZONE, "utf8");
     expect(zone).toContain("signInPathForClient");
-    expect(zone).toContain("useIsNativeSummittMindsetIos");
-    expect(zone).toContain("window.location.assign(signInPathForClient(isNativeIos))");
+    expect(zone).toContain("useIsNativeSummittMindsetApp");
+    expect(zone).toContain("window.location.assign(signInPathForClient(isNativeApp))");
     expect(zone).toContain("mapAccountDeletionInitiationResponse");
     expect(zone).not.toMatch(/JSON\.stringify\(body\)/);
     expect(zone).not.toMatch(/\{JSON\.stringify/);

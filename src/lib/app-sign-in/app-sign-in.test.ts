@@ -188,7 +188,7 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     const checkout = readSrc(
       "src/app/api/stripe/create-checkout-session/route.ts"
     );
-    expect(checkout).toContain("isNativeSummittMindsetIosRequestFromRequest");
+    expect(checkout).toContain("isNativeSummittMindsetAppRequestFromRequest");
     expect(checkout).toContain("NATIVE_APP_CHECKOUT_UNAVAILABLE_ERROR");
 
     const client = readSrc(

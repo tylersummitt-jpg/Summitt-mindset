@@ -6,7 +6,7 @@ import { Inter } from "next/font/google";
 import { MetaPixelRoot } from "@/components/MetaPixelRoot";
 import { Navbar } from "@/components/Navbar";
 import { NativeAppProvider } from "@/components/native-app/NativeAppProvider";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import "./globals.css";
 
 const inter = Inter({
@@ -48,7 +48,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const isNativeSummittMindsetIos = await isNativeSummittMindsetIosRequest();
+  const isNativeSummittMindsetApp = await isNativeSummittMindsetAppRequest();
 
   return (
     <html lang="en">
@@ -59,10 +59,10 @@ export default async function RootLayout({
           publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
         >
           <NativeAppProvider
-            isNativeSummittMindsetIos={isNativeSummittMindsetIos}
+            isNativeSummittMindsetApp={isNativeSummittMindsetApp}
           >
-            {/* Meta Pixel: browser/marketing only. Native iOS UA never mounts fbq / fbevents.js. */}
-            {!isNativeSummittMindsetIos ? <MetaPixelRoot /> : null}
+            {/* Meta Pixel: browser/marketing only. Native app UA never mounts fbq / fbevents.js. */}
+            {!isNativeSummittMindsetApp ? <MetaPixelRoot /> : null}
             <div className="flex flex-col min-h-screen">
               <Navbar />
 

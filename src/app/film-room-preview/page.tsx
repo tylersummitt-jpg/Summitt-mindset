@@ -13,7 +13,7 @@ import {
   utSectionTitle,
 } from "@/components/utility-page-visual";
 import { supabaseServer } from "@/lib/supabase-server";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import {
   marketingAcquisitionHref,
   marketingTrialCtaLabel,
@@ -30,12 +30,12 @@ type FilmVideoPreview = {
 
 export default async function FilmRoomPreviewPage() {
   const user = await currentUser();
-  const isNativeIos = await isNativeSummittMindsetIosRequest();
+  const isNativeApp = await isNativeSummittMindsetAppRequest();
   const trialHref = marketingAcquisitionHref({
-    isNativeIos,
+    isNativeApp,
     isSignedIn: Boolean(user),
   });
-  const trialLabel = marketingTrialCtaLabel(isNativeIos);
+  const trialLabel = marketingTrialCtaLabel(isNativeApp);
 
   const [{ count: videoCount }, { data: videos }] = await Promise.all([
     supabaseServer

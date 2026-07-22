@@ -12,7 +12,7 @@ import {
   utWatchLink,
 } from "@/components/utility-page-visual";
 import { supabaseServer } from "@/lib/supabase-server";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import {
   inactiveMembershipRedirectPath,
   signInPathForClient,
@@ -49,12 +49,12 @@ const PROGRAM_ORDER = [
 export default async function FilmRoomPage() {
   // ✅ SERVER-SIDE MEMBERSHIP CHECK
   const user = await currentUser();
-  const isNativeIos = await isNativeSummittMindsetIosRequest();
-  if (!user) redirect(signInPathForClient(isNativeIos));
+  const isNativeApp = await isNativeSummittMindsetAppRequest();
+  if (!user) redirect(signInPathForClient(isNativeApp));
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
   if (!isSubscribedFromMetadata(md)) {
-    redirect(inactiveMembershipRedirectPath(isNativeIos));
+    redirect(inactiveMembershipRedirectPath(isNativeApp));
   }
 
   // ✅ Load videos

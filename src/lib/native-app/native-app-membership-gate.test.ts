@@ -2,9 +2,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  detectSummittMindsetPlatform,
+  isNativeSummittMindsetApp,
+  SUMMITT_MINDSET_ANDROID_UA_TOKEN,
   SUMMITT_MINDSET_IOS_UA_TOKEN,
-  isNativeSummittMindsetIosUserAgent,
-} from "@/lib/native-app/ua-token";
+} from "@/lib/native-app/platform";
 import {
   APP_MEMBERSHIP_PATH,
   BROWSER_SUBSCRIBE_PATH,
@@ -18,42 +20,55 @@ function readSrc(rel: string): string {
   return readFileSync(path.join(root, rel), "utf8");
 }
 
-describe("native iOS UA detection", () => {
-  it("detects the exact SummittMindsetiOS token", () => {
+describe("native platform UA detection (canonical)", () => {
+  it("detects iOS and Android markers via the shared platform module", () => {
     expect(SUMMITT_MINDSET_IOS_UA_TOKEN).toBe("SummittMindsetiOS");
+    expect(SUMMITT_MINDSET_ANDROID_UA_TOKEN).toBe("SummittMindsetAndroid");
     expect(
-      isNativeSummittMindsetIosUserAgent(
+      detectSummittMindsetPlatform(
         `Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 SummittMindsetiOS`
       )
-    ).toBe(true);
+    ).toBe("ios");
+    expect(
+      detectSummittMindsetPlatform(
+        `Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 SummittMindsetAndroid`
+      )
+    ).toBe("android");
+    expect(isNativeSummittMindsetApp("SummittMindsetiOS")).toBe(true);
+    expect(isNativeSummittMindsetApp("SummittMindsetAndroid")).toBe(true);
   });
 
-  it("does not detect normal Safari", () => {
+  it("does not detect normal Safari / Chrome", () => {
     expect(
-      isNativeSummittMindsetIosUserAgent(
+      detectSummittMindsetPlatform(
         "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
       )
-    ).toBe(false);
+    ).toBe("none");
+    expect(
+      detectSummittMindsetPlatform(
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
+      )
+    ).toBe("none");
   });
 
-  it("rejects fuzzy / partial product-name matches (case-sensitive exact token)", () => {
-    expect(isNativeSummittMindsetIosUserAgent("SummittMindset")).toBe(false);
-    expect(isNativeSummittMindsetIosUserAgent("summittmindsetios")).toBe(false);
-    expect(isNativeSummittMindsetIosUserAgent("SummittMindsetIOS")).toBe(false);
-    expect(isNativeSummittMindsetIosUserAgent("Summitt Mindset iOS")).toBe(false);
-    expect(isNativeSummittMindsetIosUserAgent("")).toBe(false);
-    expect(isNativeSummittMindsetIosUserAgent(null)).toBe(false);
+  it("rejects fuzzy / partial product-name matches", () => {
+    expect(detectSummittMindsetPlatform("SummittMindset")).toBe("none");
+    expect(detectSummittMindsetPlatform("summittmindsetios")).toBe("none");
+    expect(detectSummittMindsetPlatform("SummittMindsetIOS")).toBe("none");
+    expect(detectSummittMindsetPlatform("SummittMindsetANDROID")).toBe("none");
+    expect(detectSummittMindsetPlatform("")).toBe("none");
+    expect(detectSummittMindsetPlatform(null)).toBe("none");
   });
 
   it("has no query-param or cookie spoof path in detection helpers", () => {
-    const ua = readSrc("src/lib/native-app/ua-token.ts");
-    const req = readSrc(
-      "src/lib/native-app/is-native-summitt-mindset-ios-request.ts"
+    const platform = readSrc("src/lib/native-app/platform.ts");
+    const appReq = readSrc(
+      "src/lib/native-app/is-native-summitt-mindset-app-request.ts"
     );
-    expect(ua).not.toMatch(/searchParams|get\(["']cookie|document\.cookie/i);
-    expect(req).toContain('headerStore.get("user-agent")');
-    expect(req).toContain('req.headers.get("user-agent")');
-    expect(req).not.toMatch(/searchParams|cookies\(/);
+    expect(platform).not.toMatch(/searchParams|get\(["']cookie|document\.cookie/i);
+    expect(appReq).toContain('headerStore.get("user-agent")');
+    expect(appReq).toContain('req.headers.get("user-agent")');
+    expect(appReq).not.toMatch(/searchParams|cookies\(/);
   });
 });
 
@@ -70,12 +85,12 @@ describe("native membership gate surfaces", () => {
   it("dashboard gates native inactive users to /app/membership", () => {
     const layout = readSrc("src/app/dashboard/layout.tsx");
     expect(layout).toContain("inactiveMembershipRedirectPath");
-    expect(layout).toContain("isNativeSummittMindsetIosRequest");
+    expect(layout).toContain("isNativeSummittMindsetAppRequest");
   });
 
   it("subscribe redirects native apps away from plans/checkout", () => {
     const page = readSrc("src/app/subscribe/page.tsx");
-    expect(page).toContain("isNativeSummittMindsetIosRequest");
+    expect(page).toContain("isNativeSummittMindsetAppRequest");
     expect(page).toContain("redirect(APP_MEMBERSHIP_PATH)");
   });
 
@@ -105,7 +120,6 @@ describe("native membership gate surfaces", () => {
     expect(page).toContain("showDangerZone ? (");
     expect(page).toContain('data-testid="account-danger-zone-slot"');
     expect(page).toContain("Sign out");
-    // Sign out remains a separate control from deletion.
     expect(page.indexOf("account-danger-zone-slot")).toBeLessThan(
       page.indexOf("Sign out")
     );
@@ -126,15 +140,15 @@ describe("native membership gate surfaces", () => {
 
   it("Navbar suppresses Start Free Trial and Subscribe in native context", () => {
     const nav = readSrc("src/components/Navbar.tsx");
-    expect(nav).toContain("useIsNativeSummittMindsetIos");
-    expect(nav).toContain("!isNativeIos");
+    expect(nav).toContain("useIsNativeSummittMindsetApp");
+    expect(nav).toContain("!isNativeApp");
     expect(nav).toContain('label: "Start Free Trial"');
     expect(nav).toContain('label: "Subscribe"');
   });
 
   it("Ask Pat replaces trial CTA in native context", () => {
     const client = readSrc("src/app/ask-pat/ask-pat-client.tsx");
-    expect(client).toContain("isNativeSummittMindsetIos");
+    expect(client).toContain("isNativeSummittMindsetApp");
     expect(client).toContain("Start 7-day free trial");
     expect(client).toContain('router.push("/app/membership")');
     expect(client).toContain("Memberships are managed on the Summitt Mindset");
@@ -144,10 +158,12 @@ describe("native membership gate surfaces", () => {
     const route = readSrc(
       "src/app/api/stripe/create-checkout-session/route.ts"
     );
-    expect(route).toContain("isNativeSummittMindsetIosRequestFromRequest");
+    expect(route).toContain("isNativeSummittMindsetAppRequestFromRequest");
     expect(route).toContain("NATIVE_APP_CHECKOUT_UNAVAILABLE_ERROR");
     expect(route).toContain("status: 403");
-    const nativeIdx = route.indexOf("isNativeSummittMindsetIosRequestFromRequest");
+    const nativeIdx = route.indexOf(
+      "isNativeSummittMindsetAppRequestFromRequest"
+    );
     const createIdx = route.indexOf("checkout.sessions.create");
     expect(nativeIdx).toBeGreaterThan(-1);
     expect(createIdx).toBeGreaterThan(nativeIdx);
@@ -156,6 +172,7 @@ describe("native membership gate surfaces", () => {
   it("does not loosen unrelated protected routes in middleware", () => {
     const mw = readSrc("src/middleware.ts");
     expect(mw).toContain("signInPathForClient");
+    expect(mw).toContain("isNativeSummittMindsetApp");
     expect(mw).not.toMatch(/["']\/dashboard\(\.\*\)["']/);
     expect(mw).not.toMatch(/["']\/user\(\.\*\)["']/);
     expect(mw).not.toMatch(/["']\/app\/membership/);
@@ -170,5 +187,11 @@ describe("native membership gate surfaces", () => {
     expect(readSrc("src/app/api/resume-membership/route.ts")).not.toContain(
       "checkout.sessions.create"
     );
+  });
+
+  it("shared /app/sign-in and /app/membership paths remain unchanged", () => {
+    expect(readSrc("src/app/app/sign-in/page.tsx").length).toBeGreaterThan(0);
+    expect(APP_MEMBERSHIP_PATH).toBe("/app/membership");
+    expect(signInPathForClient(true)).toBe("/app/sign-in");
   });
 });

@@ -10,7 +10,7 @@ import {
   ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
 } from "@/lib/legal/account-deletion-public-availability";
 import { APP_SIGN_IN_PATH } from "@/lib/app-sign-in/app-sign-in-constants";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import { isPausedFromPublicMetadata } from "@/lib/summitt-subscription-membership";
 
@@ -45,8 +45,8 @@ function isSubscribedFromMetadata(md: Record<string, unknown>): boolean {
 export default async function AppMembershipPage() {
   const { userId } = await auth();
   if (!userId) {
-    const isNative = await isNativeSummittMindsetIosRequest();
-    redirect(isNative ? APP_SIGN_IN_PATH : "/sign-in");
+    const isNativeApp = await isNativeSummittMindsetAppRequest();
+    redirect(isNativeApp ? APP_SIGN_IN_PATH : "/sign-in");
   }
 
   const user = await currentUser();

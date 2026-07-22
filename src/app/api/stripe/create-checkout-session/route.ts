@@ -19,7 +19,7 @@ import {
   ACCOUNT_DELETION_IN_PROGRESS_BODY,
   assertEntitlementMutationAllowedForAccountDeletion,
 } from "@/lib/account-deletion/deletion-guards";
-import { isNativeSummittMindsetIosRequestFromRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequestFromRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { NATIVE_APP_CHECKOUT_UNAVAILABLE_ERROR } from "@/lib/native-app/membership-paths";
 
 export const runtime = "nodejs";
@@ -144,9 +144,7 @@ async function findBlockingSummittSubscription(args: {
 
 export async function POST(req: Request) {
   try {
-    if (
-      isNativeSummittMindsetIosRequestFromRequest(req)
-    ) {
+    if (isNativeSummittMindsetAppRequestFromRequest(req)) {
       return NextResponse.json(
         { error: NATIVE_APP_CHECKOUT_UNAVAILABLE_ERROR },
         { status: 403 }

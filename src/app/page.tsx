@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { currentUser } from "@clerk/nextjs/server";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import {
   marketingAcquisitionHref,
   marketingSubscribeCtaLabel,
@@ -187,7 +187,7 @@ const howItWorksStepCardClass =
 
 export default async function HomePage() {
   const user = await currentUser();
-  const isNativeIos = await isNativeSummittMindsetIosRequest();
+  const isNativeApp = await isNativeSummittMindsetAppRequest();
   const md = (user?.publicMetadata ?? {}) as Record<string, any>;
 
   const onboardingCompleted = md?.onboardingCompleted === true;
@@ -220,17 +220,17 @@ export default async function HomePage() {
   }
 
   const signInSubscribeHref = marketingAcquisitionHref({
-    isNativeIos,
+    isNativeApp,
     isSignedIn: false,
   });
-  const showPricingCopy = shouldShowMarketingPricingCopy(isNativeIos);
+  const showPricingCopy = shouldShowMarketingPricingCopy(isNativeApp);
   const subscribeCtaHref = marketingAcquisitionHref({
-    isNativeIos,
+    isNativeApp,
     isSignedIn: true,
   });
-  const subscribeCtaLabel = marketingSubscribeCtaLabel(isNativeIos);
-  const trialCtaLabel = marketingTrialCtaLabel(isNativeIos);
-  const trialCtaLabelLong = marketingTrialCtaLabelLong(isNativeIos);
+  const subscribeCtaLabel = marketingSubscribeCtaLabel(isNativeApp);
+  const trialCtaLabel = marketingTrialCtaLabel(isNativeApp);
+  const trialCtaLabelLong = marketingTrialCtaLabelLong(isNativeApp);
 
   return (
     <div>
@@ -305,7 +305,7 @@ export default async function HomePage() {
                   {showSubscribe && (
                     <>
                       <p className="text-sm text-[var(--muted)]">
-                        {isNativeIos
+                        {isNativeApp
                           ? "Memberships are managed on the Summitt Mindset website."
                           : "Start your membership to turn on daily text accountability and the full app."}
                       </p>

@@ -46,7 +46,7 @@ describe("paused membership UX wiring (source)", () => {
   it("navbar hides Subscribe for paused users", () => {
     const nav = read("src/components/Navbar.tsx");
     expect(nav).toContain("const isPaused = plan === \"paused\"");
-    expect(nav).toContain("!isNativeIos && !isSubscribed && !isPaused");
+    expect(nav).toContain("!isNativeApp && !isSubscribed && !isPaused");
   });
 
   it("home page shows Phase 2 monthly pricing copy", () => {

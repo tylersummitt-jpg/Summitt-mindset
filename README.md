@@ -11,7 +11,7 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 **Behavior:**
 
 - **PageView** fires only on public marketing routes (home, subscribe, coach kit, SEO pages, auth pages, policies). Authenticated product surfaces (`/dashboard`, `/onboarding`, Victory Room, Ask Pat, Film Room, etc.) are **blocked**.
-- **Native iOS app:** when the request User-Agent contains exact `SummittMindsetiOS`, `MetaPixelRoot` is **not rendered** (no `fbevents.js` / `fbq`). Website/browser Pixel unchanged.
+- **Native app (iOS or Android UA markers):** when the request User-Agent contains exact `SummittMindsetiOS` or `SummittMindsetAndroid`, `MetaPixelRoot` is **not rendered** (no `fbevents.js` / `fbq`). Website/browser Pixel unchanged. Detection is via the canonical `detectSummittMindsetPlatform` helper (`none` | `ios` | `android`).
 - Sensitive URLs (`/subscribe/success`, `/pulse`, `/winback`, `/internal`, …) and denylisted query keys (`session_id`, `t`, `token`, …) never receive PageView.
 - Custom/coach events use an allowlisted payload only — never identity, goal, journal, SMS, proof, email, phone, tokens, or Stripe/session IDs.
 - **Not included yet:** Purchase, Subscribe, StartTrial, or Conversions API (server-side).

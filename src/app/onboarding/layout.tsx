@@ -3,7 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { OnboardingShellMain } from "@/components/onboarding-shell-main";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import {
   inactiveMembershipRedirectPath,
   signInPathForClient,
@@ -84,9 +84,9 @@ export default async function OnboardingLayout({
   });
 
   if (!user) {
-    const isNativeIos = await isNativeSummittMindsetIosRequest();
-    const signInPath = signInPathForClient(isNativeIos);
-    const redirectTarget = isNativeIos
+    const isNativeApp = await isNativeSummittMindsetAppRequest();
+    const signInPath = signInPathForClient(isNativeApp);
+    const redirectTarget = isNativeApp
       ? signInPath
       : `${signInPath}?redirect_url=${encodeURIComponent("/onboarding")}`;
     logOnboardingLayoutEvent({
@@ -108,8 +108,8 @@ export default async function OnboardingLayout({
 
   if (!isSubscribed) {
     const mdSub = user.publicMetadata as Record<string, unknown> | undefined;
-    const isNativeIos = await isNativeSummittMindsetIosRequest();
-    const subscribePath = isNativeIos
+    const isNativeApp = await isNativeSummittMindsetAppRequest();
+    const subscribePath = isNativeApp
       ? inactiveMembershipRedirectPath(true)
       : mdSub?.acquisitionSource === "coach"
         ? "/subscribe?from=onboarding&src=coach"

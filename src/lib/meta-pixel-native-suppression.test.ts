@@ -4,9 +4,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { getMetaPixelId, isMetaPixelEnabled } from "@/lib/meta-pixel";
 import { getMetaPageViewDecision } from "@/lib/meta-pixel-route-policy";
 import {
-  isNativeSummittMindsetIosUserAgent,
+  detectSummittMindsetPlatform,
+  isNativeSummittMindsetApp,
+  SUMMITT_MINDSET_ANDROID_UA_TOKEN,
   SUMMITT_MINDSET_IOS_UA_TOKEN,
-} from "@/lib/native-app/ua-token";
+} from "@/lib/native-app/platform";
 
 const root = process.cwd();
 
@@ -15,15 +17,18 @@ function readSrc(rel: string): string {
 }
 
 describe("native Meta Pixel suppression (layout wiring)", () => {
-  it("RootLayout gates MetaPixelRoot on the same server-derived native boolean", () => {
+  it("RootLayout gates MetaPixelRoot on the canonical native-app boolean", () => {
     const layout = readSrc("src/app/layout.tsx");
-    expect(layout).toContain("isNativeSummittMindsetIosRequest");
+    expect(layout).toContain("isNativeSummittMindsetAppRequest");
     expect(layout).toContain(
-      "isNativeSummittMindsetIos={isNativeSummittMindsetIos}"
+      "isNativeSummittMindsetApp={isNativeSummittMindsetApp}"
     );
-    expect(layout).toContain("!isNativeSummittMindsetIos ? <MetaPixelRoot /> : null");
-    // Must not unconditionally mount MetaPixelRoot
-    expect(layout).not.toMatch(/NativeAppProvider[\s\S]*?>\s*<MetaPixelRoot\s*\/>/);
+    expect(layout).toContain(
+      "!isNativeSummittMindsetApp ? <MetaPixelRoot /> : null"
+    );
+    expect(layout).not.toMatch(
+      /NativeAppProvider[\s\S]*?>\s*<MetaPixelRoot\s*\/>/
+    );
   });
 
   it("does not introduce a second UA detector or client/query spoof gate for Pixel", () => {
@@ -45,25 +50,30 @@ describe("native Meta Pixel suppression (layout wiring)", () => {
     expect(pixelRoot).toContain("isMetaPixelEnabled");
   });
 
-  it("native UA token remains the exact SummittMindsetiOS substring", () => {
+  it("suppresses Meta for iOS and Android markers; not for browser UA", () => {
     expect(SUMMITT_MINDSET_IOS_UA_TOKEN).toBe("SummittMindsetiOS");
+    expect(SUMMITT_MINDSET_ANDROID_UA_TOKEN).toBe("SummittMindsetAndroid");
     expect(
-      isNativeSummittMindsetIosUserAgent(
+      isNativeSummittMindsetApp(
         "Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 SummittMindsetiOS"
       )
     ).toBe(true);
     expect(
-      isNativeSummittMindsetIosUserAgent(
-        "Mozilla/5.0 (iPhone) AppleWebKit/605.1.15"
+      isNativeSummittMindsetApp(
+        "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 SummittMindsetAndroid"
       )
+    ).toBe(true);
+    expect(
+      isNativeSummittMindsetApp("Mozilla/5.0 (iPhone) AppleWebKit/605.1.15")
     ).toBe(false);
-    // Query-style spoof strings are not a UA detector input
-    expect(isNativeSummittMindsetIosUserAgent("?native=1")).toBe(false);
+    expect(detectSummittMindsetPlatform("?native=1")).toBe("none");
   });
 
   it("covers native shell routes via global layout gate (sign-in, membership, user, home)", () => {
     const layout = readSrc("src/app/layout.tsx");
-    expect(layout).toContain("!isNativeSummittMindsetIos ? <MetaPixelRoot /> : null");
+    expect(layout).toContain(
+      "!isNativeSummittMindsetApp ? <MetaPixelRoot /> : null"
+    );
     for (const route of [
       "src/app/app/sign-in/page.tsx",
       "src/app/app/membership/page.tsx",

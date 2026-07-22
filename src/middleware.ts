@@ -8,7 +8,7 @@ import {
   isCoachAttributionEnabled,
   isCoachAttributionPath,
 } from "@/lib/coach-attribution";
-import { isNativeSummittMindsetIosUserAgent } from "@/lib/native-app/ua-token";
+import { isNativeSummittMindsetApp } from "@/lib/native-app/platform";
 import { signInPathForClient } from "@/lib/native-app/membership-paths";
 
 /**
@@ -115,7 +115,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   if (!userId) {
     const signInPath = signInPathForClient(
-      isNativeSummittMindsetIosUserAgent(req.headers.get("user-agent"))
+      isNativeSummittMindsetApp(req.headers.get("user-agent"))
     );
     const signInUrl = new URL(signInPath, req.url);
     const res = NextResponse.redirect(signInUrl);

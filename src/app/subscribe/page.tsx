@@ -6,7 +6,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { maySetCoachAcquisitionSource } from "@/lib/coach-attribution";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
 import SubscribeCheckoutPanel from "./subscribe-checkout-panel";
 
@@ -55,8 +55,8 @@ export default async function SubscribePage({
   const user = await currentUser();
   const md = user?.publicMetadata as Record<string, unknown> | undefined;
 
-  const isNativeIos = await isNativeSummittMindsetIosRequest();
-  if (isNativeIos) {
+  const isNativeApp = await isNativeSummittMindsetAppRequest();
+  if (isNativeApp) {
     redirect(APP_MEMBERSHIP_PATH);
   }
 

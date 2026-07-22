@@ -1,20 +1,25 @@
 /**
- * Canonical native iOS app User-Agent token.
- * Appended by the Summitt Mindset iOS WKWebView (mobile LiveShellConfiguration).
- * Exact token only — do not fuzzy-match product names.
+ * Backward-compatible re-exports and iOS-only UA helper.
+ * Canonical detection lives in `./platform` — do not duplicate token literals.
  */
-export const SUMMITT_MINDSET_IOS_UA_TOKEN = "SummittMindsetiOS" as const;
+
+export {
+  SUMMITT_MINDSET_IOS_UA_TOKEN,
+  SUMMITT_MINDSET_ANDROID_UA_TOKEN,
+  detectSummittMindsetPlatform,
+  isNativeSummittMindsetApp,
+  type SummittMindsetPlatform,
+} from "@/lib/native-app/platform";
+
+import { detectSummittMindsetPlatform } from "@/lib/native-app/platform";
 
 /**
- * True when the User-Agent string contains the exact native iOS token.
- * Case-sensitive exact substring match of SUMMITT_MINDSET_IOS_UA_TOKEN.
- * Does not inspect client-supplied identity fields or non-UA request signals.
+ * True when the User-Agent contains the exact native iOS token.
+ * Prefer `isNativeSummittMindsetApp` / `detectSummittMindsetPlatform` for
+ * product gates that apply to all native shells.
  */
 export function isNativeSummittMindsetIosUserAgent(
   userAgent: string | null | undefined
 ): boolean {
-  if (typeof userAgent !== "string" || userAgent.length === 0) {
-    return false;
-  }
-  return userAgent.includes(SUMMITT_MINDSET_IOS_UA_TOKEN);
+  return detectSummittMindsetPlatform(userAgent) === "ios";
 }

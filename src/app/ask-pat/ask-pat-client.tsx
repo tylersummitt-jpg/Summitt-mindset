@@ -18,7 +18,7 @@ import {
 
 type Props = {
   isSubscribed: boolean;
-  isNativeSummittMindsetIos?: boolean;
+  isNativeSummittMindsetApp?: boolean;
   firstName: string;
 };
 
@@ -36,7 +36,7 @@ type AskPatResponse =
 
 export default function AskPatClient({
   isSubscribed,
-  isNativeSummittMindsetIos = false,
+  isNativeSummittMindsetApp = false,
 }: Props) {
   const router = useRouter();
 
@@ -57,7 +57,7 @@ export default function AskPatClient({
   // 🔶 NOT SUBSCRIBED VIEW
   // ======================================================
   if (!isSubscribed) {
-    if (isNativeSummittMindsetIos) {
+    if (isNativeSummittMindsetApp) {
       return (
         <main className={utPageCanvas}>
           <div className={`${utPageInnerAskPat} space-y-8`}>

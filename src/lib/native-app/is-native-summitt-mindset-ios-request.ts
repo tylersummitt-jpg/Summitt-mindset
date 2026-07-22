@@ -1,19 +1,20 @@
-import { headers } from "next/headers";
-import { isNativeSummittMindsetIosUserAgent } from "@/lib/native-app/ua-token";
+import {
+  detectSummittMindsetPlatformRequest,
+  detectSummittMindsetPlatformFromRequest,
+} from "@/lib/native-app/is-native-summitt-mindset-app-request";
 
 /**
- * Server Components / route handlers: detect native iOS app from request UA.
+ * Temporary iOS-only request helpers.
+ * Prefer `isNativeSummittMindsetAppRequest` for product gates that apply to
+ * all native shells. These wrappers delegate to the canonical detector.
  */
+
 export async function isNativeSummittMindsetIosRequest(): Promise<boolean> {
-  const headerStore = await headers();
-  return isNativeSummittMindsetIosUserAgent(headerStore.get("user-agent"));
+  return (await detectSummittMindsetPlatformRequest()) === "ios";
 }
 
-/**
- * Route handlers that already have a Request: detect from that request's UA.
- */
 export function isNativeSummittMindsetIosRequestFromRequest(
   req: Request
 ): boolean {
-  return isNativeSummittMindsetIosUserAgent(req.headers.get("user-agent"));
+  return detectSummittMindsetPlatformFromRequest(req) === "ios";
 }

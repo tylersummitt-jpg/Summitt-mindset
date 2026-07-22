@@ -1854,3 +1854,36 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - Apple/Google portal approval — **not claimed**
 - Mobile repository / application code not edited in this documentation session
 - SESSION 50 historical “pending” language is **superseded** by this PASS record
+
+## SESSION 52 — 2026-07-22 — Canonical native platform detection (website)
+
+### Session summary
+- Date: 2026-07-22
+- Tasks attempted (IDs): evolve iOS-only UA detection into typed `none` | `ios` | `android` platform detector; migrate native product gates
+- Tasks completed (IDs): website canonical detector + gate migration + tests; mobile repo **not** edited; Android native shell **not** created
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `36aa1866c887decbfe71c0a0654e60fc64a44851`
+- Mobile repository: **not edited** (HEAD `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`)
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Canonical API: `SummittMindsetPlatform = "none" | "ios" | "android"`; `detectSummittMindsetPlatform(ua)`; `isNativeSummittMindsetApp(ua)`.
+2. Markers: `SummittMindsetiOS` → `ios`; `SummittMindsetAndroid` → `android`; ordinary browsers / empty / undefined → `none`. UA-only; no query/cookie/identity detection.
+3. Product gates migrated to native-app detection: Meta Pixel suppression, checkout block, subscribe redirect, marketing CTAs, Navbar/SubscriptionGate, membership/sign-in paths, Film Room/Guide/Ask Pat/dashboard/onboarding gates, post-deletion sign-in redirect.
+4. iOS-only helpers retained as thin wrappers (`platform === "ios"`) — not a second source of truth for product gates.
+5. Browser checkout, Meta Pixel (browser), Stripe prices/webhooks, SMS, auth, deletion ordering **unchanged**.
+6. **Android native shell not created.** Android marker recognition is website-only readiness.
+7. **Physical iPhone regression after deploy still required.** Android emulator/device validation is future work.
+8. Do **not** mark Android implementation COMPLETE.
+
+### Explicit non-claims
+- Android app / Play store readiness — **not claimed**
+- Physical iPhone regression for this change — **not yet run**
+- Mobile repository not edited
+- Stripe business logic / deletion pipeline not changed beyond native UA gate generalization

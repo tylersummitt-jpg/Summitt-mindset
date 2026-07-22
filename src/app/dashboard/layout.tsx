@@ -5,7 +5,7 @@ import { DashboardBackgroundFrame } from "@/app/dashboard/DashboardBackgroundFra
 import { PendingResolutionBanner } from "@/app/dashboard/pending-resolution-banner";
 import { resolveActionablePendingResolutionKindForDashboard } from "@/lib/v2-dashboard-pending-resolution";
 import { getOnboardingSobStatus } from "@/lib/onboarding-sob-gates";
-import { isNativeSummittMindsetIosRequest } from "@/lib/native-app/is-native-summitt-mindset-ios-request";
+import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import {
   inactiveMembershipRedirectPath,
   signInPathForClient,
@@ -41,10 +41,10 @@ export default async function DashboardLayout({
   children: ReactNode;
 }) {
   const user = await currentUser();
-  const isNativeIos = await isNativeSummittMindsetIosRequest();
+  const isNativeApp = await isNativeSummittMindsetAppRequest();
 
   if (!user) {
-    redirect(signInPathForClient(isNativeIos));
+    redirect(signInPathForClient(isNativeApp));
   }
 
   const md = (user.publicMetadata || {}) as Record<string, any>;
@@ -53,7 +53,7 @@ export default async function DashboardLayout({
 
   // 🔒 HARD GATE — subscription required
   if (!isSubscribed) {
-    redirect(inactiveMembershipRedirectPath(isNativeIos));
+    redirect(inactiveMembershipRedirectPath(isNativeApp));
   }
 
   const onboardingCompleted = md?.onboardingCompleted === true;
