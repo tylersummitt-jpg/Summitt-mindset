@@ -1,29 +1,55 @@
-# Store Submission — Open Items
+# Store Submission — Open Items & Package Index
 
-**Last updated:** 2026-07-21
-**Package location:** `docs/store-submission/`
+**Last updated:** 2026-07-24
+**Package:** `docs/store-submission/`
 
 ---
 
-## READY NOW
+## Package index
 
-- Draft Apple metadata (`apple-app-store-metadata.md`)
-- Draft Apple App Privacy answers with evidence (`apple-app-privacy-answers.md`)
-- Draft Apple Review Notes (`apple-review-notes.md`)
-- Draft Google Play metadata (`google-play-metadata.md`)
-- Draft Google Data Safety answers (`google-data-safety-answers.md`)
-- Content / age-rating questionnaire drafts (`store-content-rating-answers.md`)
-- Reviewer account plan without secrets (`reviewer-test-account-plan.md`)
-- Screenshot shot list (`screenshot-shot-list.md`)
-- Public URLs ready:
-  - `https://summittmindset.com`
-  - `https://summittmindset.com/privacy`
-  - `https://summittmindset.com/terms`
-  - `https://summittmindset.com/data-deletion`
-  - Support display: `Support@SummittMindset.com`
-- Product facts grounded in implementation: email-code app auth; native purchase suppression; in-app deletion proven; no native IAP; no ATT/ad SDK in native binary
-- **Native Meta Pixel suppression COMPLETE / physical PASS (2026-07-21):** zero facebook/fbevents/connect.facebook network rows; `typeof window.fbq === "undefined"` on Victory Room and in-app `/`. Website Pixel remains when configured. Pixel is **not** an unresolved native store-submission item.
-- **Public Privacy Policy Meta disclosure COMPLETE (2026-07-21):** `/privacy` names Meta Platforms, Inc., describes website Pixel purposes/data classes, states no intentional advanced matching of email/phone/name, and states Meta Pixel is not loaded in the iOS app. Website Meta disclosure is **no longer an open blocker**.
+| File | Purpose |
+|---|---|
+| `v1-platform-scope.md` | iPhone-only / phone-focused V1; iPad deferred |
+| `waiting-on-assets.md` | Brooke assets + D-U-N-S / portal blockers; Android truth |
+| `apple-app-store-metadata.md` | Apple listing copy |
+| `google-play-metadata.md` | Play listing copy |
+| `apple-review-notes.md` | ASC review notes |
+| `google-play-access-instructions.md` | Play app-access instructions |
+| `reviewer-test-account-plan.md` | Demo account + fictional content |
+| `apple-app-privacy-answers.md` | Apple App Privacy worksheet |
+| `google-data-safety-answers.md` | Play Data Safety worksheet |
+| `store-content-rating-answers.md` | Age / content rating drafts |
+| `screenshot-shot-list.md` | Five-screen phone storyboard |
+| `release-regression-checklist.md` | Simulator / emulator / TestFlight / father phone / smoke |
+| `release-configuration-audit.md` | Release config audit worksheet |
+
+---
+
+## READY NOW (docs)
+
+- Phone-only V1 decision documented
+- Apple + Google listing drafts (final-draft quality; Tyler decisions flagged)
+- Review notes + Play access instructions
+- Reviewer/demo account plan with fictional content
+- Privacy + Data Safety worksheets
+- Regression + configuration checklists
+- Screenshot storyboard (phone only)
+- Public URLs: site, privacy, terms, data-deletion; Support@SummittMindset.com
+- Native Meta Pixel suppression PASS (iOS physical); native checkout suppression; Vimeo `dnt=1` PASS
+- Canonical native platform detection (`none`/`ios`/`android`) on website
+
+---
+
+## Stale facts corrected in this package
+
+| Old / incorrect (do not reintroduce) | Current recorded truth |
+|---|---|
+| “Android not in the repository / not built” as current control | Android custom WebView shell exists; package `com.summittmindset.app`; emulator matrix + intents + Meta/checkout/deletion passes recorded; signed AAB locally verified — see `waiting-on-assets.md` |
+| “Screenshot dimensions unknown / feature graphic missing as unknown” | Specs recorded: icon 1024; adaptive 1024; splash 2732; feature graphic 1024×500 — assets still **WAITING** on Brooke |
+| “Native intent / Meta / checkout validation pending” (if stated as open) | Engineering passes recorded; physical father-phone still **NOT RUN** pending Play internal testing |
+| iPad undecided for V1 screenshots | **iPhone only / phone-focused**; iPad deferred |
+
+> Historical narrative in `docs/mobile-app-master-plan.md` may still describe earlier Android-deferred eras — treat **this package** + `waiting-on-assets.md` as current store-submission control for Android readiness facts.
 
 ---
 
@@ -31,9 +57,9 @@
 
 | Item | Blocker |
 |---|---|
-| Apple Developer organization enrollment | **D-U-N-S** / Apple verification |
-| Google Play organization verification | Play Console org verification (when Android starts) |
-| Legal counsel sign-off on final portal tracking radios (all providers) | External counsel (if engaged) |
+| Apple Developer organization enrollment | D-U-N-S / Apple verification |
+| Google Play organization verification | Play Console org |
+| Optional counsel on final tracking radios | External counsel if engaged |
 
 ---
 
@@ -41,9 +67,8 @@
 
 | Item | Owner |
 |---|---|
-| Final app icon | Brooke |
-| Splash / launch branding | Brooke |
-| Final store screenshots | Tyler (+ Brooke branding) per shot list |
+| Icon / adaptive / splash / feature graphic / brand hex | Brooke |
+| Feature-graphic headline copy | **TYLER DECISION REQUIRED** |
 
 ---
 
@@ -51,56 +76,57 @@
 
 | Item | Notes |
 |---|---|
-| Final age-rating number | Generated after questionnaire in ASC / IARC |
-| Final privacy nutrition labels / Data Safety submit | Must click through portals (manual entry still required) |
-| App Store Connect app record | Needs enrollment |
-| Play Console app record | Needs Android + Play account |
-| Export compliance final radio buttons | Confirm at binary upload |
+| Final age-rating number | ASC / IARC questionnaires |
+| Final privacy / Data Safety submit | Manual entry from worksheets |
+| ASC / Play app records | Need enrollment |
+| Export compliance final radios | Confirm at binary upload |
+| TestFlight / Play internal testing uploads | After signing + assets |
 
 ---
 
-## NEEDS TYLER DECISION
+## TYLER DECISION REQUIRED
 
-1. **Final subtitle** (≤30 chars) — options in Apple metadata
-2. **Primary category** (Lifestyle vs Health & Fitness vs Productivity)
-3. **Promotional / keyword final language**
-4. **Review support contact** phone/email for ASC
-5. **Target age posture** (confirm 18+)
-6. **Whether to also name Resend** in privacy policy (optional; Meta + Vimeo disclosures done)
-7. **Whether mobile `PrivacyInfo.xcprivacy` must be expanded** to declare website-collected product data types before iOS submit (separate authorized mobile task if needed)
-8. **Support URL** choice (Data Deletion page vs future `/support`)
-9. **iPhone-only vs Universal** screenshot/device set
+1. Final Apple subtitle (options in `apple-app-store-metadata.md`)
+2. Primary category (Lifestyle recommended vs Health & Fitness)
+3. Final keywords / short description variants
+4. Review support contact phone/email for ASC
+5. Target age posture confirm 18+
+6. Support URL: Data Deletion vs future `/support`
+7. Optional Resend naming in privacy policy
+8. Whether mobile `PrivacyInfo.xcprivacy` must expand before iOS submit
+9. Play feature-graphic headline
+10. Provision `[REVIEWER_EMAIL_PLACEHOLDER]` accounts (outside git)
 
 ---
 
 ## UNRESOLVED (do not guess in portals)
 
-| Item | Why unresolved | Suggested resolution |
-|---|---|---|
-| Final portal privacy questionnaire entry (incl. Vimeo) | Must be clicked in ASC / Play | Use drafts; Vimeo disclosed as functionality sharing, not Meta-style ad tracking; physical `dnt=1` playback PASS recorded |
-| OpenAI / Twilio / Stripe / Resend retention schedules | Provider dashboards | Optional counsel; deletion matrix documents EXTERNAL logs |
-| Clerk website Google OAuth exact dashboard toggles | Dashboard | Confirm before review notes if website Google mentioned |
-| At-rest encryption claims beyond provider defaults | Not custom app crypto | Stick to “encrypted in transit = Yes” |
-| Empty native PrivacyInfo vs WebView-collected product data | Policy/product | Separate mobile task if required |
+| Item | Notes |
+|---|---|
+| Final portal privacy questionnaire clicks | Manual |
+| Provider retention schedules | Dashboards / counsel |
+| At-rest encryption beyond provider defaults | Do not invent |
+| Empty native PrivacyInfo vs WebView-collected data | Separate mobile task if required |
+| Physical Android father-phone matrix | After Play internal testing |
 
 ---
 
-## Explicit non-claims (package-wide)
+## Explicit non-claims
 
-This package does **not** claim:
-
-- “No data collected” / “No data shared”
-- COPPA compliant
-- HIPAA compliant
-- Apple approved / Google approved
-- Play Billing policy approval
-- Native IAP existence
-- Final portal age rating numbers
-- No tracking anywhere on the website
+- No data collected / no data shared
+- COPPA / HIPAA / Apple / Google approval
+- Play Billing exists
+- Native IAP exists
 - Final legal advice
+- iPad support in V1
 
 ---
 
-## Recommended next single Tyler decision
+## Recommended next actions
 
-**Finalize store listing copy** (subtitle / category), then proceed to Apple enrollment when D-U-N-S arrives. Public Meta + Vimeo Privacy Policy disclosures, native Pixel PASS, and physical Vimeo `dnt=1` playback PASS are complete.
+1. Tyler finalize subtitle + category + reviewer inbox
+2. Brooke deliver visual assets
+3. Complete Apple enrollment when D-U-N-S arrives
+4. Play org verification + internal testing → father-phone pass
+5. Capture five phone screenshots
+6. Portal privacy entry from worksheets

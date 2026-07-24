@@ -1,134 +1,120 @@
-# Screenshot Shot List — Apple & Google
+# Screenshot Storyboard — Five Phone Screens (V1)
 
-**Status:** Production shot list. Capture on device/simulator after final icon/branding when required.  
-**Last updated:** 2026-07-21  
+**Status:** Exact V1 capture plan for Apple App Store and Google Play
+**Last updated:** 2026-07-24
+**Device:** **Phone only** (no iPad / tablet screenshots for V1) — `v1-platform-scope.md`
 
-**Principle:** Show **signed-in product value**, not mostly auth or legal pages.
+**Principle:** Sell the daily coaching relationship and member transformation—not content quantity.
 
 ---
 
-## Shared requirements
+## Shared rules
 
 | Rule | Detail |
 |---|---|
-| Account state | **Subscribed** reviewer/demo account |
-| Must appear | Real Victory Room / Ask Pat / Film Room content |
-| Must not appear | Free Trial pricing, Subscribe CTA, Stripe Checkout, debug banners, Safari Web Inspector chrome, personal phone numbers of real members, other users’ private data |
-| Auth screens | At most **one** optional sign-in frame; do not dominate the set |
-| Brooke icon/branding | **Required first** for store-ready captures that include the home indicator / marketing frame if icon is visible; product UI screens can be captured earlier for draft, but **final upload waits on final icon** |
+| Account | Dedicated subscribed demo account (`reviewer-test-account-plan.md`) |
+| Goal shown | “Finish the first draft of my leadership plan by September 30.” |
+| Must not appear | Checkout, pricing, Subscribe/Free Trial CTAs, real member PII, real phone numbers, real journals from non-demo users, admin tools, debug UI, Capacitor branding, test banners |
+| Icon | Final Brooke icon preferred before upload; drafts OK earlier |
+| Stores | Same five screens for **Apple and Google** |
 
 ---
 
-## Apple device sizes (capture targets)
+## Screen 1 — Victory Room
 
-Prioritize current App Store required sizes for iPhone (confirm live ASC requirements at submit time). Typical targets:
-
-| Priority | Device class | Logical target |
-|---|---|---|
-| P0 | 6.7" / 6.9" iPhone | Latest large iPhone screenshots |
-| P0 | 6.5" or current required second size | Per ASC |
-| P1 | iPad | Only if universal; V1 may be iPhone-first — **NEEDS TYLER DECISION** |
+| Field | Value |
+|---|---|
+| Exact screen | `/dashboard/victory-room` |
+| Purpose | Hero proof of the product’s center of gravity |
+| Value communicated | One serious commitment; follow-through you can see |
+| Demo content | Fictional Current Goal + safe progress / proof context |
+| Marketing headline | “Your Victory Room — proof you’re keeping the commitment.” |
+| Hide | Pricing, empty error states, other members’ data |
+| Privacy checks | Demo data only |
+| Needed for | Apple + Google |
 
 ---
 
-## Google Play
+## Screen 2 — Today’s coaching / daily practice
 
-| Priority | Size |
+| Field | Value |
 |---|---|
-| P0 | Phone screenshots (16:9 or portal-required) |
-| P1 | 7" / 10" tablet only if Android tablet supported later |
-
-Android not in repo yet — keep the same **content** shot list for future Play listing.
+| Exact screen | Primary daily coaching surface (Victory Room daily section or current daily practice / commitment action UI—pick the strongest “today” coaching frame) |
+| Purpose | Show the daily coaching relationship |
+| Value communicated | Today’s standard is clear; action is concrete |
+| Demo content | Today’s coaching tied to the leadership-plan draft commitment |
+| Marketing headline | “Daily coaching that keeps the standard in front of you.” |
+| Hide | SMS phone numbers; purchase CTAs |
+| Privacy checks | No real member SMS content |
+| Needed for | Apple + Google |
 
 ---
 
-## Shot list
-
-### Shot 1 — Victory Room (hero)
+## Screen 3 — Ask Pat
 
 | Field | Value |
 |---|---|
-| Route | `/dashboard/victory-room` (or current Victory Room path) |
-| Account | Subscribed |
-| Must appear | Personal Victory Room sections; commitment / wins context |
-| Must not appear | Pricing, Subscribe, empty error states |
-| Caption (optional) | “Your Victory Room — proof of the commitment you’re keeping.” |
-| Brooke icon first? | Preferred for final; draft OK without |
+| Exact screen | Ask Pat member route |
+| Purpose | Personalized coaching guidance |
+| Value communicated | Answers grounded in *your* commitment—not generic tips |
+| Demo content | Safe sample Q: protecting 25 focused minutes for the draft |
+| Marketing headline | “Ask Pat — guidance grounded in your Current Goal.” |
+| Hide | Errors; other users’ threads |
+| Privacy checks | Demo Q&A only |
+| Needed for | Apple + Google |
 
-### Shot 2 — Daily coaching / action experience
+---
 
-| Field | Value |
-|---|---|
-| Route | Primary daily coaching surface used by members (Victory Room daily section **or** current goal / action UI — use the screen that best shows today’s coaching action) |
-| Account | Subscribed with visible today’s action / coaching content |
-| Must appear | Clear daily coaching or commitment action |
-| Must not appear | SMS phone numbers in cleartext if avoidable; purchase CTAs |
-| Caption | “Daily coaching that keeps the commitment in front of you.” |
-| Brooke icon first? | Preferred for final |
-
-### Shot 3 — Ask Pat
+## Screen 4 — Film Room
 
 | Field | Value |
 |---|---|
-| Route | Ask Pat member route |
-| Account | Subscribed |
-| Must appear | Ask Pat UI with a sample question/answer (use reviewer account content, not a real private member’s journal) |
-| Must not appear | Errors; other members’ data |
-| Caption | “Ask Pat — coaching answers grounded in your commitment.” |
-| Brooke icon first? | Preferred for final |
+| Exact screen | `/film-room` list and/or `/film-room/[id]` with player/poster visible |
+| Purpose | Authorized lesson content that sharpens standards |
+| Value communicated | Film Room supports the coaching relationship (not a streaming service pitch) |
+| Demo content | One lesson title + player UI |
+| Marketing headline | “Film Room — lessons that sharpen how you lead yourself.” |
+| Hide | Broken player; blank WebView |
+| Privacy checks | No unrelated PII overlays |
+| Needed for | Apple + Google |
 
-### Shot 4 — Film Room
+---
 
-| Field | Value |
-|---|---|
-| Route | `/film-room` list and/or `/film-room/[id]` with Vimeo playing or poster visible |
-| Account | Subscribed |
-| Must appear | Film Room lesson UI; recognizable video player |
-| Must not appear | Broken player; blank WebView |
-| Caption | “Film Room — lessons to sharpen how you lead yourself.” |
-| Brooke icon first? | Preferred for final |
-
-### Shot 5 — Progress / identity
+## Screen 5 — Progress / identity / consistency
 
 | Field | Value |
 |---|---|
-| Route | Identity / standards / progress surface used in product (e.g. commitment identity or progress summary — pick the strongest non-legal screen) |
-| Account | Subscribed with filled identity/progress |
-| Must appear | Personal identity or progress content |
-| Must not appear | Admin tools; raw IDs |
-| Caption | “Know the standard you’re holding.” |
-| Brooke icon first? | Preferred for final |
+| Exact screen | Identity / standards / progress surface (strongest non-legal member screen) |
+| Purpose | Show consistency and the personal standard |
+| Value communicated | Who you’re becoming + the bar you’re holding |
+| Demo content | Identity statement + recent safe reflections summary |
+| Marketing headline | “Know the standard you’re holding—and keep it.” |
+| Hide | Admin tools; raw IDs; Danger Zone as hero |
+| Privacy checks | Demo identity/reflections only |
+| Needed for | Apple + Google |
 
-### Shot 6 — Account / membership (optional)
+---
 
-| Field | Value |
+## Optional (do not replace the five)
+
+| Shot | Use? |
 |---|---|
-| Route | `/user` **or** skip if it weakens the set |
-| Account | Subscribed |
-| Must appear | Account management; **optional** glimpse that deletion exists without making deletion the hero |
-| Must not appear | Danger Zone as the only message; Subscribe/Checkout |
-| Caption | “Manage your account — including in-app deletion when you need it.” |
-| Brooke icon first? | Preferred for final |
-| Use? | Optional — only if useful for trust; prefer product shots 1–5 |
-
-### Shot 7 — Sign in (optional, max one)
-
-| Field | Value |
-|---|---|
-| Route | `/app/sign-in` |
-| Account | Signed out |
-| Must appear | Email-code Sign in + Create account |
-| Must not appear | Google button; Apple social button; pricing |
-| Caption | “Sign in with an email verification code.” |
-| Brooke icon first? | Yes if app icon chrome visible |
+| `/app/sign-in` | At most one optional auth frame if a store requires it—do not dominate |
+| Account / deletion | Trust optional only; never the hero set |
 
 ---
 
 ## Capture checklist before upload
 
-- [ ] Final app icon applied  
-- [ ] No debug inspectable affordances in Release captures  
-- [ ] No personal PII from non-reviewer accounts  
-- [ ] No purchase CTAs  
-- [ ] Text cropped for status-bar privacy if needed  
-- [ ] Captions localized only if shipping non-English (V1 English assumed)
+- [ ] Phone frames only (no iPad)
+- [ ] Final icon applied (or explicitly draft)
+- [ ] No debug inspection chrome
+- [ ] No purchase CTAs
+- [ ] Demo account content only
+- [ ] Headlines match store tone (coaching relationship, not LMS)
+
+---
+
+## Asset dependencies
+
+Final upload waits on Brooke icon/splash where chrome is visible — `waiting-on-assets.md`.

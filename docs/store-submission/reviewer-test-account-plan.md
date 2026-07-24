@@ -1,94 +1,121 @@
-# Reviewer Test Account Plan
+# Reviewer / Demo Account Plan
 
-**Status:** Operational plan for App Review / Play review.  
-**Rule:** **No real passwords, verification codes, tokens, phone numbers, or private Clerk/Stripe IDs in git.**  
-**Last updated:** 2026-07-21  
-
----
-
-## Goals
-
-Provide reviewers a **subscribed** account that can exercise:
-
-- Email-code Sign in (app path)  
-- Victory Room  
-- Ask Pat  
-- Film Room  
-- Account settings  
-- Discoverability of **Delete account** (warn reviewers **not** to complete deletion on the shared reviewer account unless Tyler has a disposable alternate)
-
-Without requiring a **live paid purchase** inside the app (native purchase is blocked / not offered).
+**Status:** Operational plan for App Review and Play review.
+**Rule:** **No real passwords, verification codes, tokens, phone numbers, or private Clerk/Stripe IDs in git.**
+**Last updated:** 2026-07-24
 
 ---
 
-## Account placeholders (fill only in App Store Connect / Play Console / password manager)
+## Purpose
+
+Provide a **dedicated** subscribed demo account so reviewers can exercise the member experience **without**:
+
+- live native purchase / Stripe Checkout
+- Tyler’s personal account
+- real member journals or phone numbers
+
+---
+
+## Account naming convention
+
+| Field | Convention |
+|---|---|
+| Email pattern | `[REVIEWER_EMAIL_PLACEHOLDER]` — e.g. `review+appstore@…` / `review+play@…` under Tyler’s control |
+| Auth | Clerk **email verification code** only on `/app/sign-in` (no app password field) |
+| Password | **N/A** for the native email-code path |
+| Phone / SMS | **Do not** attach a personal phone unless absolutely required. Prefer email-only for core review. |
+| Entitlement | Subscribed Clerk `publicMetadata` set **before** submission |
+| Storage | Password manager / ASC / Play Console only — **never git** |
+
+Label accounts clearly, e.g. `Store Reviewer — App Store` / `Store Reviewer — Play`, and do **not** reuse as Tyler’s daily test account.
+
+---
+
+## Required account state
+
+| Requirement | Detail |
+|---|---|
+| Onboarding | Complete |
+| Membership | Active entitlement (Victory Room reachable) |
+| Current Goal | Realistic fictional commitment (below) |
+| Reflections | 3–5 safe sample entries |
+| Ask Pat | Safe context; one sample Q&A acceptable |
+| Film Room | Accessible; Vimeo playback works |
+| Native purchase UI | Absent / blocked |
+| SMS | Not required for review path |
+
+---
+
+## Recommended fictional demo content
+
+**Current Goal / commitment**
+
+> Finish the first draft of my leadership plan by September 30.
+
+**Identity statement (example)**
+
+> I am a leader who finishes what I start and holds myself to a clear written standard.
+
+**Behavior commitment (example)**
+
+> Write for 25 focused minutes on the leadership plan draft before noon, five weekdays this week.
+
+**Sample reflections (safe, fictional)**
+
+1. Wrote 25 minutes before meetings. Draft outline is clearer; still need the standards section.
+2. Skipped writing after a long day. Reset tomorrow: same 25 minutes, phone in another room.
+3. Finished the “team expectations” section. Progress feels real because I can point to pages.
+4. Asked a hard question in Ask Pat about staying honest when energy is low—useful, not fluffy.
+5. Film Room lesson on standards reminded me to measure the draft against one clear outcome.
+
+**Progress state**
+
+- Onboarding complete
+- Current Goal visible in Victory Room
+- Recent reflections present
+- No admin tools; no real member data
+
+**Safe Ask Pat question**
+
+> When my schedule gets crowded, how do I protect 25 minutes for the leadership-plan draft without lowering the standard?
+
+**Film Room**
+
+- Open Film Room list → open one lesson → confirm playback
+
+---
+
+## Credential placeholders (portal / password manager only)
 
 | Field | Placeholder |
 |---|---|
-| Reviewer email | `[REVIEWER_EMAIL_PLACEHOLDER]` e.g. pattern `review+appstore@…` under Tyler’s control |
-| Auth method | Clerk **email verification code** only (no password field on `/app/sign-in`) |
-| Password | **N/A** for app email-code path |
-| Phone / SMS | **Do not** require SMS for core review path unless separately provisioned; prefer email-only reviewer account |
-| Entitlement | Clerk `publicMetadata` subscribed flags already set by Tyler **before** submission |
-| Stripe | Existing test/customer link OK; **no live charge during review** |
+| Reviewer email | `[REVIEWER_EMAIL_PLACEHOLDER]` |
+| Auth method | Email verification code |
+| Password | N/A |
+| Entitlement proof | Tyler private checklist — not in git |
 
 ---
 
 ## How the reviewer receives the email code
 
-1. On `/app/sign-in`, enter `[REVIEWER_EMAIL_PLACEHOLDER]`.  
-2. Choose Sign in → request code.  
-3. Tyler (or automated inbox Tyler monitors) retrieves the Clerk email code from the reviewer mailbox.  
-4. If Apple asks for a shared password: explain **email code only** in Review Notes (already drafted). Optionally provide a secondary note that Tyler can monitor the inbox during review windows.
+1. Enter `[REVIEWER_EMAIL_PLACEHOLDER]` on `/app/sign-in`.
+2. Request Sign in code.
+3. Tyler (or monitored reviewer inbox) retrieves the Clerk email code.
+4. Enter code → expect Victory Room (subscribed).
 
-**Alternative (if portal insists on static password):** not available on app email-code UI — do not invent a password path for V1. Stick to email-code instructions.
-
----
-
-## Expected subscribed entitlement setup (Tyler private checklist)
-
-Perform **outside git**:
-
-1. Create dedicated Clerk user with reviewer email.  
-2. Grant active membership entitlement the same way production members receive it (Stripe test mode or manual metadata) — **do not document secret procedures with live keys here**.  
-3. Confirm sign-in on physical device reaches **Victory Room**, not `/app/membership`.  
-4. Confirm Ask Pat submit works.  
-5. Confirm Film Room lists + Vimeo plays.  
-6. Confirm Account shows Sign out and Delete account separately.  
-7. Confirm native UI shows **no** Free Trial / Subscribe / Checkout CTA.
+If routed to Membership required: entitlement missing — **do not purchase**; Tyler fixes entitlement.
 
 ---
 
-## Exact navigation steps (reviewer)
+## Ownership & maintenance
 
-1. Launch app → land on `/app/sign-in`.  
-2. Sign in with email code (Create account should not be required if account pre-exists).  
-3. Arrive at Victory Room.  
-4. Navigate to Ask Pat → ask a short question → wait for answer.  
-5. Navigate to Film Room → open a video → play.  
-6. Open Account (`/user`) → locate legal links; note Delete account in Danger Zone.  
-7. **Do not** complete account deletion on the shared reviewer account.  
-8. **Do not** attempt website Subscribe / Stripe Checkout expecting it to work inside the app.
-
----
-
-## What not to test with a real charge
-
-- Native “Subscribe”, “Free Trial”, “Upgrade”, or Checkout (should be absent / blocked)  
-- Starting a new live paid subscription solely for review  
-- Purchasing via IAP (none exists)
-
-Website Safari purchase path may exist for real customers; it is **out of scope** for proving native IAP.
-
----
-
-## Account deletion testing
-
-| Scenario | Guidance |
+| Role | Owner |
 |---|---|
-| Shared reviewer account | Show that Delete account is discoverable; **do not finalize** |
-| Proof of deletion flow | Tyler maintains a **separate disposable** account if a reviewer must complete deletion |
-| Public URL | `https://summittmindset.com/data-deletion` |
+| Create / entitlement / inbox | Tyler |
+| Keep account active during review windows | Tyler |
+| Reset after reviewers mutate data | Tyler |
+| Avoid lockout | Monitor inbox; keep entitlement valid; do not delete the shared reviewer account during review |
+| Disposable deletion proof | Separate throwaway account if a reviewer must complete deletion |
 
 ---
 
@@ -96,13 +123,37 @@ Website Safari purchase path may exist for real customers; it is **out of scope*
 
 | When | Action |
 |---|---|
-| After each review cycle | Rotate reviewer email or clear sessions; ensure entitlement still active |
-| If reviewer deleted the account | Provision a new `[REVIEWER_EMAIL_PLACEHOLDER]` and update App Store Connect notes |
-| If entitlement lapsed | Re-apply subscribed metadata / Stripe link before resubmit |
-| Codes | Single-use; never commit codes |
+| After each cycle | Confirm entitlement; clear odd mutations; rotate email if compromised |
+| If reviewer deleted the account | Provision new `[REVIEWER_EMAIL_PLACEHOLDER]`; update ASC / Play notes |
+| If entitlement lapsed | Re-apply subscribed state before resubmit |
+| Codes | Single-use; never commit |
 
 ---
 
-## Inactive-path note (optional secondary account)
+## Exact reviewer navigation (shared)
 
-A second disposable **unsigned / inactive** account can demonstrate Membership required + no purchase CTA + deletion discoverability. Keep credentials out of git; mention existence only in private Tyler notes if used.
+1. Launch app → `/app/sign-in`
+2. Sign in with email code (pre-created account; Create account not required)
+3. Arrive at Victory Room
+4. Confirm Current Goal / daily coaching context
+5. Ask Pat → short question → answer
+6. Film Room → play a lesson
+7. Account (`/user`) → note Sign out ≠ Delete account
+8. **Do not** complete deletion on the shared reviewer account
+9. **Do not** attempt native Subscribe / Checkout
+
+---
+
+## What not to test with a real charge
+
+- Native Subscribe / Free Trial / Checkout
+- New live paid subscription solely for review
+- IAP / Play Billing (not offered in V1 native)
+
+Website Safari purchase may exist for real customers; it is out of scope for proving native purchase.
+
+---
+
+## Inactive-path optional secondary account
+
+A disposable **inactive** account can show Membership required + no purchase CTA + deletion discoverability. Credentials stay out of git.

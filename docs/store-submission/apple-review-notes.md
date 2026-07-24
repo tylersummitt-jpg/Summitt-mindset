@@ -1,7 +1,10 @@
-# Apple App Review Notes — Draft
+# Apple App Review Notes — Copy-Ready Draft
 
-**Status:** Copy into App Store Connect “Notes” when submitting.  
-**Last updated:** 2026-07-21  
+**Status:** Paste into App Store Connect Notes when submitting.
+**Last updated:** 2026-07-24
+**Device scope:** iPhone only (V1)
+
+> Credentials: use App Review Information fields / placeholders only. No passwords in git.
 
 ---
 
@@ -10,42 +13,46 @@
 ```
 Thank you for reviewing Summitt Mindset.
 
-PRODUCT SUMMARY
-Summitt Mindset is a membership coaching product. The iOS app is a native WKWebView shell that loads the live production website (https://summittmindset.com), starting at /app/sign-in. The website remains the product source of truth.
+WHAT THE APP DOES
+Summitt Mindset is a daily coaching and accountability membership for holding one serious Current Goal. Members use a personal Victory Room, Ask Pat guidance, Film Room lessons, and optional SMS coaching as a companion channel. The iPhone app provides access to the live Summitt Mindset member experience at https://summittmindset.com.
 
-AUTHENTICATION
-• In the iOS app, Sign in and Create account use Clerk email verification codes only.
-• Google sign-in is intentionally not shown inside the app (website Google sign-in may remain available in Safari).
-• Sign in with Apple is not offered in V1 because the app does not present third-party social login.
+HOW TO SIGN IN
+1. Open the app. You should land on Sign in (/app/sign-in).
+2. Enter the reviewer email provided in App Review Information.
+3. Request an email verification code (email-code sign-in only; no password field in the app).
+4. Enter the code from the reviewer mailbox.
+5. You should reach the Victory Room (the reviewer account is pre-entitled). If you see Membership required instead, please stop—do not attempt a purchase—and contact us so we can restore entitlement.
 
-MEMBERSHIP / PAYMENTS
-• Existing members with an active website membership can access Victory Room and member features after sign-in.
-• New subscriptions are purchased on the website, not through In-App Purchase.
-• The iOS app does not expose a new-subscription purchase CTA, Free Trial pricing solicitation, or Stripe Checkout path for native users.
-• Native attempts to create Stripe Checkout sessions are blocked server-side.
+WHERE TO START
+Start in the Victory Room after sign-in. That is the home of the member’s Current Goal and proof of follow-through.
+
+HOW TO TEST DAILY COACHING
+From the Victory Room / member home, review today’s coaching context tied to the Current Goal and any reflection or progress prompts shown for the day.
+
+HOW TO TEST ASK PAT
+Open Ask Pat from navigation. Submit a short coaching question related to the Current Goal. Wait for the answer.
+
+HOW TO TEST FILM ROOM
+Open Film Room. Open a lesson and play the video (authorized Vimeo content).
 
 ACCOUNT DELETION
-• Account deletion is available in-app (Account / user settings Danger Zone, and on the inactive Membership required screen).
-• Public web instructions: https://summittmindset.com/data-deletion
-• Deletion does not require an active paid subscription.
+Account deletion is available in-app:
+• Account (/user) → Danger zone → Delete account
+• Also discoverable on the Membership required screen for inactive accounts
+Public instructions: https://summittmindset.com/data-deletion
+Please do not complete deletion on the shared reviewer account. Deletion does not require an active paid subscription.
 
-DEMO ACCOUNT
-• Use the provided reviewer email account (see App Review Information).
-• Sign in with email verification code only (check the reviewer mailbox for the code).
-• The reviewer account should already have an active membership entitlement so Victory Room, Ask Pat, and Film Room are reachable without purchasing.
-• Do not attempt a live paid purchase inside the app; native purchase paths are intentionally unavailable.
+MEMBERSHIP / PAYMENTS
+• Existing members with an active website membership can use member features after sign-in.
+• The iOS app does not initiate new subscription checkout and does not offer In-App Purchase for new subscriptions.
+• Memberships are managed on the Summitt Mindset website.
+• Please do not attempt a live purchase inside the app.
 
-HOW TO TEST CORE FEATURES
-1. Open the app → /app/sign-in → Sign in with the reviewer email → enter email code.
-2. After sign-in, you should reach Victory Room (subscribed entitlement).
-3. Open Ask Pat and submit a short coaching question.
-4. Open Film Room and play a lesson (Vimeo embed).
-5. Open Account (/user): confirm Sign out and Delete account are separate controls.
-6. Optional: open Privacy / Terms / Data Deletion from footer or account legal links.
+PRIVACY / TRACKING NOTE FOR REVIEW
+Meta Pixel is not loaded for native-app traffic. Website browser marketing tooling is separate from the iPhone app experience under review.
 
 SUPPORT
 Support@SummittMindset.com
-
 Privacy: https://summittmindset.com/privacy
 Terms: https://summittmindset.com/terms
 Data deletion: https://summittmindset.com/data-deletion
@@ -53,22 +60,20 @@ Data deletion: https://summittmindset.com/data-deletion
 
 ---
 
-## Demo-account instructions (field-specific)
+## Demo credentials (App Review Information fields)
 
-| Step | Instruction |
+| Field | Value |
 |---|---|
-| 1 | Enter `[REVIEWER_EMAIL_PLACEHOLDER]` on Sign in |
-| 2 | Request email code |
-| 3 | Open the reviewer mailbox Tyler controls; copy the Clerk verification code |
-| 4 | Enter code; wait for `/post-sign-in` routing to Victory Room |
-| 5 | If routed to Membership required, entitlement was not applied — stop and ask Tyler to fix entitlement (do not purchase) |
+| Username / email | `[REVIEWER_EMAIL_PLACEHOLDER]` |
+| Password | N/A — email verification code only |
+| Notes | Tyler monitors the reviewer inbox for Clerk codes during review windows |
 
-See `reviewer-test-account-plan.md` for setup/reset rules. **No real passwords or codes in git.**
+See `reviewer-test-account-plan.md`.
 
 ---
 
-## Attachments / other
+## Other
 
-- No special hardware required  
-- No location/camera/microphone permissions required  
-- Film Room uses embedded Vimeo playback  
+- No special hardware
+- No location / camera / microphone permission required for core review
+- V1 is **iPhone only** (no iPad screenshots or iPad claim)

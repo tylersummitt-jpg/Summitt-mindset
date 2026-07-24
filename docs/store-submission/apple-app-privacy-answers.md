@@ -1,244 +1,187 @@
-# Apple App Privacy — Draft Answers
+# Apple App Privacy — Preparation Worksheet
 
-**Status:** Implementation-grounded draft. Confirm unresolved items before portal submit.
-**Principle:** The iOS app is a WKWebView shell around `https://summittmindset.com`. For questionnaire purposes, treat data collected through the live website **inside the app** as data the app causes to be collected. Do **not** answer “Data Not Collected” solely because the native binary’s `PrivacyInfo.xcprivacy` currently lists empty collected types.
+**Status:** Implementation-grounded draft for App Store Connect App Privacy.
+**Last updated:** 2026-07-24
+**Principle:** iPhone app is a WKWebView shell around `https://summittmindset.com`. Data collected through the live site **inside the app** counts as app-caused collection.
+**Do not** answer “Data Not Collected.”
 
-**Native PrivacyInfo (mobile repo, read-only):** `NSPrivacyTracking=false`; empty `NSPrivacyCollectedDataTypes`; empty accessed APIs. That file may be **incomplete relative to website-collected data** — flagged under open items.
+**Native PrivacyInfo (mobile repo):** may under-declare website-collected types — **VERIFY BEFORE SUBMISSION** (separate mobile task if needed).
 
-**Last updated:** 2026-07-21
+This worksheet is **preparation, not a legal conclusion.** Final portal answers remain manual.
 
 ---
 
 ## Tracking (Apple definition)
 
-| Question | Draft | Confidence | Evidence |
-|---|---|---|---|
-| Does the app use data for tracking (linking with third-party data for targeted ads / ad measurement across apps/websites)? | **Native Meta Pixel: COMPLETE / physical PASS (2026-07-21).** Native iOS does **not** load Meta Pixel, does **not** initialize `fbq`, and does **not** request `connect.facebook.net` / `fbevents.js` (Safari Web Inspector: Victory Room + in-app `/`). **Website Safari still loads Meta Pixel** when configured. Final App Privacy “tracking” answer for the **app** should treat Meta Pixel as **not present in-app**, subject to final review of **all other** SDKs/providers (not a claim of zero tracking from every possible third party). | **high** (Pixel) | Physical Web Inspector 2026-07-21; `layout.tsx` native gate |
-| Tracking domains | Native: none from Meta Pixel. Website: Meta/Facebook when Pixel enabled | high | — |
-| Privacy Nutrition Label “Used for Tracking” | Do **not** attribute Meta Pixel tracking to the **iOS app**. Website advertising measurement still exists outside the app. | high (Pixel) | Do not claim “no data collected” |
-
-**Do not claim the product collects no data.** Public Privacy Policy (`/privacy`) now names Meta and describes website Meta Pixel behavior; native iOS remains Pixel-free.
+| Question | Draft | Confidence |
+|---|---|---|
+| Does the **app** use data for tracking (Apple definition: linking with third parties for targeted ads / ad measurement across apps/sites)? | **Do not mark tracking merely because the website may use Meta Pixel in Safari.** Meta Pixel is **physically verified suppressed** in native-app traffic (iOS 2026-07-21). Final answer must reflect **native app** behavior + Apple definitions and a last check of other providers. | high (Meta Pixel native); medium (all-providers final) |
+| Nutrition label “Used for Tracking” for Meta Pixel | **Do not attribute Meta Pixel tracking to the iOS app** | high |
 
 ---
 
-## Data type matrix
+## Contact Info
 
-For each type: Collected / Shared / Linked to identity / Used for tracking / Required or optional / Purpose / Provider / Evidence / Confidence.
-
-### Contact Info — Email Address
+### Email
 
 | Field | Answer |
 |---|---|
-| Collected? | **Yes** |
-| Shared? | **Yes** (service providers) |
-| Linked to identity? | **Yes** |
-| Used for tracking? | **No** (Pixel payloads sanitized to avoid email; do not send email to Meta by design) |
-| Required/optional? | **Required** for account |
-| Purpose | App Functionality; Account Management; Developer Communications (transactional) |
-| Provider | Clerk (auth); Resend (transactional email where used) |
-| Evidence | App sign-in `AppEmailCodeSignIn.tsx`; privacy policy §1; Clerk |
-| Confidence | **high** |
+| Collected? | Yes |
+| Linked to identity? | Yes |
+| Used for tracking? | No (by design not sent to Meta Pixel) |
+| Purpose | App Functionality; Account Management; Developer Communications |
+| Providers | Clerk; Resend |
+| Evidence | App email-code sign-in; privacy §1 |
+| Confidence | high |
 
-### Contact Info — Name
+### Name
 
 | Field | Answer |
 |---|---|
-| Collected? | **Yes** (when provided / present in Clerk profile) |
-| Shared? | **Yes** (Clerk; may appear in support/fulfillment contexts) |
-| Linked? | **Yes** |
-| Tracking? | **No** |
-| Required/optional? | **Optional / as provided** (account can exist primarily via email) |
+| Collected? | Yes when provided |
+| Linked? | Yes |
+| Tracking? | No |
 | Purpose | App Functionality; Account Management |
-| Provider | Clerk; Supabase profiles where mirrored |
-| Evidence | Privacy §1; `user_profiles` / Clerk |
-| Confidence | **high** |
+| Confidence | high |
 
-### Contact Info — Phone Number
+### Phone Number
 
 | Field | Answer |
 |---|---|
-| Collected? | **Yes** (when member opts into SMS coaching) |
-| Shared? | **Yes** — Twilio (delivery) |
-| Linked? | **Yes** |
-| Tracking? | **No** |
-| Required/optional? | **Optional** (SMS opt-in); required only for SMS coaching features |
-| Purpose | App Functionality; Product Personalization (delivery timing) |
-| Provider | Twilio; Supabase SMS tables |
-| Evidence | Onboarding SMS routes; privacy §3; purge matrix |
-| Confidence | **high** |
-
-### Identifiers — User ID
-
-| Field | Answer |
-|---|---|
-| Collected? | **Yes** (Clerk user ID; internal foreign keys) |
-| Shared? | **Yes** with processors that receive `userId` / metadata (e.g. Stripe metadata, Supabase rows) |
-| Linked? | **Yes** |
-| Tracking? | **No** for first-party ID itself; see Advertising Data for Pixel |
-| Required/optional? | **Required** for authenticated product |
-| Purpose | App Functionality; Fraud Prevention / Security |
-| Provider | Clerk; Supabase; Stripe (customer link) |
-| Evidence | `clerk_user_id` across DB; Stripe `client_reference_id` |
-| Confidence | **high** |
-
-### Identifiers — Device ID
-
-| Field | Answer |
-|---|---|
-| Collected? | **No advertising identifier / IDFA** found. App adds UA token `SummittMindsetiOS` (not a persistent device ID product). Server may see IP/User-Agent via normal HTTPS. |
-| Shared? | N/A for IDFA |
-| Linked? | IP may be linkable by providers — treat as technical processing |
-| Tracking? | **No IDFA tracking found** |
-| Purpose | N/A for IDFA |
-| Evidence | Mobile PrivacyInfo empty; `ua-token.ts`; no ATT |
-| Confidence | **high** for no IDFA; **medium** for IP as “Device ID” labeling (usually Other Diagnostic / not declared as Device ID) |
-
-### Purchases — Purchase History / Subscription Status
-
-| Field | Answer |
-|---|---|
-| Collected? | **Yes** (membership / Stripe customer & subscription IDs and status) |
-| Shared? | **Yes** — Stripe |
-| Linked? | **Yes** |
-| Tracking? | **No** |
-| Required/optional? | Required for paid membership features; inactive users may have no purchase |
-| Purpose | App Functionality; Account Management |
-| Provider | Stripe; Clerk `publicMetadata` entitlement fields |
-| Evidence | Stripe checkout/webhook; native checkout **blocked** (`native_app_checkout_unavailable`) |
-| Confidence | **high** |
-| Note | Card PAN not stored on Summitt servers (privacy policy) |
-
-### User Content — Emails or Text Messages (SMS)
-
-| Field | Answer |
-|---|---|
-| Collected? | **Yes** — inbound/outbound SMS coaching content and delivery state when SMS used |
-| Shared? | **Yes** — Twilio |
-| Linked? | **Yes** |
-| Tracking? | **No** |
-| Required/optional? | Optional (SMS opt-in) |
+| Collected? | Yes when SMS opted in |
+| Linked? | Yes |
+| Tracking? | No |
+| Required/optional? | Optional companion channel |
 | Purpose | App Functionality |
-| Provider | Twilio; Supabase |
-| Evidence | Twilio inbound/outbound; purge matrix SMS tables |
-| Confidence | **high** |
+| Providers | Twilio |
+| Confidence | high |
 
-### User Content — Other User Content (journals, Ask Pat, goals, reflections, Victory Room)
+---
 
-| Field | Answer |
-|---|---|
-| Collected? | **Yes** |
-| Shared? | **Yes** — Supabase storage of records; **OpenAI** when AI features process content |
-| Linked? | **Yes** |
-| Tracking? | **No** |
-| Required/optional? | Optional features, but core to product when used |
-| Purpose | App Functionality; Product Personalization |
-| Provider | Supabase; OpenAI |
-| Evidence | Ask Pat API; journal tables; privacy §1 / §4 |
-| Confidence | **high** |
+## Identifiers
 
-### Usage Data — Product Interaction
+### User ID
 
 | Field | Answer |
 |---|---|
-| Collected? | **Yes** (coaching progress, summaries, feature usage stored in product DB) |
-| Shared? | **Yes** — Supabase; OpenAI when used for generation |
-| Linked? | **Yes** |
-| Tracking? | **No** for first-party product analytics SDK (none found). Meta Pixel PageView on **marketing** allowlisted routes only — see Advertising. |
-| Purpose | App Functionality; Product Personalization |
-| Provider | Supabase; OpenAI |
-| Evidence | daily/weekly summaries, Victory snapshots, etc. |
-| Confidence | **high** |
-
-### Diagnostics — Crash Data
-
-| Field | Answer |
-|---|---|
-| Collected? | **No** first-party crash SDK found (no Sentry/Crashlytics in website `package.json`; mobile docs/PrivacyInfo show no crash SDK) |
-| Shared? | No |
-| Confidence | **high** for no third-party crash SDK; OS-level logs outside app control |
-
-### Diagnostics — Performance / Other Diagnostic Data
-
-| Field | Answer |
-|---|---|
-| Collected? | Limited technical signals (browser/device/user-agent, IP via hosting) as needed to operate HTTPS service |
-| Shared? | **Yes** — Vercel hosting; Clerk |
-| Linked? | May be linked when authenticated |
-| Tracking? | **No** (unless Pixel tracking declared separately) |
+| Collected? | Yes (Clerk ID; internal FKs) |
+| Linked? | Yes |
+| Tracking? | No for first-party ID itself |
 | Purpose | App Functionality; Fraud Prevention |
-| Confidence | **medium** (standard hosting; not a custom telemetry product) |
+| Confidence | high |
 
-### Location — Precise / Coarse
-
-| Field | Answer |
-|---|---|
-| Collected? | **No** app geolocation API usage found |
-| Confidence | **high** |
-
-### Sensitive Info / Health / Financial Info (bank account) / Contacts / Photos / Audio / Camera / Bluetooth
+### Device ID
 
 | Field | Answer |
 |---|---|
-| Collected by app APIs? | **No** (no usage descriptions in mobile Info.plist; no getUserMedia/geolocation found on website product paths audited) |
-| Payment card data | Processed by **Stripe** hosted checkout (website); not stored as PAN on Summitt servers |
-| Shipping address | Collected for specific fulfillment flows (`coach_shipping_addresses`) when used — treat as **Physical Address** if that flow is in scope for the version under review |
-| Confidence | **high** for no camera/mic/contacts/health kit; **high** that Stripe handles cards; shipping **high** if fulfillment used |
+| IDFA? | No collection found; no ATT prompt found |
+| UA markers | `SummittMindsetiOS` / `SummittMindsetAndroid` for native detection |
+| IP | May be processed by hosting as normal HTTPS — usually not labeled Device ID |
+| Confidence | high (no IDFA); medium (IP labeling) |
 
-### Advertising Data
+---
 
-| Field | Answer |
-|---|---|
-| Collected in native iOS? | **No — COMPLETE / physical PASS (2026-07-21).** Web Inspector: zero facebook/fbevents/connect.facebook network rows; `typeof window.fbq === "undefined"` on Victory Room and in-app `/`. |
-| Collected on website? | **Yes when configured** (`NEXT_PUBLIC_META_PIXEL_ID`); marketing PageView allowlist unchanged for browsers |
-| Shared? | Meta on **website only** |
-| Linked? | Pixel code sanitizes email/phone/user id from custom payloads; Meta may still process IP/cookies **in browser** |
-| Tracking? | Website advertising measurement may still qualify as tracking **outside** the native app; **no Meta Pixel tracking in-app** |
-| Purpose | Analytics / Advertising (website) |
-| Evidence | Physical Web Inspector 2026-07-21; `layout.tsx` native gate |
-| Confidence | **high** |
-
-### Other — Vimeo embeds
+## Purchases
 
 | Field | Answer |
 |---|---|
-| Collected by Summitt? | Film video IDs stored; player loads Vimeo iframe via shared helper (`dnt=1`) |
-| Shared? | **Yes for app functionality / video playback** — when the embedded player loads, Vimeo may receive technical/device info, page or referrer context, video identifiers, cookies or similar identifiers, and playback/interaction info |
-| Tracking? | **Not classified as Meta-style cross-app advertising tracking** on this evidence alone. Vimeo is a third-party player for functionality; final ASC “tracking” answers remain **manual portal entry** |
-| Purpose | App Functionality (embedded video playback) |
-| Evidence | `/privacy` §6; `buildVimeoPlayerEmbedUrl` → `https://player.vimeo.com/video/{id}?dnt=1` on Film Room detail, coach how-it-works, challenge day. **Physical iPhone PASS (2026-07-21):** Safari Web Inspector showed player request `https://player.vimeo.com/video/1151027178?dnt=1` HTTP 200; Vimeo player config `dnt = 1`; Film Room list thumbnails-only; playback functional in WKWebView; no blank/Safari trap |
-| Confidence | **high** for disclosure + `dnt=1` implementation + physical playback PASS |
-| Note | `dnt=1` does **not** make playback anonymous or cookie-free; Vimeo still processes necessary technical and playback-related information |
+| Collected? | Yes — subscription / Stripe status |
+| Linked? | Yes |
+| Tracking? | No |
+| Purpose | App Functionality; Account Management |
+| Notes | No native IAP for new subscriptions in V1; native checkout initiation blocked |
+| Confidence | high |
+
+---
+
+## User Content
+
+| Includes | Journals, reflections, Current Goal, identity statement, Ask Pat, Victory Room content |
+|---|---|
+| Collected? | Yes |
+| Linked? | Yes |
+| Tracking? | No |
+| Purpose | App Functionality; Product Personalization |
+| Shared with processors? | Supabase; OpenAI when AI runs |
+| Confidence | high |
+
+---
+
+## Usage Data
+
+| Field | Answer |
+|---|---|
+| Collected? | Yes — product activity / progress |
+| Linked? | Yes |
+| Tracking? | No for first-party product analytics SDK (none found); Meta Pixel not in native |
+| Purpose | App Functionality; Product Personalization |
+| Confidence | high |
+
+---
+
+## Diagnostics
+
+| Field | Answer |
+|---|---|
+| Crash SDK? | None found |
+| Server logs | Provider hosting may retain technical logs — **VERIFY BEFORE SUBMISSION** |
+| Purpose | App Functionality / Fraud Prevention if declared |
+| Confidence | medium |
+
+---
+
+## Sensitive Information
+
+| Field | Answer |
+|---|---|
+| Collected as Apple “Sensitive Info”? | **Not intended** as health/clinical data. Coaching/commitment content may be personal — **VERIFY BEFORE SUBMISSION** against Apple category definitions; do not claim HIPAA. |
+| Confidence | medium (category labeling) |
+
+---
+
+## Other — Vimeo (functionality)
+
+| Field | Answer |
+|---|---|
+| Shared? | Yes — embedded playback technical/playback data |
+| Tracking? | Not Meta-style ad tracking on this evidence alone |
+| Purpose | App Functionality |
+| Evidence | `/privacy` §6; `dnt=1`; physical iPhone PASS 2026-07-21 |
+| Note | `dnt=1` ≠ anonymous / cookie-free |
+| Confidence | high |
 
 ---
 
 ## Purposes checklist (Apple labels)
 
-Use where applicable: **App Functionality**, **Account Management**, **Product Personalization**, **Developer Communications**, **Fraud Prevention**. For the **iOS app**, do **not** select Meta Pixel **Advertising** / tracking purposes. Website Safari may still use Meta Pixel advertising measurement outside the app.
+Prefer: **App Functionality**, **Account Management**, **Product Personalization**, **Developer Communications**, **Fraud Prevention**.
 
-Do **not** select **Third-Party Advertising** or **Developer’s Advertising** without confirming Pixel production use and counsel review.
-
----
-
-## Data Not Collected — forbidden claim
-
-**Do not select “Data Not Collected”** for this app. Account, coaching content, SMS (optional), and subscription status are collected through the product experience the app loads.
+For the **iOS app**, do **not** select Meta Pixel **Advertising** / tracking purposes.
 
 ---
 
 ## Privacy Policy / Choices URLs
 
-- Privacy Policy: `https://summittmindset.com/privacy`
+- Privacy: `https://summittmindset.com/privacy`
 - Data Deletion: `https://summittmindset.com/data-deletion`
-- User Privacy Choices URL: optional; browser cookie / Meta ad-preference guidance is in Privacy Policy §9. Dedicated choices URL still optional.
+- Choices URL: optional
 
 ---
 
-## Alignment notes
+## Alignment
 
 | Topic | Status |
 |---|---|
-| Privacy policy lists Clerk, Supabase, Stripe, Twilio, Vercel, OpenAI | Aligned |
-| Privacy policy names Meta and describes website Meta Pixel | **Aligned (2026-07-21)** — public `/privacy` §5; native iOS excluded |
-| Privacy policy names Vimeo | **Aligned (2026-07-21)** — public `/privacy` §6; embeds use `dnt=1`; physical iPhone playback PASS |
-| Privacy policy names Resend | Optional remaining disclosure (not a Vimeo/Meta blocker) |
-| Native PrivacyInfo empty collected types | **Likely under-declares website-collected product data — mobile PrivacyInfo update may be required before submission** (report-only; this task does not edit mobile) |
+| Meta named; native Pixel excluded | Aligned |
+| Vimeo named; `dnt=1` | Aligned |
+| Resend naming in policy | Optional — **TYLER DECISION REQUIRED** |
+| PrivacyInfo completeness | **VERIFY BEFORE SUBMISSION** |
+
+---
+
+## Explicit non-claims
+
+- Not a legal opinion
+- Not “no data collected”
+- Not claiming zero third-party technical processing (Vimeo/hosting)
+- Website Safari Meta tooling ≠ native app tracking by itself

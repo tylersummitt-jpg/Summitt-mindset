@@ -1,175 +1,231 @@
-# Google Play Data Safety — Draft Answers
+# Google Play Data Safety — Preparation Worksheet
 
-**Status:** Implementation-grounded draft for Play Console Data Safety form.
-**Scope:** Same product backend as iOS (website + providers). Android binary not shipped yet; answers describe the Summitt Mindset product data practices.
-**Last updated:** 2026-07-21
-
+**Status:** Implementation-grounded draft for Play Console Data Safety.
+**Last updated:** 2026-07-24
 **Hard rule:** Do **not** claim “No data collected” or “No data shared.”
+**Scope:** Native apps load the live Summitt Mindset product; treat in-app website collection as app-caused collection.
+
+**Distinctions:**
+
+- **Shared with a service provider to operate the product** ≠ sold
+- **Sold** — privacy policy: we do not sell personal information
+- **Advertising / tracking** — native Meta Pixel suppressed; website browser Pixel is separate
+
+Final portal radios remain **manual entry** (**VERIFY BEFORE SUBMISSION**).
 
 ---
 
-## Overview answers
+## Overview
 
 | Question | Draft | Confidence |
 |---|---|---|
-| Does the app collect or share user data? | **Yes** | high |
-| Is all user data encrypted in transit? | **Yes** (HTTPS/TLS to production site and APIs) | high |
-| Can users request deletion? | **Yes** — in-app + `https://summittmindset.com/data-deletion` | high |
-| Independent security review? | **No** (unless Tyler later obtains one) | high |
+| Collects or shares user data? | **Yes** | high |
+| Encrypted in transit? | **Yes** (HTTPS/TLS) | high |
+| Users can request deletion? | **Yes** — in-app + `https://summittmindset.com/data-deletion` | high |
+| Independent security review? | **No** (unless later obtained) | high |
 
 ---
 
-## Data type rows
+## Data types worksheet
 
-### Email address
-
-| Field | Answer |
-|---|---|
-| Collected? | Yes |
-| Shared? | Yes — Clerk; Resend (transactional email) |
-| Optional? | No (required for account) |
-| Linked to identity? / Ephemeral? | Linked; not ephemeral |
-| Purposes | Account management; App functionality; Fraud prevention; Communications |
-| Evidence | Clerk email-code auth; privacy §1 |
-| Confidence | **high** |
+Legend: Linked = linked to user identity · Shared = service-provider processing to operate product (not “sold”)
 
 ### Name
 
 | Field | Answer |
 |---|---|
 | Collected? | Yes (when present) |
+| Required/optional? | Optional / as provided |
+| Linked? | Yes |
 | Shared? | Yes — Clerk / product DB |
-| Optional? | Yes / as provided |
-| Purposes | App functionality; Account management |
-| Confidence | **high** |
+| Purpose | App functionality; Account management |
+| Deletion? | Covered by account deletion (provider limits may apply) |
+| Evidence | Privacy §1; Clerk |
+| Confidence | high |
 
-### User IDs
+### Email address
 
 | Field | Answer |
 |---|---|
-| Collected? | Yes (Clerk user ID) |
-| Shared? | Yes — processors receiving user identifiers (Supabase, Stripe metadata) |
-| Optional? | No for signed-in use |
-| Purposes | App functionality; Fraud prevention |
-| Confidence | **high** |
+| Collected? | Yes |
+| Required? | Yes (account) |
+| Linked? | Yes |
+| Shared? | Yes — Clerk; Resend (transactional) |
+| Purpose | Account management; App functionality; Communications |
+| Deletion? | Yes via account deletion / provider constraints |
+| Evidence | Email-code auth; privacy §1 |
+| Confidence | high |
 
 ### Phone number
 
 | Field | Answer |
 |---|---|
 | Collected? | Yes if SMS opted in |
+| Required? | Optional (SMS companion) |
+| Linked? | Yes |
 | Shared? | Yes — Twilio |
-| Optional? | Yes |
-| Purposes | App functionality |
-| Confidence | **high** |
+| Purpose | App functionality |
+| Deletion? | Yes with SMS suppression / deletion matrix caveats |
+| Evidence | Privacy §3; Twilio |
+| Confidence | high |
+| Note | Not every user must use SMS |
 
-### Other user-generated content (journals, Ask Pat, goals, reflections, Victory Room content)
+### Account / user IDs
+
+| Field | Answer |
+|---|---|
+| Collected? | Yes (Clerk user ID; internal keys) |
+| Required? | Yes for signed-in use |
+| Linked? | Yes |
+| Shared? | Yes — Supabase, Stripe metadata, etc. |
+| Purpose | App functionality; Fraud prevention |
+| Evidence | `clerk_user_id`; Stripe links |
+| Confidence | high |
+
+### Authentication data
+
+| Field | Answer |
+|---|---|
+| Collected? | Yes (session/auth via Clerk) |
+| Shared? | Yes — Clerk |
+| Purpose | Account management; App functionality |
+| Confidence | high |
+
+### Journal / reflection / Current Goal / identity statement / Ask Pat content
 
 | Field | Answer |
 |---|---|
 | Collected? | Yes |
-| Shared? | Yes — Supabase; OpenAI when AI features run |
 | Optional? | Feature-dependent |
-| Purposes | App functionality; Personalization |
-| Confidence | **high** |
+| Linked? | Yes |
+| Shared? | Yes — Supabase; OpenAI when AI features run |
+| Purpose | App functionality; Personalization |
+| Evidence | Privacy §1; Ask Pat / journal APIs |
+| Confidence | high |
 
-### Messages (SMS coaching)
+### App activity / progress / completion
+
+| Field | Answer |
+|---|---|
+| Collected? | Yes |
+| Linked? | Yes |
+| Shared? | Yes — Supabase; OpenAI when used |
+| Purpose | App functionality; Personalization |
+| Confidence | high |
+
+### SMS messages / responses
 
 | Field | Answer |
 |---|---|
 | Collected? | Yes when SMS used |
+| Optional? | Yes |
 | Shared? | Yes — Twilio |
-| Optional? | Yes (opt-in) |
-| Purposes | App functionality |
-| Confidence | **high** |
+| Purpose | App functionality |
+| Confidence | high |
 
-### Purchase history / subscription info
+### Subscription / purchase status
 
 | Field | Answer |
 |---|---|
 | Collected? | Yes |
 | Shared? | Yes — Stripe |
-| Optional? | N/A for members; inactive users may have none |
-| Purposes | App functionality; Account management |
-| Notes | No native Play Billing currently; website Stripe checkout for acquisition |
-| Confidence | **high** |
+| Purpose | App functionality; Account management |
+| Notes | No Play Billing for new native purchases in V1; website Stripe for acquisition |
+| Confidence | high |
 
-### App interactions / product activity
+### Support communications
 
 | Field | Answer |
 |---|---|
-| Collected? | Yes (progress, summaries, coaching state) |
-| Shared? | Yes — Supabase; OpenAI when used |
-| Purposes | App functionality; Personalization |
-| Confidence | **high** |
+| Collected? | Yes when user emails support |
+| Shared? | Email provider / support inbox |
+| Purpose | Customer support |
+| Confidence | high |
 
-### Crash logs
+### Diagnostics / crash
 
 | Field | Answer |
 |---|---|
 | Collected? | **No** third-party crash SDK found |
-| Confidence | **high** |
+| IP / server logs | Hosting providers (Vercel) may process IP/UA as normal HTTPS — **VERIFY BEFORE SUBMISSION** how Play maps “diagnostics” |
+| Confidence | high (no crash SDK); medium (log labeling) |
 
-### Device or other IDs (advertising ID)
+### Device / advertising IDs
 
 | Field | Answer |
 |---|---|
-| Collected? | **No** advertising ID collection found in native/web product code audited |
-| Confidence | **high** for no AAID usage in current iOS shell docs; revisit when Android ships |
+| AAID / IDFA | **No** collection found |
+| Native UA markers | `SummittMindsetiOS` / `SummittMindsetAndroid` — platform detection, not advertising IDs |
+| Confidence | high |
 
 ### Approximate / precise location
 
 | Field | Answer |
 |---|---|
-| Collected? | No app geolocation API usage found |
-| Confidence | **high** |
+| Collected? | No geolocation API usage found |
+| Confidence | high |
 
-### Photos, videos, audio, contacts, calendar, health, biometric, sexual orientation, etc.
-
-| Field | Answer |
-|---|---|
-| Collected? | **No** for device sensors/libraries audited. Film Room plays **Vimeo** embeds (third-party player). Victory share cards can export PNG downloads (user-initiated), not photo-library scraping. |
-| Confidence | **high** |
-
-### Advertising / advertising ID data (Meta Pixel)
+### Photos / contacts / health / biometrics / etc.
 
 | Field | Answer |
 |---|---|
-| Collected in **native iOS app**? | **No — COMPLETE / physical PASS (2026-07-21).** Web Inspector: zero facebook/fbevents/connect.facebook rows; `typeof window.fbq === "undefined"` on Victory Room and in-app `/`. |
-| Collected on **website/Safari**? | **Yes when configured** — production has `NEXT_PUBLIC_META_PIXEL_ID`; Pixel remains for normal browser traffic |
-| Shared? | Yes with Meta **on the website** when enabled; **not via native WebView** |
-| Purposes | Website marketing analytics / advertising measurement (browser only) |
-| Confidence | **high** |
-| Action | Public Privacy Policy (`/privacy`) names Meta and describes website Pixel; native Data Safety does **not** declare Meta Pixel advertising sharing in-app |
+| Collected? | No for device sensors audited |
+| Film Room | Vimeo embeds (third-party player; functionality sharing) |
+| Confidence | high |
 
-Sharing note: native advertising/analytics sharing **through Meta Pixel is not present in-app**.
+### AI prompt / context content
+
+| Field | Answer |
+|---|---|
+| Collected? | Yes when AI coaching features run |
+| Shared? | Yes — OpenAI as processor |
+| Purpose | App functionality |
+| Evidence | Privacy OpenAI disclosure; Ask Pat / SMS AI paths |
+| Confidence | high |
+
+### Video-viewing activity
+
+| Field | Answer |
+|---|---|
+| Collected by Summitt? | Film selections / video IDs in product DB as applicable |
+| Shared with Vimeo? | Yes — technical/playback data when player loads (`dnt=1`; not anonymous) |
+| Purpose | App functionality |
+| Tracking? | Not classified as Meta-style ad tracking on this evidence alone |
+| Confidence | high |
+| Evidence | `/privacy` §6; physical iPhone `dnt=1` PASS |
+
+### Advertising data (Meta Pixel)
+
+| Field | Answer |
+|---|---|
+| Native app | **Not collected via Meta Pixel** — suppressed for native UA (iOS physical PASS; Android engineering pass recorded) |
+| Website/Safari | May collect when configured |
+| Play Data Safety for **native app** | Do **not** declare Meta Pixel advertising sharing for native WebView traffic |
+| Confidence | high |
 
 ### Physical address
 
 | Field | Answer |
 |---|---|
-| Collected? | **Yes** when coach/kit shipping fulfillment flows are used (`coach_shipping_addresses`) |
-| Shared? | Fulfillment/email providers as applicable |
-| Optional? | Yes / flow-specific |
-| Confidence | **high** that table exists; **medium** whether V1 reviewer path uses it |
+| Collected? | Yes when coach/kit shipping flows used |
+| Optional? | Flow-specific |
+| Confidence | high table exists; medium whether reviewer path uses it |
 
 ---
 
-## Data sharing summary (service providers)
+## Processors (operate product — not “sale”)
 
-| Provider | Role | Evidence confidence |
+| Provider | Role | Confidence |
 |---|---|---|
-| Clerk | Authentication | high |
-| Supabase | Application database | high |
+| Clerk | Auth | high |
+| Supabase | App database | high |
 | Stripe | Billing / subscriptions | high |
-| Twilio | SMS delivery | high |
+| Twilio | SMS | high |
 | Vercel | Hosting | high |
-| OpenAI | AI coaching generation | high |
+| OpenAI | AI coaching | high |
 | Resend | Transactional email | high |
-| Vimeo | Embedded video player for Film Room / related lessons; shared via player for **app functionality**; public `/privacy` §6; embeds use `dnt=1`. **Physical iPhone PASS (2026-07-21)** — player URL included `dnt=1`, HTTP 200, config `dnt = 1`, playback worked in WKWebView. Not anonymous/cookie-free; Vimeo still processes necessary technical/playback data. Not classified here as Meta-style advertising tracking. Final Play Console answers remain manual. | **high** (disclosure + `dnt=1` + physical PASS) |
-| Meta | Pixel on **website/Safari only** (native suppressed; physical PASS 2026-07-21) | high |
-
-Sharing is for **service provision**, not selling personal information for SMS opt-in marketing lists (privacy policy stance). Website Meta Pixel is disclosed in `/privacy`; it is **not** present in the native iOS WebView after physical PASS.
+| Vimeo | Embedded video | high |
+| Meta | Website Pixel only (native suppressed) | high |
 
 ---
 
@@ -177,9 +233,9 @@ Sharing is for **service provision**, not selling personal information for SMS o
 
 | Item | Answer |
 |---|---|
-| In-app path | Account → Danger Zone → Delete account (also inactive `/app/membership`) |
-| Web URL | `https://summittmindset.com/data-deletion` |
-| What remains after deletion | Documented retentions: Stripe financial records; SMS STOP compliance tombstones; deletion audit tombstone; provider logs (Twilio/OpenAI/etc.) per `docs/account-deletion-purge-matrix.md` |
+| In-app | Account Danger Zone; inactive Membership screen |
+| Web | `https://summittmindset.com/data-deletion` |
+| Retained after deletion | Stripe financial; SMS STOP tombstones; deletion audit; provider logs — see `docs/account-deletion-purge-matrix.md` |
 
 ---
 
@@ -188,13 +244,14 @@ Sharing is for **service provision**, not selling personal information for SMS o
 | Item | Answer | Confidence |
 |---|---|---|
 | In transit | HTTPS/TLS | high |
-| At rest | Provider defaults (not custom app encryption claimed) | medium |
+| At rest | Provider defaults — **do not invent custom crypto claims** | medium |
 
 ---
 
 ## Explicit non-claims
 
-- Not HIPAA compliant (unsupported)
-- Not COPPA compliant / not directed to children (do not claim COPPA)
+- Not sold as advertising data broker
+- Not HIPAA / COPPA certified claims
 - Not “Google approved”
 - Not “no data shared”
+- Provider retention schedules: **VERIFY BEFORE SUBMISSION** / counsel if needed

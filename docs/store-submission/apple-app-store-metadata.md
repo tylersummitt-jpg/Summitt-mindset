@@ -1,13 +1,14 @@
-# Apple App Store Connect — Metadata Draft
+# Apple App Store Connect — Listing Package (Final Draft)
 
-**Status:** Draft for copy into App Store Connect when enrollment is available.  
-**Product:** Summitt Mindset  
-**Bundle ID:** `com.summittmindset.app`  
-**Website HEAD basis:** `3d8411c02961313dc08bd215b45f5d4e3455a32d` (physical link PASS docs)  
-**Mobile HEAD (read-only):** `522a3a9294bbf080dc6e070ff6fdfbf0cd382185`  
-**Last updated:** 2026-07-21  
+**Status:** Final draft for portal paste when enrollment is available.
+**Product:** Summitt Mindset
+**Bundle ID:** `com.summittmindset.app`
+**V1 device scope:** **iPhone only** — see `v1-platform-scope.md`
+**Website HEAD basis:** `5a20f9a98370ff3cb4600c1e9d211cf86547f32a`
+**Last updated:** 2026-07-24
 
-> Do not paste secrets, real reviewer passwords, or private user IDs into this file or the portal from memory dumps. Use placeholders until Tyler provisions a dedicated reviewer account.
+> No secrets, reviewer passwords, or private member data in git.
+> Do not claim iPad support. Do not include pricing or “buy now” language.
 
 ---
 
@@ -15,48 +16,51 @@
 
 **Summitt Mindset**
 
-(Confirm final display name matches mobile production identity.)
-
 ---
 
-## Subtitle (max 30 characters) — NEEDS TYLER DECISION
+## Subtitle (max 30 characters) — TYLER DECISION REQUIRED
 
-| Option | Text | Chars |
+| Option | Text | Characters |
 |---|---|---|
-| A (recommended draft) | Daily coaching that sticks | 26 |
+| **A (recommended)** | Daily coaching that sticks | 26 |
 | B | Hold one serious commitment | 27 |
-| C | SMS coaching for commitment | 27 |
+| C | One commitment. Daily coaching | 30 |
 
-**Portal field:** Subtitle  
-**Decision owner:** Tyler  
-
----
-
-## Promotional text (max 170 characters) — optional; can change without resubmit
-
-```
-Summitt Mindset helps you hold one serious commitment with daily SMS accountability, Ask Pat coaching, Film Room lessons, and a personal Victory Room—on the live Summitt Mindset experience.
-```
-
-(~168 characters; trim if portal counts differ.)
+**Portal field:** Subtitle
+**Decision owner:** Tyler
 
 ---
 
-## Description
+## Promotional text (max 170 characters; editable without resubmit)
 
 ```
-Summitt Mindset is a membership coaching experience built around one serious commitment.
+Hold one serious commitment with daily coaching, a personal Victory Room, Ask Pat guidance, and Film Room lessons—built on Pat Summitt’s standards.
+```
+
+**Character count:** 148
+
+---
+
+## Description (full)
+
+```
+Summitt Mindset helps you hold one serious commitment with daily coaching inspired by Pat Summitt’s standards.
+
+This is not a generic habit tracker or a static course library. It is a membership coaching relationship centered on one Current Goal, honest reflection, and follow-through you can see.
 
 Inside the app you can:
 • Sign in or create an account with an email verification code
-• Reach your Victory Room when your membership is active
-• Use Ask Pat for coaching questions grounded in your commitment
-• Watch Film Room lessons
-• Manage account settings and delete your account in-app when needed
+• Open your Victory Room when your membership is active
+• See today’s coaching tied to the commitment you chose
+• Ask Pat for guidance grounded in your goal and standards
+• Watch Film Room lessons that sharpen how you lead yourself
+• Manage your account—and delete your account in-app when you need to
 
-Daily SMS coaching is a core part of the product for members who opt in. Memberships are purchased on the Summitt Mindset website. The iOS app does not offer a new in-app subscription purchase button or Stripe Checkout path for new subscriptions.
+SMS coaching is available as a companion channel for members who opt in. SMS is not required for every member.
 
-This app presents the live Summitt Mindset member experience (https://summittmindset.com) inside a native iOS shell.
+Memberships are managed on the Summitt Mindset website. The iOS app does not initiate new subscription checkout. Existing members sign in to use the member experience.
+
+Summitt Mindset presents the live product at https://summittmindset.com inside a native iPhone app.
 
 Support: Support@SummittMindset.com
 Privacy: https://summittmindset.com/privacy
@@ -64,17 +68,20 @@ Terms: https://summittmindset.com/terms
 Data deletion: https://summittmindset.com/data-deletion
 ```
 
+**Copy rules applied:** no guaranteed outcomes; no therapy/medical claims; no “AI therapist”; no live-Pat implication; no University of Tennessee official claim; no LMS/streaming framing; no pricing.
+
 ---
 
-## Keywords (max 100 characters, comma-separated, no spaces after commas preferred)
+## Keywords (max 100 characters)
 
-Draft (97 characters):
+**Recommended draft (97 characters):**
 
 ```
-coaching,commitment,accountability,sms,mindset,leadership,goals,journal,ask pat,film room
+coaching,commitment,accountability,mindset,leadership,goals,victory room,ask pat,film room,sms
 ```
 
-**NEEDS TYLER DECISION** — final keyword set.
+**TYLER DECISION REQUIRED** — confirm final keyword set before portal paste.
+Avoid competitor names and trademarked terms you do not control.
 
 ---
 
@@ -82,21 +89,22 @@ coaching,commitment,accountability,sms,mindset,leadership,goals,journal,ask pat,
 
 | Field | Value |
 |---|---|
-| Support URL | `https://summittmindset.com/data-deletion` **or** a dedicated support page if added later; interim: use Privacy or Data Deletion plus mailto support. **Recommended Support URL:** `https://summittmindset.com/data-deletion` (public, lists support email) — **NEEDS TYLER DECISION** if a cleaner `/support` page is preferred later. |
+| Support URL | **Recommended:** `https://summittmindset.com/data-deletion` (public; lists Support@SummittMindset.com). **TYLER DECISION REQUIRED** if a dedicated `/support` page is preferred later. |
 | Marketing URL | `https://summittmindset.com` |
 | Privacy Policy URL | `https://summittmindset.com/privacy` |
-| User Privacy Choices URL | **Recommendation:** omit unless/until a dedicated “Do Not Sell / privacy choices” page exists. Privacy policy is the primary disclosure. **Unresolved** whether Meta Pixel production enablement requires an additional choices URL. |
+| User Privacy Choices URL | Optional — omit unless a dedicated choices page exists. Privacy Policy is primary. |
 
 ---
 
-## Category recommendation — NEEDS TYLER DECISION
+## Category — TYLER DECISION REQUIRED
 
-| | Recommendation |
-|---|---|
-| Primary | **Health & Fitness** *or* **Lifestyle** (product is commitment / coaching accountability, not clinical health) |
-| Secondary | **Productivity** |
+| | Recommendation | Rationale |
+|---|---|---|
+| **Primary (recommended)** | **Lifestyle** | Daily coaching / commitment product; avoids clinical “Health” implications |
+| Alternate primary | Health & Fitness | Only if Tyler prefers fitness-adjacent positioning **without** medical claims |
+| **Secondary** | **Productivity** | Commitment, follow-through, and personal standards |
 
-**Conservative note:** Prefer **Lifestyle** + **Productivity** if Health & Fitness could imply medical claims. Do **not** claim medical, therapy, or clinical treatment.
+**Do not** imply medical treatment, therapy, or clinical care.
 
 ---
 
@@ -106,59 +114,67 @@ coaching,commitment,accountability,sms,mindset,leadership,goals,journal,ask pat,
 © 2026 Summitt Mindset. All rights reserved.
 ```
 
-(Year may be updated at submit time.)
+(Update year at submit time if needed.)
 
 ---
 
 ## Content rights
 
-**Declaration draft:**  
-Summitt Mindset uses the Pat Summitt name, likeness, books, videos, and related coaching content under rights controlled by Tyler / Summitt Mindset. Do not overstate license details beyond documented truth. If App Store Connect asks whether the app uses third-party content, answer **Yes** and be prepared to confirm rights are held / licensed as applicable.
-
-**Confidence:** medium (rights assertion per product owner; legal docs not re-audited in this package).
+Summitt Mindset uses the Pat Summitt name, likeness, books, videos, and related coaching content under rights controlled by Tyler / Summitt Mindset.
+If App Store Connect asks about third-party content: answer **Yes** and be prepared to confirm rights are held/licensed as applicable.
+**Confidence:** medium — legal details not re-audited in this package.
 
 ---
 
 ## Age rating
 
-See `store-content-rating-answers.md`. Final numeric rating is **generated by the App Store Connect questionnaire** (portal-blocked).
+See `store-content-rating-answers.md`. Final rating is generated by the App Store Connect questionnaire (**VERIFY BEFORE SUBMISSION**).
 
 ---
 
-## Pricing / availability
+## Pricing / availability (listing posture)
 
-- Free to download  
-- Membership access requires an existing website membership entitlement  
-- **No native IAP** currently configured  
-- New subscriptions are **not** sold inside the iOS app  
+- Free to download
+- Member features require an existing Summitt Mindset membership entitlement
+- **No native In-App Purchase** for new subscriptions in V1
+- Native checkout initiation is intentionally unavailable
+- **iPhone only** for V1 (no iPad marketing)
 
 ---
 
-## Export compliance (recommendation)
+## Export compliance (draft)
 
-| Question | Draft answer | Confidence |
+| Question | Draft | Confidence |
 |---|---|---|
-| Uses encryption? | Yes — standard HTTPS/TLS for network communication | high |
-| Qualifies for exemption / uses only standard encryption? | **Likely yes** (HTTPS only; no custom crypto product). Confirm at upload with current Apple export questionnaire wording. | medium |
-| Proprietary encryption algorithms? | No (based on audited codebase / native PrivacyInfo emptiness for crypto APIs) | high |
+| Uses encryption? | Yes — standard HTTPS/TLS | high |
+| Standard encryption exemption likely? | Likely yes — **VERIFY BEFORE SUBMISSION** at upload | medium |
+| Proprietary crypto product? | No (based on product audit) | high |
 
 ---
 
-## Review contact placeholders
+## Review contact — TYLER DECISION REQUIRED
 
 | Field | Placeholder |
 |---|---|
 | First name | `[TYLER_FIRST_NAME]` |
 | Last name | `[TYLER_LAST_NAME]` |
 | Phone | `[REVIEW_CONTACT_PHONE]` |
-| Email | `[REVIEW_CONTACT_EMAIL]` — often `Support@SummittMindset.com` or Tyler’s review inbox |
-
-**NEEDS TYLER DECISION** for final contact values. Do not commit real private numbers here if sensitive.
+| Email | `[REVIEW_CONTACT_EMAIL]` — often `Support@SummittMindset.com` |
 
 ---
 
-## Version / what’s new (1.0 draft)
+## Version / What’s New (1.0 template)
 
 ```
-Initial App Store release of Summitt Mindset for iPhone. Sign in with email verification code, access your Victory Room and member tools when entitled, and manage or delete your account in-app.
+Initial App Store release of Summitt Mindset for iPhone. Sign in with an email verification code, reach your Victory Room and member coaching tools when entitled, use Ask Pat and Film Room, and manage or delete your account in-app.
 ```
+
+---
+
+## Native-app truths (for internal alignment; not all need pasting into description)
+
+- Native traffic cannot initiate Stripe checkout
+- Meta Pixel is suppressed for native-app User-Agent markers
+- Film Room uses authorized Vimeo embeds
+- Account deletion is available in Account / Membership areas
+- SMS is optional companion coaching

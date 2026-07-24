@@ -1,31 +1,34 @@
-# Google Play Console — Metadata Draft
+# Google Play Console — Listing Package (Final Draft)
 
-**Status:** Draft for when Android / Play Console exist. Android project is **not yet** in `summitt-mindset-mobile`. Copy remains valid for future Play listing.  
-**Intended package:** `com.summittmindset.app`  
-**Last updated:** 2026-07-21  
+**Status:** Final draft for Play Console when org + app record exist.
+**Package / application ID:** `com.summittmindset.app`
+**V1 device scope:** **Phone-focused** — see `v1-platform-scope.md`
+**Last updated:** 2026-07-24
 
-> Current fact: **No native Google Play Billing implementation exists.** This is a factual statement about the current product, **not** a claim that Google has approved any billing exemption or policy posture.
+> No Play Billing implementation. Membership purchase initiation is suppressed in native-app traffic.
+> Do not invent feature-graphic headline copy. Do not claim tablet support for V1.
 
 ---
 
-## App name
+## App title (max 50 characters)
 
 **Summitt Mindset**
+**Character count:** 15
 
 ---
 
-## Short description (max 80 characters) — NEEDS TYLER DECISION
+## Short description (max 80 characters) — TYLER DECISION REQUIRED
 
-Draft (78 characters):
-
-```
-Daily SMS coaching and tools to help you hold one serious commitment.
-```
-
-Alternate (72):
+**Recommended (78 characters):**
 
 ```
-Commitment coaching with Victory Room, Ask Pat, and Film Room.
+Daily coaching to help you hold one serious commitment—and prove it.
+```
+
+**Alternate (72 characters):**
+
+```
+Hold one commitment with Victory Room, Ask Pat, and Film Room.
 ```
 
 ---
@@ -33,16 +36,23 @@ Commitment coaching with Victory Room, Ask Pat, and Film Room.
 ## Full description
 
 ```
-Summitt Mindset helps you hold one serious commitment with daily SMS accountability (when you opt in), Ask Pat coaching, Film Room lessons, and a personal Victory Room.
+Summitt Mindset helps you hold one serious commitment with daily coaching inspired by Pat Summitt’s standards.
+
+This is a membership coaching experience—not a generic habit tracker, not a static course library, and not therapy. It is built around one Current Goal, honest reflection, and follow-through you can see in your Victory Room.
 
 In the app you can:
 • Sign in or create an account with an email verification code
-• Access Victory Room when your membership is active
-• Ask Pat coaching questions
+• Open your Victory Room when your membership is active
+• Follow today’s coaching tied to your commitment
+• Ask Pat for guidance grounded in your goal
 • Watch Film Room lessons
 • Manage your account and delete your account in-app
 
-Memberships are acquired on the Summitt Mindset website. The app experience is the live Summitt Mindset product at https://summittmindset.com.
+SMS coaching is available as a companion channel for members who opt in. SMS is not required for every member.
+
+Memberships are managed on the Summitt Mindset website. The Android app does not initiate new subscription checkout. Existing members sign in to use the member experience.
+
+Live product: https://summittmindset.com
 
 Support: Support@SummittMindset.com
 Privacy: https://summittmindset.com/privacy
@@ -52,82 +62,101 @@ Account / data deletion: https://summittmindset.com/data-deletion
 
 ---
 
-## App category — NEEDS TYLER DECISION
+## Category — TYLER DECISION REQUIRED
 
-Recommended: **Health & Fitness** *or* **Lifestyle** (prefer Lifestyle if Health implies clinical claims).  
-Secondary tags: coaching, productivity, self-improvement (portal-dependent).
-
----
-
-## Tags
-
-Draft ideas (final portal tags vary): coaching, accountability, mindset, goals, SMS, leadership  
-
-**NEEDS TYLER DECISION**
+| | Recommendation |
+|---|---|
+| **Primary (recommended)** | **Lifestyle** |
+| Alternate | Health & Fitness (only without clinical claims) |
+| Secondary positioning | Self-improvement / productivity-adjacent tags if offered |
 
 ---
 
-## Privacy Policy URL
+## Tags — TYLER DECISION REQUIRED
 
-`https://summittmindset.com/privacy`
+Draft ideas (portal options vary): coaching, accountability, mindset, goals, leadership, self-improvement
 
----
-
-## Support contact
-
-- Email: `Support@SummittMindset.com`  
-- Public deletion instructions: `https://summittmindset.com/data-deletion`
+Avoid medical, therapy, or “AI therapist” tags.
 
 ---
 
-## Ads declaration
+## Contact & URLs
+
+| Field | Value |
+|---|---|
+| Website | `https://summittmindset.com` |
+| Privacy Policy | `https://summittmindset.com/privacy` |
+| Support email | `Support@SummittMindset.com` |
+| External deletion URL | `https://summittmindset.com/data-deletion` |
+
+---
+
+## Ads declaration (draft)
 
 | Question | Draft | Confidence |
 |---|---|---|
-| App contains ads? | **No** native advertising SDK. Website may load Meta Pixel on marketing routes if production-enabled — **unresolved** whether Play “Ads” declaration must be Yes when WebView can load Pixel. Conservative: treat as **No ads UI**; disclose Pixel under Data Safety if enabled. | unresolved for Pixel; **high** for no ad SDK / no ad units in product UI |
+| Contains ads? | **No** ad units / ad SDK in the native product UI. Native Meta Pixel is suppressed. Website browser Pixel is separate from native-app traffic. | high for native no-ads UI; final Play radio **VERIFY BEFORE SUBMISSION** |
 
 ---
 
-## App access / login required
+## App access
 
-**Yes** — most member value requires sign-in. Provide reviewer instructions + credentials plan (`reviewer-test-account-plan.md`).
+**Yes** — core member value requires sign-in.
+See `google-play-access-instructions.md` and `reviewer-test-account-plan.md`.
 
 ---
 
-## Target audience — NEEDS TYLER DECISION
+## Target audience — TYLER DECISION REQUIRED
 
-Draft posture: **Adults 18+** (coaching / commitment product; not designed for children).  
-Not Families / Teacher Approved for V1.
+Draft posture: **Adults 18+**. Not Families / Teacher Approved for V1.
 
 ---
 
 ## Declarations (draft)
 
-| Declaration | Draft answer | Notes |
-|---|---|---|
-| News app | **No** | |
-| Health app (Google Play health policies) | **No** as clinical/health device; lifestyle coaching only. Confirm portal wording. | Do not claim medical advice |
-| Financial features | **Membership subscription billing via website/Stripe**; no banking/crypto trading product. Answer financial questionnaire carefully when portal asks about payments. | No Play Billing currently |
-| Government app | **No** | |
-| Families / Teacher Approved | **Not targeting** | |
+| Declaration | Draft |
+|---|---|
+| News app | No |
+| Clinical health / regulated medical | No — lifestyle coaching only |
+| Financial features | Membership billing via website/Stripe; **no Play Billing** currently. Answer payment questions carefully. |
+| Government app | No |
 
 ---
 
-## Account deletion (Play requirement)
+## Account deletion (Play)
 
 | Item | Value |
 |---|---|
-| In-app deletion | Yes — Account Danger Zone; also inactive membership path |
-| External web resource URL | `https://summittmindset.com/data-deletion` |
+| In-app path | Account Danger Zone; also inactive Membership required screen |
+| External URL | `https://summittmindset.com/data-deletion` |
+
+---
+
+## Feature graphic
+
+| Item | Status |
+|---|---|
+| Size | **1024×500 PNG** |
+| Asset | Waiting on Brooke (`waiting-on-assets.md`) |
+| Headline copy | **TYLER DECISION REQUIRED** — do not invent final marketing line in git |
+
+---
+
+## Version / What’s New (1.0 template)
+
+```
+Initial Google Play release of Summitt Mindset for phones. Sign in with an email verification code, reach your Victory Room and member coaching tools when entitled, use Ask Pat and Film Room, and manage or delete your account in-app.
+```
+
+---
+
+## Android readiness note (honest)
+
+Android engineering milestones (emulator matrix, intent handling, Meta/checkout suppression, signed AAB locally verified) are recorded in `waiting-on-assets.md`.
+**Android is not yet store-ready** until Play org, assets, portal entry, and physical device testing through internal testing are complete.
 
 ---
 
 ## Data Safety
 
 See `google-data-safety-answers.md`.
-
----
-
-## Reviewer credentials
-
-See `reviewer-test-account-plan.md`. Placeholders only in git.

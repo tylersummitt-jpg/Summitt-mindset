@@ -1887,3 +1887,38 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - Physical iPhone regression for this change — **not yet run**
 - Mobile repository not edited
 - Stripe business logic / deletion pipeline not changed beyond native UA gate generalization
+
+## SESSION 53 — 2026-07-24 — Complete mobile store-submission package (docs-only)
+
+### Session summary
+- Date: 2026-07-24
+- Tasks attempted (IDs): build complete Apple/Google store-submission documentation package
+- Tasks completed (IDs): `docs/store-submission/` package expanded/updated; master plan → v1.5.24; application code **not** edited; mobile repo **not** edited
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `5a20f9a98370ff3cb4600c1e9d211cf86547f32a`
+- Mobile repository: **not edited**
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. V1 platform scope: **iPhone only** (Apple); **phone-focused** (Play); **iPad deferred** (scope decision, not permanent ban).
+2. Listing copy emphasizes daily coaching relationship / one commitment / Victory Room / Ask Pat / Film Room — not LMS/streaming/therapy framing; no native pricing language.
+3. Reviewer/demo plan includes fictional leadership-plan goal + sample reflections; credentials remain placeholders.
+4. Apple review notes + Google Play access instructions prepared (copy-ready with placeholders).
+5. App Privacy + Data Safety worksheets prepared; distinguish processor sharing vs sale vs advertising; Meta Pixel not attributed to native app; Vimeo functionality sharing retained.
+6. Regression checklist (A–E) + release configuration audit checklist prepared.
+7. Five-screen phone screenshot storyboard prepared.
+8. Assets/blocker tracker records Brooke specs; D-U-N-S/Play org pending; Android package `com.summittmindset.app`, engineering passes + signed AAB locally verified, father-phone after Play internal testing; Android **not** store-ready yet.
+9. Stale store-package claims (“Android not built,” unknown screenshot/feature-graphic specs as unknown) corrected in open-items / waiting-on-assets.
+
+### Explicit non-claims
+- No credentials/secrets created
+- No Apple/Google approval
+- No iPad support claimed
+- No source/API/mobile edits
+- Application code unchanged
