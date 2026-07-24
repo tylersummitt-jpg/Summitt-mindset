@@ -1,6 +1,9 @@
 /**
  * App-specific mobile auth constants (DEC-018 / APP-061).
- * Same Clerk production instance as the website; email verification-code only.
+ * Same Clerk production instance as the website.
+ * Primary: email verification-code Sign in + Create account.
+ * Optional: password first-factor for existing users who already have a
+ * Clerk password (no password enrollment on create-account).
  * Supports explicit Sign in and Create account — not purchase.
  */
 

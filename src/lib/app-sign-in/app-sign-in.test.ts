@@ -11,6 +11,7 @@ import {
 } from "@/lib/app-sign-in/app-sign-in-constants";
 import {
   findEmailCodeFirstFactor,
+  hasPasswordFirstFactor,
   mapAppSignInError,
 } from "@/lib/app-sign-in/app-sign-in-helpers";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
@@ -70,6 +71,19 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(client).toMatch(/>\s*Terms\s*</);
     expect(client).toMatch(/>\s*Privacy Policy\s*</);
 
+    // Optional password for existing-user Sign in only (not Create account).
+    expect(client).toContain("Sign in with password");
+    expect(client).toContain("Use an email code instead");
+    expect(client).toContain("handlePasswordSignIn");
+    expect(client).toContain('strategy: "password"');
+    expect(client).toContain("hasPasswordFirstFactor");
+    expect(client).toContain('autoComplete="current-password"');
+    expect(client).toContain("needs_second_factor");
+    expect(client).toContain("needs_new_password");
+    expect(client).not.toMatch(/localStorage|sessionStorage/);
+    expect(client).not.toMatch(/Forgot password/i);
+    expect(client).not.toMatch(/\breviewer\b/i);
+
     expect(client).not.toMatch(/\bGoogle\b/);
     expect(client).not.toMatch(/Sign in with Apple/i);
     expect(client).not.toMatch(/oauth_/i);
@@ -84,6 +98,32 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(client).not.toContain('href="/subscribe"');
     expect(page).not.toContain("<SignIn");
     expect(page).not.toMatch(/\bGoogle\b/);
+  });
+
+  it("password option is only wired into existing-user sign-in, not sign-up", () => {
+    const client = readSrc(
+      "src/components/app-sign-in/AppEmailCodeSignIn.tsx"
+    );
+    expect(client).toContain('mode === "sign-in" && step === "password"');
+    expect(client).toContain("goToPasswordStep");
+    // Create account still email-code only — no password enrollment.
+    expect(client).not.toMatch(/signUp\.create\(\{[^}]*password/s);
+    expect(client).not.toContain("preparePassword");
+    expect(client).not.toContain('name="new-password"');
+    expect(client).toContain("prepareEmailAddressVerification");
+    expect(client).toContain("attemptEmailAddressVerification");
+  });
+
+  it("password submit clears transient password state and never logs it", () => {
+    const client = readSrc(
+      "src/components/app-sign-in/AppEmailCodeSignIn.tsx"
+    );
+    const helpers = readSrc("src/lib/app-sign-in/app-sign-in-helpers.ts");
+    expect(client).toContain("clearPassword()");
+    expect(client).toContain("const passwordAttempt = password");
+    expect(client).not.toMatch(/console\.(log|info|debug|warn|error)\([^)]*password/i);
+    expect(helpers).not.toMatch(/console\.(log|info|debug|warn|error)/);
+    expect(client).not.toMatch(/searchParams|URLSearchParams|password=/);
   });
 
   it("unknown-email sign-in offers Create account without auto-creating", () => {
@@ -238,6 +278,34 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
       findEmailCodeFirstFactor([{ strategy: "oauth_google" }])
     ).toBeNull();
     expect(findEmailCodeFirstFactor(null)).toBeNull();
+  });
+
+  it("hasPasswordFirstFactor detects Clerk password strategy only", () => {
+    expect(
+      hasPasswordFirstFactor([
+        { strategy: "email_code", emailAddressId: "idn_email" },
+        { strategy: "password" },
+      ])
+    ).toBe(true);
+    expect(
+      hasPasswordFirstFactor([
+        { strategy: "email_code", emailAddressId: "idn_email" },
+      ])
+    ).toBe(false);
+    expect(hasPasswordFirstFactor(null)).toBe(false);
+    expect(hasPasswordFirstFactor(undefined)).toBe(false);
+  });
+
+  it("maps password Clerk error codes to safe kinds in helpers", () => {
+    const helpers = readSrc("src/lib/app-sign-in/app-sign-in-helpers.ts");
+    expect(helpers).toContain('case "form_password_incorrect"');
+    expect(helpers).toContain('case "form_password_or_identifier_incorrect"');
+    expect(helpers).toContain('kind: "password_incorrect"');
+    expect(helpers).toContain('"password_unavailable"');
+    expect(helpers).toContain("hasPasswordFirstFactor");
+    expect(helpers).toContain(
+      "That sign-in method is not available for this account right now."
+    );
   });
 
   it("mapAppSignInError never echoes codes or emails", () => {

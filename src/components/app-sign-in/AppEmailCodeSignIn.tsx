@@ -13,12 +13,13 @@ import {
 } from "@/lib/app-sign-in/app-sign-in-constants";
 import {
   findEmailCodeFirstFactor,
+  hasPasswordFirstFactor,
   mapAppAuthError,
   type AppAuthErrorKind,
 } from "@/lib/app-sign-in/app-sign-in-helpers";
 
 type Mode = "choose" | "sign-in" | "sign-up";
-type Step = "email" | "code";
+type Step = "email" | "code" | "password";
 
 const fieldClass =
   "w-full min-w-0 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-base text-[var(--text)] outline-none focus:border-[var(--text)]";
@@ -30,8 +31,10 @@ const linkBtnClass =
   "w-full rounded-md px-4 py-3 text-base text-[var(--muted)] underline underline-offset-4 disabled:opacity-60";
 
 /**
- * Combined native-app Clerk email-code Sign in + Create account.
- * No social providers. No purchase CTAs. Post-auth → /post-sign-in.
+ * Combined native-app Clerk Sign in + Create account.
+ * Primary: email verification code. Optional: password for existing users
+ * when Clerk exposes a password first factor. No social providers.
+ * No purchase CTAs. Post-auth → /post-sign-in.
  */
 export default function AppEmailCodeSignIn() {
   const router = useRouter();
@@ -51,6 +54,8 @@ export default function AppEmailCodeSignIn() {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<AppAuthErrorKind | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -69,6 +74,11 @@ export default function AppEmailCodeSignIn() {
     setErrorKind(null);
   }
 
+  function clearPassword() {
+    setPassword("");
+    setShowPassword(false);
+  }
+
   function showMappedError(err: unknown) {
     const mapped = mapAppAuthError(err);
     setError(mapped.message);
@@ -79,8 +89,23 @@ export default function AppEmailCodeSignIn() {
     setMode(next);
     setStep("email");
     setCode("");
+    clearPassword();
     clearFeedback();
     if (!preserveEmail) setEmail("");
+  }
+
+  function goToPasswordStep() {
+    setStep("password");
+    setCode("");
+    clearPassword();
+    clearFeedback();
+  }
+
+  function goToEmailCodeStep() {
+    setStep("email");
+    setCode("");
+    clearPassword();
+    clearFeedback();
   }
 
   async function handleSignInSendCode(event: FormEvent<HTMLFormElement>) {
@@ -152,6 +177,77 @@ export default function AppEmailCodeSignIn() {
           "Additional verification is required for this account. Please sign in on the website, or contact support."
         );
         setErrorKind("generic");
+        return;
+      }
+
+      setError("Unable to complete sign-in. Please try again.");
+      setErrorKind("generic");
+    } catch (err) {
+      showMappedError(err);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handlePasswordSignIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!signInLoaded || !signIn || !setActive || submitting) return;
+
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setError("Enter the email address for your account.");
+      setErrorKind("generic");
+      return;
+    }
+
+    if (!password) {
+      setError("Enter your password.");
+      setErrorKind("generic");
+      return;
+    }
+
+    // Capture then clear immediately so the value is not retained after submit.
+    const passwordAttempt = password;
+    clearPassword();
+
+    setSubmitting(true);
+    clearFeedback();
+
+    try {
+      const created = await signIn.create({ identifier: trimmed });
+
+      if (!hasPasswordFirstFactor(created.supportedFirstFactors)) {
+        setError(
+          "Password sign-in is not available for this account. Use an email verification code instead."
+        );
+        setErrorKind("password_unavailable");
+        return;
+      }
+
+      const result = await signIn.attemptFirstFactor({
+        strategy: "password",
+        password: passwordAttempt,
+      });
+
+      if (result.status === "complete" && result.createdSessionId) {
+        await setActive({ session: result.createdSessionId });
+        router.replace(APP_POST_AUTH_PATH);
+        return;
+      }
+
+      if (result.status === "needs_second_factor") {
+        setError(
+          "Additional verification is required for this account. Please sign in on the website, or contact support."
+        );
+        setErrorKind("generic");
+        return;
+      }
+
+      if (result.status === "needs_new_password") {
+        setError(
+          "This account needs a password update before password sign-in can continue. Use an email verification code instead, or contact support."
+        );
+        setErrorKind("password_unavailable");
         return;
       }
 
@@ -243,11 +339,17 @@ export default function AppEmailCodeSignIn() {
         ? "Create account"
         : null;
 
+  const signInSupporting =
+    step === "password"
+      ? "Sign in with your email and password."
+      : "Sign in with your email to continue.";
+
   return (
     <div
       className="mx-auto w-full max-w-md px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]"
       data-app-sign-in="email-code"
       data-app-auth-mode={mode}
+      data-app-auth-step={step}
     >
       <header className="space-y-2 text-center">
         <p className="text-sm font-medium tracking-wide text-[var(--muted)]">
@@ -260,7 +362,7 @@ export default function AppEmailCodeSignIn() {
           {mode === "choose"
             ? APP_SIGN_IN_SUPPORTING_COPY
             : mode === "sign-in"
-              ? "Sign in with your email to continue."
+              ? signInSupporting
               : "Create a new account with your email."}
         </p>
         {modeLabel ? (
@@ -344,6 +446,14 @@ export default function AppEmailCodeSignIn() {
               type="button"
               disabled={submitting}
               className={linkBtnClass}
+              onClick={goToPasswordStep}
+            >
+              Sign in with password
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
+              className={linkBtnClass}
               onClick={() => goToMode("choose", true)}
             >
               Back
@@ -355,6 +465,84 @@ export default function AppEmailCodeSignIn() {
               onClick={() => goToMode("sign-up", true)}
             >
               Create account
+            </button>
+          </form>
+        ) : null}
+
+        {mode === "sign-in" && step === "password" ? (
+          <form
+            className="space-y-4"
+            onSubmit={handlePasswordSignIn}
+            noValidate
+            autoComplete="on"
+          >
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-[var(--text)]">
+                Email
+              </span>
+              <input
+                type="email"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                enterKeyHint="next"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={submitting}
+                className={fieldClass}
+                placeholder="you@example.com"
+              />
+            </label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  htmlFor="app-sign-in-password"
+                  className="text-sm font-medium text-[var(--text)]"
+                >
+                  Password
+                </label>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  className="text-sm text-[var(--muted)] underline underline-offset-4"
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
+              <input
+                id="app-sign-in-password"
+                type={showPassword ? "text" : "password"}
+                name="password"
+                autoComplete="current-password"
+                enterKeyHint="done"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={submitting}
+                className={fieldClass}
+                placeholder="Your password"
+              />
+            </div>
+            <button type="submit" disabled={submitting} className={primaryBtnClass}>
+              {submitting ? "Signing in…" : "Sign in"}
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
+              className={linkBtnClass}
+              onClick={goToEmailCodeStep}
+            >
+              Use an email code instead
+            </button>
+            <button
+              type="button"
+              disabled={submitting}
+              className={linkBtnClass}
+              onClick={() => goToMode("choose", true)}
+            >
+              Back
             </button>
           </form>
         ) : null}

@@ -8,6 +8,8 @@ export type AppAuthErrorKind =
   | "code_expired"
   | "rate_limited"
   | "strategy_unavailable"
+  | "password_incorrect"
+  | "password_unavailable"
   | "captcha";
 
 export type AppAuthMappedError = {
@@ -15,9 +17,11 @@ export type AppAuthMappedError = {
   message: string;
 };
 
+type FactorLike = { strategy: string; emailAddressId?: string };
+
 /**
- * Map Clerk errors to member-safe copy. Never include verification codes
- * or raw email addresses in returned messages or logs.
+ * Map Clerk errors to member-safe copy. Never include verification codes,
+ * passwords, or raw email addresses in returned messages or logs.
  */
 export function mapAppAuthError(error: unknown): AppAuthMappedError {
   if (isClerkAPIResponseError(error)) {
@@ -50,6 +54,14 @@ export function mapAppAuthError(error: unknown): AppAuthMappedError {
           kind: "code_expired",
           message: "That verification code has expired. Request a new code.",
         };
+      case "form_password_incorrect":
+      case "form_password_or_identifier_incorrect":
+      case "form_password_validation_failed":
+        return {
+          kind: "password_incorrect",
+          message:
+            "That email or password is incorrect. Please try again.",
+        };
       case "too_many_requests":
       case "rate_limit_exceeded":
         return {
@@ -61,7 +73,7 @@ export function mapAppAuthError(error: unknown): AppAuthMappedError {
         return {
           kind: "strategy_unavailable",
           message:
-            "Email verification is not available for this account right now.",
+            "That sign-in method is not available for this account right now.",
         };
       case "captcha_invalid":
       case "captcha_unavailable":
@@ -93,10 +105,7 @@ export function mapAppSignInError(error: unknown): string {
  * Returns null when email verification-code is unavailable for the identifier.
  */
 export function findEmailCodeFirstFactor(
-  factors:
-    | Array<{ strategy: string; emailAddressId?: string }>
-    | null
-    | undefined
+  factors: Array<FactorLike> | null | undefined
 ): { strategy: "email_code"; emailAddressId: string } | null {
   if (!factors) return null;
   for (const factor of factors) {
@@ -112,4 +121,14 @@ export function findEmailCodeFirstFactor(
     }
   }
   return null;
+}
+
+/**
+ * True when Clerk reports a password first factor for this sign-in attempt.
+ */
+export function hasPasswordFirstFactor(
+  factors: Array<FactorLike> | null | undefined
+): boolean {
+  if (!factors) return false;
+  return factors.some((factor) => factor.strategy === "password");
 }

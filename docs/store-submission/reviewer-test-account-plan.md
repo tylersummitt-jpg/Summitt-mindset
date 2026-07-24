@@ -21,11 +21,12 @@ Provide a **dedicated** subscribed demo account so reviewers can exercise the me
 | Field | Convention |
 |---|---|
 | Email pattern | `[REVIEWER_EMAIL_PLACEHOLDER]` — e.g. `review+appstore@…` / `review+play@…` under Tyler’s control |
-| Auth | Clerk **email verification code** only on `/app/sign-in` (no app password field) |
-| Password | **N/A** for the native email-code path |
+| Auth | Clerk on `/app/sign-in`: **email verification code** (primary) + optional **password** for existing password-enabled Clerk users |
+| Password | Optional for existing Clerk users who already have a password factor. Create account remains email-code only. Credentials stay outside git. |
 | Phone / SMS | **Do not** attach a personal phone unless absolutely required. Prefer email-only for core review. |
 | Entitlement | Subscribed Clerk `publicMetadata` set **before** submission |
 | Storage | Password manager / ASC / Play Console only — **never git** |
+| MFA | Reviewer account must have **MFA disabled** (native path does not bypass second factor) |
 
 Label accounts clearly, e.g. `Store Reviewer — App Store` / `Store Reviewer — Play`, and do **not** reuse as Tyler’s daily test account.
 
@@ -90,20 +91,34 @@ Label accounts clearly, e.g. `Store Reviewer — App Store` / `Store Reviewer �
 | Field | Placeholder |
 |---|---|
 | Reviewer email | `[REVIEWER_EMAIL_PLACEHOLDER]` |
-| Auth method | Email verification code |
-| Password | N/A |
+| Auth method | Email verification code (primary) or password if the Clerk user has a password factor |
+| Password | `[REVIEWER_PASSWORD_PLACEHOLDER]` — password manager / ASC / Play only; **never git** |
 | Entitlement proof | Tyler private checklist — not in git |
 
 ---
 
-## How the reviewer receives the email code
+## How the reviewer signs in
+
+**Preferred for review windows (mailbox access):**
 
 1. Enter `[REVIEWER_EMAIL_PLACEHOLDER]` on `/app/sign-in`.
-2. Request Sign in code.
+2. Request Sign in code (email-code remains primary / fallback).
 3. Tyler (or monitored reviewer inbox) retrieves the Clerk email code.
 4. Enter code → expect Victory Room (subscribed).
 
+**Optional password path (existing password-enabled Clerk user):**
+
+1. On Sign in, choose **Sign in with password**.
+2. Enter email + password from the password manager / App Review fields.
+3. Expect Victory Room (subscribed). Same `/post-sign-in` routing as email-code.
+
+There is **no** reviewer backdoor, static code, or hard-coded credentials in the app. Password sign-in uses Clerk’s normal password first factor only when Clerk reports it for that user.
+
+**Clerk Dashboard (still verify in production):** password strategy enabled for the instance if password review login will be used; MFA disabled on the reviewer user.
+
 If routed to Membership required: entitlement missing — **do not purchase**; Tyler fixes entitlement.
+
+Email-code remains the recovery/fallback path when the mailbox is available. Do not rely on a broken in-app “Forgot password?” link.
 
 ---
 
@@ -133,7 +148,7 @@ If routed to Membership required: entitlement missing — **do not purchase**; T
 ## Exact reviewer navigation (shared)
 
 1. Launch app → `/app/sign-in`
-2. Sign in with email code (pre-created account; Create account not required)
+2. Sign in with email code **or** password (pre-created account; Create account not required)
 3. Arrive at Victory Room
 4. Confirm Current Goal / daily coaching context
 5. Ask Pat → short question → answer
