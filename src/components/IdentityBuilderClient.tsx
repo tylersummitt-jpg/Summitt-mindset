@@ -399,9 +399,21 @@ export function IdentityBuilderClient({
         return;
       }
 
+      if (
+        data?.ok !== true ||
+        typeof data.versionId !== "string" ||
+        data.versionId.trim().length === 0 ||
+        typeof data.identity_anchor_text !== "string" ||
+        data.identity_anchor_text.trim().length === 0
+      ) {
+        setError("We couldn’t save your identity. Please try again.");
+        setSaving(false);
+        return;
+      }
+
       await onSaveSuccess({
         versionId: data.versionId,
-        identity_anchor_text: data.identity_anchor_text ?? anchor,
+        identity_anchor_text: data.identity_anchor_text,
       });
       setSaving(false);
     } catch {

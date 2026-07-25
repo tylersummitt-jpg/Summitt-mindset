@@ -19,9 +19,9 @@ Summitt Mindset is a daily coaching and accountability membership for holding on
 HOW TO SIGN IN
 1. Open the app. You should land on Sign in (/app/sign-in).
 2. Enter the reviewer email provided in App Review Information.
-3. Sign in with an email verification code (primary), or with the reviewer password if provided in App Review Information (optional Clerk password factor for existing users).
-4. For email-code: enter the code from the reviewer mailbox.
-5. You should reach the Victory Room (the reviewer account is pre-entitled). If you see Membership required instead, please stop—do not attempt a purchase—and contact us so we can restore entitlement.
+3. Choose Sign in with password.
+4. Enter the reviewer password from App Review Information.
+5. You should reach the Victory Room (the reviewer account is pre-entitled). No emailed verification code is required for this reviewer account. If you see Membership required instead, please stop—do not attempt a purchase—and contact us so we can restore entitlement.
 
 WHERE TO START
 Start in the Victory Room after sign-in. That is the home of the member’s Current Goal and proof of follow-through.
@@ -65,8 +65,8 @@ Data deletion: https://summittmindset.com/data-deletion
 | Field | Value |
 |---|---|
 | Username / email | `[REVIEWER_EMAIL_PLACEHOLDER]` |
-| Password | `[REVIEWER_PASSWORD_PLACEHOLDER]` if using password sign-in; otherwise email verification code (primary / fallback) |
-| Notes | Tyler monitors the reviewer inbox for Clerk codes during review windows. Credentials never in git. MFA must be off on the reviewer account. |
+| Password | `[REVIEWER_PASSWORD_PLACEHOLDER]` |
+| Notes | Permanent reviewer account **not yet created**. When provisioned: MFA off; no mailbox/OTP required; credentials outside git. Temporary production password auth test = PASS (see `reviewer-test-account-plan.md`). |
 
 See `reviewer-test-account-plan.md`.
 

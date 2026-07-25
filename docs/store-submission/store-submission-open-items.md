@@ -15,7 +15,7 @@
 | `google-play-metadata.md` | Play listing copy |
 | `apple-review-notes.md` | ASC review notes |
 | `google-play-access-instructions.md` | Play app-access instructions |
-| `reviewer-test-account-plan.md` | Demo account + fictional content |
+| `reviewer-test-account-plan.md` | Demo account + fictional content + auth strategy |
 | `apple-app-privacy-answers.md` | Apple App Privacy worksheet |
 | `google-data-safety-answers.md` | Play Data Safety worksheet |
 | `store-content-rating-answers.md` | Age / content rating drafts |
@@ -29,14 +29,30 @@
 
 - Phone-only V1 decision documented
 - Apple + Google listing drafts (final-draft quality; Tyler decisions flagged)
-- Review notes + Play access instructions
+- Review notes + Play access instructions (password-first for store reviewers)
 - Reviewer/demo account plan with fictional content
+- **Production optional password sign-in validated PASS** (temporary QA account; permanent reviewer **not** created)
 - Privacy + Data Safety worksheets
 - Regression + configuration checklists
 - Screenshot storyboard (phone only)
 - Public URLs: site, privacy, terms, data-deletion; Support@SummittMindset.com
 - Native Meta Pixel suppression PASS (iOS physical); native checkout suppression; Vimeo `dnt=1` PASS
 - Canonical native platform detection (`none`/`ios`/`android`) on website
+
+---
+
+## Reviewer authentication status
+
+| Item | Status |
+|---|---|
+| Temporary production password auth test | **COMPLETE / PASS** (see `reviewer-test-account-plan.md`) |
+| Permanent reviewer account | **NOT YET CREATED** |
+| Reviewer entitlement metadata | **PENDING** |
+| Reviewer onboarding / demo content | **PENDING** |
+| SMS-disabled state | **PENDING** |
+| Native iOS password login validation | **PENDING** |
+| Native Android password login validation | **PENDING** |
+| Disposable deletion-test account | **PENDING** |
 
 ---
 
@@ -48,6 +64,7 @@
 | “Screenshot dimensions unknown / feature graphic missing as unknown” | Specs recorded: icon 1024; adaptive 1024; splash 2732; feature graphic 1024×500 — assets still **WAITING** on Brooke |
 | “Native intent / Meta / checkout validation pending” (if stated as open) | Engineering passes recorded; physical father-phone still **NOT RUN** pending Play internal testing |
 | iPad undecided for V1 screenshots | **iPhone only / phone-focused**; iPad deferred |
+| Reviewer login requires mailbox / email code only | **Store reviewers:** password sign-in (no OTP required). **Ordinary members:** email-code remains primary; password optional only if Clerk assigned. Temporary auth PASS recorded; permanent reviewer still pending |
 
 > Historical narrative in `docs/mobile-app-master-plan.md` may still describe earlier Android-deferred eras — treat **this package** + `waiting-on-assets.md` as current store-submission control for Android readiness facts.
 
@@ -95,7 +112,7 @@
 7. Optional Resend naming in privacy policy
 8. Whether mobile `PrivacyInfo.xcprivacy` must expand before iOS submit
 9. Play feature-graphic headline
-10. Provision `[REVIEWER_EMAIL_PLACEHOLDER]` accounts (outside git)
+10. Create permanent `[REVIEWER_EMAIL_PLACEHOLDER]` account + password (outside git); complete entitlement / demo / native password proofs per `reviewer-test-account-plan.md`
 
 ---
 
@@ -119,14 +136,18 @@
 - Native IAP exists
 - Final legal advice
 - iPad support in V1
+- Permanent reviewer account already created
+- Native iOS/Android password review login already PASS
+- D-U-N-S received / Apple enrollment complete
 
 ---
 
 ## Recommended next actions
 
-1. Tyler finalize subtitle + category + reviewer inbox
-2. Brooke deliver visual assets
-3. Complete Apple enrollment when D-U-N-S arrives
-4. Play org verification + internal testing → father-phone pass
-5. Capture five phone screenshots
-6. Portal privacy entry from worksheets
+1. Create permanent reviewer account + password; entitlement + demo content; native password proofs (see `reviewer-test-account-plan.md`)
+2. Tyler finalize subtitle + category
+3. Brooke deliver visual assets
+4. Complete Apple enrollment when D-U-N-S arrives
+5. Play org verification + internal testing → father-phone pass
+6. Capture five phone screenshots
+7. Portal privacy entry from worksheets

@@ -18,16 +18,15 @@ LOGIN PATH
 1. Open the app.
 2. You should land on Sign in (/app/sign-in).
 3. Enter the reviewer email provided below.
-4. Sign in with an email verification code (primary), or choose Sign in with password if a reviewer password is provided.
-5. For email-code: enter the code from the monitored reviewer mailbox.
-6. You should reach the Victory Room with an active membership entitlement.
+4. Choose Sign in with password.
+5. Enter the reviewer password provided below.
+6. You should reach the Victory Room with an active membership entitlement. No emailed verification code is required for this reviewer account.
 
 REVIEWER CREDENTIALS
 • Email: [REVIEWER_EMAIL_PLACEHOLDER]
-• Password: [REVIEWER_PASSWORD_PLACEHOLDER] (optional; only if the Clerk user has a password factor) — or use email verification code
-• Inbox: monitored by the developer during review windows
+• Password: [REVIEWER_PASSWORD_PLACEHOLDER]
 • MFA: disabled on the reviewer account
-• Note: no reviewer backdoor; credentials are never hard-coded in the app
+• Note: no reviewer backdoor; credentials are never hard-coded in the app; no mailbox/OTP required for review login
 
 RESTRICTED / MEMBER CONTENT
 Core coaching features (Victory Room, Ask Pat, Film Room) require a signed-in account with an active Summitt Mindset membership. The reviewer account is pre-entitled so purchase is not required.
@@ -66,6 +65,6 @@ Privacy: https://summittmindset.com/privacy
 
 ## Related docs
 
-- `reviewer-test-account-plan.md` — account setup, fictional demo content, reset rules
+- `reviewer-test-account-plan.md` — account setup, fictional demo content, reset rules, production password auth PASS record
 - `google-play-metadata.md` — listing copy
 - `waiting-on-assets.md` — Play org / AAB / physical testing status

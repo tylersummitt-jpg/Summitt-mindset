@@ -1922,3 +1922,40 @@ Protect SMS/billing behavior; prefer the smallest independently testable slice; 
 - No iPad support claimed
 - No source/API/mobile edits
 - Application code unchanged
+
+## SESSION 54 — 2026-07-24 — Production reviewer password authentication PASS (docs-only)
+
+### Session summary
+- Date: 2026-07-24
+- Tasks attempted (IDs): record production optional password auth PASS + final store-reviewer auth strategy (docs only)
+- Tasks completed (IDs): store-submission + master plan v1.5.25 + handoff updated; application source **not** edited; mobile repo **not** edited; Clerk settings **not** changed in this session
+- Actual focused hours: NOT RECORDED
+
+### Repository state
+- Website path: `/Users/tylersummitt/Desktop/summitt-app`
+- Website branch: `main`
+- Website HEAD at edit start: `c62663cd6b0f4fcf0a93849cb00e9c5e3f108cd1` (`add optional password sign-in for existing users`)
+- Mobile repository: **not edited**
+- Staged?: no
+- Committed?: no
+- Pushed?: no
+
+### Authoritative facts recorded
+1. Temporary production password auth test = **COMPLETE / PASS** at `https://summittmindset.com/app/sign-in` using temporary QA email `tyler@trysummittmindset.com` (password **not** documented).
+2. Observed: custom `/app/sign-in` showed Send verification code + Sign in with password; password login succeeded; no email OTP required after Client Trust OFF; normal Clerk session + post-sign-in; no reviewer backdoor / static code / hard-coded credentials.
+3. Production Clerk (validated by Tyler): password signup **OFF**; add password **ON**; email-code **enabled**; Client Trust **OFF**; lockout **ON**; bot sign-up protection **ON**; no MFA on temp test account.
+4. Ordinary members: email-code create + primary sign-in; passwords not required; social absent on native sign-in; sessions under normal Clerk lifetime.
+5. Password-enabled existing users: optional password factor via Clerk only; email-code alternate remains.
+6. Store reviewers (target): dedicated pre-entitled password account; no MFA; no mailbox/OTP; no Tyler intervention; no Stripe/SMS — **permanent reviewer NOT YET CREATED**.
+7. Security tradeoff documented: Client Trust OFF removes new-device extra verification for password logins to support reusable review credentials; email-code-only users still depend on inbox; Client Trust may be reconsidered after store review.
+8. Remaining: permanent reviewer create; entitlement metadata; onboarding/demo; SMS-off; iOS/Android native password proofs; disposable deletion account.
+9. Temporary QA account: retain until native password testing complete; no phone/SMS/Stripe/real member data; then delete or mark QA-only.
+10. D-U-N-S status **unchanged** (still BLOCKED / WAITING).
+
+### Explicit non-claims
+- Permanent reviewer account created — **not claimed**
+- Native iOS/Android password review login PASS — **not claimed**
+- Password / verification codes / secrets in git — **none**
+- D-U-N-S received — **not claimed**
+- Application / mobile-native source edited — **not claimed**
+- Disabling Client Trust has no security tradeoff — **not claimed**

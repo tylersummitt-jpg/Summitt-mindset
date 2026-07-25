@@ -43,12 +43,55 @@ const COMMITMENT = "cmt_1";
 function chain(result: unknown) {
   const proxy: Record<string, unknown> = {};
   const ret = () => proxy;
-  for (const m of ["select", "eq", "in", "is", "order", "limit", "update", "insert", "delete", "not"]) {
+  for (const m of [
+    "select",
+    "eq",
+    "in",
+    "is",
+    "order",
+    "limit",
+    "update",
+    "insert",
+    "delete",
+    "not",
+    "upsert",
+  ]) {
     proxy[m] = ret;
   }
   proxy.maybeSingle = () => Promise.resolve(result);
   proxy.then = (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve);
   return proxy;
+}
+
+/** Successful profile upsert that returns a verified mirror row. */
+function profileUpsertOk(
+  updates?: Record<string, unknown>[],
+  options?: { data?: Record<string, unknown> | null; error?: unknown }
+) {
+  return {
+    upsert: (row: Record<string, unknown>) => {
+      updates?.push(row);
+      const data =
+        options && "data" in options
+          ? options.data
+          : {
+              clerk_user_id: row.clerk_user_id,
+              preferred_name: row.preferred_name,
+              identity_anchor_text: row.identity_anchor_text,
+              identity_source: row.identity_source,
+              active_identity_version_id: row.active_identity_version_id,
+            };
+      return {
+        select: () => ({
+          maybeSingle: () =>
+            Promise.resolve({
+              data,
+              error: options?.error ?? null,
+            }),
+        }),
+      };
+    },
+  };
 }
 
 function baseIdentityVersionHandlers(inserts: Record<string, unknown>[]) {
@@ -120,7 +163,7 @@ describe("persistAppIdentityEdit", () => {
     recomputeMock.mockResolvedValue(undefined);
   });
 
-  it("creates new version, deactivates old, updates profile, and recomputes coaching memory", async () => {
+  it("creates new version, deactivates old, upserts profile, and recomputes coaching memory", async () => {
     const updates: Record<string, unknown>[] = [];
     const inserts: Record<string, unknown>[] = [];
     const peopleOps: string[] = [];
@@ -130,12 +173,7 @@ describe("persistAppIdentityEdit", () => {
         return baseIdentityVersionHandlers(inserts);
       }
       if (table === "user_profiles") {
-        return {
-          update: (row: Record<string, unknown>) => {
-            updates.push(row);
-            return { eq: () => Promise.resolve({ error: null }) };
-          },
-        };
+        return profileUpsertOk(updates);
       }
       if (table === "important_people") {
         return {
@@ -179,6 +217,7 @@ describe("persistAppIdentityEdit", () => {
       expect(result.versionId).toBe(NEW_VERSION);
     }
     expect(updates[0]).toMatchObject({
+      clerk_user_id: USER,
       active_identity_version_id: NEW_VERSION,
       identity_source: "user_edited",
       people_summary: mirror,
@@ -187,6 +226,104 @@ describe("persistAppIdentityEdit", () => {
     expect(peopleOps).toEqual(["insert", "deactivate_prior"]);
     expect(inserts.some((r) => r.source === "edit" && r.is_private === true)).toBe(true);
     expect(recomputeMock).toHaveBeenCalledWith(COMMITMENT, { reasonCode: "app_identity_edit" });
+  });
+
+  it("creates a missing user_profiles row via upsert (skipped-onboarding / orphan-version state)", async () => {
+    const updates: Record<string, unknown>[] = [];
+    const inserts: Record<string, unknown>[] = [];
+
+    fromMock.mockImplementation((table: string) => {
+      if (table === "user_identity_version") {
+        return baseIdentityVersionHandlers(inserts);
+      }
+      if (table === "user_profiles") {
+        return profileUpsertOk(updates);
+      }
+      return chain({ data: null, error: null });
+    });
+
+    const result = await persistAppIdentityEdit({
+      ...baseInput,
+      importantPeople: [],
+      replaceImportantPeople: false,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({
+      clerk_user_id: USER,
+      identity_anchor_text: baseInput.identityAnchorText,
+      identity_source: "user_edited",
+      active_identity_version_id: NEW_VERSION,
+    });
+    expect(inserts.some((r) => r.is_active === true && r.version_number === 3)).toBe(true);
+  });
+
+  it("rejects false success when profile upsert returns zero mirrored rows", async () => {
+    const deletes: string[] = [];
+    fromMock.mockImplementation((table: string) => {
+      if (table === "user_identity_version") {
+        const handlers = baseIdentityVersionHandlers([]);
+        return {
+          ...handlers,
+          delete: () => ({
+            eq: () => ({
+              eq: () => {
+                deletes.push("version");
+                return Promise.resolve({ error: null });
+              },
+            }),
+          }),
+        };
+      }
+      if (table === "user_profiles") {
+        return profileUpsertOk([], { data: null, error: null });
+      }
+      return chain({ data: null, error: null });
+    });
+
+    const result = await persistAppIdentityEdit({
+      ...baseInput,
+      importantPeople: [],
+      replaceImportantPeople: false,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("save_failed");
+    }
+    expect(deletes).toContain("version");
+    expect(recomputeMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects mismatched returned clerk_user_id on profile mirror", async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table === "user_identity_version") {
+        return baseIdentityVersionHandlers([]);
+      }
+      if (table === "user_profiles") {
+        return profileUpsertOk([], {
+          data: {
+            clerk_user_id: "user_other",
+            identity_anchor_text: baseInput.identityAnchorText,
+            identity_source: "user_edited",
+            active_identity_version_id: NEW_VERSION,
+          },
+        });
+      }
+      return chain({ data: null, error: null });
+    });
+
+    const result = await persistAppIdentityEdit({
+      ...baseInput,
+      importantPeople: [],
+      replaceImportantPeople: false,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("save_failed");
+    }
   });
 
   it("returns version_conflict when expectedActiveVersionId mismatches", async () => {
@@ -230,9 +367,7 @@ describe("persistAppIdentityEdit", () => {
         return baseIdentityVersionHandlers(inserts);
       }
       if (table === "user_profiles") {
-        return {
-          update: () => ({ eq: () => Promise.resolve({ error: null }) }),
-        };
+        return profileUpsertOk();
       }
       if (table === "important_people") {
         return {
@@ -270,9 +405,7 @@ describe("persistAppIdentityEdit", () => {
         return baseIdentityVersionHandlers([]);
       }
       if (table === "user_profiles") {
-        return {
-          update: () => ({ eq: () => Promise.resolve({ error: null }) }),
-        };
+        return profileUpsertOk();
       }
       if (table === "important_people") {
         return {
@@ -312,9 +445,7 @@ describe("persistAppIdentityEdit", () => {
         return baseIdentityVersionHandlers([]);
       }
       if (table === "user_profiles") {
-        return {
-          update: () => ({ eq: () => Promise.resolve({ error: null }) }),
-        };
+        return profileUpsertOk();
       }
       if (table === "important_people") {
         return {
@@ -398,11 +529,10 @@ describe("persistAppIdentityEdit", () => {
         };
       }
       if (table === "user_profiles") {
-        return {
-          update: () => ({
-            eq: () => Promise.resolve({ error: { message: "profile failed" } }),
-          }),
-        };
+        return profileUpsertOk([], {
+          data: null,
+          error: { message: "profile failed" },
+        });
       }
       return chain({ data: null, error: null });
     });
@@ -419,7 +549,7 @@ describe("persistAppIdentityEdit", () => {
     }
   });
 
-  it("returns save_failed when profile update fails but version rollback succeeds", async () => {
+  it("returns save_failed when profile upsert fails but version rollback succeeds", async () => {
     fromMock.mockImplementation((table: string) => {
       if (table === "user_identity_version") {
         let selectCall = 0;
@@ -467,11 +597,10 @@ describe("persistAppIdentityEdit", () => {
         };
       }
       if (table === "user_profiles") {
-        return {
-          update: () => ({
-            eq: () => Promise.resolve({ error: { message: "profile failed" } }),
-          }),
-        };
+        return profileUpsertOk([], {
+          data: null,
+          error: { message: "profile failed" },
+        });
       }
       return chain({ data: null, error: null });
     });
@@ -494,9 +623,7 @@ describe("persistAppIdentityEdit", () => {
         return baseIdentityVersionHandlers([]);
       }
       if (table === "user_profiles") {
-        return {
-          update: () => ({ eq: () => Promise.resolve({ error: null }) }),
-        };
+        return profileUpsertOk();
       }
       if (table === "important_people") {
         return {
@@ -532,12 +659,7 @@ describe("persistAppIdentityEdit", () => {
         return baseIdentityVersionHandlers([]);
       }
       if (table === "user_profiles") {
-        return {
-          update: (row: Record<string, unknown>) => {
-            updates.push(row);
-            return { eq: () => Promise.resolve({ error: null }) };
-          },
-        };
+        return profileUpsertOk(updates);
       }
       if (table === "important_people") {
         return {
@@ -571,9 +693,7 @@ describe("persistAppIdentityEdit", () => {
         return baseIdentityVersionHandlers([]);
       }
       if (table === "user_profiles") {
-        return {
-          update: () => ({ eq: () => Promise.resolve({ error: null }) }),
-        };
+        return profileUpsertOk();
       }
       if (table === "important_people") {
         return {
@@ -657,12 +777,7 @@ describe("persistGuidedIdentityAnchorEdit", () => {
         return baseIdentityVersionHandlers(versionInserts);
       }
       if (table === "user_profiles") {
-        return {
-          update: (row: Record<string, unknown>) => {
-            updates.push(row);
-            return { eq: () => Promise.resolve({ error: null }) };
-          },
-        };
+        return profileUpsertOk(updates);
       }
       if (table === "important_people") {
         return {
@@ -728,12 +843,7 @@ describe("persistWave11ConfirmedIdentityAnchorEdit", () => {
         return baseIdentityVersionHandlers(versionInserts);
       }
       if (table === "user_profiles") {
-        return {
-          update: (row: Record<string, unknown>) => {
-            updates.push(row);
-            return { eq: () => Promise.resolve({ error: null }) };
-          },
-        };
+        return profileUpsertOk(updates);
       }
       return chain({ data: null, error: null });
     });

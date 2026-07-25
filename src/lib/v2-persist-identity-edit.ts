@@ -292,25 +292,50 @@ export async function persistAppIdentityEdit(
     input.importantPeople.map((p) => ({ relationship_type: p.relationship_type }))
   );
 
-  const profilePatch: Record<string, unknown> = {
+  const identitySource = input.identitySource ?? "user_edited";
+  const profileRow: Record<string, unknown> = {
+    clerk_user_id: input.clerkUserId,
     preferred_name: input.preferredName,
     identity_anchor_text: input.identityAnchorText,
     active_identity_version_id: versionId,
-    identity_source: input.identitySource ?? "user_edited",
+    identity_source: identitySource,
     identity_last_confirmed_at: nowIso,
     identity_refresh_due_at: computeIdentityRefreshDueAtIsoFromNow(),
   };
   if (input.replaceImportantPeople) {
-    profilePatch.people_summary = mirror;
+    profileRow.people_summary = mirror;
   }
 
-  const { error: profErr } = await supabaseServer
+  /**
+   * Canonical Victory Room identity lives on user_profiles.
+   * Upsert (conflict clerk_user_id) creates a missing row — update-only
+   * previously returned success with zero matched rows (false success).
+   * Require a returned mirror row before treating the save as complete.
+   */
+  const { data: mirroredProfile, error: profErr } = await supabaseServer
     .from("user_profiles")
-    .update(profilePatch)
-    .eq("clerk_user_id", input.clerkUserId);
+    .upsert(profileRow, { onConflict: "clerk_user_id" })
+    .select(
+      "clerk_user_id, identity_anchor_text, identity_source, active_identity_version_id"
+    )
+    .maybeSingle();
 
-  if (profErr) {
-    console.error("[v2-persist-identity-edit] profile update failed", profErr);
+  const profileMirrorOk =
+    !profErr &&
+    mirroredProfile &&
+    mirroredProfile.clerk_user_id === input.clerkUserId &&
+    typeof mirroredProfile.identity_anchor_text === "string" &&
+    mirroredProfile.identity_anchor_text === input.identityAnchorText &&
+    typeof mirroredProfile.identity_source === "string" &&
+    mirroredProfile.identity_source === identitySource &&
+    mirroredProfile.active_identity_version_id === versionId;
+
+  if (!profileMirrorOk) {
+    console.error("[v2-persist-identity-edit] profile upsert/mirror failed", {
+      clerk_user_id: input.clerkUserId,
+      version_id: versionId,
+      message: profErr?.message ?? "missing_or_mismatched_profile_mirror",
+    });
     const rollback = await rollbackNewIdentityVersion({
       clerkUserId: input.clerkUserId,
       versionId,
@@ -324,7 +349,11 @@ export async function persistAppIdentityEdit(
         code: "identity_state_may_need_repair",
       };
     }
-    return { ok: false, error: "We couldn’t save your identity. Please try again.", code: "save_failed" };
+    return {
+      ok: false,
+      error: "We couldn’t save your identity. Please try again.",
+      code: "save_failed",
+    };
   }
 
   if (input.replaceImportantPeople) {

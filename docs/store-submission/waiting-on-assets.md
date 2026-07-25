@@ -10,7 +10,7 @@
 - Phone-only V1 platform decision (`v1-platform-scope.md`)
 - Apple & Google listing copy drafts
 - Apple review notes + Google Play access instructions
-- Reviewer / demo-account plan (credentials placeholders only)
+- Reviewer / demo-account plan (credentials placeholders only; production password auth PASS recorded; permanent reviewer pending)
 - Apple App Privacy + Google Data Safety worksheets
 - Final release regression checklist
 - Release configuration audit checklist
