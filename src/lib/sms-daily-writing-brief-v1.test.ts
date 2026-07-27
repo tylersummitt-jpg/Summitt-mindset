@@ -31,6 +31,7 @@ import {
   TEMPORAL_CONTINUITY_WRITER_LINE,
   neutralizeBriefSuggestedMoveReasonForWriter,
   resolveWriterFacingDaypartForBrief,
+  toWriterFacingDailySmsWritingBriefForOpenAi,
   useDailySmsWritingBriefV1,
 } from "@/lib/sms-daily-writing-brief-v1";
 import {
@@ -938,7 +939,6 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
     expect(system).not.toMatch(/Lead with today's concrete rep/i);
     expect(system).not.toMatch(/Prefer relationship_read\.today_best_move/i);
     expect(system).not.toMatch(/primary human-continuity guide/i);
-    expect(system).toMatch(/Paraphrase all hints/i);
     expect(system).toMatch(/Do not paste notebook phrases/i);
     expect(system).toMatch(
       /recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations/
@@ -967,11 +967,11 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
     expect(normal).toMatch(/No app, website, Victory Room/i);
     expect(normal).toContain(TEMPORAL_CONTINUITY_WRITER_LINE.trim());
     expect(normal).toContain(HUMAN_FIRST_RELATIONSHIP_MOMENT_WRITER_LINE);
-    expect(normal).toMatch(/grief, family crisis, illness, vacation/i);
-    expect(normal).toMatch(/does not have to be coached in every single text/i);
+    expect(normal).toMatch(/neither must be mentioned or advanced in every text/i);
+    expect(normal).toMatch(/Continue the real relationship rather than performing a daily accountability routine/i);
     expect(normal).not.toMatch(/Best shape: one sentence of continuity/i);
     expect(normal).toMatch(
-      /Usually aim for one clear ask or one concrete next move, but let the relationship moment determine the shape/i
+      /Let the relationship moment determine the shape — a check-in, reflection, observation, encouragement, advice, challenge, life question, or goal\/next-step ask/i
     );
     expect(normal).toMatch(/Avoid generic motivational filler and pleading soft-closes/i);
     expect(normal).not.toMatch(/you've got this/i);
@@ -979,7 +979,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
     expect(normal).not.toMatch(/one honest step/i);
     expect(normal).not.toMatch(/Do not say no worries, please respond, or whenever you are ready/i);
     expect(normal).toMatch(
-      /Use one clear ask unless route guidance says no question\. Route max_questions remains hard/i
+      /A question is optional\. Ask only when it earns its place from the real conversation/i
     );
     expect(normal).not.toMatch(/At most one question, or one concrete action/i);
     expect(normal).not.toMatch(/crisis_human_first_route|vacation_mode|relapse_detector|emotion_state_machine/);
@@ -1163,7 +1163,7 @@ describe("FirstTextStyleMicroguideV1 and relationship_anchors", () => {
       freshness_phrases: [],
     });
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
-    expect(writer.system.length).toBeLessThan(4500);
+    expect(writer.system.length).toBeLessThan(5200);
     expect(writer.system.length + writer.user.length).toBeLessThan(9500);
   });
 
@@ -1434,7 +1434,7 @@ describe("slot_coaching_context in DAILY_SMS_WRITING_BRIEF_V1", () => {
     expect(keys.indexOf("slot_coaching_context")).toBeLessThan(keys.indexOf("current_standard"));
 
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
-    expect(writer.system).toMatch(/Paraphrase all hints/i);
+    expect(writer.system).toMatch(/Do not paste notebook phrases/i);
     expect(writer.system).not.toMatch(/Prefer relationship_read\.today_best_move/i);
     expect(writer.system).not.toMatch(/OUTPUT:.*intended_rep/s);
   });
@@ -1873,7 +1873,9 @@ describe("morning slot truth (current_send_slot controls daypart)", () => {
     ).toBe(true);
     const writer = buildDailySmsWriterMessagesFromBrief(brief);
     expect(writer.system).toContain(MORNING_SLOT_WRITER_LINE.trim());
-    expect(writer.system).toMatch(/start-of-day accountability/i);
+    expect(writer.system).toMatch(/thoughtful human life coach/i);
+    expect(writer.system).not.toMatch(/Ask for today's plan or next action/i);
+    expect(writer.system).not.toMatch(/start-of-day accountability/i);
   });
 
   it("B: morning generated at night still uses morning guidance, not evening/tomorrow framing", () => {
@@ -1943,14 +1945,14 @@ describe("morning slot truth (current_send_slot controls daypart)", () => {
     });
     expect(system).toContain(MORNING_SLOT_WRITER_LINE.trim());
     expect(system).toContain(TEMPORAL_CONTINUITY_WRITER_LINE.trim());
-    expect(system).toMatch(/do not ask the user to reflect on a completed day/i);
     expect(system).toMatch(/whether today's action already happened/i);
     expect(system).toMatch(
       /Do not say "tomorrow" unless the notebook explicitly says the relevant event is tomorrow/i
     );
     expect(system).toMatch(
-      /Past methods or proof in the thread are background continuity, not today's plan/i
+      /Past methods or proof in the thread are background continuity, not an automatic assignment for today/i
     );
+    expect(system).not.toMatch(/Ask for today's plan or next action/i);
     expect(system).not.toContain(EVENING_SLOT_WRITER_LINE.trim());
   });
 
@@ -2069,7 +2071,7 @@ describe("temporal precision and stale-method clarity", () => {
   function assertTemporalContinuityGuidance(system: string) {
     expect(system).toContain(TEMPORAL_CONTINUITY_WRITER_LINE.trim());
     expect(system).toMatch(
-      /Past methods or proof in the thread are background continuity, not today's plan/i
+      /Past methods or proof in the thread are background continuity, not an automatic assignment for today/i
     );
     expect(system).toMatch(
       /unless the user restated it for the target day or open_loops marks an unresolved prior-day plan to close/i
@@ -2510,5 +2512,109 @@ describe("recent_exact_thread is the only actual SMS thread block", () => {
       expect(m.role).toMatch(/^(coach|user)$/);
       expect(m.body).toBeTruthy();
     }
+  });
+});
+
+describe("Morning human-first writer projection", () => {
+  it("Morning guidance permits human check-in, win reflection, life context, and optional goal movement", () => {
+    expect(MORNING_SLOT_WRITER_LINE).not.toMatch(/Ask for today's plan or next action/i);
+    expect(MORNING_SLOT_WRITER_LINE).toMatch(/thoughtful human life coach/i);
+    expect(MORNING_SLOT_WRITER_LINE).toMatch(/checks in on something difficult/i);
+    expect(MORNING_SLOT_WRITER_LINE).toMatch(/meaningful win/i);
+    expect(MORNING_SLOT_WRITER_LINE).toMatch(/asks about their life/i);
+    expect(MORNING_SLOT_WRITER_LINE).toMatch(/encouragement, advice, challenge/i);
+    expect(MORNING_SLOT_WRITER_LINE).toMatch(/neither must be mentioned or advanced/i);
+    expect(MORNING_SLOT_WRITER_LINE).toMatch(/rather than performing a daily accountability routine/i);
+
+    const system = buildDailySmsBriefSystemPrompt({
+      maxChars: 300,
+      zeroQuestionMode: false,
+      pendingPlanActive: false,
+      goalEvolutionInvite: false,
+      currentSendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    });
+    expect(system).toContain(MORNING_SLOT_WRITER_LINE.trim());
+    expect(system).toMatch(/A question is optional/i);
+    expect(system).not.toMatch(/Ask for today's plan or next action/i);
+  });
+
+  it("normal Morning writer JSON omits suggested_move and demotes slot role/checkin_focus", () => {
+    const facts = baseFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
+        messages: [
+          {
+            at_local: "Mon 8:00 AM",
+            role: "user",
+            body: "This week has been rough with the kids sick.",
+            source_table: "sms_inbound_messages",
+            delivery_evidence: "inbound_received",
+          },
+        ],
+        message_count: 1,
+        char_count: 40,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+    });
+
+    expect(brief.suggested_move.move).toBeTruthy();
+    expect(brief.slot_coaching_context.slot_role_recommendation).toBeTruthy();
+
+    const facing = toWriterFacingDailySmsWritingBriefForOpenAi(brief);
+    expect(facing).not.toHaveProperty("suggested_move");
+    expect(facing).not.toHaveProperty("recent_turn_semantics");
+    expect(facing.current_standard).toEqual(brief.current_standard);
+    expect(facing.identity).toEqual(brief.identity);
+    expect(facing.recent_exact_thread).toEqual(brief.recent_exact_thread);
+    expect(facing.open_loops).toEqual(brief.open_loops);
+    const slot = facing.slot_coaching_context as Record<string, unknown>;
+    expect(slot.slot_role_recommendation).toBeUndefined();
+    expect(slot.checkin_focus).toBeUndefined();
+    expect((facing.relationship_read as { today_best_move: unknown }).today_best_move).toBeNull();
+
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.user).not.toContain('"suggested_move"');
+    expect(writer.user).not.toContain('"slot_role_recommendation"');
+    expect(writer.user).not.toContain('"checkin_focus"');
+    expect(writer.user).toContain('"current_standard"');
+    expect(writer.user).toContain('"recent_exact_thread"');
+    expect(writer.user).toContain("This week has been rough");
+  });
+
+  it("Evening writer JSON keeps suggested_move and slot coaching fields", () => {
+    const facts = baseFacts();
+    const cal = deriveDailyProofCalibration({ facts });
+    const brief = buildDailySmsWritingBriefV1({
+      facts,
+      proof_calibration: cal,
+      strategy_card: minimalCard(),
+      thread: {
+        window: { floor_hours: 168, extension_days: 0, mode: "7d_capped" },
+        messages: [],
+        message_count: 0,
+        char_count: 0,
+        timeline_7d: { messages: [], window_hours: 168, message_count: 0 },
+      },
+      freshness_phrases: [],
+      writing_brief_overrides: {
+        currentSendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        slotDaypartOverride: "evening",
+      },
+    });
+    const facing = toWriterFacingDailySmsWritingBriefForOpenAi(brief);
+    expect(facing).toHaveProperty("suggested_move");
+    expect(
+      (facing.slot_coaching_context as { slot_role_recommendation?: string }).slot_role_recommendation
+    ).toBeTruthy();
+    const writer = buildDailySmsWriterMessagesFromBrief(brief);
+    expect(writer.user).toContain('"suggested_move"');
+    expect(writer.system).toContain(EVENING_SLOT_WRITER_LINE.trim());
+    expect(writer.system).not.toContain(MORNING_SLOT_WRITER_LINE.trim());
   });
 });

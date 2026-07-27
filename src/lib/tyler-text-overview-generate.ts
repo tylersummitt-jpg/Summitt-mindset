@@ -212,6 +212,12 @@ export function buildTylerTextOverviewGenerationMetadata(args: {
     v3_daily_sms: args.built.ok ? args.built.v3DailySms ?? null : null,
     slot_coaching_context: readMetadataObject(meta, "slot_coaching_context"),
     current_send_slot: readMetadataString(meta, "current_send_slot"),
+    post_writer_checks_softened_for_tto: readMetadataBoolean(meta, "post_writer_checks_softened_for_tto"),
+    primary_writer_should_send: readMetadataBoolean(meta, "primary_writer_should_send"),
+    primary_writer_no_send_reason: readMetadataString(meta, "primary_writer_no_send_reason"),
+    draft_content_warnings: Array.isArray(meta.draft_content_warnings)
+      ? meta.draft_content_warnings.filter((x): x is string => typeof x === "string")
+      : null,
   };
 }
 
@@ -678,6 +684,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
 
   const built = await buildDailySmsContent(clerkUserId, md, draftForDayKey, timezone, {
     mode: "draft",
+    ttoDraftPreservePrimaryBody: true,
   });
 
   const activeCommitment = await getActiveCommitment(clerkUserId);

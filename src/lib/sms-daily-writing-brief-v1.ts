@@ -60,7 +60,7 @@ export const FIRST_TEXT_STYLE_MICROGUIDE_V1 =
 
 /** Writer principle only — not a route, classifier, or state machine. */
 export const HUMAN_FIRST_RELATIONSHIP_MOMENT_WRITER_LINE =
-  "Do not force every SMS back to the current goal when the user's latest context calls for a human response first. If the recent thread shows grief, family crisis, illness, vacation, major disruption, confusion, or emotional weight, prioritize a brief human check-in, care, or grounding question before accountability. The current standard remains true, but it does not have to be coached in every single text. Being human is part of the coaching relationship.";
+  "Do not force every SMS back to the current goal. The recent exact conversation comes first. Identity and Current Goal help you know the person, but neither must be mentioned or advanced in every text. Prefer the most human, relevant next touch — including check-ins, wins, life context, encouragement, advice, challenge, or a useful goal step when that is what the thread calls for.";
 
 export type BriefLocalDaypart = "morning" | "afternoon" | "evening" | "late_night";
 
@@ -1139,14 +1139,14 @@ export function buildDailySmsWritingBriefV1(
 }
 
 export const MORNING_SLOT_WRITER_LINE =
-  "Morning slot: write as a start-of-day accountability text for the target day. Ask for today's plan or next action; do not ask the user to reflect on a completed day or whether today's action already happened. Do not say \"tomorrow\" unless the notebook explicitly says the relevant event is tomorrow.\n";
+  "Morning text: write the one message a thoughtful human life coach would naturally send after reading this person's recent conversation. The recent exact conversation is the most important context. Their Identity and Current Goal help you understand the person, but neither must be mentioned or advanced in every text. Sometimes the best text checks in on something difficult they recently shared. Sometimes it reflects on a meaningful win. Sometimes it asks about their life. Sometimes it gives encouragement, advice, challenge, or a useful next step connected to their goal. Choose what feels most human, relevant, and valuable today. Continue the real relationship rather than performing a daily accountability routine. Do not ask them to report whether today's action already happened unless the notebook clearly shows today is already underway. Do not say \"tomorrow\" unless the notebook explicitly says the relevant event is tomorrow.\n";
 
 export const EVENING_SLOT_WRITER_LINE =
   "Evening check-in: continue the thread since morning; use slot_coaching_context for focus, not a generic goal loop.\n";
 
 /** Shared temporal hierarchy — past continuity vs today's plan; precise day-age when clear. */
 export const TEMPORAL_CONTINUITY_WRITER_LINE =
-  "Past methods or proof in the thread are background continuity, not today's plan. Do not treat a method from a prior local day as today's plan unless the user restated it for the target day or open_loops marks an unresolved prior-day plan to close. Time-correct callbacks are good; invented current assignments are not. When at_local and the target date make timing clear, prefer \"yesterday,\" \"two days ago,\" or \"earlier this week\" over vague timing like \"the other day.\"\n";
+  "Past methods or proof in the thread are background continuity, not an automatic assignment for today. Do not invent a current plan from an older method unless the user restated it for the target day or open_loops marks an unresolved prior-day plan to close. Time-correct callbacks are good; invented current assignments are not. When at_local and the target date make timing clear, prefer \"yesterday,\" \"two days ago,\" or \"earlier this week\" over vague timing like \"the other day.\"\n";
 
 export function buildDailySmsBriefSystemPrompt(args: {
   maxChars: number;
@@ -1160,10 +1160,14 @@ export function buildDailySmsBriefSystemPrompt(args: {
   const scRoute = args.silenceCadenceRoute;
   const scCard = scRoute ? SILENCE_CADENCE_ROUTE_CARDS[scRoute] : null;
   const maxQ = scCard?.max_questions;
+  const isMorningSlot =
+    args.currentSendSlot == null || args.currentSendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT;
   const questionLine =
     maxQ === 0 || args.zeroQuestionMode
       ? "Write one statement-only coaching touch — no question mark, no hidden ask. Route max_questions is hard."
-      : "Use one clear ask unless route guidance says no question. Route max_questions remains hard.";
+      : isMorningSlot
+        ? "A question is optional. Ask only when it earns its place from the real conversation — never as a required daily accountability ritual."
+        : "Use one clear ask unless route guidance says no question. Route max_questions remains hard.";
   const extras: string[] = [];
   if (args.pendingPlanActive) {
     extras.push(
@@ -1213,36 +1217,41 @@ export function buildDailySmsBriefSystemPrompt(args: {
 
   const authorityOrder =
     scRoute && scRoute !== "normal_daily"
-      ? "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations. When present, silence_cadence route card controls re-entry posture. coaching_situation, relationship_read, slot_coaching_context, suggested_move, route cards, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases."
-      : "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations. coaching_situation, relationship_read, slot_coaching_context, suggested_move, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases.";
+      ? "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations. When present, silence_cadence route card controls re-entry posture. Any remaining relationship_read, coaching_situation, slot hints, or durable memory are optional background only — you choose the coaching judgment; never paste their phrases."
+      : isMorningSlot
+        ? "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations. current_standard and identity are canonical person/goal truth, not a required mention. Optional background fields are never commands — you choose what kind of coaching text to write."
+        : "Truth hierarchy: authoritative_truth.claims and hard safety flags control what you may claim. open_loops, satisfied_do_not_repeat, and freshness control what must not be re-asked. recent_exact_thread is the literal SMS thread — its message bodies and timestamps beat summaries or interpretations. coaching_situation, relationship_read, slot_coaching_context, suggested_move, and durable memory are coaching hints/posture only — paraphrase them; never paste their phrases.";
 
   const eveningSlotLine =
     args.currentSendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
       ? EVENING_SLOT_WRITER_LINE
       : "";
   const morningSlotLine =
-    !eveningSlotLine &&
-    (args.currentSendSlot == null || args.currentSendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT)
-      ? MORNING_SLOT_WRITER_LINE
-      : "";
+    !eveningSlotLine && isMorningSlot ? MORNING_SLOT_WRITER_LINE : "";
 
   const styleBlock = FIRST_TEXT_STYLE_MICROGUIDE_V1;
+  const shapeLine = morningSlotLine
+    ? "Let the relationship moment determine the shape — a check-in, reflection, observation, encouragement, advice, challenge, life question, or goal/next-step ask are all valid when earned by the thread."
+    : "Usually aim for one clear ask or one concrete next move, but let the relationship moment determine the shape.";
+  const paraphraseLine = morningSlotLine
+    ? "Do not paste notebook phrases, route-card lines, relationship_read tokens, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale."
+    : "Paraphrase all hints (coaching_situation, relationship_read, slot_coaching_context, suggested_move, silence route cards, durable memory). Do not paste notebook phrases, route-card lines, relationship_read tokens, slot summaries, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale.";
 
   return `You are Coach Pat writing the next SMS in one long coaching relationship.
 
 Use DAILY_SMS_WRITING_BRIEF_V1 for facts and constraints only — not wording. Write one fresh human SMS.
 ${authorityOrder}
 Use recent_exact_thread for continuity, but prioritize the newest messages when deciding what to say next.
-${morningSlotLine}${eveningSlotLine}${TEMPORAL_CONTINUITY_WRITER_LINE}Paraphrase all hints (coaching_situation, relationship_read, slot_coaching_context, suggested_move, silence route cards, durable memory). Do not paste notebook phrases, route-card lines, relationship_read tokens, slot summaries, or prior coach wording. The only exact reuse allowed is the user's own words when useful and not stale.
-authoritative_truth.claims never authorize proof, completion, misses, Victory Room, or goal changes unless the boolean is true. Do not claim the user responded when they did not. Do not invent wins, misses, or unsupported temporal claims.
+${morningSlotLine}${eveningSlotLine}${TEMPORAL_CONTINUITY_WRITER_LINE}${paraphraseLine}
+authoritative_truth.claims never authorize proof, completion, misses, Victory Room, or goal changes unless the boolean is true. Do not claim the user responded when they did not. Do not invent wins, misses, feelings, plans, or unsupported temporal claims. Do not treat a proposed/pending goal as the active Current Goal.
 When silence_cadence route card is present, it overrides old silence/reentry hints; current_standard still applies as stored truth. Do not copy example shapes verbatim.
 ${silenceCadenceBlock}
 ${HUMAN_FIRST_RELATIONSHIP_MOMENT_WRITER_LINE}
-Usually aim for one clear ask or one concrete next move, but let the relationship moment determine the shape.
-Avoid generic motivational filler and pleading soft-closes; prefer specific continuity, the current standard, or the real relationship moment.
+${shapeLine}
+Avoid generic motivational filler and pleading soft-closes; prefer specific continuity from the real thread.
 No app, website, Victory Room, Change Goal, Update Goal, or menu directions unless allow_goal_adjustment_language is true — and then only as a spoken coaching question, never navigation.
 ${questionLine}
-One SMS, max ${args.maxChars} characters, no newlines. No robot menu (Reply YES/NO). No fake Pat quotes. No fake proof. No invented wins/misses/Victory Room claims. Do not repeat stale or satisfied asks.
+One SMS, max ${args.maxChars} characters, no newlines. No robot menu (Reply YES/NO). No fake Pat quotes or stories. No fake proof. No invented wins/misses/Victory Room claims. Do not repeat stale or satisfied asks.
 ${extras.join("\n")}
 
 ${styleBlock}
@@ -1253,6 +1262,77 @@ turn_purpose (string), voice_confidence (number 0-1 or null),
 used_facts (string[]), safety_notes (string[])`;
 }
 
+/**
+ * Writer-facing Morning main-active projection: demote accountability planners so the
+ * primary writer chooses the coaching judgment. Server/telemetry still use the full brief.
+ * Evening and non-main-active routes keep the full writer-facing shape.
+ */
+export function toWriterFacingDailySmsWritingBriefForOpenAi(
+  brief: DailySmsWritingBriefV1
+): Record<string, unknown> {
+  const isEvening = brief.current_send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
+  const isMorningMain =
+    !isEvening &&
+    brief.current_send_slot === SMS_DAILY_PRODUCTION_SEND_SLOT &&
+    brief.route_kind === "main_active_accountability";
+
+  if (!isMorningMain) {
+    return { ...brief };
+  }
+
+  const hardCoachingSituation =
+    brief.coaching_situation.kind !== "normal_accountability" ||
+    brief.coaching_situation.writer_posture !== "run_accountability" ||
+    brief.coaching_situation.current_standard_status !== "active";
+
+  const slot = brief.slot_coaching_context;
+  const writerFacingSlot: Record<string, unknown> = {
+    version: slot.version,
+    authority: slot.authority,
+    current_slot: slot.current_slot,
+    previous_slot: slot.previous_slot,
+    should_send_recommendation:
+      slot.should_send_recommendation === "skip" ? "skip" : "writer_decides",
+    skip_reason_hint: slot.skip_reason_hint,
+    // Demoted: slot_role_recommendation / checkin_focus are not writer commands for Morning.
+  };
+
+  const relationship_read = {
+    ...brief.relationship_read,
+    // Demoted: today_best_move is a planner token; exact thread + open_loops own continuity.
+    today_best_move: null,
+  };
+
+  const out: Record<string, unknown> = {
+    brief_version: brief.brief_version,
+    route_kind: brief.route_kind,
+    identity: brief.identity,
+    relationship_read,
+    current_send_slot: brief.current_send_slot,
+    slot_coaching_context: writerFacingSlot,
+    current_standard: brief.current_standard,
+    // Shape constraint only — not a coaching-move command.
+    max_questions: brief.suggested_move.max_questions,
+    authoritative_truth: brief.authoritative_truth,
+    silence_cadence: brief.silence_cadence,
+    recent_exact_thread: brief.recent_exact_thread,
+    freshness: brief.freshness,
+    open_loops: brief.open_loops,
+    relationship_anchors: brief.relationship_anchors,
+    durable_relationship_memory: brief.durable_relationship_memory,
+  };
+
+  if (hardCoachingSituation) {
+    out.coaching_situation = {
+      ...brief.coaching_situation,
+      authority: COACHING_SITUATION_AUTHORITY,
+    };
+  }
+
+  // Omit suggested_move and recent_turn_semantics for normal Morning main-active.
+  return out;
+}
+
 export function buildDailySmsWriterMessagesFromBrief(brief: DailySmsWritingBriefV1): {
   system: string;
   user: string;
@@ -1260,6 +1340,15 @@ export function buildDailySmsWriterMessagesFromBrief(brief: DailySmsWritingBrief
   writer_system_chars: number;
   writer_total_chars: number;
 } {
+  const writerFacing = toWriterFacingDailySmsWritingBriefForOpenAi(brief);
+  const isMorningMain =
+    brief.current_send_slot === SMS_DAILY_PRODUCTION_SEND_SLOT &&
+    brief.route_kind === "main_active_accountability";
+  const hardCoachingSituation =
+    brief.coaching_situation.kind !== "normal_accountability" ||
+    brief.coaching_situation.writer_posture !== "run_accountability" ||
+    brief.coaching_situation.current_standard_status !== "active";
+
   const system = buildDailySmsBriefSystemPrompt({
     maxChars: brief.current_standard.max_chars,
     zeroQuestionMode: brief.suggested_move.max_questions === 0,
@@ -1267,10 +1356,11 @@ export function buildDailySmsWriterMessagesFromBrief(brief: DailySmsWritingBrief
     goalEvolutionInvite: brief.open_loops.goal_evolution_invite?.should_invite === true,
     silenceCadenceRoute: brief.silence_cadence?.route ?? null,
     currentSendSlot: brief.current_send_slot,
-    coachingSituation: brief.coaching_situation,
+    coachingSituation:
+      !isMorningMain || hardCoachingSituation ? brief.coaching_situation : null,
   });
   const user = `DAILY_SMS_WRITING_BRIEF_V1 (server truth — not copyable prose):
-${JSON.stringify(brief)}
+${JSON.stringify(writerFacing)}
 
 Write JSON only.`;
   return {

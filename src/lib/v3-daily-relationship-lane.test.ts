@@ -584,7 +584,7 @@ describe("produceDailyV3RelationshipSms prompt guidance (plan proof + timing anc
     const { systemMsg, userMsg } = getWriterPromptMessages();
     expectC1WritingBriefPrompt({ systemMsg, userMsg });
     expect(systemMsg).not.toContain("ZERO-QUESTION DAILY MODE IS ACTIVE");
-    expect(systemMsg).toMatch(/At most one question/i);
+    expect(systemMsg).toMatch(/A question is optional|At most one question|one clear ask/i);
     expect(systemMsg).not.toContain("OPEN QUESTION / LATEST ANSWER PRIORITY");
   });
 
@@ -898,13 +898,13 @@ describe("produceDailyV3RelationshipSms", () => {
 
     const { systemMsg, userMsg } = getWriterPromptMessages();
     expectC1WritingBriefPrompt({ systemMsg, userMsg });
-    expect(systemMsg).toContain("FIRST-TEXT STYLE");
-    expect(systemMsg).toMatch(/subordinate to authoritative_truth and current_standard/i);
+    expect(systemMsg).toMatch(/VOICE: Write one human SMS in Coach Pat's voice/i);
     expect(userMsg).toContain('"relationship_anchors"');
     expect(userMsg).toContain('"relationship_read"');
     expect(userMsg).toContain('"paraphrase_only_not_copy"');
     expect(userMsg).toContain("Brooke");
     expect(userMsg).not.toContain("FIRST-TEXT STYLE");
+    expect(userMsg).not.toContain('"suggested_move"');
   });
 
   it("silence cadence day 3 uses Writing Brief with route card authority", async () => {
@@ -1346,6 +1346,104 @@ describe("produceDailyV3RelationshipSms", () => {
     expect(r.shouldSend).toBe(false);
     expect(r.noSendReason).toBe("lane_post_validate_blocked");
     expect(createMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("Morning TTO preserve: post_validate style hit keeps primary body and skips repair OpenAI", async () => {
+    const primary = "Did the rep happen today?";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: primary,
+              no_send_reason: null,
+              turn_purpose: "human_checkin",
+              voice_confidence: 0.8,
+              used_facts: ["recent_exact_thread"],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: ["tto_morning_preserve"],
+      tto_draft_preserve_primary_body: true,
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe(primary);
+    expect(createMock).toHaveBeenCalledTimes(1);
+    expect(r.metadata.post_writer_checks_softened_for_tto).toBe(true);
+    expect(r.metadata.primary_writer_should_send).toBe(true);
+    expect(Array.isArray(r.metadata.draft_content_warnings)).toBe(true);
+    expect((r.metadata.draft_content_warnings as string[]).length).toBeGreaterThan(0);
+    expect(r.writerOpenAiCapture?.messages?.length).toBe(2);
+  });
+
+  it("Morning TTO preserve: model should_send false with body still reaches Tyler", async () => {
+    const primary = "I’ve been reflecting on that win you had a few days ago. That was huge.";
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: false,
+              body: primary,
+              no_send_reason: "prefer_silence_today",
+              turn_purpose: "reflection",
+              voice_confidence: 0.5,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+      tto_draft_preserve_primary_body: true,
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body).toBe(primary);
+    expect(r.metadata.primary_writer_should_send).toBe(false);
+    expect(r.metadata.primary_writer_no_send_reason).toBe("prefer_silence_today");
+    expect(Array.isArray(r.metadata.draft_content_warnings)).toBe(true);
+    expect(
+      (r.metadata.draft_content_warnings as string[]).some((w) =>
+        w.includes("primary_model_no_send")
+      )
+    ).toBe(true);
+    expect(createMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("without TTO preserve flag, post_validate still no-sends (send path unchanged)", async () => {
+    createMock.mockResolvedValue({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              should_send: true,
+              body: "Did the rep happen today?",
+              no_send_reason: null,
+              turn_purpose: "bad",
+              voice_confidence: null,
+              used_facts: [],
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    const r = await produceDailyV3RelationshipSms({
+      facts: baseFacts(),
+      telemetry_fact_sources: [],
+      tto_draft_preserve_primary_body: false,
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.noSendReason).toBe("lane_post_validate_blocked");
   });
 
   it("May 14-style repairable copy triggers lane repair then sends", async () => {

@@ -531,7 +531,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       expect.any(Object),
       "2026-07-03",
       "America/New_York",
-      { mode: "draft" }
+      { mode: "draft", ttoDraftPreservePrimaryBody: true }
     );
   });
 
@@ -905,6 +905,10 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
         }),
       })
     );
+    const eveningOpts = buildDailySmsContentMock.mock.calls.at(-1)?.[4] as
+      | { ttoDraftPreservePrimaryBody?: boolean }
+      | undefined;
+    expect(eveningOpts?.ttoDraftPreservePrimaryBody).not.toBe(true);
   });
 
   it("respects explicit draftForDayKey even when local evening would be today", async () => {

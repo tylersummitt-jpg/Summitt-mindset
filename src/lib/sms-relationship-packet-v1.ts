@@ -1973,6 +1973,10 @@ const LANE_CONTEXT_OBSERVABILITY_KEYS = [
   "temporal_wording_violation_reason",
   "temporal_wording_repair_attempted",
   "temporal_wording_repair_succeeded",
+  "post_writer_checks_softened_for_tto",
+  "primary_writer_should_send",
+  "primary_writer_no_send_reason",
+  "draft_content_warnings",
 ] as const;
 
 /** Compact DailySmsWritingBriefV1 + proof/freshness/seatbelt telemetry for sent-row SQL. */

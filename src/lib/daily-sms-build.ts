@@ -174,6 +174,11 @@ export type BuildDailySmsContentOptions = {
   tylerTextOverviewOverrideBody?: string | null;
   /** Slot/daypart + morning anchor overrides for evening TTO preview (Phase 2B). */
   writingBriefOverrides?: DailySmsWritingBriefOverrides;
+  /**
+   * Morning TTO draft only: preserve primary writer body through soft content checks.
+   * Must not be set for Evening preview.
+   */
+  ttoDraftPreservePrimaryBody?: boolean;
 };
 
 function dailyV3LaneInput(
@@ -187,6 +192,7 @@ function dailyV3LaneInput(
     commitmentRow,
     telemetry_fact_sources,
     writing_brief_overrides: options?.writingBriefOverrides,
+    tto_draft_preserve_primary_body: options?.ttoDraftPreservePrimaryBody === true,
   };
 }
 

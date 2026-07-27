@@ -13,6 +13,7 @@ import type { V2CoachingMemoryForPrompt } from "@/lib/v2-coaching-memory-prompt"
 import {
   applySmsMemoryAntiRepeatGuard,
   buildAntiRepeatDetectArgsFromDailyFacts,
+  detectSmsMemoryRepeatViolation,
   shouldRunDailyMemoryRepeatGuard,
 } from "@/lib/sms-memory-anti-repeat";
 import {
@@ -427,6 +428,12 @@ export type DailyV3RelationshipLaneInput = {
   commitmentRow?: import("@/lib/v2-commitment").ActiveV2CommitmentRow | null;
   /** Optional slot/daypart overrides for evening preview or future multi-slot builds. */
   writing_brief_overrides?: import("@/lib/sms-daily-writing-brief-v1").DailySmsWritingBriefOverrides;
+  /**
+   * Morning TTO draft generation only: keep the primary writer's body for Tyler review.
+   * Soft-fail semantic/style post-checks as telemetry; skip OpenAI repair rewrites.
+   * Must NOT be set for Evening preview or live send builds.
+   */
+  tto_draft_preserve_primary_body?: boolean;
 };
 
 export type DailyV3RelationshipLaneReplySource = "v3_daily_relationship_lane";
@@ -1602,7 +1609,7 @@ used_facts (string[]), safety_notes (string[])`;
     }, writerOpenAiCapture);
   }
 
-  const shouldSend = parsed.should_send === true;
+  const shouldSendModel = parsed.should_send === true;
   let body = typeof parsed.body === "string" ? parsed.body.replace(/\r?\n/g, " ").trim() : "";
   const noSendReason = typeof parsed.no_send_reason === "string" ? parsed.no_send_reason.trim() : null;
   const turnPurpose = typeof parsed.turn_purpose === "string" ? parsed.turn_purpose.trim() : "daily_turn";
@@ -1615,26 +1622,32 @@ used_facts (string[]), safety_notes (string[])`;
   const bodyPreview = (s: string) => (s.length > 220 ? `${s.slice(0, 219)}…` : s);
   let successLaneStage: "ok" | "post_validate_repaired" = "ok";
   let successRepairExtra: Record<string, unknown> = {};
+  const preservePrimaryForTto = args.tto_draft_preserve_primary_body === true;
+  const primaryWriterShouldSend = shouldSendModel;
+  const primaryWriterNoSendReason = noSendReason;
 
-  if (!shouldSend) {
-    return {
-      body: "",
-      shouldSend: false,
-      noSendReason: noSendReason || "model_no_send",
-      replySource: "v3_daily_relationship_lane",
-      turnPurpose: turnPurpose || "no_send",
-      voiceConfidence,
-      usedFacts,
-      safetyNotes,
-      metadata: {
-        ...baseMeta,
-        ...laneOpenAiJsonMeta,
-        lane_stage: "model_no_send",
-        v3_candidate_body: "",
-      },
-      openAiOk: true,
-      writerOpenAiCapture,
-    };
+  if (!shouldSendModel) {
+    if (!(preservePrimaryForTto && body)) {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: noSendReason || "model_no_send",
+        replySource: "v3_daily_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes,
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "model_no_send",
+          v3_candidate_body: "",
+        },
+        openAiOk: true,
+        writerOpenAiCapture,
+      };
+    }
+    // Morning TTO: keep non-empty primary body for Tyler even when model recommended no-send.
   }
 
   if (!body) {
@@ -1643,6 +1656,186 @@ used_facts (string[]), safety_notes (string[])`;
   body = body.replace(/^["']|["']$/g, "").trim();
   if (!body) {
     return empty("empty_body_after_should_send", true, { lane_stage: "trim_empty", ...laneOpenAiJsonMeta }, writerOpenAiCapture);
+  }
+
+  const primaryWriterBody = body;
+
+  if (preservePrimaryForTto) {
+    const bindingVerbatim = dailyBindingVerbatimForRobotGuard(laneFacts);
+    const missingVerb = validateRequiredVerbatims(
+      primaryWriterBody,
+      laneFacts.constraints.required_verbatim_substrings
+    );
+    if (missingVerb != null) {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: "missing_required_verbatim",
+        replySource: "v3_daily_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [...safetyNotes, `missing_verbatim:${missingVerb.slice(0, 80)}`],
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "verbatim_validation_failed",
+          v3_candidate_body: primaryWriterBody,
+          first_missing_verbatim_preview: missingVerb.slice(0, 120),
+          post_writer_checks_softened_for_tto: true,
+          primary_writer_should_send: primaryWriterShouldSend,
+          primary_writer_no_send_reason: primaryWriterNoSendReason,
+        },
+        openAiOk: true,
+        writerOpenAiCapture,
+      };
+    }
+
+    const semanticContractFail = runSemanticDailyContractValidatorIfApplicable(
+      laneFacts,
+      primaryWriterBody
+    );
+    if (semanticContractFail != null) {
+      return {
+        body: "",
+        shouldSend: false,
+        noSendReason: `semantic_daily_contract_blocked:${semanticContractFail.reason_code}`,
+        replySource: "v3_daily_relationship_lane",
+        turnPurpose: turnPurpose || "no_send",
+        voiceConfidence,
+        usedFacts,
+        safetyNotes: [
+          ...safetyNotes,
+          `blocked:semantic_daily_contract_validator:${semanticContractFail.reason_code}`,
+        ],
+        metadata: {
+          ...baseMeta,
+          ...laneOpenAiJsonMeta,
+          lane_stage: "semantic_daily_contract_validator_failed",
+          semantic_contract_validator_detail:
+            semanticContractFail.reason_detail ?? semanticContractFail.reason_code,
+          v3_candidate_body: primaryWriterBody,
+          post_writer_checks_softened_for_tto: true,
+          primary_writer_should_send: primaryWriterShouldSend,
+          primary_writer_no_send_reason: primaryWriterNoSendReason,
+        },
+        openAiOk: true,
+        writerOpenAiCapture,
+      };
+    }
+
+    const draftContentWarnings: string[] = [];
+    if (!primaryWriterShouldSend) {
+      draftContentWarnings.push(
+        primaryWriterNoSendReason
+          ? `primary_model_no_send:${primaryWriterNoSendReason}`
+          : "primary_model_no_send"
+      );
+    }
+
+    const robotMenuReasons = detectRelationshipRobotConsentMenuReasons(primaryWriterBody, {
+      bindingVerbatim,
+    });
+    for (const r of robotMenuReasons) draftContentWarnings.push(`robot_consent_menu:${r}`);
+
+    const postValidate = collectDailyPostValidateVoiceViolations(
+      primaryWriterBody,
+      laneFacts,
+      bindingVerbatim
+    );
+    for (const r of postValidate.blocked) draftContentWarnings.push(`post_validate:${r}`);
+
+    if (shouldRunDailyTemporalWordingGuard(laneFacts)) {
+      const temporalHits = detectDailyTemporalWordingViolationsForLane(
+        primaryWriterBody,
+        laneFacts,
+        bindingVerbatim
+      );
+      for (const hit of temporalHits) {
+        draftContentWarnings.push(`temporal_wording:${hit.reason}`);
+      }
+    }
+
+    if (shouldRunDailyThreadFreshnessGuard(laneFacts)) {
+      const freshnessHit = detectThreadFreshnessViolations(
+        primaryWriterBody,
+        laneFacts.thread_freshness
+      );
+      if (freshnessHit) {
+        draftContentWarnings.push(`thread_freshness:${freshnessHit.reason}`);
+      }
+    }
+
+    if (shouldRunDailyMemoryRepeatGuard(laneFacts)) {
+      const memoryHit = detectSmsMemoryRepeatViolation(
+        buildAntiRepeatDetectArgsFromDailyFacts(laneFacts, primaryWriterBody)
+      );
+      if (memoryHit.hasViolation) {
+        draftContentWarnings.push(
+          `memory_repeat:${memoryHit.reason ?? "thread_memory_repeat"}`
+        );
+      }
+    }
+
+    if (laneFacts.route_kind !== "contract_prompt") {
+      const staleAskGuard = applyDailyStaleAskDetectOnly({
+        body: primaryWriterBody,
+        satisfiedAskContext: laneFacts.daily_satisfied_ask_context,
+        lastCoachQuestions: laneFacts.thread_memory.last_5_coach_questions,
+        answeredOpenQuestion: laneFacts.thread_memory.latest_open_question ?? null,
+        latestAnswerText: laneFacts.thread_memory.latest_answer_after_open_question ?? null,
+        routePurpose: laneFacts.route_kind,
+        stage: "daily_lane_pre_send",
+      });
+      if (staleAskGuard.outcome === "no_send") {
+        draftContentWarnings.push(
+          `stale_ask:${staleAskGuard.noSendReason ?? "stale_ask_no_send"}`
+        );
+      }
+    }
+
+    const proofSeatbelts = applyDailyProofCalibrationSeatbelts(primaryWriterBody, laneFacts);
+    if (proofSeatbelts.blocked) {
+      draftContentWarnings.push(
+        `proof_seatbelt:${proofSeatbelts.noSendReason ?? "proof_calibration_blocked"}`
+      );
+    }
+
+    return {
+      body: primaryWriterBody,
+      shouldSend: true,
+      noSendReason: null,
+      replySource: "v3_daily_relationship_lane",
+      turnPurpose,
+      voiceConfidence,
+      usedFacts,
+      safetyNotes: [
+        ...safetyNotes,
+        ...draftContentWarnings.map((w) => `tto_draft_warning:${w}`),
+      ],
+      metadata: {
+        ...baseMeta,
+        ...laneOpenAiJsonMeta,
+        lane_stage:
+          draftContentWarnings.length > 0 ? "ok_with_draft_content_warnings" : "ok",
+        v3_candidate_body: primaryWriterBody,
+        post_writer_checks_softened_for_tto: true,
+        primary_writer_should_send: primaryWriterShouldSend,
+        primary_writer_no_send_reason: primaryWriterNoSendReason,
+        draft_content_warnings: draftContentWarnings,
+        ...postValidate.praiseMetadata,
+        ...(slimDailySatisfiedAskContextForTelemetry(laneFacts.daily_satisfied_ask_context) ?? {}),
+        praise_policy_context: buildSmsPraisePolicyArgsFromDailyFacts({
+          body: primaryWriterBody,
+          routeKind: laneFacts.route_kind,
+          accountability: laneFacts.accountability,
+          commitment: laneFacts.commitment,
+          thread_memory: laneFacts.thread_memory,
+        }),
+      },
+      openAiOk: true,
+      writerOpenAiCapture,
+    };
   }
 
   const bindingVerbatim = dailyBindingVerbatimForRobotGuard(laneFacts);
