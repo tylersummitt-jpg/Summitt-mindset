@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE,
   ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY,
   ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
 } from "@/lib/legal/account-deletion-public-availability";
+import { PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE } from "@/lib/legal/public-legal-effective-dates";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Summitt Mindset",
@@ -20,7 +20,8 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p className="text-sm text-[var(--muted)]">
-          Effective / last updated: {ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE}
+          Effective / last updated:{" "}
+          {PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE}
         </p>
       </header>
 
@@ -30,7 +31,8 @@ export default function PrivacyPage() {
           accountability, optional in-app depth, and a record of real choices.
           This Privacy Policy explains what information we collect, how we use
           it, how we share it with service providers, and how account deletion
-          works.
+          works. The same product experience may be used in a browser or inside
+          the Summitt Mindset iOS and Android apps, which load the live website.
         </p>
       </section>
 
@@ -41,38 +43,78 @@ export default function PrivacyPage() {
             <strong className="font-medium text-[var(--text)]">
               Account and authentication information
             </strong>
-            — such as email address, name, and sign-in identity managed through
-            our authentication provider.
+            — such as email address, name or preferred name, internal account or
+            user ID, sign-in identity, and account or subscription status managed
+            through our authentication and membership systems.
           </li>
           <li>
             <strong className="font-medium text-[var(--text)]">
-              Subscription and billing information
+              Phone number and SMS information
             </strong>
-            — membership status and payment-related records processed through
-            Stripe. We do not store full payment card numbers on our servers.
+            — phone number, opt-in/consent status, inbound and outbound message
+            content, delivery metadata, timestamps, message status, and
+            STOP/START (or equivalent) messaging preferences when you use
+            Summitt Mindset texting.
           </li>
           <li>
             <strong className="font-medium text-[var(--text)]">
-              SMS and messaging information
+              Purchase and subscription information
             </strong>
-            — phone number, opt-in/consent status, message delivery and reply
-            activity, and STOP/START (or equivalent) messaging preferences when
-            you use Summitt Mindset texting.
+            — membership and entitlement status, plan information (such as
+            monthly or annual), trial or cancellation-related status, related
+            Stripe customer or subscription identifiers, and other
+            purchase/subscription records needed to provide paid access. Payment
+            credentials such as full card or bank-account numbers are processed
+            by Stripe and are not stored in Summitt Mindset’s application
+            databases.
           </li>
           <li>
             <strong className="font-medium text-[var(--text)]">
-              App and coaching content
+              Leadership Kit shipping address
             </strong>
-            — journals, goals, reflections, coaching history, progress, and
-            preferences you create or configure in the product (such as timezone
-            or delivery timing).
+            — when an eligible coach member chooses to submit a kit shipping
+            address, we may collect recipient name, street address, city,
+            state/province, postal or ZIP code, and country for fulfillment. Not
+            every member is asked for or required to provide a physical address.
           </li>
           <li>
             <strong className="font-medium text-[var(--text)]">
-              Technical and support information
+              App, coaching, and product content
             </strong>
-            — limited device/browser or usage signals needed to operate and
-            secure the service, and messages you send to support.
+            — identity statements, goals and commitments, journals, reflections,
+            check-ins, Ask Pat questions and responses, coaching replies,
+            feedback, preferences (such as timezone or delivery timing),
+            completion and feature-use activity, and other text or choices you
+            submit. This may include Money/Finances focus-area selections,
+            commitments about budgets, spending, savings, expenses, invoices, or
+            business cash position, and cancellation feedback such as indicating
+            that membership is a financial stretch. Older profile fields related
+            to financial goals may still be present for some accounts and, if
+            present, may be read into coaching context; we do not claim that
+            those legacy values exist for every user.
+          </li>
+          <li>
+            <strong className="font-medium text-[var(--text)]">
+              Support communications
+            </strong>
+            — messages you send to support, and related account details needed to
+            respond.
+          </li>
+          <li>
+            <strong className="font-medium text-[var(--text)]">
+              Technical, security, performance, and approximate location
+              information
+            </strong>
+            — limited operational records created when you use the website or
+            native apps, such as IP address, IP-derived country or other
+            approximate (coarse) location, browser or WebView user-agent string,
+            request host, URL or path, query parameters, HTTP method and status,
+            request or session identifiers, hosting-region or deployment
+            information, performance timing, latency, resource usage, cache
+            results, limited console or error information, and firewall or
+            abuse-prevention outcomes. These records help us host, secure,
+            debug, and operate the service. They are not used by Summitt Mindset
+            for cross-company advertising tracking.
           </li>
           <li>
             <strong className="font-medium text-[var(--text)]">
@@ -80,9 +122,9 @@ export default function PrivacyPage() {
             </strong>
             — on the normal Summitt Mindset website (browser), we may use Meta
             Pixel and related tools to measure page views, selected marketing
-            interactions, and advertising performance. See section 5. This does
-            not apply inside the Summitt Mindset iOS app, where Meta Pixel is not
-            loaded.
+            interactions, and advertising performance. See section 5. Meta Pixel
+            is not loaded in the Summitt Mindset iOS app or the Summitt Mindset
+            Android app.
           </li>
         </ul>
       </section>
@@ -90,16 +132,27 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">2. How we use information</h2>
         <ul className="list-disc space-y-2 pl-5 text-base leading-7 text-[var(--muted)]">
-          <li>Create and secure your account</li>
-          <li>Provide membership, billing, and access control</li>
+          <li>Create, secure, and administer your account</li>
+          <li>Provide membership, billing, entitlement, and access control</li>
           <li>
             Deliver SMS and related coaching communications you have opted into
           </li>
           <li>
             Personalize coaching, commitment context, and optional in-app depth
+            (including goal and affordability-related coaching signals when you
+            provide them)
           </li>
           <li>Operate AI-assisted coaching features where enabled</li>
-          <li>Respond to support requests and protect against abuse or fraud</li>
+          <li>
+            Fulfill optional Leadership Kit shipping when an eligible address is
+            submitted
+          </li>
+          <li>
+            Host the service; maintain reliability, availability, performance,
+            and scalability; debug issues; and protect against fraud, abuse, or
+            security threats
+          </li>
+          <li>Respond to support requests</li>
           <li>Meet legal, tax, dispute, and compliance obligations</li>
           <li>
             On the website, measure usage and marketing performance and evaluate
@@ -121,9 +174,10 @@ export default function PrivacyPage() {
           carrier/program instructions) if you wish to resume where supported.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
-          Account deletion also stops Summitt Mindset text messages for that
-          account. Canceling membership alone does not delete your account; see
-          our{" "}
+          SMS content and related metadata may be used to deliver coaching, keep
+          conversation context, and personalize follow-ups. Account deletion also
+          stops Summitt Mindset text messages for that account. Canceling
+          membership alone does not delete your account; see our{" "}
           <Link href="/data-deletion" className="underline underline-offset-4">
             Data Deletion
           </Link>{" "}
@@ -142,7 +196,14 @@ export default function PrivacyPage() {
           <li>Supabase — application data storage</li>
           <li>Stripe — subscription and payment processing</li>
           <li>Twilio — SMS delivery and related messaging infrastructure</li>
-          <li>Vercel — application hosting and delivery</li>
+          <li>
+            Vercel — application hosting, delivery, runtime logs, security and
+            firewall tooling, and related operational observability
+          </li>
+          <li>
+            Resend — transactional and operational email (including service,
+            fulfillment, and administrative notifications)
+          </li>
           <li>
             OpenAI — AI processing used to generate or support coaching-related
             content where those features are enabled
@@ -150,7 +211,8 @@ export default function PrivacyPage() {
           <li>
             Meta Platforms, Inc. (Meta) — website analytics and marketing
             measurement via Meta Pixel on the normal website (browser), where
-            configured. Meta Pixel is not loaded in the Summitt Mindset iOS app.
+            configured. Meta Pixel is not loaded in the Summitt Mindset iOS app
+            or the Summitt Mindset Android app.
           </li>
           <li>
             Vimeo — embedded video playback for Film Room and related lessons
@@ -159,14 +221,16 @@ export default function PrivacyPage() {
         </ul>
         <p className="text-base leading-7 text-[var(--muted)]">
           These providers process information only as needed to provide their
-          services to us. We do not sell personal information. Text messaging
-          originator opt-in data and consent are not shared with third parties
-          for their marketing or promotional purposes.
+          services to us. Sharing with service providers for product operation is
+          not a sale of personal information. We do not sell personal information.
+          Text messaging originator opt-in data and consent are not shared with
+          third parties for their marketing or promotional purposes.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
           We do not claim that OpenAI or other AI providers train their general
           models on your Summitt Mindset content under this policy. AI features
-          process relevant context to operate the product.
+          process relevant context to operate the product. We do not claim that
+          every field or every user record is sent to OpenAI.
         </p>
       </section>
 
@@ -195,13 +259,13 @@ export default function PrivacyPage() {
           payment card numbers, or email address, phone number, or name through
           advanced matching. Page-view measurement on our site is limited to
           selected marketing routes; we do not enable Meta Pixel for the
-          Summitt Mindset iOS app experience.
+          Summitt Mindset iOS app or Android app experience.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
-          Meta Pixel is not loaded in the Summitt Mindset iOS app. Opening
-          Summitt Mindset in the iOS app does not initialize Meta Pixel for that
-          in-app experience. The normal website in a browser may still use Meta
-          Pixel when configured.
+          Meta Pixel is not loaded in the Summitt Mindset iOS app or the Summitt
+          Mindset Android app. Opening Summitt Mindset in those native apps does
+          not initialize Meta Pixel for that in-app experience. The normal
+          website in a browser may still use Meta Pixel when configured.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
           We do not operate a separate server-side Meta Conversions API as part
@@ -236,7 +300,42 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">7. Account deletion</h2>
+        <h2 className="text-xl font-semibold">
+          7. Hosting, technical logs, and approximate location
+        </h2>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          Summitt Mindset is hosted on Vercel. When you use the website or the
+          iOS or Android apps (which request the live site), Vercel and our
+          application may create limited technical and operational records such
+          as those described in section 1. That may include IP address and
+          IP-derived country or other approximate location information used for
+          hosting, security, reliability, debugging, performance, and fraud or
+          abuse prevention—not for Summitt Mindset cross-company advertising
+          tracking.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          Some application console logs may include internal account
+          identifiers, processing stages, request identifiers, performance
+          timing, outcomes, limited error information, or partial phone-number
+          information. We do not claim that those operational logs routinely
+          contain full email addresses, full phone numbers, Ask Pat questions or
+          answers, journals, goals, identity statements, SMS bodies, or complete
+          request/response bodies. Ask Pat operational logging is designed to
+          exclude Ask Pat question, answer, profile, goal, journal, and identity
+          content.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          We do not use Vercel Web Analytics or Vercel Speed Insights as part of
+          the product described here. Runtime and security logging may still
+          occur as part of normal hosting and protection of the service.
+          Retention of hosting and security logs may vary by provider settings
+          and legal need; we do not promise that every infrastructure record is
+          erased on the same schedule as your in-app account data.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-semibold">8. Account deletion</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           You may request permanent deletion of your Summitt Mindset account.
           Deletion is separate from canceling membership. Canceling membership
@@ -246,7 +345,8 @@ export default function PrivacyPage() {
         <p className="text-base leading-7 text-[var(--muted)]">
           When an account deletion is completed, we stop Summitt Mindset text
           messages for that account, cancel an active or paused membership,
-          delete journals, progress, coaching history, preferences, and related
+          delete journals, progress, coaching history, preferences, Leadership
+          Kit shipping addresses stored in our application database, and related
           app data owned by the account, and delete the sign-in identity used to
           access the service.
         </p>
@@ -272,23 +372,28 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">8. Limited retained records</h2>
+        <h2 className="text-xl font-semibold">9. Limited retained records</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           We do not claim that all data is instantly or universally erased. After
           deletion, limited records may be retained when required for:
         </p>
         <ul className="list-disc space-y-2 pl-5 text-base leading-7 text-[var(--muted)]">
           <li>
-            Payment, tax, fraud, dispute, or other legal obligations
+            Payment, tax, fraud, dispute, accounting, or other legal obligations
+            (including records retained by Stripe or other providers)
           </li>
           <li>SMS opt-out and messaging-compliance evidence</li>
           <li>Account-deletion orchestration or audit evidence</li>
           <li>Enforcement of deletion or messaging preferences</li>
+          <li>
+            Security, abuse-prevention, or operational emails and provider-side
+            records subject to provider or legal retention
+          </li>
         </ul>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">9. Your choices</h2>
+        <h2 className="text-xl font-semibold">10. Your choices</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           You may update account preferences in the product where available,
           manage SMS consent with STOP/HELP/START as described above, cancel
@@ -311,13 +416,13 @@ export default function PrivacyPage() {
           you may also use browser controls—for example adjusting cookie
           settings, clearing cookies, or using private browsing—and, where
           available, Meta’s ad-preference or related controls. These steps may
-          limit some measurement; they do not guarantee that all tracking or
-          third-party processing is blocked in every browser or configuration.
+          limit some measurement; they do not guarantee that all third-party
+          processing is blocked in every browser or configuration.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl font-semibold">10. Contact</h2>
+        <h2 className="text-xl font-semibold">11. Contact</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           <a
             href={ACCOUNT_DELETION_SUPPORT_EMAIL_HREF}

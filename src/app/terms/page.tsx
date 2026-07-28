@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE,
   ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY,
   ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
 } from "@/lib/legal/account-deletion-public-availability";
+import { TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE } from "@/lib/legal/public-legal-effective-dates";
 
 export const metadata: Metadata = {
   title: "Terms of Service | Summitt Mindset",
@@ -20,7 +20,7 @@ export default function TermsPage() {
           Terms of Service
         </h1>
         <p className="text-sm text-[var(--muted)]">
-          Effective / last updated: {ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE}
+          Effective / last updated: {TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE}
         </p>
       </header>
 

@@ -26,10 +26,44 @@ describe("privacy policy Meta Pixel website disclosure", () => {
     expect(privacy).toMatch(/not an exhaustive list/i);
   });
 
-  it("states native iOS exclusion without internal UA tokens", () => {
-    expect(privacy).toMatch(/not loaded in the Summitt Mindset iOS app/i);
+  it("states Meta Pixel is not loaded in both native iOS and Android apps", () => {
+    expect(privacy).toMatch(
+      /Meta Pixel is not loaded in the Summitt Mindset iOS app\s+or the Summitt Mindset Android app/i
+    );
     expect(privacy).not.toContain("SummittMindsetiOS");
+    expect(privacy).not.toContain("SummittMindsetAndroid");
     expect(privacy).not.toContain("User-Agent");
+  });
+
+  it("discloses Resend as transactional/operational email including fulfillment", () => {
+    expect(privacy).toMatch(
+      /Resend\s+[—-]\s+transactional and operational email\s*\(including service,\s*fulfillment, and administrative notifications\)/i
+    );
+  });
+
+  it("discloses Leadership Kit shipping collection without promising email deletion", () => {
+    expect(privacy).toMatch(/Leadership Kit shipping address/i);
+    expect(privacy).toMatch(
+      /Leadership\s+Kit shipping addresses stored in our application\s+database/i
+    );
+    expect(privacy).not.toMatch(
+      /delete[^.]*Leadership Kit[^.]*email|delete[^.]*Resend|Resend[^.]*delet/i
+    );
+  });
+
+  it("discloses Vercel hosting/security processing and current Analytics/Speed Insights off state", () => {
+    expect(privacy).toMatch(
+      /Vercel\s+[—-]\s+application hosting, delivery, runtime logs, security and\s+firewall tooling, and related operational observability/i
+    );
+    expect(privacy).toMatch(
+      /do not use Vercel Web Analytics or Vercel Speed Insights as part of\s+the product described here/i
+    );
+    expect(privacy).not.toMatch(
+      /never (enable|use) Vercel Web Analytics|Web Analytics can never/i
+    );
+    expect(privacy).toMatch(
+      /approximate \(coarse\) location|approximate location/i
+    );
   });
 
   it("states no intentional advanced matching of email/phone/name and no coaching content to Pixel", () => {
@@ -49,6 +83,7 @@ describe("privacy policy Meta Pixel website disclosure", () => {
       "Twilio",
       "Vercel",
       "OpenAI",
+      "Resend",
     ]) {
       expect(privacy).toContain(provider);
     }

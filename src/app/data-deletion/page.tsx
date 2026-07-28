@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import AccountDeletionAvailabilityNotice from "@/components/legal/AccountDeletionAvailabilityNotice";
 import {
-  ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE,
   ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY,
   ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
   getAccountDeletionPublicAvailability,
 } from "@/lib/legal/account-deletion-public-availability";
+import { PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE } from "@/lib/legal/public-legal-effective-dates";
 
 export const metadata: Metadata = {
   title: "Data Deletion | Summitt Mindset",
@@ -21,7 +21,7 @@ export default function DataDeletionPage() {
     <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
       <header className="space-y-3">
         <p className="text-sm text-[var(--muted)]">
-          Updated {ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE}
+          Updated {PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE}
         </p>
         <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)] sm:text-4xl">
           Data deletion
@@ -67,8 +67,9 @@ export default function DataDeletionPage() {
             <li>Stops Summitt Mindset text messages for that account</li>
             <li>Cancels an active or paused Summitt Mindset membership</li>
             <li>
-              Deletes journals, progress, coaching history, preferences, and
-              related app data owned by the account
+              Deletes journals, progress, coaching history, preferences,
+              Leadership Kit shipping addresses stored in our application
+              database, and related app data owned by the account
             </li>
             <li>Deletes the sign-in identity used to access the service</li>
           </ul>
@@ -84,12 +85,16 @@ export default function DataDeletionPage() {
           </p>
           <ul className="list-disc space-y-2 pl-5 text-base leading-7 text-[var(--muted)]">
             <li>
-              Payment, tax, fraud, dispute, or other legal obligations
+              Payment, tax, fraud, dispute, accounting, or other legal
+              obligations (including records retained by Stripe or other
+              providers)
             </li>
             <li>SMS opt-out and messaging-compliance evidence</li>
             <li>Account-deletion orchestration or audit evidence</li>
+            <li>Enforcement of deletion or messaging preferences</li>
             <li>
-              Enforcement of deletion or messaging preferences
+              Security, abuse-prevention, or operational emails and
+              provider-side records subject to provider or legal retention
             </li>
           </ul>
           <p className="text-base leading-7 text-[var(--muted)]">

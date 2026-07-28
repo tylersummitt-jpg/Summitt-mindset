@@ -9,8 +9,6 @@
 
 export const ACCOUNT_DELETION_PUBLIC_IN_APP_AVAILABLE = true as const;
 
-export const ACCOUNT_DELETION_PUBLIC_EFFECTIVE_DATE = "July 21, 2026" as const;
-
 export const ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY =
   "Support@SummittMindset.com" as const;
 
