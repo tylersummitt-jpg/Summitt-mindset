@@ -62,6 +62,7 @@ describe("reviewer-visible link and navigation audit", () => {
       "/privacy",
       "/terms",
       "/data-deletion",
+      "/support",
       "/sms",
       "/twilio",
     ]) {

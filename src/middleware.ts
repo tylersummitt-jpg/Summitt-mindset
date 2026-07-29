@@ -37,6 +37,7 @@ const isPublicRoute = createRouteMatcher([
   "/privacy",
   "/terms",
   "/data-deletion",
+  "/support",
   "/sms",
   "/twilio",
   "/subscribe(.*)",
