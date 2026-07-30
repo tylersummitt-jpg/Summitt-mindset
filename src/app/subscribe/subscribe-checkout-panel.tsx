@@ -220,7 +220,7 @@ export default function SubscribeCheckoutPanel() {
           disabled={disabled}
           className="relative w-full cursor-pointer border-2 border-[var(--brand)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition disabled:cursor-wait disabled:opacity-70"
         >
-          <p className="text-sm font-semibold mb-1">Monthly</p>
+          <p className="text-sm font-semibold mb-1">Founding Member Monthly</p>
           <p className="text-2xl font-bold mb-2">$29</p>
           <p className="text-sm text-[var(--muted)]">Cancel anytime.</p>
           {loadingPlan === "monthly" && (
@@ -235,7 +235,7 @@ export default function SubscribeCheckoutPanel() {
           disabled={disabled}
           className="relative w-full cursor-pointer border border-[var(--border)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition disabled:cursor-wait disabled:opacity-70"
         >
-          <p className="text-sm font-semibold mb-1">Annual</p>
+          <p className="text-sm font-semibold mb-1">Founding Member Annual</p>
           <p className="text-2xl font-bold mb-2">$249</p>
           <p className="text-sm text-[var(--muted)]">
             Save $99 · about 28% vs monthly

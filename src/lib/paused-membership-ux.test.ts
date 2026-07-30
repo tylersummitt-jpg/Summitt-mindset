@@ -32,8 +32,10 @@ describe("paused membership UX wiring (source)", () => {
     expect(panel).toContain("$29");
     expect(panel).toContain("$249");
     expect(panel).toContain("Save $99 · about 28% vs monthly");
-    expect(panel).toContain(">Monthly</p>");
-    expect(panel).toContain(">Annual</p>");
+    expect(panel).toContain(">Founding Member Monthly</p>");
+    expect(panel).toContain(">Founding Member Annual</p>");
+    expect(panel).not.toContain(">Monthly</p>");
+    expect(panel).not.toContain(">Annual</p>");
     expect(panel).not.toContain(FOUNDING_MEMBER_BONUS_HEADING);
     expect(panel).not.toContain(FOUNDING_MEMBER_BONUS_BODY);
     expect(panel).not.toContain("$19.99");
