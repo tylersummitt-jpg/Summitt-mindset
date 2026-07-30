@@ -30,11 +30,28 @@ describe("paused membership UX wiring (source)", () => {
     expect(panel).toContain("Save $99 · about 28% vs monthly");
     expect(panel).toContain(">Monthly</p>");
     expect(panel).toContain(">Annual</p>");
+    expect(panel).toContain("Founding Member Bonus");
+    expect(panel).toContain(
+      "All video content from four Pat Summitt leadership programs—previously sold separately for over $1,000—is included at no additional cost."
+    );
     expect(panel).not.toContain("$19.99");
     expect(panel).not.toContain("$120");
-    expect(panel).not.toContain("Founding Member");
     expect(panel).not.toContain("Lowest price locked in");
     expect(panel).not.toContain("Save 50%");
+
+    const pausedBranchStart = panel.indexOf("if (showPausedResume)");
+    const pricingReturnStart = panel.indexOf(
+      'return (\n    <div className="w-full max-w-lg mx-auto md:mx-0">'
+    );
+    expect(pausedBranchStart).toBeGreaterThan(-1);
+    expect(pricingReturnStart).toBeGreaterThan(pausedBranchStart);
+    const pausedBranch = panel.slice(pausedBranchStart, pricingReturnStart);
+    expect(pausedBranch).toContain("Your membership is paused.");
+    expect(pausedBranch).toContain("ResumeMembershipButton");
+    expect(pausedBranch).not.toContain("Founding Member Bonus");
+    expect(pausedBranch).not.toContain(
+      "All video content from four Pat Summitt leadership programs—previously sold separately for over $1,000—is included at no additional cost."
+    );
   });
 
   it("post-sign-in routes paused users to Account", () => {

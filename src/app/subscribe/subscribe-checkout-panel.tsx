@@ -259,6 +259,15 @@ export default function SubscribeCheckoutPanel() {
           {error}
         </p>
       )}
+
+      <div className="mt-5 border-t border-[var(--border)] pt-4 text-left">
+        <p className="text-sm font-semibold text-[var(--text)]">
+          Founding Member Bonus
+        </p>
+        <p className="mt-1.5 text-sm leading-relaxed text-[var(--muted)]">
+          All video content from four Pat Summitt leadership programs—previously sold separately for over $1,000—is included at no additional cost.
+        </p>
+      </div>
     </div>
   );
 }
