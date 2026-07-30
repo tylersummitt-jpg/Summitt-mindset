@@ -265,10 +265,10 @@ export default async function HomePage() {
             <div className="flex w-full max-w-2xl flex-col gap-5 md:gap-8 min-w-0">
               <div className="space-y-3 md:space-y-5">
                 <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-5xl md:leading-tight lg:text-6xl">
-                  Pat Summitt is your personal coach - every day.
+                  TAKE PRIDE IN YOUR LIFE.
                 </h1>
                 <p className="text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
-                  Choose one clear goal and become the person you have always wanted to be.
+                  Pat Summitt is your personal coach - every day.
                 </p>
               </div>
 
