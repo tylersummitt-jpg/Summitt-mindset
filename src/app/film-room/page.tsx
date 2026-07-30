@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import {
   utBody,
+  utBodyMuted,
   utFilmCardLink,
   utPageCanvas,
   utPageInnerFilm,
@@ -134,6 +135,9 @@ export default async function FilmRoomPage() {
       <header className="mb-12">
         <h1 className={utPageTitle}>Film Room</h1>
         <p className={`mt-2 max-w-2xl ${utBody}`}>Optional film study. Never required.</p>
+        <p className={`mt-2 max-w-2xl ${utBodyMuted}`}>
+          The Film Room is included as a bonus for Founding Members.
+        </p>
       </header>
 
       {featuredVideos.length > 0 && (
