@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import {
-  utBody,
   utBodyMuted,
   utCardDivider,
   utCtaOnDark,
@@ -56,7 +55,6 @@ export default async function FilmRoomPreviewPage() {
       <div className={utPageInnerFilm}>
         <section className="pb-12 pt-8 sm:pt-12">
           <h2 className={`${utPreviewHeroHeading} mb-2`}>Film Room Library</h2>
-          <p className={`${utBody} text-center text-lg`}>Included In Subscription</p>
           <p className={`${utBodyMuted} text-center text-sm mb-6 mt-2`}>
             The Film Room is included as a bonus for Founding Members.
           </p>

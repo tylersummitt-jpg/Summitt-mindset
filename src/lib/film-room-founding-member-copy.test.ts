@@ -12,11 +12,11 @@ const FOUNDING_MEMBER_FILM_ROOM_SENTENCE =
   "The Film Room is included as a bonus for Founding Members.";
 
 describe("Film Room Founding Member bonus sentence (source)", () => {
-  it("preview places the exact sentence beneath Included In Subscription", () => {
+  it("preview places the exact sentence beneath the Film Room Library heading", () => {
     const preview = read("src/app/film-room-preview/page.tsx");
-    expect(preview).toContain("Included In Subscription");
+    expect(preview).not.toContain("Included In Subscription");
     expect(preview).toContain(FOUNDING_MEMBER_FILM_ROOM_SENTENCE);
-    expect(preview.indexOf("Included In Subscription")).toBeLessThan(
+    expect(preview.indexOf("Film Room Library")).toBeLessThan(
       preview.indexOf(FOUNDING_MEMBER_FILM_ROOM_SENTENCE)
     );
     expect(preview).toContain("marketingAcquisitionHref");
