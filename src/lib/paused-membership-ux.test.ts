@@ -8,6 +8,10 @@ function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
+const FOUNDING_MEMBER_BONUS_HEADING = "Founding Member Bonus";
+const FOUNDING_MEMBER_BONUS_BODY =
+  "All video content from four Pat Summitt leadership programs—previously sold separately for over $1,000—is included at no additional cost.";
+
 describe("paused membership UX wiring (source)", () => {
   it("account shows Resume and hides manage/cancel while paused", () => {
     const page = read("src/app/user/[[...user]]/user-account-client.tsx");
@@ -30,10 +34,8 @@ describe("paused membership UX wiring (source)", () => {
     expect(panel).toContain("Save $99 · about 28% vs monthly");
     expect(panel).toContain(">Monthly</p>");
     expect(panel).toContain(">Annual</p>");
-    expect(panel).toContain("Founding Member Bonus");
-    expect(panel).toContain(
-      "All video content from four Pat Summitt leadership programs—previously sold separately for over $1,000—is included at no additional cost."
-    );
+    expect(panel).not.toContain(FOUNDING_MEMBER_BONUS_HEADING);
+    expect(panel).not.toContain(FOUNDING_MEMBER_BONUS_BODY);
     expect(panel).not.toContain("$19.99");
     expect(panel).not.toContain("$120");
     expect(panel).not.toContain("Lowest price locked in");
@@ -48,10 +50,25 @@ describe("paused membership UX wiring (source)", () => {
     const pausedBranch = panel.slice(pausedBranchStart, pricingReturnStart);
     expect(pausedBranch).toContain("Your membership is paused.");
     expect(pausedBranch).toContain("ResumeMembershipButton");
-    expect(pausedBranch).not.toContain("Founding Member Bonus");
-    expect(pausedBranch).not.toContain(
-      "All video content from four Pat Summitt leadership programs—previously sold separately for over $1,000—is included at no additional cost."
-    );
+    expect(pausedBranch).not.toContain(FOUNDING_MEMBER_BONUS_HEADING);
+    expect(pausedBranch).not.toContain(FOUNDING_MEMBER_BONUS_BODY);
+  });
+
+  it("subscribe page places Founding Member Bonus below the hero section", () => {
+    const page = read("src/app/subscribe/page.tsx");
+    expect(page).toContain(FOUNDING_MEMBER_BONUS_HEADING);
+    expect(page).toContain(FOUNDING_MEMBER_BONUS_BODY);
+    expect(page).toContain('bg-[var(--brand)]');
+
+    const heroClose = page.indexOf("</section>");
+    const bonusHeading = page.indexOf(FOUNDING_MEMBER_BONUS_HEADING);
+    const finePrint = page.indexOf("You won&apos;t be charged today");
+    expect(heroClose).toBeGreaterThan(-1);
+    expect(bonusHeading).toBeGreaterThan(heroClose);
+    expect(finePrint).toBeGreaterThan(-1);
+    expect(bonusHeading).toBeGreaterThan(finePrint);
+    expect(page).toContain("<SubscribeCheckoutPanel />");
+    expect(page.indexOf("<SubscribeCheckoutPanel />")).toBeLessThan(bonusHeading);
   });
 
   it("post-sign-in routes paused users to Account", () => {

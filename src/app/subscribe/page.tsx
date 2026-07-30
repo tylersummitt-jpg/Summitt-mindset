@@ -153,6 +153,23 @@ export default async function SubscribePage({
           </div>
         </div>
       </section>
+
+      <section
+        className="w-full bg-[var(--brand)]"
+        aria-labelledby="founding-member-bonus-heading"
+      >
+        <div className="mx-auto max-w-6xl px-4 py-14 text-center sm:px-6 sm:py-16 md:py-20">
+          <h2
+            id="founding-member-bonus-heading"
+            className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl"
+          >
+            Founding Member Bonus
+          </h2>
+          <p className="mx-auto mt-5 max-w-3xl text-base leading-relaxed text-white sm:mt-6 sm:text-lg md:text-xl md:leading-snug">
+            All video content from four Pat Summitt leadership programs—previously sold separately for over $1,000—is included at no additional cost.
+          </p>
+        </div>
+      </section>
     </main>
   );
 }
