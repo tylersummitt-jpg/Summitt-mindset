@@ -11,11 +11,19 @@ import {
   buildProvenanceExplanationBlocks,
   buildWeeklyProvenanceExplanationBlocks,
   formatMorningCurrentBodySourceLabel,
+  getMorningBodyComparisonStatus,
+  getMorningMachineDraftUnavailableReason,
   getMorningTechnicalRetrySectionCopy,
   getRawNotebookSectionCopy,
   getWeeklyRawNotebookSectionCopy,
   isMorningRelationshipNotebookRow,
+  shouldShowMorningDualBodyPanels,
   rawNotebookSectionContainsForbiddenAdminCopy,
+  MORNING_BODY_COMPARISON_DIFFERS,
+  MORNING_BODY_COMPARISON_MATCH,
+  MORNING_BODY_COMPARISON_TYLER_SAVE_MATCHES,
+  MORNING_BODY_COMPARISON_GENERATION_FAILED,
+  MORNING_BODY_COMPARISON_GENERATION_MISSING,
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import type { TylerTextOverviewAdminDraftRow } from "@/lib/tyler-text-overview-types";
 
@@ -43,6 +51,7 @@ function baseRow(
     writerOpenAiMessages: [],
     authoritativeRetryMessages: [],
     authoritativeMachineDraftBody: null,
+    authoritativeMachineDraftStatus: null,
     authoritativeWriterModel: null,
     authoritativeRetryOccurred: null,
     authoritativeGeneratedAt: null,
@@ -240,6 +249,7 @@ describe("weekly raw notebook / provenance", () => {
       currentBodySource: "tyler_edit",
       editedByTyler: true,
       authoritativeMachineDraftBody: "Machine originally wrote this",
+      authoritativeMachineDraftStatus: "available",
       authoritativeRetryOccurred: true,
       authoritativeRetryMessages: [
         { role: "assistant", content: "{bad" },
@@ -254,7 +264,10 @@ describe("weekly raw notebook / provenance", () => {
     });
 
     expect(isMorningRelationshipNotebookRow(morning)).toBe(true);
-    expect(formatMorningCurrentBodySourceLabel(morning)).toBe("Source: Tyler edit");
+    expect(shouldShowMorningDualBodyPanels(morning, false)).toBe(true);
+    expect(shouldShowMorningDualBodyPanels(morning, true)).toBe(false);
+    expect(formatMorningCurrentBodySourceLabel(morning)).toContain("Tyler edited");
+    expect(getMorningBodyComparisonStatus(morning)).toBe(MORNING_BODY_COMPARISON_DIFFERS);
     const retry = getMorningTechnicalRetrySectionCopy(morning);
     expect(retry.show).toBe(true);
     expect(retry.label).toContain("Technical JSON retry context");
@@ -278,16 +291,64 @@ describe("weekly raw notebook / provenance", () => {
     expect(noRetry.show).toBe(false);
   });
 
-  it("Morning dashboard renders distinct historical writer-record sections", () => {
+  it("equality never suppresses dual body panels; comparison label only changes", () => {
+    const identical = baseRow({
+      currentBodyToSend: "Same body",
+      authoritativeMachineDraftBody: "Same body",
+      authoritativeMachineDraftStatus: "available",
+      currentBodySource: "machine",
+      editedByTyler: false,
+    });
+    expect(shouldShowMorningDualBodyPanels(identical, false)).toBe(true);
+    expect(getMorningBodyComparisonStatus(identical)).toBe(MORNING_BODY_COMPARISON_MATCH);
+
+    const tylerSavedSame = baseRow({
+      currentBodyToSend: "Same body",
+      authoritativeMachineDraftBody: "Same body",
+      authoritativeMachineDraftStatus: "available",
+      currentBodySource: "tyler_edit",
+      editedByTyler: true,
+    });
+    expect(shouldShowMorningDualBodyPanels(tylerSavedSame, false)).toBe(true);
+    expect(getMorningBodyComparisonStatus(tylerSavedSame)).toBe(
+      MORNING_BODY_COMPARISON_TYLER_SAVE_MATCHES
+    );
+
+    const failed = baseRow({
+      currentBodyToSend: null,
+      authoritativeMachineDraftBody: null,
+      authoritativeMachineDraftStatus: "generation_failed",
+      machineNoSendReason: "invalid_json",
+    });
+    expect(shouldShowMorningDualBodyPanels(failed, false)).toBe(true);
+    expect(getMorningBodyComparisonStatus(failed)).toBe(MORNING_BODY_COMPARISON_GENERATION_FAILED);
+    expect(getMorningMachineDraftUnavailableReason(failed)).toContain("invalid_json");
+
+    const missingGen = baseRow({
+      authoritativeMachineDraftBody: null,
+      authoritativeMachineDraftStatus: "generation_missing",
+      currentGenerationId: "gen-missing",
+    });
+    expect(getMorningBodyComparisonStatus(missingGen)).toBe(
+      MORNING_BODY_COMPARISON_GENERATION_MISSING
+    );
+  });
+
+  it("Morning dashboard always renders both body sections and comparison", () => {
     const src = readFileSync(
       join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
       "utf8"
     );
+    expect(src).toContain("shouldShowMorningDualBodyPanels");
     expect(src).toContain("MORNING_CURRENT_BODY_HEADING");
     expect(src).toContain("MORNING_ORIGINAL_MACHINE_DRAFT_HEADING");
-    expect(src).toContain("MORNING_RAW_PRIMARY_INPUT_HEADING");
-    expect(src).toContain("MorningTechnicalRetryPanel");
+    expect(src).toContain("MORNING_BODY_COMPARISON_HEADING");
+    expect(src).toContain("MorningOriginalMachineDraftPanel");
+    expect(src).toContain("MorningBodyComparisonPanel");
     expect(src).toContain("authoritativeMachineDraftBody");
+    expect(src).not.toContain("authoritativeMachineDraftBody ?? row.currentBodyToSend");
+    expect(src).not.toContain("authoritativeMachineDraftBody || row.currentBodyToSend");
+    expect(src).not.toMatch(/authoritativeMachineDraftBody\s*!==\s*.*currentBodyToSend[\s\S]{0,80}MorningOriginal/);
     expect(src).not.toContain("reconstruct");
   });
 });

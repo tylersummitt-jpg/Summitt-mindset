@@ -10,6 +10,7 @@ import {
   SMS_DAILY_DRAFTS_TABLE,
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
+  type AuthoritativeMachineDraftStatus,
   type SmsDailySendSlot,
   type TylerTextOverviewAdminCounts,
   type TylerTextOverviewAdminDraftRow,
@@ -62,6 +63,7 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   | "writerOpenAiMessages"
   | "authoritativeRetryMessages"
   | "authoritativeMachineDraftBody"
+  | "authoritativeMachineDraftStatus"
   | "authoritativeWriterModel"
   | "authoritativeRetryOccurred"
   | "authoritativeGeneratedAt"
@@ -87,6 +89,7 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   writerOpenAiMessages: [],
   authoritativeRetryMessages: [],
   authoritativeMachineDraftBody: null,
+  authoritativeMachineDraftStatus: null,
   authoritativeWriterModel: null,
   authoritativeRetryOccurred: null,
   authoritativeGeneratedAt: null,
@@ -521,6 +524,36 @@ export function parseMorningWriterRetryCapture(metadata: unknown): {
 }
 
 /**
+ * Machine draft status from the linked generation only.
+ * Never uses current_body_to_send as a substitute.
+ */
+export function deriveAuthoritativeMachineDraftStatus(args: {
+  draftCurrentGenerationId: string | null | undefined;
+  generation: GenerationDbRow | undefined;
+}): AuthoritativeMachineDraftStatus {
+  const linkedId =
+    typeof args.draftCurrentGenerationId === "string" && args.draftCurrentGenerationId.trim()
+      ? args.draftCurrentGenerationId.trim()
+      : null;
+  if (!linkedId) return "generation_missing";
+  if (!args.generation) return "generation_missing";
+
+  if (typeof args.generation.machine_draft_body === "string") {
+    return "available";
+  }
+
+  if (
+    args.generation.machine_should_send === false ||
+    (typeof args.generation.machine_no_send_reason === "string" &&
+      args.generation.machine_no_send_reason.trim().length > 0)
+  ) {
+    return "generation_failed";
+  }
+
+  return "historical_unavailable";
+}
+
+/**
  * Compare saved body vs machine draft body (edit-distance / telemetry only).
  * Morning send authority does NOT use body inequality — Save itself is Tyler approval.
  */
@@ -628,12 +661,14 @@ function mapSlotCoachingContextPanel(
 }
 
 function mapGenerationToNotebookFields(
-  generation: GenerationDbRow | undefined
+  generation: GenerationDbRow | undefined,
+  draftCurrentGenerationId?: string | null
 ): Pick<
   TylerTextOverviewAdminDraftRow,
   | "writerOpenAiMessages"
   | "authoritativeRetryMessages"
   | "authoritativeMachineDraftBody"
+  | "authoritativeMachineDraftStatus"
   | "authoritativeWriterModel"
   | "authoritativeRetryOccurred"
   | "authoritativeGeneratedAt"
@@ -666,19 +701,29 @@ function mapGenerationToNotebookFields(
   const capturePresent = readMetadataBoolean(metadata, "capture_present");
   const intentionalSpace = readMetadataBoolean(metadata, "intentional_space");
   const skipSource = readMetadataString(metadata, "skip_source");
+  const linkedGenerationId =
+    typeof draftCurrentGenerationId === "string" && draftCurrentGenerationId.trim()
+      ? draftCurrentGenerationId.trim()
+      : generation?.id ?? null;
+  const machineDraftStatus = deriveAuthoritativeMachineDraftStatus({
+    draftCurrentGenerationId: linkedGenerationId,
+    generation,
+  });
+  const machineDraftBody =
+    typeof generation?.machine_draft_body === "string" ? generation.machine_draft_body : null;
 
   return {
     writerOpenAiMessages,
     authoritativeRetryMessages: retryCapture.retryMessages,
-    authoritativeMachineDraftBody:
-      typeof generation?.machine_draft_body === "string" ? generation.machine_draft_body : null,
+    authoritativeMachineDraftBody: machineDraftBody,
+    authoritativeMachineDraftStatus: machineDraftStatus,
     authoritativeWriterModel: retryCapture.model,
     authoritativeRetryOccurred: retryCapture.retryOccurred,
     authoritativeGeneratedAt:
       typeof generation?.generated_at === "string" && generation.generated_at.trim()
         ? generation.generated_at.trim()
         : null,
-    currentGenerationId: generation?.id ?? null,
+    currentGenerationId: linkedGenerationId,
     currentGenerationNumber:
       typeof generation?.generation_number === "number" ? generation.generation_number : null,
     writerPromptPath:
@@ -718,7 +763,10 @@ export function mapDraftRowsToAdminDto(args: {
 }): TylerTextOverviewAdminDraftRow[] {
   return args.drafts.map((draft) => {
     const generation = args.generationsById.get(draft.current_generation_id);
-    const notebookFields = mapGenerationToNotebookFields(generation);
+    const notebookFields = mapGenerationToNotebookFields(
+      generation,
+      draft.current_generation_id
+    );
     const sendSlot = mapDbSendSlotToAdminDto(draft.send_slot);
     const latestKey = draftLatestGenKey(draft.clerk_user_id, draft.draft_for_day_key, sendSlot);
     const latest = args.latestGenerationsByKey?.get(latestKey) ?? null;
@@ -766,7 +814,9 @@ export function mapDraftRowsToAdminDto(args: {
       latestGenerationId: latest?.id ?? notebookFields.currentGenerationId,
       latestGenerationNumber: latest?.generation_number ?? notebookFields.currentGenerationNumber,
       isLatestGeneration:
-        latest != null && generation?.id != null ? latest.id === generation.id : null,
+        latest != null && notebookFields.currentGenerationId != null
+          ? latest.id === notebookFields.currentGenerationId
+          : null,
     };
   });
 }

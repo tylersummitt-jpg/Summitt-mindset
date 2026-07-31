@@ -14,6 +14,7 @@ import {
   normalizeTylerTextOverviewDraftBodyInput,
   parseWriterOpenAiMessages,
   parseMorningWriterRetryCapture,
+  deriveAuthoritativeMachineDraftStatus,
   pickTylerTextOverviewDraftOverlay,
   resolveAdminListSendSlot,
   resolveTylerTextOverviewRowState,
@@ -596,6 +597,7 @@ describe("tyler-text-overview-admin read model", () => {
     expect(dto.currentGenerationId).toBe("gen-1");
     expect(dto.currentBodyToSend).toBe("Tyler edited send body");
     expect(dto.authoritativeMachineDraftBody).toBe("Original machine draft body");
+    expect(dto.authoritativeMachineDraftStatus).toBe("available");
     expect(dto.writerOpenAiMessages).toEqual(morningPrimary);
     expect(dto.writerOpenAiMessages).not.toEqual(orphanPrimary);
     expect(dto.authoritativeRetryMessages).toEqual(retryMessages);
@@ -605,6 +607,119 @@ describe("tyler-text-overview-admin read model", () => {
     expect(dto.writerPromptPath).toBe("morning_relationship_v1");
     expect(dto.isLatestGeneration).toBe(false);
     expect(dto.latestGenerationId).toBe("gen-orphan-newer");
+  });
+
+  it("DTO keeps machine draft and current body separate when texts are identical", () => {
+    seedCurrentDraft({
+      current_body_to_send: MACHINE_BODY,
+      current_body_source: "machine",
+      edited_by_tyler: false,
+      generation: {
+        machine_draft_body: MACHINE_BODY,
+        writer_prompt_path: "morning_relationship_v1",
+      },
+    });
+    const dto = mapDraftRowsToAdminDto({
+      drafts: db.drafts,
+      generationsById: new Map(db.generations.map((g) => [g.id, g])),
+      latestGenerationsByKey: new Map([
+        ["user_admin_test:2026-07-03:morning", { id: "gen-1", generation_number: 1 }],
+      ]),
+    })[0];
+    expect(dto.currentBodyToSend).toBe(MACHINE_BODY);
+    expect(dto.authoritativeMachineDraftBody).toBe(MACHINE_BODY);
+    expect(dto.authoritativeMachineDraftBody).toBe(dto.currentBodyToSend);
+    expect(dto.authoritativeMachineDraftStatus).toBe("available");
+    expect(dto.currentBodySource).toBe("machine");
+  });
+
+  it("DTO never aliases machine body from current body when generation failed", () => {
+    seedCurrentDraft({
+      current_body_to_send: null,
+      generation: {
+        machine_draft_body: null,
+        machine_should_send: false,
+        machine_no_send_reason: "invalid_json",
+        writer_prompt_path: "morning_relationship_v1",
+        writer_openai_messages: [
+          { role: "system", content: "sys" },
+          { role: "user", content: "MORNING_RELATIONSHIP_PACKET_V1\n{}" },
+        ],
+      },
+    });
+    const dto = mapDraftRowsToAdminDto({
+      drafts: db.drafts,
+      generationsById: new Map(db.generations.map((g) => [g.id, g])),
+    })[0];
+    expect(dto.currentBodyToSend).toBeNull();
+    expect(dto.authoritativeMachineDraftBody).toBeNull();
+    expect(dto.authoritativeMachineDraftStatus).toBe("generation_failed");
+    expect(dto.machineNoSendReason).toBe("invalid_json");
+  });
+
+  it("DTO reports generation_missing without falling back to newest generation", () => {
+    seedCurrentDraft({ current_generation_id: "gen-missing-link" });
+    db.generations = [
+      {
+        id: "gen-orphan-newest",
+        generation_number: 9,
+        clerk_user_id: "user_admin_test",
+        draft_for_day_key: "2026-07-03",
+        send_slot: "morning",
+        writer_openai_messages: WRITER_MESSAGES,
+        machine_draft_body: "Must not be used",
+        machine_should_send: true,
+      },
+    ];
+    const dto = mapDraftRowsToAdminDto({
+      drafts: db.drafts,
+      generationsById: new Map(db.generations.map((g) => [g.id, g])),
+      latestGenerationsByKey: new Map([
+        [
+          "user_admin_test:2026-07-03:morning",
+          { id: "gen-orphan-newest", generation_number: 9 },
+        ],
+      ]),
+    })[0];
+    expect(dto.currentGenerationId).toBe("gen-missing-link");
+    expect(dto.authoritativeMachineDraftBody).toBeNull();
+    expect(dto.authoritativeMachineDraftStatus).toBe("generation_missing");
+    expect(dto.writerOpenAiMessages).toEqual([]);
+    expect(dto.latestGenerationId).toBe("gen-orphan-newest");
+    expect(dto.isLatestGeneration).toBe(false);
+  });
+
+  it("deriveAuthoritativeMachineDraftStatus covers available/failed/missing/historical", () => {
+    expect(
+      deriveAuthoritativeMachineDraftStatus({
+        draftCurrentGenerationId: "g1",
+        generation: { id: "g1", writer_openai_messages: [], machine_draft_body: "hi" },
+      })
+    ).toBe("available");
+    expect(
+      deriveAuthoritativeMachineDraftStatus({
+        draftCurrentGenerationId: "g1",
+        generation: {
+          id: "g1",
+          writer_openai_messages: [],
+          machine_draft_body: null,
+          machine_should_send: false,
+          machine_no_send_reason: "empty_body",
+        },
+      })
+    ).toBe("generation_failed");
+    expect(
+      deriveAuthoritativeMachineDraftStatus({
+        draftCurrentGenerationId: "g1",
+        generation: undefined,
+      })
+    ).toBe("generation_missing");
+    expect(
+      deriveAuthoritativeMachineDraftStatus({
+        draftCurrentGenerationId: "g1",
+        generation: { id: "g1", writer_openai_messages: [], machine_draft_body: null },
+      })
+    ).toBe("historical_unavailable");
   });
 
   it("parseMorningWriterRetryCapture preserves exact retry strings", () => {
@@ -1301,6 +1416,7 @@ describe("tyler-text-overview sendable audience coverage", () => {
           writerOpenAiMessages: [],
           authoritativeRetryMessages: [],
           authoritativeMachineDraftBody: null,
+          authoritativeMachineDraftStatus: null,
           authoritativeWriterModel: null,
           authoritativeRetryOccurred: null,
           authoritativeGeneratedAt: null,

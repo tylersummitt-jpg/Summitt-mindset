@@ -19,13 +19,33 @@ export const RAW_NOTEBOOK_EMPTY_MESSAGE =
 /** Morning historical writer-record section copy (exact persisted strings). */
 export const MORNING_CURRENT_BODY_HEADING = "CURRENT BODY THAT WILL SEND";
 export const MORNING_CURRENT_BODY_LABEL =
-  "This is the authoritative body Twilio will send.";
+  "This is the authoritative body Twilio will send after send-path trimming.";
+export const MORNING_CURRENT_BODY_BLANK =
+  "Blank current body — fail-closed: no Morning text will send.";
 
 export const MORNING_ORIGINAL_MACHINE_DRAFT_HEADING = "ORIGINAL MACHINE DRAFT";
 export const MORNING_ORIGINAL_MACHINE_DRAFT_LABEL =
-  "This is what the Morning writer originally generated before any Tyler edit.";
-export const MORNING_ORIGINAL_MACHINE_DRAFT_UNAVAILABLE =
-  "Original machine draft unavailable (null) for this authoritative generation.";
+  "This is the body produced by the OpenAI Morning writer for the authoritative generation.";
+
+export const MORNING_BODY_COMPARISON_HEADING = "BODY COMPARISON";
+export const MORNING_BODY_COMPARISON_MATCH =
+  "Current body matches the original machine draft.";
+export const MORNING_BODY_COMPARISON_DIFFERS =
+  "Current body differs from the original machine draft.";
+export const MORNING_BODY_COMPARISON_GENERATION_FAILED =
+  "No machine draft was produced because this generation failed.";
+export const MORNING_BODY_COMPARISON_HISTORICAL_UNAVAILABLE =
+  "The linked historical machine draft is unavailable.";
+export const MORNING_BODY_COMPARISON_GENERATION_MISSING =
+  "The authoritative generation linkage is missing.";
+export const MORNING_BODY_COMPARISON_TYLER_SAVE_MATCHES =
+  "Tyler saved this body; text currently matches original machine draft.";
+export const MORNING_BODY_COMPARISON_SOURCE_UNKNOWN =
+  "Historical edit source unavailable.";
+
+export const MORNING_SOURCE_TYLER_EDITED = "Tyler edited";
+export const MORNING_SOURCE_ORIGINAL_MACHINE = "Original machine body";
+export const MORNING_SOURCE_UNKNOWN = "Historical edit source unavailable";
 
 export const MORNING_RAW_PRIMARY_INPUT_HEADING = "RAW PRIMARY OPENAI INPUT";
 export const MORNING_RAW_PRIMARY_INPUT_LABEL =
@@ -41,6 +61,17 @@ export const MORNING_GENERATION_PROVENANCE_HEADING = "GENERATION PROVENANCE";
 export const MORNING_GENERATION_PROVENANCE_LABEL =
   "Metadata about the authoritative generation — not writer input.";
 
+/** Morning page draft rows that must always show both body panels. */
+export function shouldShowMorningDualBodyPanels(
+  row: TylerTextOverviewAdminDraftRow,
+  isEveningPage: boolean
+): boolean {
+  if (isEveningPage) return false;
+  if (row.sendSlot !== "morning") return false;
+  if (!row.draftId) return false;
+  return true;
+}
+
 export function isMorningRelationshipNotebookRow(
   row: TylerTextOverviewAdminDraftRow
 ): boolean {
@@ -54,15 +85,61 @@ export function formatMorningCurrentBodySourceLabel(
   row: TylerTextOverviewAdminDraftRow
 ): string {
   if (row.editedByTyler === true || row.currentBodySource === "tyler_edit") {
-    return "Source: Tyler edit";
+    return `Source: ${MORNING_SOURCE_TYLER_EDITED}`;
   }
   if (row.currentBodySource === "machine") {
-    return "Source: machine";
+    return `Source: ${MORNING_SOURCE_ORIGINAL_MACHINE}`;
   }
   if (row.currentBodySource) {
     return `Source: ${row.currentBodySource}`;
   }
-  return "Source: —";
+  return `Source: ${MORNING_SOURCE_UNKNOWN}`;
+}
+
+export function getMorningMachineDraftUnavailableReason(
+  row: TylerTextOverviewAdminDraftRow
+): string {
+  switch (row.authoritativeMachineDraftStatus) {
+    case "generation_failed": {
+      const reason = row.machineNoSendReason?.trim();
+      return reason
+        ? `${MORNING_BODY_COMPARISON_GENERATION_FAILED} Reason: ${reason}`
+        : MORNING_BODY_COMPARISON_GENERATION_FAILED;
+    }
+    case "generation_missing":
+      return MORNING_BODY_COMPARISON_GENERATION_MISSING;
+    case "historical_unavailable":
+      return MORNING_BODY_COMPARISON_HISTORICAL_UNAVAILABLE;
+    default:
+      return MORNING_BODY_COMPARISON_HISTORICAL_UNAVAILABLE;
+  }
+}
+
+/**
+ * Body comparison label only. Never used to show/hide body panels.
+ * Equality affects this string alone.
+ */
+export function getMorningBodyComparisonStatus(
+  row: TylerTextOverviewAdminDraftRow
+): string {
+  const status = row.authoritativeMachineDraftStatus;
+  if (status === "generation_failed") return MORNING_BODY_COMPARISON_GENERATION_FAILED;
+  if (status === "generation_missing") return MORNING_BODY_COMPARISON_GENERATION_MISSING;
+  if (status === "historical_unavailable" || status == null) {
+    return MORNING_BODY_COMPARISON_HISTORICAL_UNAVAILABLE;
+  }
+
+  const machine = row.authoritativeMachineDraftBody;
+  const current = row.currentBodyToSend;
+  const textsMatch = machine === current;
+  const tylerSaved =
+    row.editedByTyler === true || row.currentBodySource === "tyler_edit";
+
+  if (textsMatch) {
+    if (tylerSaved) return MORNING_BODY_COMPARISON_TYLER_SAVE_MATCHES;
+    return MORNING_BODY_COMPARISON_MATCH;
+  }
+  return MORNING_BODY_COMPARISON_DIFFERS;
 }
 
 export function getMorningTechnicalRetrySectionCopy(

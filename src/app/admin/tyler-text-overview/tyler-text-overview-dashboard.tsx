@@ -31,21 +31,25 @@ import {
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
   ADMIN_INTERPRETATION_LINE,
+  MORNING_BODY_COMPARISON_HEADING,
+  MORNING_CURRENT_BODY_BLANK,
   MORNING_CURRENT_BODY_HEADING,
   MORNING_CURRENT_BODY_LABEL,
   MORNING_GENERATION_PROVENANCE_HEADING,
   MORNING_GENERATION_PROVENANCE_LABEL,
   MORNING_ORIGINAL_MACHINE_DRAFT_HEADING,
   MORNING_ORIGINAL_MACHINE_DRAFT_LABEL,
-  MORNING_ORIGINAL_MACHINE_DRAFT_UNAVAILABLE,
   MORNING_RAW_PRIMARY_INPUT_HEADING,
   MORNING_RAW_PRIMARY_INPUT_LABEL,
   RAW_NOTEBOOK_SECTION_HEADING,
   buildProvenanceExplanationBlocks,
   formatMorningCurrentBodySourceLabel,
+  getMorningBodyComparisonStatus,
+  getMorningMachineDraftUnavailableReason,
   getMorningTechnicalRetrySectionCopy,
   getRawNotebookSectionCopy,
   isMorningRelationshipNotebookRow,
+  shouldShowMorningDualBodyPanels,
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import { notebookFamilyLabel } from "@/lib/tyler-text-overview-notebook-display";
 import type {
@@ -258,18 +262,28 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
 
 function MorningOriginalMachineDraftPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
   const body = row.authoritativeMachineDraftBody;
+  const available = row.authoritativeMachineDraftStatus === "available" && typeof body === "string";
   return (
     <div className="space-y-2">
       <p className="text-xs text-gray-600">{MORNING_ORIGINAL_MACHINE_DRAFT_LABEL}</p>
-      {typeof body === "string" && body.length > 0 ? (
+      {available ? (
         <pre className="overflow-x-auto rounded bg-gray-50 p-3 text-xs text-gray-800 whitespace-pre-wrap font-mono border border-gray-200">
           {body}
         </pre>
       ) : (
         <p className="rounded border border-amber-200 bg-amber-50 px-2 py-2 text-xs text-amber-900">
-          {MORNING_ORIGINAL_MACHINE_DRAFT_UNAVAILABLE}
+          {getMorningMachineDraftUnavailableReason(row)}
         </p>
       )}
+    </div>
+  );
+}
+
+function MorningBodyComparisonPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium text-gray-800">{getMorningBodyComparisonStatus(row)}</p>
+      <p className="text-xs text-gray-600">{formatMorningCurrentBodySourceLabel(row)}</p>
     </div>
   );
 }
@@ -831,6 +845,9 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                       machineNoSendReason: row.machineNoSendReason,
                     })
                 : null;
+            const morningDualBody = shouldShowMorningDualBodyPanels(row, isEveningPage);
+            const morningRelationshipNotebook =
+              !isEveningPage && isMorningRelationshipNotebookRow(row);
             const morningSendabilityCopy =
               !isEveningPage && !morningSent
                 ? formatMorningTtoSendabilityCopy({
@@ -931,11 +948,9 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   ) : null}
                   <div>
                     <p className="text-xs font-medium text-gray-500">
-                      {!isEveningPage && isMorningRelationshipNotebookRow(row)
-                        ? MORNING_CURRENT_BODY_HEADING
-                        : "current_body_to_send"}
+                      {morningDualBody ? MORNING_CURRENT_BODY_HEADING : "current_body_to_send"}
                     </p>
-                    {!isEveningPage && isMorningRelationshipNotebookRow(row) ? (
+                    {morningDualBody ? (
                       <div className="mt-1 mb-2 space-y-1">
                         <p className="text-xs text-gray-600">{MORNING_CURRENT_BODY_LABEL}</p>
                         <p className="text-xs font-medium text-gray-700">
@@ -966,6 +981,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                             </p>
                           ) : null}
                         </div>
+                      ) : morningDualBody && !(readOnlyBody?.trim() ?? "") ? (
+                        <div className="mt-1 w-full min-h-[96px] rounded border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 space-y-2">
+                          <p className="font-medium">{MORNING_CURRENT_BODY_BLANK}</p>
+                          <pre className="font-mono whitespace-pre-wrap text-xs text-gray-800">
+                            {readOnlyBody ?? ""}
+                          </pre>
+                        </div>
                       ) : (
                         <pre className="mt-1 w-full min-h-[96px] rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono whitespace-pre-wrap">
                           {readOnlyBody ?? "—"}
@@ -984,6 +1006,10 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                             }))
                           }
                         />
+                        {morningDualBody &&
+                        !(edits[row.draftId as string]?.trim() ?? row.currentBodyToSend?.trim() ?? "") ? (
+                          <p className="mt-1 text-xs text-amber-800">{MORNING_CURRENT_BODY_BLANK}</p>
+                        ) : null}
                         {eveningEditable ? (
                           <p className="mt-1 text-xs text-gray-600">{EVENING_TTO_SAVE_ONLY_COPY}</p>
                         ) : null}
@@ -1049,7 +1075,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   </section>
                 ) : null}
 
-                {!isEveningPage && isMorningRelationshipNotebookRow(row) ? (
+                {morningDualBody ? (
                   <section className="space-y-3 border-t border-gray-100 pt-5">
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
                       {MORNING_ORIGINAL_MACHINE_DRAFT_HEADING}
@@ -1058,14 +1084,23 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   </section>
                 ) : null}
 
+                {morningDualBody ? (
+                  <section className="space-y-3 border-t border-gray-100 pt-5">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                      {MORNING_BODY_COMPARISON_HEADING}
+                    </h2>
+                    <MorningBodyComparisonPanel row={row} />
+                  </section>
+                ) : null}
+
                 <section className="space-y-3 border-t border-gray-100 pt-5">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                    {!isEveningPage && isMorningRelationshipNotebookRow(row)
+                    {morningRelationshipNotebook || morningDualBody
                       ? MORNING_GENERATION_PROVENANCE_HEADING
                       : "Notebook provenance"}
                   </h2>
                   <p className="text-xs text-gray-600">{ADMIN_INTERPRETATION_LINE}</p>
-                  {!isEveningPage && isMorningRelationshipNotebookRow(row) ? (
+                  {morningRelationshipNotebook || morningDualBody ? (
                     <p className="text-xs text-gray-600">{MORNING_GENERATION_PROVENANCE_LABEL}</p>
                   ) : null}
                   <NotebookProvenancePanel row={row} />
@@ -1080,17 +1115,17 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
                 <section className="space-y-3 border-t border-gray-100 pt-5">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                    {!isEveningPage && isMorningRelationshipNotebookRow(row)
+                    {morningRelationshipNotebook
                       ? MORNING_RAW_PRIMARY_INPUT_HEADING
                       : RAW_NOTEBOOK_SECTION_HEADING}
                   </h2>
-                  {!isEveningPage && isMorningRelationshipNotebookRow(row) ? (
+                  {morningRelationshipNotebook ? (
                     <p className="text-xs text-gray-600">{MORNING_RAW_PRIMARY_INPUT_LABEL}</p>
                   ) : null}
                   <NotebookMessagesSection row={row} />
                 </section>
 
-                {!isEveningPage && isMorningRelationshipNotebookRow(row) ? (
+                {morningRelationshipNotebook ? (
                   <MorningTechnicalRetryPanel row={row} />
                 ) : null}
               </li>

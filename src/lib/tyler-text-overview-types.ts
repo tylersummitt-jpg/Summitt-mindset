@@ -103,6 +103,16 @@ export const TYLER_TEXT_OVERVIEW_CURRENT_BODY_SOURCES = [
 export type TylerTextOverviewCurrentBodySource =
   (typeof TYLER_TEXT_OVERVIEW_CURRENT_BODY_SOURCES)[number];
 
+/**
+ * Why ORIGINAL MACHINE DRAFT is available or not for the authoritative generation.
+ * Never filled from current_body_to_send.
+ */
+export type AuthoritativeMachineDraftStatus =
+  | "available"
+  | "generation_failed"
+  | "generation_missing"
+  | "historical_unavailable";
+
 export const TYLER_TEXT_OVERVIEW_DRAFT_STATUSES = [
   "current",
   "sent",
@@ -300,6 +310,8 @@ export type TylerTextOverviewAdminDraftRow = {
   }>;
   /** Immutable machine_draft_body from current_generation_id (not current_body_to_send). */
   authoritativeMachineDraftBody: string | null;
+  /** Discriminated availability of authoritativeMachineDraftBody — never inferred from current body. */
+  authoritativeMachineDraftStatus: AuthoritativeMachineDraftStatus | null;
   authoritativeWriterModel: string | null;
   authoritativeRetryOccurred: boolean | null;
   authoritativeGeneratedAt: string | null;
