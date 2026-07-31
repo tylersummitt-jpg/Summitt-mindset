@@ -21,6 +21,8 @@ import {
 } from "@/lib/tyler-text-overview-types";
 
 const buildDailySmsContentMock = vi.hoisted(() => vi.fn());
+const loadMorningPacketMock = vi.hoisted(() => vi.fn());
+const writeMorningTtoBodyMock = vi.hoisted(() => vi.fn());
 const getClerkUserMock = vi.hoisted(() => vi.fn());
 const resolveV2Mock = vi.hoisted(() => vi.fn());
 const fetchCommsMock = vi.hoisted(() => vi.fn());
@@ -108,6 +110,16 @@ function makeChain(handlers: {
     }
 
     if (table === "sms_daily_draft_generations" && action === "update") {
+      if (typeof payload.id === "string") {
+        const target = db.generations.find((g) => g.id === payload.id);
+        if (target) {
+          if ("superseded_at" in payload) target.superseded_at = payload.superseded_at;
+          if ("superseded_by_generation_id" in payload) {
+            target.superseded_by_generation_id = payload.superseded_by_generation_id;
+          }
+        }
+        return { data: null, error: null };
+      }
       const clerk = payload.clerk_user_id as string;
       const day = payload.draft_for_day_key as string;
       const newId = payload.neq_id as string;
@@ -219,6 +231,14 @@ vi.mock("@/lib/daily-sms-build", () => ({
   buildDailySmsContent: buildDailySmsContentMock,
 }));
 
+vi.mock("@/lib/morning-tto-relationship-packet", () => ({
+  loadMorningRelationshipPacket: loadMorningPacketMock,
+}));
+
+vi.mock("@/lib/morning-tto-writer", () => ({
+  writeMorningTtoBody: writeMorningTtoBodyMock,
+}));
+
 vi.mock("@/lib/clerk-rest", () => ({
   getClerkUser: getClerkUserMock,
 }));
@@ -262,6 +282,54 @@ vi.mock("@/lib/supabase-server", () => {
     },
   };
 });
+
+const MORNING_WRITER_MESSAGES = [
+  { role: "system" as const, content: "Morning relationship system" },
+  { role: "user" as const, content: "MORNING_RELATIONSHIP_PACKET_V1\n{}" },
+];
+
+const MORNING_SUCCESS_BODY = "Did the two hours happen before noon?";
+
+const MORNING_PACKET = {
+  version: "morning_relationship_v1" as const,
+  current_local: {
+    timezone: "America/New_York",
+    local_date: "2026-07-03",
+    local_weekday: "Friday",
+    local_time: "12:00",
+  },
+  last_user_response: {
+    at_utc: "2026-07-01T12:00:00.000Z",
+    at_local: "Jul 1, 8:00 AM",
+    days_since: 2,
+    never_replied: false,
+  },
+  preferred_name: "Tyler",
+  current_goal: { text: "Two hours deep work" },
+  current_identity: { text: null },
+  personal_context: [],
+  hard_state: { pending_goal_change: null },
+  exact_thread: {
+    window_days: 21 as const,
+    max_messages: 30,
+    messages: [
+      {
+        sender: "coach" as const,
+        sent_at_utc: "2026-07-02T12:00:00.000Z",
+        sent_at_local: "Jul 2, 8:00 AM",
+        local_weekday: "Thursday",
+        body: "How did yesterday go?",
+      },
+      {
+        sender: "user" as const,
+        sent_at_utc: "2026-07-02T13:00:00.000Z",
+        sent_at_local: "Jul 2, 9:00 AM",
+        local_weekday: "Thursday",
+        body: "Pretty good.",
+      },
+    ],
+  },
+};
 
 const WRITER_CAPTURE = buildWriterOpenAiCapture({
   messages: [
@@ -365,6 +433,18 @@ function setupHappyPath() {
   getActiveCommitmentMock.mockResolvedValue({
     id: "cmt-phase3",
     behavior_statement: "Two hours deep work",
+  });
+  loadMorningPacketMock.mockResolvedValue({
+    ok: true,
+    packet: MORNING_PACKET,
+    commitmentId: "cmt-phase3",
+  });
+  writeMorningTtoBodyMock.mockResolvedValue({
+    ok: true,
+    body: MORNING_SUCCESS_BODY,
+    messages: MORNING_WRITER_MESSAGES,
+    writer_prompt_path: "morning_relationship_v1",
+    model: "gpt-4o-mini",
   });
   buildDailySmsContentMock.mockResolvedValue(SUCCESS_BUILT);
 }
@@ -514,25 +594,28 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     });
     expect(stats.enabled).toBe(true);
     expect(supabaseServer.from).toHaveBeenCalledWith("sms_audience");
-    expect(buildDailySmsContentMock).toHaveBeenCalled();
+    expect(loadMorningPacketMock).toHaveBeenCalled();
+    expect(writeMorningTtoBodyMock).toHaveBeenCalled();
+    expect(buildDailySmsContentMock).not.toHaveBeenCalled();
     expect(stats.generation_inserted).toBe(1);
     expect(stats.current_drafts_upserted).toBe(1);
     expect(db.generations).toHaveLength(1);
     expect(db.drafts).toHaveLength(1);
   });
 
-  it("calls buildDailySmsContent with draft mode and matching day key", async () => {
+  it("Morning generation does not call buildDailySmsContent", async () => {
     setupHappyPath();
     await generateTylerTextOverviewDailyDrafts({
       now: new Date("2026-07-02T16:00:00.000Z"),
     });
-    expect(buildDailySmsContentMock).toHaveBeenCalledWith(
-      "user_phase3",
-      expect.any(Object),
-      "2026-07-03",
-      "America/New_York",
-      { mode: "draft", ttoDraftPreservePrimaryBody: true }
+    expect(buildDailySmsContentMock).not.toHaveBeenCalled();
+    expect(loadMorningPacketMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clerkUserId: "user_phase3",
+        timezone: "America/New_York",
+      })
     );
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledWith(MORNING_PACKET);
   });
 
   it("skips non-V2 users", async () => {
@@ -562,16 +645,17 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
   it("stores writer_openai_messages exactly and defaults current_body_to_send", async () => {
     setupHappyPath();
     await generateTylerTextOverviewDailyDrafts();
-    expect(db.generations[0]?.writer_openai_messages).toEqual(WRITER_CAPTURE.messages);
-    expect(db.drafts[0]?.current_body_to_send).toBe(SUCCESS_BUILT.smsBody);
+    expect(db.generations[0]?.writer_openai_messages).toEqual(MORNING_WRITER_MESSAGES);
+    expect(db.generations[0]?.writer_prompt_path).toBe("morning_relationship_v1");
+    expect(db.generations[0]?.route_kind).toBe("morning_relationship");
+    expect(db.drafts[0]?.current_body_to_send).toBe(MORNING_SUCCESS_BODY);
     expect(db.drafts[0]?.current_body_source).toBe("machine");
     expect(db.drafts[0]?.edited_by_tyler).toBe(false);
     const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
-    expect(meta.slot_coaching_context).toMatchObject({
-      current_slot: "morning",
-      slot_role_recommendation: "set_today_rep",
-    });
-    expect(meta.current_send_slot).toBe("morning");
+    expect(meta.packet_version).toBe("morning_relationship_v1");
+    expect(meta.build_ok).toBe(true);
+    expect(meta.capture_present).toBe(true);
+    expect(meta.thread_message_count).toBe(2);
   });
 
   it("writes send_slot morning on generation insert and draft upsert", async () => {
@@ -581,28 +665,28 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(db.drafts[0]?.send_slot).toBe("morning");
   });
 
-  it("silence cadence no-send persists cadence metadata and machine_should_send=false", async () => {
+  it("writer failure persists generation with machine_should_send=false", async () => {
     setupHappyPath();
-    buildDailySmsContentMock.mockResolvedValue(SILENCE_CADENCE_NO_SEND_BUILT);
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: false,
+      error: "openai_request_failed",
+      messages: MORNING_WRITER_MESSAGES,
+    });
     await generateTylerTextOverviewDailyDrafts();
     expect(db.generations[0]?.machine_should_send).toBe(false);
-    expect(db.generations[0]?.machine_no_send_reason).toBe("silence_cadence_space_day9");
-    const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
-    expect(meta.silence_cadence_route).toBe("no_send_space_day9");
-    expect(meta.silence_day).toBe(9);
-    expect(meta.send_today).toBe(false);
-    expect(meta.intentional_space).toBe(true);
-    expect(meta.no_send_reason).toBe("silence_cadence_space_day9");
+    expect(db.generations[0]?.machine_no_send_reason).toBe("openai_request_failed");
+    expect(db.generations[0]?.writer_prompt_path).toBe("morning_relationship_v1");
+    expect(db.drafts[0]?.current_body_to_send).toBeNull();
   });
 
-  it("no-send build still inserts generation with machine_should_send=false", async () => {
+  it("packet failure persists generation history without clearing protected draft", async () => {
     setupHappyPath();
-    buildDailySmsContentMock.mockResolvedValue(NO_SEND_BUILT);
+    loadMorningPacketMock.mockResolvedValue({ ok: false, error: "no_active_commitment" });
     await generateTylerTextOverviewDailyDrafts();
     expect(db.generations[0]?.machine_should_send).toBe(false);
-    expect(db.generations[0]?.machine_draft_body).toBeNull();
+    expect(db.generations[0]?.machine_no_send_reason).toBe("no_active_commitment");
+    expect(db.generations[0]?.route_kind).toBe("morning_relationship");
     expect(db.drafts[0]?.current_body_to_send).toBeNull();
-    expect(db.drafts[0]?.status).toBe("current");
   });
 
   it("generation_number increments but protected current_body_to_send is not overwritten", async () => {
@@ -610,9 +694,12 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     await generateTylerTextOverviewDailyDrafts({
       now: new Date("2026-07-02T16:00:00.000Z"),
     });
-    buildDailySmsContentMock.mockResolvedValue({
-      ...SUCCESS_BUILT,
-      smsBody: "Updated body should be new generation only",
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "Updated body should be new generation only",
+      messages: MORNING_WRITER_MESSAGES,
+      writer_prompt_path: "morning_relationship_v1",
+      model: "gpt-4o-mini",
     });
     await generateTylerTextOverviewDailyDrafts({
       now: new Date("2026-07-02T16:05:00.000Z"),
@@ -620,11 +707,15 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(db.generations).toHaveLength(2);
     expect(db.generations[0]?.generation_number).toBe(1);
     expect(db.generations[1]?.generation_number).toBe(2);
-    expect(db.generations[0]?.machine_draft_body).toBe(SUCCESS_BUILT.smsBody);
+    expect(db.generations[0]?.machine_draft_body).toBe(MORNING_SUCCESS_BODY);
     expect(db.generations[1]?.machine_draft_body).toBe("Updated body should be new generation only");
     expect(db.drafts).toHaveLength(1);
-    expect(db.drafts[0]?.current_body_to_send).toBe(SUCCESS_BUILT.smsBody);
+    expect(db.drafts[0]?.current_body_to_send).toBe(MORNING_SUCCESS_BODY);
     expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.current_generation_id).toBe(db.generations[0]?.id);
+    expect(db.generations[0]?.superseded_at == null).toBe(true);
+    expect(db.generations[1]?.superseded_at).toBeTruthy();
+    expect(db.generations[1]?.superseded_by_generation_id).toBe(db.generations[0]?.id);
   });
 
   it("does not overwrite protected current machine draft on generate", async () => {
@@ -639,9 +730,12 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
         edited_by_tyler: false,
       },
     ];
-    buildDailySmsContentMock.mockResolvedValue({
-      ...SUCCESS_BUILT,
-      smsBody: "New machine draft",
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "New machine draft",
+      messages: MORNING_WRITER_MESSAGES,
+      writer_prompt_path: "morning_relationship_v1",
+      model: "gpt-4o-mini",
     });
     await generateTylerTextOverviewDailyDrafts({
       now: new Date("2026-07-02T16:00:00.000Z"),
@@ -666,9 +760,12 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
         edit_distance_chars: 10,
       },
     ];
-    buildDailySmsContentMock.mockResolvedValue({
-      ...SUCCESS_BUILT,
-      smsBody: "New machine draft",
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "New machine draft",
+      messages: MORNING_WRITER_MESSAGES,
+      writer_prompt_path: "morning_relationship_v1",
+      model: "gpt-4o-mini",
     });
     await generateTylerTextOverviewDailyDrafts({
       now: new Date("2026-07-02T16:00:00.000Z"),

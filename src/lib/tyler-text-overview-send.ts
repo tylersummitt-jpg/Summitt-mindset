@@ -27,6 +27,7 @@ import {
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 
 const MAIN_ACCOUNTABILITY_ROUTE_KIND = "main_active_accountability";
+const MORNING_RELATIONSHIP_ROUTE_KIND = "morning_relationship";
 
 const PREVIEW_ONLY_DRAFT_SEND_REFUSED = "preview_only_draft_not_sendable" as const;
 
@@ -199,7 +200,9 @@ export async function assertMorningTtoDraftAuthoritativeForSend(args: {
   const routeKindTrimmed =
     typeof generation.route_kind === "string" ? generation.route_kind.trim() : "";
   const routeEligibleForV1 =
-    routeKindTrimmed === "" || routeKindTrimmed === MAIN_ACCOUNTABILITY_ROUTE_KIND;
+    routeKindTrimmed === "" ||
+    routeKindTrimmed === MAIN_ACCOUNTABILITY_ROUTE_KIND ||
+    routeKindTrimmed === MORNING_RELATIONSHIP_ROUTE_KIND;
   if (!routeEligibleForV1 && !tylerEdited) {
     return {
       ok: false,
@@ -243,6 +246,163 @@ export function evaluateMorningTtoAuthoritativeFailClosed(args: {
     return { ok: false, reason: "tto_authoritative_body_mismatch" };
   }
   return { ok: true };
+}
+
+export function buildMorningTtoSendLookupFromGate(
+  gate: MorningTtoAuthoritativeGateSuccess,
+  bodyToSend: string
+): TylerTextOverviewDraftForSendResult {
+  const { draft, generation, tylerEdited } = gate;
+  return {
+    usable: true,
+    send_source: tylerEdited ? "tyler_edit" : "machine_draft",
+    draft_id: draft.id,
+    generation_id: generation.id,
+    draft_for_day_key: draft.draft_for_day_key,
+    current_body_to_send: bodyToSend,
+    current_body_source:
+      draft.current_body_source === "machine" ||
+      draft.current_body_source === "tyler_edit" ||
+      draft.current_body_source === "live_fallback"
+        ? (draft.current_body_source as TylerTextOverviewCurrentBodySource)
+        : null,
+    edited_by_tyler: tylerEdited,
+    machine_body_hash:
+      typeof draft.machine_body_hash === "string"
+        ? draft.machine_body_hash
+        : typeof generation.machine_body_hash === "string"
+          ? generation.machine_body_hash
+          : null,
+    current_body_hash:
+      typeof draft.current_body_hash === "string"
+        ? draft.current_body_hash
+        : hashSmsSnippet(bodyToSend),
+    notebook_verdict_at_generation:
+      typeof generation.notebook_verdict === "string" ? generation.notebook_verdict : null,
+    notebook_verdict_reason_at_generation:
+      typeof generation.notebook_verdict_reason === "string"
+        ? generation.notebook_verdict_reason
+        : null,
+    route_kind: typeof generation.route_kind === "string" ? generation.route_kind : null,
+    stale: false,
+    stale_reason: null,
+  };
+}
+
+export function buildMorningTtoSendContextFromGate(args: {
+  gate: MorningTtoAuthoritativeGateSuccess;
+  bodyToSend: string;
+  revalidationMetadata?: Partial<TylerTextOverviewSendMetadata>;
+}): TylerTextOverviewSendContext {
+  const lookup = buildMorningTtoSendLookupFromGate(args.gate, args.bodyToSend);
+  const effectiveSendSource = lookup.send_source;
+  const metadataBlock = buildTylerTextOverviewSendMetadata({
+    lookup,
+    effectiveSendSource,
+    finalBodySent: args.bodyToSend,
+    postTtoWritersBypassed: true,
+  });
+
+  return {
+    considered: true,
+    draftBodyUsed: true,
+    postTtoWritersBypassed: true,
+    lookup,
+    metadataBlock: {
+      ...metadataBlock,
+      ...(args.revalidationMetadata ?? {}),
+    },
+  };
+}
+
+export type MorningTtoExactBodySuccess = {
+  ok: true;
+  bodyToSend: string;
+  sendContext: TylerTextOverviewSendContext;
+};
+
+export type MorningTtoExactBodyFailure = {
+  ok: false;
+  skipStatus:
+    | TtoDraftRevalidationSkipStatus
+    | "skipped_tto_authoritative_fail_closed"
+    | "skipped_tto_authoritative_body_mismatch";
+  reason: TtoDraftRevalidationFailureReason | MorningTtoAuthoritativeFailClosedReason;
+  metadataExtras: Partial<TylerTextOverviewSendMetadata> & Record<string, unknown>;
+};
+
+export async function resolveMorningTtoExactBodyImmediatelyBeforeTwilio(args: {
+  gate: MorningTtoAuthoritativeGateSuccess;
+  clerkUserId: string;
+  draftForDayKey: string;
+}): Promise<MorningTtoExactBodySuccess | MorningTtoExactBodyFailure> {
+  const lookup = buildMorningTtoSendLookupFromGate(args.gate, args.gate.bodyToSend);
+
+  const revalidation = await revalidateCurrentTtoDraftBodyBeforeSend({
+    lookup,
+    pinnedBody: args.gate.bodyToSend,
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: args.draftForDayKey,
+  });
+
+  if (!revalidation.ok) {
+    return {
+      ok: false,
+      skipStatus: revalidation.skipStatus,
+      reason: revalidation.reason,
+      metadataExtras: revalidation.metadataExtras,
+    };
+  }
+
+  const failClosed = evaluateMorningTtoAuthoritativeFailClosed({
+    gate: args.gate,
+    draftBodyUsed: true,
+    lookup: { ...lookup, ...revalidation.lookupUpdates, usable: true },
+    smsBody: revalidation.bodyToSend,
+  });
+
+  if (!failClosed.ok && failClosed.reason !== "tto_authoritative_body_mismatch") {
+    return {
+      ok: false,
+      skipStatus: "skipped_tto_authoritative_fail_closed",
+      reason: failClosed.reason,
+      metadataExtras: {
+        tto_authoritative_fail_closed_reason: failClosed.reason,
+      },
+    };
+  }
+
+  const bodyToSend = revalidation.bodyToSend.trim();
+  if (!bodyToSend) {
+    return {
+      ok: false,
+      skipStatus: "skipped_tto_current_draft_empty_on_revalidation",
+      reason: TTO_DRAFT_REVALIDATION_REASON_EMPTY,
+      metadataExtras: buildTtoRevalidationFailureMetadata({
+        lookup,
+        reason: TTO_DRAFT_REVALIDATION_REASON_EMPTY,
+        pinnedBody: args.gate.bodyToSend,
+      }),
+    };
+  }
+
+  const sendContext = buildMorningTtoSendContextFromGate({
+    gate: args.gate,
+    bodyToSend,
+    revalidationMetadata: revalidation.metadataExtras,
+  });
+
+  sendContext.lookup = {
+    ...sendContext.lookup,
+    ...revalidation.lookupUpdates,
+    current_body_to_send: bodyToSend,
+  };
+
+  return {
+    ok: true,
+    bodyToSend,
+    sendContext,
+  };
 }
 
 /**
@@ -673,7 +833,8 @@ export async function loadUsableTylerTextOverviewDraftForSend(args: {
 
   if (
     baseFields.route_kind != null &&
-    baseFields.route_kind !== MAIN_ACCOUNTABILITY_ROUTE_KIND
+    baseFields.route_kind !== MAIN_ACCOUNTABILITY_ROUTE_KIND &&
+    baseFields.route_kind !== MORNING_RELATIONSHIP_ROUTE_KIND
   ) {
     if (isTylerEditTtoDraftOverride(draft)) {
       return {

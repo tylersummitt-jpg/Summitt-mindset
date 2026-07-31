@@ -13,6 +13,8 @@ import {
 import { TYLER_TEXT_OVERVIEW_ENABLED_ENV } from "@/lib/tyler-text-overview-types";
 
 const buildDailySmsContentMock = vi.hoisted(() => vi.fn());
+const loadMorningPacketMock = vi.hoisted(() => vi.fn());
+const writeMorningTtoBodyMock = vi.hoisted(() => vi.fn());
 const getClerkUserMock = vi.hoisted(() => vi.fn());
 const resolveV2Mock = vi.hoisted(() => vi.fn());
 const fetchCommsMock = vi.hoisted(() => vi.fn());
@@ -215,6 +217,14 @@ vi.mock("@/lib/daily-sms-build", () => ({
   buildDailySmsContent: buildDailySmsContentMock,
 }));
 
+vi.mock("@/lib/morning-tto-relationship-packet", () => ({
+  loadMorningRelationshipPacket: loadMorningPacketMock,
+}));
+
+vi.mock("@/lib/morning-tto-writer", () => ({
+  writeMorningTtoBody: writeMorningTtoBodyMock,
+}));
+
 vi.mock("@/lib/clerk-rest", () => ({
   getClerkUser: getClerkUserMock,
 }));
@@ -371,6 +381,26 @@ function setupHappyPath() {
     id: "cmt-stale",
     behavior_statement: "Two hours deep work",
   });
+  loadMorningPacketMock.mockResolvedValue({
+    ok: true,
+    packet: {
+      version: "morning_relationship_v1",
+      exact_thread: { window_days: 21, max_messages: 30, messages: [] },
+      last_user_response: { never_replied: false, days_since: 1, at_utc: null, at_local: null },
+      hard_state: { pending_goal_change: null },
+    },
+    commitmentId: "cmt-stale",
+  });
+  writeMorningTtoBodyMock.mockResolvedValue({
+    ok: true,
+    body: "After inbound refresh body",
+    messages: [
+      { role: "system", content: "Morning system" },
+      { role: "user", content: "MORNING_RELATIONSHIP_PACKET_V1\n{}" },
+    ],
+    writer_prompt_path: "morning_relationship_v1",
+    model: "gpt-4o-mini",
+  });
   buildDailySmsContentMock.mockResolvedValue(REFRESHED_BUILT);
 }
 
@@ -389,6 +419,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
     expect(stats.enabled).toBe(false);
     expect(supabaseServer.from).not.toHaveBeenCalled();
     expect(buildDailySmsContentMock).not.toHaveBeenCalled();
+    expect(loadMorningPacketMock).not.toHaveBeenCalled();
   });
 
   it("finds stale current draft when inbound received_at > generation.generated_at", async () => {
@@ -444,6 +475,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
     expect(stats.stale_found).toBe(0);
     expect(stats.refreshed).toBe(0);
     expect(buildDailySmsContentMock).not.toHaveBeenCalled();
+    expect(loadMorningPacketMock).not.toHaveBeenCalled();
   });
 
   it("uses existing draft row draft_for_day_key, not recomputed day key", async () => {
@@ -458,13 +490,11 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
     await refreshStaleTylerTextOverviewDrafts({
       now: new Date("2026-07-02T16:00:00.000Z"),
     });
-    expect(buildDailySmsContentMock).toHaveBeenCalledWith(
-      AUDIENCE_USER.clerk_user_id,
-      expect.any(Object),
-      "2026-07-10",
-      "America/New_York",
-      { mode: "draft" }
-    );
+    expect(loadMorningPacketMock).toHaveBeenCalled();
+    expect(
+      db.generations.some((g) => g.draft_for_day_key === "2026-07-10")
+    ).toBe(true);
+    expect(buildDailySmsContentMock).not.toHaveBeenCalled();
     const recomputed = resolveTylerTextOverviewDraftForDayKey({
       now: new Date("2026-07-02T16:00:00.000Z"),
       timezone: "America/New_York",
@@ -475,7 +505,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
     expect(recomputed).not.toBe("2026-07-10");
   });
 
-  it("calls buildDailySmsContent with mode draft for stale users only", async () => {
+  it("calls Morning packet+writer for stale users only", async () => {
     setupHappyPath();
     seedCurrentDraft({ emptySendBody: true });
     db.drafts.push({
@@ -505,14 +535,9 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
       },
     ];
     await refreshStaleTylerTextOverviewDrafts();
-    expect(buildDailySmsContentMock).toHaveBeenCalledTimes(1);
-    expect(buildDailySmsContentMock).toHaveBeenCalledWith(
-      AUDIENCE_USER.clerk_user_id,
-      expect.any(Object),
-      "2026-07-03",
-      "America/New_York",
-      { mode: "draft" }
-    );
+    expect(loadMorningPacketMock).toHaveBeenCalledTimes(1);
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledTimes(1);
+    expect(buildDailySmsContentMock).not.toHaveBeenCalled();
   });
 
   it("inserts new generation with generation_reason evening_sweep by default", async () => {
@@ -572,6 +597,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
     expect(stats.skipped_protected_current_draft).toBe(1);
     expect(stats.refreshed).toBe(0);
     expect(buildDailySmsContentMock).not.toHaveBeenCalled();
+    expect(loadMorningPacketMock).not.toHaveBeenCalled();
     expect(db.drafts[0]?.current_body_to_send).toBe("Original machine body");
     expect(db.drafts[0]?.current_generation_id).toBe("gen-original");
   });

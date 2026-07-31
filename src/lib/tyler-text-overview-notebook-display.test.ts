@@ -81,6 +81,25 @@ describe("deriveNotebookFamily", () => {
     ).toBe("legacy_relationship_packet_v1");
   });
 
+  it("morning_relationship_v1 + MORNING_RELATIONSHIP_PACKET_V1 marker", () => {
+    expect(
+      deriveNotebookFamily({
+        messageCount: 2,
+        writerPromptPath: "morning_relationship_v1",
+        messages: [
+          SYSTEM,
+          {
+            role: "user",
+            content: "MORNING_RELATIONSHIP_PACKET_V1\n{}",
+          },
+        ],
+      })
+    ).toBe("morning_relationship_v1");
+    expect(notebookFamilyLabel("morning_relationship_v1")).toBe(
+      "Morning relationship packet v1"
+    );
+  });
+
   it("0 messages => writer_skipped", () => {
     expect(
       deriveNotebookFamily({

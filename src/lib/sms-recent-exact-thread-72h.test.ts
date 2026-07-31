@@ -2027,3 +2027,230 @@ describe("recent_exact_thread actual SMS provenance (writer-facing)", () => {
     expect(brief.build_telemetry.daily_brief_thread_fallback_used).toBe(true);
   });
 });
+
+describe("Morning TTO exact thread caps", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getRecentV2EventsForAi.mockResolvedValue([]);
+  });
+
+  const NOW_MORNING = new Date("2026-06-22T12:00:00.000Z");
+
+  it("uses 21-day window via windowHours override without changing daily defaults", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          sms_body: "TWENTY_DAY_OLD_MORNING",
+          created_at: "2026-06-02T12:00:00.000Z",
+          status: "sent",
+          message_sid: "SM_20D",
+          sent_at: "2026-06-02T12:00:00.000Z",
+        },
+        {
+          sms_body: "TWENTY_TWO_DAY_OLD_OUTSIDE",
+          created_at: "2026-05-30T12:00:00.000Z",
+          status: "sent",
+          message_sid: "SM_22D",
+          sent_at: "2026-05-30T12:00:00.000Z",
+        },
+      ],
+    });
+
+    const { buildMorningExactThreadForPacket, buildRecentExactThreadForBrief } = await import(
+      "@/lib/sms-recent-exact-thread-72h"
+    );
+
+    const morning = await buildMorningExactThreadForPacket({
+      clerkUserId: "user_morning_window",
+      timezone: TZ,
+      now: NOW_MORNING,
+    });
+
+    expect(morning.window_days).toBe(21);
+    expect(morning.messages.some((m) => m.body.includes("TWENTY_DAY_OLD_MORNING"))).toBe(true);
+    expect(morning.messages.some((m) => m.body.includes("TWENTY_TWO_DAY_OLD_OUTSIDE"))).toBe(false);
+
+    const brief = await buildRecentExactThreadForBrief({
+      clerkUserId: "user_morning_window",
+      timezone: TZ,
+      now: NOW_MORNING,
+    });
+    expect(brief.window.floor_hours).toBe(168);
+  });
+
+  it("caps at 30 messages preserving newest", async () => {
+    const { capMorningExactThreadMessages, MORNING_TTO_THREAD_MAX_MESSAGES } = await import(
+      "@/lib/sms-recent-exact-thread-72h"
+    );
+    const nowMs = NOW_MORNING.getTime();
+    const messages: RecentExactThread72hMessage[] = [];
+    for (let i = 0; i < 35; i++) {
+      messages.push({
+        at: new Date(nowMs - (35 - i) * 60_000).toISOString(),
+        at_local: `msg ${i}`,
+        at_local_timezone: TZ,
+        local_day_key: "2026-06-22",
+        role: i % 2 === 0 ? "coach" : "user",
+        body: `Morning cap message ${i}`,
+        message_kind: null,
+        source_table: "sms_send_events",
+        message_sid: `SM_${i}`,
+        delivery_status: "sent",
+        is_exact_body: true,
+      });
+    }
+
+    const capped = capMorningExactThreadMessages(messages, {
+      timezone: TZ,
+      nowMs,
+    });
+
+    expect(capped).toHaveLength(MORNING_TTO_THREAD_MAX_MESSAGES);
+    expect(capped[0]?.body).toBe("Morning cap message 5");
+    expect(capped.at(-1)?.body).toBe("Morning cap message 34");
+  });
+
+  it("truncates per-message body to 480 chars and total to 12000", async () => {
+    const {
+      capMorningExactThreadMessages,
+      MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE,
+      MORNING_TTO_THREAD_MAX_TOTAL_CHARS,
+      morningExactThreadMessageCharCount,
+    } = await import("@/lib/sms-recent-exact-thread-72h");
+
+    const nowMs = NOW_MORNING.getTime();
+    const longBody = "x".repeat(600);
+    const messages: RecentExactThread72hMessage[] = [
+      {
+        at: new Date(nowMs - 60_000).toISOString(),
+        at_local: "recent",
+        at_local_timezone: TZ,
+        local_day_key: "2026-06-22",
+        role: "coach",
+        body: longBody,
+        message_kind: null,
+        source_table: "sms_send_events",
+        message_sid: "SM_LONG",
+        delivery_status: "sent",
+        is_exact_body: true,
+      },
+    ];
+
+    const capped = capMorningExactThreadMessages(messages, { timezone: TZ, nowMs });
+    expect(capped[0]?.body.length).toBeLessThanOrEqual(MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE);
+    expect(capped[0]?.body.endsWith("…")).toBe(true);
+
+    const many: RecentExactThread72hMessage[] = [];
+    for (let i = 0; i < 30; i++) {
+      many.push({
+        at: new Date(nowMs - (30 - i) * 60_000).toISOString(),
+        at_local: `m${i}`,
+        at_local_timezone: TZ,
+        local_day_key: "2026-06-22",
+        role: "coach",
+        body: "C".repeat(450),
+        message_kind: null,
+        source_table: "sms_send_events",
+        message_sid: `SM_CHAR_${i}`,
+        delivery_status: "sent",
+        is_exact_body: true,
+      });
+    }
+    const charCapped = capMorningExactThreadMessages(many, { timezone: TZ, nowMs });
+    expect(morningExactThreadMessageCharCount(charCapped)).toBeLessThanOrEqual(
+      MORNING_TTO_THREAD_MAX_TOTAL_CHARS
+    );
+  });
+
+  it("projects UTC/local/weekday and chronological order", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          sms_body: "Earlier coach line.",
+          created_at: "2026-06-21T10:00:00.000Z",
+          status: "sent",
+          message_sid: "SM_EARLY",
+          sent_at: "2026-06-21T10:00:00.000Z",
+        },
+      ],
+      inboundMsgRows: [
+        {
+          raw_body: "Later user line.",
+          received_at: "2026-06-21T16:00:00.000Z",
+          message_sid: "SM_LATE_USER",
+        },
+      ],
+    });
+
+    const { buildMorningExactThreadForPacket } = await import("@/lib/sms-recent-exact-thread-72h");
+    const morning = await buildMorningExactThreadForPacket({
+      clerkUserId: "user_proj",
+      timezone: TZ,
+      now: NOW_MORNING,
+    });
+
+    expect(morning.messages.length).toBeGreaterThanOrEqual(2);
+    for (const m of morning.messages) {
+      expect(m.sent_at_utc).toMatch(/Z$/);
+      expect(m.sent_at_local.length).toBeGreaterThan(5);
+      expect(m.local_weekday.length).toBeGreaterThan(3);
+      expect(["coach", "user"]).toContain(m.sender);
+    }
+    expect(morning.messages[0]?.sender).toBe("coach");
+    expect(morning.messages[1]?.sender).toBe("user");
+    expect(
+      morning.messages.every(
+        (m, i, arr) => i === 0 || arr[i - 1]!.sent_at_utc <= m.sent_at_utc
+      )
+    ).toBe(true);
+  });
+
+  it("excludes drafts, preview, skipped, and fallback from Morning thread", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          sms_body: "Skipped draft body",
+          created_at: "2026-06-21T10:00:00.000Z",
+          status: "skipped_no_safe_v3_voice",
+        },
+        {
+          sms_body: "Visible sent only",
+          created_at: "2026-06-21T11:00:00.000Z",
+          status: "sent",
+          message_sid: "SM_GOOD_M",
+          sent_at: "2026-06-21T11:00:00.000Z",
+        },
+      ],
+      lastCtx: {
+        sent_at: "2026-06-21T12:00:00.000Z",
+        full_body: "Fallback should not appear",
+        message_kind: "coach",
+      },
+    });
+    getRecentV2EventsForAi.mockResolvedValue([
+      {
+        event_type: "check_sent",
+        occurred_at: "2026-06-21T11:30:00.000Z",
+        payload_json: { body_preview: "PREVIEW_ONLY_MORNING" },
+      },
+    ]);
+
+    const queried: string[] = [];
+    const origImpl = supabaseFrom.getMockImplementation();
+    supabaseFrom.mockImplementation((table: string) => {
+      queried.push(table);
+      return origImpl?.(table) ?? chain([]);
+    });
+
+    const { buildMorningExactThreadForPacket } = await import("@/lib/sms-recent-exact-thread-72h");
+    const morning = await buildMorningExactThreadForPacket({
+      clerkUserId: "user_filter_m",
+      timezone: TZ,
+      now: NOW_MORNING,
+    });
+
+    expect(queried.some((t) => /draft/i.test(t))).toBe(false);
+    expect(morning.messages).toHaveLength(1);
+    expect(morning.messages[0]?.body).toMatch(/Visible sent only/i);
+  });
+});

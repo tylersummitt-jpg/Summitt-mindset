@@ -164,6 +164,7 @@ vi.mock("@/lib/supabase-server", () => {
     gte: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
+    range: vi.fn().mockResolvedValue({ data: [], error: null }),
     maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     insert: vi.fn().mockResolvedValue({ error: null }),
     update: vi.fn().mockReturnThis(),
@@ -321,14 +322,17 @@ describe("buildDailySmsContent draft mode side effects", () => {
 });
 
 describe("daily-sms route send-mode wiring", () => {
-  it("imports buildDailySmsContent from daily-sms-build", () => {
+  it("Morning send uses exact TTO body path without rebuild", () => {
     const route = readFileSync(
       join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
     );
-    expect(route).toContain('from "@/lib/daily-sms-build"');
-    expect(route).toContain("buildDailySmsContent(");
-    expect(route).not.toMatch(/async function buildDailySmsContent\(/);
+    expect(route).toContain("attemptMorningTtoTwilioSend");
+    expect(route).toContain("resolveMorningTtoExactBodyImmediatelyBeforeTwilio");
+    expect(route).toContain("runMorningTtoPostSendBookkeeping");
+    expect(route).not.toContain("buildDailySmsContent(");
+    expect(route).not.toContain("prepareTylerTextOverviewDailyBuild");
+    expect(route).not.toContain("resolveSilenceCadenceForDailyUser");
   });
 });
 

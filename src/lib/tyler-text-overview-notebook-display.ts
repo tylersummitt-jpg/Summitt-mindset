@@ -3,6 +3,7 @@ import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-over
 export type TylerTextOverviewNotebookFamily =
   | "daily_sms_writing_brief_v1"
   | "legacy_relationship_packet_v1"
+  | "morning_relationship_v1"
   | "writer_skipped"
   | "unknown";
 
@@ -14,6 +15,7 @@ export type TylerTextOverviewNotebookDisplayMode =
 
 const DAILY_BRIEF_MARKER = "DAILY_SMS_WRITING_BRIEF_V1";
 const LEGACY_PACKET_MARKER = "RELATIONSHIP_PACKET_V1";
+const MORNING_RELATIONSHIP_PACKET_MARKER = "MORNING_RELATIONSHIP_PACKET_V1";
 
 function messagesContainMarker(
   messages: TylerTextOverviewWriterOpenAiMessage[],
@@ -66,6 +68,12 @@ export function deriveNotebookFamily(args: {
     return "daily_sms_writing_brief_v1";
   }
   if (
+    args.writerPromptPath === "morning_relationship_v1" ||
+    messagesContainMarker(args.messages, MORNING_RELATIONSHIP_PACKET_MARKER)
+  ) {
+    return "morning_relationship_v1";
+  }
+  if (
     args.writerPromptPath === "legacy_packet_v1" ||
     messagesContainMarker(args.messages, LEGACY_PACKET_MARKER)
   ) {
@@ -100,6 +108,8 @@ export function notebookFamilyLabel(family: TylerTextOverviewNotebookFamily): st
       return "Daily SMS Writing Brief v1";
     case "legacy_relationship_packet_v1":
       return "Legacy relationship packet v1";
+    case "morning_relationship_v1":
+      return "Morning relationship packet v1";
     case "writer_skipped":
       return "Writer skipped (no notebook)";
     default:

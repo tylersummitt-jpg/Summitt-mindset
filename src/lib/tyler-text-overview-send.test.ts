@@ -45,7 +45,12 @@ const db = vi.hoisted(() => ({
   generationUpdates: 0,
 }));
 
-function makeChain(state: { table: string; action: string; payload: Record<string, unknown> }) {
+function makeChain(state: {
+  table: string;
+  action: string;
+  payload: Record<string, unknown>;
+  updatePayload?: Record<string, unknown>;
+}) {
   const execute = async () => {
     const { table, payload } = state;
 
@@ -208,6 +213,7 @@ const okBuiltMain = (smsBody: string): Extract<DailySmsBuilt, { ok: true }> => (
     priorOutcome: null,
     pendingPlanProof: null,
     proofOrMilestoneSignal: null,
+    hasProofOrKnownOutcome: false,
   },
 });
 
@@ -347,7 +353,17 @@ describe("tyler-text-overview-send body overlay", () => {
   it("special branch live-fallback does not overlay draft", () => {
     const built: Extract<DailySmsBuilt, { ok: true }> = {
       ...okBuiltMain(MACHINE_BODY),
-      v2RefreshOutboundPlan: { kind: "identity_first", session: { session_id: "s", step: "identity" } },
+      v2RefreshOutboundPlan: {
+        kind: "identity_first",
+        session: {
+          session_id: "s",
+          step: "identity",
+          started_at: "2026-07-01T00:00:00.000Z",
+          channel: "sms",
+          clarifications_remaining: 1,
+          commitment_prompt_delivered: false,
+        },
+      },
     };
     expect(isDailySmsBuiltSpecialBranch(built)).toBe(true);
     expect(
@@ -392,7 +408,7 @@ describe("tyler-text-overview-send body overlay", () => {
   it("machine draft override passed to build for no-send lane recovery", async () => {
     process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
     seedDraft();
-    const buildMock = vi.fn(async (override: string | null) => {
+    const buildMock = vi.fn(async (override: string | null): Promise<DailySmsBuilt> => {
       if (override) return okBuiltMain(override);
       return { ok: false, error: "daily_v3_lane_no_send" };
     });
@@ -410,7 +426,7 @@ describe("tyler-text-overview-send body overlay", () => {
   it("Tyler edit over machine no-send passes override to build", async () => {
     process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
     seedDraft({ body: TYLER_BODY, source: "tyler_edit", edited: true });
-    const buildMock = vi.fn(async (override: string | null) => {
+    const buildMock = vi.fn(async (override: string | null): Promise<DailySmsBuilt> => {
       if (override) return okBuiltMain(override);
       return { ok: false, error: "daily_v3_lane_no_send" };
     });
@@ -556,7 +572,7 @@ describe("tyler-text-overview-send protected current draft send", () => {
         applyNorthStarGate: northStarMutator,
       });
       expect(gated.built.ok && gated.built.smsBody).toBe(badString);
-      expect(gated.built.smsBody).not.toBe("behavior_statement leak");
+      expect(gated.built.ok ? gated.built.smsBody : null).not.toBe("behavior_statement leak");
     }
   );
 });
@@ -607,7 +623,14 @@ describe("tyler-text-overview-send route conflict guard", () => {
       ...okBuiltMain("refresh live body"),
       v2RefreshOutboundPlan: {
         kind: "identity_first",
-        session: { session_id: "s", step: "identity" },
+        session: {
+          session_id: "s",
+          step: "identity",
+          started_at: "2026-07-01T00:00:00.000Z",
+          channel: "sms",
+          clarifications_remaining: 1,
+          commitment_prompt_delivered: false,
+        },
       },
     };
     const conflict = resolveTtoCurrentDraftSendConflict({
@@ -836,34 +859,66 @@ describe("tyler-text-overview-send pre-twilio revalidation", () => {
     expect(revalidation.metadataExtras.live_fallback_used).toBe(false);
   });
 
-  it("retry-path wiring revalidates before mismatch block", () => {
+  it("retry-path wiring revalidates inside attemptMorningTtoTwilioSend before Twilio", () => {
     const route = readFileSync(
       join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
     );
-    const retrySection = route.slice(route.indexOf("const revalidatedRetry"));
-    expect(retrySection).toContain("applyTtoCurrentDraftRevalidationBeforeTwilio");
-    expect(retrySection.indexOf("applyTtoCurrentDraftRevalidationBeforeTwilio")).toBeLessThan(
-      retrySection.indexOf("blockSendOnTtoCurrentDraftBodyMismatch")
+    const attemptFn = route.slice(route.indexOf("async function attemptMorningTtoTwilioSend"));
+    expect(attemptFn).toContain("resolveMorningTtoExactBodyImmediatelyBeforeTwilio");
+    expect(attemptFn.indexOf("resolveMorningTtoExactBodyImmediatelyBeforeTwilio")).toBeLessThan(
+      attemptFn.indexOf("await sendSMS(")
     );
-    expect(retrySection.indexOf("blockSendOnTtoCurrentDraftBodyMismatch")).toBeLessThan(
-      retrySection.indexOf("sendSMS(")
+    const retrySection = route.slice(route.indexOf("morningTtoAuthoritativeGateRetry"));
+    expect(retrySection).toContain("attemptMorningTtoTwilioSend");
+  });
+
+  it("main-path wiring uses attemptMorningTtoTwilioSend before success record", () => {
+    const route = readFileSync(
+      join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
+      "utf8"
+    );
+    const mainSection = route.slice(route.indexOf("morningTtoAuthoritativeGateMain"));
+    expect(mainSection).toContain("attemptMorningTtoTwilioSend");
+    expect(mainSection).toContain("runMorningTtoPostSendBookkeeping");
+    expect(mainSection.indexOf("attemptMorningTtoTwilioSend")).toBeLessThan(
+      mainSection.indexOf("recordDailyTwilioSuccessOrFallback")
     );
   });
 
-  it("main-path wiring revalidates before mismatch block", () => {
+  it("exact body means trim(current_body_to_send) with no append/prefix/footer/fallback", () => {
     const route = readFileSync(
       join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
     );
-    const mainSection = route.slice(route.indexOf("const revalidatedMain"));
-    expect(mainSection).toContain("applyTtoCurrentDraftRevalidationBeforeTwilio");
-    expect(mainSection.indexOf("applyTtoCurrentDraftRevalidationBeforeTwilio")).toBeLessThan(
-      mainSection.indexOf("blockSendOnTtoCurrentDraftBodyMismatch")
+    const sendSrc = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-send.ts"),
+      "utf8"
     );
-    expect(mainSection.indexOf("blockSendOnTtoCurrentDraftBodyMismatch")).toBeLessThan(
-      mainSection.indexOf("sendSMS(")
+    const resolveBody = sendSrc.slice(
+      sendSrc.indexOf("export async function resolveMorningTtoExactBodyImmediatelyBeforeTwilio")
     );
+    const resolveEnd = resolveBody.indexOf("\nexport async function", 1);
+    const fn = resolveEnd > 0 ? resolveBody.slice(0, resolveEnd) : resolveBody;
+    expect(fn).toContain("revalidation.bodyToSend.trim()");
+    expect(fn).not.toContain("buildWeeklyTtoFinalBodyWithFooter");
+    expect(fn).not.toContain("fallbackBody");
+    expect(fn).not.toMatch(/bodyToSend\s*\+/);
+    expect(fn).not.toMatch(/\+\s*bodyToSend/);
+
+    const attemptFn = route.slice(route.indexOf("async function attemptMorningTtoTwilioSend"));
+    const attemptEnd = attemptFn.indexOf("\nasync function", 1);
+    const attempt = attemptEnd > 0 ? attemptFn.slice(0, attemptEnd) : attemptFn;
+    expect(attempt).toContain("resolveMorningTtoExactBodyImmediatelyBeforeTwilio");
+    expect(attempt.indexOf("resolveMorningTtoExactBodyImmediatelyBeforeTwilio")).toBeLessThan(
+      attempt.indexOf("await sendSMS(")
+    );
+    expect(attempt).toMatch(/body:\s*smsBody/);
+    expect(attempt).toContain("smsBody = resolved.bodyToSend");
+
+    expect(route).toMatch(/sentBody:\s*smsBody/);
+    expect(route).toContain("finalBodySent: args.smsBody");
+    expect(route).toContain("sms_body: args.smsBody");
   });
 
   it("no revalidation when no protected current draft", () => {
@@ -1132,15 +1187,17 @@ describe("tyler-text-overview Phase 5 scope guards", () => {
     expect(src).toContain("routeKind === \"main_active_accountability\"");
   });
 
-  it("daily route wires prepareTylerTextOverviewDailyBuild", () => {
+  it("daily route wires Morning hallway send helpers", () => {
     const route = readFileSync(
       join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
     );
-    expect(route).toContain("prepareTylerTextOverviewDailyBuild");
-    expect(route).toContain("finalizeTylerTextOverviewAfterOutboundBestEffort");
+    expect(route).toContain("resolveMorningTtoExactBodyImmediatelyBeforeTwilio");
+    expect(route).toContain("attemptMorningTtoTwilioSend");
+    expect(route).toContain("runMorningTtoPostSendBookkeeping");
     expect(route).toContain("assertMorningTtoDraftAuthoritativeForSend");
-    expect(route).toContain("blockMorningTtoAuthoritativeBeforeTwilio");
+    expect(route).not.toContain("prepareTylerTextOverviewDailyBuild");
+    expect(route).not.toContain("resolveSilenceCadenceForDailyUser");
     expect(route).not.toContain("tyler-text-overview-generate");
   });
 });

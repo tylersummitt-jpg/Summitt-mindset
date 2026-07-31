@@ -1,4 +1,6 @@
 import { buildDailySmsContent, type DailySmsBuilt } from "@/lib/daily-sms-build";
+import { loadMorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
+import { writeMorningTtoBody } from "@/lib/morning-tto-writer";
 import {
   morningAnchorToPreviousOutbound,
   resolveEveningPreviewMorningAnchor,
@@ -31,6 +33,21 @@ import {
   shouldSkipDailyForCommsPrefs,
 } from "@/lib/v2-sms-comms-preferences";
 import { fetchV2UserSendTimeProfile } from "@/lib/v2-send-time-profile";
+import { hashWriterOpenAiMessages } from "@/lib/tyler-text-overview-writer-capture";
+
+export const MORNING_RELATIONSHIP_ROUTE_KIND = "morning_relationship" as const;
+
+function mapOpenAiMessagesToWriterCapture(
+  messages: Array<{ role: string; content?: unknown }>
+): TylerTextOverviewWriterOpenAiMessage[] {
+  return messages
+    .filter(
+      (m): m is { role: "system" | "user" | "assistant"; content: string } =>
+        (m.role === "system" || m.role === "user" || m.role === "assistant") &&
+        typeof m.content === "string"
+    )
+    .map((m) => ({ role: m.role, content: m.content }));
+}
 
 export type TylerTextOverviewAudienceRow = {
   clerk_user_id: string;
@@ -343,6 +360,224 @@ export function mapBuiltToTylerTextOverviewGenerationRow(args: {
   };
 }
 
+export function mapMorningWriterToGenerationRow(args: {
+  clerkUserId: string;
+  draftForDayKey: string;
+  generationNumber: number;
+  generationReason?: TylerTextOverviewGenerationReason;
+  commitmentId: string | null;
+  timezone: string;
+  sendPrefSnapshot: string;
+  sendSlot?: SmsDailySendSlot;
+  success?: {
+    body: string;
+    messages: TylerTextOverviewWriterOpenAiMessage[];
+    writerPromptPath: "morning_relationship_v1";
+  };
+  failure?: {
+    error: string;
+    messages?: TylerTextOverviewWriterOpenAiMessage[];
+    writerPromptPath?: string | null;
+  };
+  packetMetadata?: {
+    thread_message_count: number;
+    days_since_last_user_response: number | null;
+    never_replied: boolean;
+    has_pending_goal_change: boolean;
+  };
+}): TylerTextOverviewGenerationInsertRow {
+  const sendSlot = args.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
+  const messages = args.success?.messages ?? args.failure?.messages ?? [];
+  const capturePresent = messages.length > 0;
+  const machineBody = args.success?.body.trim() || null;
+  const writerPromptPath =
+    args.success?.writerPromptPath ?? args.failure?.writerPromptPath ?? null;
+  const failureError = args.failure?.error ?? "unknown_morning_writer_failure";
+
+  return {
+    clerk_user_id: args.clerkUserId,
+    draft_for_day_key: args.draftForDayKey,
+    send_slot: sendSlot,
+    generation_number: args.generationNumber,
+    generation_reason: args.generationReason ?? "noon_batch",
+    commitment_id: args.commitmentId,
+    machine_draft_body: machineBody,
+    machine_should_send: Boolean(args.success),
+    machine_no_send_reason: args.success ? null : failureError,
+    writer_openai_messages: messages,
+    writer_prompt_path: writerPromptPath,
+    writer_notebook_snapshot: null,
+    notebook_hash: capturePresent ? hashWriterOpenAiMessages(messages) : null,
+    notebook_verdict: "not_applicable",
+    notebook_verdict_reason: capturePresent ? "morning_relationship_writer_ran" : "writer_not_invoked",
+    notebook_source_candidate_count: null,
+    notebook_exact_source_message_count: null,
+    notebook_thread_message_count: args.packetMetadata?.thread_message_count ?? null,
+    notebook_filtered_out_reason_top: null,
+    route_kind: MORNING_RELATIONSHIP_ROUTE_KIND,
+    generation_metadata: {
+      packet_version: "morning_relationship_v1",
+      build_ok: Boolean(args.success),
+      ...(args.success ? {} : { error: failureError }),
+      draft_for_day_key: args.draftForDayKey,
+      capture_present: capturePresent,
+      thread_message_count: args.packetMetadata?.thread_message_count ?? null,
+      thread_window_days: 21,
+      days_since_last_user_response: args.packetMetadata?.days_since_last_user_response ?? null,
+      never_replied: args.packetMetadata?.never_replied ?? null,
+      has_pending_goal_change: args.packetMetadata?.has_pending_goal_change ?? null,
+    },
+    timezone_snapshot: args.timezone,
+    send_pref_snapshot: args.sendPrefSnapshot,
+    machine_body_hash: machineBody ? hashSmsSnippet(machineBody) : null,
+  };
+}
+
+export async function persistMorningTtoGeneration(args: {
+  clerkUserId: string;
+  draftForDayKey: string;
+  generationReason: TylerTextOverviewGenerationReason;
+  commitmentId: string | null;
+  timezone: string;
+  sendPrefSnapshot: string;
+  now: Date;
+  sendSlot?: SmsDailySendSlot;
+  success?: {
+    body: string;
+    messages: TylerTextOverviewWriterOpenAiMessage[];
+    writerPromptPath: "morning_relationship_v1";
+  };
+  failure?: {
+    error: string;
+    messages?: TylerTextOverviewWriterOpenAiMessage[];
+    writerPromptPath?: string | null;
+  };
+  packetMetadata?: {
+    thread_message_count: number;
+    days_since_last_user_response: number | null;
+    never_replied: boolean;
+    has_pending_goal_change: boolean;
+  };
+  respectProtectedMorningDraft?: boolean;
+}): Promise<
+  | { ok: true; generationId: string; supersedeFailed: boolean; currentDraftProtected?: boolean }
+  | { ok: false; reason: "insert_failed" | "upsert_failed"; error?: string }
+> {
+  const sendSlot = args.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
+  let generationNumber: number;
+  try {
+    generationNumber = await fetchNextGenerationNumber(
+      args.clerkUserId,
+      args.draftForDayKey,
+      sendSlot
+    );
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "insert_failed",
+      error: e instanceof Error ? e.message : "generation_number_lookup_failed",
+    };
+  }
+
+  const generationRow = mapMorningWriterToGenerationRow({
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: args.draftForDayKey,
+    generationNumber,
+    generationReason: args.generationReason,
+    commitmentId: args.commitmentId,
+    timezone: args.timezone,
+    sendPrefSnapshot: args.sendPrefSnapshot,
+    sendSlot,
+    success: args.success,
+    failure: args.failure,
+    packetMetadata: args.packetMetadata,
+  });
+
+  const existingDraft = await loadExistingCurrentDraft(
+    args.clerkUserId,
+    args.draftForDayKey,
+    sendSlot
+  );
+  const protectExistingDraft =
+    args.respectProtectedMorningDraft !== false &&
+    sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT &&
+    existingDraft != null &&
+    existingDraft.status === "current" &&
+    isProtectedTtoCurrentDraftBody(existingDraft.current_body_to_send);
+
+  const inserted = await insertGenerationRow(generationRow);
+  if ("error" in inserted) {
+    return { ok: false, reason: "insert_failed", error: inserted.error };
+  }
+
+  const nowIso = args.now.toISOString();
+
+  // Protected draft: keep history, but never supersede the still-authoritative generation
+  // the draft continues to point at (would leave current_generation_id → superseded row).
+  if (protectExistingDraft) {
+    const authoritativeId = existingDraft.current_generation_id;
+    if (authoritativeId) {
+      const { error: orphanError } = await supabaseServer
+        .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+        .update({
+          superseded_by_generation_id: authoritativeId,
+          superseded_at: nowIso,
+        })
+        .eq("id", inserted.id);
+      if (orphanError) {
+        console.warn("[tyler-text-overview] protected_history_generation_mark_failed", {
+          clerk_user_id: args.clerkUserId,
+          draft_for_day_key: args.draftForDayKey,
+          generation_id: inserted.id,
+          message: orphanError.message,
+        });
+      }
+    }
+    return {
+      ok: true,
+      generationId: inserted.id,
+      supersedeFailed: false,
+      currentDraftProtected: true,
+    };
+  }
+
+  const supersede = await supersedePriorGenerations({
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: args.draftForDayKey,
+    sendSlot,
+    newGenerationId: inserted.id,
+    nowIso,
+  });
+  if (!supersede.ok) {
+    console.warn("[tyler-text-overview] supersede_prior_generation_failed", {
+      clerk_user_id: args.clerkUserId,
+      draft_for_day_key: args.draftForDayKey,
+      message: supersede.error,
+    });
+  }
+
+  const upsert = await upsertCurrentDraft({
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: args.draftForDayKey,
+    sendSlot,
+    generationId: inserted.id,
+    machineBody: generationRow.machine_draft_body,
+    machineBodyHash: generationRow.machine_body_hash,
+    nowIso,
+    respectProtectedMorningDraft: args.respectProtectedMorningDraft,
+  });
+  if (!upsert.ok) {
+    return { ok: false, reason: "upsert_failed", error: upsert.error };
+  }
+
+  return {
+    ok: true,
+    generationId: inserted.id,
+    supersedeFailed: !supersede.ok,
+    currentDraftProtected: upsert.protected === true,
+  };
+}
+
 async function insertGenerationRow(
   row: TylerTextOverviewGenerationInsertRow
 ): Promise<{ id: string } | { error: string }> {
@@ -418,10 +653,11 @@ async function loadExistingCurrentDraft(
 ): Promise<{
   status: string;
   current_body_to_send: string | null;
+  current_generation_id: string | null;
 } | null> {
   const { data, error } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
-    .select("status, current_body_to_send")
+    .select("status, current_body_to_send, current_generation_id")
     .eq("clerk_user_id", clerkUserId)
     .eq("draft_for_day_key", draftForDayKey)
     .eq("send_slot", sendSlot)
@@ -440,6 +676,10 @@ async function loadExistingCurrentDraft(
     status: data.status,
     current_body_to_send:
       typeof data.current_body_to_send === "string" ? data.current_body_to_send : null,
+    current_generation_id:
+      typeof data.current_generation_id === "string" && data.current_generation_id.trim()
+        ? data.current_generation_id.trim()
+        : null,
   };
 }
 
@@ -629,25 +869,29 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
   };
 }
 
+export type TylerTextOverviewMorningDraftResult =
+  | {
+      ok: true;
+      draftForDayKey: string;
+      generationId: string;
+      body: string | null;
+      machineShouldSend: boolean;
+      writerPromptPath: string | null;
+      supersedeFailed: boolean;
+      currentDraftProtected?: boolean;
+    }
+  | {
+      ok: false;
+      reason: "comms_prefs" | "not_v2" | "insert_failed" | "upsert_failed";
+      error?: string;
+    };
+
 export async function generateTylerTextOverviewDraftForUser(args: {
   audienceUser: TylerTextOverviewAudienceRow;
   now: Date;
   draftForDayKey?: string;
   generationReason?: TylerTextOverviewGenerationReason;
-}): Promise<
-  | {
-      ok: true;
-      draftForDayKey: string;
-      generationId: string;
-      built: DailySmsBuilt;
-      supersedeFailed: boolean;
-    }
-  | {
-      ok: false;
-      reason: "comms_prefs" | "not_v2" | "build_failed" | "insert_failed" | "upsert_failed";
-      error?: string;
-    }
-> {
+}): Promise<TylerTextOverviewMorningDraftResult> {
   const clerkUserId = args.audienceUser.clerk_user_id;
   const user = await getClerkUser(clerkUserId);
   const md = (user.public_metadata ?? {}) as Record<string, unknown>;
@@ -682,25 +926,102 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       learnedProfile,
     });
 
-  const built = await buildDailySmsContent(clerkUserId, md, draftForDayKey, timezone, {
-    mode: "draft",
-    ttoDraftPreservePrimaryBody: true,
-  });
-
-  const activeCommitment = await getActiveCommitment(clerkUserId);
-  const commitmentId =
-    (built.ok ? built.v2CommitmentId : null) ?? activeCommitment?.id ?? null;
   const sendPrefSnapshot = formatSendPrefSnapshot(clerkSmsTimePreference, commsPrefs);
 
-  const persisted = await persistTylerTextOverviewDraftFromBuilt({
+  const packetResult = await loadMorningRelationshipPacket({
+    clerkUserId,
+    timezone,
+    now: args.now,
+  });
+
+  if (!packetResult.ok) {
+    const persisted = await persistMorningTtoGeneration({
+      clerkUserId,
+      draftForDayKey,
+      generationReason: args.generationReason ?? "noon_batch",
+      commitmentId: null,
+      timezone,
+      sendPrefSnapshot,
+      now: args.now,
+      failure: { error: packetResult.error },
+    });
+
+    if (!persisted.ok) {
+      return { ok: false, reason: persisted.reason, error: persisted.error };
+    }
+
+    return {
+      ok: true,
+      draftForDayKey,
+      generationId: persisted.generationId,
+      body: null,
+      machineShouldSend: false,
+      writerPromptPath: null,
+      supersedeFailed: persisted.supersedeFailed,
+      currentDraftProtected: persisted.currentDraftProtected,
+    };
+  }
+
+  const { packet, commitmentId } = packetResult;
+  const packetMetadata = {
+    thread_message_count: packet.exact_thread.messages.length,
+    days_since_last_user_response: packet.last_user_response.days_since,
+    never_replied: packet.last_user_response.never_replied,
+    has_pending_goal_change: packet.hard_state.pending_goal_change != null,
+  };
+
+  const writerResult = await writeMorningTtoBody(packet);
+  const writerMessages = writerResult.messages
+    ? mapOpenAiMessagesToWriterCapture(writerResult.messages)
+    : undefined;
+
+  if (!writerResult.ok) {
+    const persisted = await persistMorningTtoGeneration({
+      clerkUserId,
+      draftForDayKey,
+      generationReason: args.generationReason ?? "noon_batch",
+      commitmentId,
+      timezone,
+      sendPrefSnapshot,
+      now: args.now,
+      failure: {
+        error: writerResult.error,
+        messages: writerMessages,
+        writerPromptPath: writerMessages?.length ? "morning_relationship_v1" : null,
+      },
+      packetMetadata,
+    });
+
+    if (!persisted.ok) {
+      return { ok: false, reason: persisted.reason, error: persisted.error };
+    }
+
+    return {
+      ok: true,
+      draftForDayKey,
+      generationId: persisted.generationId,
+      body: null,
+      machineShouldSend: false,
+      writerPromptPath: writerMessages?.length ? "morning_relationship_v1" : null,
+      supersedeFailed: persisted.supersedeFailed,
+      currentDraftProtected: persisted.currentDraftProtected,
+    };
+  }
+
+  const persisted = await persistMorningTtoGeneration({
     clerkUserId,
     draftForDayKey,
     generationReason: args.generationReason ?? "noon_batch",
-    built,
     commitmentId,
     timezone,
     sendPrefSnapshot,
     now: args.now,
+    success: {
+      body: writerResult.body,
+      messages: mapOpenAiMessagesToWriterCapture(writerResult.messages),
+      writerPromptPath: writerResult.writer_prompt_path,
+    },
+    packetMetadata,
   });
 
   if (!persisted.ok) {
@@ -711,8 +1032,11 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     ok: true,
     draftForDayKey,
     generationId: persisted.generationId,
-    built,
+    body: writerResult.body,
+    machineShouldSend: true,
+    writerPromptPath: writerResult.writer_prompt_path,
     supersedeFailed: persisted.supersedeFailed,
+    currentDraftProtected: persisted.currentDraftProtected,
   };
 }
 
@@ -771,7 +1095,9 @@ export async function generateTylerTextOverviewDailyDrafts(args: {
       stats.eligible += 1;
       stats.generated += 1;
       stats.generation_inserted += 1;
-      stats.current_drafts_upserted += 1;
+      if (!result.currentDraftProtected) {
+        stats.current_drafts_upserted += 1;
+      }
       if (result.supersedeFailed) {
         stats.supersede_failed += 1;
       }

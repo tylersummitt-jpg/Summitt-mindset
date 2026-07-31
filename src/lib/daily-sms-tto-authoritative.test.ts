@@ -537,23 +537,20 @@ describe("daily-sms route authoritative wiring", () => {
     expect(route).toContain("hasSendEventRow: false");
   });
 
-  it("calls authoritative gate on retry path before prepareTylerTextOverviewDailyBuild", () => {
+  it("calls authoritative gate on retry path before attemptMorningTtoTwilioSend", () => {
     const retryGateIdx = route.indexOf("morningTtoAuthoritativeGateRetry");
-    const prepareAfterRetry = route.indexOf(
-      "prepareTylerTextOverviewDailyBuild",
-      retryGateIdx
-    );
+    const attemptAfterRetry = route.indexOf("attemptMorningTtoTwilioSend", retryGateIdx);
     expect(retryGateIdx).toBeGreaterThan(-1);
-    expect(prepareAfterRetry).toBeGreaterThan(retryGateIdx);
+    expect(attemptAfterRetry).toBeGreaterThan(retryGateIdx);
   });
 
-  it("fail-closed runs before Twilio via blockMorningTtoAuthoritativeBeforeTwilio", () => {
-    expect(route).toContain("blockMorningTtoAuthoritativeBeforeTwilio");
-    expect(route).toContain("evaluateMorningTtoAuthoritativeFailClosed");
-    const failClosedIdx = route.indexOf("blockMorningTtoAuthoritativeBeforeTwilio");
-    const twilioIdx = route.indexOf("sendSMS(");
-    expect(failClosedIdx).toBeGreaterThan(-1);
-    expect(failClosedIdx).toBeLessThan(twilioIdx);
+  it("exact body resolution runs inside attemptMorningTtoTwilioSend before Twilio", () => {
+    expect(route).toContain("resolveMorningTtoExactBodyImmediatelyBeforeTwilio");
+    expect(route).toContain("attemptMorningTtoTwilioSend");
+    const attemptIdx = route.indexOf("async function attemptMorningTtoTwilioSend");
+    const twilioIdx = route.indexOf("await sendSMS(");
+    expect(attemptIdx).toBeGreaterThan(-1);
+    expect(twilioIdx).toBeGreaterThan(attemptIdx);
   });
 
   it("pre-reserve gate failures do not create terminal skipped_tto rows", () => {

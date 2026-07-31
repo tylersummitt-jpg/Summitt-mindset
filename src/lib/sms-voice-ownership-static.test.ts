@@ -86,17 +86,20 @@ describe("SMS Voice Ownership — static policy", () => {
 
 describe("SMS Voice Ownership — daily-sms route", () => {
   const daily = readSrc("src/app/api/cron/daily-sms/route.ts");
+  const morningBookkeeping = readSrc("src/lib/morning-tto-post-send-bookkeeping.ts");
 
-  it("uses V3 daily relationship lane for coaching SMS", () => {
-    expect(daily).toContain("produceDailyV3RelationshipSms");
-    expect(daily).toMatch(/smsBody\s*=\s*laneUnified\.body/);
-    expect(daily).toMatch(/smsBodyRe\s*=\s*laneRe\.body/);
-  });
-
-  it("applies Final Voice Gate on normal coaching sends", () => {
-    expect(daily).toContain("applyFinalVoiceOwnershipGate");
-    expect(daily).toContain("finalizeNorthStarCoachSmsAsync");
-    expect(daily).toMatch(/smsBody:\s*voiceGate\.shouldSend\s*\?\s*voiceGate\.body/);
+  it("Morning send uses exact TTO body path without the deleted Daily SMS hallway", () => {
+    expect(daily).toContain("attemptMorningTtoTwilioSend");
+    expect(daily).toContain("resolveMorningTtoExactBodyImmediatelyBeforeTwilio");
+    expect(daily).toContain("runMorningTtoPostSendBookkeeping");
+    expect(daily).toContain("runMorningTtoPreSendCanonicalStateMaintenance");
+    expect(daily).not.toContain("buildDailySmsContent");
+    expect(daily).not.toContain("prepareTylerTextOverviewDailyBuild");
+    expect(daily).not.toContain("produceDailyV3RelationshipSms");
+    expect(daily).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(daily).not.toContain("finalizeNorthStarCoachSmsAsync");
+    expect(daily).not.toContain("applyUnifiedSmsFinalProductLawGuard");
+    expect(daily).not.toContain("resolveSilenceCadenceForDailyUser");
   });
 
   it("does not send legacy template builder output as Twilio body", () => {
@@ -104,13 +107,12 @@ describe("SMS Voice Ownership — daily-sms route", () => {
     expect(daily).not.toMatch(/sendSMS[\s\S]{0,600}?body:\s*strat\w*\.body/);
   });
 
-  it("uses buildV2OutboundAccountabilitySmsForStrategy for telemetry/templateId only", () => {
-    expect(daily).toContain("buildV2OutboundAccountabilitySmsForStrategy");
-    expect(daily).toContain('telemetryUnified.push("buildV2OutboundAccountabilitySmsForStrategy")');
-    expect(daily).toMatch(/templateIdRe\s*=\s*stratRe\.templateId/);
-    expect(daily).toMatch(/templateId\s*=\s*strat\.templateId/);
-    expect(daily).not.toMatch(/smsBody\s*=\s*strat\.body/);
-    expect(daily).not.toMatch(/smsBody\s*=\s*stratRe\.body/);
+  it("Morning post-send bookkeeping has no OpenAI or coaching-memory recompute", () => {
+    expect(morningBookkeeping).not.toContain("recomputeV2CoachingMemory");
+    expect(morningBookkeeping).not.toMatch(/from ["']openai["']/);
+    expect(morningBookkeeping).not.toContain("OpenAI");
+    expect(morningBookkeeping).not.toContain("onV2StandardCheckSentOutboundSendSuccess");
+    expect(morningBookkeeping).not.toContain("yes_no_partial");
   });
 
   it("does not import legacy daily outbound resolution as final send path", () => {

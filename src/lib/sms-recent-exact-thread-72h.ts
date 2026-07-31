@@ -1556,3 +1556,169 @@ export function recentExactThreadTextFrom72hMessages(messages: RecentExactThread
     })
     .join("\n");
 }
+
+/** Morning TTO exact thread — 21d window, larger caps than daily brief defaults. */
+export const MORNING_TTO_THREAD_WINDOW_DAYS = 21 as const;
+export const MORNING_TTO_THREAD_WINDOW_HOURS = 21 * 24;
+export const MORNING_TTO_THREAD_MAX_MESSAGES = 30;
+export const MORNING_TTO_THREAD_MAX_TOTAL_CHARS = 12000;
+export const MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE = 480;
+
+export type MorningExactThreadMessage = {
+  sender: "coach" | "user";
+  sent_at_utc: string;
+  sent_at_local: string;
+  local_weekday: string;
+  body: string;
+};
+
+export type MorningExactThreadOptions = {
+  windowDays?: typeof MORNING_TTO_THREAD_WINDOW_DAYS;
+  windowHours?: number;
+  maxMessages?: number;
+  maxTotalChars?: number;
+  maxCharsPerMessage?: number;
+  includeUtcTimestamp?: true;
+  includeLocalWeekday?: true;
+};
+
+export function morningExactThreadMessageCharCount(messages: MorningExactThreadMessage[]): number {
+  return messages.reduce((sum, m) => sum + m.body.length, 0);
+}
+
+function truncateMorningThreadBody(body: string, max = MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE): string {
+  const t = body.trim().replace(/\r?\n/g, " ");
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
+}
+
+export function formatLocalWeekday(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "long",
+  }).format(date);
+}
+
+function toMorningExactThreadMessage(
+  m: RecentExactThread72hMessage,
+  timezone: string,
+  maxCharsPerMessage: number
+): MorningExactThreadMessage {
+  const d = new Date(m.at);
+  return {
+    sender: m.role === "coach" ? "coach" : "user",
+    sent_at_utc: d.toISOString(),
+    sent_at_local: formatAtLocal(d, timezone),
+    local_weekday: formatLocalWeekday(d, timezone),
+    body: truncateMorningThreadBody(m.body, maxCharsPerMessage),
+  };
+}
+
+type MorningCapItem = { msg: RecentExactThread72hMessage; ts: number };
+
+function collectMorningWriterFacingItems(
+  messages: RecentExactThread72hMessage[],
+  nowMs: number,
+  windowHours: number
+): MorningCapItem[] {
+  const floorMs = nowMs - windowHours * 60 * 60 * 1000;
+  const items: MorningCapItem[] = [];
+  for (const m of messages) {
+    if (!isWriterFacingThreadMessage(m)) continue;
+    const ts = Date.parse(m.at);
+    if (!Number.isFinite(ts)) continue;
+    if (ts < floorMs) continue;
+    items.push({ msg: m, ts });
+  }
+  items.sort((a, b) => a.ts - b.ts);
+  return items;
+}
+
+/** Cap writer-facing thread for Morning TTO: newest preserved under message/char caps. */
+export function capMorningExactThreadMessages(
+  messages: RecentExactThread72hMessage[],
+  args: {
+    timezone: string;
+    nowMs: number;
+    options?: MorningExactThreadOptions;
+  }
+): MorningExactThreadMessage[] {
+  const opts = args.options ?? {};
+  const windowHours = opts.windowHours ?? MORNING_TTO_THREAD_WINDOW_HOURS;
+  const maxMessages = opts.maxMessages ?? MORNING_TTO_THREAD_MAX_MESSAGES;
+  const maxTotalChars = opts.maxTotalChars ?? MORNING_TTO_THREAD_MAX_TOTAL_CHARS;
+  const maxCharsPerMessage =
+    opts.maxCharsPerMessage ?? MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE;
+
+  let chosen = collectMorningWriterFacingItems(messages, args.nowMs, windowHours);
+  if (chosen.length > maxMessages) {
+    chosen = chosen.slice(-maxMessages);
+  }
+
+  let projected = chosen.map((i) =>
+    toMorningExactThreadMessage(i.msg, args.timezone, maxCharsPerMessage)
+  );
+
+  const dropOldest = (): boolean => {
+    if (chosen.length <= 1) return false;
+    chosen = chosen.slice(1);
+    projected = chosen.map((i) =>
+      toMorningExactThreadMessage(i.msg, args.timezone, maxCharsPerMessage)
+    );
+    return true;
+  };
+
+  while (morningExactThreadMessageCharCount(projected) > maxTotalChars) {
+    if (dropOldest()) continue;
+    break;
+  }
+
+  while (chosen.length > maxMessages) {
+    if (dropOldest()) continue;
+    break;
+  }
+
+  return projected;
+}
+
+/** 21d exact thread + Morning writer projection for MorningRelationshipPacket.exact_thread. */
+export async function buildMorningExactThreadForPacket(args: {
+  clerkUserId: string;
+  commitmentId?: string | null;
+  timezone: string;
+  now?: Date;
+  options?: MorningExactThreadOptions;
+}): Promise<{
+  window_days: 21;
+  max_messages: 30;
+  messages: MorningExactThreadMessage[];
+  message_count: number;
+  char_count: number;
+}> {
+  const now = args.now ?? new Date();
+  const tz = resolveUserTimezone(args.timezone);
+  const opts = args.options ?? {};
+  const windowHours = opts.windowHours ?? MORNING_TTO_THREAD_WINDOW_HOURS;
+
+  const timeline = await buildRecentExactThread72h({
+    clerkUserId: args.clerkUserId,
+    commitmentId: args.commitmentId,
+    timezone: tz,
+    now,
+    windowHours,
+  });
+
+  const messages = capMorningExactThreadMessages(timeline.messages, {
+    timezone: tz,
+    nowMs: now.getTime(),
+    options: opts,
+  });
+
+  return {
+    window_days: MORNING_TTO_THREAD_WINDOW_DAYS,
+    max_messages: MORNING_TTO_THREAD_MAX_MESSAGES,
+    messages,
+    message_count: messages.length,
+    char_count: morningExactThreadMessageCharCount(messages),
+  };
+}
