@@ -94,6 +94,7 @@ describe("runLaneOpenAiJsonWithOneRetry", () => {
     expect(out.retryMeta.writer_output_tokens).toBe(8);
     expect(out.retryMeta.writer_prompt_tokens).toBe(12);
     expect(out.retryMeta.writer_model).toBe("gpt-4o-mini");
+    expect(out.retryFollowUpMessages).toBeNull();
   });
 
   it("uses retry completion usage when retry succeeds", async () => {
@@ -137,5 +138,13 @@ describe("runLaneOpenAiJsonWithOneRetry", () => {
     expect(out.retryMeta.lane_json_retry_attempted).toBe(true);
     expect(out.retryMeta.writer_finish_reason).toBe("length");
     expect(out.retryMeta.writer_output_tokens).toBe(15);
+    expect(out.retryFollowUpMessages).toEqual([
+      { role: "assistant", content: "not json" },
+      {
+        role: "user",
+        content: expect.stringContaining("Your previous response was invalid JSON"),
+      },
+    ]);
+    expect(out.retryFollowUpMessages?.[1]?.content).toContain("json");
   });
 });

@@ -398,6 +398,12 @@ function setupHappyPath() {
       { role: "system", content: "Morning system" },
       { role: "user", content: "MORNING_RELATIONSHIP_PACKET_V1\n{}" },
     ],
+    primaryMessages: [
+      { role: "system", content: "Morning system" },
+      { role: "user", content: "MORNING_RELATIONSHIP_PACKET_V1\n{}" },
+    ],
+    retryMessages: [],
+    retryOccurred: false,
     writer_prompt_path: "morning_relationship_v1",
     model: "gpt-4o-mini",
   });

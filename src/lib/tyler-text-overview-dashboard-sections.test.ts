@@ -10,8 +10,11 @@ import {
   WEEKLY_RAW_NOTEBOOK_LEGACY_OR_MISSING_MESSAGE,
   buildProvenanceExplanationBlocks,
   buildWeeklyProvenanceExplanationBlocks,
+  formatMorningCurrentBodySourceLabel,
+  getMorningTechnicalRetrySectionCopy,
   getRawNotebookSectionCopy,
   getWeeklyRawNotebookSectionCopy,
+  isMorningRelationshipNotebookRow,
   rawNotebookSectionContainsForbiddenAdminCopy,
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import type { TylerTextOverviewAdminDraftRow } from "@/lib/tyler-text-overview-types";
@@ -38,6 +41,11 @@ function baseRow(
     editedByTyler: false,
     editedAt: null,
     writerOpenAiMessages: [],
+    authoritativeRetryMessages: [],
+    authoritativeMachineDraftBody: null,
+    authoritativeWriterModel: null,
+    authoritativeRetryOccurred: null,
+    authoritativeGeneratedAt: null,
     currentGenerationId: "gen-1",
     currentGenerationNumber: 1,
     latestGenerationId: "gen-1",
@@ -221,5 +229,65 @@ describe("weekly raw notebook / provenance", () => {
     expect(src).toContain("buildWeeklyProvenanceExplanationBlocks");
     expect(src).toContain("notebookRoleLabel");
     expect(src).not.toContain("JSON.stringify(rawNotebook.messages");
+  });
+
+  it("Morning relationship sections keep current body, machine draft, and retry separate", () => {
+    const morning = baseRow({
+      notebookFamily: "morning_relationship_v1",
+      writerPromptPath: "morning_relationship_v1",
+      notebookDisplayMode: "exact_primary_input",
+      currentBodyToSend: "Tyler will send this",
+      currentBodySource: "tyler_edit",
+      editedByTyler: true,
+      authoritativeMachineDraftBody: "Machine originally wrote this",
+      authoritativeRetryOccurred: true,
+      authoritativeRetryMessages: [
+        { role: "assistant", content: "{bad" },
+        { role: "user", content: "retry reminder exact" },
+      ],
+      writerOpenAiMessages: [
+        { role: "system", content: "system exact" },
+        { role: "user", content: "MORNING_RELATIONSHIP_PACKET_V1\n{\"x\":1}" },
+      ],
+      notebookMessageCount: 2,
+      machineShouldSend: true,
+    });
+
+    expect(isMorningRelationshipNotebookRow(morning)).toBe(true);
+    expect(formatMorningCurrentBodySourceLabel(morning)).toBe("Source: Tyler edit");
+    const retry = getMorningTechnicalRetrySectionCopy(morning);
+    expect(retry.show).toBe(true);
+    expect(retry.label).toContain("Technical JSON retry context");
+    expect(retry.messages[1]?.content).toBe("retry reminder exact");
+
+    const raw = getRawNotebookSectionCopy(morning);
+    expect(raw.messages).toHaveLength(2);
+    expect(raw.messages.map((m) => m.content).join("\n")).not.toContain("retry reminder exact");
+    expect(raw.messages.map((m) => m.content).join("\n")).not.toContain(
+      "Machine originally wrote this"
+    );
+
+    const noRetry = getMorningTechnicalRetrySectionCopy(
+      baseRow({
+        notebookFamily: "morning_relationship_v1",
+        writerPromptPath: "morning_relationship_v1",
+        authoritativeRetryOccurred: false,
+        authoritativeRetryMessages: [],
+      })
+    );
+    expect(noRetry.show).toBe(false);
+  });
+
+  it("Morning dashboard renders distinct historical writer-record sections", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
+      "utf8"
+    );
+    expect(src).toContain("MORNING_CURRENT_BODY_HEADING");
+    expect(src).toContain("MORNING_ORIGINAL_MACHINE_DRAFT_HEADING");
+    expect(src).toContain("MORNING_RAW_PRIMARY_INPUT_HEADING");
+    expect(src).toContain("MorningTechnicalRetryPanel");
+    expect(src).toContain("authoritativeMachineDraftBody");
+    expect(src).not.toContain("reconstruct");
   });
 });

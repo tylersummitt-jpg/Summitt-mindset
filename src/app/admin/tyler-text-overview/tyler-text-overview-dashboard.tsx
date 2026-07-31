@@ -31,9 +31,21 @@ import {
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
   ADMIN_INTERPRETATION_LINE,
+  MORNING_CURRENT_BODY_HEADING,
+  MORNING_CURRENT_BODY_LABEL,
+  MORNING_GENERATION_PROVENANCE_HEADING,
+  MORNING_GENERATION_PROVENANCE_LABEL,
+  MORNING_ORIGINAL_MACHINE_DRAFT_HEADING,
+  MORNING_ORIGINAL_MACHINE_DRAFT_LABEL,
+  MORNING_ORIGINAL_MACHINE_DRAFT_UNAVAILABLE,
+  MORNING_RAW_PRIMARY_INPUT_HEADING,
+  MORNING_RAW_PRIMARY_INPUT_LABEL,
   RAW_NOTEBOOK_SECTION_HEADING,
   buildProvenanceExplanationBlocks,
+  formatMorningCurrentBodySourceLabel,
+  getMorningTechnicalRetrySectionCopy,
   getRawNotebookSectionCopy,
+  isMorningRelationshipNotebookRow,
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import { notebookFamilyLabel } from "@/lib/tyler-text-overview-notebook-display";
 import type {
@@ -120,6 +132,7 @@ function formatMachineShouldSend(row: TylerTextOverviewAdminDraftRow): string {
 function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
   const explanationBlocks = buildProvenanceExplanationBlocks(row);
   const evening = isEveningPreviewRow(row);
+  const morning = isMorningRelationshipNotebookRow(row);
 
   return (
     <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-3 text-xs text-gray-700">
@@ -169,7 +182,9 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
           <dd>{formatOptional(row.capturePresent)}</dd>
         </div>
         <div>
-          <dt className="font-medium text-gray-500">Current generation</dt>
+          <dt className="font-medium text-gray-500">
+            {morning ? "Authoritative generation" : "Current generation"}
+          </dt>
           <dd className="font-mono break-all">
             #{formatOptional(row.currentGenerationNumber)} ({formatOptional(row.currentGenerationId)})
           </dd>
@@ -184,6 +199,26 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
           <dt className="font-medium text-gray-500">Is latest generation</dt>
           <dd>{formatOptional(row.isLatestGeneration)}</dd>
         </div>
+        {morning ? (
+          <>
+            <div>
+              <dt className="font-medium text-gray-500">writer model</dt>
+              <dd className="font-mono break-all">
+                {formatOptional(row.authoritativeWriterModel)}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-500">technical retry occurred</dt>
+              <dd>{formatOptional(row.authoritativeRetryOccurred)}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-500">machine generation timestamp</dt>
+              <dd className="font-mono break-all">
+                {formatOptional(row.authoritativeGeneratedAt)}
+              </dd>
+            </div>
+          </>
+        ) : null}
         <div>
           <dt className="font-medium text-gray-500">
             {evening ? "Would send" : "machine_should_send"}
@@ -218,6 +253,53 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
         </div>
       </dl>
     </div>
+  );
+}
+
+function MorningOriginalMachineDraftPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
+  const body = row.authoritativeMachineDraftBody;
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-gray-600">{MORNING_ORIGINAL_MACHINE_DRAFT_LABEL}</p>
+      {typeof body === "string" && body.length > 0 ? (
+        <pre className="overflow-x-auto rounded bg-gray-50 p-3 text-xs text-gray-800 whitespace-pre-wrap font-mono border border-gray-200">
+          {body}
+        </pre>
+      ) : (
+        <p className="rounded border border-amber-200 bg-amber-50 px-2 py-2 text-xs text-amber-900">
+          {MORNING_ORIGINAL_MACHINE_DRAFT_UNAVAILABLE}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MorningTechnicalRetryPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
+  const retry = getMorningTechnicalRetrySectionCopy(row);
+  if (!retry.show) return null;
+
+  return (
+    <section className="space-y-3 border-t border-gray-100 pt-5">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+        {retry.heading}
+      </h2>
+      <p className="text-xs font-medium text-amber-900">{retry.label}</p>
+      <p className="text-xs text-gray-600">{retry.detail}</p>
+      {retry.messages.length === 0 ? (
+        <p className="text-sm text-gray-600">Retry occurred, but no retry messages were persisted.</p>
+      ) : (
+        <div className="space-y-3">
+          {retry.messages.map((message, index) => (
+            <div key={`${row.draftId ?? row.clerkUserId}-retry-${index}`}>
+              <p className="text-xs font-semibold text-gray-600">{notebookLabel(message.role)}</p>
+              <pre className="mt-1 overflow-x-auto rounded bg-amber-50 p-3 text-xs text-gray-800 whitespace-pre-wrap border border-amber-100">
+                {message.content}
+              </pre>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -848,7 +930,19 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                     </dl>
                   ) : null}
                   <div>
-                    <p className="text-xs font-medium text-gray-500">current_body_to_send</p>
+                    <p className="text-xs font-medium text-gray-500">
+                      {!isEveningPage && isMorningRelationshipNotebookRow(row)
+                        ? MORNING_CURRENT_BODY_HEADING
+                        : "current_body_to_send"}
+                    </p>
+                    {!isEveningPage && isMorningRelationshipNotebookRow(row) ? (
+                      <div className="mt-1 mb-2 space-y-1">
+                        <p className="text-xs text-gray-600">{MORNING_CURRENT_BODY_LABEL}</p>
+                        <p className="text-xs font-medium text-gray-700">
+                          {formatMorningCurrentBodySourceLabel(row)}
+                        </p>
+                      </div>
+                    ) : null}
                     {morningSendabilityCopy ? (
                       <p
                         className={`mt-1 mb-2 rounded border px-2 py-2 text-xs ${
@@ -955,11 +1049,25 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   </section>
                 ) : null}
 
+                {!isEveningPage && isMorningRelationshipNotebookRow(row) ? (
+                  <section className="space-y-3 border-t border-gray-100 pt-5">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                      {MORNING_ORIGINAL_MACHINE_DRAFT_HEADING}
+                    </h2>
+                    <MorningOriginalMachineDraftPanel row={row} />
+                  </section>
+                ) : null}
+
                 <section className="space-y-3 border-t border-gray-100 pt-5">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                    Notebook provenance
+                    {!isEveningPage && isMorningRelationshipNotebookRow(row)
+                      ? MORNING_GENERATION_PROVENANCE_HEADING
+                      : "Notebook provenance"}
                   </h2>
                   <p className="text-xs text-gray-600">{ADMIN_INTERPRETATION_LINE}</p>
+                  {!isEveningPage && isMorningRelationshipNotebookRow(row) ? (
+                    <p className="text-xs text-gray-600">{MORNING_GENERATION_PROVENANCE_LABEL}</p>
+                  ) : null}
                   <NotebookProvenancePanel row={row} />
                 </section>
 
@@ -972,10 +1080,19 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
                 <section className="space-y-3 border-t border-gray-100 pt-5">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                    {RAW_NOTEBOOK_SECTION_HEADING}
+                    {!isEveningPage && isMorningRelationshipNotebookRow(row)
+                      ? MORNING_RAW_PRIMARY_INPUT_HEADING
+                      : RAW_NOTEBOOK_SECTION_HEADING}
                   </h2>
+                  {!isEveningPage && isMorningRelationshipNotebookRow(row) ? (
+                    <p className="text-xs text-gray-600">{MORNING_RAW_PRIMARY_INPUT_LABEL}</p>
+                  ) : null}
                   <NotebookMessagesSection row={row} />
                 </section>
+
+                {!isEveningPage && isMorningRelationshipNotebookRow(row) ? (
+                  <MorningTechnicalRetryPanel row={row} />
+                ) : null}
               </li>
             );
           })}

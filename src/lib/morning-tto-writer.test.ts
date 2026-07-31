@@ -86,6 +86,7 @@ describe("morning-tto-writer", () => {
       value: { body: "Good morning — glad you got that hour in yesterday." },
       raw: '{"body":"Good morning — glad you got that hour in yesterday."}',
       retryMeta: {},
+      retryFollowUpMessages: null,
     });
 
     const result = await writeMorningTtoBody(samplePacket());
@@ -96,7 +97,36 @@ describe("morning-tto-writer", () => {
     expect(result.writer_prompt_path).toBe("morning_relationship_v1");
     expect(result.model).toBe(MORNING_TTO_WRITER_MODEL);
     expect(result.messages).toHaveLength(2);
+    expect(result.primaryMessages).toEqual(result.messages);
+    expect(result.retryMessages).toEqual([]);
+    expect(result.retryOccurred).toBe(false);
     expect(runLaneOpenAiJsonWithOneRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns exact retry transcript when technical JSON retry occurred", async () => {
+    const retryFollowUpMessages = [
+      { role: "assistant" as const, content: "not-json" },
+      {
+        role: "user" as const,
+        content:
+          'Your previous response was invalid JSON or did not parse. Return strict JSON only: {"body":"<nonempty sms text>"}\n\nRespond with JSON only.',
+      },
+    ];
+    runLaneOpenAiJsonWithOneRetry.mockResolvedValue({
+      value: { body: "Retry body after fix." },
+      raw: '{"body":"Retry body after fix."}',
+      retryMeta: { lane_json_retry_attempted: true },
+      retryFollowUpMessages,
+    });
+
+    const result = await writeMorningTtoBody(samplePacket());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.body).toBe("Retry body after fix.");
+    expect(result.retryOccurred).toBe(true);
+    expect(result.retryMessages).toEqual(retryFollowUpMessages);
+    expect(result.primaryMessages).toHaveLength(2);
+    expect(result.messages).toEqual(result.primaryMessages);
   });
 
   it("returns invalid_json when parse fails after retry path", async () => {
@@ -104,6 +134,10 @@ describe("morning-tto-writer", () => {
       value: null,
       raw: "not json",
       retryMeta: { lane_json_retry_attempted: true },
+      retryFollowUpMessages: [
+        { role: "assistant", content: "not json" },
+        { role: "user", content: "retry reminder" },
+      ],
     });
 
     const result = await writeMorningTtoBody(samplePacket());
@@ -111,6 +145,8 @@ describe("morning-tto-writer", () => {
     if (result.ok) return;
     expect(result.error).toBe("invalid_json");
     expect(result.messages).toHaveLength(2);
+    expect(result.retryOccurred).toBe(true);
+    expect(result.retryMessages).toHaveLength(2);
   });
 
   it("returns empty_body when JSON parses but body is blank", async () => {
@@ -118,6 +154,7 @@ describe("morning-tto-writer", () => {
       value: null,
       raw: '{"body":"   "}',
       retryMeta: { lane_json_retry_attempted: true },
+      retryFollowUpMessages: null,
     });
 
     const result = await writeMorningTtoBody(samplePacket());
@@ -130,11 +167,13 @@ describe("morning-tto-writer", () => {
     runLaneOpenAiJsonWithOneRetry.mockRejectedValue(new Error("network down"));
 
     const result = await writeMorningTtoBody(samplePacket());
-    expect(result).toEqual({
-      ok: false,
-      error: "openai_request_failed",
-      messages: expect.any(Array),
-    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe("openai_request_failed");
+    expect(result.messages).toHaveLength(2);
+    expect(result.retryMessages).toEqual([]);
+    expect(result.retryOccurred).toBe(false);
+    expect(result.model).toBe(MORNING_TTO_WRITER_MODEL);
   });
 
   it("uses one OpenAI call helper with JSON schema reminder for body only", async () => {
@@ -142,6 +181,7 @@ describe("morning-tto-writer", () => {
       value: { body: "Morning check-in." },
       raw: '{"body":"Morning check-in."}',
       retryMeta: {},
+      retryFollowUpMessages: null,
     });
 
     await writeMorningTtoBody(samplePacket());

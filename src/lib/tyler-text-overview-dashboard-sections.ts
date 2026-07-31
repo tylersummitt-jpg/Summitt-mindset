@@ -16,6 +16,75 @@ export const RAW_NOTEBOOK_SECTION_LABEL =
 export const RAW_NOTEBOOK_EMPTY_MESSAGE =
   "No raw OpenAI input exists for this generation because the writer was not called.";
 
+/** Morning historical writer-record section copy (exact persisted strings). */
+export const MORNING_CURRENT_BODY_HEADING = "CURRENT BODY THAT WILL SEND";
+export const MORNING_CURRENT_BODY_LABEL =
+  "This is the authoritative body Twilio will send.";
+
+export const MORNING_ORIGINAL_MACHINE_DRAFT_HEADING = "ORIGINAL MACHINE DRAFT";
+export const MORNING_ORIGINAL_MACHINE_DRAFT_LABEL =
+  "This is what the Morning writer originally generated before any Tyler edit.";
+export const MORNING_ORIGINAL_MACHINE_DRAFT_UNAVAILABLE =
+  "Original machine draft unavailable (null) for this authoritative generation.";
+
+export const MORNING_RAW_PRIMARY_INPUT_HEADING = "RAW PRIMARY OPENAI INPUT";
+export const MORNING_RAW_PRIMARY_INPUT_LABEL =
+  "These are the exact original system and user messages sent to OpenAI.";
+
+export const MORNING_TECHNICAL_RETRY_HEADING = "TECHNICAL RETRY CONTEXT";
+export const MORNING_TECHNICAL_RETRY_LABEL =
+  "Technical JSON retry context — also sent to OpenAI after the first response failed validation.";
+export const MORNING_TECHNICAL_RETRY_DETAIL =
+  "These additional messages were sent only because the first OpenAI response failed JSON validation.";
+
+export const MORNING_GENERATION_PROVENANCE_HEADING = "GENERATION PROVENANCE";
+export const MORNING_GENERATION_PROVENANCE_LABEL =
+  "Metadata about the authoritative generation — not writer input.";
+
+export function isMorningRelationshipNotebookRow(
+  row: TylerTextOverviewAdminDraftRow
+): boolean {
+  return (
+    row.notebookFamily === "morning_relationship_v1" ||
+    row.writerPromptPath === "morning_relationship_v1"
+  );
+}
+
+export function formatMorningCurrentBodySourceLabel(
+  row: TylerTextOverviewAdminDraftRow
+): string {
+  if (row.editedByTyler === true || row.currentBodySource === "tyler_edit") {
+    return "Source: Tyler edit";
+  }
+  if (row.currentBodySource === "machine") {
+    return "Source: machine";
+  }
+  if (row.currentBodySource) {
+    return `Source: ${row.currentBodySource}`;
+  }
+  return "Source: —";
+}
+
+export function getMorningTechnicalRetrySectionCopy(
+  row: TylerTextOverviewAdminDraftRow
+): {
+  show: boolean;
+  heading: string;
+  label: string;
+  detail: string;
+  messages: TylerTextOverviewAdminDraftRow["authoritativeRetryMessages"];
+} {
+  const messages = row.authoritativeRetryMessages ?? [];
+  const show = row.authoritativeRetryOccurred === true || messages.length > 0;
+  return {
+    show,
+    heading: MORNING_TECHNICAL_RETRY_HEADING,
+    label: MORNING_TECHNICAL_RETRY_LABEL,
+    detail: MORNING_TECHNICAL_RETRY_DETAIL,
+    messages,
+  };
+}
+
 /** Weekly legacy rows stored assistant output; do not claim exact writer input. */
 export const WEEKLY_RAW_NOTEBOOK_LEGACY_OR_MISSING_MESSAGE =
   "No exact writer input was persisted for this generation.";

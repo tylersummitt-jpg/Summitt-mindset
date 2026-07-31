@@ -443,6 +443,9 @@ function setupHappyPath() {
     ok: true,
     body: MORNING_SUCCESS_BODY,
     messages: MORNING_WRITER_MESSAGES,
+    primaryMessages: MORNING_WRITER_MESSAGES,
+    retryMessages: [],
+    retryOccurred: false,
     writer_prompt_path: "morning_relationship_v1",
     model: "gpt-4o-mini",
   });
@@ -656,6 +659,46 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(meta.build_ok).toBe(true);
     expect(meta.capture_present).toBe(true);
     expect(meta.thread_message_count).toBe(2);
+    expect(meta.writer_model).toBe("gpt-4o-mini");
+    expect(meta.morning_writer_capture_v1).toEqual({
+      model: "gpt-4o-mini",
+      retry_occurred: false,
+      retry_succeeded: null,
+      retry_messages: [],
+    });
+  });
+
+  it("persists exact technical retry transcript in morning_writer_capture_v1", async () => {
+    setupHappyPath();
+    const retryMessages = [
+      { role: "assistant" as const, content: "INVALID{" },
+      {
+        role: "user" as const,
+        content:
+          'Your previous response was invalid JSON or did not parse. Return strict JSON only: {"body":"<nonempty sms text>"}\n\nRespond with JSON only.',
+      },
+    ];
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "Body after retry.",
+      messages: MORNING_WRITER_MESSAGES,
+      primaryMessages: MORNING_WRITER_MESSAGES,
+      retryMessages,
+      retryOccurred: true,
+      writer_prompt_path: "morning_relationship_v1",
+      model: "gpt-4o-mini",
+    });
+    await generateTylerTextOverviewDailyDrafts();
+    expect(db.generations[0]?.writer_openai_messages).toEqual(MORNING_WRITER_MESSAGES);
+    expect(db.generations[0]?.machine_draft_body).toBe("Body after retry.");
+    const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
+    expect(meta.writer_model).toBe("gpt-4o-mini");
+    expect(meta.morning_writer_capture_v1).toEqual({
+      model: "gpt-4o-mini",
+      retry_occurred: true,
+      retry_succeeded: true,
+      retry_messages: retryMessages,
+    });
   });
 
   it("writes send_slot morning on generation insert and draft upsert", async () => {

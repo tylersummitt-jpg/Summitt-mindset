@@ -373,11 +373,19 @@ export function mapMorningWriterToGenerationRow(args: {
     body: string;
     messages: TylerTextOverviewWriterOpenAiMessage[];
     writerPromptPath: "morning_relationship_v1";
+    model?: string;
+    retryMessages?: TylerTextOverviewWriterOpenAiMessage[];
+    retryOccurred?: boolean;
+    retrySucceeded?: boolean;
   };
   failure?: {
     error: string;
     messages?: TylerTextOverviewWriterOpenAiMessage[];
     writerPromptPath?: string | null;
+    model?: string | null;
+    retryMessages?: TylerTextOverviewWriterOpenAiMessage[];
+    retryOccurred?: boolean;
+    retrySucceeded?: boolean;
   };
   packetMetadata?: {
     thread_message_count: number;
@@ -393,6 +401,18 @@ export function mapMorningWriterToGenerationRow(args: {
   const writerPromptPath =
     args.success?.writerPromptPath ?? args.failure?.writerPromptPath ?? null;
   const failureError = args.failure?.error ?? "unknown_morning_writer_failure";
+  const model =
+    args.success?.model?.trim() ||
+    args.failure?.model?.trim() ||
+    null;
+  const retryMessages =
+    args.success?.retryMessages ?? args.failure?.retryMessages ?? [];
+  const retryOccurred =
+    args.success?.retryOccurred === true ||
+    args.failure?.retryOccurred === true ||
+    retryMessages.length > 0;
+  const retrySucceeded =
+    args.success?.retrySucceeded ?? args.failure?.retrySucceeded ?? null;
 
   return {
     clerk_user_id: args.clerkUserId,
@@ -426,6 +446,13 @@ export function mapMorningWriterToGenerationRow(args: {
       days_since_last_user_response: args.packetMetadata?.days_since_last_user_response ?? null,
       never_replied: args.packetMetadata?.never_replied ?? null,
       has_pending_goal_change: args.packetMetadata?.has_pending_goal_change ?? null,
+      ...(model ? { writer_model: model } : {}),
+      morning_writer_capture_v1: {
+        model,
+        retry_occurred: retryOccurred,
+        retry_succeeded: retryOccurred ? retrySucceeded : null,
+        retry_messages: retryOccurred ? retryMessages : [],
+      },
     },
     timezone_snapshot: args.timezone,
     send_pref_snapshot: args.sendPrefSnapshot,
@@ -446,11 +473,19 @@ export async function persistMorningTtoGeneration(args: {
     body: string;
     messages: TylerTextOverviewWriterOpenAiMessage[];
     writerPromptPath: "morning_relationship_v1";
+    model?: string;
+    retryMessages?: TylerTextOverviewWriterOpenAiMessage[];
+    retryOccurred?: boolean;
+    retrySucceeded?: boolean;
   };
   failure?: {
     error: string;
     messages?: TylerTextOverviewWriterOpenAiMessage[];
     writerPromptPath?: string | null;
+    model?: string | null;
+    retryMessages?: TylerTextOverviewWriterOpenAiMessage[];
+    retryOccurred?: boolean;
+    retrySucceeded?: boolean;
   };
   packetMetadata?: {
     thread_message_count: number;
@@ -974,6 +1009,12 @@ export async function generateTylerTextOverviewDraftForUser(args: {
   const writerMessages = writerResult.messages
     ? mapOpenAiMessagesToWriterCapture(writerResult.messages)
     : undefined;
+  const retryMessages = mapOpenAiMessagesToWriterCapture(
+    writerResult.retryMessages ?? []
+  );
+  const retryOccurred = writerResult.retryOccurred === true;
+  const writerModel =
+    typeof writerResult.model === "string" ? writerResult.model : null;
 
   if (!writerResult.ok) {
     const persisted = await persistMorningTtoGeneration({
@@ -988,6 +1029,10 @@ export async function generateTylerTextOverviewDraftForUser(args: {
         error: writerResult.error,
         messages: writerMessages,
         writerPromptPath: writerMessages?.length ? "morning_relationship_v1" : null,
+        model: writerModel,
+        retryMessages,
+        retryOccurred,
+        retrySucceeded: retryOccurred ? false : undefined,
       },
       packetMetadata,
     });
@@ -1020,6 +1065,10 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       body: writerResult.body,
       messages: mapOpenAiMessagesToWriterCapture(writerResult.messages),
       writerPromptPath: writerResult.writer_prompt_path,
+      model: writerResult.model,
+      retryMessages,
+      retryOccurred,
+      retrySucceeded: retryOccurred ? true : undefined,
     },
     packetMetadata,
   });

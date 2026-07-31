@@ -45,7 +45,13 @@ The body must be nonempty.`;
 export type MorningWriterSuccess = {
   ok: true;
   body: string;
+  /** Exact original system+user array passed as primaryMessages. */
   messages: ChatCompletionMessageParam[];
+  /** Alias of messages (primary input only). */
+  primaryMessages: ChatCompletionMessageParam[];
+  /** Exact assistant+user follow-ups for technical JSON retry; empty when no retry. */
+  retryMessages: ChatCompletionMessageParam[];
+  retryOccurred: boolean;
   writer_prompt_path: "morning_relationship_v1";
   model: typeof MORNING_TTO_WRITER_MODEL;
 };
@@ -60,6 +66,10 @@ export type MorningWriterFailure = {
   ok: false;
   error: MorningWriterFailureReason;
   messages?: ChatCompletionMessageParam[];
+  primaryMessages?: ChatCompletionMessageParam[];
+  retryMessages?: ChatCompletionMessageParam[];
+  retryOccurred?: boolean;
+  model?: typeof MORNING_TTO_WRITER_MODEL;
 };
 
 export type MorningWriterResult = MorningWriterSuccess | MorningWriterFailure;
@@ -127,22 +137,52 @@ export async function writeMorningTtoBody(
       parse: parseMorningWriterJson,
     });
 
+    const retryMessages = jsonOut.retryFollowUpMessages ?? [];
+    const retryOccurred = retryMessages.length > 0;
+
     if (jsonOut.value?.body) {
       return {
         ok: true,
         body: jsonOut.value.body,
         messages,
+        primaryMessages: messages,
+        retryMessages,
+        retryOccurred,
         writer_prompt_path: "morning_relationship_v1",
         model: MORNING_TTO_WRITER_MODEL,
       };
     }
 
     if (isEmptyBodyJson(jsonOut.raw)) {
-      return { ok: false, error: "empty_body", messages };
+      return {
+        ok: false,
+        error: "empty_body",
+        messages,
+        primaryMessages: messages,
+        retryMessages,
+        retryOccurred,
+        model: MORNING_TTO_WRITER_MODEL,
+      };
     }
 
-    return { ok: false, error: "invalid_json", messages };
+    return {
+      ok: false,
+      error: "invalid_json",
+      messages,
+      primaryMessages: messages,
+      retryMessages,
+      retryOccurred,
+      model: MORNING_TTO_WRITER_MODEL,
+    };
   } catch {
-    return { ok: false, error: "openai_request_failed", messages };
+    return {
+      ok: false,
+      error: "openai_request_failed",
+      messages,
+      primaryMessages: messages,
+      retryMessages: [],
+      retryOccurred: false,
+      model: MORNING_TTO_WRITER_MODEL,
+    };
   }
 }

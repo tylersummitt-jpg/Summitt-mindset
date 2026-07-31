@@ -290,6 +290,19 @@ export type TylerTextOverviewAdminDraftRow = {
     role: "system" | "user" | "assistant";
     content: string;
   }>;
+  /**
+   * Exact technical JSON retry follow-up messages from the authoritative generation
+   * (assistant invalid output + reminder user). Empty when no retry.
+   */
+  authoritativeRetryMessages: Array<{
+    role: "system" | "user" | "assistant";
+    content: string;
+  }>;
+  /** Immutable machine_draft_body from current_generation_id (not current_body_to_send). */
+  authoritativeMachineDraftBody: string | null;
+  authoritativeWriterModel: string | null;
+  authoritativeRetryOccurred: boolean | null;
+  authoritativeGeneratedAt: string | null;
   currentGenerationId: string | null;
   currentGenerationNumber: number | null;
   latestGenerationId: string | null;

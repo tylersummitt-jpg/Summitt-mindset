@@ -60,6 +60,11 @@ const DRAFT_OVERLAY_STATUS_PRIORITY: Record<string, number> = {
 const EMPTY_NOTEBOOK_FIELDS: Pick<
   TylerTextOverviewAdminDraftRow,
   | "writerOpenAiMessages"
+  | "authoritativeRetryMessages"
+  | "authoritativeMachineDraftBody"
+  | "authoritativeWriterModel"
+  | "authoritativeRetryOccurred"
+  | "authoritativeGeneratedAt"
   | "currentGenerationId"
   | "currentGenerationNumber"
   | "latestGenerationId"
@@ -80,6 +85,11 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   | "slotCoachingContext"
 > = {
   writerOpenAiMessages: [],
+  authoritativeRetryMessages: [],
+  authoritativeMachineDraftBody: null,
+  authoritativeWriterModel: null,
+  authoritativeRetryOccurred: null,
+  authoritativeGeneratedAt: null,
   currentGenerationId: null,
   currentGenerationNumber: null,
   latestGenerationId: null,
@@ -390,6 +400,7 @@ type GenerationDbRow = {
   clerk_user_id?: string;
   draft_for_day_key?: string;
   send_slot?: string;
+  generated_at?: string | null;
 };
 
 type LatestGenerationRef = {
@@ -400,7 +411,7 @@ type LatestGenerationRef = {
 const WRITER_MESSAGE_ROLES = new Set(["system", "user", "assistant"]);
 
 const GENERATION_SELECT_COLUMNS =
-  "id, generation_number, writer_openai_messages, writer_prompt_path, machine_draft_body, machine_should_send, machine_no_send_reason, notebook_hash, generation_metadata, route_kind, clerk_user_id, draft_for_day_key";
+  "id, generation_number, writer_openai_messages, writer_prompt_path, machine_draft_body, machine_should_send, machine_no_send_reason, notebook_hash, generation_metadata, route_kind, clerk_user_id, draft_for_day_key, generated_at";
 
 function draftLatestGenKey(clerkUserId: string, draftForDayKey: string, sendSlot: string): string {
   return `${clerkUserId}:${draftForDayKey}:${sendSlot}`;
@@ -460,6 +471,53 @@ export function parseWriterOpenAiMessages(raw: unknown): TylerTextOverviewWriter
     }
   }
   return out;
+}
+
+/** Exact Morning technical-retry follow-ups from generation_metadata.morning_writer_capture_v1. */
+export function parseMorningWriterRetryCapture(metadata: unknown): {
+  model: string | null;
+  retryOccurred: boolean | null;
+  retryMessages: TylerTextOverviewWriterOpenAiMessage[];
+} {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return { model: null, retryOccurred: null, retryMessages: [] };
+  }
+  const root = metadata as Record<string, unknown>;
+  const capture =
+    root.morning_writer_capture_v1 &&
+    typeof root.morning_writer_capture_v1 === "object" &&
+    !Array.isArray(root.morning_writer_capture_v1)
+      ? (root.morning_writer_capture_v1 as Record<string, unknown>)
+      : null;
+
+  const modelFromCapture =
+    typeof capture?.model === "string" && capture.model.trim() ? capture.model.trim() : null;
+  const modelFromRoot =
+    typeof root.writer_model === "string" && root.writer_model.trim()
+      ? root.writer_model.trim()
+      : null;
+
+  if (!capture) {
+    return {
+      model: modelFromRoot,
+      retryOccurred: null,
+      retryMessages: [],
+    };
+  }
+
+  const retryOccurred =
+    capture.retry_occurred === true
+      ? true
+      : capture.retry_occurred === false
+        ? false
+        : null;
+  const retryMessages = parseWriterOpenAiMessages(capture.retry_messages);
+
+  return {
+    model: modelFromCapture ?? modelFromRoot,
+    retryOccurred,
+    retryMessages: retryOccurred === true ? retryMessages : [],
+  };
 }
 
 /**
@@ -574,6 +632,11 @@ function mapGenerationToNotebookFields(
 ): Pick<
   TylerTextOverviewAdminDraftRow,
   | "writerOpenAiMessages"
+  | "authoritativeRetryMessages"
+  | "authoritativeMachineDraftBody"
+  | "authoritativeWriterModel"
+  | "authoritativeRetryOccurred"
+  | "authoritativeGeneratedAt"
   | "currentGenerationId"
   | "currentGenerationNumber"
   | "writerPromptPath"
@@ -593,6 +656,7 @@ function mapGenerationToNotebookFields(
   const writerOpenAiMessages = parseWriterOpenAiMessages(generation?.writer_openai_messages);
   const notebookMessageCount = writerOpenAiMessages.length;
   const metadata = parseGenerationMetadata(generation?.generation_metadata);
+  const retryCapture = parseMorningWriterRetryCapture(generation?.generation_metadata);
   const machineShouldSend =
     typeof generation?.machine_should_send === "boolean" ? generation.machine_should_send : null;
   const machineNoSendReason =
@@ -605,6 +669,15 @@ function mapGenerationToNotebookFields(
 
   return {
     writerOpenAiMessages,
+    authoritativeRetryMessages: retryCapture.retryMessages,
+    authoritativeMachineDraftBody:
+      typeof generation?.machine_draft_body === "string" ? generation.machine_draft_body : null,
+    authoritativeWriterModel: retryCapture.model,
+    authoritativeRetryOccurred: retryCapture.retryOccurred,
+    authoritativeGeneratedAt:
+      typeof generation?.generated_at === "string" && generation.generated_at.trim()
+        ? generation.generated_at.trim()
+        : null,
     currentGenerationId: generation?.id ?? null,
     currentGenerationNumber:
       typeof generation?.generation_number === "number" ? generation.generation_number : null,

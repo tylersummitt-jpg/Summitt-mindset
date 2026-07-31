@@ -13,6 +13,7 @@ import {
   matchesTylerTextOverviewSearchQuery,
   normalizeTylerTextOverviewDraftBodyInput,
   parseWriterOpenAiMessages,
+  parseMorningWriterRetryCapture,
   pickTylerTextOverviewDraftOverlay,
   resolveAdminListSendSlot,
   resolveTylerTextOverviewRowState,
@@ -37,6 +38,10 @@ type DraftRow = {
   edit_distance_chars?: number | null;
   current_body_hash?: string | null;
   updated_at?: string;
+  sent_at?: string | null;
+  final_body_sent?: string | null;
+  twilio_message_sid?: string | null;
+  source_sms_send_event_id?: string | null;
 };
 
 type GenerationRow = {
@@ -54,6 +59,7 @@ type GenerationRow = {
   generation_metadata?: Record<string, unknown>;
   phone_number?: string;
   notebook_verdict?: string;
+  generated_at?: string | null;
 };
 
 type SmsAudienceRow = {
@@ -507,11 +513,126 @@ describe("tyler-text-overview-admin read model", () => {
     expect(dto.sendSlot).toBe("morning");
     expect(dto.currentBodyToSend).toBe(MACHINE_BODY);
     expect(dto.writerOpenAiMessages).toEqual(WRITER_MESSAGES);
+    expect(dto.authoritativeMachineDraftBody).toBe(MACHINE_BODY);
+    expect(dto.authoritativeRetryMessages).toEqual([]);
+    expect(dto.authoritativeRetryOccurred).toBeNull();
     expect(dto.writerPromptPath).toBe("daily_writing_brief_v1");
     expect(dto.notebookMessageCount).toBe(3);
     expect(dto.machineShouldSend).toBe(true);
     expect(dto.capturePresent).toBe(true);
     expect(dto.isLatestGeneration).toBe(true);
+  });
+
+  it("Morning DTO exposes authoritative machine draft + retry from current_generation_id only", () => {
+    const morningPrimary = [
+      { role: "system" as const, content: "MORNING_SYSTEM_EXACT" },
+      {
+        role: "user" as const,
+        content:
+          'MORNING_RELATIONSHIP_PACKET_V1\n{"version":"morning_relationship_v1","exact_thread":[{"role":"user","body":"hi"}]}\nWrite JSON only.',
+      },
+    ];
+    const retryMessages = [
+      { role: "assistant" as const, content: "{bad" },
+      { role: "user" as const, content: "Return strict JSON only: {\"body\":\"...\"}" },
+    ];
+    const orphanPrimary = [
+      { role: "system" as const, content: "ORPHAN_SYSTEM" },
+      { role: "user" as const, content: "ORPHAN_USER" },
+    ];
+
+    seedCurrentDraft({
+      current_body_to_send: "Tyler edited send body",
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+      generation: {
+        writer_openai_messages: morningPrimary,
+        writer_prompt_path: "morning_relationship_v1",
+        machine_draft_body: "Original machine draft body",
+        generated_at: "2026-07-03T12:00:00.000Z",
+        generation_metadata: {
+          capture_present: true,
+          writer_model: "gpt-4o-mini",
+          morning_writer_capture_v1: {
+            model: "gpt-4o-mini",
+            retry_occurred: true,
+            retry_succeeded: true,
+            retry_messages: retryMessages,
+          },
+        },
+      },
+    });
+    db.generations.push({
+      id: "gen-orphan-newer",
+      generation_number: 99,
+      clerk_user_id: "user_admin_test",
+      draft_for_day_key: "2026-07-03",
+      send_slot: "morning",
+      writer_openai_messages: orphanPrimary,
+      writer_prompt_path: "morning_relationship_v1",
+      machine_draft_body: "Orphan machine body must not display",
+      machine_should_send: true,
+      generation_metadata: {
+        capture_present: true,
+        morning_writer_capture_v1: {
+          model: "other-model",
+          retry_occurred: false,
+          retry_messages: [],
+        },
+      },
+    });
+
+    const dto = mapDraftRowsToAdminDto({
+      drafts: db.drafts,
+      generationsById: new Map(db.generations.map((g) => [g.id, g])),
+      latestGenerationsByKey: new Map([
+        [
+          "user_admin_test:2026-07-03:morning",
+          { id: "gen-orphan-newer", generation_number: 99 },
+        ],
+      ]),
+    })[0];
+
+    expect(dto.currentGenerationId).toBe("gen-1");
+    expect(dto.currentBodyToSend).toBe("Tyler edited send body");
+    expect(dto.authoritativeMachineDraftBody).toBe("Original machine draft body");
+    expect(dto.writerOpenAiMessages).toEqual(morningPrimary);
+    expect(dto.writerOpenAiMessages).not.toEqual(orphanPrimary);
+    expect(dto.authoritativeRetryMessages).toEqual(retryMessages);
+    expect(dto.authoritativeRetryOccurred).toBe(true);
+    expect(dto.authoritativeWriterModel).toBe("gpt-4o-mini");
+    expect(dto.authoritativeGeneratedAt).toBe("2026-07-03T12:00:00.000Z");
+    expect(dto.writerPromptPath).toBe("morning_relationship_v1");
+    expect(dto.isLatestGeneration).toBe(false);
+    expect(dto.latestGenerationId).toBe("gen-orphan-newer");
+  });
+
+  it("parseMorningWriterRetryCapture preserves exact retry strings", () => {
+    const retryMessages = [
+      { role: "assistant" as const, content: "raw assistant failure\nwith\nnewlines" },
+      { role: "user" as const, content: "exact reminder" },
+    ];
+    const parsed = parseMorningWriterRetryCapture({
+      writer_model: "gpt-4o-mini",
+      morning_writer_capture_v1: {
+        model: "gpt-4o-mini",
+        retry_occurred: true,
+        retry_messages: retryMessages,
+      },
+    });
+    expect(parsed.retryOccurred).toBe(true);
+    expect(parsed.retryMessages).toEqual(retryMessages);
+    expect(parsed.model).toBe("gpt-4o-mini");
+
+    expect(
+      parseMorningWriterRetryCapture({
+        morning_writer_capture_v1: {
+          model: "gpt-4o-mini",
+          retry_occurred: false,
+          retry_messages: retryMessages,
+        },
+      }).retryMessages
+    ).toEqual([]);
   });
 
   it("DTO exposes phone when audience overlay is provided", () => {
@@ -1178,6 +1299,11 @@ describe("tyler-text-overview sendable audience coverage", () => {
           editedByTyler: false,
           editedAt: null,
           writerOpenAiMessages: [],
+          authoritativeRetryMessages: [],
+          authoritativeMachineDraftBody: null,
+          authoritativeWriterModel: null,
+          authoritativeRetryOccurred: null,
+          authoritativeGeneratedAt: null,
           currentGenerationId: null,
           currentGenerationNumber: null,
           latestGenerationId: null,

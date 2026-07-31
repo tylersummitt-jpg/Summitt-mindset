@@ -50,7 +50,13 @@ export async function runLaneOpenAiJsonWithOneRetry<T>(args: {
   signal?: AbortSignal;
   /** Default true. Interpreter lanes should pass false to stay within a single timeout budget. */
   allowRetry?: boolean;
-}): Promise<{ value: T | null; raw: string; retryMeta: LaneJsonRetryMeta }> {
+}): Promise<{
+  value: T | null;
+  raw: string;
+  retryMeta: LaneJsonRetryMeta;
+  /** Exact assistant+user follow-ups appended for the retry call only; null when no retry. */
+  retryFollowUpMessages: ChatCompletionMessageParam[] | null;
+}> {
   const base = {
     model: args.model,
     temperature: args.temperature,
@@ -76,15 +82,14 @@ export async function runLaneOpenAiJsonWithOneRetry<T>(args: {
 
   const firstParse = args.parse(raw);
   if (firstParse != null) {
-    return { value: firstParse, raw, retryMeta: initialMeta };
+    return { value: firstParse, raw, retryMeta: initialMeta, retryFollowUpMessages: null };
   }
 
   if (args.allowRetry === false) {
-    return { value: null, raw, retryMeta: initialMeta };
+    return { value: null, raw, retryMeta: initialMeta, retryFollowUpMessages: null };
   }
 
-  const retryMessages: ChatCompletionMessageParam[] = [
-    ...args.primaryMessages,
+  const retryFollowUpMessages: ChatCompletionMessageParam[] = [
     { role: "assistant", content: raw.slice(0, 8000) },
     {
       role: "user",
@@ -92,6 +97,11 @@ export async function runLaneOpenAiJsonWithOneRetry<T>(args: {
 
 Return valid JSON only. No markdown code fences, no commentary before or after the JSON.`,
     },
+  ];
+
+  const retryMessages: ChatCompletionMessageParam[] = [
+    ...args.primaryMessages,
+    ...retryFollowUpMessages,
   ];
 
   const second = await args.client.chat.completions.create({
@@ -113,8 +123,8 @@ Return valid JSON only. No markdown code fences, no commentary before or after t
   };
 
   if (retryParse != null) {
-    return { value: retryParse, raw: rawRetry, retryMeta };
+    return { value: retryParse, raw: rawRetry, retryMeta, retryFollowUpMessages };
   }
 
-  return { value: null, raw, retryMeta };
+  return { value: null, raw, retryMeta, retryFollowUpMessages };
 }
