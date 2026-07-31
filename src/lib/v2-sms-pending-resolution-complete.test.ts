@@ -1303,3 +1303,77 @@ describe("goal-change hallway — lifestyle candidate + confirm-before-coach", (
     expect(viewSrc).toMatch(/from\("v2_commitment"\)|getActiveCommitment/);
   });
 });
+
+describe("pending keep-current clears hallway without mutation", () => {
+  function awaitingCandidateCommitment(): ActiveV2CommitmentRow {
+    return {
+      ...commitmentAwaitingConfirm({
+        sms_state: "awaiting_candidate",
+        candidate_behavior_statement: null,
+        candidate_new_bar: null,
+        detected_intent: "sms_change_unspecified",
+        raw_user_text: "Stay 1 week more with that goal",
+      }),
+      behavior_statement:
+        "Give one positive comment and practice positive self-talk each day",
+    };
+  }
+
+  it("awaiting_candidate + Keep the same goal clears pending, no RPC", async () => {
+    const c = awaitingCandidateCommitment();
+    getActiveCommitmentMock.mockResolvedValue(c);
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMkeep1", raw_body: "Keep the same goal" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    expect(clearPendingMock).toHaveBeenCalled();
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(mergeMock).not.toHaveBeenCalled();
+    if (r.handled) {
+      expect(r.pendingClearedBeforeSms).toBe(true);
+      expect(r.pendingStillActiveAfterPhase1).toBe(false);
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody).toMatch(/stay with your current goal/i);
+    }
+  });
+
+  it("awaiting_confirmation + No, keep this one clears pending, no mutation", async () => {
+    const c = commitmentAwaitingConfirm({
+      candidate_behavior_statement: "Lift twice a week",
+      candidate_new_bar: "Lift twice a week",
+    });
+    getActiveCommitmentMock.mockResolvedValue(c);
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMkeep2", raw_body: "No, keep this one" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    expect(clearPendingMock).toHaveBeenCalled();
+    expect(rpcMock).not.toHaveBeenCalled();
+    if (r.handled) {
+      expect(r.pendingClearedBeforeSms).toBe(true);
+      expect(r.pendingResolutionApplied).toBe(false);
+    }
+  });
+
+  it("awaiting_confirmation + bare No still rejects to awaiting_candidate (not full clear)", async () => {
+    const c = commitmentAwaitingConfirm();
+    getActiveCommitmentMock.mockResolvedValue(c);
+    mergeMock.mockResolvedValue({ ok: true });
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMkeep3", raw_body: "No" },
+      clerkUserId: "user_pr",
+      commitment: c,
+    });
+    expect(r.handled).toBe(true);
+    expect(clearPendingMock).not.toHaveBeenCalled();
+    expect(mergeMock).toHaveBeenCalled();
+    expect(rpcMock).not.toHaveBeenCalled();
+    if (r.handled) {
+      expect(r.pendingStillActiveAfterPhase1).toBe(true);
+    }
+  });
+});

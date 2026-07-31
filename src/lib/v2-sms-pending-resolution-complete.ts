@@ -34,6 +34,7 @@ import {
   tryExtractV2SmsPendingResolutionCandidateAi,
   V2_SMS_PENDING_CANDIDATE_CONFIDENCE_MIN,
 } from "@/lib/v2-ai-sms-pending-candidate";
+import { isPendingHallwayKeepCurrentClearReply } from "@/lib/sms-coach-goal-evolution-acceptance";
 import {
   buildInboundSmsSafetyReplyBody,
   classifyInboundSmsSafetyTier,
@@ -1017,6 +1018,52 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         pendingStillActiveAfterPhase1: false,
         pendingResolutionApplied: false,
         stateTransitionSummary: "User cancelled pending resolution; pending cleared before visible SMS.",
+      }
+    );
+  }
+
+  // Keep-current / decline-change while in hallway: clear pending, never mutate, never
+  // regress confirmation → awaiting_candidate. Scoped to active pending only.
+  if (
+    (smsState === "awaiting_candidate" || smsState === "awaiting_confirmation") &&
+    isPendingHallwayKeepCurrentClearReply(rawFull)
+  ) {
+    await clearPendingResolution(c.id, { expectedUpdatedAt: c.updated_at });
+    await recomputeV2CoachingMemory(c.id, {
+      reasonCode: "sms_pending_resolution_keep_current_cleared",
+    });
+    logSmsPending({
+      pending_resolution_sms_state: "cancelled",
+      detected_candidate: null,
+      confirmation: "keep_current",
+      mutation_attempted: false,
+      mutation_success: false,
+      rpc: null,
+      old_commitment_id: c.id,
+      new_commitment_id: null,
+      message_sid: args.job.message_sid,
+      raw_text_preview: rawPreview,
+      detail: "keep_current_cleared_pending",
+    });
+    const keepDraft =
+      "Got it—we'll stay with your current goal. No change. I'll keep coaching that same standard.";
+    return pendingHandled(
+      await phase1PendingReply({
+        machineDraft: keepDraft,
+        brainCase: "pending_resolution_no_problem_reenter",
+        allowVictoryRoomPhrase: false,
+        currentBarSummary,
+        safeFallback: keepDraft,
+      }),
+      {
+        pendingNoSendPolicyBranch: "pending_cleared_no_mutation",
+        pendingResolutionKind: kind,
+        pendingStateMutatedBeforeSms: true,
+        pendingClearedBeforeSms: true,
+        pendingStillActiveAfterPhase1: false,
+        pendingResolutionApplied: false,
+        stateTransitionSummary:
+          "User chose keep-current during pending resolution; pending cleared before visible SMS.",
       }
     );
   }
