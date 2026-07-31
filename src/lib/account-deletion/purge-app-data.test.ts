@@ -461,3 +461,34 @@ describe("CAS callers pass purge/clerk args with set=false by default", () => {
     expect(repo).toContain(PURGE_APP_DATA_FOR_ACCOUNT_DELETION_RPC);
   });
 });
+
+describe("Umbrella 1 — v2_win purge extension (static)", () => {
+  const WIN_MIGRATION = join(
+    process.cwd(),
+    "supabase/migrations/20260731120000_v2_win.sql"
+  );
+  const sql = readFileSync(WIN_MIGRATION, "utf8");
+
+  it("creates v2_win with nullable commitment_id SET NULL and unique idempotency", () => {
+    expect(sql).toContain("CREATE TABLE public.v2_win");
+    expect(sql).toContain("commitment_id UUID NULL REFERENCES public.v2_commitment (id) ON DELETE SET NULL");
+    expect(sql).toContain(
+      "source_message_id UUID NULL REFERENCES public.sms_inbound_messages (id) ON DELETE SET NULL"
+    );
+    expect(sql).not.toContain("IF EXISTS");
+    expect(sql).toContain("CREATE UNIQUE INDEX uq_v2_win_idempotency_key");
+    expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(sql).toContain("REVOKE ALL ON TABLE public.v2_win FROM anon");
+    expect(sql).toContain("REVOKE ALL ON TABLE public.v2_win FROM authenticated");
+  });
+
+  it("extends purge RPC to delete v2_win by clerk_user_id", () => {
+    expect(sql).toContain("DELETE FROM public.v2_win WHERE clerk_user_id = v_clerk");
+    expect(sql).toContain("jsonb_build_object('v2_win', v_n)");
+    const patternIdx = sql.indexOf("DELETE FROM public.v2_sms_pattern_correction");
+    const winIdx = sql.indexOf("DELETE FROM public.v2_win WHERE clerk_user_id = v_clerk");
+    const commitmentIdx = sql.indexOf("DELETE FROM public.v2_commitment WHERE clerk_user_id = v_clerk");
+    expect(winIdx).toBeGreaterThan(patternIdx);
+    expect(commitmentIdx).toBeGreaterThan(winIdx);
+  });
+});

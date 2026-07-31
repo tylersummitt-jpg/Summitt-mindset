@@ -515,6 +515,18 @@ function deriveExplicitFacts(args: {
   if (args.turnType === "false_premise_challenge") {
     out.push("User challenges coach premise about prior completion.");
   }
+  const winRec = args.facts.win_recognition;
+  if (winRec?.has_win) {
+    for (const w of winRec.wins.slice(0, 2)) {
+      const why = w.why_meaningful ? ` — ${w.why_meaningful.slice(0, 80)}` : "";
+      out.push(
+        `Recognized Win (${w.relationship_type}): ${w.grounded_action.slice(0, 120)}${why}`
+      );
+    }
+    if (args.facts.v2_accountability.miss_signal || args.facts.v2_accountability.final_event_type === "user_no") {
+      out.push("Accountability miss and Win are independent truths — honor both.");
+    }
+  }
   if (args.facts.thread.most_recent_coach_question?.trim()) {
     out.push(`Prior coach question: ${args.facts.thread.most_recent_coach_question.trim().slice(0, 120)}`);
   }
@@ -861,6 +873,7 @@ Rules:
 - Soft Victory Room mentions are optional and encouraged on meaningful proof/wins — not required, not every tiny acknowledgment.
 - For win_close_loop: warmly mark the win and stop — not a flat restatement. Prefer naming one concrete proof detail; soft Victory Room language may help when mode allows.
 - For proof_answer_close_loop: reflect one specific detail from facts_to_reflect and stop.
+- If facts_to_reflect includes a Recognized Win, acknowledge that grounded action naturally when celebration fits — even beside a miss/partial. Never say saved/logged/recorded/added.
 - Do not give generic advice after thanks/okay/good/sounds good closers.
 - Obey question_policy.max_questions.
 - If max_questions = 0, write a statement-only SMS: no question mark and no ask-shaped sentence.

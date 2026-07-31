@@ -166,7 +166,11 @@ describe("sms-inbound-coach route — Phase 3F-4 commitment_change_handoff (stat
   it("early-returns from processV2NormalInboundOutcome after persistCommitmentChangeHandoffLaneAndSend for handoff", () => {
     const idxReturn = route.indexOf("await persistCommitmentChangeHandoffLaneAndSend");
     expect(idxReturn).toBeGreaterThan(-1);
-    expect(route.slice(idxReturn, idxReturn + 900)).toMatch(/\}\);\s*\n\s*return;/);
+    // Call args exceed a fixed 900-char window; assert closing }); then return on the handoff path.
+    const afterCall = route.slice(idxReturn, idxReturn + 2500);
+    const closeIdx = afterCall.indexOf("});");
+    expect(closeIdx).toBeGreaterThan(0);
+    expect(afterCall.slice(closeIdx, closeIdx + 40)).toMatch(/\}\);\s*\n\s*return;/);
   });
 
   it("does not use appendWhenExistingPendingResolution in the Wave4 block", () => {

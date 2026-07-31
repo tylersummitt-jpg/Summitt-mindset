@@ -102,6 +102,7 @@ import {
 } from "@/lib/sms-identity-edit-intent";
 import type { InboundPriorMemoryRepeatNoSendContext } from "@/lib/inbound-completion-memory-repeat-escalation";
 import type { InboundV3ProofCalloutHint } from "@/lib/v2-proof-moment";
+import type { WinRecognitionFactsForV3 } from "@/lib/openai-win-recognition-v1";
 import {
   buildVictoryBackgroundLaneGuardrails,
   type V3VictoryBackgroundFacts,
@@ -1432,6 +1433,11 @@ export type InboundV3RelationshipFacts = {
   inbound_resolved_truth?: InboundResolvedTruth | null;
   /** Server-reconciled OpenAI turn understanding (advisory; persistence still server-owned). */
   turn_understanding?: ReconciledTurnUnderstanding | null;
+  /**
+   * OpenAI Win recognition (Umbrella 1) — separate from accountability truth.
+   * Writer may acknowledge naturally; must not claim saved/logged/recorded unless product later allows.
+   */
+  win_recognition?: WinRecognitionFactsForV3 | null;
   suggested_coaching_move: string;
   /** How suggested_coaching_move was chosen (telemetry). */
   coaching_move_source?: InboundCoachingMoveSource;
@@ -2770,7 +2776,7 @@ ${strategyCardPromptGuidance}
 - Do not use: "what's the next concrete move", "Say it straight", or "Let's confirm" plus a rejected time.
 - Do not quote or echo long user text; no truncated quotes.
 - If unsafe, uncertain, or facts conflict badly, return should_send false.
-${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${args.facts.inbound_resolved_truth ? buildInboundResolvedTruthPromptGuidance() : ""}${buildTurnUnderstandingLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${singleMissRecoveryGuidance}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
+${buildThreadFreshnessPromptGuidance()}${buildInboundMeaningAuthorityLaneGuardrails()}${args.facts.inbound_resolved_truth ? buildInboundResolvedTruthPromptGuidance() : ""}${buildTurnUnderstandingLaneGuardrails()}${buildVictoryBackgroundLaneGuardrails()}${buildInboundProofCalloutLaneGuardrails()}${buildInboundWinRecognitionLaneGuardrails()}${buildSmsPatternSignalLaneGuardrails()}${buildSmsGoalAdjustmentLaneGuardrails()}${singleMissRecoveryGuidance}${buildPlannedInterruptionLaneGuardrails()}${buildRelationshipExitLaneGuardrails()}${buildIdentityEditLaneGuardrails()}${routePurposeAux}
 
 OUTPUT: strict JSON only with keys:
 should_send (boolean), body (string, empty if should_send false), no_send_reason (string|null),
@@ -3647,6 +3653,7 @@ export type BuildInboundV3RelationshipFactsArgs = {
   priorMemoryRepeatNoSend?: InboundPriorMemoryRepeatNoSendContext | null;
   turnUnderstandingReconciled?: ReconciledTurnUnderstanding | null;
   eventsNewestFirst?: V2EventRowForAi[];
+  winRecognition?: WinRecognitionFactsForV3 | null;
 };
 
 /** Optional Victory / proof mention — V3-owned; no deterministic post-FVG append. */
@@ -3660,6 +3667,19 @@ PROOF_CALLOUT (v2_accountability.proof_callout_hint when present):
 - Do not use a second paragraph solely for a system callout.
 - Do not claim proof was saved, logged, added, recorded, or "now in" Victory Room unless proof_callout_claim_saved_allowed is true (inbound lane: false before server insert). Soft identity language does not require that flag.
 - Never paste proof_callout_hint.instruction verbatim; paraphrase naturally. Vary wording — do not reuse one fixed Victory Room sentence every time.
+`;
+}
+
+/** OpenAI-recognized Wins — acknowledge naturally; never claim durable storage in creating reply. */
+export function buildInboundWinRecognitionLaneGuardrails(): string {
+  return `
+WIN_RECOGNITION (win_recognition when present):
+- OpenAI already judged whether the inbound contains zero, one, or two meaningful Wins — separate from accountability user_yes / user_no / user_partial.
+- If win_recognition.has_win is true, you MAY naturally acknowledge the grounded_action / why_meaningful when celebration_appropriate is true.
+- A miss or partial can coexist with an unrelated whole-life Win — honor both truths without collapsing them.
+- Prefer one short human acknowledgment; do not append a canned "Win detected" line.
+- Do NOT say saved, logged, recorded, added, or "now in your Victory Room" (may_claim_saved is always false on this path).
+- Do not invent Wins when has_win is false.
 `;
 }
 
@@ -4331,6 +4351,7 @@ export function buildInboundV3RelationshipFacts(args: BuildInboundV3Relationship
       : {}),
     inbound_meaning: effectiveInboundMeaning,
     ...(turnReconciled ? { turn_understanding: turnReconciled } : {}),
+    ...(args.winRecognition ? { win_recognition: args.winRecognition } : {}),
     miss_adjustment_policy: missAdjustmentPolicy,
     legacy_suggestions: {
       conversation_brain: args.conversationBrain,

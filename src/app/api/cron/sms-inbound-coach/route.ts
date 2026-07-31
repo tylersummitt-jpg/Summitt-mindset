@@ -256,6 +256,12 @@ import {
 } from "@/lib/inbound-relationship-meaning";
 import type { ReconciledTurnUnderstanding } from "@/lib/openai-relationship-turn-understanding-v1";
 import {
+  maybePersistInboundWinRecognitionBundle,
+  persistInboundRecognizedWinsBeforeSend,
+  runInboundWinRecognitionForCoachTurn,
+  type InboundWinRecognitionBundle,
+} from "@/lib/inbound-win-recognition-wire";
+import {
   type OutcomeClaimEvidenceBundle,
   UNSUPPORTED_ACCOUNTABILITY_CLAIM_NO_SEND,
   buildInboundAllowedClaimsForFinalGuard,
@@ -859,6 +865,7 @@ async function trySendContractConsentBodyAfterUnifiedGuard(args: {
   outcomeClaimEvidence: OutcomeClaimEvidenceBundle;
   contextPacket: NorthStarSmsContextPacket;
   bodySource: "v3_lane" | "human_fallback";
+  winRecognition?: InboundWinRecognitionBundle | null;
 }): Promise<
   | { ok: true; sentBody: string }
   | { ok: false; guardFailed: true; pipeline: Extract<ContractConsentUnifiedGuardPipelineResult, { ok: false }> }
@@ -898,6 +905,7 @@ async function trySendContractConsentBodyAfterUnifiedGuard(args: {
       ...pipeline.guardTelemetry,
       unified_final_product_law_guard_applied: true,
     },
+    winRecognition: args.winRecognition ?? null,
   });
   if (!sent.ok) {
     throw new Error("contract_consent_ack_send_failed_after_unified_guard");
@@ -914,6 +922,7 @@ async function persistContractConsentAckReplyReadyAndSend(args: {
   contractConsentFacts: InboundV3ContractConsentFacts;
   stateMutationCompletedBeforeSms: boolean;
   sendTelemetry: Record<string, unknown>;
+  winRecognition?: InboundWinRecognitionBundle | null;
 }): Promise<{ ok: true; sentBody: string } | { ok: false }> {
   const proposalStillValid = isV2PendingProposalValid(args.commitment);
   const contractConsentMeaningShadow = buildContractConsentMeaningShadow({
@@ -956,6 +965,14 @@ async function persistContractConsentAckReplyReadyAndSend(args: {
   if (!persistedLane) {
     const j2 = await loadJob(args.job.message_sid);
     if (j2?.reply_body?.trim()) {
+      await maybePersistInboundWinRecognitionBundle({
+        bundle: args.winRecognition,
+        clerkUserId: args.userId,
+        messageSid: args.job.message_sid,
+        activeCommitmentId: args.commitment.id,
+        fallbackOccurredAtIso: args.job.created_at ?? null,
+        branch: "contract_consent_ack",
+      });
       await commitAndSendInboundRelationshipCoachReply(j2, args.userId, contractAckThreadMemoryCtx);
       return { ok: true, sentBody: j2.reply_body.trim() };
     }
@@ -963,6 +980,14 @@ async function persistContractConsentAckReplyReadyAndSend(args: {
   }
 
   const fresh = (await loadJob(args.job.message_sid)) ?? args.job;
+  await maybePersistInboundWinRecognitionBundle({
+    bundle: args.winRecognition,
+    clerkUserId: args.userId,
+    messageSid: args.job.message_sid,
+    activeCommitmentId: args.commitment.id,
+    fallbackOccurredAtIso: args.job.created_at ?? null,
+    branch: "contract_consent_ack",
+  });
   await commitAndSendInboundRelationshipCoachReply(fresh, args.userId, contractAckThreadMemoryCtx);
   console.info("[sms-inbound-coach] contract_consent_ack_lane_sent", {
     message_sid: args.job.message_sid,
@@ -998,7 +1023,7 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
   });
 
   const wave11MemoryPending = (await fetchLatestAwaitingMemoryConfirmation(args.commitment.id)) != null;
-  const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
+  const { facts, contextPacket, winRecognition } = await buildTransactionalInboundLaneFactsPackage({
     job: args.job,
     userId: args.userId,
     commitment: args.commitment,
@@ -1233,6 +1258,7 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
     proposalStillActive: proposalStillValid,
     outcomeClaimEvidence,
     contextPacket,
+    winRecognition,
   };
 
   if (gatedBody?.trim()) {
@@ -1387,7 +1413,7 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
   adaptiveConsentClarificationFacts: InboundV3AdaptiveConsentClarificationFacts;
 }): Promise<{ ok: true; sentBody: string } | { ok: false }> {
   const wave11MemoryPending = (await fetchLatestAwaitingMemoryConfirmation(args.commitment.id)) != null;
-  const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
+  const { facts, contextPacket, winRecognition } = await buildTransactionalInboundLaneFactsPackage({
     job: args.job,
     userId: args.userId,
     commitment: args.commitment,
@@ -1650,6 +1676,14 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
   if (!persistedLane) {
     const j2 = await loadJob(args.job.message_sid);
     if (j2?.reply_body?.trim()) {
+      await maybePersistInboundWinRecognitionBundle({
+        bundle: winRecognition,
+        clerkUserId: args.userId,
+        messageSid: args.job.message_sid,
+        activeCommitmentId: args.commitment.id,
+        fallbackOccurredAtIso: args.job.created_at ?? null,
+        branch: "adaptive_proposal_consent_clarification",
+      });
       await commitAndSendInboundRelationshipCoachReply(
         j2,
         args.userId,
@@ -1661,6 +1695,14 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
   }
 
   const fresh = (await loadJob(args.job.message_sid)) ?? args.job;
+  await maybePersistInboundWinRecognitionBundle({
+    bundle: winRecognition,
+    clerkUserId: args.userId,
+    messageSid: args.job.message_sid,
+    activeCommitmentId: args.commitment.id,
+    fallbackOccurredAtIso: args.job.created_at ?? null,
+    branch: "adaptive_proposal_consent_clarification",
+  });
   await commitAndSendInboundRelationshipCoachReply(
     fresh,
     args.userId,
@@ -1842,7 +1884,7 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
   tuGoalChangeHandoffTelemetry?: Record<string, unknown> | null;
 }): Promise<{ ok: true; sentBody: string } | { ok: false }> {
   const wave11MemoryPending = (await fetchLatestAwaitingMemoryConfirmation(args.commitment.id)) != null;
-  const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
+  const { facts, contextPacket, winRecognition } = await buildTransactionalInboundLaneFactsPackage({
     job: args.job,
     userId: args.userId,
     commitment: args.commitment,
@@ -2153,6 +2195,14 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
   if (!persistedLane) {
     const j2 = await loadJob(args.job.message_sid);
     if (j2?.reply_body?.trim()) {
+      await maybePersistInboundWinRecognitionBundle({
+        bundle: winRecognition,
+        clerkUserId: args.userId,
+        messageSid: args.job.message_sid,
+        activeCommitmentId: args.commitment.id,
+        fallbackOccurredAtIso: args.job.created_at ?? null,
+        branch: "commitment_change_handoff",
+      });
       await commitAndSendInboundRelationshipCoachReply(
         j2,
         args.userId,
@@ -2165,6 +2215,14 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
   }
 
   const fresh = (await loadJob(args.job.message_sid)) ?? args.job;
+  await maybePersistInboundWinRecognitionBundle({
+    bundle: winRecognition,
+    clerkUserId: args.userId,
+    messageSid: args.job.message_sid,
+    activeCommitmentId: args.commitment.id,
+    fallbackOccurredAtIso: args.job.created_at ?? null,
+    branch: "commitment_change_handoff",
+  });
   await commitAndSendInboundRelationshipCoachReply(
     fresh,
     args.userId,
@@ -2931,6 +2989,7 @@ async function processV2NormalInboundOutcome(
   }
   const effectiveBehavior = getEffectiveCoachingAsk(commitment);
   const userMessage = (job.raw_body || "").trim();
+  let inboundWinRecognitionBundle: InboundWinRecognitionBundle | null = null;
   const plannedInterruptionDetection = detectSmsPlannedInterruption(userMessage);
   const plannedInterruptionActionable = isPlannedInterruptionActionable(plannedInterruptionDetection);
 
@@ -3374,6 +3433,27 @@ async function processV2NormalInboundOutcome(
         })
       );
 
+      inboundWinRecognitionBundle = await runInboundWinRecognitionForCoachTurn({
+        inboundBody: userMessage,
+        isComplianceOrStop: isLikelySmsComplianceOrOptOutTurn(userMessage),
+        isSafetyOrCrisisOwned: false,
+        context: {
+          priorOutboundOrOpenQuestion:
+            northStarPktOpenQuestion.latestOpenQuestion?.trim() ||
+            northStarPktOpenQuestion.latestOutboundBody ||
+            lastOutboundSmsPreview ||
+            null,
+          recentExactThreadExcerpt: minimalLinesEarly.slice(-8).join(" | ").slice(0, 800),
+          currentGoal: effectiveBehavior || commitment.behavior_statement || commitment.title || null,
+          identityStatement: identityAnchorText,
+          userFirstName: preferredName,
+          pendingRouteSummary: null,
+          resolvedAccountabilityResult: `open_question_answer;deterministic=${eventType}`,
+          routeOwner: "open_question_answer",
+          recentWinSummary: null,
+        },
+      });
+
       const oqInboundFacts = buildInboundV3RelationshipFacts({
         clerkUserId: userId,
         preferredName,
@@ -3411,6 +3491,9 @@ async function processV2NormalInboundOutcome(
         relationshipMemoryPacket: openQuestionMemoryPacket,
         ...(inboundTurnUnderstandingCtx.reconciled != null
           ? { turnUnderstandingReconciled: inboundTurnUnderstandingCtx.reconciled }
+          : {}),
+        ...(inboundWinRecognitionBundle?.facts
+          ? { winRecognition: inboundWinRecognitionBundle.facts }
           : {}),
       });
 
@@ -3757,6 +3840,28 @@ async function processV2NormalInboundOutcome(
               ...(finalGuardsOq.truthGuard?.metadata ?? {}),
             },
           });
+          if (inboundWinRecognitionBundle?.result.has_win) {
+            try {
+              await persistInboundRecognizedWinsBeforeSend({
+                clerkUserId: userId,
+                messageSid: job.message_sid,
+                activeCommitmentId: commitment.id,
+                activeCommitmentClerkUserId: userId,
+                recognition: inboundWinRecognitionBundle.result,
+                fallbackOccurredAtIso: job.created_at ?? null,
+              });
+            } catch (winPersistErr) {
+              console.warn("[win_persist_failed]", {
+                message_sid: job.message_sid,
+                schema_version: "win_v1",
+                branch: "open_question",
+                error:
+                  winPersistErr instanceof Error
+                    ? winPersistErr.message.slice(0, 120)
+                    : "unknown",
+              });
+            }
+          }
           await commitAndSendInboundRelationshipCoachReply(j3, userId, openQuestionThreadMemoryCtx);
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return;
@@ -3782,6 +3887,28 @@ async function processV2NormalInboundOutcome(
           ...(finalGuardsOq.truthGuard?.metadata ?? {}),
         },
       });
+      if (inboundWinRecognitionBundle?.result.has_win) {
+        try {
+          await persistInboundRecognizedWinsBeforeSend({
+            clerkUserId: userId,
+            messageSid: job.message_sid,
+            activeCommitmentId: commitment.id,
+            activeCommitmentClerkUserId: userId,
+            recognition: inboundWinRecognitionBundle.result,
+            fallbackOccurredAtIso: job.created_at ?? null,
+          });
+        } catch (winPersistErr) {
+          console.warn("[win_persist_failed]", {
+            message_sid: job.message_sid,
+            schema_version: "win_v1",
+            branch: "open_question",
+            error:
+              winPersistErr instanceof Error
+                ? winPersistErr.message.slice(0, 120)
+                : "unknown",
+          });
+        }
+      }
       const freshV3 = (await loadJob(job.message_sid)) ?? job;
       await commitAndSendInboundRelationshipCoachReply(freshV3, userId, openQuestionThreadMemoryCtx);
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -4045,6 +4172,29 @@ async function processV2NormalInboundOutcome(
         inboundMessageSid: job.message_sid,
       });
 
+      if (!inboundWinRecognitionBundle) {
+        inboundWinRecognitionBundle = await runInboundWinRecognitionForCoachTurn({
+          inboundBody: userMessage,
+          isComplianceOrStop: isLikelySmsComplianceOrOptOutTurn(userMessage),
+          isSafetyOrCrisisOwned: false,
+          context: {
+            priorOutboundOrOpenQuestion:
+              northStarPktCb.latestOpenQuestion?.trim() ||
+              northStarPktCb.latestOutboundBody ||
+              lastOutboundSmsPreview ||
+              null,
+            recentExactThreadExcerpt: minimalLinesCb.slice(-8).join(" | ").slice(0, 800),
+            currentGoal: effectiveBehavior || commitment.behavior_statement || commitment.title || null,
+            identityStatement: identityAnchorText,
+            userFirstName: preferredName,
+            pendingRouteSummary: null,
+            resolvedAccountabilityResult: `conversation_brain_fallback;deterministic=${eventType}`,
+            routeOwner: "conversation_brain_unavailable",
+            recentWinSummary: null,
+          },
+        });
+      }
+
       const cbInboundFacts = buildInboundV3RelationshipFacts({
         clerkUserId: userId,
         preferredName,
@@ -4081,6 +4231,9 @@ async function processV2NormalInboundOutcome(
         victoryBackground: victoryBackgroundFacts,
         relationshipMemoryPacket: inboundRelationshipMemoryPacket,
         turnUnderstandingReconciled: inboundTurnUnderstandingCtx.reconciled ?? null,
+        ...(inboundWinRecognitionBundle?.facts
+          ? { winRecognition: inboundWinRecognitionBundle.facts }
+          : {}),
       });
 
       const cbLaneRes = await produceInboundV3RelationshipSms({
@@ -4401,6 +4554,14 @@ async function processV2NormalInboundOutcome(
       if (!persistedFb) {
         const jfb = await loadJob(job.message_sid);
         if (jfb?.reply_body?.trim()) {
+          await maybePersistInboundWinRecognitionBundle({
+            bundle: inboundWinRecognitionBundle,
+            clerkUserId: userId,
+            messageSid: job.message_sid,
+            activeCommitmentId: commitment.id,
+            fallbackOccurredAtIso: job.created_at ?? null,
+            branch: "conversation_brain_legacy_fallback",
+          });
           await commitAndSendInboundRelationshipCoachReply(jfb, userId, legacyFallbackThreadMemoryCtx);
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return;
@@ -4409,6 +4570,14 @@ async function processV2NormalInboundOutcome(
       }
 
       const freshFb = (await loadJob(job.message_sid)) ?? job;
+      await maybePersistInboundWinRecognitionBundle({
+        bundle: inboundWinRecognitionBundle,
+        clerkUserId: userId,
+        messageSid: job.message_sid,
+        activeCommitmentId: commitment.id,
+        fallbackOccurredAtIso: job.created_at ?? null,
+        branch: "conversation_brain_legacy_fallback",
+      });
       await commitAndSendInboundRelationshipCoachReply(freshFb, userId, legacyFallbackThreadMemoryCtx);
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       return;
@@ -4547,6 +4716,40 @@ async function processV2NormalInboundOutcome(
   });
   if (identityEditLaneActive) {
     gatedDecision = applyIdentityEditGatedOverride(identityEditDetection);
+  }
+
+  // Shared Win recognition after exclusive route ownership + gated accountability are known.
+  // Eligible specialized lanes (pivot/arc/handoff/main) reuse this bundle before drafting.
+  if (!inboundWinRecognitionBundle) {
+    inboundWinRecognitionBundle = await runInboundWinRecognitionForCoachTurn({
+      inboundBody: userMessage,
+      isComplianceOrStop: isLikelySmsComplianceOrOptOutTurn(userMessage),
+      isSafetyOrCrisisOwned: false,
+      context: {
+        priorOutboundOrOpenQuestion:
+          inboundRelationshipMemoryPacket.latest_open_question?.trim() ||
+          inboundRelationshipMemoryPacket.last_outbound_full_body ||
+          lastOutboundSmsPreview ||
+          null,
+        recentExactThreadExcerpt: null,
+        currentGoal: effectiveBehavior || commitment.behavior_statement || commitment.title || null,
+        identityStatement: identityAnchorText,
+        userFirstName: preferredName,
+        pendingRouteSummary: getPendingResolutionOrNull(commitment)
+          ? `pending_resolution:${getPendingResolutionOrNull(commitment)?.kind ?? "active"}`
+          : null,
+        resolvedAccountabilityResult:
+          gatedDecision.final_event_type != null
+            ? `final_event_type=${gatedDecision.final_event_type};mode=${gatedDecision.mode}`
+            : `deterministic=${eventType};mode=${gatedDecision.mode}`,
+        routeOwner: relationshipExitLaneActive
+          ? "relationship_exit_integrity"
+          : identityEditLaneActive
+            ? "identity_edit_integrity"
+            : gatedDecision.mode,
+        recentWinSummary: null,
+      },
+    });
   }
 
   let shadowInterpretationStored: Record<string, unknown> | undefined;
@@ -4997,6 +5200,9 @@ async function processV2NormalInboundOutcome(
       ...(inboundTurnUnderstandingCtx.reconciled != null
         ? { turnUnderstandingReconciled: inboundTurnUnderstandingCtx.reconciled }
         : {}),
+      ...(inboundWinRecognitionBundle?.facts
+        ? { winRecognition: inboundWinRecognitionBundle.facts }
+        : {}),
     });
 
     const pivotLaneRes = await produceInboundV3RelationshipSms({
@@ -5229,6 +5435,14 @@ async function processV2NormalInboundOutcome(
           proofMeta: accountabilityProofMoment,
           turnUnderstandingContext: inboundTurnUnderstandingCtx,
         });
+        await maybePersistInboundWinRecognitionBundle({
+          bundle: inboundWinRecognitionBundle,
+          clerkUserId: userId,
+          messageSid: job.message_sid,
+          activeCommitmentId: commitment.id,
+          fallbackOccurredAtIso: job.created_at ?? null,
+          branch: "central_brain_pivot",
+        });
         await commitAndSendInboundRelationshipCoachReply(j2, userId, centralBrainPivotThreadMemoryCtx);
         await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
         return;
@@ -5252,6 +5466,14 @@ async function processV2NormalInboundOutcome(
       turnUnderstandingContext: inboundTurnUnderstandingCtx,
     });
     const freshPivot = (await loadJob(job.message_sid)) ?? job;
+    await maybePersistInboundWinRecognitionBundle({
+      bundle: inboundWinRecognitionBundle,
+      clerkUserId: userId,
+      messageSid: job.message_sid,
+      activeCommitmentId: commitment.id,
+      fallbackOccurredAtIso: job.created_at ?? null,
+      branch: "central_brain_pivot",
+    });
     await commitAndSendInboundRelationshipCoachReply(freshPivot, userId, centralBrainPivotThreadMemoryCtx);
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     return;
@@ -5390,6 +5612,9 @@ async function processV2NormalInboundOutcome(
         relationshipMemoryPacket: inboundRelationshipMemoryPacket,
         ...(inboundTurnUnderstandingCtx.reconciled != null
           ? { turnUnderstandingReconciled: inboundTurnUnderstandingCtx.reconciled }
+          : {}),
+        ...(inboundWinRecognitionBundle?.facts
+          ? { winRecognition: inboundWinRecognitionBundle.facts }
           : {}),
       });
 
@@ -5629,6 +5854,14 @@ async function processV2NormalInboundOutcome(
             proofMeta: accountabilityProofMoment,
             turnUnderstandingContext: inboundTurnUnderstandingCtx,
           });
+          await maybePersistInboundWinRecognitionBundle({
+            bundle: inboundWinRecognitionBundle,
+            clerkUserId: userId,
+            messageSid: job.message_sid,
+            activeCommitmentId: commitment.id,
+            fallbackOccurredAtIso: job.created_at ?? null,
+            branch: "arc_clarify",
+          });
           await commitAndSendInboundRelationshipCoachReply(j2, userId, arcClarifyThreadMemoryCtx);
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
           return;
@@ -5653,6 +5886,14 @@ async function processV2NormalInboundOutcome(
         turnUnderstandingContext: inboundTurnUnderstandingCtx,
       });
       const freshArc = (await loadJob(job.message_sid)) ?? job;
+      await maybePersistInboundWinRecognitionBundle({
+        bundle: inboundWinRecognitionBundle,
+        clerkUserId: userId,
+        messageSid: job.message_sid,
+        activeCommitmentId: commitment.id,
+        fallbackOccurredAtIso: job.created_at ?? null,
+        branch: "arc_clarify",
+      });
       await commitAndSendInboundRelationshipCoachReply(freshArc, userId, arcClarifyThreadMemoryCtx);
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
       return;
@@ -5960,6 +6201,8 @@ async function processV2NormalInboundOutcome(
       });
     }
 
+    // Win recognition already ran after gated decision (shared bundle for pivot/arc/main).
+
     const inboundFacts = buildInboundV3RelationshipFacts({
       clerkUserId: userId,
       preferredName,
@@ -6018,6 +6261,9 @@ async function processV2NormalInboundOutcome(
         ? { turnUnderstandingReconciled: inboundTurnUnderstandingCtx.reconciled }
         : {}),
       eventsNewestFirst: recentEvents,
+      ...(inboundWinRecognitionBundle?.facts
+        ? { winRecognition: inboundWinRecognitionBundle.facts }
+        : {}),
     });
     mainInboundMissAdjustmentPolicy = inboundFacts.miss_adjustment_policy ?? null;
     inboundCoachingBriefV1Log = compactCoachingBriefV1ForV3Brain(
@@ -7333,6 +7579,16 @@ async function processV2NormalInboundOutcome(
     turnUnderstandingContext: inboundTurnUnderstandingCtx,
   });
 
+  // Win persistence after accountability spine; before send. Failure does not silence the reply.
+  await maybePersistInboundWinRecognitionBundle({
+    bundle: inboundWinRecognitionBundle,
+    clerkUserId: userId,
+    messageSid: job.message_sid,
+    activeCommitmentId: commitment.id,
+    fallbackOccurredAtIso: job.created_at ?? null,
+    branch: "main",
+  });
+
   const spineInsertSucceeded = persistResult.status === "inserted";
   const resolvedSpineEventType =
     persistResult.status === "inserted" || persistResult.status === "duplicate"
@@ -7586,6 +7842,23 @@ async function processV2BlockerCapture(
   const blockerIdentityForPrompt = isQuotableIdentitySource(blockerIdentitySource)
     ? blockerIdentityAnchorText
     : null;
+
+  const blockerWinRecognition = await runInboundWinRecognitionForCoachTurn({
+    inboundBody: blockerText,
+    isComplianceOrStop: isLikelySmsComplianceOrOptOutTurn(blockerText),
+    isSafetyOrCrisisOwned: false,
+    context: {
+      priorOutboundOrOpenQuestion: null,
+      recentExactThreadExcerpt: null,
+      currentGoal: getEffectiveCoachingAsk(commitment) || commitment.behavior_statement || commitment.title || null,
+      identityStatement: blockerIdentityAnchorText,
+      userFirstName: blockerPreferredName,
+      pendingRouteSummary: null,
+      resolvedAccountabilityResult: `blocker_capture;following=${following}`,
+      routeOwner: "blocker_capture",
+      recentWinSummary: null,
+    },
+  });
 
   const { body: templateAckBody, ackTemplateId } = buildBlockerAckSms(job.message_sid, {
     preferredName: blockerPreferredName,
@@ -7844,6 +8117,9 @@ async function processV2BlockerCapture(
       },
       victoryBackground: blockerVictoryBackgroundFacts,
       relationshipMemoryPacket: blockerRelationshipMemoryPacket,
+      ...(blockerWinRecognition.facts
+        ? { winRecognition: blockerWinRecognition.facts }
+        : {}),
     });
 
     const blkPivotLaneRes = await produceInboundV3RelationshipSms({
@@ -8052,6 +8328,14 @@ async function processV2BlockerCapture(
     if (!persistedPivot) {
       const j2 = await loadJob(job.message_sid);
       if (j2?.reply_body?.trim()) {
+        await maybePersistInboundWinRecognitionBundle({
+          bundle: blockerWinRecognition,
+          clerkUserId: userId,
+          messageSid: job.message_sid,
+          activeCommitmentId: commitment.id,
+          fallbackOccurredAtIso: job.created_at ?? null,
+          branch: "blocker_pivot",
+        });
         await commitAndSendInboundRelationshipCoachReply(j2, userId, blockerPivotThreadMemoryCtx);
         await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
         return;
@@ -8059,6 +8343,14 @@ async function processV2BlockerCapture(
       throw new Error("v2_blocker_human_pivot_reply_ready_failed");
     }
     const freshPv = (await loadJob(job.message_sid)) ?? job;
+    await maybePersistInboundWinRecognitionBundle({
+      bundle: blockerWinRecognition,
+      clerkUserId: userId,
+      messageSid: job.message_sid,
+      activeCommitmentId: commitment.id,
+      fallbackOccurredAtIso: job.created_at ?? null,
+      branch: "blocker_pivot",
+    });
     await commitAndSendInboundRelationshipCoachReply(freshPv, userId, blockerPivotThreadMemoryCtx);
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
     return;
@@ -8160,6 +8452,9 @@ async function processV2BlockerCapture(
     },
     victoryBackground: blockerVictoryBackgroundFacts,
     relationshipMemoryPacket: blockerRelationshipMemoryPacket,
+    ...(blockerWinRecognition.facts
+      ? { winRecognition: blockerWinRecognition.facts }
+      : {}),
   });
 
   const ackLaneRes = await produceInboundV3RelationshipSms({
@@ -8376,12 +8671,28 @@ async function processV2BlockerCapture(
       if (!persisted) {
         const j2 = await loadJob(job.message_sid);
         if (j2?.reply_body?.trim()) {
+          await maybePersistInboundWinRecognitionBundle({
+            bundle: blockerWinRecognition,
+            clerkUserId: userId,
+            messageSid: job.message_sid,
+            activeCommitmentId: commitment.id,
+            fallbackOccurredAtIso: job.created_at ?? null,
+            branch: "blocker_ack",
+          });
           await commitAndSendInboundRelationshipCoachReply(j2, userId, blockerAckThreadMemoryCtx);
         } else {
           throw new Error("v2_blocker_ack_reply_ready_persist_failed");
         }
       } else {
         const fresh = (await loadJob(job.message_sid)) ?? job;
+        await maybePersistInboundWinRecognitionBundle({
+          bundle: blockerWinRecognition,
+          clerkUserId: userId,
+          messageSid: job.message_sid,
+          activeCommitmentId: commitment.id,
+          fallbackOccurredAtIso: job.created_at ?? null,
+          branch: "blocker_ack",
+        });
         await commitAndSendInboundRelationshipCoachReply(fresh, userId, blockerAckThreadMemoryCtx);
       }
 
@@ -8851,7 +9162,11 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
   pendingResolutionAppliedOverride?: boolean;
   gatedDecisionOverride?: V2InboundGatedDecision | null;
   deterministicClassifierOverride?: "user_yes" | "user_no" | "user_partial" | null;
-}): Promise<{ facts: InboundV3RelationshipFacts; contextPacket: NorthStarSmsContextPacket }> {
+}): Promise<{
+  facts: InboundV3RelationshipFacts;
+  contextPacket: NorthStarSmsContextPacket;
+  winRecognition: InboundWinRecognitionBundle;
+}> {
   const coachingMemoryRow = await loadV2CoachingMemoryForPrompt(args.commitment.id);
   const recentEvents = await getRecentV2EventsForAi(args.commitment.id);
 
@@ -8991,6 +9306,53 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
     nowMs: Date.now(),
   });
 
+  const preferredNameForWin =
+    typeof preferredName === "string" ? preferredName : null;
+  const identityForWin = await (async () => {
+    const { data } = await supabaseServer
+      .from("user_profiles")
+      .select("identity_anchor_text")
+      .eq("clerk_user_id", args.userId)
+      .maybeSingle();
+    return typeof data?.identity_anchor_text === "string"
+      ? data.identity_anchor_text.trim()
+      : null;
+  })();
+
+  const winRecognition = await runInboundWinRecognitionForCoachTurn({
+    inboundBody: args.inboundRaw,
+    isComplianceOrStop: isLikelySmsComplianceOrOptOutTurn(args.inboundRaw),
+    isSafetyOrCrisisOwned: false,
+    context: {
+      priorOutboundOrOpenQuestion:
+        relationshipMemoryPacket.latest_open_question?.trim() ||
+        northStarPkt.latestOpenQuestion?.trim() ||
+        relationshipMemoryPacket.last_outbound_full_body ||
+        northStarPkt.latestOutboundBody ||
+        null,
+      recentExactThreadExcerpt: minimalLines.slice(-8).join(" | ").slice(0, 800),
+      currentGoal:
+        getEffectiveCoachingAsk(args.commitment, Date.now()) ||
+        args.commitment.behavior_statement ||
+        args.commitment.title ||
+        null,
+      identityStatement: identityForWin,
+      userFirstName: preferredNameForWin,
+      pendingRouteSummary: args.pendingResolutionFacts
+        ? `pending_resolution:${args.pendingResolutionFacts.resolution_type || "active"}`
+        : args.commitmentChangeFacts
+          ? "commitment_change_handoff"
+          : null,
+      resolvedAccountabilityResult: args.gatedDecisionOverride
+        ? `final_event_type=${args.gatedDecisionOverride.final_event_type};mode=${args.gatedDecisionOverride.mode}`
+        : args.deterministicClassifierOverride
+          ? `deterministic=${args.deterministicClassifierOverride}`
+          : null,
+      routeOwner: args.routePurpose,
+      recentWinSummary: null,
+    },
+  });
+
   const facts = buildInboundV3RelationshipFacts({
     clerkUserId: args.userId,
     preferredName,
@@ -9037,8 +9399,9 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
     relationshipMemoryPacket,
     patternSignal,
     goalAdjustmentSignal,
+    ...(winRecognition.facts ? { winRecognition: winRecognition.facts } : {}),
   });
-  return { facts, contextPacket: northStarPkt };
+  return { facts, contextPacket: northStarPkt, winRecognition };
 }
 
 type InboundLaneUnifiedFinalGuardConfig = {
@@ -9260,6 +9623,7 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
   logTag: string;
   meaningShadow?: MeaningInterpreterShadowScheduleArgs | null;
   unifiedFinalGuard?: InboundLaneUnifiedFinalGuardConfig;
+  winRecognition?: InboundWinRecognitionBundle | null;
 }): Promise<{ ok: true; sentBody: string } | { ok: false }> {
   const lane = await produceInboundV3RelationshipSms({
     facts: args.relationshipFacts,
@@ -9589,12 +9953,28 @@ async function persistInboundV3RelationshipLaneReplyReadyAndSend(args: {
   if (!persistedLane) {
     const j2 = await loadJob(args.job.message_sid);
     if (j2?.reply_body?.trim()) {
+      await maybePersistInboundWinRecognitionBundle({
+        bundle: args.winRecognition,
+        clerkUserId: args.userId,
+        messageSid: args.job.message_sid,
+        activeCommitmentId: args.commitment.id,
+        fallbackOccurredAtIso: args.job.created_at ?? null,
+        branch: args.branchName,
+      });
       await commitAndSendInboundCoachReply(j2, args.userId, threadMemoryCtx);
       return { ok: true, sentBody: j2.reply_body.trim() };
     }
     throw new Error(`${args.logTag}_reply_ready_persist_failed`);
   }
   const fresh = (await loadJob(args.job.message_sid)) ?? args.job;
+  await maybePersistInboundWinRecognitionBundle({
+    bundle: args.winRecognition,
+    clerkUserId: args.userId,
+    messageSid: args.job.message_sid,
+    activeCommitmentId: args.commitment.id,
+    fallbackOccurredAtIso: args.job.created_at ?? null,
+    branch: args.branchName,
+  });
   await commitAndSendInboundCoachReply(fresh, args.userId, threadMemoryCtx);
   console.info(`[sms-inbound-coach] ${args.logTag}_lane_sent`, {
     message_sid: args.job.message_sid,
@@ -9781,7 +10161,7 @@ async function persistRefreshSmsLaneAndSend(args: {
       : {}),
     ...(requiredMeaningSummary ? { required_meaning_summary: requiredMeaningSummary } : {}),
   };
-  const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
+  const { facts, contextPacket, winRecognition } = await buildTransactionalInboundLaneFactsPackage({
     job: args.job,
     userId: args.userId,
     commitment: args.commitment,
@@ -9871,6 +10251,7 @@ async function persistRefreshSmsLaneAndSend(args: {
     splitSuppressedMessageSids: [],
     inboundRaw: args.inboundRaw,
     relationshipFacts: facts,
+    winRecognition,
     telemetry_fact_sources: [
       "parseRefreshSession",
       "classifyV2InboundReply",
@@ -10028,7 +10409,7 @@ async function processV2MemoryConfirmationInbound(
       legacy_memory_reply_preview: legacyMachine,
       memory_proof_structured_hint: null,
     };
-    const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
+    const { facts, contextPacket, winRecognition } = await buildTransactionalInboundLaneFactsPackage({
       job,
       userId,
       commitment,
@@ -10054,6 +10435,7 @@ async function processV2MemoryConfirmationInbound(
       splitSuppressedMessageSids: [],
       inboundRaw: raw,
       relationshipFacts: facts,
+      winRecognition,
       telemetry_fact_sources: [
         "fetchLatestAwaitingMemoryConfirmation",
         "parseMemoryConfirmationReply",
@@ -10116,7 +10498,7 @@ async function processV2MemoryConfirmationInbound(
       legacy_memory_reply_preview: legacyDecline,
       memory_proof_structured_hint: null,
     };
-    const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
+    const { facts, contextPacket, winRecognition } = await buildTransactionalInboundLaneFactsPackage({
       job,
       userId,
       commitment,
@@ -10142,6 +10524,7 @@ async function processV2MemoryConfirmationInbound(
       splitSuppressedMessageSids: [],
       inboundRaw: raw,
       relationshipFacts: facts,
+      winRecognition,
       telemetry_fact_sources: [
         "fetchLatestAwaitingMemoryConfirmation",
         "parseMemoryConfirmationReply",
@@ -10219,7 +10602,7 @@ async function processV2MemoryConfirmationInbound(
     legacy_memory_reply_preview: legacyAck,
     memory_proof_structured_hint: proofHint,
   };
-  const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
+  const { facts, contextPacket, winRecognition } = await buildTransactionalInboundLaneFactsPackage({
     job,
     userId,
     commitment,
@@ -10245,6 +10628,7 @@ async function processV2MemoryConfirmationInbound(
     splitSuppressedMessageSids: [],
     inboundRaw: raw,
     relationshipFacts: facts,
+    winRecognition,
     telemetry_fact_sources: [
       "fetchLatestAwaitingMemoryConfirmation",
       "parseMemoryConfirmationReply",
@@ -10382,7 +10766,7 @@ async function processV2SmsInboundPendingResolution(
   const wave11MemoryPending =
     (await fetchLatestAwaitingMemoryConfirmation(cAfter.id)) != null;
 
-  const { facts, contextPacket } = await buildTransactionalInboundLaneFactsPackage({
+  const { facts, contextPacket, winRecognition } = await buildTransactionalInboundLaneFactsPackage({
     job,
     userId,
     commitment: cAfter,
@@ -10438,6 +10822,7 @@ async function processV2SmsInboundPendingResolution(
     splitSuppressedMessageSids: [],
     inboundRaw: rawPr,
     relationshipFacts: facts,
+    winRecognition,
     telemetry_fact_sources: [
       "getPendingResolutionOrNull",
       "tryHandleSmsInboundPendingResolution",

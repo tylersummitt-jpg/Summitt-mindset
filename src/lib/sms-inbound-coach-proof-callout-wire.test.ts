@@ -40,11 +40,14 @@ describe("sms-inbound-coach — proof callout V3 ownership (Slice 2)", () => {
   });
 
   it("safety short-circuit returns before normal outcome spine", () => {
+    // Contract: inside handleV2SmsInboundCoachJob, safety short-circuit runs before
+    // processV2NormalInboundOutcome. Do not use a fixed character window — the handler
+    // prologue (reconcile / tapback / blocker gate) is larger than 3500 chars.
     const handlerStart = src.indexOf("async function handleV2SmsInboundCoachJob");
-    const handlerSlice = src.slice(handlerStart, handlerStart + 3500);
-    const safetyIdx = handlerSlice.indexOf("processInboundSmsSafetyShortCircuit");
-    const normalIdx = handlerSlice.indexOf("processV2NormalInboundOutcome");
-    expect(safetyIdx).toBeGreaterThan(0);
-    expect(normalIdx).toBeGreaterThan(safetyIdx);
+    expect(handlerStart).toBeGreaterThan(0);
+    const safetyCallIdx = src.indexOf("await processInboundSmsSafetyShortCircuit(", handlerStart);
+    const normalCallIdx = src.indexOf("await processV2NormalInboundOutcome(", handlerStart);
+    expect(safetyCallIdx).toBeGreaterThan(handlerStart);
+    expect(normalCallIdx).toBeGreaterThan(safetyCallIdx);
   });
 });

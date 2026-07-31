@@ -265,6 +265,19 @@ export type RelationshipPacketProofVictoryPermission = {
   can_reference_victory_room?: boolean | null;
   can_say_saved_as_proof?: boolean | null;
   proof_saved?: boolean | null;
+  /** OpenAI Win recognition — separate from accountability proof_signal. */
+  win_recognition?: {
+    has_win: boolean;
+    wins: Array<{
+      ordinal: 0 | 1;
+      grounded_action: string;
+      why_meaningful: string | null;
+      suggested_title: string;
+      relationship_type: string;
+      celebration_appropriate: boolean;
+    }>;
+    may_claim_saved: false;
+  } | null;
 };
 
 export type RelationshipPacketMemory7d = RelationshipMemory7dData;
@@ -991,13 +1004,15 @@ function buildCanonicalDaily(f: DailyV3RelationshipFacts): RelationshipPacketCan
 
 function buildProofVictoryInbound(f: InboundV3RelationshipFacts): RelationshipPacketProofVictoryPermission | null {
   const hint = f.v2_accountability.proof_callout_hint;
+  const winRec = f.win_recognition ?? null;
   const hasAny =
     f.v2_accountability.proof_signal ||
     f.v2_accountability.miss_signal ||
     f.v2_accountability.blocker_signal ||
     hint != null ||
     f.legacy_suggestions.accountability_proof_hint ||
-    f.victory_background != null;
+    f.victory_background != null ||
+    winRec?.has_win === true;
   if (!hasAny) return null;
   return {
     proof_signal: f.v2_accountability.proof_signal,
@@ -1009,6 +1024,22 @@ function buildProofVictoryInbound(f: InboundV3RelationshipFacts): RelationshipPa
     can_reference_victory_room: hint?.eligible === true ? true : hint ? false : null,
     can_say_saved_as_proof: hint?.proof_callout_claim_saved_allowed === true ? true : false,
     proof_saved: false,
+    ...(winRec
+      ? {
+          win_recognition: {
+            has_win: winRec.has_win,
+            wins: winRec.wins.map((w) => ({
+              ordinal: w.ordinal,
+              grounded_action: w.grounded_action,
+              why_meaningful: w.why_meaningful,
+              suggested_title: w.suggested_title,
+              relationship_type: w.relationship_type,
+              celebration_appropriate: w.celebration_appropriate,
+            })),
+            may_claim_saved: false as const,
+          },
+        }
+      : {}),
   };
 }
 
