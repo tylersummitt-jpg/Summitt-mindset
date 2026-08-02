@@ -147,4 +147,111 @@ describe("runLaneOpenAiJsonWithOneRetry", () => {
     ]);
     expect(out.retryFollowUpMessages?.[1]?.content).toContain("json");
   });
+
+  it("passes AbortSignal as RequestOptions second arg, never in request body", async () => {
+    const create = vi.fn().mockResolvedValue(
+      mockCompletion({ content: '{"body":"Hello"}', finish_reason: "stop" })
+    );
+    const client = {
+      chat: { completions: { create } },
+    } as unknown as OpenAI;
+    const controller = new AbortController();
+
+    await runLaneOpenAiJsonWithOneRetry<{ body: string }>({
+      client,
+      model: "gpt-4o-mini",
+      temperature: 0.35,
+      maxTokens: 220,
+      primaryMessages: [{ role: "user", content: "hi" }],
+      jsonSchemaReminder: "json",
+      signal: controller.signal,
+      parse: (raw) => {
+        try {
+          return JSON.parse(raw) as { body: string };
+        } catch {
+          return null;
+        }
+      },
+    });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    const [body, options] = create.mock.calls[0] ?? [];
+    expect(body).toMatchObject({
+      model: "gpt-4o-mini",
+      temperature: 0.35,
+      max_tokens: 220,
+      response_format: { type: "json_object" },
+      messages: [{ role: "user", content: "hi" }],
+    });
+    expect(body).not.toHaveProperty("signal");
+    expect(options).toEqual({ signal: controller.signal });
+  });
+
+  it("retry also places signal only in the second RequestOptions argument", async () => {
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce(mockCompletion({ content: "not json", finish_reason: "stop" }))
+      .mockResolvedValueOnce(
+        mockCompletion({ content: '{"body":"Retry ok"}', finish_reason: "stop" })
+      );
+    const client = {
+      chat: { completions: { create } },
+    } as unknown as OpenAI;
+    const controller = new AbortController();
+
+    const out = await runLaneOpenAiJsonWithOneRetry<{ body: string }>({
+      client,
+      model: "gpt-4o-mini",
+      temperature: 0.35,
+      maxTokens: 220,
+      primaryMessages: [{ role: "user", content: "hi" }],
+      jsonSchemaReminder: "json",
+      signal: controller.signal,
+      parse: (raw) => {
+        try {
+          return JSON.parse(raw) as { body: string };
+        } catch {
+          return null;
+        }
+      },
+    });
+
+    expect(out.value?.body).toBe("Retry ok");
+    expect(create).toHaveBeenCalledTimes(2);
+    for (const call of create.mock.calls) {
+      const [body, options] = call;
+      expect(body).not.toHaveProperty("signal");
+      expect(options).toEqual({ signal: controller.signal });
+    }
+  });
+
+  it("omits RequestOptions when no signal is supplied", async () => {
+    const create = vi.fn().mockResolvedValue(
+      mockCompletion({ content: '{"body":"Hello"}', finish_reason: "stop" })
+    );
+    const client = {
+      chat: { completions: { create } },
+    } as unknown as OpenAI;
+
+    await runLaneOpenAiJsonWithOneRetry<{ body: string }>({
+      client,
+      model: "gpt-4o-mini",
+      temperature: 0.35,
+      maxTokens: 220,
+      primaryMessages: [{ role: "user", content: "hi" }],
+      jsonSchemaReminder: "json",
+      parse: (raw) => {
+        try {
+          return JSON.parse(raw) as { body: string };
+        } catch {
+          return null;
+        }
+      },
+    });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    const [body, options] = create.mock.calls[0] ?? [];
+    expect(body).not.toHaveProperty("signal");
+    expect(options).toBeUndefined();
+  });
 });

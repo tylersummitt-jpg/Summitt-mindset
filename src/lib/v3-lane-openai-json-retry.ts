@@ -46,7 +46,7 @@ export async function runLaneOpenAiJsonWithOneRetry<T>(args: {
   primaryMessages: ChatCompletionMessageParam[];
   jsonSchemaReminder: string;
   parse: (raw: string) => T | null;
-  /** When set, passed to OpenAI; abort ends the in-flight request. */
+  /** When set, passed as chat.completions.create RequestOptions.signal (not request body). */
   signal?: AbortSignal;
   /** Default true. Interpreter lanes should pass false to stay within a single timeout budget. */
   allowRetry?: boolean;
@@ -62,13 +62,16 @@ export async function runLaneOpenAiJsonWithOneRetry<T>(args: {
     temperature: args.temperature,
     max_tokens: args.maxTokens,
     response_format: { type: "json_object" as const },
-    ...(args.signal ? { signal: args.signal } : {}),
   };
+  const requestOptions = args.signal ? { signal: args.signal } : undefined;
 
-  const first = await args.client.chat.completions.create({
-    ...base,
-    messages: args.primaryMessages,
-  });
+  const first = await args.client.chat.completions.create(
+    {
+      ...base,
+      messages: args.primaryMessages,
+    },
+    requestOptions
+  );
   let raw = first.choices[0]?.message?.content?.trim() ?? "";
   const preview = (s: string) => s.slice(0, 200);
 
@@ -104,10 +107,13 @@ Return valid JSON only. No markdown code fences, no commentary before or after t
     ...retryFollowUpMessages,
   ];
 
-  const second = await args.client.chat.completions.create({
-    ...base,
-    messages: retryMessages,
-  });
+  const second = await args.client.chat.completions.create(
+    {
+      ...base,
+      messages: retryMessages,
+    },
+    requestOptions
+  );
   const rawRetry = second.choices[0]?.message?.content?.trim() ?? "";
   const retryParse = args.parse(rawRetry);
 

@@ -743,8 +743,9 @@ describe("runInboundRelationshipTurnUnderstanding", () => {
   it("uses abort signal and returns timeout reason on abort", async () => {
     vi.stubEnv("OPENAI_API_KEY", "sk-test");
     openAiCreate.mockImplementation(
-      (_opts: { signal?: AbortSignal }) =>
+      (_body: unknown, options?: { signal?: AbortSignal }) =>
         new Promise((_resolve, reject) => {
+          expect(options?.signal).toBeInstanceOf(AbortSignal);
           const err = new Error("aborted");
           err.name = "AbortError";
           reject(err);
@@ -768,6 +769,11 @@ describe("runInboundRelationshipTurnUnderstanding", () => {
       proofCalloutClaimSavedAllowed: false,
     });
     expect(r?.interpreter_failed_reason).toMatch(/timeout|abort|failed/i);
+    const [body, options] = openAiCreate.mock.calls[0] ?? [];
+    expect(body).not.toHaveProperty("signal");
+    expect(options).toEqual(
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it("skips interpreter for STOP hard route", async () => {

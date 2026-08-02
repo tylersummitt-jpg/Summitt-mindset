@@ -423,7 +423,7 @@ export async function recognizeWinsFromInboundV1(
         latency_ms: latency,
       });
     } else {
-      console.warn("[win_recognition_parse_fail]", {
+      console.warn("[win_recognition_openai_error]", {
         schema_version: WIN_RECOGNITION_VERSION,
         latency_ms: latency,
         error: e instanceof Error ? e.message.slice(0, 120) : "unknown",

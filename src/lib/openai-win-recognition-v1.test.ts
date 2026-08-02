@@ -321,6 +321,7 @@ describe("recognizeWinsFromInboundV1 OpenAI call", () => {
   });
 
   it("malformed model output becomes no-Win", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     openAiCreate
       .mockResolvedValueOnce({
         choices: [{ message: { content: "not-json" }, finish_reason: "stop" }],
@@ -345,6 +346,82 @@ describe("recognizeWinsFromInboundV1 OpenAI call", () => {
     });
     expect(result.has_win).toBe(false);
     expect(meta.parse_ok).toBe(false);
+    expect(openAiCreate).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith(
+      "[win_recognition_parse_fail]",
+      expect.objectContaining({ schema_version: WIN_RECOGNITION_VERSION })
+    );
+    expect(warn).not.toHaveBeenCalledWith(
+      "[win_recognition_openai_error]",
+      expect.anything()
+    );
+    warn.mockRestore();
+  });
+
+  it("API request rejection logs openai_error not parse_fail and returns no-Win", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    openAiCreate.mockRejectedValue(
+      new Error("400 Unrecognized request argument supplied: signal")
+    );
+    const { result, meta } = await recognizeWinsFromInboundV1({
+      inboundMessage: INBOUND,
+      priorOutboundOrOpenQuestion: null,
+      recentExactThreadExcerpt: null,
+      currentGoal: null,
+      identityStatement: null,
+      userFirstName: null,
+      pendingRouteSummary: null,
+      resolvedAccountabilityResult: null,
+      safetyOrUrgencyOwned: false,
+      routeOwner: "normal_inbound_reply",
+      recentWinSummary: null,
+    });
+    expect(result.has_win).toBe(false);
+    expect(meta.parse_ok).toBe(false);
+    expect(meta.timed_out).toBe(false);
+    expect(warn).toHaveBeenCalledWith(
+      "[win_recognition_openai_error]",
+      expect.objectContaining({
+        schema_version: WIN_RECOGNITION_VERSION,
+        error: expect.stringContaining("Unrecognized request argument"),
+      })
+    );
+    expect(warn).not.toHaveBeenCalledWith(
+      "[win_recognition_parse_fail]",
+      expect.anything()
+    );
+    warn.mockRestore();
+  });
+
+  it("passes AbortSignal via RequestOptions, not request body", async () => {
+    openAiCreate.mockResolvedValue({
+      choices: [
+        {
+          message: { content: JSON.stringify(validPayload([], false)) },
+          finish_reason: "stop",
+        },
+      ],
+      usage: {},
+    });
+    await recognizeWinsFromInboundV1({
+      inboundMessage: INBOUND,
+      priorOutboundOrOpenQuestion: null,
+      recentExactThreadExcerpt: null,
+      currentGoal: null,
+      identityStatement: null,
+      userFirstName: null,
+      pendingRouteSummary: null,
+      resolvedAccountabilityResult: null,
+      safetyOrUrgencyOwned: false,
+      routeOwner: "normal_inbound_reply",
+      recentWinSummary: null,
+    });
+    expect(openAiCreate).toHaveBeenCalled();
+    const [body, options] = openAiCreate.mock.calls[0] ?? [];
+    expect(body).not.toHaveProperty("signal");
+    expect(options).toEqual(
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it("user_yes accountability context does not manufacture a Win when OpenAI returns none", async () => {
@@ -375,6 +452,7 @@ describe("recognizeWinsFromInboundV1 OpenAI call", () => {
   });
 
   it("timeout / abort becomes no-Win", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     openAiCreate.mockImplementation(() => {
       const err = new Error("aborted");
       err.name = "AbortError";
@@ -395,6 +473,19 @@ describe("recognizeWinsFromInboundV1 OpenAI call", () => {
     });
     expect(result.has_win).toBe(false);
     expect(meta.timed_out).toBe(true);
+    expect(warn).toHaveBeenCalledWith(
+      "[win_recognition_timeout]",
+      expect.objectContaining({ schema_version: WIN_RECOGNITION_VERSION })
+    );
+    expect(warn).not.toHaveBeenCalledWith(
+      "[win_recognition_openai_error]",
+      expect.anything()
+    );
+    expect(warn).not.toHaveBeenCalledWith(
+      "[win_recognition_parse_fail]",
+      expect.anything()
+    );
+    warn.mockRestore();
   });
 
   it("safety-owned input skips OpenAI", async () => {
