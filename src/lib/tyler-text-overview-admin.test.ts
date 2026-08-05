@@ -1922,6 +1922,9 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
     expect(src).toContain("MORNING_SAVE_RELOAD_FAILED_COPY");
     expect(src).toContain("matchesTylerTextOverviewSearchQuery");
     expect(src).toContain("TTO_FILTERED_ROWS_LABEL");
+    expect(src).toContain("showFullPageLoader");
+    expect(src).toContain("backgroundRefreshing");
+    expect(src).toContain("shouldSkipMorningTtoFocusRefresh");
   });
 
   it("two-page TTO split: morning and evening pages with fixed sendSlot", () => {

@@ -65,6 +65,11 @@ import {
   isMorningRelationshipNotebookRow,
   shouldShowMorningDualBodyPanels,
 } from "@/lib/tyler-text-overview-dashboard-sections";
+import {
+  shouldShowTtoBackgroundRefreshing,
+  shouldShowTtoFullPageLoader,
+  shouldSkipMorningTtoFocusRefresh,
+} from "@/lib/tyler-text-overview-dashboard-refresh";
 import { notebookFamilyLabel } from "@/lib/tyler-text-overview-notebook-display";
 import type {
   TylerTextOverviewAdminCounts,
@@ -560,6 +565,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   const [edits, setEdits] = useState<EditState>({});
   const [saveFailures, setSaveFailures] = useState<SaveFailureState>({});
   const [loading, setLoading] = useState(true);
+  const [hasCompletedSuccessfulLoad, setHasCompletedSuccessfulLoad] = useState(false);
   const [savingDraftId, setSavingDraftId] = useState<string | null>(null);
   const [generatingUserId, setGeneratingUserId] = useState<string | null>(null);
   const [sendingDraftId, setSendingDraftId] = useState<string | null>(null);
@@ -571,6 +577,8 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
   const loadGenerationRef = useRef(0);
   const loadAbortRef = useRef<AbortController | null>(null);
+  const loadInFlightRef = useRef(false);
+  const lastSuccessfulRefreshAtMsRef = useRef<number | null>(null);
   const editsRef = useRef<EditState>({});
   const rowsRef = useRef<TylerTextOverviewAdminDraftRow[]>([]);
   const saveAttemptRef = useRef<Record<string, number>>({});
@@ -581,6 +589,14 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   useEffect(() => {
     rowsRef.current = rows;
   }, [rows]);
+  useEffect(() => {
+    if (!lastSuccessfulRefreshAt) {
+      lastSuccessfulRefreshAtMsRef.current = null;
+      return;
+    }
+    const ms = Date.parse(lastSuccessfulRefreshAt);
+    lastSuccessfulRefreshAtMsRef.current = Number.isFinite(ms) ? ms : null;
+  }, [lastSuccessfulRefreshAt]);
 
   function showToast(message: string) {
     setToast(message);
@@ -623,6 +639,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
       const abort = new AbortController();
       loadAbortRef.current = abort;
 
+      loadInFlightRef.current = true;
       setLoading(true);
       try {
         const params = new URLSearchParams();
@@ -654,12 +671,16 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         const nextRows = (json.rows || []) as TylerTextOverviewAdminDraftRow[];
         const nextManifest =
           (json.manifest as TylerTextOverviewManifestIntegrity | undefined) ?? null;
+        const refreshedAt = nextManifest?.lastRefreshedAt ?? new Date().toISOString();
         setManifestLoadError(null);
         setDataStale(false);
         setManifest(nextManifest);
-        setLastSuccessfulRefreshAt(
-          nextManifest?.lastRefreshedAt ?? new Date().toISOString()
-        );
+        setLastSuccessfulRefreshAt(refreshedAt);
+        setHasCompletedSuccessfulLoad(true);
+        const refreshedMs = Date.parse(refreshedAt);
+        lastSuccessfulRefreshAtMsRef.current = Number.isFinite(refreshedMs)
+          ? refreshedMs
+          : Date.now();
         setRows(nextRows);
         setCounts((json.counts as TylerTextOverviewAdminCounts | undefined) ?? null);
         setAvailableDayKeys((json.availableDayKeys || []) as string[]);
@@ -692,6 +713,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         return false;
       } finally {
         if (generation === loadGenerationRef.current) {
+          loadInFlightRef.current = false;
           setLoading(false);
         }
       }
@@ -710,9 +732,17 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     if (isEveningPage) return;
 
     function onFocusOrVisible() {
-      if (document.visibilityState === "hidden") return;
-      if (hasAnyUnsavedEdits(rowsRef.current, editsRef.current, isEveningPage)) {
-        setServerChangedWhileDirty(true);
+      const gate = shouldSkipMorningTtoFocusRefresh({
+        visibilityState: document.visibilityState,
+        hasUnsavedEdits: hasAnyUnsavedEdits(rowsRef.current, editsRef.current, isEveningPage),
+        loadInFlight: loadInFlightRef.current,
+        lastSuccessfulRefreshAtMs: lastSuccessfulRefreshAtMsRef.current,
+        nowMs: Date.now(),
+      });
+      if (gate.skip) {
+        if (gate.reason === "dirty") {
+          setServerChangedWhileDirty(true);
+        }
         return;
       }
       void load(selectedDayKey, sendSlot, { preserveUnsaved: true });
@@ -950,6 +980,16 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     [rows, searchQuery]
   );
 
+  const showFullPageLoader = shouldShowTtoFullPageLoader({
+    loading,
+    rowCount: rows.length,
+    hasCompletedSuccessfulLoad,
+  });
+  const backgroundRefreshing = shouldShowTtoBackgroundRefreshing({
+    loading,
+    showFullPageLoader,
+  });
+
   const showTrustBanner =
     Boolean(manifestLoadError) ||
     dataStale ||
@@ -1133,6 +1173,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-gray-500">
             Last refreshed (Eastern): {formatLastRefreshedAt(manifest?.lastRefreshedAt)}
+            {backgroundRefreshing ? " · Refreshing…" : ""}
           </span>
           <button
             type="button"
@@ -1140,7 +1181,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             disabled={loading}
             onClick={() => void handleManualRefresh()}
           >
-            {loading ? "Refreshing…" : "Refresh"}
+            {backgroundRefreshing || loading ? "Refreshing…" : "Refresh"}
           </button>
         </div>
       </div>
@@ -1168,7 +1209,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         </div>
       ) : null}
 
-      {loading ? (
+      {showFullPageLoader ? (
         <p className="text-sm text-gray-500">Loading sendable users…</p>
       ) : visibleRows.length === 0 ? (
         isEveningPage ? (
