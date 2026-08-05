@@ -126,6 +126,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -214,6 +215,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -235,6 +237,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -266,6 +269,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -300,6 +304,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -320,6 +325,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -343,6 +349,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -463,6 +470,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -488,6 +496,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_none",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result).toEqual({ ok: false, error: "no_active_commitment" });
@@ -503,6 +512,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result).toEqual({ ok: false, error: "missing_current_goal" });
@@ -520,6 +530,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);

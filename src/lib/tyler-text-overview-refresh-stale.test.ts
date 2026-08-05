@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { buildWriterOpenAiCapture } from "@/lib/tyler-text-overview-writer-capture";
-import { resolveTylerTextOverviewDraftForDayKey } from "@/lib/tyler-text-overview-draft-day-key";
+import { resolveCanonicalMorningTtoBatchDraftForDayKey } from "@/lib/tyler-text-overview-draft-day-key";
 import type { DailySmsBuilt } from "@/lib/daily-sms-build";
 import {
   findStaleTylerTextOverviewCurrentDrafts,
@@ -493,22 +493,19 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
         received_at: "2026-07-02T18:00:00.000Z",
       },
     ];
+    const refreshNow = new Date("2026-07-02T16:00:00.000Z"); // noon ET July 2
     await refreshStaleTylerTextOverviewDrafts({
-      now: new Date("2026-07-02T16:00:00.000Z"),
+      now: refreshNow,
     });
     expect(loadMorningPacketMock).toHaveBeenCalled();
     expect(
       db.generations.some((g) => g.draft_for_day_key === "2026-07-10")
     ).toBe(true);
     expect(buildDailySmsContentMock).not.toHaveBeenCalled();
-    const recomputed = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-02T16:00:00.000Z"),
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: null,
-    });
-    expect(recomputed).not.toBe("2026-07-10");
+    // Canonical batch day for this clock would be Eastern tomorrow — not the stale draft day.
+    const canonicalIfBatch = resolveCanonicalMorningTtoBatchDraftForDayKey(refreshNow);
+    expect(canonicalIfBatch).toBe("2026-07-03");
+    expect(canonicalIfBatch).not.toBe("2026-07-10");
   });
 
   it("calls Morning packet+writer for stale users only", async () => {

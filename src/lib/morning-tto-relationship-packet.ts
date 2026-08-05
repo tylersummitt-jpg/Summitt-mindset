@@ -8,7 +8,7 @@ import {
   buildMorningExactThreadForPacket,
   formatAtLocal,
 } from "@/lib/sms-recent-exact-thread-72h";
-import { resolveTylerTextOverviewDraftForDayKey } from "@/lib/tyler-text-overview-draft-day-key";
+import { requireTylerTextOverviewDraftDayKey } from "@/lib/tyler-text-overview-draft-day-key";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { wholeCalendarDaysBetweenDayKeys } from "@/lib/v2-cadence";
@@ -193,8 +193,8 @@ export async function loadMorningRelationshipPacket(args: {
   clerkUserId: string;
   timezone: string;
   now?: Date;
-  /** Accountability / send day for this Morning draft. Defaults via draft-day rollover. */
-  draftForDayKey?: string;
+  /** Accountability / send day for this Morning draft — required; never inferred from local hour. */
+  draftForDayKey: string;
   commitmentId?: string | null;
 }): Promise<
   | { ok: true; packet: MorningRelationshipPacket; commitmentId: string }
@@ -204,15 +204,15 @@ export async function loadMorningRelationshipPacket(args: {
   const nowMs = now.getTime();
   const tz = resolveUserTimezone(args.timezone);
 
-  const draftForDayKey =
-    args.draftForDayKey?.trim() ||
-    resolveTylerTextOverviewDraftForDayKey({
-      now,
-      timezone: tz,
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: null,
-    });
+  let draftForDayKey: string;
+  try {
+    draftForDayKey = requireTylerTextOverviewDraftDayKey(args.draftForDayKey);
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "invalid_draft_for_day_key",
+    };
+  }
 
   const message_for = buildMorningMessageFor({ timezone: tz, draftForDayKey });
 

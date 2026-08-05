@@ -9,7 +9,7 @@ import { getClerkUser } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
 import {
-  resolveTylerTextOverviewDraftForDayKey,
+  requireTylerTextOverviewDraftDayKey,
   resolveTylerTextOverviewEveningDraftForDayKey,
 } from "@/lib/tyler-text-overview-draft-day-key";
 import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-overview-writer-capture";
@@ -32,7 +32,6 @@ import {
   fetchV2UserSmsCommsPreferences,
   shouldSkipDailyForCommsPrefs,
 } from "@/lib/v2-sms-comms-preferences";
-import { fetchV2UserSendTimeProfile } from "@/lib/v2-send-time-profile";
 import { hashWriterOpenAiMessages } from "@/lib/tyler-text-overview-writer-capture";
 
 export const MORNING_RELATIONSHIP_ROUTE_KIND = "morning_relationship" as const;
@@ -61,6 +60,8 @@ export type TylerTextOverviewAudienceRow = {
 export type TylerTextOverviewGenerateStats = {
   ok: boolean;
   enabled: boolean;
+  /** Canonical batch draft day when provided; null only on early invalid-arg failure. */
+  draft_for_day_key: string | null;
   scanned: number;
   eligible: number;
   generated: number;
@@ -81,6 +82,7 @@ function emptyStats(overrides: Partial<TylerTextOverviewGenerateStats> = {}): Ty
   return {
     ok: true,
     enabled: false,
+    draft_for_day_key: null,
     scanned: 0,
     eligible: 0,
     generated: 0,
@@ -924,9 +926,11 @@ export type TylerTextOverviewMorningDraftResult =
 export async function generateTylerTextOverviewDraftForUser(args: {
   audienceUser: TylerTextOverviewAudienceRow;
   now: Date;
-  draftForDayKey?: string;
+  /** Required: control-room / existing-draft day. Never derived from user-local hour. */
+  draftForDayKey: string;
   generationReason?: TylerTextOverviewGenerationReason;
 }): Promise<TylerTextOverviewMorningDraftResult> {
+  const draftForDayKey = requireTylerTextOverviewDraftDayKey(args.draftForDayKey);
   const clerkUserId = args.audienceUser.clerk_user_id;
   const user = await getClerkUser(clerkUserId);
   const md = (user.public_metadata ?? {}) as Record<string, unknown>;
@@ -950,17 +954,6 @@ export async function generateTylerTextOverviewDraftForUser(args: {
   }
 
   const clerkSmsTimePreference = smsTimePreferenceFromClerkMetadata(md);
-  const learnedProfile = await fetchV2UserSendTimeProfile(clerkUserId);
-  const draftForDayKey =
-    args.draftForDayKey ??
-    resolveTylerTextOverviewDraftForDayKey({
-      now: args.now,
-      timezone,
-      clerkSmsTimePreference,
-      commsPrefs,
-      learnedProfile,
-    });
-
   const sendPrefSnapshot = formatSendPrefSnapshot(clerkSmsTimePreference, commsPrefs);
 
   const packetResult = await loadMorningRelationshipPacket({
@@ -1090,15 +1083,35 @@ export async function generateTylerTextOverviewDraftForUser(args: {
   };
 }
 
-export async function generateTylerTextOverviewDailyDrafts(args: {
-  now?: Date;
-} = {}): Promise<TylerTextOverviewGenerateStats> {
-  if (!isTylerTextOverviewEnabled()) {
-    return emptyStats({ skipped_disabled: 1 });
+export type GenerateTylerTextOverviewDailyDraftsArgs = {
+  now: Date;
+  /** One canonical Morning draft day for every user in this batch. */
+  draftForDayKey: string;
+};
+
+export async function generateTylerTextOverviewDailyDrafts(
+  args: GenerateTylerTextOverviewDailyDraftsArgs
+): Promise<TylerTextOverviewGenerateStats> {
+  let draftForDayKey: string;
+  try {
+    draftForDayKey = requireTylerTextOverviewDraftDayKey(args.draftForDayKey);
+  } catch (e) {
+    return emptyStats({
+      ok: false,
+      enabled: isTylerTextOverviewEnabled(),
+      errors_preview: [e instanceof Error ? e.message : "invalid_draft_for_day_key"],
+    });
   }
 
-  const now = args.now ?? new Date();
-  const stats = emptyStats({ enabled: true });
+  if (!isTylerTextOverviewEnabled()) {
+    return emptyStats({
+      skipped_disabled: 1,
+      draft_for_day_key: draftForDayKey,
+    });
+  }
+
+  const now = args.now;
+  const stats = emptyStats({ enabled: true, draft_for_day_key: draftForDayKey });
   const errors: string[] = [];
 
   let audience: TylerTextOverviewAudienceRow[];
@@ -1121,7 +1134,11 @@ export async function generateTylerTextOverviewDailyDrafts(args: {
     }
 
     try {
-      const result = await generateTylerTextOverviewDraftForUser({ audienceUser, now });
+      const result = await generateTylerTextOverviewDraftForUser({
+        audienceUser,
+        now,
+        draftForDayKey,
+      });
       if (!result.ok) {
         if (result.reason === "comms_prefs") {
           stats.skipped_comms_prefs += 1;

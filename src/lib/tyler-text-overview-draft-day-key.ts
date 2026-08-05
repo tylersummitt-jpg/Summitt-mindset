@@ -1,42 +1,53 @@
 import { dayKeyOffset } from "@/lib/sms-temporal-contract-v1";
 import { getDateKeyInTimezone } from "@/lib/timezone";
 import {
-  getLocalHourInTimezone,
-  type V2UserSendTimeProfileRow,
-} from "@/lib/v2-send-time-profile";
-import type { V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
+  getTylerTextOverviewAdminLocalDayKey,
+  TYLER_TEXT_OVERVIEW_ADMIN_TIMEZONE,
+} from "@/lib/tyler-text-overview-dashboard-copy";
 
-export type ResolveTylerTextOverviewDraftForDayKeyArgs = {
-  now: Date;
-  timezone: string;
-  /**
-   * Kept for call-site compatibility. Morning TTO day-key no longer branches on
-   * legacy evening-style send preference — evening_checkin uses a separate helper.
-   */
-  clerkSmsTimePreference: string;
-  commsPrefs: V2UserSmsCommsPreferencesRow | null;
-  learnedProfile: V2UserSendTimeProfileRow | null;
-};
-
-/** Morning TTO / noon generate: roll to tomorrow from this local hour onward. */
-const MORNING_ROLLOVER_LOCAL_HOUR = 11;
+/** Canonical YYYY-MM-DD draft day key (calendar date, not timestamp). */
+const DRAFT_DAY_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /**
- * Per-user accountability day key for Tyler Text Overview morning draft generation.
- * Always uses morning-style rollover (local hour ≥ 11 → tomorrow).
- * Legacy evening/midday send preferences must not change Morning TTO day-key.
- * Must match the key passed to buildDailySmsContent for that preview.
+ * True when `value` is a real Gregorian calendar day as YYYY-MM-DD.
+ * Used to reject blank/malformed batch day keys before processing users.
  */
-export function resolveTylerTextOverviewDraftForDayKey(
-  args: ResolveTylerTextOverviewDraftForDayKeyArgs
-): string {
-  const todayKey = getDateKeyInTimezone(args.now, args.timezone);
-  const localHour = getLocalHourInTimezone(args.now, args.timezone);
+export function isTylerTextOverviewDraftDayKey(value: string): boolean {
+  const m = DRAFT_DAY_KEY_RE.exec(value.trim());
+  if (!m) return false;
+  const y = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const utc = new Date(Date.UTC(y, month - 1, day));
+  return (
+    utc.getUTCFullYear() === y &&
+    utc.getUTCMonth() === month - 1 &&
+    utc.getUTCDate() === day
+  );
+}
 
-  if (localHour >= MORNING_ROLLOVER_LOCAL_HOUR) {
-    return dayKeyOffset(todayKey, 1);
+/**
+ * Fail-closed day-key gate for Morning TTO batch / per-user persistence.
+ * Throws on blank or non-calendar values — never falls back to user-local hour.
+ */
+export function requireTylerTextOverviewDraftDayKey(
+  value: string | null | undefined
+): string {
+  const trimmed = typeof value === "string" ? value.trim() : "";
+  if (!isTylerTextOverviewDraftDayKey(trimmed)) {
+    throw new Error(`invalid_draft_for_day_key:${value ?? ""}`);
   }
-  return todayKey;
+  return trimmed;
+}
+
+/**
+ * Cron / control-room Morning batch: one intended draft day for every user.
+ * Uses Eastern admin calendar today + 1 (next Morning accountability day).
+ * Does not use per-user timezone or local hour.
+ */
+export function resolveCanonicalMorningTtoBatchDraftForDayKey(now: Date): string {
+  const adminToday = getTylerTextOverviewAdminLocalDayKey(now);
+  return dayKeyOffset(adminToday, 1);
 }
 
 export type ResolveTylerTextOverviewEveningDraftForDayKeyArgs = {
@@ -53,3 +64,6 @@ export function resolveTylerTextOverviewEveningDraftForDayKey(
 ): string {
   return getDateKeyInTimezone(args.now, args.timezone);
 }
+
+/** Re-export for cron/docs callers that need the admin TZ constant next to day helpers. */
+export { TYLER_TEXT_OVERVIEW_ADMIN_TIMEZONE };

@@ -4,7 +4,9 @@ import { join } from "node:path";
 
 import { buildWriterOpenAiCapture } from "@/lib/tyler-text-overview-writer-capture";
 import {
-  resolveTylerTextOverviewDraftForDayKey,
+  isTylerTextOverviewDraftDayKey,
+  requireTylerTextOverviewDraftDayKey,
+  resolveCanonicalMorningTtoBatchDraftForDayKey,
   resolveTylerTextOverviewEveningDraftForDayKey,
 } from "@/lib/tyler-text-overview-draft-day-key";
 import {
@@ -457,82 +459,57 @@ function setupHappyPath() {
   buildDailySmsContentMock.mockResolvedValue(SUCCESS_BUILT);
 }
 
-describe("resolveTylerTextOverviewDraftForDayKey", () => {
-  it("morning user before 11 local → today", () => {
-    const key = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-02T14:00:00.000Z"), // 10:00 ET
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: null,
-    });
-    expect(key).toBe("2026-07-02");
+describe("canonical Morning TTO batch draft day", () => {
+  it("validates YYYY-MM-DD calendar keys", () => {
+    expect(isTylerTextOverviewDraftDayKey("2026-08-06")).toBe(true);
+    expect(isTylerTextOverviewDraftDayKey("2026-02-30")).toBe(false);
+    expect(isTylerTextOverviewDraftDayKey("")).toBe(false);
+    expect(isTylerTextOverviewDraftDayKey("08/06/2026")).toBe(false);
+    expect(requireTylerTextOverviewDraftDayKey(" 2026-08-06 ")).toBe("2026-08-06");
+    expect(() => requireTylerTextOverviewDraftDayKey("")).toThrow(/invalid_draft_for_day_key/);
   });
 
-  it("morning user after 11 local → tomorrow", () => {
-    const key = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-02T16:00:00.000Z"), // 12:00 ET
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: null,
-    });
-    expect(key).toBe("2026-07-03");
+  it("Aug 5 Eastern afternoon → Aug 6 canonical batch day", () => {
+    // 2026-08-05 15:57 UTC = 11:57 AM America/New_York
+    const key = resolveCanonicalMorningTtoBatchDraftForDayKey(
+      new Date("2026-08-05T15:57:00.000Z")
+    );
+    expect(key).toBe("2026-08-06");
   });
 
-  it("legacy evening-style at 8:30 PM ET July 11 → Morning TTO day 2026-07-12", () => {
-    const key = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-12T00:30:00.000Z"), // 8:30 PM ET July 11
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "evening",
-      commsPrefs: { preferred_send_window: "evening" } as never,
-      learnedProfile: null,
-    });
-    expect(key).toBe("2026-07-12");
+  it("Aug 5 Eastern before 11 still → Aug 6 (admin tomorrow, not local hour)", () => {
+    // 2026-08-05 13:00 UTC = 09:00 AM ET
+    const key = resolveCanonicalMorningTtoBatchDraftForDayKey(
+      new Date("2026-08-05T13:00:00.000Z")
+    );
+    expect(key).toBe("2026-08-06");
   });
 
-  it("morning-style at 8:30 PM ET July 11 → Morning TTO day 2026-07-12", () => {
-    const key = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-12T00:30:00.000Z"), // 8:30 PM ET July 11
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: null,
-    });
-    expect(key).toBe("2026-07-12");
+  it("Aug 5 Eastern after 2 PM → Aug 6", () => {
+    // 2026-08-05 18:30 UTC = 2:30 PM ET
+    const key = resolveCanonicalMorningTtoBatchDraftForDayKey(
+      new Date("2026-08-05T18:30:00.000Z")
+    );
+    expect(key).toBe("2026-08-06");
   });
 
-  it("legacy evening-style before morning rollover (8 AM local) → today", () => {
-    const key = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-11T12:00:00.000Z"), // 8:00 AM ET July 11
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "evening",
-      commsPrefs: { preferred_send_window: "evening" } as never,
-      learnedProfile: null,
-    });
-    expect(key).toBe("2026-07-11");
+  it("near UTC date boundary still uses Eastern admin day", () => {
+    // 2026-08-06 03:30 UTC = Aug 5 11:30 PM ET → admin today Aug 5 → draft Aug 6
+    const key = resolveCanonicalMorningTtoBatchDraftForDayKey(
+      new Date("2026-08-06T03:30:00.000Z")
+    );
+    expect(key).toBe("2026-08-06");
   });
 
-  it("legacy evening-style no longer stays on today until 22:00", () => {
-    const key = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-02T21:00:00.000Z"), // 17:00 ET
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "evening",
-      commsPrefs: { preferred_send_window: "evening" } as never,
-      learnedProfile: null,
-    });
-    expect(key).toBe("2026-07-03");
-  });
-
-  it("timezone-specific morning behavior in America/Los_Angeles", () => {
-    const key = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-02T17:30:00.000Z"), // 10:30 PT
-      timezone: "America/Los_Angeles",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: null,
-    });
-    expect(key).toBe("2026-07-02");
+  it("retry later same Eastern day computes the same draft day", () => {
+    const a = resolveCanonicalMorningTtoBatchDraftForDayKey(
+      new Date("2026-08-05T15:57:00.000Z")
+    );
+    const b = resolveCanonicalMorningTtoBatchDraftForDayKey(
+      new Date("2026-08-05T20:00:00.000Z")
+    );
+    expect(a).toBe("2026-08-06");
+    expect(b).toBe("2026-08-06");
   });
 });
 
@@ -553,24 +530,11 @@ describe("resolveTylerTextOverviewEveningDraftForDayKey", () => {
     expect(key).toBe("2026-07-11");
   });
 
-  it("morning noon helper rolls all users to tomorrow at 8 PM ET (including legacy evening)", () => {
-    const morningKey = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-10T00:00:00.000Z"), // 8:00 PM ET July 9
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: null,
-    });
+  it("canonical Morning batch day at 8 PM ET July 9 is Eastern tomorrow 2026-07-10", () => {
+    const morningKey = resolveCanonicalMorningTtoBatchDraftForDayKey(
+      new Date("2026-07-10T00:00:00.000Z") // 8:00 PM ET July 9
+    );
     expect(morningKey).toBe("2026-07-10");
-
-    const legacyEveningKey = resolveTylerTextOverviewDraftForDayKey({
-      now: new Date("2026-07-10T00:00:00.000Z"),
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "evening",
-      commsPrefs: { preferred_send_window: "evening" } as never,
-      learnedProfile: null,
-    });
-    expect(legacyEveningKey).toBe("2026-07-10");
   });
 });
 
@@ -585,7 +549,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
   it("env disabled → no audience query, no build, no DB writes", async () => {
     process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "false";
     const { supabaseServer } = await import("@/lib/supabase-server");
-    const stats = await generateTylerTextOverviewDailyDrafts();
+    const stats = await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(stats.enabled).toBe(false);
     expect(stats.skipped_disabled).toBe(1);
     expect(supabaseServer.from).not.toHaveBeenCalled();
@@ -598,6 +562,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     setupHappyPath();
     const { supabaseServer } = await import("@/lib/supabase-server");
     const stats = await generateTylerTextOverviewDailyDrafts({
+      draftForDayKey: "2026-07-03",
       now: new Date("2026-07-02T16:00:00.000Z"),
     });
     expect(stats.enabled).toBe(true);
@@ -614,6 +579,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
   it("Morning generation does not call buildDailySmsContent", async () => {
     setupHappyPath();
     await generateTylerTextOverviewDailyDrafts({
+      draftForDayKey: "2026-07-03",
       now: new Date("2026-07-02T16:00:00.000Z"),
     });
     expect(buildDailySmsContentMock).not.toHaveBeenCalled();
@@ -630,7 +596,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
   it("skips non-V2 users", async () => {
     setupHappyPath();
     resolveV2Mock.mockResolvedValue({ fullyOnV2: false, reason: "no_active_commitment" });
-    const stats = await generateTylerTextOverviewDailyDrafts();
+    const stats = await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(stats.skipped_not_v2).toBe(1);
     expect(buildDailySmsContentMock).not.toHaveBeenCalled();
   });
@@ -638,14 +604,14 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
   it("skips comms-pref paused users", async () => {
     setupHappyPath();
     shouldSkipCommsMock.mockReturnValue({ skip: true, reason: "user_pause" });
-    const stats = await generateTylerTextOverviewDailyDrafts();
+    const stats = await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(stats.skipped_comms_prefs).toBe(1);
     expect(buildDailySmsContentMock).not.toHaveBeenCalled();
   });
 
   it("does not write sms_send_events or call Twilio", async () => {
     setupHappyPath();
-    await generateTylerTextOverviewDailyDrafts();
+    await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(db.smsSendEventsWrites).toBe(0);
     expect(sendSmsMock).not.toHaveBeenCalled();
     expect(reconcileCheckSentMock).not.toHaveBeenCalled();
@@ -653,7 +619,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
 
   it("stores writer_openai_messages exactly and defaults current_body_to_send", async () => {
     setupHappyPath();
-    await generateTylerTextOverviewDailyDrafts();
+    await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(db.generations[0]?.writer_openai_messages).toEqual(MORNING_WRITER_MESSAGES);
     expect(db.generations[0]?.writer_prompt_path).toBe("morning_relationship_v1");
     expect(db.generations[0]?.route_kind).toBe("morning_relationship");
@@ -694,7 +660,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       writer_prompt_path: "morning_relationship_v1",
       model: "gpt-4o-mini",
     });
-    await generateTylerTextOverviewDailyDrafts();
+    await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(db.generations[0]?.writer_openai_messages).toEqual(MORNING_WRITER_MESSAGES);
     expect(db.generations[0]?.machine_draft_body).toBe("Body after retry.");
     const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
@@ -709,7 +675,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
 
   it("writes send_slot morning on generation insert and draft upsert", async () => {
     setupHappyPath();
-    await generateTylerTextOverviewDailyDrafts();
+    await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(db.generations[0]?.send_slot).toBe("morning");
     expect(db.drafts[0]?.send_slot).toBe("morning");
   });
@@ -721,7 +687,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       error: "openai_request_failed",
       messages: MORNING_WRITER_MESSAGES,
     });
-    await generateTylerTextOverviewDailyDrafts();
+    await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(db.generations[0]?.machine_should_send).toBe(false);
     expect(db.generations[0]?.machine_no_send_reason).toBe("openai_request_failed");
     expect(db.generations[0]?.writer_prompt_path).toBe("morning_relationship_v1");
@@ -731,7 +697,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
   it("packet failure persists generation history without clearing protected draft", async () => {
     setupHappyPath();
     loadMorningPacketMock.mockResolvedValue({ ok: false, error: "no_active_commitment" });
-    await generateTylerTextOverviewDailyDrafts();
+    await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(db.generations[0]?.machine_should_send).toBe(false);
     expect(db.generations[0]?.machine_no_send_reason).toBe("no_active_commitment");
     expect(db.generations[0]?.route_kind).toBe("morning_relationship");
@@ -741,6 +707,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
   it("generation_number increments but protected current_body_to_send is not overwritten", async () => {
     setupHappyPath();
     await generateTylerTextOverviewDailyDrafts({
+      draftForDayKey: "2026-07-03",
       now: new Date("2026-07-02T16:00:00.000Z"),
     });
     writeMorningTtoBodyMock.mockResolvedValue({
@@ -751,6 +718,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       model: "gpt-4o-mini",
     });
     await generateTylerTextOverviewDailyDrafts({
+      draftForDayKey: "2026-07-03",
       now: new Date("2026-07-02T16:05:00.000Z"),
     });
     expect(db.generations).toHaveLength(2);
@@ -787,6 +755,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       model: "gpt-4o-mini",
     });
     await generateTylerTextOverviewDailyDrafts({
+      draftForDayKey: "2026-07-03",
       now: new Date("2026-07-02T16:00:00.000Z"),
     });
     expect(db.drafts[0]?.current_body_to_send).toBe("Existing machine draft");
@@ -817,6 +786,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       model: "gpt-4o-mini",
     });
     await generateTylerTextOverviewDailyDrafts({
+      draftForDayKey: "2026-07-03",
       now: new Date("2026-07-02T16:00:00.000Z"),
     });
     expect(db.drafts[0]?.current_body_to_send).toBe("Tyler protected body");
@@ -904,6 +874,7 @@ describe("generateTylerTextOverviewDraftForUser direct", () => {
     threadMemoryMock.mockResolvedValue(undefined);
     checkSentInsertMock.mockResolvedValue(undefined);
     await generateTylerTextOverviewDraftForUser({
+      draftForDayKey: "2026-07-03",
       audienceUser: AUDIENCE_USER,
       now: new Date("2026-07-02T16:00:00.000Z"),
     });
@@ -912,20 +883,106 @@ describe("generateTylerTextOverviewDraftForUser direct", () => {
     expect(db.v2EventWrites).toBe(0);
   });
 
-  it("legacy evening preference at 8:30 PM ET July 11 uses Morning TTO day 2026-07-12", async () => {
+  it("supplied draftForDayKey wins over user timezone and send preference", async () => {
     setupHappyPath();
     getClerkUserMock.mockResolvedValue({
-      public_metadata: { timezone: "America/New_York", smsTimePreference: "evening" },
+      public_metadata: { timezone: "America/Los_Angeles", smsTimePreference: "evening" },
     });
     fetchCommsMock.mockResolvedValue({ preferred_send_window: "evening" });
+    // Clock would have been "before 11" Pacific on Aug 5 under the old local-hour law.
     const result = await generateTylerTextOverviewDraftForUser({
-      audienceUser: AUDIENCE_USER,
-      now: new Date("2026-07-12T00:30:00.000Z"), // 8:30 PM ET July 11
+      draftForDayKey: "2026-08-06",
+      audienceUser: { ...AUDIENCE_USER, timezone: "America/Los_Angeles" },
+      now: new Date("2026-08-05T15:57:00.000Z"),
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.draftForDayKey).toBe("2026-07-12");
-    expect(db.drafts[0]?.draft_for_day_key).toBe("2026-07-12");
+    expect(result.draftForDayKey).toBe("2026-08-06");
+    expect(db.drafts[0]?.draft_for_day_key).toBe("2026-08-06");
+    expect(loadMorningPacketMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftForDayKey: "2026-08-06",
+        timezone: "America/Los_Angeles",
+      })
+    );
+  });
+});
+
+describe("canonical batch persists one day across US timezones", () => {
+  afterEach(() => {
+    process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "false";
+    vi.clearAllMocks();
+  });
+
+  it("Eastern/Central/Mountain/Pacific all persist supplied Aug 6 at 11:57 AM ET", async () => {
+    setupHappyPath();
+    const zones = [
+      "America/New_York",
+      "America/Chicago",
+      "America/Denver",
+      "America/Los_Angeles",
+    ] as const;
+    db.audience = zones.map((timezone, i) => ({
+      ...AUDIENCE_USER,
+      clerk_user_id: `user_tz_${i}`,
+      timezone,
+    }));
+    getClerkUserMock.mockImplementation(async (id: string) => {
+      const idx = Number(String(id).replace("user_tz_", ""));
+      return {
+        public_metadata: {
+          timezone: zones[idx] ?? "America/New_York",
+          smsTimePreference: "morning",
+        },
+      };
+    });
+
+    const now = new Date("2026-08-05T15:57:00.000Z"); // 11:57 AM ET
+    const draftForDayKey = resolveCanonicalMorningTtoBatchDraftForDayKey(now);
+    expect(draftForDayKey).toBe("2026-08-06");
+
+    const stats = await generateTylerTextOverviewDailyDrafts({ now, draftForDayKey });
+    expect(stats.ok).toBe(true);
+    expect(stats.draft_for_day_key).toBe("2026-08-06");
+    expect(stats.generation_inserted).toBe(4);
+    expect(db.drafts).toHaveLength(4);
+    expect(new Set(db.drafts.map((d) => d.draft_for_day_key))).toEqual(new Set(["2026-08-06"]));
+    expect(new Set(db.generations.map((g) => g.draft_for_day_key))).toEqual(
+      new Set(["2026-08-06"])
+    );
+    for (const call of loadMorningPacketMock.mock.calls) {
+      expect(call[0]?.draftForDayKey).toBe("2026-08-06");
+    }
+  });
+
+  it("supplied day wins before 11 AM Eastern and after 2 PM Eastern", async () => {
+    setupHappyPath();
+    for (const now of [
+      new Date("2026-08-05T13:00:00.000Z"), // 9 AM ET
+      new Date("2026-08-05T18:30:00.000Z"), // 2:30 PM ET
+    ]) {
+      db.generations = [];
+      db.drafts = [];
+      db.audience = [AUDIENCE_USER];
+      const stats = await generateTylerTextOverviewDailyDrafts({
+        now,
+        draftForDayKey: "2026-08-06",
+      });
+      expect(stats.draft_for_day_key).toBe("2026-08-06");
+      expect(db.drafts[0]?.draft_for_day_key).toBe("2026-08-06");
+    }
+  });
+
+  it("rejects blank draftForDayKey before audience work", async () => {
+    setupHappyPath();
+    const { supabaseServer } = await import("@/lib/supabase-server");
+    const stats = await generateTylerTextOverviewDailyDrafts({
+      now: new Date("2026-08-05T15:57:00.000Z"),
+      draftForDayKey: "  ",
+    });
+    expect(stats.ok).toBe(false);
+    expect(stats.errors_preview[0]).toMatch(/invalid_draft_for_day_key/);
+    expect(supabaseServer.from).not.toHaveBeenCalled();
   });
 });
 
