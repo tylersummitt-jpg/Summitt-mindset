@@ -132,10 +132,11 @@ describe("loadMorningRelationshipPacket", () => {
     if (!result.ok) return;
 
     expect(result.packet.version).toBe("morning_relationship_v1");
-    expect(result.packet.current_local.timezone).toBe(TZ);
-    expect(result.packet.current_local.local_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(result.packet.current_local.local_weekday).toBeTruthy();
-    expect(result.packet.current_local.local_time).toMatch(/^\d{2}:\d{2}$/);
+    expect(result.packet.message_for.timezone).toBe(TZ);
+    expect(result.packet.message_for.local_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(result.packet.message_for.local_weekday).toBeTruthy();
+    expect(result.packet.message_for.daypart).toBe("morning");
+    expect(result.packet).not.toHaveProperty("current_local");
     expect(result.packet.preferred_name).toBe("Pat");
     expect(result.packet.current_goal.text).toBe("One hour of focused writing each morning");
     expect(result.packet.current_identity.text).toBe("I am a steady father.");
@@ -143,6 +144,60 @@ describe("loadMorningRelationshipPacket", () => {
     expect(result.packet.exact_thread.window_days).toBe(21);
     expect(result.packet.exact_thread.max_messages).toBe(30);
     expect(result.commitmentId).toBe("cmt_morning");
+  });
+
+  it("message_for equals draft_for_day_key when generated before 11 AM local", async () => {
+    setupPacketSupabase({ profile: {} });
+    // 2026-08-03 10:23 UTC = 06:23 America/New_York (before 11)
+    const now = new Date("2026-08-03T10:23:00.000Z");
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: "America/New_York",
+      now,
+      draftForDayKey: "2026-08-03",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.message_for).toEqual({
+      timezone: "America/New_York",
+      local_date: "2026-08-03",
+      local_weekday: "Monday",
+      daypart: "morning",
+    });
+    expect(JSON.stringify(result.packet)).not.toContain("current_local");
+  });
+
+  it("message_for uses tomorrow draft day after 11 AM, not generation Tuesday", async () => {
+    setupPacketSupabase({ profile: {} });
+    // Proven Aug 5 skew: generated Tue 19:40 ET for Wed draft
+    const now = new Date("2026-08-04T23:40:00.000Z");
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: "America/New_York",
+      now,
+      draftForDayKey: "2026-08-05",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.message_for.local_date).toBe("2026-08-05");
+    expect(result.packet.message_for.local_weekday).toBe("Wednesday");
+    expect(result.packet.message_for.daypart).toBe("morning");
+    expect(result.packet.message_for.local_date).not.toBe("2026-08-04");
+    expect(result.packet.message_for.local_weekday).not.toBe("Tuesday");
+  });
+
+  it("weekdayLongFromLocalDayKey derives weekday from draft day key", async () => {
+    const { weekdayLongFromLocalDayKey, buildMorningMessageFor } = await import(
+      "@/lib/morning-tto-relationship-packet"
+    );
+    expect(weekdayLongFromLocalDayKey("2026-08-03")).toBe("Monday");
+    expect(weekdayLongFromLocalDayKey("2026-08-05")).toBe("Wednesday");
+    expect(
+      buildMorningMessageFor({
+        timezone: "America/New_York",
+        draftForDayKey: "2026-08-05",
+      }).local_weekday
+    ).toBe("Wednesday");
   });
 
   it("uses adaptive overlay for current_goal when active", async () => {
@@ -305,6 +360,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -323,6 +379,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -339,6 +396,7 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: TZ,
       now: NOW,
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
@@ -347,7 +405,7 @@ describe("loadMorningRelationshipPacket", () => {
     expect(result.packet.last_user_response.days_since).toBeGreaterThanOrEqual(0);
   });
 
-  it("computes days_since on local calendar day keys across timezone boundaries", async () => {
+  it("computes days_since vs message_for day across timezone boundaries", async () => {
     // 2026-06-21 03:00 UTC = 2026-06-20 evening in America/New_York
     fetchLastAnyUserReplyAt.mockResolvedValue("2026-06-21T03:00:00.000Z");
     setupPacketSupabase({ profile: {} });
@@ -356,11 +414,28 @@ describe("loadMorningRelationshipPacket", () => {
       clerkUserId: "user_morning",
       timezone: "America/New_York",
       now: new Date("2026-06-22T16:00:00.000Z"),
+      draftForDayKey: "2026-06-22",
     });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
+    expect(result.packet.message_for.local_date).toBe("2026-06-22");
     expect(result.packet.last_user_response.days_since).toBe(2);
+  });
+
+  it("days_since uses message_for day, not generation evening when draft is tomorrow", async () => {
+    fetchLastAnyUserReplyAt.mockResolvedValue("2026-08-03T00:02:10.072Z");
+    setupPacketSupabase({ profile: {} });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: "America/New_York",
+      now: new Date("2026-08-04T23:40:00.000Z"),
+      draftForDayKey: "2026-08-05",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Reply local day Aug 2; message_for Aug 5 → 3 days
+    expect(result.packet.last_user_response.days_since).toBe(3);
   });
 
   it("writer-facing exact_thread omits message_count and char_count extras", async () => {
@@ -448,5 +523,138 @@ describe("loadMorningRelationshipPacket", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.packet.current_identity.text).toBeNull();
+  });
+
+  it("invalid timezone falls back via resolveUserTimezone for message_for", async () => {
+    setupPacketSupabase({ profile: {} });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: "Not/A_Real_Zone",
+      now: NOW,
+      draftForDayKey: "2026-06-22",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.message_for.timezone).toBe("America/New_York");
+  });
+
+  it("production fixture Aug 3: Sunday tomorrow-quote is yesterday vs Monday message_for", async () => {
+    const quote =
+      "It's been a good week. Also I'm going to lift weights tomorrow morning for sure.";
+    setupPacketSupabase({
+      profile: { preferred_name: "Tyler" },
+      inboundRows: [
+        {
+          raw_body: quote,
+          received_at: "2026-08-02T16:01:29.298Z",
+          message_sid: "SM_AUG2_TOMORROW",
+        },
+      ],
+    });
+
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: "America/New_York",
+      now: new Date("2026-08-03T10:23:00.000Z"),
+      draftForDayKey: "2026-08-03",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.message_for).toEqual({
+      timezone: "America/New_York",
+      local_date: "2026-08-03",
+      local_weekday: "Monday",
+      daypart: "morning",
+    });
+    const turn = result.packet.exact_thread.messages.find((m) => m.body === quote);
+    expect(turn).toBeTruthy();
+    expect(turn?.local_day_key).toBe("2026-08-02");
+    expect(turn?.day_relation_to_message).toBe("yesterday");
+    expect(turn?.body).toBe(quote);
+    expect(JSON.stringify(result.packet)).not.toContain("resolved_relative_reference");
+    expect(JSON.stringify(result.packet)).not.toContain("relationship_category");
+    expect(JSON.stringify(result.packet)).not.toContain("coaching_posture");
+  });
+
+  it("production fixture Aug 5: message_for is Wednesday; Aug 2 turns are 3 days before", async () => {
+    const pride =
+      "Also, I did a great thing today. I helped out a person at church who was having a really hard time.";
+    setupPacketSupabase({
+      profile: { preferred_name: "Tyler" },
+      sendRows: [
+        {
+          sms_body:
+            "It's inspiring to see how you're balancing your commitments and values, Tyler. Helping your family and contributing to the church shows your dedication to those you care about. Keep that momentum going as you lift weights tomorrow!",
+          created_at: "2026-08-03T11:01:03.878Z",
+          status: "sent",
+          message_sid: "SM_AUG3",
+          sent_at: "2026-08-03T11:01:03.878Z",
+        },
+        {
+          sms_body: "Happy Tuesday! How is this week going?! Tell me ONE THING you're proud of.",
+          created_at: "2026-08-04T11:01:07.766Z",
+          status: "sent",
+          message_sid: "SM_AUG4",
+          sent_at: "2026-08-04T11:01:07.766Z",
+        },
+      ],
+      inboundRows: [
+        {
+          raw_body: pride,
+          received_at: "2026-08-02T15:58:34.070Z",
+          message_sid: "SM_AUG2_PRIDE",
+        },
+      ],
+    });
+
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: "America/New_York",
+      now: new Date("2026-08-04T23:40:00.000Z"),
+      draftForDayKey: "2026-08-05",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.message_for.local_date).toBe("2026-08-05");
+    expect(result.packet.message_for.local_weekday).toBe("Wednesday");
+    expect(result.packet.message_for.daypart).toBe("morning");
+    expect(result.packet).not.toHaveProperty("current_local");
+
+    const prideTurn = result.packet.exact_thread.messages.find((m) => m.body === pride);
+    expect(prideTurn?.local_day_key).toBe("2026-08-02");
+    expect(prideTurn?.day_relation_to_message).toBe("3 days before");
+    expect(prideTurn?.body).toBe(pride);
+
+    const aug3 = result.packet.exact_thread.messages.find((m) =>
+      m.body.includes("lift weights tomorrow")
+    );
+    expect(aug3?.day_relation_to_message).toBe("2 days before");
+
+    const packetJson = JSON.stringify(result.packet);
+    expect(packetJson).not.toContain('"current_local"');
+    expect(packetJson).not.toContain("relationship_category");
+    expect(packetJson).not.toContain("coaching_posture");
+    expect(packetJson).not.toContain("selected_move");
+    expect(packetJson).not.toContain("open_loop");
+  });
+});
+
+describe("dayRelationToMessage", () => {
+  it("covers today / yesterday / N days before / tomorrow / N days after", async () => {
+    const { dayRelationToMessage } = await import("@/lib/sms-recent-exact-thread-72h");
+    expect(dayRelationToMessage("2026-08-03", "2026-08-03")).toBe("today");
+    expect(dayRelationToMessage("2026-08-02", "2026-08-03")).toBe("yesterday");
+    expect(dayRelationToMessage("2026-08-02", "2026-08-05")).toBe("3 days before");
+    expect(dayRelationToMessage("2026-08-04", "2026-08-03")).toBe("tomorrow");
+    expect(dayRelationToMessage("2026-08-06", "2026-08-03")).toBe("3 days after");
+  });
+
+  it("DST spring-forward does not corrupt calendar day relation (America/New_York)", async () => {
+    const { dayRelationToMessage } = await import("@/lib/sms-recent-exact-thread-72h");
+    // 2026-03-08 is US DST start; relation still calendar-day based on day keys
+    expect(dayRelationToMessage("2026-03-07", "2026-03-09")).toBe("2 days before");
+    expect(dayRelationToMessage("2026-03-08", "2026-03-09")).toBe("yesterday");
   });
 });

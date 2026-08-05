@@ -17,11 +17,11 @@ import type { MorningRelationshipPacket } from "@/lib/morning-tto-relationship-p
 function samplePacket(): MorningRelationshipPacket {
   return {
     version: "morning_relationship_v1",
-    current_local: {
+    message_for: {
       timezone: "America/Chicago",
       local_date: "2026-06-22",
       local_weekday: "Monday",
-      local_time: "10:30",
+      daypart: "morning",
     },
     last_user_response: {
       at_utc: "2026-06-21T16:00:00.000Z",
@@ -42,7 +42,9 @@ function samplePacket(): MorningRelationshipPacket {
           sender: "user",
           sent_at_utc: "2026-06-21T16:00:00.000Z",
           sent_at_local: "Jun 21, 11:00 AM",
+          local_day_key: "2026-06-21",
           local_weekday: "Sunday",
+          day_relation_to_message: "yesterday",
           body: "Got the hour in.",
         },
       ],
@@ -72,6 +74,30 @@ describe("morning-tto-writer", () => {
     expect(user).toContain("MORNING_RELATIONSHIP_PACKET_V1");
     expect(user).toContain('"version":"morning_relationship_v1"');
     expect(user).toContain("Write JSON only.");
+  });
+
+  it("prompt contracts message_for chronology and alive-now judgment", () => {
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/message_for/);
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(
+      /Relative-time words inside older thread messages belong to when those messages were sent/i
+    );
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/already acknowledged/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/alive now/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/old praise, question, or topic/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/relationship_category/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/selected_move/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/must mention Current Goal/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/mention no goal/i);
+  });
+
+  it("architecture: one writer, no repair/validator/category fields in prompt path", () => {
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/post-writer|repair pass|temporal validator/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/coaching_posture|open_loop|stale_topic/i);
+    const user = buildMorningWriterMessages(samplePacket())[1]?.content as string;
+    expect(user).toContain('"message_for"');
+    expect(user).not.toContain('"current_local"');
+    expect(user).not.toContain("resolved_relative_reference");
+    expect(user).not.toContain("relationship_category");
   });
 
   it("returns openai_unavailable when API key missing", async () => {

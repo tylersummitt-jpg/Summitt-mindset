@@ -967,6 +967,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     clerkUserId,
     timezone,
     now: args.now,
+    draftForDayKey,
   });
 
   if (!packetResult.ok) {

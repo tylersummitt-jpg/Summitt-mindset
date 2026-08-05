@@ -1568,7 +1568,10 @@ export type MorningExactThreadMessage = {
   sender: "coach" | "user";
   sent_at_utc: string;
   sent_at_local: string;
+  local_day_key: string;
   local_weekday: string;
+  /** Calendar-day relation of this turn to message_for.local_date. */
+  day_relation_to_message: string;
   body: string;
 };
 
@@ -1580,7 +1583,36 @@ export type MorningExactThreadOptions = {
   maxCharsPerMessage?: number;
   includeUtcTimestamp?: true;
   includeLocalWeekday?: true;
+  /** Morning message day (draft_for_day_key). Required for day_relation_to_message. */
+  messageForLocalDate?: string;
 };
+
+const MS_DAY = 24 * 60 * 60 * 1000;
+
+function dayKeyToUtcNoonMs(dayKey: string): number | null {
+  const parts = dayKey.trim().split("-").map((x) => parseInt(x, 10));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
+  return Date.UTC(parts[0]!, parts[1]! - 1, parts[2]!, 12, 0, 0);
+}
+
+/**
+ * User-local calendar-day relation of a thread turn to the Morning message day.
+ * Positive "before" means the turn happened on an earlier local day than message_for.
+ */
+export function dayRelationToMessage(
+  threadLocalDayKey: string,
+  messageForLocalDate: string
+): string {
+  const threadMs = dayKeyToUtcNoonMs(threadLocalDayKey);
+  const messageMs = dayKeyToUtcNoonMs(messageForLocalDate);
+  if (threadMs == null || messageMs == null) return "today";
+  const diff = Math.round((messageMs - threadMs) / MS_DAY);
+  if (diff === 0) return "today";
+  if (diff === 1) return "yesterday";
+  if (diff > 1) return `${diff} days before`;
+  if (diff === -1) return "tomorrow";
+  return `${-diff} days after`;
+}
 
 export function morningExactThreadMessageCharCount(messages: MorningExactThreadMessage[]): number {
   return messages.reduce((sum, m) => sum + m.body.length, 0);
@@ -1602,14 +1634,21 @@ export function formatLocalWeekday(date: Date, timezone: string): string {
 function toMorningExactThreadMessage(
   m: RecentExactThread72hMessage,
   timezone: string,
-  maxCharsPerMessage: number
+  maxCharsPerMessage: number,
+  messageForLocalDate: string
 ): MorningExactThreadMessage {
   const d = new Date(m.at);
+  const local_day_key =
+    typeof m.local_day_key === "string" && /^\d{4}-\d{2}-\d{2}$/.test(m.local_day_key.trim())
+      ? m.local_day_key.trim()
+      : getLocalDayKeyForTimestamp(d, timezone);
   return {
     sender: m.role === "coach" ? "coach" : "user",
     sent_at_utc: d.toISOString(),
     sent_at_local: formatAtLocal(d, timezone),
+    local_day_key,
     local_weekday: formatLocalWeekday(d, timezone),
+    day_relation_to_message: dayRelationToMessage(local_day_key, messageForLocalDate),
     body: truncateMorningThreadBody(m.body, maxCharsPerMessage),
   };
 }
@@ -1640,6 +1679,8 @@ export function capMorningExactThreadMessages(
   args: {
     timezone: string;
     nowMs: number;
+    /** draft_for_day_key / message_for.local_date — required for day relations. */
+    messageForLocalDate: string;
     options?: MorningExactThreadOptions;
   }
 ): MorningExactThreadMessage[] {
@@ -1649,6 +1690,8 @@ export function capMorningExactThreadMessages(
   const maxTotalChars = opts.maxTotalChars ?? MORNING_TTO_THREAD_MAX_TOTAL_CHARS;
   const maxCharsPerMessage =
     opts.maxCharsPerMessage ?? MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE;
+  const messageForLocalDate =
+    opts.messageForLocalDate?.trim() || args.messageForLocalDate.trim();
 
   let chosen = collectMorningWriterFacingItems(messages, args.nowMs, windowHours);
   if (chosen.length > maxMessages) {
@@ -1656,14 +1699,14 @@ export function capMorningExactThreadMessages(
   }
 
   let projected = chosen.map((i) =>
-    toMorningExactThreadMessage(i.msg, args.timezone, maxCharsPerMessage)
+    toMorningExactThreadMessage(i.msg, args.timezone, maxCharsPerMessage, messageForLocalDate)
   );
 
   const dropOldest = (): boolean => {
     if (chosen.length <= 1) return false;
     chosen = chosen.slice(1);
     projected = chosen.map((i) =>
-      toMorningExactThreadMessage(i.msg, args.timezone, maxCharsPerMessage)
+      toMorningExactThreadMessage(i.msg, args.timezone, maxCharsPerMessage, messageForLocalDate)
     );
     return true;
   };
@@ -1686,6 +1729,8 @@ export async function buildMorningExactThreadForPacket(args: {
   clerkUserId: string;
   commitmentId?: string | null;
   timezone: string;
+  /** draft_for_day_key — calendar day the Morning SMS is for. */
+  messageForLocalDate: string;
   now?: Date;
   options?: MorningExactThreadOptions;
 }): Promise<{
@@ -1699,6 +1744,7 @@ export async function buildMorningExactThreadForPacket(args: {
   const tz = resolveUserTimezone(args.timezone);
   const opts = args.options ?? {};
   const windowHours = opts.windowHours ?? MORNING_TTO_THREAD_WINDOW_HOURS;
+  const messageForLocalDate = args.messageForLocalDate.trim();
 
   const timeline = await buildRecentExactThread72h({
     clerkUserId: args.clerkUserId,
@@ -1711,7 +1757,8 @@ export async function buildMorningExactThreadForPacket(args: {
   const messages = capMorningExactThreadMessages(timeline.messages, {
     timezone: tz,
     nowMs: now.getTime(),
-    options: opts,
+    messageForLocalDate,
+    options: { ...opts, messageForLocalDate },
   });
 
   return {

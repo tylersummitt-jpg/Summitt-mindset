@@ -7,8 +7,8 @@ import { fetchLastAnyUserReplyAt } from "@/lib/sms-last-any-user-reply";
 import {
   buildMorningExactThreadForPacket,
   formatAtLocal,
-  formatLocalWeekday,
 } from "@/lib/sms-recent-exact-thread-72h";
+import { resolveTylerTextOverviewDraftForDayKey } from "@/lib/tyler-text-overview-draft-day-key";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { wholeCalendarDaysBetweenDayKeys } from "@/lib/v2-cadence";
@@ -22,11 +22,12 @@ import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor-validation";
 
 export type MorningRelationshipPacket = {
   version: "morning_relationship_v1";
-  current_local: {
+  /** Authoritative calendar day/daypart the Morning SMS is for (draft_for_day_key). */
+  message_for: {
     timezone: string;
     local_date: string;
     local_weekday: string;
-    local_time: string;
+    daypart: "morning";
   };
   last_user_response: {
     at_utc: string | null;
@@ -58,7 +59,9 @@ export type MorningRelationshipPacket = {
       sender: "coach" | "user";
       sent_at_utc: string;
       sent_at_local: string;
+      local_day_key: string;
       local_weekday: string;
+      day_relation_to_message: string;
       body: string;
     }>;
   };
@@ -100,13 +103,31 @@ function normPersonKey(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function formatLocalTime24h(date: Date, timezone: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: timezone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
+/** Long English weekday for a YYYY-MM-DD local day key (calendar date, not generation clock). */
+export function weekdayLongFromLocalDayKey(dayKey: string): string {
+  const parts = dayKey.trim().split("-").map((x) => parseInt(x, 10));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    return "Monday";
+  }
+  const [y, m, d] = parts;
+  const date = new Date(Date.UTC(y!, m! - 1, d!, 12, 0, 0));
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    timeZone: "UTC",
   }).format(date);
+}
+
+export function buildMorningMessageFor(args: {
+  timezone: string;
+  draftForDayKey: string;
+}): MorningRelationshipPacket["message_for"] {
+  const local_date = args.draftForDayKey.trim();
+  return {
+    timezone: resolveUserTimezone(args.timezone),
+    local_date,
+    local_weekday: weekdayLongFromLocalDayKey(local_date),
+    daypart: "morning",
+  };
 }
 
 function buildPersonalContext(args: {
@@ -170,6 +191,8 @@ export async function loadMorningRelationshipPacket(args: {
   clerkUserId: string;
   timezone: string;
   now?: Date;
+  /** Accountability / send day for this Morning draft. Defaults via draft-day rollover. */
+  draftForDayKey?: string;
   commitmentId?: string | null;
 }): Promise<
   | { ok: true; packet: MorningRelationshipPacket; commitmentId: string }
@@ -178,6 +201,18 @@ export async function loadMorningRelationshipPacket(args: {
   const now = args.now ?? new Date();
   const nowMs = now.getTime();
   const tz = resolveUserTimezone(args.timezone);
+
+  const draftForDayKey =
+    args.draftForDayKey?.trim() ||
+    resolveTylerTextOverviewDraftForDayKey({
+      now,
+      timezone: tz,
+      clerkSmsTimePreference: "morning",
+      commsPrefs: null,
+      learnedProfile: null,
+    });
+
+  const message_for = buildMorningMessageFor({ timezone: tz, draftForDayKey });
 
   let commitment: ActiveV2CommitmentRow | null = null;
   if (args.commitmentId) {
@@ -218,11 +253,11 @@ export async function loadMorningRelationshipPacket(args: {
         clerkUserId: args.clerkUserId,
         commitmentId: commitment.id,
         timezone: tz,
+        messageForLocalDate: message_for.local_date,
         now,
       }),
     ]);
 
-  const localDate = getDateKeyInTimezone(now, tz);
   const identityRaw = trimOrNull(profile?.identity_anchor_text);
   const identitySource =
     typeof profile?.identity_source === "string" ? profile.identity_source.trim() : null;
@@ -244,17 +279,13 @@ export async function loadMorningRelationshipPacket(args: {
     const replyDate = new Date(lastReplyAt);
     atLocal = formatAtLocal(replyDate, tz);
     const replyDayKey = getDateKeyInTimezone(replyDate, tz);
-    daysSince = wholeCalendarDaysBetweenDayKeys(replyDayKey, localDate);
+    // Relative to the Morning message day (not generation clock).
+    daysSince = wholeCalendarDaysBetweenDayKeys(replyDayKey, message_for.local_date);
   }
 
   const packet: MorningRelationshipPacket = {
     version: "morning_relationship_v1",
-    current_local: {
-      timezone: tz,
-      local_date: localDate,
-      local_weekday: formatLocalWeekday(now, tz),
-      local_time: formatLocalTime24h(now, tz),
-    },
+    message_for,
     last_user_response: {
       at_utc: lastReplyAt,
       at_local: atLocal,

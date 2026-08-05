@@ -2064,6 +2064,7 @@ describe("Morning TTO exact thread caps", () => {
       clerkUserId: "user_morning_window",
       timezone: TZ,
       now: NOW_MORNING,
+      messageForLocalDate: "2026-06-22",
     });
 
     expect(morning.window_days).toBe(21);
@@ -2103,6 +2104,7 @@ describe("Morning TTO exact thread caps", () => {
     const capped = capMorningExactThreadMessages(messages, {
       timezone: TZ,
       nowMs,
+      messageForLocalDate: "2026-06-22",
     });
 
     expect(capped).toHaveLength(MORNING_TTO_THREAD_MAX_MESSAGES);
@@ -2136,7 +2138,11 @@ describe("Morning TTO exact thread caps", () => {
       },
     ];
 
-    const capped = capMorningExactThreadMessages(messages, { timezone: TZ, nowMs });
+    const capped = capMorningExactThreadMessages(messages, {
+      timezone: TZ,
+      nowMs,
+      messageForLocalDate: "2026-06-22",
+    });
     expect(capped[0]?.body.length).toBeLessThanOrEqual(MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE);
     expect(capped[0]?.body.endsWith("…")).toBe(true);
 
@@ -2156,7 +2162,11 @@ describe("Morning TTO exact thread caps", () => {
         is_exact_body: true,
       });
     }
-    const charCapped = capMorningExactThreadMessages(many, { timezone: TZ, nowMs });
+    const charCapped = capMorningExactThreadMessages(many, {
+      timezone: TZ,
+      nowMs,
+      messageForLocalDate: "2026-06-22",
+    });
     expect(morningExactThreadMessageCharCount(charCapped)).toBeLessThanOrEqual(
       MORNING_TTO_THREAD_MAX_TOTAL_CHARS
     );
@@ -2187,6 +2197,7 @@ describe("Morning TTO exact thread caps", () => {
       clerkUserId: "user_proj",
       timezone: TZ,
       now: NOW_MORNING,
+      messageForLocalDate: "2026-06-22",
     });
 
     expect(morning.messages.length).toBeGreaterThanOrEqual(2);
@@ -2194,6 +2205,8 @@ describe("Morning TTO exact thread caps", () => {
       expect(m.sent_at_utc).toMatch(/Z$/);
       expect(m.sent_at_local.length).toBeGreaterThan(5);
       expect(m.local_weekday.length).toBeGreaterThan(3);
+      expect(m.local_day_key).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(typeof m.day_relation_to_message).toBe("string");
       expect(["coach", "user"]).toContain(m.sender);
     }
     expect(morning.messages[0]?.sender).toBe("coach");
@@ -2247,6 +2260,7 @@ describe("Morning TTO exact thread caps", () => {
       clerkUserId: "user_filter_m",
       timezone: TZ,
       now: NOW_MORNING,
+      messageForLocalDate: "2026-06-22",
     });
 
     expect(queried.some((t) => /draft/i.test(t))).toBe(false);

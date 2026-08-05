@@ -292,11 +292,11 @@ const MORNING_SUCCESS_BODY = "Did the two hours happen before noon?";
 
 const MORNING_PACKET = {
   version: "morning_relationship_v1" as const,
-  current_local: {
+  message_for: {
     timezone: "America/New_York",
     local_date: "2026-07-03",
     local_weekday: "Friday",
-    local_time: "12:00",
+    daypart: "morning" as const,
   },
   last_user_response: {
     at_utc: "2026-07-01T12:00:00.000Z",
@@ -317,14 +317,18 @@ const MORNING_PACKET = {
         sender: "coach" as const,
         sent_at_utc: "2026-07-02T12:00:00.000Z",
         sent_at_local: "Jul 2, 8:00 AM",
+        local_day_key: "2026-07-02",
         local_weekday: "Thursday",
+        day_relation_to_message: "yesterday",
         body: "How did yesterday go?",
       },
       {
         sender: "user" as const,
         sent_at_utc: "2026-07-02T13:00:00.000Z",
         sent_at_local: "Jul 2, 9:00 AM",
+        local_day_key: "2026-07-02",
         local_weekday: "Thursday",
+        day_relation_to_message: "yesterday",
         body: "Pretty good.",
       },
     ],
@@ -616,6 +620,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       expect.objectContaining({
         clerkUserId: "user_phase3",
         timezone: "America/New_York",
+        draftForDayKey: "2026-07-03",
       })
     );
     expect(writeMorningTtoBodyMock).toHaveBeenCalledWith(MORNING_PACKET);
