@@ -1,132 +1,92 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const mockCommitmentsSelect = vi.fn();
-const mockEventsSelect = vi.fn();
+const { fromMock, state } = vi.hoisted(() => {
+  const state = {
+    pageResult: { data: [] as unknown[], error: null as null | { message: string } },
+    lastEq: [] as Array<[string, string]>,
+    lastLimit: null as number | null,
+  };
+  return { fromMock: vi.fn(), state };
+});
+
+vi.mock("server-only", () => ({}));
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {
-    from: (table: string) => {
-      if (table === "v2_commitment") {
-        return {
-          select: () => ({
-            eq: () => mockCommitmentsSelect(),
-          }),
-        };
-      }
-      if (table === "v2_commitment_event") {
-        return {
-          select: () => ({
-            eq: () => ({
-              order: () => ({
-                limit: () => mockEventsSelect(),
-              }),
-            }),
-          }),
-        };
-      }
-      throw new Error(`unexpected table ${table}`);
-    },
+    from: fromMock,
   },
 }));
 
-import { ALL_PROOF_EVENT_FETCH_LIMIT } from "@/lib/v2-victory-room-view";
+import { PUBLIC_WINS_PAGE_LIMIT } from "@/lib/v2-win-public-read";
 import { loadVictoryAllProofView } from "@/lib/v2-victory-all-proof-view";
 
-describe("loadVictoryAllProofView", () => {
+describe("loadVictoryAllProofView (v2_win)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCommitmentsSelect.mockResolvedValue({
-      data: [
-        { id: "c-active", reactivation_entered_at: null },
-        { id: "c-prior", reactivation_entered_at: null },
-      ],
-      error: null,
-    });
-  });
-
-  it("includes proof from multiple commitments", async () => {
-    mockEventsSelect.mockResolvedValue({
+    state.lastEq = [];
+    state.lastLimit = null;
+    state.pageResult = {
       data: [
         {
           id: "e1",
-          event_type: "user_yes",
           occurred_at: "2026-06-10T12:00:00Z",
-          commitment_id: "c-active",
-          payload_json: { proof_moment: true, proof_meaning_line: "Active yes." },
+          display_title: "Win A",
+          display_body: "Body A",
+          supporting_quote: null,
+          sensitivity_caution: false,
+          celebration_appropriate: true,
+          commitment_id: null,
+          status: "active",
         },
         {
           id: "e2",
-          event_type: "user_yes",
           occurred_at: "2026-05-01T12:00:00Z",
-          commitment_id: "c-prior",
-          payload_json: { proof_moment: true, proof_meaning_line: "Prior yes." },
+          display_title: "Win B",
+          display_body: "Body B",
+          supporting_quote: "quote",
+          sensitivity_caution: false,
+          celebration_appropriate: true,
+          commitment_id: "c1",
+          status: "active",
         },
       ],
       error: null,
-    });
+    };
 
-    const view = await loadVictoryAllProofView("user_1");
-    expect(view.allProofMoments.length).toBeGreaterThan(1);
-    expect(view.allProofMoments.map((m) => m.id)).toContain("e1");
-    expect(view.allProofMoments.map((m) => m.id)).toContain("e2");
-    expect(view.allProofTruncated).toBe(false);
+    fromMock.mockImplementation((table: string) => {
+      expect(table).toBe("v2_win");
+      const chain: Record<string, unknown> = {};
+      chain.select = () => chain;
+      chain.eq = (col: string, val: string) => {
+        state.lastEq.push([col, val]);
+        return chain;
+      };
+      chain.order = () => chain;
+      chain.limit = (n: number) => {
+        state.lastLimit = n;
+        return chain;
+      };
+      chain.or = () => chain;
+      chain.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) =>
+        Promise.resolve(state.pageResult).then(resolve, reject);
+      return chain;
+    });
   });
 
-  it("can return more than seven proof moments", async () => {
-    mockEventsSelect.mockResolvedValue({
-      data: Array.from({ length: 12 }, (_, i) => ({
-        id: `e-${i}`,
-        event_type: "user_yes",
-        occurred_at: `2026-06-${String(i + 1).padStart(2, "0")}T12:00:00Z`,
-        commitment_id: "c-active",
-        payload_json: { proof_moment: true, proof_meaning_line: "Yes." },
-      })),
-      error: null,
-    });
-
+  it("loads account-scoped active Wins from v2_win, not commitment events", async () => {
     const view = await loadVictoryAllProofView("user_1");
-    expect(view.allProofMoments.length).toBeGreaterThan(7);
-  });
-
-  it("excludes non-proof blocker rows without proof lines", async () => {
-    mockEventsSelect.mockResolvedValue({
-      data: [
-        {
-          id: "bc-no-proof",
-          event_type: "blocker_captured",
-          occurred_at: "2026-06-10T12:00:00Z",
-          commitment_id: "c-active",
-          payload_json: { message: "work was crazy" },
-        },
-        {
-          id: "yes-1",
-          event_type: "user_yes",
-          occurred_at: "2026-06-09T12:00:00Z",
-          commitment_id: "c-active",
-          payload_json: {},
-        },
-      ],
-      error: null,
-    });
-
-    const view = await loadVictoryAllProofView("user_1");
-    expect(view.allProofMoments.map((m) => m.id)).toContain("yes-1");
-    expect(view.allProofMoments.map((m) => m.id)).not.toContain("bc-no-proof");
-  });
-
-  it("sets allProofTruncated when event query hits limit", async () => {
-    mockEventsSelect.mockResolvedValue({
-      data: Array.from({ length: ALL_PROOF_EVENT_FETCH_LIMIT }, (_, i) => ({
-        id: `e-${i}`,
-        event_type: "user_yes",
-        occurred_at: "2026-06-01T12:00:00Z",
-        commitment_id: "c-active",
-        payload_json: {},
-      })),
-      error: null,
-    });
-
-    const view = await loadVictoryAllProofView("user_1");
-    expect(view.allProofTruncated).toBe(true);
+    expect(view.wins.map((w) => w.id)).toEqual(["e1", "e2"]);
+    expect(view.wins[0]?.commitmentId).toBeNull();
+    expect(view.wins[1]?.commitmentId).toBe("c1");
+    expect(view.hasMore).toBe(false);
+    expect(state.lastEq).toEqual(
+      expect.arrayContaining([
+        ["clerk_user_id", "user_1"],
+        ["status", "active"],
+      ])
+    );
+    expect(state.lastLimit).toBe(PUBLIC_WINS_PAGE_LIMIT + 1);
+    expect(fromMock).not.toHaveBeenCalledWith("v2_commitment_event");
+    expect(fromMock).not.toHaveBeenCalledWith("v2_commitment");
   });
 });

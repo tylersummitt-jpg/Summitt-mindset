@@ -9,37 +9,50 @@ vi.mock("@/lib/supabase-server", () => ({
 import { VictoryRecentProofSection } from "@/components/VictoryRecentProofSection";
 
 describe("VictoryRecentProofSection", () => {
-  it("renders Your Wins title and See all proof link", () => {
+  it("renders Your Wins total, cards, and View all Wins link without share or categories", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryRecentProofSection, {
-        viewForShare: null,
-        moments: [
+        totalActiveWins: 3,
+        timeZone: "UTC",
+        wins: [
           {
-            id: "m1",
-            categoryLabel: "Kept the goal",
-            headline: "Kept your word",
-            body: "You followed through when it counted.",
-            dateLabel: "Jun 1, 2026",
-            groundedInEventTypes: ["user_yes"],
+            id: "w1",
+            occurredAt: "2026-06-01T12:00:00Z",
+            displayTitle: "Kept walking",
+            displayBody: "You finished the loops you promised yourself.",
+            supportingQuote: "two loops done",
+            celebrationAppropriate: true,
+            commitmentId: null,
           },
         ],
       })
     );
     expect(html).toContain("Your Wins");
-    expect(html).not.toContain("Recent Proof");
-    expect(html).toContain("See all proof");
+    expect(html).toContain(">3<");
+    expect(html).toContain("Kept walking");
+    expect(html).toContain("You finished the loops you promised yourself.");
+    expect(html).toContain("two loops done");
+    expect(html).toContain("View all Wins");
     expect(html).toContain("/dashboard/victory-room/all-proof");
-    expect(html).not.toMatch(/streak|badge|\bXP\b|achievement unlocked|habit tracker|manual add|trophy room/i);
+    expect(html).not.toContain("See all proof");
+    expect(html).not.toContain("Kept the goal");
+    expect(html).not.toContain("Share");
+    expect(html).not.toMatch(/streak|badge|\bXP\b|achievement unlocked|habit tracker|Win detected/i);
   });
 
   it("renders empty state without banned copy", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryRecentProofSection, {
-        viewForShare: null,
-        moments: [],
+        totalActiveWins: 0,
+        timeZone: "UTC",
+        wins: [],
       })
     );
-    expect(html).toContain("Your wins start here");
+    expect(html).toContain("No Wins yet.");
+    expect(html).toContain("worth remembering");
     expect(html).not.toContain("Recent Proof");
+    expect(html).not.toContain("saved");
+    expect(html).not.toContain("logged");
+    expect(html).not.toContain("detected");
   });
 });

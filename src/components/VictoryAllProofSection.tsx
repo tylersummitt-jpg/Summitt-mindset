@@ -1,31 +1,42 @@
 import Link from "next/link";
-import { VictoryRoomProofShareSection } from "@/components/VictoryRoomProofShareSection";
 import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
-import { VrIconProof } from "@/components/VictoryRoomIcons";
-import { vrAccentLink, vrEmptyState, vrIconCircle } from "@/components/victory-room-visual";
-import {
-  formatVictoryRoomDate,
-  getRecentProofCategoryLabel,
-  groupProofMomentsByMonth,
-  type VictoryMoment,
-} from "@/lib/v2-victory-room-view";
-import { mapVictoryMomentToProofCardRow } from "@/lib/v2-victory-room-display";
-import type { VictoryRoomViewForShare } from "@/lib/v2-victory-share-snippet";
+import { VictoryWinCard } from "@/components/VictoryWinCard";
+import { vrAccentLink, vrEmptyState } from "@/components/victory-room-visual";
+import { formatVictoryRoomDate, formatVictoryRoomMonthYear } from "@/lib/v2-victory-room-view";
+import type { PublicWinDto } from "@/lib/v2-win-public-read";
 
 type VictoryAllProofSectionProps = {
-  moments: VictoryMoment[];
+  wins: PublicWinDto[];
   timeZone: string;
-  truncated: boolean;
-  viewForShare: VictoryRoomViewForShare | null;
+  hasMore: boolean;
+  nextCursor: string | null;
 };
 
+function groupWinsByMonth(wins: PublicWinDto[], timeZone: string) {
+  const order: string[] = [];
+  const buckets = new Map<string, PublicWinDto[]>();
+  for (const w of wins) {
+    const monthLabel = formatVictoryRoomMonthYear(w.occurredAt, timeZone) || "Unknown";
+    if (!buckets.has(monthLabel)) {
+      buckets.set(monthLabel, []);
+      order.push(monthLabel);
+    }
+    buckets.get(monthLabel)!.push(w);
+  }
+  return order.map((monthLabel) => ({ monthLabel, wins: buckets.get(monthLabel)! }));
+}
+
 export function VictoryAllProofSection({
-  moments,
+  wins,
   timeZone,
-  truncated,
-  viewForShare,
+  hasMore,
+  nextCursor,
 }: VictoryAllProofSectionProps) {
-  const monthGroups = groupProofMomentsByMonth(moments, timeZone);
+  const monthGroups = groupWinsByMonth(wins, timeZone);
+  const olderHref =
+    hasMore && nextCursor
+      ? `/dashboard/victory-room/all-proof?cursor=${encodeURIComponent(nextCursor)}`
+      : null;
 
   return (
     <>
@@ -36,40 +47,44 @@ export function VictoryAllProofSection({
       </p>
 
       <VictoryRoomSectionShell
-        title="All Proof"
-        subtitle="Every saved proof moment from your check-ins, newest first."
+        title="All Wins"
+        subtitle="Your archive of real moments — newest first."
       >
-        {moments.length === 0 ? (
+        {wins.length === 0 ? (
           <p className={vrEmptyState}>
-            No proof saved yet. Your text check-ins are where honest proof begins.
+            No Wins yet. When something real in your life is worth remembering, it will show up
+            here.
           </p>
         ) : (
           <div className="mt-8 space-y-10">
             {monthGroups.map((group) => (
-              <section key={group.monthLabel} aria-labelledby={`proof-month-${group.monthLabel}`}>
+              <section key={group.monthLabel} aria-labelledby={`wins-month-${group.monthLabel}`}>
                 <h2
-                  id={`proof-month-${group.monthLabel}`}
+                  id={`wins-month-${group.monthLabel}`}
                   className="text-sm font-semibold uppercase tracking-[0.14em] text-stone-400"
                 >
                   {group.monthLabel}
                 </h2>
-                <VictoryRoomProofShareSection
-                  viewForShare={viewForShare}
-                  moments={group.moments.map((m) =>
-                    mapVictoryMomentToProofCardRow({
-                      moment: m,
-                      surface: "allProof",
-                      dateLabel: formatVictoryRoomDate(m.occurredAt, timeZone),
-                      categoryLabel: getRecentProofCategoryLabel(m),
-                    })
-                  )}
-                />
+                <ul className="mt-4 space-y-4">
+                  {group.wins.map((w) => (
+                    <li key={w.id}>
+                      <VictoryWinCard
+                        displayTitle={w.displayTitle}
+                        displayBody={w.displayBody}
+                        dateLabel={formatVictoryRoomDate(w.occurredAt, timeZone)}
+                        supportingQuote={w.supportingQuote}
+                        celebrationAppropriate={w.celebrationAppropriate}
+                      />
+                    </li>
+                  ))}
+                </ul>
               </section>
             ))}
-            {truncated ? (
-              <p className="text-sm leading-relaxed text-stone-500">
-                Showing your most recent saved proof. Older moments may live in season and chapter
-                pages.
+            {olderHref ? (
+              <p>
+                <Link href={olderHref} className={vrAccentLink}>
+                  View older Wins
+                </Link>
               </p>
             ) : null}
           </div>

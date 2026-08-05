@@ -12,6 +12,7 @@ const ALL_PROOF_VIEW_SRC = readFileSync(
   join(process.cwd(), "src/lib/v2-victory-all-proof-view.ts"),
   "utf8"
 );
+const WIN_PUBLIC_SRC = readFileSync(join(process.cwd(), "src/lib/v2-win-public-read.ts"), "utf8");
 const PAT_READ_SRC = readFileSync(join(process.cwd(), "src/lib/v2-victory-pat-read.ts"), "utf8");
 const PERSIST_SRC = readFileSync(
   join(process.cwd(), "src/lib/v2-victory-pat-read-persist.ts"),
@@ -88,10 +89,22 @@ describe("Victory Room loader policy", () => {
     expect(ALL_PROOF_VIEW_SRC).not.toContain("openai");
   });
 
-  it("All Proof loader uses clerk_user_id event window cap", () => {
-    expect(ALL_PROOF_VIEW_SRC).toContain("ALL_PROOF_EVENT_FETCH_LIMIT");
-    expect(ALL_PROOF_VIEW_SRC).toContain("clerk_user_id");
-    expect(ALL_PROOF_VIEW_SRC).toContain("groupEventRowsByCommitmentId");
+  it("All Wins loader uses v2_win public read (not commitment-event scan)", () => {
+    expect(ALL_PROOF_VIEW_SRC).toContain("loadPublicAllWinsForUser");
+    expect(ALL_PROOF_VIEW_SRC).toContain("v2-win-public-read");
+    expect(ALL_PROOF_VIEW_SRC).not.toContain("ALL_PROOF_EVENT_FETCH_LIMIT");
+    expect(ALL_PROOF_VIEW_SRC).not.toContain("groupEventRowsByCommitmentId");
+    expect(ALL_PROOF_VIEW_SRC).not.toContain("v2_commitment_event");
+  });
+
+  it("public v2_win read is server-only, clerk-scoped, active-only", () => {
+    expect(WIN_PUBLIC_SRC).toContain('import "server-only"');
+    expect(WIN_PUBLIC_SRC).toContain('eq("clerk_user_id"');
+    expect(WIN_PUBLIC_SRC).toContain('eq("status", "active")');
+    expect(WIN_PUBLIC_SRC).toContain("PUBLIC_WINS_RECENT_LIMIT = 7");
+    expect(WIN_PUBLIC_SRC).toContain("PUBLIC_WINS_PAGE_LIMIT = 50");
+    expect(WIN_PUBLIC_SRC).not.toContain("GRANT");
+    expect(WIN_PUBLIC_SRC).not.toContain("DISABLE ROW LEVEL SECURITY");
   });
 
   it("page does not call OpenAI summary on render", () => {
@@ -101,11 +114,19 @@ describe("Victory Room loader policy", () => {
     expect(PAGE_SRC).not.toContain("openai");
     expect(PAGE_SRC).not.toContain("OPENAI_API_KEY");
     expect(PAGE_SRC).toContain("loadVictoryRoomView(user.id, { timeZone })");
+    expect(PAGE_SRC).toContain("loadPublicVictoryWinsForUser");
+    expect(PAGE_SRC).toContain("v2-win-public-read");
+    expect(PAGE_SRC).not.toContain("VictoryEvidenceSection");
+    expect(PAGE_SRC).not.toContain("view.recentWins");
+    expect(PAGE_SRC).not.toContain("getRecentProofCategoryLabel");
+    expect(PAGE_SRC).not.toContain("VictoryRoomProofShareSection");
+    expect(PAGE_SRC).toContain("VictoryRoomTopCard");
     expect(PAGE_SRC).toContain("loadPatReadForVictoryRoom");
     expect(PAGE_SRC).toContain("loadPatPrinciplesForVictoryRoom");
     expect(PAGE_SRC).toContain("v2-victory-pat-read-persist");
     expect(PAGE_SRC).toContain("v2-victory-principles-persist");
     expect(PAGE_SRC).toContain("VictoryPatPrinciplesSection");
+    expect(PAGE_SRC).toContain("VictoryPatReadSection");
     expect(PAGE_SRC).not.toContain("VictoryPatPrinciplesPlaceholder");
     expect(PAGE_SRC).not.toContain("buildDeterministicPatRead");
     expect(PAGE_SRC).toContain("loadVictorySeasonListForRoom");

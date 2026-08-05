@@ -9,70 +9,81 @@ vi.mock("@/lib/supabase-server", () => ({
 import { VictoryAllProofSection } from "@/components/VictoryAllProofSection";
 
 describe("VictoryAllProofSection", () => {
-  it("renders All Proof title and back link", () => {
+  it("renders All Wins title and back link without share or old proof language", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryAllProofSection, {
-        moments: [
+        wins: [
           {
             id: "m1",
             occurredAt: "2026-06-15T12:00:00Z",
-            headline: "Kept your word",
-            body: "You followed through when it counted.",
-            groundedInEventTypes: ["user_yes"],
+            displayTitle: "Showed up",
+            displayBody: "You followed through when it counted.",
+            supportingQuote: null,
+            celebrationAppropriate: true,
+            commitmentId: "c1",
           },
         ],
         timeZone: "America/New_York",
-        truncated: false,
-        viewForShare: null,
+        hasMore: false,
+        nextCursor: null,
       })
     );
-    expect(html).toContain("All Proof");
+    expect(html).toContain("All Wins");
+    expect(html).not.toContain("All Proof");
     expect(html).toContain("← Victory Room");
     expect(html).toContain("/dashboard/victory-room");
-    expect(html).toContain("Every saved proof moment from your check-ins");
+    expect(html).toContain("Showed up");
+    expect(html).not.toContain("Every saved proof moment");
+    expect(html).not.toContain("Share");
+    expect(html).not.toContain("Kept the goal");
   });
 
-  it("shows truncation note when truncated", () => {
+  it("shows View older Wins when hasMore and nextCursor are set", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryAllProofSection, {
-        moments: [
+        wins: [
           {
             id: "m1",
             occurredAt: "2026-06-15T12:00:00Z",
-            headline: "Kept your word",
-            body: "You followed through when it counted.",
-            groundedInEventTypes: ["user_yes"],
+            displayTitle: "Showed up",
+            displayBody: "You followed through when it counted.",
+            supportingQuote: null,
+            celebrationAppropriate: true,
+            commitmentId: null,
           },
         ],
         timeZone: "UTC",
-        truncated: true,
-        viewForShare: null,
+        hasMore: true,
+        nextCursor: "cursor-token",
       })
     );
-    expect(html).toContain("Showing your most recent saved proof");
+    expect(html).toContain("View older Wins");
+    expect(html).toContain("/dashboard/victory-room/all-proof?cursor=");
+    expect(html).not.toContain("Showing your most recent saved proof");
   });
 
-  it("shows meaning-first display with muted receipt for contextless quote", () => {
+  it("renders safe quote and omits category badges", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryAllProofSection, {
-        moments: [
+        wins: [
           {
             id: "good",
             occurredAt: "2026-06-07T12:00:00Z",
-            headline: "Honesty",
-            body: "You named the obstacle instead of hiding.",
-            meaning: "You named the obstacle instead of hiding.",
-            quote: "Good",
-            groundedInEventTypes: ["blocker_captured"],
+            displayTitle: "Named it",
+            displayBody: "You named the obstacle instead of hiding.",
+            supportingQuote: "it was hard and I said so",
+            celebrationAppropriate: true,
+            commitmentId: null,
           },
         ],
         timeZone: "UTC",
-        truncated: false,
-        viewForShare: null,
+        hasMore: false,
+        nextCursor: null,
       })
     );
     expect(html).toContain("You named the obstacle instead of hiding.");
-    expect(html).toContain('Your reply: &quot;Good&quot;');
-    expect(html).not.toContain("&ldquo;Good&rdquo;");
+    expect(html).toContain("it was hard and I said so");
+    expect(html).not.toContain("Your reply:");
+    expect(html).not.toContain("Told the truth");
   });
 });

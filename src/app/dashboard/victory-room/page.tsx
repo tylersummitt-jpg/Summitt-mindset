@@ -1,7 +1,6 @@
 import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { VictoryEvidenceSection } from "@/components/VictoryEvidenceSection";
 import { VictoryPatPrinciplesSection } from "@/components/VictoryPatPrinciplesSection";
 import { VictoryPatReadSection } from "@/components/VictoryPatReadSection";
 import { VictoryRecentProofSection } from "@/components/VictoryRecentProofSection";
@@ -24,13 +23,11 @@ import { resolveUserTimezone } from "@/lib/timezone";
 import { loadVictoryEvolutionNudge } from "@/lib/v2-victory-evolution-nudge";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { getPendingResolutionOrNull, isSmsInboundPendingResolutionActionable } from "@/lib/v2-guided-resolution";
+import { loadVictoryRoomView } from "@/lib/v2-victory-room-view";
 import {
-  formatVictoryRoomDate,
-  getRecentProofCategoryLabel,
-  loadVictoryRoomView,
-} from "@/lib/v2-victory-room-view";
-import { mapVictoryMomentToProofCardRow } from "@/lib/v2-victory-room-display";
-import type { VictoryRoomViewForShare } from "@/lib/v2-victory-share-snippet";
+  loadPublicVictoryWinsForUser,
+  PUBLIC_WINS_RECENT_LIMIT,
+} from "@/lib/v2-win-public-read";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +38,13 @@ export default async function VictoryRoomPage() {
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
   const timeZone = resolveUserTimezone(md?.timezone);
 
-  const view = await loadVictoryRoomView(user.id, { timeZone });
+  const [view, publicWins] = await Promise.all([
+    loadVictoryRoomView(user.id, { timeZone }),
+    loadPublicVictoryWinsForUser({
+      clerkUserId: user.id,
+      recentLimit: PUBLIC_WINS_RECENT_LIMIT,
+    }),
+  ]);
 
   let showUpdateGoalLink = false;
   let showEditIdentityLink = false;
@@ -104,14 +107,6 @@ export default async function VictoryRoomPage() {
     ? await loadVictoryEvolutionNudge({ clerkUserId: user.id })
     : null;
 
-  const viewForShare: VictoryRoomViewForShare | null = view.hasActiveV2Commitment
-    ? {
-        ...view,
-        share_identity_line: displayName,
-        shareProofMoments: view.recentWins,
-      }
-    : null;
-
   return (
     <div className={`victory-room-route-canvas ${vrPageOuter}`}>
       <div className={vrPageGlow} aria-hidden />
@@ -151,21 +146,11 @@ export default async function VictoryRoomPage() {
               />
             ) : null}
 
-            <VictoryEvidenceSection counts={view.evidenceCounts} />
-
-            {viewForShare ? (
-              <VictoryRecentProofSection
-                viewForShare={viewForShare}
-                moments={view.recentWins.map((m) =>
-                  mapVictoryMomentToProofCardRow({
-                    moment: m,
-                    surface: "home",
-                    dateLabel: formatVictoryRoomDate(m.occurredAt, timeZone),
-                    categoryLabel: getRecentProofCategoryLabel(m),
-                  })
-                )}
-              />
-            ) : null}
+            <VictoryRecentProofSection
+              totalActiveWins={publicWins.totalActiveWins}
+              wins={publicWins.recentWins}
+              timeZone={timeZone}
+            />
 
             {patRead ? <VictoryPatReadSection read={patRead} /> : null}
 
