@@ -23,6 +23,7 @@ import {
   appendPreservedSignedLink,
   appendPreservedSmsSuffix,
   applyFinalVoiceOwnershipGate,
+  buildFinalVoiceRepairSystemPrompt,
   detectFinalVoiceBlockedReasons,
   detectRelationshipCoachingVoiceBlockedReasons,
   detectUserCommitmentAsCoachBodyReason,
@@ -31,6 +32,7 @@ import {
   normalizeUserCommitmentOwnershipText,
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
+  USER_COMMITMENT_AS_COACH_BODY_REPAIR_RULE,
 } from "./v3-sms-voice-ownership";
 
 const prevOpenAi = process.env.OPENAI_API_KEY;
@@ -1183,7 +1185,7 @@ describe("user_commitment_as_coach_body role ownership", () => {
       choices: [
         {
           message: {
-            content: "Write those three priorities before you check messages.",
+            content: "I hear you. I'll keep the encouragement coming and keep it honest.",
           },
         },
       ],
@@ -1200,12 +1202,17 @@ describe("user_commitment_as_coach_body role ownership", () => {
     });
     expect(repaired.shouldSend).toBe(true);
     expect(repaired.voiceOwner).toBe("v3_repair");
-    expect(repaired.body).toBe("Write those three priorities before you check messages.");
+    expect(repaired.body).toMatch(/encouragement|honest|hear you/i);
+    expect(repaired.body).not.toMatch(/three priorities/i);
     expect(repaired.blockedReasons).toContain("user_commitment_as_coach_body");
     const userContent = repairCreateMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
     expect(userContent).toMatch(/user_commitment_as_coach_body/);
+    expect(userContent).toMatch(/PRIMARY — Latest inbound/);
+    expect(userContent).toMatch(/Keep motivational texts coming/i);
     const systemContent = repairCreateMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
     expect(systemContent).toMatch(/user_commitment_as_coach_body/i);
+    expect(systemContent).toMatch(/Answer the Latest inbound message first/i);
+    expect(systemContent).not.toMatch(/rewrite into second-person coaching/i);
 
     repairCreateMock.mockReset();
     repairCreateMock.mockResolvedValueOnce({
@@ -1232,5 +1239,183 @@ describe("user_commitment_as_coach_body role ownership", () => {
     expect(stillOwned.blockedReasons.some((r) => r.includes("user_commitment_as_coach_body"))).toBe(
       true
     );
+  });
+});
+
+describe("Slice 2A — role repair without goal gravity", () => {
+  const LIFT_GOAL = "I will lift weights for 15 minutes each day.";
+
+  it("production smoke: preference inbound repairs to relationship ack, not lifting redirect", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    repairCreateMock.mockReset();
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "I hear you. I'll keep the encouragement coming and keep it honest.",
+          },
+        },
+      ],
+    });
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: LIFT_GOAL,
+      replySource: "v3_inbound_relationship_lane",
+      channel: "inbound_coach_reply",
+      activeCommitmentId: "c1",
+      behaviorStatement: LIFT_GOAL,
+      effectiveAsk: LIFT_GOAL,
+      latestInboundRaw: "Keep the motivational texts coming.",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.voiceOwner).toBe("v3_repair");
+    expect(r.body).not.toBe(LIFT_GOAL);
+    expect(r.body.toLowerCase()).not.toMatch(/lift weights|15 minutes/);
+    expect(r.body).toMatch(/encouragement|honest|hear you/i);
+  });
+
+  it("repair prompt forbids first-person→second-person goal conversion and prioritizes Latest inbound", () => {
+    const system = buildFinalVoiceRepairSystemPrompt(null, ["user_commitment_as_coach_body"]);
+    expect(system).toContain(USER_COMMITMENT_AS_COACH_BODY_REPAIR_RULE);
+    expect(system).toMatch(/Answer the Latest inbound message first/i);
+    expect(system).toMatch(/Do NOT treat that pasted goal as the meaning to preserve/i);
+    expect(system).toMatch(/Never merely convert the user's first-person commitment into a second-person command/i);
+    expect(system).toMatch(/optional context/i);
+    expect(system).not.toMatch(/rewrite into second-person coaching/i);
+    expect(system).toMatch(/Do NOT preserve the rejected candidate's meaning when it is only a pasted Current Goal/i);
+    // Bad shape the production smoke must not be taught as the desired repair:
+    expect(system).not.toMatch(/Focus on lifting weights for 15 minutes each day/i);
+  });
+
+  it("unrelated repair reasons still preserve original SMS meaning", () => {
+    const system = buildFinalVoiceRepairSystemPrompt(null, ["too_long"]);
+    expect(system).toMatch(/Preserve the meaning of the original SMS; fix ONLY the blocked issues/);
+    expect(system).not.toMatch(/Do NOT preserve the rejected candidate's meaning when it is only a pasted Current Goal/);
+  });
+
+  it("role-repair user context labels Latest inbound primary and goal optional", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    repairCreateMock.mockReset();
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [{ message: { content: "Got it — I'll keep the encouragement coming." } }],
+    });
+    await applyFinalVoiceOwnershipGate({
+      proposedBody: LIFT_GOAL,
+      replySource: "v3_inbound_relationship_lane",
+      channel: "inbound_coach_reply",
+      activeCommitmentId: "c1",
+      behaviorStatement: LIFT_GOAL,
+      effectiveAsk: LIFT_GOAL,
+      latestInboundRaw: "Keep the motivational texts coming.",
+      normalCoaching: true,
+    });
+    const userContent = repairCreateMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userContent).toMatch(
+      /PRIORITY \(user_commitment_as_coach_body\): Latest inbound > rejected candidate goal agenda > optional Current Goal context/
+    );
+    expect(userContent).toMatch(/PRIMARY — Latest inbound \(answer this first\): Keep the motivational texts coming\./);
+    expect(userContent).toMatch(
+      /REJECTED CANDIDATE \(ownership problem; may be pasted Current Goal — do not treat as required agenda\): I will lift weights for 15 minutes each day\./
+    );
+    expect(userContent).toMatch(/OPTIONAL CONTEXT — Effective ask:/);
+    expect(userContent).toMatch(/OPTIONAL CONTEXT — Behavior statement/);
+    const primaryIdx = userContent.indexOf("PRIMARY — Latest inbound");
+    const rejectedIdx = userContent.indexOf("REJECTED CANDIDATE");
+    const optionalIdx = userContent.indexOf("OPTIONAL CONTEXT — Effective ask");
+    expect(primaryIdx).toBeGreaterThan(-1);
+    expect(rejectedIdx).toBeGreaterThan(primaryIdx);
+    expect(optionalIdx).toBeGreaterThan(rejectedIdx);
+  });
+
+  it("accountability inbound may still discuss the goal after role repair", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    repairCreateMock.mockReset();
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "Fair — time got you. Want a shorter lift window tomorrow, or protect the full 15?",
+          },
+        },
+      ],
+    });
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: LIFT_GOAL,
+      replySource: "v3_inbound_relationship_lane",
+      channel: "inbound_coach_reply",
+      activeCommitmentId: "c1",
+      behaviorStatement: LIFT_GOAL,
+      effectiveAsk: LIFT_GOAL,
+      latestInboundRaw: "I didn't lift today. I ran out of time.",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(true);
+    expect(r.body.toLowerCase()).toMatch(/lift|15/);
+    const system = repairCreateMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(system).toMatch(/unless they directly help answer Latest inbound/i);
+    expect(system).not.toMatch(/never mention the (current )?goal/i);
+  });
+
+  it("preference / pride / vacation question repair prompts prioritize inbound over goal agenda", () => {
+    const system = buildFinalVoiceRepairSystemPrompt(null, ["user_commitment_as_coach_body"]);
+    expect(system).toMatch(/preference, reflection, or a direct question/i);
+    expect(system).toMatch(/over inventing a new goal agenda/i);
+    expect(system).not.toMatch(/mandatory next goal action/i);
+    expect(system).not.toMatch(/must ask a clarifying question/i);
+  });
+
+  it("lane repair prompt aligns with FVG role-repair law (no second-person conversion mandate)", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    repairCreateMock.mockReset();
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              body: "I hear you — I'll keep the encouragement coming.",
+              used_strategy: "relationship_ack",
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "inbound",
+      routePurpose: "normal_inbound_reply",
+      originalBody: LIFT_GOAL,
+      blockedReasons: ["user_commitment_as_coach_body"],
+    });
+    const system = repairCreateMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(system).toContain(USER_COMMITMENT_AS_COACH_BODY_REPAIR_RULE);
+    expect(system).toMatch(/Do NOT preserve a rejected candidate that only pasted the user's Current Goal/i);
+    expect(system).not.toMatch(/rewrite into second-person coaching/i);
+    expect(system).not.toMatch(/Preserve the same accountability \/ coaching meaning as the original/);
+  });
+
+  it("lane repair unrelated reasons still preserve accountability meaning", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    repairCreateMock.mockReset();
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              body: "What made those calls land?",
+              used_strategy: "compress",
+              safety_notes: [],
+            }),
+          },
+        },
+      ],
+    });
+    await repairV3RelationshipLaneBodyWithOpenAI({
+      routeKind: "inbound",
+      routePurpose: "normal_inbound_reply",
+      originalBody: "Let me know how it went after the calls.",
+      blockedReasons: ["let_me_know_how_it_went"],
+    });
+    const system = repairCreateMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(system).toMatch(/Preserve the same accountability \/ coaching meaning as the original/);
   });
 });

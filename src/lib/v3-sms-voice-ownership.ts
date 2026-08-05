@@ -479,9 +479,22 @@ const REPAIRABLE_FINAL_VOICE_BLOCK_REASONS = new Set<string>([
   "internal_label_classifier",
   "internal_label_event_type",
   "internal_label_route",
-  /** Writer pasted user's first-person commitment as the coach SMS — OpenAI may rewrite to second person. */
+  /** Writer pasted user's first-person commitment as the coach SMS — OpenAI may rewrite without goal gravity. */
   "user_commitment_as_coach_body",
 ]);
+
+/**
+ * Shared repair law when the rejected candidate may be a pasted Current Goal.
+ * Latest inbound is primary; goal is optional context — not a first→second person conversion mandate.
+ */
+export const USER_COMMITMENT_AS_COACH_BODY_REPAIR_RULE =
+  "If blocked_reasons includes user_commitment_as_coach_body: the rejected candidate may have copied the user's Current Goal instead of answering them. Do NOT treat that pasted goal as the meaning to preserve. Answer the Latest inbound message first. behavior_statement / effective_ask / Current Goal are optional context — do not make them the whole subject unless they directly help answer Latest inbound. Never merely convert the user's first-person commitment into a second-person command or goal task. Never speak as the user. Prefer a natural reply to the inbound (including preference, reflection, or a direct question) over inventing a new goal agenda.";
+
+export function blockedReasonsIncludeUserCommitmentAsCoachBody(reasons: string[]): boolean {
+  return reasons.some(
+    (r) => r === "user_commitment_as_coach_body" || r.endsWith("_user_commitment_as_coach_body")
+  );
+}
 
 export function isRepairableFinalVoiceBlockedReason(reason: string): boolean {
   return (
@@ -856,12 +869,15 @@ export async function repairV3RelationshipLaneBodyWithOpenAI(
   const memoryRepeatRepair = args.blockedReasons.some(
     (r) => r === "memory_repeat_question" || /\bmemory_repeat\b/i.test(r)
   );
+  const roleOwnershipRepair = blockedReasonsIncludeUserCommitmentAsCoachBody(args.blockedReasons);
   const strictMemoryRepeatRepair =
     memoryRepeatRepair &&
     (args.memoryRepeatRepairContext != null || args.repairSnapshot?.memory_repeat != null);
   const preserveMeaningRule = memoryRepeatRepair
     ? "- Preserve the same facts, current goal, and accountability purpose, but change the coaching move so this is not the same question frame; do not paraphrase the blocked question."
-    : "- Preserve the same accountability / coaching meaning as the original; do not add new facts or commitments.";
+    : roleOwnershipRepair
+      ? "- Do NOT preserve a rejected candidate that only pasted the user's Current Goal. Answer Latest inbound first (from snapshot/facts when present); Current Goal is optional context."
+      : "- Preserve the same accountability / coaching meaning as the original; do not add new facts or commitments.";
 
   const strictStrategyRule = strictMemoryRepeatRepair
     ? `- used_strategy MUST be exactly one of: outcome_check, binary_truth_check, reset_question, barrier_check, next_first_step, proof_check, identity_tie_back.${
@@ -881,7 +897,7 @@ RULES FOR body:
 ${preserveMeaningRule}
 ${strictStrategyRule}
 - Remove or rewrite away the issues implied by blocked_reasons (e.g. shorten if too_many_sentences or too_long; remove banned phrasing).
-- If blocked_reasons includes user_commitment_as_coach_body: rewrite into second-person coaching; never emit the user's first-person commitment as the entire SMS body.
+- ${USER_COMMITMENT_AS_COACH_BODY_REPAIR_RULE}
 - If blocked_reasons includes did_you_manage: keep the same accountability meaning but do NOT use the exact phrase "Did you manage" — use natural alternatives (e.g. whether you completed the step, how the planned block went, if the calls landed).
 - No markdown, bullets, or role labels.
 - Do not quote the user. Do not paste raw database fields or internal system names.
@@ -1002,7 +1018,10 @@ function finalVoiceRobotDetectOptions(
   return { bindingVerbatim: binding };
 }
 
-function buildFinalVoiceRepairSystemPrompt(bindingVerbatim: string | null | undefined): string {
+export function buildFinalVoiceRepairSystemPrompt(
+  bindingVerbatim: string | null | undefined,
+  blockedReasons: string[] = []
+): string {
   const binding = bindingVerbatim?.trim() ?? "";
   const bindingRules = binding
     ? [
@@ -1012,17 +1031,73 @@ function buildFinalVoiceRepairSystemPrompt(bindingVerbatim: string | null | unde
       ].join("\n")
     : '- Do not add robotic contract/menu phrasing ("Reply YES", "Reply NO", "keep this line for 7 days", "same commitment—keep this line").';
 
+  const roleOwnershipRepair = blockedReasonsIncludeUserCommitmentAsCoachBody(blockedReasons);
+  const preserveRule = roleOwnershipRepair
+    ? "- Do NOT preserve the rejected candidate's meaning when it is only a pasted Current Goal / first-person commitment. Fix the ownership violation by answering Latest inbound first; use Current Goal only if it directly helps that inbound."
+    : "- Preserve the meaning of the original SMS; fix ONLY the blocked issues.";
+
   return `You repair SMS coaching copy for Summitt Mindset. You are NOT a second coach brain.
 
 CONTRACT:
-- Preserve the meaning of the original SMS; fix ONLY the blocked issues.
+${preserveRule}
 - One short SMS. No markdown, bullets, or labels.
 - Do not quote the user. Do not paste raw database fields, titles, or behavior_statement as prose.
-- If blocked_reasons includes user_commitment_as_coach_body: rewrite into second-person coaching; never emit the user's first-person commitment as the entire SMS body.
+- ${USER_COMMITMENT_AS_COACH_BODY_REPAIR_RULE}
 - Do not add generic motivation or a new coaching agenda.
 - Do not repeat rejected times or re-ask the same blocked pattern.
 ${bindingRules}
 - If unsafe or uncertain, reply with exactly: UNSAFE`;
+}
+
+function buildFinalVoiceRepairUserContent(
+  args: ApplyFinalVoiceOwnershipGateArgs,
+  blockedReasons: string[],
+  internalLabelRepair: string | undefined
+): string {
+  const roleOwnershipRepair = blockedReasonsIncludeUserCommitmentAsCoachBody(blockedReasons);
+  const effectiveAsk =
+    args.effectiveAsk ?? args.contextPacket?.effectiveAskText ?? "(none)";
+  const behaviorStatement =
+    args.behaviorStatement ?? args.contextPacket?.behaviorStatement ?? "(none)";
+  const latestInbound =
+    args.latestInboundRaw ?? args.contextPacket?.latestInboundRaw ?? "(none)";
+  const latestOutbound =
+    args.latestOutboundBody ?? args.contextPacket?.latestOutboundBody ?? "(none)";
+  const latestOpenQuestion =
+    args.latestOpenQuestion ?? args.contextPacket?.latestOpenQuestion ?? "(none)";
+
+  const parts = [
+    `Blocked reasons: ${blockedReasons.join(", ")}`,
+    ...(internalLabelRepair ? [internalLabelRepair] : []),
+    `Channel: ${args.channel}`,
+    `Reply source: ${args.replySource ?? "(none)"}`,
+    ...(args.bindingVerbatim?.trim()
+      ? [`Binding verbatim (include exactly once): ${args.bindingVerbatim.trim()}`]
+      : []),
+  ];
+
+  if (roleOwnershipRepair) {
+    parts.push(
+      "PRIORITY (user_commitment_as_coach_body): Latest inbound > rejected candidate goal agenda > optional Current Goal context.",
+      `PRIMARY — Latest inbound (answer this first): ${latestInbound}`,
+      `REJECTED CANDIDATE (ownership problem; may be pasted Current Goal — do not treat as required agenda): ${args.proposedBody}`,
+      `OPTIONAL CONTEXT — Effective ask: ${effectiveAsk}`,
+      `OPTIONAL CONTEXT — Behavior statement (facts only; do not paste as prose): ${behaviorStatement}`,
+      `Latest outbound: ${latestOutbound}`,
+      `Latest open question: ${latestOpenQuestion}`
+    );
+  } else {
+    parts.push(
+      `Effective ask: ${effectiveAsk}`,
+      `Behavior statement (facts only; do not paste as prose): ${behaviorStatement}`,
+      `Latest inbound: ${latestInbound}`,
+      `Latest outbound: ${latestOutbound}`,
+      `Latest open question: ${latestOpenQuestion}`,
+      `Original SMS: ${args.proposedBody}`
+    );
+  }
+
+  return parts.join("\n");
 }
 
 async function repairWithOpenAI(
@@ -1044,25 +1119,11 @@ async function repairWithOpenAI(
       messages: [
         {
           role: "system",
-          content: buildFinalVoiceRepairSystemPrompt(args.bindingVerbatim),
+          content: buildFinalVoiceRepairSystemPrompt(args.bindingVerbatim, blockedReasons),
         },
         {
           role: "user",
-          content: [
-            `Blocked reasons: ${blockedReasons.join(", ")}`,
-            ...(internalLabelRepair ? [internalLabelRepair] : []),
-            `Channel: ${args.channel}`,
-            `Reply source: ${args.replySource ?? "(none)"}`,
-            ...(args.bindingVerbatim?.trim()
-              ? [`Binding verbatim (include exactly once): ${args.bindingVerbatim.trim()}`]
-              : []),
-            `Effective ask: ${args.effectiveAsk ?? args.contextPacket?.effectiveAskText ?? "(none)"}`,
-            `Behavior statement (facts only; do not paste as prose): ${args.behaviorStatement ?? args.contextPacket?.behaviorStatement ?? "(none)"}`,
-            `Latest inbound: ${args.latestInboundRaw ?? args.contextPacket?.latestInboundRaw ?? "(none)"}`,
-            `Latest outbound: ${args.latestOutboundBody ?? args.contextPacket?.latestOutboundBody ?? "(none)"}`,
-            `Latest open question: ${args.latestOpenQuestion ?? args.contextPacket?.latestOpenQuestion ?? "(none)"}`,
-            `Original SMS: ${args.proposedBody}`,
-          ].join("\n"),
+          content: buildFinalVoiceRepairUserContent(args, blockedReasons, internalLabelRepair),
         },
       ],
     });
