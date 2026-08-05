@@ -64,6 +64,8 @@ export type MorningRelationshipPacket = {
       day_relation_to_message: string;
       body: string;
     }>;
+    /** Writer-facing turns in-window removed by 30-turn and/or 12k budget caps. */
+    omitted_older_turn_count: number;
   };
 };
 
@@ -306,6 +308,7 @@ export async function loadMorningRelationshipPacket(args: {
       window_days: exactThread.window_days,
       max_messages: exactThread.max_messages,
       messages: exactThread.messages,
+      omitted_older_turn_count: exactThread.omitted_older_turn_count,
     },
   };
 

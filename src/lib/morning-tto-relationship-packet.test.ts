@@ -470,12 +470,14 @@ describe("loadMorningRelationshipPacket", () => {
     expect(Object.keys(result.packet.exact_thread).sort()).toEqual([
       "max_messages",
       "messages",
+      "omitted_older_turn_count",
       "window_days",
     ]);
     expect(result.packet.exact_thread).not.toHaveProperty("message_count");
     expect(result.packet.exact_thread).not.toHaveProperty("char_count");
     expect(JSON.stringify(result.packet.exact_thread)).not.toContain("message_count");
     expect(JSON.stringify(result.packet.exact_thread)).not.toContain("char_count");
+    expect(result.packet.exact_thread.omitted_older_turn_count).toBe(0);
   });
 
   it("fails with no_active_commitment", async () => {

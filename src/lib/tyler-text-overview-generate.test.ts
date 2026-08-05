@@ -312,6 +312,7 @@ const MORNING_PACKET = {
   exact_thread: {
     window_days: 21 as const,
     max_messages: 30,
+    omitted_older_turn_count: 0,
     messages: [
       {
         sender: "coach" as const,

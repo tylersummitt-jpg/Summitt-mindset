@@ -37,6 +37,7 @@ function samplePacket(): MorningRelationshipPacket {
     exact_thread: {
       window_days: 21,
       max_messages: 30,
+      omitted_older_turn_count: 0,
       messages: [
         {
           sender: "user",

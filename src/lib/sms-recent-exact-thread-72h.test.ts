@@ -2107,15 +2107,16 @@ describe("Morning TTO exact thread caps", () => {
       messageForLocalDate: "2026-06-22",
     });
 
-    expect(capped).toHaveLength(MORNING_TTO_THREAD_MAX_MESSAGES);
-    expect(capped[0]?.body).toBe("Morning cap message 5");
-    expect(capped.at(-1)?.body).toBe("Morning cap message 34");
+    expect(capped.messages).toHaveLength(MORNING_TTO_THREAD_MAX_MESSAGES);
+    expect(capped.omitted_older_turn_count).toBe(5);
+    expect(capped.messages[0]?.body).toBe("Morning cap message 5");
+    expect(capped.messages.at(-1)?.body).toBe("Morning cap message 34");
   });
 
-  it("truncates per-message body to 480 chars and total to 12000", async () => {
+  it("truncates coach per-message body to 480 chars and total to 12000", async () => {
     const {
       capMorningExactThreadMessages,
-      MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE,
+      MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE,
       MORNING_TTO_THREAD_MAX_TOTAL_CHARS,
       morningExactThreadMessageCharCount,
     } = await import("@/lib/sms-recent-exact-thread-72h");
@@ -2143,8 +2144,9 @@ describe("Morning TTO exact thread caps", () => {
       nowMs,
       messageForLocalDate: "2026-06-22",
     });
-    expect(capped[0]?.body.length).toBeLessThanOrEqual(MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE);
-    expect(capped[0]?.body.endsWith("…")).toBe(true);
+    expect(capped.messages[0]?.body.length).toBeLessThanOrEqual(MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE);
+    expect(capped.messages[0]?.body.endsWith("…")).toBe(true);
+    expect(capped.omitted_older_turn_count).toBe(0);
 
     const many: RecentExactThread72hMessage[] = [];
     for (let i = 0; i < 30; i++) {
@@ -2167,9 +2169,10 @@ describe("Morning TTO exact thread caps", () => {
       nowMs,
       messageForLocalDate: "2026-06-22",
     });
-    expect(morningExactThreadMessageCharCount(charCapped)).toBeLessThanOrEqual(
+    expect(morningExactThreadMessageCharCount(charCapped.messages)).toBeLessThanOrEqual(
       MORNING_TTO_THREAD_MAX_TOTAL_CHARS
     );
+    expect(charCapped.omitted_older_turn_count).toBeGreaterThan(0);
   });
 
   it("projects UTC/local/weekday and chronological order", async () => {
@@ -2266,5 +2269,404 @@ describe("Morning TTO exact thread caps", () => {
     expect(queried.some((t) => /draft/i.test(t))).toBe(false);
     expect(morning.messages).toHaveLength(1);
     expect(morning.messages[0]?.body).toMatch(/Visible sent only/i);
+    expect(morning.omitted_older_turn_count).toBe(0);
+  });
+});
+
+describe("Morning TTO user-body preservation and role-aware budget", () => {
+  const NOW_MS = new Date("2026-06-22T12:00:00.000Z").getTime();
+  const TZ = "America/New_York";
+
+  function baseMsg(
+    overrides: Partial<RecentExactThread72hMessage> &
+      Pick<RecentExactThread72hMessage, "at" | "role" | "body" | "message_sid">
+  ): RecentExactThread72hMessage {
+    return {
+      at_local: "local",
+      at_local_timezone: TZ,
+      local_day_key: "2026-06-22",
+      message_kind: null,
+      source_table: overrides.role === "user" ? "sms_inbound_messages" : "sms_send_events",
+      delivery_status: "sent",
+      is_exact_body: true,
+      ...overrides,
+    };
+  }
+
+  it("preserves complete user bodies at 480, 481, 2000, and 5000 chars without ellipsis", async () => {
+    const { capMorningExactThreadMessages } = await import("@/lib/sms-recent-exact-thread-72h");
+    const lengths = [480, 481, 2000, 5000];
+    for (const len of lengths) {
+      const body = `U${"x".repeat(len - 2)}Z`;
+      expect(body.length).toBe(len);
+      const capped = capMorningExactThreadMessages(
+        [
+          baseMsg({
+            at: new Date(NOW_MS - 60_000).toISOString(),
+            role: "user",
+            body,
+            message_sid: `SM_U_${len}`,
+          }),
+        ],
+        { timezone: TZ, nowMs: NOW_MS, messageForLocalDate: "2026-06-22" }
+      );
+      expect(capped.messages).toHaveLength(1);
+      expect(capped.messages[0]?.body).toBe(body);
+      expect(capped.messages[0]?.body).not.toContain("…");
+      expect(capped.messages[0]?.body.endsWith("Z")).toBe(true);
+      expect(capped.omitted_older_turn_count).toBe(0);
+    }
+  });
+
+  it("preserves user multiline paragraphs, punctuation, quotes, emoji, and apostrophes", async () => {
+    const { capMorningExactThreadMessages } = await import("@/lib/sms-recent-exact-thread-72h");
+    const body = `Line one — "quoted".\n\nLine two: it's fine 🙂\nLine three!`;
+    const capped = capMorningExactThreadMessages(
+      [
+        baseMsg({
+          at: new Date(NOW_MS - 60_000).toISOString(),
+          role: "user",
+          body,
+          message_sid: "SM_MULTI",
+        }),
+      ],
+      { timezone: TZ, nowMs: NOW_MS, messageForLocalDate: "2026-06-22" }
+    );
+    expect(capped.messages[0]?.body).toBe(body);
+    expect(capped.messages[0]?.body).toContain("\n\n");
+  });
+
+  it("caps August-1-shaped 546-char coach body at 480 with deterministic ellipsis", async () => {
+    const {
+      capMorningExactThreadMessages,
+      truncateMorningCoachThreadBody,
+      MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE,
+    } = await import("@/lib/sms-recent-exact-thread-72h");
+    const ending =
+      "Also, what is the goal of lifting? Do you want to look jacked or do you have a weight that you're trying to hit or the way you look in the mirror?";
+    const coach546 = `${"A".repeat(546 - ending.length)}${ending}`;
+    expect(coach546.length).toBe(546);
+
+    const expected = truncateMorningCoachThreadBody(coach546);
+    expect(expected.length).toBe(MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE);
+    expect(expected.endsWith("…")).toBe(true);
+    expect(expected).toBe(`${coach546.slice(0, 479)}…`);
+    expect(expected).toMatch(/look jacked or do you have a …$/);
+
+    const cappedInWindow = capMorningExactThreadMessages(
+      [
+        baseMsg({
+          at: "2026-08-01T11:01:25.625Z",
+          role: "coach",
+          body: coach546,
+          message_sid: "SM3ae863f89dbc0ea677c9da072b200af4",
+          local_day_key: "2026-08-01",
+        }),
+      ],
+      {
+        timezone: TZ,
+        nowMs: new Date("2026-08-05T16:00:00.000Z").getTime(),
+        messageForLocalDate: "2026-08-06",
+      }
+    );
+    expect(cappedInWindow.messages).toHaveLength(1);
+    expect(cappedInWindow.messages[0]?.body).toBe(expected);
+  });
+
+  it("leaves short coach bodies unchanged", async () => {
+    const { capMorningExactThreadMessages } = await import("@/lib/sms-recent-exact-thread-72h");
+    const body = "Short coach note.";
+    const capped = capMorningExactThreadMessages(
+      [
+        baseMsg({
+          at: new Date(NOW_MS - 60_000).toISOString(),
+          role: "coach",
+          body,
+          message_sid: "SM_SHORT",
+        }),
+      ],
+      { timezone: TZ, nowMs: NOW_MS, messageForLocalDate: "2026-06-22" }
+    );
+    expect(capped.messages[0]?.body).toBe(body);
+  });
+
+  it("drops oldest coach turns first under total budget while keeping long user whole", async () => {
+    const {
+      capMorningExactThreadMessages,
+      MORNING_TTO_THREAD_MAX_TOTAL_CHARS,
+      morningExactThreadMessageCharCount,
+    } = await import("@/lib/sms-recent-exact-thread-72h");
+
+    const longUser = `U${"u".repeat(1998)}Z`;
+    expect(longUser.length).toBe(2000);
+    const messages: RecentExactThread72hMessage[] = [];
+    for (let i = 0; i < 20; i++) {
+      messages.push(
+        baseMsg({
+          at: new Date(NOW_MS - (40 - i) * 60_000).toISOString(),
+          role: "coach",
+          body: "C".repeat(450),
+          message_sid: `SM_OLD_C_${i}`,
+        })
+      );
+    }
+    messages.push(
+      baseMsg({
+        at: new Date(NOW_MS - 10_000).toISOString(),
+        role: "user",
+        body: longUser,
+        message_sid: "SM_LONG_U",
+      })
+    );
+
+    const capped = capMorningExactThreadMessages(messages, {
+      timezone: TZ,
+      nowMs: NOW_MS,
+      messageForLocalDate: "2026-06-22",
+      options: { maxTotalChars: 3500 },
+    });
+
+    expect(morningExactThreadMessageCharCount(capped.messages)).toBeLessThanOrEqual(3500);
+    expect(capped.messages.some((m) => m.sender === "user" && m.body === longUser)).toBe(true);
+    expect(capped.messages.find((m) => m.sender === "user")?.body).not.toContain("…");
+    expect(capped.omitted_older_turn_count).toBeGreaterThan(0);
+    // Oldest coaches removed; remaining chronological
+    for (let i = 1; i < capped.messages.length; i++) {
+      expect(capped.messages[i - 1]!.sent_at_utc <= capped.messages[i]!.sent_at_utc).toBe(true);
+    }
+    expect(MORNING_TTO_THREAD_MAX_TOTAL_CHARS).toBe(12000);
+  });
+
+  it("with several long users, coaches drop first and surviving users stay whole", async () => {
+    const { capMorningExactThreadMessages, morningExactThreadMessageCharCount } = await import(
+      "@/lib/sms-recent-exact-thread-72h"
+    );
+    const u1 = `A${"a".repeat(1498)}A`;
+    const u2 = `B${"b".repeat(1498)}B`;
+    const messages: RecentExactThread72hMessage[] = [
+      baseMsg({
+        at: new Date(NOW_MS - 50 * 60_000).toISOString(),
+        role: "coach",
+        body: "C".repeat(450),
+        message_sid: "SM_C0",
+      }),
+      baseMsg({
+        at: new Date(NOW_MS - 40 * 60_000).toISOString(),
+        role: "user",
+        body: u1,
+        message_sid: "SM_U1",
+      }),
+      baseMsg({
+        at: new Date(NOW_MS - 30 * 60_000).toISOString(),
+        role: "coach",
+        body: "C".repeat(450),
+        message_sid: "SM_C1",
+      }),
+      baseMsg({
+        at: new Date(NOW_MS - 20 * 60_000).toISOString(),
+        role: "user",
+        body: u2,
+        message_sid: "SM_U2",
+      }),
+      baseMsg({
+        at: new Date(NOW_MS - 10 * 60_000).toISOString(),
+        role: "coach",
+        body: "C".repeat(450),
+        message_sid: "SM_C2",
+      }),
+    ];
+
+    const capped = capMorningExactThreadMessages(messages, {
+      timezone: TZ,
+      nowMs: NOW_MS,
+      messageForLocalDate: "2026-06-22",
+      options: { maxTotalChars: 3200 },
+    });
+
+    expect(morningExactThreadMessageCharCount(capped.messages)).toBeLessThanOrEqual(3200);
+    const users = capped.messages.filter((m) => m.sender === "user");
+    for (const u of users) {
+      expect(u.body === u1 || u.body === u2).toBe(true);
+      expect(u.body).not.toContain("…");
+    }
+    // All coaches should be gone before any user is dropped (users are 1500 each; 3200 fits both)
+    expect(capped.messages.every((m) => m.sender === "user")).toBe(true);
+    expect(users).toHaveLength(2);
+  });
+
+  it("after coaches are exhausted, removes oldest complete turns without shortening users", async () => {
+    const { capMorningExactThreadMessages } = await import("@/lib/sms-recent-exact-thread-72h");
+    const older = `O${"o".repeat(1998)}O`;
+    const newer = `N${"n".repeat(1998)}N`;
+    const capped = capMorningExactThreadMessages(
+      [
+        baseMsg({
+          at: new Date(NOW_MS - 30_000).toISOString(),
+          role: "user",
+          body: older,
+          message_sid: "SM_OLD_U",
+        }),
+        baseMsg({
+          at: new Date(NOW_MS - 10_000).toISOString(),
+          role: "user",
+          body: newer,
+          message_sid: "SM_NEW_U",
+        }),
+      ],
+      {
+        timezone: TZ,
+        nowMs: NOW_MS,
+        messageForLocalDate: "2026-06-22",
+        options: { maxTotalChars: 2500 },
+      }
+    );
+    expect(capped.messages).toHaveLength(1);
+    expect(capped.messages[0]?.body).toBe(newer);
+    expect(capped.messages[0]?.body).not.toContain("…");
+    expect(capped.omitted_older_turn_count).toBe(1);
+  });
+
+  it("protects newest user turn and keeps ascending chronology", async () => {
+    const { capMorningExactThreadMessages } = await import("@/lib/sms-recent-exact-thread-72h");
+    const newest = "newest user survives";
+    const messages: RecentExactThread72hMessage[] = [];
+    for (let i = 0; i < 40; i++) {
+      messages.push(
+        baseMsg({
+          at: new Date(NOW_MS - (40 - i) * 60_000).toISOString(),
+          role: i === 39 ? "user" : "coach",
+          body: i === 39 ? newest : `coach ${i}`,
+          message_sid: `SM_${i}`,
+        })
+      );
+    }
+    const capped = capMorningExactThreadMessages(messages, {
+      timezone: TZ,
+      nowMs: NOW_MS,
+      messageForLocalDate: "2026-06-22",
+    });
+    expect(capped.messages).toHaveLength(30);
+    expect(capped.messages.at(-1)?.body).toBe(newest);
+    expect(capped.omitted_older_turn_count).toBe(10);
+    for (let i = 1; i < capped.messages.length; i++) {
+      expect(capped.messages[i - 1]!.sent_at_utc <= capped.messages[i]!.sent_at_utc).toBe(true);
+    }
+  });
+
+  it("omitted count is zero when nothing is removed", async () => {
+    const { capMorningExactThreadMessages } = await import("@/lib/sms-recent-exact-thread-72h");
+    const capped = capMorningExactThreadMessages(
+      [
+        baseMsg({
+          at: new Date(NOW_MS - 60_000).toISOString(),
+          role: "user",
+          body: "hi",
+          message_sid: "SM1",
+        }),
+      ],
+      { timezone: TZ, nowMs: NOW_MS, messageForLocalDate: "2026-06-22" }
+    );
+    expect(capped.omitted_older_turn_count).toBe(0);
+  });
+
+  it("production-shaped: long user after capped coach stays complete; older coaches drop first", async () => {
+    const {
+      capMorningExactThreadMessages,
+      truncateMorningCoachThreadBody,
+    } = await import("@/lib/sms-recent-exact-thread-72h");
+    const nowMs = new Date("2026-08-05T16:00:00.000Z").getTime();
+    const ending =
+      "Also, what is the goal of lifting? Do you want to look jacked or do you have a weight that you're trying to hit or the way you look in the mirror?";
+    const padded = `${"A".repeat(546 - ending.length)}${ending}`;
+    expect(padded.length).toBe(546);
+    const user2000 = `Y${"y".repeat(1998)}Y`;
+    const messages: RecentExactThread72hMessage[] = [];
+    for (let i = 0; i < 15; i++) {
+      messages.push(
+        baseMsg({
+          at: new Date(nowMs - (20 - i) * 3600_000).toISOString(),
+          role: "coach",
+          body: "OLDCOACH".repeat(50),
+          message_sid: `SM_OLD_${i}`,
+          local_day_key: "2026-07-20",
+        })
+      );
+    }
+    messages.push(
+      baseMsg({
+        at: "2026-08-01T11:01:25.625Z",
+        role: "coach",
+        body: padded,
+        message_sid: "SM_AUG1",
+        local_day_key: "2026-08-01",
+      }),
+      baseMsg({
+        at: "2026-08-02T15:00:00.000Z",
+        role: "user",
+        body: user2000,
+        message_sid: "SM_LONG_REPLY",
+        local_day_key: "2026-08-02",
+      })
+    );
+
+    const capped = capMorningExactThreadMessages(messages, {
+      timezone: TZ,
+      nowMs,
+      messageForLocalDate: "2026-08-06",
+      options: { maxTotalChars: 4000 },
+    });
+
+    const userTurn = capped.messages.find((m) => m.sender === "user");
+    expect(userTurn?.body).toBe(user2000);
+    const aug1 = capped.messages.find((m) => /look jacked/.test(m.body));
+    if (aug1) {
+      expect(aug1.body).toBe(truncateMorningCoachThreadBody(padded));
+    }
+    expect(capped.omitted_older_turn_count).toBeGreaterThan(0);
+  });
+
+  it("Morning packet path preserves inbound newlines via preserveUserBodyFormatting", async () => {
+    setupSupabaseTables({
+      inboundMsgRows: [
+        {
+          raw_body: "Para one.\n\nPara two with it's fine.",
+          received_at: "2026-06-21T16:00:00.000Z",
+          message_sid: "SM_NL_USER",
+        },
+      ],
+    });
+    const { buildMorningExactThreadForPacket, buildRecentExactThread72h } = await import(
+      "@/lib/sms-recent-exact-thread-72h"
+    );
+    const morning = await buildMorningExactThreadForPacket({
+      clerkUserId: "user_nl",
+      timezone: TZ,
+      now: new Date(NOW_MS),
+      messageForLocalDate: "2026-06-22",
+    });
+    expect(morning.messages.some((m) => m.body.includes("\n\n"))).toBe(true);
+    expect(morning.messages.find((m) => m.sender === "user")?.body).toBe(
+      "Para one.\n\nPara two with it's fine."
+    );
+
+    // Shared path still collapses newlines when flag unset
+    const shared = await buildRecentExactThread72h({
+      clerkUserId: "user_nl",
+      timezone: TZ,
+      now: new Date(NOW_MS),
+      windowHours: 21 * 24,
+    });
+    expect(shared.messages.find((m) => m.role === "user")?.body).toBe(
+      "Para one.  Para two with it's fine."
+    );
+  });
+
+  it("architecture: one body field, no summarizer/flag/env/table surface in Morning projection API", async () => {
+    const src = readFileSync(join(process.cwd(), "src/lib/sms-recent-exact-thread-72h.ts"), "utf8");
+    const morningSlice = src.slice(src.indexOf("Morning TTO exact thread"));
+    expect(morningSlice).not.toMatch(/summariz|embedding|importance_score|feature.?flag|process\.env/i);
+    expect(morningSlice).not.toMatch(/preview_body|exact_body_full|long_message_summary/);
+    expect(morningSlice).toMatch(/omitted_older_turn_count/);
+    expect(morningSlice).toMatch(/MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE/);
   });
 });

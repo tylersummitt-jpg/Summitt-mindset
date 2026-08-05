@@ -795,6 +795,26 @@ function safeBody(raw: string): { body: string; body_truncated: boolean } {
   return { body: `${cleaned.slice(0, PER_MESSAGE_SAFETY_CAP - 1)}…`, body_truncated: true };
 }
 
+/**
+ * Morning-only user inbound body: keep internal newlines/punctuation.
+ * Leading/trailing whitespace trim only; still applies PER_MESSAGE_SAFETY_CAP.
+ * Does not change shared safeBody used by daily/weekly/inbound paths.
+ */
+function safeUserBodyPreserveFormatting(raw: string): { body: string; body_truncated: boolean } {
+  const cleaned = raw.replace(/^\s+|\s+$/g, "");
+  if (cleaned.length <= PER_MESSAGE_SAFETY_CAP) {
+    return { body: cleaned, body_truncated: false };
+  }
+  return { body: `${cleaned.slice(0, PER_MESSAGE_SAFETY_CAP - 1)}…`, body_truncated: true };
+}
+
+function extractUserInboundBody(
+  raw: string,
+  preserveFormatting: boolean
+): { body: string; body_truncated: boolean } {
+  return preserveFormatting ? safeUserBodyPreserveFormatting(raw) : safeBody(raw);
+}
+
 export function formatAtLocal(date: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
@@ -902,6 +922,11 @@ export type BuildRecentExactThreadArgs = {
   path?: ExactThreadWriterPath;
   /** Override hours when set (takes precedence over path). */
   windowHours?: number;
+  /**
+   * Morning only: preserve user inbound newlines/punctuation (trim ends only).
+   * Default false — daily/weekly/inbound keep shared safeBody newline collapse.
+   */
+  preserveUserBodyFormatting?: boolean;
 };
 
 function isWriterFacingThreadMessage(m: RecentExactThread72hMessage): boolean {
@@ -1125,6 +1150,7 @@ async function buildRecentExactThreadWithWindowMs(
   const cutoffMs = nowMs - args.windowMs;
   const tz = resolveUserTimezone(args.timezone);
   const includeSystemNoSend = args.includeSystemNoSend === true;
+  const preserveUserBodyFormatting = args.preserveUserBodyFormatting === true;
   const stats = args.stats;
 
   const [
@@ -1294,7 +1320,7 @@ async function buildRecentExactThreadWithWindowMs(
         stats?.recordFiltered("compliance_inbound");
       } else {
         if (stats) stats.user_inbound_candidate_count += 1;
-        const { body, body_truncated } = safeBody(raw);
+        const { body, body_truncated } = extractUserInboundBody(raw, preserveUserBodyFormatting);
         rich.push({
           t: ts,
           role: "user",
@@ -1370,7 +1396,7 @@ async function buildRecentExactThreadWithWindowMs(
       continue;
     }
     if (stats) stats.user_inbound_candidate_count += 1;
-    const { body, body_truncated } = safeBody(raw);
+    const { body, body_truncated } = extractUserInboundBody(raw, preserveUserBodyFormatting);
     rich.push({
       t: ts,
       role: "user",
@@ -1562,7 +1588,10 @@ export const MORNING_TTO_THREAD_WINDOW_DAYS = 21 as const;
 export const MORNING_TTO_THREAD_WINDOW_HOURS = 21 * 24;
 export const MORNING_TTO_THREAD_MAX_MESSAGES = 30;
 export const MORNING_TTO_THREAD_MAX_TOTAL_CHARS = 12000;
-export const MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE = 480;
+/** Coach-only Morning per-message projection cap. User inbound bodies are never capped here. */
+export const MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE = 480;
+/** @deprecated Prefer MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE — applies to coach turns only. */
+export const MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE = MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE;
 
 export type MorningExactThreadMessage = {
   sender: "coach" | "user";
@@ -1575,11 +1604,21 @@ export type MorningExactThreadMessage = {
   body: string;
 };
 
+export type MorningExactThreadResult = {
+  messages: MorningExactThreadMessage[];
+  /**
+   * Writer-facing turns inside the 21d window that were removed by the 30-turn
+   * and/or 12k total-char reduction (not window exclusion).
+   */
+  omitted_older_turn_count: number;
+};
+
 export type MorningExactThreadOptions = {
   windowDays?: typeof MORNING_TTO_THREAD_WINDOW_DAYS;
   windowHours?: number;
   maxMessages?: number;
   maxTotalChars?: number;
+  /** Coach-only per-message cap override. */
   maxCharsPerMessage?: number;
   includeUtcTimestamp?: true;
   includeLocalWeekday?: true;
@@ -1618,7 +1657,11 @@ export function morningExactThreadMessageCharCount(messages: MorningExactThreadM
   return messages.reduce((sum, m) => sum + m.body.length, 0);
 }
 
-function truncateMorningThreadBody(body: string, max = MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE): string {
+/** Deterministic coach-only Morning body cap (Unicode ellipsis). Users never use this. */
+export function truncateMorningCoachThreadBody(
+  body: string,
+  max = MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE
+): string {
   const t = body.trim().replace(/\r?\n/g, " ");
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1)}…`;
@@ -1631,10 +1674,21 @@ export function formatLocalWeekday(date: Date, timezone: string): string {
   }).format(date);
 }
 
+function projectMorningThreadBody(
+  m: RecentExactThread72hMessage,
+  maxCoachCharsPerMessage: number
+): string {
+  if (m.role === "coach") {
+    return truncateMorningCoachThreadBody(m.body, maxCoachCharsPerMessage);
+  }
+  // User: complete body — no 480 cap, no ellipsis, no newline collapse at projection.
+  return m.body;
+}
+
 function toMorningExactThreadMessage(
   m: RecentExactThread72hMessage,
   timezone: string,
-  maxCharsPerMessage: number,
+  maxCoachCharsPerMessage: number,
   messageForLocalDate: string
 ): MorningExactThreadMessage {
   const d = new Date(m.at);
@@ -1649,7 +1703,7 @@ function toMorningExactThreadMessage(
     local_day_key,
     local_weekday: formatLocalWeekday(d, timezone),
     day_relation_to_message: dayRelationToMessage(local_day_key, messageForLocalDate),
-    body: truncateMorningThreadBody(m.body, maxCharsPerMessage),
+    body: projectMorningThreadBody(m, maxCoachCharsPerMessage),
   };
 }
 
@@ -1673,7 +1727,22 @@ function collectMorningWriterFacingItems(
   return items;
 }
 
-/** Cap writer-facing thread for Morning TTO: newest preserved under message/char caps. */
+function projectMorningChosen(
+  chosen: MorningCapItem[],
+  timezone: string,
+  maxCoachCharsPerMessage: number,
+  messageForLocalDate: string
+): MorningExactThreadMessage[] {
+  return chosen.map((i) =>
+    toMorningExactThreadMessage(i.msg, timezone, maxCoachCharsPerMessage, messageForLocalDate)
+  );
+}
+
+/**
+ * Cap writer-facing thread for Morning TTO.
+ * Users: complete bodies. Coaches: optional per-message cap.
+ * Total budget: drop oldest coach turns first, then oldest remaining complete turns.
+ */
 export function capMorningExactThreadMessages(
   messages: RecentExactThread72hMessage[],
   args: {
@@ -1683,45 +1752,62 @@ export function capMorningExactThreadMessages(
     messageForLocalDate: string;
     options?: MorningExactThreadOptions;
   }
-): MorningExactThreadMessage[] {
+): MorningExactThreadResult {
   const opts = args.options ?? {};
   const windowHours = opts.windowHours ?? MORNING_TTO_THREAD_WINDOW_HOURS;
   const maxMessages = opts.maxMessages ?? MORNING_TTO_THREAD_MAX_MESSAGES;
   const maxTotalChars = opts.maxTotalChars ?? MORNING_TTO_THREAD_MAX_TOTAL_CHARS;
-  const maxCharsPerMessage =
-    opts.maxCharsPerMessage ?? MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE;
+  const maxCoachCharsPerMessage =
+    opts.maxCharsPerMessage ?? MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE;
   const messageForLocalDate =
     opts.messageForLocalDate?.trim() || args.messageForLocalDate.trim();
 
-  let chosen = collectMorningWriterFacingItems(messages, args.nowMs, windowHours);
+  const inWindow = collectMorningWriterFacingItems(messages, args.nowMs, windowHours);
+  const windowPoolCount = inWindow.length;
+
+  let chosen = inWindow;
   if (chosen.length > maxMessages) {
     chosen = chosen.slice(-maxMessages);
   }
 
-  let projected = chosen.map((i) =>
-    toMorningExactThreadMessage(i.msg, args.timezone, maxCharsPerMessage, messageForLocalDate)
+  let projected = projectMorningChosen(
+    chosen,
+    args.timezone,
+    maxCoachCharsPerMessage,
+    messageForLocalDate
   );
 
-  const dropOldest = (): boolean => {
+  const dropOldestCoachThenOldest = (): boolean => {
     if (chosen.length <= 1) return false;
-    chosen = chosen.slice(1);
-    projected = chosen.map((i) =>
-      toMorningExactThreadMessage(i.msg, args.timezone, maxCharsPerMessage, messageForLocalDate)
+    const oldestCoachIdx = chosen.findIndex((i) => i.msg.role === "coach");
+    if (oldestCoachIdx >= 0) {
+      chosen = [...chosen.slice(0, oldestCoachIdx), ...chosen.slice(oldestCoachIdx + 1)];
+    } else {
+      chosen = chosen.slice(1);
+    }
+    projected = projectMorningChosen(
+      chosen,
+      args.timezone,
+      maxCoachCharsPerMessage,
+      messageForLocalDate
     );
     return true;
   };
 
   while (morningExactThreadMessageCharCount(projected) > maxTotalChars) {
-    if (dropOldest()) continue;
+    if (dropOldestCoachThenOldest()) continue;
     break;
   }
 
   while (chosen.length > maxMessages) {
-    if (dropOldest()) continue;
+    if (dropOldestCoachThenOldest()) continue;
     break;
   }
 
-  return projected;
+  return {
+    messages: projected,
+    omitted_older_turn_count: Math.max(0, windowPoolCount - projected.length),
+  };
 }
 
 /** 21d exact thread + Morning writer projection for MorningRelationshipPacket.exact_thread. */
@@ -1737,6 +1823,7 @@ export async function buildMorningExactThreadForPacket(args: {
   window_days: 21;
   max_messages: 30;
   messages: MorningExactThreadMessage[];
+  omitted_older_turn_count: number;
   message_count: number;
   char_count: number;
 }> {
@@ -1752,9 +1839,10 @@ export async function buildMorningExactThreadForPacket(args: {
     timezone: tz,
     now,
     windowHours,
+    preserveUserBodyFormatting: true,
   });
 
-  const messages = capMorningExactThreadMessages(timeline.messages, {
+  const capped = capMorningExactThreadMessages(timeline.messages, {
     timezone: tz,
     nowMs: now.getTime(),
     messageForLocalDate,
@@ -1764,8 +1852,9 @@ export async function buildMorningExactThreadForPacket(args: {
   return {
     window_days: MORNING_TTO_THREAD_WINDOW_DAYS,
     max_messages: MORNING_TTO_THREAD_MAX_MESSAGES,
-    messages,
-    message_count: messages.length,
-    char_count: morningExactThreadMessageCharCount(messages),
+    messages: capped.messages,
+    omitted_older_turn_count: capped.omitted_older_turn_count,
+    message_count: capped.messages.length,
+    char_count: morningExactThreadMessageCharCount(capped.messages),
   };
 }
