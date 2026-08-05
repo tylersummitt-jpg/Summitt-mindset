@@ -16,6 +16,7 @@ import {
   OPENAI_RELATIONSHIP_TURN_UNDERSTANDING_VERSION,
   buildInterpreterFailedSafeReconciled,
   buildReconciledGoalChangeIntent,
+  buildTurnUnderstandingUserPrompt,
   callOpenAIRelationshipTurnUnderstandingV1,
   inferMinimalGoalChangeIntentFromInbound,
   isAuthoritativeReconciledGoalChangeIntent,
@@ -977,5 +978,303 @@ describe("goal_change_intent schema", () => {
     });
     expect(intent?.requires_confirmation).toBe(true);
     expect(intent?.goal_change_no_state_mutation_without_confirmation).toBe(true);
+  });
+});
+
+describe("Slice 2B — open_reflection Turn Understanding contract", () => {
+  const PRIDE_OUTBOUND = "What's one thing you're proud of this week?";
+
+  function pridePromptArgs(inbound: string) {
+    return {
+      inboundBody: inbound,
+      lastCoachOutbound: PRIDE_OUTBOUND,
+      latestOpenQuestion: PRIDE_OUTBOUND,
+      latestAnswerAfterOpenQuestion: null,
+      openQuestionPending: true,
+      expectedReplySemantics: "open_reflection",
+      effectiveAsk: "Walk 8,000 steps daily",
+      behaviorStatement: "Walk 8,000 steps daily",
+      recentThreadExcerpt: `Coach: ${PRIDE_OUTBOUND}\nUser: ${inbound}`,
+      routePurpose: "normal_inbound_reply",
+      routePriority: {},
+      temporalContract: null,
+      proofCalloutClaimSavedAllowed: false,
+      deterministicMeaning: buildInboundMeaningFacts({
+        rawInbound: inbound,
+        classifierEventType: "user_partial",
+      }),
+      classifierEventType: "user_partial" as const,
+    };
+  }
+
+  function openReflectionProposal(
+    overrides: Partial<OpenAIRelationshipTurnUnderstandingV1> = {}
+  ): OpenAIRelationshipTurnUnderstandingV1 {
+    return makeValidProposal({
+      relationship_meaning: "emotional_reflection",
+      answered_last_coach_ask: "yes",
+      last_ask_satisfied: "yes",
+      satisfaction_kind: "unclear",
+      response_intent: "acknowledge_prior_ask_satisfied",
+      commitment_outcome_recommendation: "no_outcome_write",
+      persistence_safety: "do_not_write_but_acknowledge",
+      confidence: 0.86,
+      do_not_repeat_asks: [PRIDE_OUTBOUND],
+      stale_ask_risk: true,
+      ...overrides,
+    });
+  }
+
+  it("prompt includes open_reflection contract and narrowed uncertainty rule", () => {
+    const prompt = buildTurnUnderstandingUserPrompt(pridePromptArgs("I gave a good talk today."));
+    expect(prompt).toMatch(/OPEN-REFLECTION \/ PRIDE \/ PERSONAL ANSWER/i);
+    expect(prompt).toMatch(/expected_reply_semantics is open_reflection/i);
+    expect(prompt).toMatch(/do NOT use relationship_meaning unclear merely because it is outside the Current Goal/i);
+    expect(prompt).toMatch(/emotional_reflection, direct_answer, or prior_ask_satisfied/i);
+    expect(prompt).toMatch(/acknowledge_prior_ask_satisfied or close_loop_no_new_action/i);
+    expect(prompt).toMatch(/no_outcome_write/i);
+    expect(prompt).toMatch(/Do NOT invent Win\/Victory Room/i);
+    expect(prompt).toMatch(/conversational meaning itself is genuinely unclear/i);
+    expect(prompt).toMatch(
+      /Do NOT use relationship_meaning unclear merely because accountability \/ Current Goal completion is unresolved/i
+    );
+    expect(prompt).toMatch(/Positive coaching preference/i);
+    expect(prompt).toMatch(/keep motivational texts coming/i);
+    expect(prompt).toContain("expected_reply_semantics: open_reflection");
+    expect(prompt).toContain(`latest_open_question: ${PRIDE_OUTBOUND}`);
+  });
+
+  it.each([
+    [
+      "I gave a good talk today.",
+      {
+        relationship_meaning: "direct_answer" as const,
+        user_turn_summary: "User proud of giving a good talk.",
+        evidence_quotes: ["good talk today"],
+      },
+    ],
+    [
+      "I had 2 locals buy a T-shirt with a local design.",
+      {
+        relationship_meaning: "direct_answer" as const,
+        user_turn_summary: "User sold shirts to locals.",
+        evidence_quotes: ["2 locals buy a T-shirt"],
+      },
+    ],
+    [
+      "I'm proudest that I've spent quality time with my grandchildren.",
+      {
+        relationship_meaning: "emotional_reflection" as const,
+        user_turn_summary: "User proud of grandchild time.",
+        evidence_quotes: ["quality time with my grandchildren"],
+      },
+    ],
+    [
+      "I have had really good family time this week.",
+      {
+        relationship_meaning: "emotional_reflection" as const,
+        user_turn_summary: "User shared good family time.",
+        evidence_quotes: ["really good family time"],
+      },
+    ],
+    [
+      "Over my illness and going back to work.",
+      {
+        relationship_meaning: "emotional_reflection" as const,
+        user_turn_summary: "User proud of recovery and returning to work.",
+        evidence_quotes: ["going back to work"],
+      },
+    ],
+    [
+      "Up early every morning.",
+      {
+        relationship_meaning: "direct_answer" as const,
+        user_turn_summary: "User names early mornings as pride/pattern.",
+        evidence_quotes: ["Up early every morning"],
+      },
+    ],
+  ])("open-reflection answer survives parse+reconcile without unclear: %s", (inbound, shape) => {
+    const proposal = openReflectionProposal({
+      ...shape,
+      evidence_quotes: shape.evidence_quotes,
+    });
+    expect(parseOpenAIRelationshipTurnUnderstandingV1(proposal as unknown as Record<string, unknown>)).toEqual(
+      proposal
+    );
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: meaningFor(inbound),
+      latestCoachQuestion: PRIDE_OUTBOUND,
+      inboundBody: inbound,
+    });
+    expect(r.reconciled_relationship_meaning).not.toBe("unclear");
+    expect(r.reconciled_relationship_meaning).toBe(shape.relationship_meaning);
+    expect(r.last_ask_satisfied).toBe("yes");
+    expect(["acknowledge_prior_ask_satisfied", "close_loop_no_new_action"]).toContain(
+      r.reconciled_response_intent
+    );
+    expect(r.reconciled_persistence_decision).not.toMatch(/^write_user_/);
+    expect(r.proposal?.commitment_outcome_recommendation).toBe("no_outcome_write");
+  });
+
+  it("coaching feedback / preference proposals are not unclear and write no outcome", () => {
+    const feedback = openReflectionProposal({
+      relationship_meaning: "direct_answer",
+      response_intent: "close_loop_no_new_action",
+      user_turn_summary: "User says coaching keeps them mindful.",
+      evidence_quotes: ["keeps me mindful"],
+    });
+    const preference = openReflectionProposal({
+      relationship_meaning: "support_request",
+      response_intent: "close_loop_no_new_action",
+      user_turn_summary: "User wants motivational texts to continue.",
+      evidence_quotes: ["Keep the motivational texts coming"],
+      last_ask_satisfied: "unclear",
+      answered_last_coach_ask: "unclear",
+      satisfaction_kind: "unclear",
+      do_not_repeat_asks: [],
+      stale_ask_risk: false,
+    });
+    for (const [inbound, proposal] of [
+      ["Very well and also keeps me mindful.", feedback],
+      ["Keep the motivational texts coming.", preference],
+    ] as const) {
+      expect(parseOpenAIRelationshipTurnUnderstandingV1(proposal as unknown as Record<string, unknown>)).toEqual(
+        proposal
+      );
+      const r = reconcileTurnUnderstanding({
+        proposal,
+        deterministicMeaning: meaningFor(inbound),
+        inboundBody: inbound,
+      });
+      expect(r.reconciled_relationship_meaning).not.toBe("unclear");
+      expect(r.reconciled_response_intent).not.toBe("unclear_clarify");
+      expect(r.proposal?.commitment_outcome_recommendation).toBe("no_outcome_write");
+    }
+  });
+
+  it("genuine ambiguity and nonsense may remain unclear", () => {
+    for (const inbound of ["Maybe that.", "Blue maybe seven.", " ", "."]) {
+      const proposal = makeValidProposal({
+        relationship_meaning: "unclear",
+        response_intent: "unclear_clarify",
+        answered_last_coach_ask: "unclear",
+        last_ask_satisfied: "unclear",
+        satisfaction_kind: "unclear",
+        commitment_outcome_recommendation: "no_outcome_write",
+        persistence_safety: "defer_to_server",
+        confidence: 0.32,
+        user_turn_summary: "Unclear inbound.",
+        evidence_quotes: inbound.trim() ? [inbound.trim().slice(0, 40)] : [],
+        do_not_repeat_asks: [],
+      });
+      const r = reconcileTurnUnderstanding({
+        proposal,
+        deterministicMeaning: meaningFor(inbound),
+        latestCoachQuestion: PRIDE_OUTBOUND,
+        inboundBody: inbound,
+      });
+      expect(r.reconciled_relationship_meaning).toBe("unclear");
+      expect(r.reconciled_response_intent).toBe("unclear_clarify");
+    }
+  });
+
+  it("open reflection unrelated to Current Goal stays no_outcome_write", () => {
+    const inbound = "I gave a good talk today.";
+    const proposal = openReflectionProposal({
+      relationship_meaning: "direct_answer",
+      evidence_quotes: ["good talk today"],
+      user_turn_summary: "Talk accomplishment unrelated to step goal.",
+    });
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: meaningFor(inbound),
+      latestCoachQuestion: PRIDE_OUTBOUND,
+      inboundBody: inbound,
+    });
+    expect(r.reconciled_relationship_meaning).toBe("direct_answer");
+    expect(r.proposal?.commitment_outcome_recommendation).toBe("no_outcome_write");
+    expect(r.reconciled_persistence_decision).not.toBe("write_user_yes_today");
+  });
+
+  it("does not forbid clear accountability evidence fields in schema when present", () => {
+    const inbound = "I got my 8,000 steps for today's walk goal.";
+    const proposal = openReflectionProposal({
+      relationship_meaning: "reported_completion",
+      response_intent: "acknowledge_completion",
+      satisfaction_kind: "completed",
+      commitment_outcome_recommendation: "write_user_yes_today",
+      persistence_safety: "safe_to_write",
+      user_turn_summary: "User reports meeting step standard.",
+      evidence_quotes: ["8,000 steps"],
+      confidence: 0.9,
+      goal_change_intent: {
+        detected: false,
+        adjustment_type: "none",
+        source: "none",
+        requires_confirmation: true,
+        proposed_new_goal_text: null,
+        evidence_quote: null,
+        confidence: "low",
+      },
+    });
+    expect(parseOpenAIRelationshipTurnUnderstandingV1(proposal as unknown as Record<string, unknown>)).toEqual(
+      proposal
+    );
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: meaningFor(inbound),
+      latestCoachQuestion: PRIDE_OUTBOUND,
+      inboundBody: inbound,
+    });
+    expect(r.reconciled_relationship_meaning).toBe("reported_completion");
+    expect(r.proposal?.commitment_outcome_recommendation).toBe("write_user_yes_today");
+  });
+
+  it("mixed miss + pride meaning is not collapsed to unclear by reconcile", () => {
+    const inbound = "I missed my walk, but I'm proud I went back to work.";
+    const proposal = openReflectionProposal({
+      relationship_meaning: "emotional_reflection",
+      response_intent: "acknowledge_prior_ask_satisfied",
+      user_turn_summary: "Missed walk; proud of returning to work.",
+      evidence_quotes: ["proud I went back to work"],
+      commitment_outcome_recommendation: "no_outcome_write",
+    });
+    const r = reconcileTurnUnderstanding({
+      proposal,
+      deterministicMeaning: meaningFor(inbound),
+      latestCoachQuestion: PRIDE_OUTBOUND,
+      inboundBody: inbound,
+    });
+    expect(r.reconciled_relationship_meaning).toBe("emotional_reflection");
+    expect(r.reconciled_relationship_meaning).not.toBe("unclear");
+    expect(r.proposal?.commitment_outcome_recommendation).toBe("no_outcome_write");
+  });
+
+  it("prompt does not auto-map open_reflection to understood and keeps ambiguity door open", () => {
+    const prompt = buildTurnUnderstandingUserPrompt(pridePromptArgs("Maybe that."));
+    expect(prompt).toMatch(/do not auto-label every inbound as understood/i);
+    expect(prompt).toMatch(/Truly ambiguous, contradictory, nonsensical, empty, or nonresponsive messages may remain unclear/i);
+  });
+
+  it("yes/no miss proposal still reconciles unchanged", () => {
+    const miss = makeValidProposal({
+      relationship_meaning: "miss",
+      response_intent: "tell_truth_and_recover",
+      last_ask_satisfied: "yes",
+      answered_last_coach_ask: "yes",
+      satisfaction_kind: "answered_no",
+      commitment_outcome_recommendation: "write_user_no",
+      persistence_safety: "safe_to_write",
+      user_turn_summary: "User missed today.",
+      evidence_quotes: ["didn't get to it"],
+    });
+    const r = reconcileTurnUnderstanding({
+      proposal: miss,
+      deterministicMeaning: meaningFor("I didn't get to it today"),
+      inboundBody: "I didn't get to it today",
+    });
+    expect(r.reconciled_relationship_meaning).toBe("miss");
+    expect(r.reconciled_response_intent).toBe("tell_truth_and_recover");
   });
 });
