@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  chunkIdsForTtoManifestQuery,
   computeTylerTextOverviewAdminCounts,
   computeTylerTextOverviewEdited,
   levenshteinCharDistance,
@@ -95,8 +96,18 @@ const db = vi.hoisted(() => ({
   v2Commitments: [] as V2CommitmentRow[],
   v2CommsPrefs: [] as V2CommsPrefsRow[],
   userProfiles: [] as UserProfileRow[],
+  smsSendEvents: [] as Array<{
+    id: string;
+    send_slot: string;
+    day_key: string;
+    message_sid: string | null;
+  }>,
   smsSendEventsWrites: 0,
   generationUpdateCalls: 0,
+  /** When set, first drafts select reports this exact count (truncation simulation). */
+  draftsExactCountOverride: null as number | null,
+  audienceExactCountOverride: null as number | null,
+  countForceNull: false,
 }));
 
 function filterDrafts(payload: Record<string, unknown>): DraftRow[] {
@@ -122,9 +133,9 @@ function filterDrafts(payload: Record<string, unknown>): DraftRow[] {
     rows = rows.filter((d) => d.id === payload.id);
   }
   rows.sort((a, b) => {
-    const dayCmp = b.draft_for_day_key.localeCompare(a.draft_for_day_key);
-    if (dayCmp !== 0) return dayCmp;
-    return a.clerk_user_id.localeCompare(b.clerk_user_id);
+    const userCmp = a.clerk_user_id.localeCompare(b.clerk_user_id);
+    if (userCmp !== 0) return userCmp;
+    return a.id.localeCompare(b.id);
   });
   return rows;
 }
@@ -141,16 +152,45 @@ function makeChain(handlers: {
     const { table, action, payload } = state;
 
     if (table === "sms_send_events") {
+      if (action === "select") {
+        let rows = [...db.smsSendEvents];
+        if (typeof payload.send_slot === "string") {
+          rows = rows.filter((r) => r.send_slot === payload.send_slot);
+        }
+        if (typeof payload.day_key === "string") {
+          rows = rows.filter((r) => r.day_key === payload.day_key);
+        }
+        if (payload.not_message_sid_is_null === true) {
+          rows = rows.filter((r) => r.message_sid != null && r.message_sid !== "");
+        }
+        const count = db.countForceNull ? null : rows.length;
+        if (payload.head) {
+          return { data: null, error: null, count };
+        }
+        return { data: rows, error: null, count };
+      }
       db.smsSendEventsWrites += 1;
       return { data: null, error: null };
     }
 
     if (table === "sms_daily_drafts" && action === "select") {
-      const rows = filterDrafts(payload);
-      if (payload.maybeSingle) {
-        return { data: rows[0] ?? null, error: null };
+      let rows = filterDrafts(payload);
+      const exactCount =
+        db.countForceNull
+          ? null
+          : typeof db.draftsExactCountOverride === "number"
+            ? db.draftsExactCountOverride
+            : rows.length;
+      if (typeof payload.rangeFrom === "number" && typeof payload.rangeTo === "number") {
+        rows = rows.slice(payload.rangeFrom, payload.rangeTo + 1);
       }
-      return { data: rows, error: null };
+      if (payload.maybeSingle) {
+        return { data: rows[0] ?? null, error: null, count: exactCount };
+      }
+      if (payload.head) {
+        return { data: null, error: null, count: exactCount };
+      }
+      return { data: rows, error: null, count: exactCount };
     }
 
     if (table === "sms_audience" && action === "select") {
@@ -164,10 +204,20 @@ function makeChain(handlers: {
       if (typeof payload.clerk_user_id === "string") {
         rows = rows.filter((r) => r.clerk_user_id === payload.clerk_user_id);
       }
-      if (payload.maybeSingle) {
-        return { data: rows[0] ?? null, error: null };
+      rows.sort((a, b) => a.clerk_user_id.localeCompare(b.clerk_user_id));
+      const exactCount =
+        db.countForceNull
+          ? null
+          : typeof db.audienceExactCountOverride === "number"
+            ? db.audienceExactCountOverride
+            : rows.length;
+      if (typeof payload.rangeFrom === "number" && typeof payload.rangeTo === "number") {
+        rows = rows.slice(payload.rangeFrom, payload.rangeTo + 1);
       }
-      return { data: rows, error: null };
+      if (payload.maybeSingle) {
+        return { data: rows[0] ?? null, error: null, count: exactCount };
+      }
+      return { data: rows, error: null, count: exactCount };
     }
 
     if (table === "v2_commitment" && action === "select") {
@@ -179,7 +229,12 @@ function makeChain(handlers: {
         const allowed = payload.in_clerk_user_id as string[];
         rows = rows.filter((r) => allowed.includes(r.clerk_user_id));
       }
-      return { data: rows, error: null };
+      rows.sort((a, b) => a.clerk_user_id.localeCompare(b.clerk_user_id));
+      const exactCount = rows.length;
+      if (typeof payload.rangeFrom === "number" && typeof payload.rangeTo === "number") {
+        rows = rows.slice(payload.rangeFrom, payload.rangeTo + 1);
+      }
+      return { data: rows, error: null, count: exactCount };
     }
 
     if (table === "v2_user_sms_comms_preferences" && action === "select") {
@@ -188,10 +243,15 @@ function makeChain(handlers: {
         const allowed = payload.in_clerk_user_id as string[];
         rows = rows.filter((r) => allowed.includes(r.clerk_user_id));
       }
-      if (payload.maybeSingle) {
-        return { data: rows[0] ?? null, error: null };
+      rows.sort((a, b) => a.clerk_user_id.localeCompare(b.clerk_user_id));
+      const exactCount = rows.length;
+      if (typeof payload.rangeFrom === "number" && typeof payload.rangeTo === "number") {
+        rows = rows.slice(payload.rangeFrom, payload.rangeTo + 1);
       }
-      return { data: rows, error: null };
+      if (payload.maybeSingle) {
+        return { data: rows[0] ?? null, error: null, count: exactCount };
+      }
+      return { data: rows, error: null, count: exactCount };
     }
 
     if (table === "user_profiles" && action === "select") {
@@ -200,18 +260,25 @@ function makeChain(handlers: {
         const allowed = payload.in_clerk_user_id as string[];
         rows = rows.filter((r) => allowed.includes(r.clerk_user_id));
       }
-      return { data: rows, error: null };
+      rows.sort((a, b) => a.clerk_user_id.localeCompare(b.clerk_user_id));
+      const exactCount = rows.length;
+      if (typeof payload.rangeFrom === "number" && typeof payload.rangeTo === "number") {
+        rows = rows.slice(payload.rangeFrom, payload.rangeTo + 1);
+      }
+      return { data: rows, error: null, count: exactCount };
     }
 
     if (table === "sms_daily_draft_generations" && action === "select") {
       const ids = (payload.in_id as string[] | undefined) ?? [];
       if (typeof payload.id === "string") {
         const row = db.generations.find((g) => g.id === payload.id) ?? null;
-        return { data: row, error: null };
+        return { data: row, error: null, count: row ? 1 : 0 };
       }
       if (ids.length > 0) {
-        const rows = db.generations.filter((g) => ids.includes(g.id));
-        return { data: rows, error: null };
+        let rows = db.generations.filter((g) => ids.includes(g.id));
+        rows.sort((a, b) => a.id.localeCompare(b.id));
+        const exactCount = db.countForceNull ? null : rows.length;
+        return { data: rows, error: null, count: exactCount };
       }
       const clerkIds = payload.in_clerk_user_id as string[] | undefined;
       const dayKeys = payload.in_draft_for_day_key as string[] | undefined;
@@ -228,9 +295,9 @@ function makeChain(handlers: {
             (g) => (g.send_slot ?? "morning") === payload.send_slot
           );
         }
-        return { data: rows, error: null };
+        return { data: rows, error: null, count: rows.length };
       }
-      return { data: [], error: null };
+      return { data: [], error: null, count: 0 };
     }
 
     if (table === "sms_daily_draft_generations" && action === "update") {
@@ -257,8 +324,10 @@ function makeChain(handlers: {
   };
 
   const self: Record<string, unknown> = {};
-  self.select = vi.fn((cols?: string) => {
+  self.select = vi.fn((cols?: string, opts?: { count?: string; head?: boolean }) => {
     if (cols) state.payload.select = cols;
+    if (opts?.count) state.payload.countMode = opts.count;
+    if (opts?.head) state.payload.head = true;
     if (state.action === "update") {
       return { maybeSingle: vi.fn(execute) };
     }
@@ -275,7 +344,22 @@ function makeChain(handlers: {
     if (col === "status") state.payload.in_status = val;
     return self;
   });
+  self.not = vi.fn((col: string, op: string, val: unknown) => {
+    if (col === "message_sid" && op === "is" && val === null) {
+      state.payload.not_message_sid_is_null = true;
+    }
+    return self;
+  });
+  self.neq = vi.fn((col: string, val: unknown) => {
+    state.payload[`neq_${col}`] = val;
+    return self;
+  });
   self.order = vi.fn(() => self);
+  self.range = vi.fn((from: number, to: number) => {
+    state.payload.rangeFrom = from;
+    state.payload.rangeTo = to;
+    return self;
+  });
   self.update = vi.fn((row: Record<string, unknown>) => {
     state.action = "update";
     state.updatePayload = row;
@@ -429,7 +513,9 @@ describe("tyler-text-overview-admin read model", () => {
     db.v2Commitments = [];
     db.v2CommsPrefs = [];
     db.userProfiles = [];
+    db.smsSendEvents = [];
     db.smsSendEventsWrites = 0;
+    db.draftsExactCountOverride = null;
     db.generationUpdateCalls = 0;
     vi.clearAllMocks();
   });
@@ -1249,6 +1335,9 @@ describe("tyler-text-overview sendable audience coverage", () => {
     db.v2Commitments = [];
     db.v2CommsPrefs = [];
     db.userProfiles = [];
+    db.smsSendEvents = [];
+    db.draftsExactCountOverride = null;
+    db.smsSendEventsWrites = 0;
     vi.clearAllMocks();
   });
 
@@ -1334,6 +1423,10 @@ describe("tyler-text-overview sendable audience coverage", () => {
 
     const byClerk = await listSendableTylerTextOverviewRows({ searchQuery: "user_b" });
     expect(byClerk.rows).toHaveLength(1);
+    // Search filters display rows only — global counts stay complete.
+    expect(byClerk.counts.sendableUsers).toBe(2);
+    expect(byClerk.counts.noDraftYet).toBe(1);
+    expect(byClerk.counts.draftCurrent).toBe(1);
   });
 
   it("day filter keeps sendable user with no_draft_yet for that day", async () => {
@@ -1396,48 +1489,10 @@ describe("tyler-text-overview sendable audience coverage", () => {
     expect(
       matchesTylerTextOverviewSearchQuery(
         {
-          draftId: null,
           clerkUserId: "user_a",
           preferredName: "Jordan",
           phoneNumber: "+1555",
-          timezone: null,
-          rowState: "no_draft_yet",
           draftForDayKey: "",
-          sendSlot: "morning",
-          draftStatus: "current",
-          sentAt: null,
-          finalBodySent: null,
-          twilioMessageSid: null,
-          sourceSmsSendEventId: null,
-          currentBodyToSend: null,
-          currentBodySource: null,
-          editedByTyler: false,
-          editedAt: null,
-          writerOpenAiMessages: [],
-          authoritativeRetryMessages: [],
-          authoritativeMachineDraftBody: null,
-          authoritativeMachineDraftStatus: null,
-          authoritativeWriterModel: null,
-          authoritativeRetryOccurred: null,
-          authoritativeGeneratedAt: null,
-          currentGenerationId: null,
-          currentGenerationNumber: null,
-          latestGenerationId: null,
-          latestGenerationNumber: null,
-          isLatestGeneration: null,
-          writerPromptPath: null,
-          notebookHash: null,
-          notebookMessageCount: 0,
-          notebookFamily: "writer_skipped",
-          notebookDisplayMode: "writer_skipped_unknown",
-          machineShouldSend: null,
-          machineNoSendReason: null,
-          capturePresent: null,
-          silenceCadenceRoute: null,
-          silenceDay: null,
-          intentionalSpace: null,
-          laneStage: null,
-          slotCoachingContext: null,
         },
         "jordan"
       )
@@ -1447,25 +1502,308 @@ describe("tyler-text-overview sendable audience coverage", () => {
         {
           rowState: "no_draft_yet",
           machineShouldSend: null,
+          editedByTyler: false,
+          currentBodySource: null,
+          currentBodyToSend: null,
         } as never,
         {
           rowState: "draft_current",
           machineShouldSend: true,
+          editedByTyler: false,
+          currentBodySource: "machine",
+          currentBodyToSend: "hello",
         } as never,
         {
           rowState: "draft_sent",
           machineShouldSend: false,
+          editedByTyler: false,
+          currentBodySource: "machine",
+          currentBodyToSend: "sent",
         } as never,
       ])
     ).toEqual({
       sendableUsers: 3,
       noDraftYet: 1,
       draftCurrent: 1,
+      draftCurrentReady: 1,
+      draftCurrentTylerBlanked: 0,
       draftSent: 1,
       draftSkipped: 0,
       machineShouldSendTrue: 1,
       machineShouldSendFalse: 1,
+      generationLinkageErrors: 0,
+      draftsMarkedSentDayTotal: 1,
+      twilioAcceptedDayTotal: null,
     });
+  });
+});
+
+describe("tyler-text-overview morning manifest completeness", () => {
+  beforeEach(() => {
+    db.drafts = [];
+    db.generations = [];
+    db.smsAudience = [];
+    db.v2Commitments = [];
+    db.v2CommsPrefs = [];
+    db.userProfiles = [];
+    db.smsSendEvents = [];
+    db.draftsExactCountOverride = null;
+    db.audienceExactCountOverride = null;
+    db.countForceNull = false;
+    db.smsSendEventsWrites = 0;
+    vi.clearAllMocks();
+  });
+
+  it("38 audience + 37 selected-day drafts → 37 overlays and 1 genuine no-draft", async () => {
+    const day = "2026-08-05";
+    for (let i = 1; i <= 38; i += 1) {
+      seedSendableUser({
+        clerkUserId: `user_${String(i).padStart(2, "0")}`,
+        preferredName: `User ${i}`,
+        phone: `+1555000${String(i).padStart(4, "0")}`,
+      });
+    }
+    for (let i = 1; i <= 37; i += 1) {
+      const clerkUserId = `user_${String(i).padStart(2, "0")}`;
+      const genId = `gen_${i}`;
+      db.generations.push({
+        id: genId,
+        generation_number: 1,
+        clerk_user_id: clerkUserId,
+        draft_for_day_key: day,
+        writer_openai_messages: WRITER_MESSAGES,
+        machine_draft_body: MACHINE_BODY,
+        machine_should_send: true,
+      });
+      db.drafts.push({
+        id: `draft_${i}`,
+        clerk_user_id: clerkUserId,
+        draft_for_day_key: day,
+        current_generation_id: genId,
+        current_body_to_send: MACHINE_BODY,
+        status: "current",
+        send_slot: "morning",
+      });
+    }
+
+    const { rows, counts, manifest } = await listSendableTylerTextOverviewRows({
+      draftForDayKey: day,
+    });
+    expect(rows).toHaveLength(38);
+    expect(rows.filter((r) => r.draftId != null)).toHaveLength(37);
+    expect(rows.filter((r) => r.rowState === "no_draft_yet")).toHaveLength(1);
+    expect(counts.noDraftYet).toBe(1);
+    expect(counts.draftCurrent).toBe(37);
+    expect(manifest.manifestComplete).toBe(true);
+    expect(manifest.returnedDraftCount).toBe(37);
+    expect(manifest.queriedDraftExactCount).toBe(37);
+    expect(manifest.genuineMissingDraftCount).toBe(1);
+  });
+
+  it("historical volume cannot truncate selected-day manifest", async () => {
+    const day = "2026-08-05";
+    seedSendableUser({ clerkUserId: "user_live", preferredName: "Live" });
+    for (let i = 0; i < 1100; i += 1) {
+      db.drafts.push({
+        id: `hist_${i}`,
+        clerk_user_id: "user_live",
+        draft_for_day_key: `2020-01-${String((i % 28) + 1).padStart(2, "0")}`,
+        current_generation_id: "gen_hist",
+        current_body_to_send: "old",
+        status: "current",
+        send_slot: "morning",
+      });
+    }
+    db.generations.push({
+      id: "gen_live",
+      generation_number: 1,
+      clerk_user_id: "user_live",
+      draft_for_day_key: day,
+      writer_openai_messages: WRITER_MESSAGES,
+      machine_draft_body: MACHINE_BODY,
+      machine_should_send: true,
+    });
+    db.drafts.push({
+      id: "draft_live",
+      clerk_user_id: "user_live",
+      draft_for_day_key: day,
+      current_generation_id: "gen_live",
+      current_body_to_send: MACHINE_BODY,
+      status: "current",
+      send_slot: "morning",
+    });
+
+    const { rows, manifest } = await listSendableTylerTextOverviewRows({
+      draftForDayKey: day,
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].draftId).toBe("draft_live");
+    expect(rows[0].rowState).toBe("draft_current");
+    expect(manifest.returnedDraftCount).toBe(1);
+    expect(manifest.queriedDraftExactCount).toBe(1);
+  });
+
+  it("truncated incomplete draft result fails loudly", async () => {
+    seedSendableUser({ clerkUserId: "user_a", preferredName: "A" });
+    db.drafts.push({
+      id: "draft_a",
+      clerk_user_id: "user_a",
+      draft_for_day_key: "2026-08-05",
+      current_generation_id: "gen_a",
+      current_body_to_send: MACHINE_BODY,
+      status: "current",
+      send_slot: "morning",
+    });
+    db.generations.push({
+      id: "gen_a",
+      generation_number: 1,
+      clerk_user_id: "user_a",
+      draft_for_day_key: "2026-08-05",
+      writer_openai_messages: WRITER_MESSAGES,
+      machine_draft_body: MACHINE_BODY,
+      machine_should_send: true,
+    });
+    db.draftsExactCountOverride = 9;
+
+    await expect(
+      listSendableTylerTextOverviewRows({ draftForDayKey: "2026-08-05" })
+    ).rejects.toThrow(/tto_manifest_incomplete:drafts/);
+  });
+
+  it("9 sent drafts produce draftsMarkedSentDayTotal 9 including historical non-audience", async () => {
+    const day = "2026-08-05";
+    for (let i = 1; i <= 5; i += 1) {
+      seedSendableUser({ clerkUserId: `aud_${i}`, preferredName: `Aud ${i}` });
+      db.generations.push({
+        id: `gen_sent_${i}`,
+        generation_number: 1,
+        clerk_user_id: `aud_${i}`,
+        draft_for_day_key: day,
+        writer_openai_messages: WRITER_MESSAGES,
+        machine_draft_body: MACHINE_BODY,
+        machine_should_send: true,
+      });
+      db.drafts.push({
+        id: `draft_sent_${i}`,
+        clerk_user_id: `aud_${i}`,
+        draft_for_day_key: day,
+        current_generation_id: `gen_sent_${i}`,
+        current_body_to_send: MACHINE_BODY,
+        status: "sent",
+        send_slot: "morning",
+        sent_at: `${day}T12:0${i}:00.000Z`,
+        final_body_sent: MACHINE_BODY,
+      });
+    }
+    for (let i = 6; i <= 9; i += 1) {
+      db.generations.push({
+        id: `gen_hist_sent_${i}`,
+        generation_number: 1,
+        clerk_user_id: `gone_${i}`,
+        draft_for_day_key: day,
+        writer_openai_messages: WRITER_MESSAGES,
+        machine_draft_body: MACHINE_BODY,
+        machine_should_send: true,
+      });
+      db.drafts.push({
+        id: `draft_hist_sent_${i}`,
+        clerk_user_id: `gone_${i}`,
+        draft_for_day_key: day,
+        current_generation_id: `gen_hist_sent_${i}`,
+        current_body_to_send: MACHINE_BODY,
+        status: "sent",
+        send_slot: "morning",
+        sent_at: `${day}T13:0${i}:00.000Z`,
+        final_body_sent: MACHINE_BODY,
+      });
+    }
+    for (let i = 1; i <= 9; i += 1) {
+      db.smsSendEvents.push({
+        id: `evt_${i}`,
+        send_slot: "morning",
+        day_key: day,
+        message_sid: `SM${i}`,
+      });
+    }
+
+    const { counts, rows, manifest } = await listSendableTylerTextOverviewRows({
+      draftForDayKey: day,
+    });
+    expect(rows.filter((r) => r.rowState === "draft_sent")).toHaveLength(5);
+    expect(counts.draftSent).toBe(5);
+    expect(counts.draftsMarkedSentDayTotal).toBe(9);
+    expect(counts.twilioAcceptedDayTotal).toBe(9);
+    expect(manifest.draftsMarkedSentDayTotal).toBe(9);
+    expect(manifest.twilioAcceptedDayTotal).toBe(9);
+  });
+
+  it("missing generation becomes linkage error, not no-draft", async () => {
+    seedSendableUser({ clerkUserId: "user_link", preferredName: "Link" });
+    db.drafts.push({
+      id: "draft_link",
+      clerk_user_id: "user_link",
+      draft_for_day_key: "2026-08-05",
+      current_generation_id: "gen_missing",
+      current_body_to_send: MACHINE_BODY,
+      status: "current",
+      send_slot: "morning",
+    });
+
+    const { rows, counts, manifest } = await listSendableTylerTextOverviewRows({
+      draftForDayKey: "2026-08-05",
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].rowState).toBe("draft_current");
+    expect(rows[0].draftId).toBe("draft_link");
+    expect(rows[0].generationLinkageError).toBe(true);
+    expect(counts.generationLinkageErrors).toBe(1);
+    expect(counts.noDraftYet).toBe(0);
+    expect(manifest.manifestComplete).toBe(false);
+    expect(manifest.generationLinkageErrorCount).toBe(1);
+  });
+
+  it("null draft exact count fails loudly", async () => {
+    seedSendableUser({ clerkUserId: "user_a", preferredName: "A" });
+    db.drafts.push({
+      id: "draft_a",
+      clerk_user_id: "user_a",
+      draft_for_day_key: "2026-08-05",
+      current_generation_id: "gen_a",
+      current_body_to_send: MACHINE_BODY,
+      status: "current",
+      send_slot: "morning",
+    });
+    db.generations.push({
+      id: "gen_a",
+      generation_number: 1,
+      clerk_user_id: "user_a",
+      draft_for_day_key: "2026-08-05",
+      writer_openai_messages: WRITER_MESSAGES,
+      machine_draft_body: MACHINE_BODY,
+      machine_should_send: true,
+    });
+    db.countForceNull = true;
+    await expect(
+      listSendableTylerTextOverviewRows({ draftForDayKey: "2026-08-05" })
+    ).rejects.toThrow(/tto_manifest_incomplete:.*count_unavailable/);
+  });
+
+  it("null audience exact count fails loudly", async () => {
+    seedSendableUser({ clerkUserId: "user_a", preferredName: "A" });
+    db.audienceExactCountOverride = null as unknown as number;
+    db.countForceNull = true;
+    await expect(loadSendableTylerTextOverviewAudienceMembers()).rejects.toThrow(
+      /tto_manifest_incomplete:audience_count_unavailable/
+    );
+  });
+
+  it("chunkIdsForTtoManifestQuery chunks safely", () => {
+    const ids = Array.from({ length: 520 }, (_, i) => `u${i}`);
+    const chunks = chunkIdsForTtoManifestQuery(ids, 250);
+    expect(chunks).toHaveLength(3);
+    expect(chunks[0]).toHaveLength(250);
+    expect(chunks[1]).toHaveLength(250);
+    expect(chunks[2]).toHaveLength(20);
   });
 });
 
@@ -1497,7 +1835,6 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
       "sms-inbound-coach",
       "tyler-text-overview-generate",
       "@/lib/twilio",
-      "sms_send_events",
     ];
     for (const rel of phase4Files) {
       const src = readFileSync(join(process.cwd(), rel), "utf8");
@@ -1574,6 +1911,17 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
     expect(src).toContain('placeholder="Name, phone, or clerk_user_id"');
     expect(src).toContain("rowStateLabel");
     expect(src).toContain("adminCountLabel");
+    expect(src).toContain("Refresh");
+    expect(src).toContain("lastRefreshedAt");
+    expect(src).toContain("TTO_MANIFEST_INCOMPLETE_BANNER");
+    expect(src).toContain("MORNING_UNSAVED_COPY");
+    expect(src).toContain("handleManualRefresh");
+    expect(src).toContain("preserveUnsaved");
+    expect(src).toContain("AbortController");
+    expect(src).toContain("loadGenerationRef");
+    expect(src).toContain("MORNING_SAVE_RELOAD_FAILED_COPY");
+    expect(src).toContain("matchesTylerTextOverviewSearchQuery");
+    expect(src).toContain("TTO_FILTERED_ROWS_LABEL");
   });
 
   it("two-page TTO split: morning and evening pages with fixed sendSlot", () => {

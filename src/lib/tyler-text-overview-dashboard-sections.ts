@@ -196,6 +196,32 @@ function formatOptional(value: string | number | boolean | null | undefined): st
 export function buildProvenanceExplanationBlocks(
   row: TylerTextOverviewAdminDraftRow
 ): ProvenanceExplanationBlock[] {
+  if (row.rowState === "no_draft_yet") {
+    return [
+      {
+        kind: "headline",
+        text: "MISSING MORNING DRAFT — GENERATION INCOMPLETE",
+      },
+      {
+        kind: "detail",
+        text: "No live Morning draft exists for this user, day, and slot. This row cannot send. No generation provenance is available because no draft overlay was loaded.",
+      },
+    ];
+  }
+
+  if (row.generationLinkageError === true) {
+    return [
+      {
+        kind: "warning",
+        text: "GENERATION LINKAGE ERROR — draft exists but current_generation_id could not be loaded.",
+      },
+      {
+        kind: "detail",
+        text: `Draft id: ${row.draftId ?? "—"}. Generation id: ${row.currentGenerationId ?? "—"}. This is not a missing-draft state.`,
+      },
+    ];
+  }
+
   const blocks: ProvenanceExplanationBlock[] = [
     {
       kind: "headline",

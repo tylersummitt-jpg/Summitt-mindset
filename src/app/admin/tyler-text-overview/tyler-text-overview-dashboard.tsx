@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   adminCountLabel,
@@ -22,10 +22,24 @@ import {
   formatMorningTtoSendabilityCopy,
   isEveningDashboardSendSlot,
   isEveningSendBusy,
+  isTylerBlankedMorningDraftRow,
+  matchesTylerTextOverviewSearchQuery,
+  MORNING_MISSING_DRAFT_BANNER,
+  MORNING_MISSING_DRAFT_SUPPORTING_COPY,
+  MORNING_SAVE_FAILED_COPY,
+  MORNING_SAVE_RELOAD_FAILED_COPY,
   MORNING_TTO_AUTHORITY_BANNER,
+  MORNING_TYLER_BLANK_SAVED_COPY,
+  MORNING_TYLER_BLOCKED_LABEL,
+  MORNING_UNSAVED_COPY,
   resolveEveningTtoInitialSelectedDayKey,
+  resolveMorningTtoInitialSelectedDayKey,
   shouldShowEveningNonTodayWarning,
   rowStateLabel,
+  TTO_DATA_STALE_OR_INCOMPLETE_BANNER,
+  TTO_FILTERED_ROWS_LABEL,
+  TTO_MANIFEST_INCOMPLETE_BANNER,
+  TTO_MANIFEST_SELECT_DAY_COPY,
   tylerTextOverviewNavPages,
   type TylerTextOverviewDashboardSendSlot,
 } from "@/lib/tyler-text-overview-dashboard-copy";
@@ -55,6 +69,7 @@ import { notebookFamilyLabel } from "@/lib/tyler-text-overview-notebook-display"
 import type {
   TylerTextOverviewAdminCounts,
   TylerTextOverviewAdminDraftRow,
+  TylerTextOverviewManifestIntegrity,
 } from "@/lib/tyler-text-overview-types";
 import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
@@ -62,6 +77,7 @@ import {
 } from "@/lib/tyler-text-overview-types";
 
 type EditState = Record<string, string>;
+type SaveFailureState = Record<string, string>;
 
 export type TylerTextOverviewDashboardProps = {
   sendSlot: TylerTextOverviewDashboardSendSlot;
@@ -81,6 +97,66 @@ function isMorningDraftSent(row: TylerTextOverviewAdminDraftRow): boolean {
 
 function canEditMorningDraft(row: TylerTextOverviewAdminDraftRow): boolean {
   return row.rowState === "draft_current" && Boolean(row.draftId);
+}
+
+function isMorningDraftDirty(
+  row: TylerTextOverviewAdminDraftRow,
+  edits: EditState
+): boolean {
+  if (!row.draftId) return false;
+  const local = edits[row.draftId] ?? "";
+  const saved = row.currentBodyToSend ?? "";
+  return local !== saved;
+}
+
+function formatLastRefreshedAt(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function verifyPersistedSaveRow(
+  updated: TylerTextOverviewAdminDraftRow,
+  expectedDraftId: string,
+  submittedBody: string
+): string | null {
+  if (!updated.draftId || updated.draftId !== expectedDraftId) {
+    return "Save response missing draft id.";
+  }
+  if (!("currentBodyToSend" in updated)) {
+    return "Save response missing current_body_to_send.";
+  }
+  if (!("currentBodySource" in updated) || updated.currentBodySource == null) {
+    return "Save response missing current_body_source.";
+  }
+  if (updated.editedByTyler !== true) {
+    return "Save response missing edited_by_tyler.";
+  }
+  if (!updated.editedAt) {
+    return "Save response missing edited_at.";
+  }
+  const persisted = updated.currentBodyToSend?.trim() ?? "";
+  const submitted = submittedBody.trim();
+  if (persisted !== submitted) {
+    return "Save response body does not match submitted body.";
+  }
+  if (!submitted) {
+    if ((updated.currentBodyToSend?.trim() ?? "") !== "") {
+      return "Blank save did not persist a blank body.";
+    }
+    if (updated.currentBodySource !== "tyler_edit") {
+      return "Blank save did not set tyler_edit source.";
+    }
+  }
+  return null;
 }
 
 function isEveningPreviewRow(row: TylerTextOverviewAdminDraftRow): boolean {
@@ -111,6 +187,20 @@ function isEveningDraftDirty(
   const local = edits[row.draftId] ?? "";
   const saved = row.currentBodyToSend ?? "";
   return local !== saved;
+}
+
+function hasAnyUnsavedEdits(
+  rows: TylerTextOverviewAdminDraftRow[],
+  edits: EditState,
+  isEveningPage: boolean
+): boolean {
+  return rows.some((row) => {
+    if (!row.draftId) return false;
+    if (isEveningPage) {
+      return canEditEveningDraft(row) && isEveningDraftDirty(row, edits);
+    }
+    return canEditMorningDraft(row) && isMorningDraftDirty(row, edits);
+  });
 }
 
 function notebookLabel(role: string): string {
@@ -435,10 +525,15 @@ const ADMIN_COUNT_KEYS: (keyof TylerTextOverviewAdminCounts)[] = [
   "sendableUsers",
   "noDraftYet",
   "draftCurrent",
+  "draftCurrentReady",
+  "draftCurrentTylerBlanked",
   "draftSent",
+  "draftsMarkedSentDayTotal",
+  "twilioAcceptedDayTotal",
   "draftSkipped",
   "machineShouldSendTrue",
   "machineShouldSendFalse",
+  "generationLinkageErrors",
 ];
 
 export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOverviewDashboardProps) {
@@ -448,16 +543,22 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
   const [rows, setRows] = useState<TylerTextOverviewAdminDraftRow[]>([]);
   const [counts, setCounts] = useState<TylerTextOverviewAdminCounts | null>(null);
+  const [manifest, setManifest] = useState<TylerTextOverviewManifestIntegrity | null>(null);
+  const [manifestLoadError, setManifestLoadError] = useState<string | null>(null);
+  const [dataStale, setDataStale] = useState(false);
+  const [lastSuccessfulRefreshAt, setLastSuccessfulRefreshAt] = useState<string | null>(null);
+  const [lastFailedRefreshAt, setLastFailedRefreshAt] = useState<string | null>(null);
   const [availableDayKeys, setAvailableDayKeys] = useState<string[]>([]);
   const [selectedDayKey, setSelectedDayKey] = useState<string>(() => {
     const fromUrl = searchParams.get("draft_for_day_key");
     if (isEveningPage) {
       return resolveEveningTtoInitialSelectedDayKey({ searchParamDayKey: fromUrl });
     }
-    return fromUrl ?? "";
+    return resolveMorningTtoInitialSelectedDayKey({ searchParamDayKey: fromUrl });
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [edits, setEdits] = useState<EditState>({});
+  const [saveFailures, setSaveFailures] = useState<SaveFailureState>({});
   const [loading, setLoading] = useState(true);
   const [savingDraftId, setSavingDraftId] = useState<string | null>(null);
   const [generatingUserId, setGeneratingUserId] = useState<string | null>(null);
@@ -466,14 +567,62 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     null
   );
   const [toast, setToast] = useState<string | null>(null);
+  const [serverChangedWhileDirty, setServerChangedWhileDirty] = useState(false);
+
+  const loadGenerationRef = useRef(0);
+  const loadAbortRef = useRef<AbortController | null>(null);
+  const editsRef = useRef<EditState>({});
+  const rowsRef = useRef<TylerTextOverviewAdminDraftRow[]>([]);
+  const saveAttemptRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    editsRef.current = edits;
+  }, [edits]);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
 
   function showToast(message: string) {
     setToast(message);
     setTimeout(() => setToast(null), 2200);
   }
 
+  const mergeEditsPreservingDirty = useCallback(
+    (nextRows: TylerTextOverviewAdminDraftRow[], prev: EditState, forceOverwrite: boolean) => {
+      const next: EditState = {};
+      let dirtyKept = false;
+      for (const row of nextRows) {
+        if (!row.draftId) continue;
+        const id = row.draftId;
+        const serverBody = row.currentBodyToSend ?? "";
+        if (!forceOverwrite && Object.prototype.hasOwnProperty.call(prev, id)) {
+          const local = prev[id] ?? "";
+          if (local !== serverBody) {
+            next[id] = local;
+            dirtyKept = true;
+            continue;
+          }
+        }
+        next[id] = serverBody;
+      }
+      return { next, dirtyKept };
+    },
+    []
+  );
+
   const load = useCallback(
-    async (dayKey: string, slot: TylerTextOverviewDashboardSendSlot, query: string) => {
+    async (
+      dayKey: string,
+      slot: TylerTextOverviewDashboardSendSlot,
+      opts?: { preserveUnsaved?: boolean; forceOverwrite?: boolean }
+    ): Promise<boolean> => {
+      const forceOverwrite = opts?.forceOverwrite === true;
+      const preserveUnsaved = opts?.preserveUnsaved === true && !forceOverwrite;
+      const generation = ++loadGenerationRef.current;
+      loadAbortRef.current?.abort();
+      const abort = new AbortController();
+      loadAbortRef.current = abort;
+
       setLoading(true);
       try {
         const params = new URLSearchParams();
@@ -481,71 +630,207 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         if (dayKey) {
           params.set("draft_for_day_key", dayKey);
         }
-        if (query.trim()) {
-          params.set("q", query.trim());
-        }
-        const res = await fetch(`/api/admin/tyler-text-overview?${params.toString()}`);
+        // Search is applied client-side against the complete manifest.
+        const res = await fetch(`/api/admin/tyler-text-overview?${params.toString()}`, {
+          signal: abort.signal,
+          cache: "no-store",
+        });
         const json = await res.json();
 
+        if (generation !== loadGenerationRef.current) {
+          return false;
+        }
+
         if (!res.ok || !json.ok) {
-          showToast(json.error || "Could not load drafts.");
-          setRows([]);
-          setCounts(null);
-          setAvailableDayKeys([]);
-          return;
+          const errMsg = json.error || "Could not load drafts.";
+          showToast(errMsg);
+          setDataStale(true);
+          setLastFailedRefreshAt(new Date().toISOString());
+          setManifestLoadError(errMsg);
+          // Keep prior rows with stale banner — do not invent zeros.
+          return false;
         }
 
         const nextRows = (json.rows || []) as TylerTextOverviewAdminDraftRow[];
+        const nextManifest =
+          (json.manifest as TylerTextOverviewManifestIntegrity | undefined) ?? null;
+        setManifestLoadError(null);
+        setDataStale(false);
+        setManifest(nextManifest);
+        setLastSuccessfulRefreshAt(
+          nextManifest?.lastRefreshedAt ?? new Date().toISOString()
+        );
         setRows(nextRows);
         setCounts((json.counts as TylerTextOverviewAdminCounts | undefined) ?? null);
         setAvailableDayKeys((json.availableDayKeys || []) as string[]);
-        setEdits(
-          Object.fromEntries(
-            nextRows
-              .filter((row) => row.draftId)
-              .map((row) => [row.draftId as string, row.currentBodyToSend ?? ""])
-          )
+
+        const { next, dirtyKept } = mergeEditsPreservingDirty(
+          nextRows,
+          editsRef.current,
+          forceOverwrite
         );
+        setEdits(next);
+        if (preserveUnsaved && dirtyKept) {
+          setServerChangedWhileDirty(true);
+        } else if (forceOverwrite) {
+          setServerChangedWhileDirty(false);
+          setSaveFailures({});
+        }
+        return true;
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return false;
+        }
+        if (generation !== loadGenerationRef.current) {
+          return false;
+        }
         console.error("Failed to load Tyler Text Overview drafts", err);
         showToast("Could not load drafts.");
+        setManifestLoadError("Could not load drafts.");
+        setDataStale(true);
+        setLastFailedRefreshAt(new Date().toISOString());
+        return false;
       } finally {
-        setLoading(false);
+        if (generation === loadGenerationRef.current) {
+          setLoading(false);
+        }
       }
     },
-    []
+    [mergeEditsPreservingDirty]
   );
 
   useEffect(() => {
-    load(selectedDayKey, sendSlot, searchQuery);
-  }, [load, selectedDayKey, sendSlot, searchQuery]);
+    void load(selectedDayKey, sendSlot, { forceOverwrite: true });
+    return () => {
+      loadAbortRef.current?.abort();
+    };
+  }, [load, selectedDayKey, sendSlot]);
+
+  useEffect(() => {
+    if (isEveningPage) return;
+
+    function onFocusOrVisible() {
+      if (document.visibilityState === "hidden") return;
+      if (hasAnyUnsavedEdits(rowsRef.current, editsRef.current, isEveningPage)) {
+        setServerChangedWhileDirty(true);
+        return;
+      }
+      void load(selectedDayKey, sendSlot, { preserveUnsaved: true });
+    }
+
+    window.addEventListener("focus", onFocusOrVisible);
+    document.addEventListener("visibilitychange", onFocusOrVisible);
+    return () => {
+      window.removeEventListener("focus", onFocusOrVisible);
+      document.removeEventListener("visibilitychange", onFocusOrVisible);
+    };
+  }, [isEveningPage, load, selectedDayKey, sendSlot]);
+
+  async function handleManualRefresh() {
+    if (hasAnyUnsavedEdits(rowsRef.current, editsRef.current, isEveningPage)) {
+      const ok = window.confirm(
+        "You have unsaved edits. Refresh anyway and discard local unsaved changes?"
+      );
+      if (!ok) return;
+      await load(selectedDayKey, sendSlot, { forceOverwrite: true });
+      return;
+    }
+    await load(selectedDayKey, sendSlot, { forceOverwrite: true });
+  }
+
+  function requestSelectedDayChange(nextDay: string) {
+    if (nextDay === selectedDayKey) return;
+    if (hasAnyUnsavedEdits(rowsRef.current, editsRef.current, isEveningPage)) {
+      const ok = window.confirm(
+        "You have unsaved edits. Change draft day and discard local unsaved changes?"
+      );
+      if (!ok) return;
+    }
+    setSelectedDayKey(nextDay);
+  }
 
   async function saveDraft(row: TylerTextOverviewAdminDraftRow) {
     if (!row.draftId) return;
-    setSavingDraftId(row.draftId);
+    const draftId = row.draftId;
+    const submittedBody = editsRef.current[draftId] ?? "";
+    const attempt = (saveAttemptRef.current[draftId] ?? 0) + 1;
+    saveAttemptRef.current[draftId] = attempt;
+    setSavingDraftId(draftId);
+    setSaveFailures((prev) => {
+      const next = { ...prev };
+      delete next[draftId];
+      return next;
+    });
     try {
-      const res = await fetch(`/api/admin/tyler-text-overview/${encodeURIComponent(row.draftId)}`, {
+      const res = await fetch(`/api/admin/tyler-text-overview/${encodeURIComponent(draftId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          currentBodyToSend: edits[row.draftId] ?? "",
+          currentBodyToSend: submittedBody,
         }),
       });
       const json = await res.json();
 
-      if (!res.ok || !json.ok) {
-        showToast(json.error || "Save failed.");
+      if (saveAttemptRef.current[draftId] !== attempt) {
+        return;
+      }
+
+      if (!res.ok || !json.ok || !json.row) {
+        const msg = json.error || "Save failed.";
+        setSaveFailures((prev) => ({ ...prev, [draftId]: msg }));
+        showToast(msg);
         return;
       }
 
       const updated = json.row as TylerTextOverviewAdminDraftRow;
-      setRows((prev) => prev.map((r) => (r.draftId === updated.draftId ? updated : r)));
-      if (updated.draftId) {
-        setEdits((prev) => ({
-          ...prev,
-          [updated.draftId as string]: updated.currentBodyToSend ?? "",
-        }));
+      const verifyError = verifyPersistedSaveRow(updated, draftId, submittedBody);
+      if (verifyError) {
+        setSaveFailures((prev) => ({ ...prev, [draftId]: verifyError }));
+        showToast(verifyError);
+        return;
       }
+
+      const persistedBody = updated.currentBodyToSend ?? "";
+      const localNow = editsRef.current[draftId] ?? "";
+      const concurrentEdit = localNow !== submittedBody;
+
+      setEdits((prev) => {
+        const next = { ...prev };
+        if (concurrentEdit) {
+          // Keep newer local text; baseline conceptually moves to persistedBody via row refresh.
+          next[draftId] = localNow;
+        } else {
+          next[draftId] = persistedBody;
+        }
+        return next;
+      });
+
+      const reloaded = await load(selectedDayKey, sendSlot, {
+        preserveUnsaved: true,
+        forceOverwrite: false,
+      });
+
+      if (saveAttemptRef.current[draftId] !== attempt) {
+        return;
+      }
+
+      if (!reloaded) {
+        setSaveFailures((prev) => ({
+          ...prev,
+          [draftId]: MORNING_SAVE_RELOAD_FAILED_COPY,
+        }));
+        setDataStale(true);
+        setManifestLoadError(MORNING_SAVE_RELOAD_FAILED_COPY);
+        showToast(MORNING_SAVE_RELOAD_FAILED_COPY);
+        return;
+      }
+
+      if (concurrentEdit) {
+        setServerChangedWhileDirty(true);
+        showToast("Saved on server, but you have newer unsaved local edits.");
+        return;
+      }
+
       if (!isEveningPage) {
         showToast(formatMorningTtoSaveToast(updated.currentBodyToSend));
       } else {
@@ -553,9 +838,12 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
       }
     } catch (err) {
       console.error("Failed to save draft", err);
+      setSaveFailures((prev) => ({ ...prev, [draftId]: "Save failed." }));
       showToast("Save failed.");
     } finally {
-      setSavingDraftId(null);
+      if (saveAttemptRef.current[draftId] === attempt) {
+        setSavingDraftId(null);
+      }
     }
   }
 
@@ -597,7 +885,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
       );
       const effectiveDayKey = selectedDayKey || dayKey || "";
       if (isEveningPage) {
-        await load(effectiveDayKey, sendSlot, searchQuery);
+        await load(effectiveDayKey, sendSlot, { preserveUnsaved: true });
       } else {
         router.push(buildTylerTextOverviewEveningPageHref(effectiveDayKey));
       }
@@ -627,7 +915,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
       }
 
       showToast("Evening text sent.");
-      await load(selectedDayKey, sendSlot, searchQuery);
+      await load(selectedDayKey, sendSlot, { preserveUnsaved: true });
     } catch (err) {
       console.error("Failed to send evening draft", err);
       showToast("Evening send failed.");
@@ -653,6 +941,19 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     }
     return keys;
   })();
+
+  const visibleRows = useMemo(
+    () =>
+      searchQuery.trim()
+        ? rows.filter((row) => matchesTylerTextOverviewSearchQuery(row, searchQuery))
+        : rows,
+    [rows, searchQuery]
+  );
+
+  const showTrustBanner =
+    Boolean(manifestLoadError) ||
+    dataStale ||
+    Boolean(selectedDayKey.trim() && manifest && !manifest.manifestComplete);
 
   return (
     <div className="space-y-6">
@@ -711,6 +1012,60 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         </p>
       ) : null}
 
+      {showTrustBanner ? (
+        <div
+          className="rounded-md border border-red-400 bg-red-50 px-4 py-3 text-sm text-red-950"
+          role="alert"
+        >
+          <p className="font-semibold">
+            {dataStale || manifestLoadError
+              ? TTO_DATA_STALE_OR_INCOMPLETE_BANNER
+              : TTO_MANIFEST_INCOMPLETE_BANNER}
+          </p>
+          {manifestLoadError ? (
+            <p className="mt-1 font-mono text-xs break-all">{manifestLoadError}</p>
+          ) : null}
+          {manifest?.incompletenessReason ? (
+            <p className="mt-1 font-mono text-xs">{manifest.incompletenessReason}</p>
+          ) : null}
+          <p className="mt-2 text-xs">
+            Last successful refresh (Eastern):{" "}
+            {formatLastRefreshedAt(lastSuccessfulRefreshAt ?? manifest?.lastRefreshedAt)}
+            {lastFailedRefreshAt
+              ? ` · Last failed refresh: ${formatLastRefreshedAt(lastFailedRefreshAt)}`
+              : ""}
+          </p>
+          <button
+            type="button"
+            className="mt-2 rounded border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-950"
+            onClick={() => void handleManualRefresh()}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
+
+      {!isEveningPage && !selectedDayKey.trim() ? (
+        <div
+          className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="status"
+        >
+          <p>{TTO_MANIFEST_SELECT_DAY_COPY}</p>
+        </div>
+      ) : null}
+
+      {serverChangedWhileDirty ? (
+        <div
+          className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+          role="status"
+        >
+          <p>
+            Server data may have changed while you have unsaved edits. Unsaved local text was kept.
+            Save or discard edits, then Refresh.
+          </p>
+        </div>
+      ) : null}
+
       {isEveningPage ? (
         <div
           className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
@@ -755,7 +1110,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
           <select
             className="mt-1 block rounded border border-gray-300 bg-white px-3 py-2 text-sm"
             value={selectedDayKey}
-            onChange={(e) => setSelectedDayKey(e.target.value)}
+            onChange={(e) => requestSelectedDayChange(e.target.value)}
           >
             <option value="">All current days</option>
             {dayFilterOptions.map((dayKey) => (
@@ -775,27 +1130,47 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </label>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-gray-500">
+            Last refreshed (Eastern): {formatLastRefreshedAt(manifest?.lastRefreshedAt)}
+          </span>
+          <button
+            type="button"
+            className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
+            disabled={loading}
+            onClick={() => void handleManualRefresh()}
+          >
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
       </div>
 
       {counts ? (
         <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800">
-          <p className="font-medium text-gray-900">Sendable audience</p>
-          <dl className="mt-2 grid gap-2 sm:grid-cols-4 lg:grid-cols-7">
+          <p className="font-medium text-gray-900">Sendable audience (global manifest)</p>
+          <dl className="mt-2 grid gap-2 sm:grid-cols-4 lg:grid-cols-6">
             {ADMIN_COUNT_KEYS.map((key) => (
               <div key={key}>
                 <dt className="text-xs text-gray-500">{adminCountLabel(key, sendSlot)}</dt>
                 <dd className={key === "sendableUsers" ? "font-semibold" : undefined}>
-                  {counts[key]}
+                  {key === "twilioAcceptedDayTotal" && counts[key] == null
+                    ? "Unavailable"
+                    : counts[key]}
                 </dd>
               </div>
             ))}
           </dl>
+          {searchQuery.trim() ? (
+            <p className="mt-3 text-xs text-gray-600">
+              {TTO_FILTERED_ROWS_LABEL}: {visibleRows.length} (search does not change global counts)
+            </p>
+          ) : null}
         </div>
       ) : null}
 
       {loading ? (
         <p className="text-sm text-gray-500">Loading sendable users…</p>
-      ) : rows.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         isEveningPage ? (
           <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-700 space-y-3">
             <p>No sendable users match this filter.</p>
@@ -811,7 +1186,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         )
       ) : (
         <ul className="space-y-8">
-          {rows.map((row) => {
+          {visibleRows.map((row) => {
             const eveningRow = isEveningPreviewRow(row);
             const eveningSent = eveningRow && isEveningDraftSent(row);
             const morningSent = !eveningRow && isMorningDraftSent(row);
@@ -819,6 +1194,21 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             const morningEditable = !isEveningPage && canEditMorningDraft(row) && !morningSent;
             const canEditBody = eveningEditable || morningEditable;
             const eveningDirty = eveningEditable && isEveningDraftDirty(row, edits);
+            const morningDirty = morningEditable && isMorningDraftDirty(row, edits);
+            const isDirty = eveningDirty || morningDirty;
+            const saveFailedMsg =
+              row.draftId && saveFailures[row.draftId] ? saveFailures[row.draftId] : null;
+            const isSavingThis = Boolean(row.draftId) && savingDraftId === row.draftId;
+            const tylerBlanked =
+              !isEveningPage &&
+              isTylerBlankedMorningDraftRow({
+                rowState: row.rowState,
+                editedByTyler: row.editedByTyler,
+                currentBodySource: row.currentBodySource,
+                currentBodyToSend: row.currentBodyToSend,
+              });
+            const missingMorningDraft =
+              !isEveningPage && row.rowState === "no_draft_yet" && !row.draftId;
             const isSendingThisEvening = isEveningSendBusy({
               draftId: row.draftId,
               sendingDraftId,
@@ -849,7 +1239,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             const morningRelationshipNotebook =
               !isEveningPage && isMorningRelationshipNotebookRow(row);
             const morningSendabilityCopy =
-              !isEveningPage && !morningSent
+              !isEveningPage && !morningSent && !missingMorningDraft && !isDirty
                 ? formatMorningTtoSendabilityCopy({
                     editedByTyler: row.editedByTyler,
                     currentBodySource: row.currentBodySource,
@@ -861,7 +1251,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             return (
               <li
                 key={rowListKey(row)}
-                className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-5"
+                className={`rounded-xl border p-5 shadow-sm space-y-5 ${
+                  missingMorningDraft
+                    ? "border-red-300 bg-red-50/40"
+                    : tylerBlanked
+                      ? "border-amber-300 bg-amber-50/30"
+                      : "border-gray-200 bg-white"
+                }`}
               >
                 <section className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
@@ -871,12 +1267,54 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
                       {rowStateLabel(row.rowState, sendSlot)}
                     </span>
+                    {missingMorningDraft ? (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
+                        {MORNING_MISSING_DRAFT_BANNER}
+                      </span>
+                    ) : null}
+                    {tylerBlanked && !isDirty ? (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-950">
+                        {MORNING_TYLER_BLOCKED_LABEL}
+                      </span>
+                    ) : null}
+                    {row.generationLinkageError ? (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-900">
+                        GENERATION LINKAGE ERROR
+                      </span>
+                    ) : null}
+                    {isDirty ? (
+                      <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-950">
+                        UNSAVED
+                      </span>
+                    ) : null}
                     {morningSent ? (
                       <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
                         SENT
                       </span>
                     ) : null}
                   </div>
+                  {missingMorningDraft ? (
+                    <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-950 space-y-1">
+                      <p className="font-semibold">{MORNING_MISSING_DRAFT_BANNER}</p>
+                      <p>{MORNING_MISSING_DRAFT_SUPPORTING_COPY}</p>
+                    </div>
+                  ) : null}
+                  {isDirty && morningEditable ? (
+                    <p className="rounded border border-orange-200 bg-orange-50 px-2 py-2 text-xs font-medium text-orange-950">
+                      {MORNING_UNSAVED_COPY}
+                    </p>
+                  ) : null}
+                  {saveFailedMsg ? (
+                    <p className="rounded border border-red-200 bg-red-50 px-2 py-2 text-xs font-medium text-red-950">
+                      {MORNING_SAVE_FAILED_COPY}
+                      {saveFailedMsg ? ` (${saveFailedMsg})` : ""}
+                    </p>
+                  ) : null}
+                  {tylerBlanked && !isDirty && !saveFailedMsg ? (
+                    <p className="rounded border border-amber-200 bg-amber-50 px-2 py-2 text-xs font-medium text-amber-950">
+                      {MORNING_TYLER_BLANK_SAVED_COPY}
+                    </p>
+                  ) : null}
                   {row.preferredName ? (
                     <div>
                       <p className="text-xs font-medium text-gray-500">preferred_name</p>
@@ -972,7 +1410,12 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                       </p>
                     ) : null}
                     {!canEditBody ? (
-                      eveningEmptyBodyCopy ? (
+                      missingMorningDraft ? (
+                        <div className="mt-1 w-full min-h-[96px] rounded border border-dashed border-red-300 bg-red-50 px-3 py-2 text-sm text-red-950 space-y-1">
+                          <p className="font-medium">{MORNING_MISSING_DRAFT_BANNER}</p>
+                          <p className="text-xs">{MORNING_MISSING_DRAFT_SUPPORTING_COPY}</p>
+                        </div>
+                      ) : eveningEmptyBodyCopy ? (
                         <div className="mt-1 w-full min-h-[96px] rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-600 space-y-1">
                           <p className="font-medium text-gray-800">{eveningEmptyBodyCopy.primary}</p>
                           {eveningEmptyBodyCopy.secondary ? (
@@ -997,7 +1440,11 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                       <>
                         <textarea
                           id={`body-${row.draftId}`}
-                          className="mt-1 w-full min-h-[96px] rounded border border-gray-300 px-3 py-2 text-sm font-mono"
+                          className={`mt-1 w-full min-h-[96px] rounded border px-3 py-2 text-sm font-mono ${
+                            isDirty
+                              ? "border-orange-400 bg-orange-50/40"
+                              : "border-gray-300"
+                          }`}
                           value={edits[row.draftId as string] ?? ""}
                           onChange={(e) =>
                             setEdits((prev) => ({
@@ -1021,14 +1468,20 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                         <button
                           type="button"
                           className="mt-2 rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                          disabled={savingDraftId === row.draftId}
+                          disabled={isSavingThis || (!isDirty && !saveFailedMsg)}
                           onClick={() => saveDraft(row)}
                         >
-                          {savingDraftId === row.draftId
+                          {isSavingThis
                             ? "Saving…"
-                            : eveningEditable
-                              ? "Save Evening Text"
-                              : "Save"}
+                            : saveFailedMsg
+                              ? "Save failed — retry"
+                              : isDirty
+                                ? eveningEditable
+                                  ? "Save Evening Text (unsaved)"
+                                  : "Save (unsaved)"
+                                : eveningEditable
+                                  ? "Saved"
+                                  : "Saved"}
                         </button>
                       </>
                     )}

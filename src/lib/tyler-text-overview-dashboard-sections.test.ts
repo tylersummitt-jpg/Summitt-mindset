@@ -158,6 +158,34 @@ describe("tyler-text-overview-dashboard-sections", () => {
     );
     expect(staleBlocks.some((b) => b.kind === "warning")).toBe(true);
   });
+
+  it("no_draft_yet provenance does not claim OpenAI writer was not called", () => {
+    const blocks = buildProvenanceExplanationBlocks(
+      baseRow({
+        draftId: null,
+        rowState: "no_draft_yet",
+        notebookDisplayMode: "writer_skipped_unknown",
+        notebookFamily: "writer_skipped",
+        writerOpenAiMessages: [],
+        notebookMessageCount: 0,
+      })
+    );
+    const text = blocks.map((b) => b.text).join("\n");
+    expect(text).toContain("MISSING MORNING DRAFT — GENERATION INCOMPLETE");
+    expect(text).not.toContain("OpenAI writer was not called");
+  });
+
+  it("generation linkage error is explicit and not remapped to no-draft copy", () => {
+    const blocks = buildProvenanceExplanationBlocks(
+      baseRow({
+        generationLinkageError: true,
+        currentGenerationId: "gen-missing",
+      })
+    );
+    const text = blocks.map((b) => b.text).join("\n");
+    expect(text).toContain("GENERATION LINKAGE ERROR");
+    expect(text).not.toContain("MISSING MORNING DRAFT");
+  });
 });
 
 describe("weekly raw notebook / provenance", () => {

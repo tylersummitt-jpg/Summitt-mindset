@@ -338,7 +338,6 @@ export function getTylerTextOverviewAdminWeeklySundayKey(now: Date = new Date())
 
 /**
  * Evening TTO selected day: explicit URL/filter wins; otherwise admin-local today.
- * Morning keeps blank ("All current days") when no query param.
  */
 export function resolveEveningTtoInitialSelectedDayKey(args: {
   searchParamDayKey?: string | null;
@@ -380,6 +379,16 @@ export function resolveSiblingLinkDraftForDayKey(args: {
   if (args.page === "morning" || args.page === "weekly") return day;
   const today = getTylerTextOverviewAdminLocalDayKey(args.now);
   return day === today ? day : undefined;
+}
+
+/** Morning TTO: explicit URL day wins; otherwise admin-local today (complete manifest). */
+export function resolveMorningTtoInitialSelectedDayKey(args: {
+  searchParamDayKey?: string | null;
+  now?: Date;
+}): string {
+  const fromUrl = args.searchParamDayKey?.trim() ?? "";
+  if (fromUrl) return fromUrl;
+  return getTylerTextOverviewAdminLocalDayKey(args.now);
 }
 
 export function buildSiblingTylerTextOverviewPageHref(args: {
@@ -428,7 +437,9 @@ export function rowStateLabel(
   switch (rowState) {
     case "no_draft_yet":
       if (weekly) return "No weekly draft";
-      return evening ? "No evening preview" : "No morning draft";
+      return evening
+        ? "No evening preview"
+        : "MISSING DRAFT — GENERATION INCOMPLETE";
     case "draft_current":
       if (weekly) return "Current weekly draft";
       return evening ? "Current evening preview" : "Current morning draft";
@@ -447,6 +458,74 @@ export function rowStateLabel(
   }
 }
 
+export const MORNING_MISSING_DRAFT_BANNER =
+  "MISSING MORNING DRAFT — GENERATION INCOMPLETE";
+
+export const MORNING_MISSING_DRAFT_SUPPORTING_COPY =
+  "No live Morning draft exists for this user, day, and slot. This row cannot send.";
+
+export const MORNING_TYLER_BLOCKED_LABEL = "BLOCKED BY TYLER";
+
+export const MORNING_TYLER_BLANK_SAVED_COPY =
+  "SAVED — blank body blocks this Morning text";
+
+export const MORNING_UNSAVED_COPY =
+  "UNSAVED — this change is not protecting the send yet";
+
+export const MORNING_SAVE_FAILED_COPY =
+  "SAVE FAILED — server body was not changed";
+
+export const TTO_MANIFEST_INCOMPLETE_BANNER =
+  "TTO MANIFEST INCOMPLETE — DO NOT TRUST THIS PAGE FOR SEND REVIEW";
+
+export const TTO_DATA_STALE_OR_INCOMPLETE_BANNER =
+  "TTO DATA IS STALE OR INCOMPLETE — DO NOT TRUST THIS PAGE FOR SEND REVIEW";
+
+export const TTO_MANIFEST_SELECT_DAY_COPY =
+  "Select a Draft day to load the complete Morning send manifest. “All current days” is not a complete send review.";
+
+export const MORNING_SAVE_RELOAD_FAILED_COPY =
+  "SAVE REACHED THE SERVER, BUT TTO COULD NOT RELOAD THE MANIFEST. REFRESH REQUIRED.";
+
+export const TTO_FILTERED_ROWS_LABEL = "Visible filtered rows";
+
+/** True when a current draft was Tyler-blanked (blocks Morning send). */
+export function matchesTylerTextOverviewSearchQuery(
+  row: {
+    clerkUserId: string;
+    preferredName: string | null;
+    phoneNumber: string | null;
+    draftForDayKey: string;
+  },
+  rawQuery: string | null | undefined
+): boolean {
+  const query = rawQuery?.trim().toLowerCase();
+  if (!query) return true;
+
+  const haystacks = [
+    row.clerkUserId,
+    row.preferredName,
+    row.phoneNumber,
+    row.draftForDayKey,
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.toLowerCase());
+
+  return haystacks.some((value) => value.includes(query));
+}
+
+export function isTylerBlankedMorningDraftRow(row: {
+  rowState: TylerTextOverviewRowState;
+  editedByTyler: boolean;
+  currentBodySource: string | null | undefined;
+  currentBodyToSend: string | null | undefined;
+}): boolean {
+  if (row.rowState !== "draft_current") return false;
+  const blank = !(row.currentBodyToSend?.trim() ?? "");
+  if (!blank) return false;
+  return row.editedByTyler === true || row.currentBodySource === "tyler_edit";
+}
+
 export function adminCountLabel(
   key: keyof TylerTextOverviewAdminCounts,
   sendSlot: TylerTextOverviewDashboardSendSlot
@@ -458,13 +537,21 @@ export function adminCountLabel(
       return "Sendable users";
     case "noDraftYet":
       if (weekly) return "No weekly draft";
-      return evening ? "No evening preview" : "No morning draft";
+      return evening ? "No evening preview" : "Missing drafts";
     case "draftCurrent":
       if (weekly) return "Current weekly draft";
       return evening ? "Current evening preview" : "Current morning draft";
+    case "draftCurrentReady":
+      return evening || weekly ? "Ready nonblank" : "Ready nonblank (can send)";
+    case "draftCurrentTylerBlanked":
+      return "Tyler-blanked (blocked)";
     case "draftSent":
-      if (weekly) return "Weekly marked sent";
-      return evening ? "Evening check-in sent" : "Morning sent";
+      if (weekly) return "Weekly marked sent (audience)";
+      return evening ? "Evening marked sent (audience)" : "Sent (audience rows)";
+    case "draftsMarkedSentDayTotal":
+      return "Drafts marked sent (records)";
+    case "twilioAcceptedDayTotal":
+      return "Twilio-accepted send events";
     case "draftSkipped":
       if (weekly) return "Weekly skipped";
       return evening ? "Evening skipped / not sendable" : "Morning skipped";
@@ -474,6 +561,8 @@ export function adminCountLabel(
     case "machineShouldSendFalse":
       if (weekly) return "Would skip";
       return evening ? "Would skip" : "machine_should_send false";
+    case "generationLinkageErrors":
+      return "Generation linkage errors";
     default:
       return key;
   }

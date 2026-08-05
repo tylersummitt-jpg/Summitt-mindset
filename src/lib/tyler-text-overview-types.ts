@@ -136,11 +136,70 @@ export type TylerTextOverviewAdminCounts = {
   sendableUsers: number;
   noDraftYet: number;
   draftCurrent: number;
+  /** Current drafts with nonblank current_body_to_send (ready to send if gates pass). */
+  draftCurrentReady: number;
+  /** Current drafts Tyler blanked (edited_by_tyler + blank body). */
+  draftCurrentTylerBlanked: number;
+  /** Selected-day drafts with status=sent among the loaded audience manifest rows. */
   draftSent: number;
   draftSkipped: number;
   machineShouldSendTrue: number;
   machineShouldSendFalse: number;
+  generationLinkageErrors: number;
+  /**
+   * All selected-day sms_daily_drafts with status=sent (not limited to current sendable audience).
+   * Label in UI as "Drafts marked sent".
+   */
+  draftsMarkedSentDayTotal: number;
+  /**
+   * Selected-day sms_send_events with a nonblank Twilio message_sid (API accepted).
+   * Null when day not selected or count unavailable. Label as "Twilio-accepted send events".
+   */
+  twilioAcceptedDayTotal: number | null;
 };
+
+/** Sub-checks that together determine manifestComplete. */
+export type TylerTextOverviewManifestSubChecks = {
+  audienceComplete: boolean;
+  commitmentLookupComplete: boolean;
+  preferenceLookupComplete: boolean;
+  profileLookupComplete: boolean;
+  draftQueryComplete: boolean;
+  generationQueryComplete: boolean;
+  historicalSentCountComplete: boolean;
+  twilioCountComplete: boolean;
+  audienceOverlayInvariantComplete: boolean;
+};
+
+/** Completeness of the Morning/Evening TTO selected-day admin manifest. */
+export type TylerTextOverviewManifestIntegrity = {
+  expectedAudienceCount: number;
+  /** Selected-day draft overlays among the complete sendable audience. */
+  audienceDraftOverlayCount: number;
+  /** Audience members with no selected-day overlay (genuine missing). */
+  genuineMissingAudienceDraftCount: number;
+  /** Alias of audienceDraftOverlayCount (legacy field name). */
+  selectedDayDraftCount: number;
+  /** Alias of genuineMissingAudienceDraftCount (legacy field name). */
+  genuineMissingDraftCount: number;
+  /** All selected-day current|sent|skipped drafts returned for audience user-id chunks. */
+  allSelectedDayDraftCount: number;
+  /** Day-total sms_daily_drafts.status=sent (not audience-limited). */
+  allSelectedDaySentDraftCount: number;
+  generationLinkageErrorCount: number;
+  manifestComplete: boolean;
+  queriedDraftExactCount: number;
+  returnedDraftCount: number;
+  /** Alias of allSelectedDaySentDraftCount. */
+  draftsMarkedSentDayTotal: number;
+  /** Twilio-accepted send event rows (nonblank message_sid). Null = unavailable. */
+  twilioAcceptedEventCount: number | null;
+  /** Alias of twilioAcceptedEventCount. */
+  twilioAcceptedDayTotal: number | null;
+  selectedDayKey: string | null;
+  lastRefreshedAt: string;
+  incompletenessReason: string | null;
+} & TylerTextOverviewManifestSubChecks;
 
 export const TYLER_TEXT_OVERVIEW_NOTEBOOK_VERDICTS = [
   "verified",
@@ -342,6 +401,11 @@ export type TylerTextOverviewAdminDraftRow = {
   weekKey?: string | null;
   weekStart?: string | null;
   weekEnd?: string | null;
+  /**
+   * True when a draft overlay exists but current_generation_id could not be loaded.
+   * Never remapped to no_draft_yet.
+   */
+  generationLinkageError?: boolean;
 };
 
 /** Read-only TTO panel — notebook context, not mandatory send rules. */

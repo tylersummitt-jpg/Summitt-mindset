@@ -28,10 +28,14 @@ import {
   formatMorningTtoSaveToast,
   formatMorningTtoSendabilityCopy,
   resolveEveningTtoInitialSelectedDayKey,
+  resolveMorningTtoInitialSelectedDayKey,
   resolveSiblingLinkDraftForDayKey,
   resolveTylerTextOverviewRootRedirectPath,
   rowStateLabel,
   shouldShowEveningNonTodayWarning,
+  MORNING_MISSING_DRAFT_BANNER,
+  MORNING_UNSAVED_COPY,
+  TTO_MANIFEST_INCOMPLETE_BANNER,
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
@@ -40,7 +44,9 @@ import {
 
 describe("tyler-text-overview-dashboard-copy rowStateLabel", () => {
   it("uses morning labels", () => {
-    expect(rowStateLabel("no_draft_yet", SMS_DAILY_PRODUCTION_SEND_SLOT)).toBe("No morning draft");
+    expect(rowStateLabel("no_draft_yet", SMS_DAILY_PRODUCTION_SEND_SLOT)).toBe(
+      "MISSING DRAFT — GENERATION INCOMPLETE"
+    );
     expect(rowStateLabel("draft_current", SMS_DAILY_PRODUCTION_SEND_SLOT)).toBe(
       "Current morning draft"
     );
@@ -73,7 +79,13 @@ describe("tyler-text-overview-dashboard-copy rowStateLabel", () => {
 describe("tyler-text-overview-dashboard-copy adminCountLabel", () => {
   it("uses morning count labels", () => {
     expect(adminCountLabel("sendableUsers", SMS_DAILY_PRODUCTION_SEND_SLOT)).toBe("Sendable users");
-    expect(adminCountLabel("noDraftYet", SMS_DAILY_PRODUCTION_SEND_SLOT)).toBe("No morning draft");
+    expect(adminCountLabel("noDraftYet", SMS_DAILY_PRODUCTION_SEND_SLOT)).toBe("Missing drafts");
+    expect(adminCountLabel("draftsMarkedSentDayTotal", SMS_DAILY_PRODUCTION_SEND_SLOT)).toBe(
+      "Drafts marked sent (records)"
+    );
+    expect(adminCountLabel("twilioAcceptedDayTotal", SMS_DAILY_PRODUCTION_SEND_SLOT)).toBe(
+      "Twilio-accepted send events"
+    );
     expect(adminCountLabel("machineShouldSendTrue", SMS_DAILY_PRODUCTION_SEND_SLOT)).toBe(
       "machine_should_send true"
     );
@@ -514,5 +526,26 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("formatEveningPreviewGenerateSuccessToast");
     expect(dashboard).toContain("formatEveningEmptyBodyPanelCopy");
     expect(dashboard).toContain("machine_no_send_reason");
+  });
+});
+
+describe("morning TTO manifest freshness defaults", () => {
+  it("defaults Morning selected day to Eastern today when URL has no day", () => {
+    const now = new Date("2026-08-05T14:00:00.000Z");
+    expect(
+      resolveMorningTtoInitialSelectedDayKey({ searchParamDayKey: null, now })
+    ).toBe(getTylerTextOverviewAdminLocalDayKey(now));
+    expect(
+      resolveMorningTtoInitialSelectedDayKey({
+        searchParamDayKey: "2026-08-01",
+        now,
+      })
+    ).toBe("2026-08-01");
+  });
+
+  it("exports missing-draft and incomplete-manifest copy", () => {
+    expect(MORNING_MISSING_DRAFT_BANNER).toContain("GENERATION INCOMPLETE");
+    expect(MORNING_UNSAVED_COPY).toContain("not protecting the send yet");
+    expect(TTO_MANIFEST_INCOMPLETE_BANNER).toContain("DO NOT TRUST THIS PAGE");
   });
 });

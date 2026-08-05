@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   listSendableTylerTextOverviewRows,
   resolveAdminListSendSlot,
+  TTO_MANIFEST_INCOMPLETE_ERROR_PREFIX,
 } from "@/lib/tyler-text-overview-admin";
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
 
@@ -10,16 +11,31 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function adminErrorResponse(err: unknown) {
-  const status =
-    err != null &&
-    typeof err === "object" &&
-    "status" in err &&
-    typeof (err as { status: unknown }).status === "number"
-      ? (err as { status: number }).status
-      : 500;
-
   const message = err instanceof Error ? err.message : "unknown_error";
-  return NextResponse.json({ ok: false, error: message }, { status });
+  const incomplete = message.startsWith(TTO_MANIFEST_INCOMPLETE_ERROR_PREFIX);
+  const status =
+    incomplete
+      ? 503
+      : err != null &&
+          typeof err === "object" &&
+          "status" in err &&
+          typeof (err as { status: unknown }).status === "number"
+        ? (err as { status: number }).status
+        : 500;
+
+  return NextResponse.json(
+    {
+      ok: false,
+      error: message,
+      manifestIncomplete: incomplete,
+    },
+    {
+      status,
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    }
+  );
 }
 
 export async function GET(req: Request) {
@@ -31,19 +47,27 @@ export async function GET(req: Request) {
     const sendSlot = resolveAdminListSendSlot(url.searchParams.get("send_slot"));
     const searchQuery = url.searchParams.get("q") ?? url.searchParams.get("search");
 
-    const { rows, counts, availableDayKeys } = await listSendableTylerTextOverviewRows({
+    const { rows, counts, availableDayKeys, manifest } = await listSendableTylerTextOverviewRows({
       draftForDayKey,
       sendSlot,
       searchQuery,
     });
 
-    return NextResponse.json({
-      ok: true,
-      rows,
-      counts,
-      availableDayKeys,
-      sendSlot,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        rows,
+        counts,
+        availableDayKeys,
+        sendSlot,
+        manifest,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (err) {
     console.error("[admin/tyler-text-overview] GET failed", err);
     return adminErrorResponse(err);

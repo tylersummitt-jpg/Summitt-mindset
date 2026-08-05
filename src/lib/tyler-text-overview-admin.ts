@@ -4,6 +4,9 @@ import {
   deriveNotebookFamily,
 } from "@/lib/tyler-text-overview-notebook-display";
 import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-overview-writer-capture";
+import { matchesTylerTextOverviewSearchQuery } from "@/lib/tyler-text-overview-dashboard-copy";
+import { parseSlotCoachingContextFromMetadata } from "@/lib/slot-coaching-context-v1";
+import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import {
   parseSmsDailySendSlot,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
@@ -15,12 +18,44 @@ import {
   type TylerTextOverviewAdminCounts,
   type TylerTextOverviewAdminDraftRow,
   type TylerTextOverviewDraftStatus,
+  type TylerTextOverviewManifestIntegrity,
   type TylerTextOverviewRowState,
   type TylerTextOverviewSlotCoachingContextPanel,
 } from "@/lib/tyler-text-overview-types";
 import { isPauseActive, type V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
 
 export const PREVIEW_ONLY_DRAFT_NOT_EDITABLE = "preview_only_draft_not_editable" as const;
+
+/** Page size for PostgREST range pagination (well under typical max_rows). */
+export const TTO_MANIFEST_DRAFT_PAGE_SIZE = 500 as const;
+export const TTO_MANIFEST_PAGE_SIZE = TTO_MANIFEST_DRAFT_PAGE_SIZE;
+/** Safe chunk size for `.in("clerk_user_id"|"id", …)` lists. */
+export const TTO_MANIFEST_ID_CHUNK_SIZE = 250 as const;
+
+export const TTO_MANIFEST_INCOMPLETE_ERROR_PREFIX = "tto_manifest_incomplete:" as const;
+
+export function ttoManifestIncompleteError(code: string): Error {
+  return new Error(`${TTO_MANIFEST_INCOMPLETE_ERROR_PREFIX}${code}`);
+}
+
+export function requireTtoExactCount(
+  count: number | null | undefined,
+  code: string
+): number {
+  if (typeof count !== "number" || !Number.isFinite(count)) {
+    throw ttoManifestIncompleteError(code);
+  }
+  return count;
+}
+
+export function chunkIdsForTtoManifestQuery<T>(ids: T[], chunkSize = TTO_MANIFEST_ID_CHUNK_SIZE): T[][] {
+  const unique = [...new Set(ids)];
+  const chunks: T[][] = [];
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    chunks.push(unique.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
 
 /**
  * Resolve admin list send_slot. Unknown values default to morning for list filtering only.
@@ -42,9 +77,6 @@ export function mapDbSendSlotToAdminDto(
   if (parsed) return parsed;
   return SMS_DAILY_PRODUCTION_SEND_SLOT;
 }
-import { parseSlotCoachingContextFromMetadata } from "@/lib/slot-coaching-context-v1";
-import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
-
 type SendableAudienceMember = {
   clerkUserId: string;
   phoneNumber: string;
@@ -101,6 +133,7 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   writerPromptPath: null,
   notebookHash: null,
   notebookMessageCount: 0,
+  /** Missing-draft rows must not pretend a writer generation existed. */
   notebookFamily: "writer_skipped",
   notebookDisplayMode: "writer_skipped_unknown",
   machineShouldSend: null,
@@ -112,6 +145,18 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   laneStage: null,
   slotCoachingContext: null,
 };
+
+export function isTylerBlankedMorningDraft(row: {
+  rowState: TylerTextOverviewRowState;
+  editedByTyler: boolean;
+  currentBodySource: string | null | undefined;
+  currentBodyToSend: string | null | undefined;
+}): boolean {
+  if (row.rowState !== "draft_current") return false;
+  const blank = !(row.currentBodyToSend?.trim() ?? "");
+  if (!blank) return false;
+  return row.editedByTyler === true || row.currentBodySource === "tyler_edit";
+}
 
 export function resolveTylerTextOverviewRowState(
   draftStatus: string | null | undefined
@@ -142,42 +187,39 @@ export function pickTylerTextOverviewDraftOverlay(
   })[0];
 }
 
-export function matchesTylerTextOverviewSearchQuery(
-  row: TylerTextOverviewAdminDraftRow,
-  rawQuery: string | null | undefined
-): boolean {
-  const query = rawQuery?.trim().toLowerCase();
-  if (!query) return true;
-
-  const haystacks = [
-    row.clerkUserId,
-    row.preferredName,
-    row.phoneNumber,
-    row.draftForDayKey,
-  ]
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-    .map((value) => value.toLowerCase());
-
-  return haystacks.some((value) => value.includes(query));
-}
+export { matchesTylerTextOverviewSearchQuery };
 
 export function computeTylerTextOverviewAdminCounts(
-  rows: TylerTextOverviewAdminDraftRow[]
+  rows: TylerTextOverviewAdminDraftRow[],
+  extras?: {
+    draftsMarkedSentDayTotal?: number;
+    twilioAcceptedDayTotal?: number | null;
+  }
 ): TylerTextOverviewAdminCounts {
   let noDraftYet = 0;
   let draftCurrent = 0;
+  let draftCurrentReady = 0;
+  let draftCurrentTylerBlanked = 0;
   let draftSent = 0;
   let draftSkipped = 0;
   let machineShouldSendTrue = 0;
   let machineShouldSendFalse = 0;
+  let generationLinkageErrors = 0;
 
   for (const row of rows) {
+    if (row.generationLinkageError === true) generationLinkageErrors += 1;
+
     switch (row.rowState) {
       case "no_draft_yet":
         noDraftYet += 1;
         break;
       case "draft_current":
         draftCurrent += 1;
+        if (isTylerBlankedMorningDraft(row)) {
+          draftCurrentTylerBlanked += 1;
+        } else if (row.currentBodyToSend?.trim()) {
+          draftCurrentReady += 1;
+        }
         break;
       case "draft_sent":
         draftSent += 1;
@@ -197,10 +239,16 @@ export function computeTylerTextOverviewAdminCounts(
     sendableUsers: rows.length,
     noDraftYet,
     draftCurrent,
+    draftCurrentReady,
+    draftCurrentTylerBlanked,
     draftSent,
     draftSkipped,
     machineShouldSendTrue,
     machineShouldSendFalse,
+    generationLinkageErrors,
+    draftsMarkedSentDayTotal: extras?.draftsMarkedSentDayTotal ?? draftSent,
+    twilioAcceptedDayTotal:
+      extras?.twilioAcceptedDayTotal === undefined ? null : extras.twilioAcceptedDayTotal,
   };
 }
 
@@ -209,11 +257,50 @@ function emptyTylerTextOverviewAdminCounts(): TylerTextOverviewAdminCounts {
     sendableUsers: 0,
     noDraftYet: 0,
     draftCurrent: 0,
+    draftCurrentReady: 0,
+    draftCurrentTylerBlanked: 0,
     draftSent: 0,
     draftSkipped: 0,
     machineShouldSendTrue: 0,
     machineShouldSendFalse: 0,
+    generationLinkageErrors: 0,
+    draftsMarkedSentDayTotal: 0,
+    twilioAcceptedDayTotal: null,
   };
+}
+
+export function emptyTylerTextOverviewManifestIntegrity(
+  overrides: Partial<TylerTextOverviewManifestIntegrity> = {}
+): TylerTextOverviewManifestIntegrity {
+  const base: TylerTextOverviewManifestIntegrity = {
+    expectedAudienceCount: 0,
+    audienceDraftOverlayCount: 0,
+    genuineMissingAudienceDraftCount: 0,
+    selectedDayDraftCount: 0,
+    genuineMissingDraftCount: 0,
+    allSelectedDayDraftCount: 0,
+    allSelectedDaySentDraftCount: 0,
+    generationLinkageErrorCount: 0,
+    manifestComplete: false,
+    queriedDraftExactCount: 0,
+    returnedDraftCount: 0,
+    draftsMarkedSentDayTotal: 0,
+    twilioAcceptedEventCount: null,
+    twilioAcceptedDayTotal: null,
+    selectedDayKey: null,
+    lastRefreshedAt: new Date().toISOString(),
+    incompletenessReason: null,
+    audienceComplete: false,
+    commitmentLookupComplete: false,
+    preferenceLookupComplete: false,
+    profileLookupComplete: false,
+    draftQueryComplete: false,
+    generationQueryComplete: false,
+    historicalSentCountComplete: false,
+    twilioCountComplete: false,
+    audienceOverlayInvariantComplete: false,
+  };
+  return { ...base, ...overrides };
 }
 
 function isSendableSmsAudienceRow(row: Record<string, unknown>): boolean {
@@ -227,80 +314,276 @@ function isSendableSmsAudienceRow(row: Record<string, unknown>): boolean {
   return true;
 }
 
-export async function loadSendableTylerTextOverviewAudienceMembers(
-  now: Date = new Date()
-): Promise<SendableAudienceMember[]> {
-  const { data: audienceRows, error: audienceError } = await supabaseServer
-    .from("sms_audience")
-    .select("clerk_user_id, phone_number, timezone, sms_enabled, stopped_at, summitt_subscribed")
-    .eq("summitt_subscribed", true)
-    .eq("sms_enabled", true);
+async function paginateExactQueryRows<T extends Record<string, unknown>>(args: {
+  runPage: (from: number, to: number, withCount: boolean) => Promise<{
+    data: T[] | null;
+    error: { message: string } | null;
+    count: number | null;
+  }>;
+  countUnavailableCode: string;
+  truncationCode: string;
+  pageSize?: number;
+}): Promise<{ rows: T[]; exactCount: number }> {
+  const pageSize = args.pageSize ?? TTO_MANIFEST_PAGE_SIZE;
+  let from = 0;
+  let exactCount: number | null = null;
+  const all: T[] = [];
 
-  if (audienceError) {
-    throw new Error(`tyler_text_overview_sendable_audience_failed:${audienceError.message}`);
+  for (;;) {
+    const { data, error, count } = await args.runPage(from, from + pageSize - 1, from === 0);
+    if (error) {
+      throw new Error(error.message);
+    }
+    if (from === 0) {
+      exactCount = requireTtoExactCount(count, args.countUnavailableCode);
+    }
+    const rows = data ?? [];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
   }
 
-  const smsEligible = (audienceRows ?? []).filter(isSendableSmsAudienceRow);
-  if (smsEligible.length === 0) return [];
-
-  const clerkUserIds = [...new Set(smsEligible.map((row) => row.clerk_user_id as string))];
-
-  const [commitmentResult, prefsResult, profileResult] = await Promise.all([
-    supabaseServer
-      .from("v2_commitment")
-      .select("clerk_user_id, behavior_statement, status")
-      .eq("status", "active")
-      .in("clerk_user_id", clerkUserIds),
-    supabaseServer
-      .from("v2_user_sms_comms_preferences")
-      .select("clerk_user_id, pause_until")
-      .in("clerk_user_id", clerkUserIds),
-    supabaseServer
-      .from("user_profiles")
-      .select("clerk_user_id, preferred_name")
-      .in("clerk_user_id", clerkUserIds),
-  ]);
-
-  if (commitmentResult.error) {
-    throw new Error(
-      `tyler_text_overview_sendable_v2_failed:${commitmentResult.error.message}`
+  const resolvedExact = requireTtoExactCount(exactCount, args.countUnavailableCode);
+  if (all.length !== resolvedExact) {
+    throw ttoManifestIncompleteError(
+      `${args.truncationCode}:returned=${all.length}:exact=${resolvedExact}`
     );
   }
+  return { rows: all, exactCount: resolvedExact };
+}
 
-  const activeV2UserIds = new Set<string>();
-  for (const row of commitmentResult.data ?? []) {
-    if (typeof row.clerk_user_id !== "string") continue;
-    const behavior =
-      typeof row.behavior_statement === "string" ? row.behavior_statement.trim() : "";
-    if (behavior.length > 0) {
-      activeV2UserIds.add(row.clerk_user_id);
+async function fetchCompleteSmsAudienceBaseRows(): Promise<Array<Record<string, unknown>>> {
+  const { rows, exactCount } = await paginateExactQueryRows<Record<string, unknown>>({
+    countUnavailableCode: "audience_count_unavailable",
+    truncationCode: "audience_truncated",
+    runPage: async (from, to, withCount) => {
+      const { data, error, count } = await supabaseServer
+        .from("sms_audience")
+        .select(
+          "clerk_user_id, phone_number, timezone, sms_enabled, stopped_at, summitt_subscribed",
+          { count: withCount ? "exact" : undefined }
+        )
+        .eq("summitt_subscribed", true)
+        .eq("sms_enabled", true)
+        .order("clerk_user_id", { ascending: true })
+        .range(from, to);
+      return { data: (data ?? null) as Array<Record<string, unknown>> | null, error, count };
+    },
+  });
+
+  const seen = new Set<string>();
+  const duplicates: string[] = [];
+  for (const row of rows) {
+    const id = typeof row.clerk_user_id === "string" ? row.clerk_user_id : "";
+    if (!id) continue;
+    if (seen.has(id)) duplicates.push(id);
+    else seen.add(id);
+  }
+  if (duplicates.length > 0) {
+    throw ttoManifestIncompleteError(
+      `audience_duplicate_clerk_user_id:count=${duplicates.length}`
+    );
+  }
+  if (rows.length !== exactCount) {
+    throw ttoManifestIncompleteError(
+      `audience_truncated:returned=${rows.length}:exact=${exactCount}`
+    );
+  }
+  return rows;
+}
+
+async function fetchActiveCommitmentsByUserIds(
+  clerkUserIds: string[]
+): Promise<Map<string, { clerk_user_id: string; behavior_statement: string | null }>> {
+  const result = new Map<string, { clerk_user_id: string; behavior_statement: string | null }>();
+  if (clerkUserIds.length === 0) return result;
+
+  for (const chunk of chunkIdsForTtoManifestQuery(clerkUserIds)) {
+    const { rows } = await paginateExactQueryRows<{
+      clerk_user_id: string;
+      behavior_statement: string | null;
+      status: string;
+    }>({
+      countUnavailableCode: "commitment_count_unavailable",
+      truncationCode: "commitment_truncated",
+      runPage: async (from, to, withCount) => {
+        const { data, error, count } = await supabaseServer
+          .from("v2_commitment")
+          .select("clerk_user_id, behavior_statement, status", {
+            count: withCount ? "exact" : undefined,
+          })
+          .eq("status", "active")
+          .in("clerk_user_id", chunk)
+          .order("clerk_user_id", { ascending: true })
+          .range(from, to);
+        return {
+          data: (data ?? null) as Array<{
+            clerk_user_id: string;
+            behavior_statement: string | null;
+            status: string;
+          }> | null,
+          error,
+          count,
+        };
+      },
+    });
+
+    for (const row of rows) {
+      if (typeof row.clerk_user_id !== "string") continue;
+      if (result.has(row.clerk_user_id)) {
+        throw ttoManifestIncompleteError(
+          `duplicate_active_commitment:${row.clerk_user_id}`
+        );
+      }
+      result.set(row.clerk_user_id, {
+        clerk_user_id: row.clerk_user_id,
+        behavior_statement:
+          typeof row.behavior_statement === "string" ? row.behavior_statement : null,
+      });
     }
   }
 
-  const prefsByUserId = new Map<string, V2UserSmsCommsPreferencesRow>();
-  if (!prefsResult.error) {
-    for (const row of prefsResult.data ?? []) {
+  return result;
+}
+
+async function fetchPrefsByUserIds(
+  clerkUserIds: string[]
+): Promise<Map<string, V2UserSmsCommsPreferencesRow>> {
+  const result = new Map<string, V2UserSmsCommsPreferencesRow>();
+  if (clerkUserIds.length === 0) return result;
+
+  for (const chunk of chunkIdsForTtoManifestQuery(clerkUserIds)) {
+    const { rows } = await paginateExactQueryRows<{
+      clerk_user_id: string;
+      pause_until: string | null;
+    }>({
+      countUnavailableCode: "preference_count_unavailable",
+      truncationCode: "preference_truncated",
+      runPage: async (from, to, withCount) => {
+        const { data, error, count } = await supabaseServer
+          .from("v2_user_sms_comms_preferences")
+          .select("clerk_user_id, pause_until", {
+            count: withCount ? "exact" : undefined,
+          })
+          .in("clerk_user_id", chunk)
+          .order("clerk_user_id", { ascending: true })
+          .range(from, to);
+        return {
+          data: (data ?? null) as Array<{
+            clerk_user_id: string;
+            pause_until: string | null;
+          }> | null,
+          error,
+          count,
+        };
+      },
+    });
+
+    for (const row of rows) {
       if (typeof row.clerk_user_id !== "string") continue;
-      prefsByUserId.set(row.clerk_user_id, {
+      if (result.has(row.clerk_user_id)) {
+        throw ttoManifestIncompleteError(`duplicate_preference_row:${row.clerk_user_id}`);
+      }
+      result.set(row.clerk_user_id, {
         clerk_user_id: row.clerk_user_id,
         pause_until: typeof row.pause_until === "string" ? row.pause_until : null,
       } as V2UserSmsCommsPreferencesRow);
     }
   }
 
-  const preferredNameByUserId = new Map<string, string>();
-  if (!profileResult.error) {
-    for (const row of profileResult.data ?? []) {
+  return result;
+}
+
+async function fetchPreferredNamesByUserIds(
+  clerkUserIds: string[]
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (clerkUserIds.length === 0) return result;
+
+  for (const chunk of chunkIdsForTtoManifestQuery(clerkUserIds)) {
+    const { rows } = await paginateExactQueryRows<{
+      clerk_user_id: string;
+      preferred_name: string | null;
+    }>({
+      countUnavailableCode: "profile_count_unavailable",
+      truncationCode: "profile_truncated",
+      runPage: async (from, to, withCount) => {
+        const { data, error, count } = await supabaseServer
+          .from("user_profiles")
+          .select("clerk_user_id, preferred_name", {
+            count: withCount ? "exact" : undefined,
+          })
+          .in("clerk_user_id", chunk)
+          .order("clerk_user_id", { ascending: true })
+          .range(from, to);
+        return {
+          data: (data ?? null) as Array<{
+            clerk_user_id: string;
+            preferred_name: string | null;
+          }> | null,
+          error,
+          count,
+        };
+      },
+    });
+
+    for (const row of rows) {
       if (typeof row.clerk_user_id !== "string") continue;
+      if (result.has(row.clerk_user_id)) {
+        throw ttoManifestIncompleteError(`duplicate_profile_row:${row.clerk_user_id}`);
+      }
       const name = typeof row.preferred_name === "string" ? row.preferred_name.trim() : "";
-      if (name) preferredNameByUserId.set(row.clerk_user_id, name);
+      if (name) result.set(row.clerk_user_id, name);
     }
+  }
+
+  return result;
+}
+
+export async function loadSendableTylerTextOverviewAudienceMembers(
+  now: Date = new Date()
+): Promise<SendableAudienceMember[]> {
+  let audienceRows: Array<Record<string, unknown>>;
+  try {
+    audienceRows = await fetchCompleteSmsAudienceBaseRows();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "audience_failed";
+    if (message.startsWith(TTO_MANIFEST_INCOMPLETE_ERROR_PREFIX)) throw err;
+    throw ttoManifestIncompleteError(`audience_query_failed:${message}`);
+  }
+
+  const smsEligible = audienceRows.filter(isSendableSmsAudienceRow);
+  if (smsEligible.length === 0) return [];
+
+  const clerkUserIds = [
+    ...new Set(smsEligible.map((row) => row.clerk_user_id as string)),
+  ];
+
+  let commitmentsByUserId: Map<string, { clerk_user_id: string; behavior_statement: string | null }>;
+  let prefsByUserId: Map<string, V2UserSmsCommsPreferencesRow>;
+  let preferredNameByUserId: Map<string, string>;
+  try {
+    [commitmentsByUserId, prefsByUserId, preferredNameByUserId] = await Promise.all([
+      fetchActiveCommitmentsByUserIds(clerkUserIds),
+      fetchPrefsByUserIds(clerkUserIds),
+      fetchPreferredNamesByUserIds(clerkUserIds),
+    ]);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "lookup_failed";
+    if (message.startsWith(TTO_MANIFEST_INCOMPLETE_ERROR_PREFIX)) throw err;
+    throw ttoManifestIncompleteError(`audience_lookup_failed:${message}`);
   }
 
   const members: SendableAudienceMember[] = [];
   for (const row of smsEligible) {
     const clerkUserId = row.clerk_user_id as string;
-    if (!activeV2UserIds.has(clerkUserId)) continue;
+    const commitment = commitmentsByUserId.get(clerkUserId);
+    if (!commitment) continue;
+    const behavior =
+      typeof commitment.behavior_statement === "string"
+        ? commitment.behavior_statement.trim()
+        : "";
+    if (!behavior) continue;
     if (isPauseActive(prefsByUserId.get(clerkUserId) ?? null, now)) continue;
 
     members.push({
@@ -354,6 +637,7 @@ function mapAudienceOverlayToAdminRow(args: {
       morningAnchorSource: null,
       morningAnchorSent: null,
       morningAnchorBodyPreview: null,
+      generationLinkageError: false,
     };
   }
 
@@ -364,12 +648,16 @@ function mapAudienceOverlayToAdminRow(args: {
     audienceByUserId: new Map([[member.clerkUserId, member]]),
   })[0];
 
+  const linkageError =
+    Boolean(draft.current_generation_id?.trim()) && generation == null;
+
   return {
     ...mapped,
     preferredName: member.preferredName,
     phoneNumber: member.phoneNumber,
     timezone: member.timezone,
     rowState: resolveTylerTextOverviewRowState(draft.status),
+    generationLinkageError: linkageError,
   };
 }
 type DraftDbRow = {
@@ -941,6 +1229,227 @@ export async function listCurrentTylerTextOverviewDrafts(args?: {
   return mapDraftRowsToAdminDto({ drafts, generationsById, latestGenerationsByKey });
 }
 
+async function fetchAvailableDraftDayKeys(sendSlot: SmsDailySendSlot): Promise<string[]> {
+  const pageSize = TTO_MANIFEST_PAGE_SIZE;
+  let from = 0;
+  const keys = new Set<string>();
+
+  for (;;) {
+    const { data, error, count } = await supabaseServer
+      .from(SMS_DAILY_DRAFTS_TABLE)
+      .select("draft_for_day_key", { count: from === 0 ? "exact" : undefined })
+      .eq("send_slot", sendSlot)
+      .in("status", ["current", "sent", "skipped"])
+      .order("draft_for_day_key", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      throw ttoManifestIncompleteError(`day_keys_failed:${error.message}`);
+    }
+    if (from === 0) {
+      requireTtoExactCount(count, "day_keys_count_unavailable");
+    }
+
+    const rows = data ?? [];
+    for (const row of rows) {
+      if (typeof row.draft_for_day_key === "string" && row.draft_for_day_key.trim()) {
+        keys.add(row.draft_for_day_key.trim());
+      }
+    }
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return [...keys].sort((a, b) => b.localeCompare(a));
+}
+
+function draftUserDaySlotKey(draft: DraftDbRow): string {
+  const slot = mapDbSendSlotToAdminDto(draft.send_slot);
+  return `${draft.clerk_user_id}:${draft.draft_for_day_key}:${slot}`;
+}
+
+/**
+ * Load every matching draft for the selected day (chunked by user id).
+ * Always orders deterministically and requires exact counts (null fails).
+ */
+export async function fetchCompleteTtoManifestDrafts(args: {
+  sendSlot: SmsDailySendSlot;
+  clerkUserIds: string[];
+  draftForDayKey: string | null;
+}): Promise<{
+  drafts: DraftDbRow[];
+  exactCount: number;
+  returnedCount: number;
+}> {
+  const uniqueUserIds = [...new Set(args.clerkUserIds.filter((id) => id.trim()))];
+  if (uniqueUserIds.length === 0) {
+    return { drafts: [], exactCount: 0, returnedCount: 0 };
+  }
+
+  const pageSize = TTO_MANIFEST_PAGE_SIZE;
+  const draftSelectColumns =
+    "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, current_body_source, edited_by_tyler, edited_at, status, sent_at, final_body_sent, twilio_message_sid, source_sms_send_event_id";
+
+  const all: DraftDbRow[] = [];
+  const seenDraftIds = new Set<string>();
+  const seenUserDaySlot = new Set<string>();
+  let exactCountTotal = 0;
+
+  for (const chunk of chunkIdsForTtoManifestQuery(uniqueUserIds)) {
+    let from = 0;
+    let chunkExact: number | null = null;
+    const chunkRows: DraftDbRow[] = [];
+
+    for (;;) {
+      let query = supabaseServer
+        .from(SMS_DAILY_DRAFTS_TABLE)
+        .select(draftSelectColumns, { count: from === 0 ? "exact" : undefined })
+        .eq("send_slot", args.sendSlot)
+        .in("clerk_user_id", chunk)
+        .in("status", ["current", "sent", "skipped"])
+        .order("clerk_user_id", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (args.draftForDayKey) {
+        query = query.eq("draft_for_day_key", args.draftForDayKey);
+      }
+
+      const { data, error, count } = await query;
+      if (error) {
+        throw new Error(`tyler_text_overview_drafts_list_failed:${error.message}`);
+      }
+      if (from === 0) {
+        chunkExact = requireTtoExactCount(count, "draft_count_unavailable");
+      }
+
+      const rows = (data ?? []) as DraftDbRow[];
+      chunkRows.push(...rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+
+    const resolvedChunkExact = requireTtoExactCount(chunkExact, "draft_count_unavailable");
+    if (chunkRows.length !== resolvedChunkExact) {
+      throw ttoManifestIncompleteError(
+        `drafts:returned=${chunkRows.length}:exact=${resolvedChunkExact}`
+      );
+    }
+    exactCountTotal += resolvedChunkExact;
+
+    for (const draft of chunkRows) {
+      if (seenDraftIds.has(draft.id)) {
+        throw ttoManifestIncompleteError(`duplicate_draft_id:${draft.id}`);
+      }
+      seenDraftIds.add(draft.id);
+      const uds = draftUserDaySlotKey(draft);
+      if (seenUserDaySlot.has(uds)) {
+        throw ttoManifestIncompleteError(`duplicate_user_day_slot:${uds}`);
+      }
+      seenUserDaySlot.add(uds);
+      all.push(draft);
+    }
+  }
+
+  const returnedCount = all.length;
+  if (returnedCount !== exactCountTotal) {
+    throw ttoManifestIncompleteError(
+      `drafts:returned=${returnedCount}:exact=${exactCountTotal}`
+    );
+  }
+
+  return { drafts: all, exactCount: exactCountTotal, returnedCount };
+}
+
+async function countSelectedDayDraftsMarkedSent(args: {
+  sendSlot: SmsDailySendSlot;
+  draftForDayKey: string;
+}): Promise<number> {
+  const { count, error } = await supabaseServer
+    .from(SMS_DAILY_DRAFTS_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("send_slot", args.sendSlot)
+    .eq("draft_for_day_key", args.draftForDayKey)
+    .eq("status", "sent");
+
+  if (error) {
+    throw ttoManifestIncompleteError(`sent_count_failed:${error.message}`);
+  }
+  return requireTtoExactCount(count, "sent_count_unavailable");
+}
+
+async function countSelectedDayTwilioAcceptedEvents(args: {
+  sendSlot: SmsDailySendSlot;
+  draftForDayKey: string;
+}): Promise<number> {
+  const { count, error } = await supabaseServer
+    .from("sms_send_events")
+    .select("id", { count: "exact", head: true })
+    .eq("send_slot", args.sendSlot)
+    .eq("day_key", args.draftForDayKey)
+    .not("message_sid", "is", null)
+    .neq("message_sid", "");
+
+  if (error) {
+    throw ttoManifestIncompleteError(`twilio_count_failed:${error.message}`);
+  }
+  return requireTtoExactCount(count, "twilio_count_unavailable");
+}
+
+async function fetchGenerationsByIdsComplete(
+  generationIds: string[]
+): Promise<{ generationsById: Map<string, GenerationDbRow>; missingIds: string[] }> {
+  const uniqueIds = [
+    ...new Set(generationIds.filter((id) => typeof id === "string" && id.trim())),
+  ];
+  const generationsById = new Map<string, GenerationDbRow>();
+  if (uniqueIds.length === 0) {
+    return { generationsById, missingIds: [] };
+  }
+
+  const pageSize = TTO_MANIFEST_ID_CHUNK_SIZE;
+  for (let i = 0; i < uniqueIds.length; i += pageSize) {
+    const chunk = uniqueIds.slice(i, i + pageSize);
+    const requested = new Set(chunk);
+    const { data, error, count } = await supabaseServer
+      .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+      .select(GENERATION_SELECT_COLUMNS, { count: "exact" })
+      .in("id", chunk)
+      .order("id", { ascending: true });
+
+    if (error) {
+      throw ttoManifestIncompleteError(`generations_query_failed:${error.message}`);
+    }
+
+    const exact = requireTtoExactCount(count, "generation_count_unavailable");
+    const rows = data ?? [];
+    if (rows.length !== exact) {
+      throw ttoManifestIncompleteError(
+        `generations:returned=${rows.length}:exact=${exact}`
+      );
+    }
+
+    const seenReturned = new Set<string>();
+    for (const row of rows) {
+      if (typeof row.id !== "string") {
+        throw ttoManifestIncompleteError("generation_row_missing_id");
+      }
+      if (seenReturned.has(row.id)) {
+        throw ttoManifestIncompleteError(`duplicate_generation_id:${row.id}`);
+      }
+      seenReturned.add(row.id);
+      if (!requested.has(row.id)) {
+        throw ttoManifestIncompleteError(`unexpected_generation_id:${row.id}`);
+      }
+      generationsById.set(row.id, row as GenerationDbRow);
+    }
+  }
+
+  const missingIds = uniqueIds.filter((id) => !generationsById.has(id));
+  return { generationsById, missingIds };
+}
+
 export async function listSendableTylerTextOverviewRows(args?: {
   draftForDayKey?: string | null;
   sendSlot?: SmsDailySendSlot;
@@ -948,46 +1457,76 @@ export async function listSendableTylerTextOverviewRows(args?: {
   now?: Date;
 }): Promise<{
   rows: TylerTextOverviewAdminDraftRow[];
+  /** Unfiltered complete-audience counts (search must not shrink these). */
   counts: TylerTextOverviewAdminCounts;
   availableDayKeys: string[];
+  manifest: TylerTextOverviewManifestIntegrity;
 }> {
   const sendSlot = args?.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
   const dayKey = args?.draftForDayKey?.trim() || null;
   const searchQuery = args?.searchQuery?.trim() || null;
   const now = args?.now ?? new Date();
+  const lastRefreshedAt = now.toISOString();
 
   const audience = await loadSendableTylerTextOverviewAudienceMembers(now);
+  const audienceComplete = true;
+  const commitmentLookupComplete = true;
+  const preferenceLookupComplete = true;
+  const profileLookupComplete = true;
+
   if (audience.length === 0) {
+    const availableDayKeys = await fetchAvailableDraftDayKeys(sendSlot);
+    const historicalSentCountComplete = !dayKey;
+    const twilioCountComplete = !dayKey;
+    let daySentTotal = 0;
+    let twilioAccepted: number | null = null;
+    if (dayKey) {
+      daySentTotal = await countSelectedDayDraftsMarkedSent({ sendSlot, draftForDayKey: dayKey });
+      twilioAccepted = await countSelectedDayTwilioAcceptedEvents({
+        sendSlot,
+        draftForDayKey: dayKey,
+      });
+    }
     return {
       rows: [],
       counts: emptyTylerTextOverviewAdminCounts(),
-      availableDayKeys: [],
+      availableDayKeys,
+      manifest: emptyTylerTextOverviewManifestIntegrity({
+        manifestComplete: Boolean(dayKey),
+        selectedDayKey: dayKey,
+        lastRefreshedAt,
+        incompletenessReason: dayKey
+          ? null
+          : "select_a_draft_day_for_complete_morning_manifest",
+        audienceComplete,
+        commitmentLookupComplete,
+        preferenceLookupComplete,
+        profileLookupComplete,
+        draftQueryComplete: true,
+        generationQueryComplete: true,
+        historicalSentCountComplete: dayKey ? true : historicalSentCountComplete,
+        twilioCountComplete: dayKey ? true : twilioCountComplete,
+        audienceOverlayInvariantComplete: true,
+        allSelectedDaySentDraftCount: daySentTotal,
+        draftsMarkedSentDayTotal: daySentTotal,
+        twilioAcceptedEventCount: twilioAccepted,
+        twilioAcceptedDayTotal: twilioAccepted,
+      }),
     };
   }
 
-  const audienceByUserId = new Map(audience.map((member) => [member.clerkUserId, member]));
   const clerkUserIds = audience.map((member) => member.clerkUserId);
+  const availableDayKeysPromise = fetchAvailableDraftDayKeys(sendSlot);
 
-  const draftSelectColumns =
-    "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, current_body_source, edited_by_tyler, edited_at, status, sent_at, final_body_sent, twilio_message_sid, source_sms_send_event_id";
+  const { drafts, exactCount, returnedCount } = await fetchCompleteTtoManifestDrafts({
+    sendSlot,
+    clerkUserIds,
+    draftForDayKey: dayKey,
+  });
+  const draftQueryComplete = returnedCount === exactCount;
 
-  const { data: draftRows, error: draftError } = await supabaseServer
-    .from(SMS_DAILY_DRAFTS_TABLE)
-    .select(draftSelectColumns)
-    .eq("send_slot", sendSlot)
-    .in("clerk_user_id", clerkUserIds)
-    .in("status", ["current", "sent", "skipped"]);
-
-  if (draftError) {
-    throw new Error(`tyler_text_overview_drafts_list_failed:${draftError.message}`);
-  }
-
-  const drafts = (draftRows ?? []) as DraftDbRow[];
   const draftsByUserId = new Map<string, DraftDbRow[]>();
-  const availableDayKeySet = new Set<string>();
-
   for (const draft of drafts) {
-    availableDayKeySet.add(draft.draft_for_day_key);
     const existing = draftsByUserId.get(draft.clerk_user_id) ?? [];
     existing.push(draft);
     draftsByUserId.set(draft.clerk_user_id, existing);
@@ -1000,41 +1539,34 @@ export async function listSendableTylerTextOverviewRows(args?: {
     if (overlay) overlayDrafts.push(overlay);
   }
 
-  const generationIds = [
-    ...new Set(overlayDrafts.map((draft) => draft.current_generation_id).filter(Boolean)),
-  ];
+  const generationIds = overlayDrafts
+    .map((draft) => draft.current_generation_id)
+    .filter((id): id is string => typeof id === "string" && id.trim().length > 0);
 
-  const [generationResult, latestGenerationsByKey] = await Promise.all([
-    generationIds.length > 0
-      ? supabaseServer
-          .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-          .select(GENERATION_SELECT_COLUMNS)
-          .in("id", generationIds)
-      : Promise.resolve({ data: [], error: null }),
-    fetchLatestGenerationsForDrafts(overlayDrafts, sendSlot),
-  ]);
+  const [generationResult, latestGenerationsByKey, availableDayKeys, daySentTotal, twilioAccepted] =
+    await Promise.all([
+      fetchGenerationsByIdsComplete(generationIds),
+      fetchLatestGenerationsForDrafts(overlayDrafts, sendSlot),
+      availableDayKeysPromise,
+      dayKey
+        ? countSelectedDayDraftsMarkedSent({ sendSlot, draftForDayKey: dayKey })
+        : Promise.resolve(0),
+      dayKey
+        ? countSelectedDayTwilioAcceptedEvents({ sendSlot, draftForDayKey: dayKey })
+        : Promise.resolve(null),
+    ]);
 
-  if (generationResult.error) {
-    throw new Error(
-      `tyler_text_overview_generations_list_failed:${generationResult.error.message}`
-    );
-  }
+  const { generationsById, missingIds } = generationResult;
+  const missingGenerationIdSet = new Set(missingIds);
+  const generationQueryComplete = true;
 
-  const generationsById = new Map<string, GenerationDbRow>();
-  for (const row of generationResult.data ?? []) {
-    if (typeof row.id === "string") {
-      generationsById.set(row.id, row as GenerationDbRow);
-    }
-  }
-
-  const rows = audience.map((member) => {
+  const allRows = audience.map((member) => {
     const userDrafts = draftsByUserId.get(member.clerkUserId) ?? [];
     const overlay = pickTylerTextOverviewDraftOverlay(userDrafts, dayKey);
     const generation = overlay
       ? generationsById.get(overlay.current_generation_id)
       : undefined;
-
-    return mapAudienceOverlayToAdminRow({
+    const row = mapAudienceOverlayToAdminRow({
       member,
       sendSlot,
       draft: overlay,
@@ -1042,16 +1574,96 @@ export async function listSendableTylerTextOverviewRows(args?: {
       latestGenerationsByKey,
       overlayDayKey: dayKey,
     });
+    if (
+      overlay &&
+      missingGenerationIdSet.has(overlay.current_generation_id) &&
+      !row.generationLinkageError
+    ) {
+      return { ...row, generationLinkageError: true };
+    }
+    return row;
   });
 
-  const filteredRows = searchQuery
-    ? rows.filter((row) => matchesTylerTextOverviewSearchQuery(row, searchQuery))
-    : rows;
+  // Search filters display rows only — global counts/manifest use allRows.
+  const displayRows = searchQuery
+    ? allRows.filter((row) => matchesTylerTextOverviewSearchQuery(row, searchQuery))
+    : allRows;
+
+  const audienceDraftOverlayCount = allRows.filter((r) => r.draftId != null).length;
+  const genuineMissingAudienceDraftCount = allRows.filter(
+    (r) => r.rowState === "no_draft_yet"
+  ).length;
+  const generationLinkageErrorCount = allRows.filter(
+    (r) => r.generationLinkageError === true
+  ).length;
+
+  const counts = computeTylerTextOverviewAdminCounts(allRows, {
+    draftsMarkedSentDayTotal: dayKey ? daySentTotal : allRows.filter((r) => r.rowState === "draft_sent").length,
+    twilioAcceptedDayTotal: twilioAccepted,
+  });
+
+  const audienceOverlayInvariantComplete =
+    Boolean(dayKey) &&
+    audience.length === audienceDraftOverlayCount + genuineMissingAudienceDraftCount;
+
+  const historicalSentCountComplete = Boolean(dayKey) || !dayKey;
+  const twilioCountComplete = dayKey ? twilioAccepted != null : true;
+
+  const incompletenessReason = !dayKey
+    ? "select_a_draft_day_for_complete_morning_manifest"
+    : !draftQueryComplete
+      ? "draft_query_incomplete"
+      : !audienceOverlayInvariantComplete
+        ? "audience_draft_invariant_failed"
+        : generationLinkageErrorCount > 0
+          ? "generation_linkage_incomplete"
+          : null;
+
+  const manifestComplete =
+    Boolean(dayKey) &&
+    audienceComplete &&
+    commitmentLookupComplete &&
+    preferenceLookupComplete &&
+    profileLookupComplete &&
+    draftQueryComplete &&
+    generationQueryComplete &&
+    generationLinkageErrorCount === 0 &&
+    (dayKey ? historicalSentCountComplete : true) &&
+    (dayKey ? twilioCountComplete : true) &&
+    audienceOverlayInvariantComplete;
 
   return {
-    rows: filteredRows,
-    counts: computeTylerTextOverviewAdminCounts(filteredRows),
-    availableDayKeys: [...availableDayKeySet].sort((a, b) => b.localeCompare(a)),
+    rows: displayRows,
+    counts,
+    availableDayKeys,
+    manifest: {
+      expectedAudienceCount: audience.length,
+      audienceDraftOverlayCount,
+      genuineMissingAudienceDraftCount,
+      selectedDayDraftCount: audienceDraftOverlayCount,
+      genuineMissingDraftCount: genuineMissingAudienceDraftCount,
+      allSelectedDayDraftCount: returnedCount,
+      allSelectedDaySentDraftCount: dayKey ? daySentTotal : counts.draftSent,
+      generationLinkageErrorCount,
+      manifestComplete,
+      queriedDraftExactCount: exactCount,
+      returnedDraftCount: returnedCount,
+      draftsMarkedSentDayTotal: dayKey ? daySentTotal : counts.draftSent,
+      twilioAcceptedEventCount: twilioAccepted,
+      twilioAcceptedDayTotal: twilioAccepted,
+      selectedDayKey: dayKey,
+      lastRefreshedAt,
+      incompletenessReason,
+      audienceComplete,
+      commitmentLookupComplete,
+      preferenceLookupComplete,
+      profileLookupComplete,
+      draftQueryComplete,
+      generationQueryComplete,
+      historicalSentCountComplete: dayKey ? true : historicalSentCountComplete,
+      twilioCountComplete,
+      audienceOverlayInvariantComplete,
+    },
   };
 }
 
