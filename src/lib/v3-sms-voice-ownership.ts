@@ -188,6 +188,52 @@ function normalize(s: string): string {
   return s.trim().replace(/\s+/g, " ");
 }
 
+/**
+ * Narrow compare form for role-ownership: detect when coach body is effectively the
+ * user's first-person commitment (not a broad first-person ban).
+ */
+export function normalizeUserCommitmentOwnershipText(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[\u2018\u2019\u201A\u201B`]/g, "'")
+    .replace(/\s+/g, " ")
+    .replace(/[.!?…]+$/u, "")
+    .replace(/\bi'll\b/g, "i will")
+    .trim();
+}
+
+function isFirstPersonUserCommitmentText(normalized: string): boolean {
+  return /^i\b/.test(normalized);
+}
+
+export type DetectUserCommitmentAsCoachBodyArgs = {
+  behaviorStatement?: string | null;
+  effectiveAsk?: string | null;
+};
+
+/**
+ * Blocks when the full candidate SMS is a near-verbatim copy of the user's
+ * first-person behavior_statement / effective_ask (role confusion).
+ */
+export function detectUserCommitmentAsCoachBodyReason(
+  body: string,
+  args: DetectUserCommitmentAsCoachBodyArgs
+): "user_commitment_as_coach_body" | null {
+  const candidate = normalizeUserCommitmentOwnershipText(body);
+  if (!candidate || candidate.length < 8) return null;
+
+  const sources = [args.behaviorStatement, args.effectiveAsk];
+  for (const raw of sources) {
+    if (typeof raw !== "string") continue;
+    const goal = normalizeUserCommitmentOwnershipText(raw);
+    if (!goal || goal.length < 8) continue;
+    if (!isFirstPersonUserCommitmentText(goal)) continue;
+    if (candidate === goal) return "user_commitment_as_coach_body";
+  }
+  return null;
+}
+
 /** Sentence-ending punctuation followed by whitespace or end of string (one unit ≈ one closed sentence). */
 function countSentenceEndings(text: string): number {
   return (text.match(/[.!?](?:\s|$)/g) ?? []).length;
@@ -333,6 +379,9 @@ export type DetectRelationshipCoachingVoiceOptions = DetectRelationshipRobotCons
   praisePolicy?: SmsPraisePolicyEvaluateArgs | null;
   /** When false, skip earned praise relabeling (raw great_job / keep_momentum remain). */
   applyEarnedPraisePolicy?: boolean;
+  /** User-owned commitment text for role-ownership (coach must not paste as own body). */
+  behaviorStatement?: string | null;
+  effectiveAsk?: string | null;
 };
 
 export function evaluateRelationshipVoiceWithPraisePolicy(
@@ -342,12 +391,19 @@ export function evaluateRelationshipVoiceWithPraisePolicy(
   const fvg = detectFinalVoiceBlockedReasons(body);
   const robot = detectRelationshipRobotConsentMenuReasons(body, options);
   const internalLabels = userVisibleInternalLabelBlockedReasons(body);
+  const roleOwnership = detectUserCommitmentAsCoachBodyReason(body, {
+    behaviorStatement: options?.behaviorStatement,
+    effectiveAsk: options?.effectiveAsk,
+  });
   const merged = [...fvg];
   for (const r of robot) {
     if (!merged.includes(r)) merged.push(r);
   }
   for (const r of internalLabels) {
     if (!merged.includes(r)) merged.push(r);
+  }
+  if (roleOwnership && !merged.includes(roleOwnership)) {
+    merged.push(roleOwnership);
   }
 
   if (options?.applyEarnedPraisePolicy === false) {
@@ -423,6 +479,8 @@ const REPAIRABLE_FINAL_VOICE_BLOCK_REASONS = new Set<string>([
   "internal_label_classifier",
   "internal_label_event_type",
   "internal_label_route",
+  /** Writer pasted user's first-person commitment as the coach SMS — OpenAI may rewrite to second person. */
+  "user_commitment_as_coach_body",
 ]);
 
 export function isRepairableFinalVoiceBlockedReason(reason: string): boolean {
@@ -823,6 +881,7 @@ RULES FOR body:
 ${preserveMeaningRule}
 ${strictStrategyRule}
 - Remove or rewrite away the issues implied by blocked_reasons (e.g. shorten if too_many_sentences or too_long; remove banned phrasing).
+- If blocked_reasons includes user_commitment_as_coach_body: rewrite into second-person coaching; never emit the user's first-person commitment as the entire SMS body.
 - If blocked_reasons includes did_you_manage: keep the same accountability meaning but do NOT use the exact phrase "Did you manage" — use natural alternatives (e.g. whether you completed the step, how the planned block went, if the calls landed).
 - No markdown, bullets, or role labels.
 - Do not quote the user. Do not paste raw database fields or internal system names.
@@ -959,6 +1018,7 @@ CONTRACT:
 - Preserve the meaning of the original SMS; fix ONLY the blocked issues.
 - One short SMS. No markdown, bullets, or labels.
 - Do not quote the user. Do not paste raw database fields, titles, or behavior_statement as prose.
+- If blocked_reasons includes user_commitment_as_coach_body: rewrite into second-person coaching; never emit the user's first-person commitment as the entire SMS body.
 - Do not add generic motivation or a new coaching agenda.
 - Do not repeat rejected times or re-ask the same blocked pattern.
 ${bindingRules}
@@ -1135,8 +1195,17 @@ export async function applyFinalVoiceOwnershipGate(
             ? "inbound"
             : "daily",
     });
+  const behaviorStatementForVoice =
+    args.behaviorStatement ?? args.contextPacket?.behaviorStatement ?? null;
+  const effectiveAskForVoice =
+    args.effectiveAsk ?? args.contextPacket?.effectiveAskText ?? null;
+  const roleOwnershipDetectOptions = {
+    behaviorStatement: behaviorStatementForVoice,
+    effectiveAsk: effectiveAskForVoice,
+  };
   const voiceWithPraise = evaluateRelationshipVoiceWithPraisePolicy(originalBody, {
     ...robotDetectOptions,
+    ...roleOwnershipDetectOptions,
     praisePolicy: praisePolicyInput,
   });
   const blocked = [
@@ -1182,6 +1251,7 @@ export async function applyFinalVoiceOwnershipGate(
     const cleaned = nsRepair.visibleBody;
     const repairBlocked = detectRelationshipCoachingVoiceBlockedReasons(cleaned, {
       ...robotDetectOptions,
+      ...roleOwnershipDetectOptions,
       praisePolicy: { ...praisePolicyInput, body: cleaned },
     });
     if (repairBlocked.length === 0) {

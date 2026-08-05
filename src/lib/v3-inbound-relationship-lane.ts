@@ -2266,6 +2266,8 @@ function buildInboundPraisePolicyArgs(
 function evaluateInboundVoiceWithPraisePolicy(body: string, facts: InboundV3RelationshipFacts) {
   return evaluateRelationshipVoiceWithPraisePolicy(body, {
     praisePolicy: buildInboundPraisePolicyArgs(body, facts),
+    behaviorStatement: facts.commitment.behavior_statement,
+    effectiveAsk: facts.commitment.effective_ask,
   });
 }
 

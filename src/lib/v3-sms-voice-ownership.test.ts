@@ -25,8 +25,10 @@ import {
   applyFinalVoiceOwnershipGate,
   detectFinalVoiceBlockedReasons,
   detectRelationshipCoachingVoiceBlockedReasons,
+  detectUserCommitmentAsCoachBodyReason,
   evaluateRelationshipVoiceWithPraisePolicy,
   isRepairableFinalVoiceBlockedReason,
+  normalizeUserCommitmentOwnershipText,
   partitionFinalVoiceBlockedReasons,
   repairV3RelationshipLaneBodyWithOpenAI,
 } from "./v3-sms-voice-ownership";
@@ -1059,5 +1061,176 @@ describe("repairV3RelationshipLaneBodyWithOpenAI memory repeat V2", () => {
     expect(laneReasons).toEqual(fvgReasons);
     expect(laneReasons).not.toContain("great_job");
     expect(laneReasons.some((r) => r.startsWith("generic_praise"))).toBe(false);
+  });
+});
+
+describe("user_commitment_as_coach_body role ownership", () => {
+  const MORNING_PLAN_THREE =
+    "I will write three priorities for today before I check messages.";
+
+  it("blocks exact production regression (morning_plan_three paste)", () => {
+    expect(
+      detectUserCommitmentAsCoachBodyReason(MORNING_PLAN_THREE, {
+        behaviorStatement: MORNING_PLAN_THREE,
+        effectiveAsk: MORNING_PLAN_THREE,
+      })
+    ).toBe("user_commitment_as_coach_body");
+  });
+
+  it("blocks I'll contraction and terminal punctuation / case / whitespace variants", () => {
+    const goal = MORNING_PLAN_THREE;
+    expect(
+      detectUserCommitmentAsCoachBodyReason(
+        "I'll write three priorities for today before I check messages.",
+        { behaviorStatement: goal }
+      )
+    ).toBe("user_commitment_as_coach_body");
+    expect(
+      detectUserCommitmentAsCoachBodyReason(
+        "I will write three priorities for today before I check messages!",
+        { behaviorStatement: goal }
+      )
+    ).toBe("user_commitment_as_coach_body");
+    expect(
+      detectUserCommitmentAsCoachBodyReason(
+        "  I WILL write three priorities for today before I check messages.  ",
+        { behaviorStatement: goal }
+      )
+    ).toBe("user_commitment_as_coach_body");
+    expect(normalizeUserCommitmentOwnershipText("I'll keep going.")).toBe("i will keep going");
+  });
+
+  it("allows second-person coaching, relational coach voice, and partial word overlap", () => {
+    const goal = MORNING_PLAN_THREE;
+    expect(
+      detectUserCommitmentAsCoachBodyReason("Write three priorities before you check messages.", {
+        behaviorStatement: goal,
+      })
+    ).toBeNull();
+    expect(
+      detectUserCommitmentAsCoachBodyReason("I hear you. I'll keep the standard in front of you.", {
+        behaviorStatement: goal,
+      })
+    ).toBeNull();
+    expect(
+      detectUserCommitmentAsCoachBodyReason("Good. Start with your three priorities before messages.", {
+        behaviorStatement: goal,
+      })
+    ).toBeNull();
+    expect(
+      detectUserCommitmentAsCoachBodyReason("Keep the priorities sharp today.", {
+        behaviorStatement: goal,
+      })
+    ).toBeNull();
+  });
+
+  it("allows clear attributed quote plus coaching when body is longer than the goal", () => {
+    const quoted = `You said, "${MORNING_PLAN_THREE}" Start there today.`;
+    expect(
+      detectUserCommitmentAsCoachBodyReason(quoted, { behaviorStatement: MORNING_PLAN_THREE })
+    ).toBeNull();
+  });
+
+  it("does not ban unrelated coach first-person or non-first-person goals copied as short asks", () => {
+    expect(
+      detectUserCommitmentAsCoachBodyReason("I'll keep checking in this week.", {
+        behaviorStatement: MORNING_PLAN_THREE,
+      })
+    ).toBeNull();
+    expect(
+      detectUserCommitmentAsCoachBodyReason("Take at least 10,000 steps daily", {
+        behaviorStatement: "Take at least 10,000 steps daily",
+        effectiveAsk: "Take at least 10,000 steps daily",
+      })
+    ).toBeNull();
+    expect(isRepairableFinalVoiceBlockedReason("user_commitment_as_coach_body")).toBe(true);
+  });
+
+  it("detectRelationshipCoachingVoiceBlockedReasons surfaces the reason when goals are provided", () => {
+    expect(
+      detectRelationshipCoachingVoiceBlockedReasons(MORNING_PLAN_THREE, {
+        behaviorStatement: MORNING_PLAN_THREE,
+        effectiveAsk: MORNING_PLAN_THREE,
+      })
+    ).toContain("user_commitment_as_coach_body");
+    expect(detectRelationshipCoachingVoiceBlockedReasons(MORNING_PLAN_THREE)).not.toContain(
+      "user_commitment_as_coach_body"
+    );
+  });
+
+  it("Keep motivational texts coming: FVG never accepts a body equal to the first-person behavior statement", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const r = await applyFinalVoiceOwnershipGate({
+      proposedBody: MORNING_PLAN_THREE,
+      replySource: "v3_inbound_relationship_lane",
+      channel: "inbound_coach_reply",
+      activeCommitmentId: "c1",
+      behaviorStatement: MORNING_PLAN_THREE,
+      effectiveAsk: MORNING_PLAN_THREE,
+      latestInboundRaw: "Keep motivational texts coming.",
+      normalCoaching: true,
+    });
+    expect(r.shouldSend).toBe(false);
+    expect(r.body).toBe("");
+    expect(r.blockedReasons).toContain("user_commitment_as_coach_body");
+    expect(r.body).not.toBe(MORNING_PLAN_THREE);
+  });
+
+  it("repair path receives user_commitment_as_coach_body and revalidates; repeated violation no-sends", async () => {
+    process.env.OPENAI_API_KEY = "test-key";
+    repairCreateMock.mockReset();
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "Write those three priorities before you check messages.",
+          },
+        },
+      ],
+    });
+    const repaired = await applyFinalVoiceOwnershipGate({
+      proposedBody: MORNING_PLAN_THREE,
+      replySource: "v3_inbound_relationship_lane",
+      channel: "inbound_coach_reply",
+      activeCommitmentId: "c1",
+      behaviorStatement: MORNING_PLAN_THREE,
+      effectiveAsk: MORNING_PLAN_THREE,
+      latestInboundRaw: "Keep motivational texts coming.",
+      normalCoaching: true,
+    });
+    expect(repaired.shouldSend).toBe(true);
+    expect(repaired.voiceOwner).toBe("v3_repair");
+    expect(repaired.body).toBe("Write those three priorities before you check messages.");
+    expect(repaired.blockedReasons).toContain("user_commitment_as_coach_body");
+    const userContent = repairCreateMock.mock.calls[0]?.[0]?.messages?.[1]?.content as string;
+    expect(userContent).toMatch(/user_commitment_as_coach_body/);
+    const systemContent = repairCreateMock.mock.calls[0]?.[0]?.messages?.[0]?.content as string;
+    expect(systemContent).toMatch(/user_commitment_as_coach_body/i);
+
+    repairCreateMock.mockReset();
+    repairCreateMock.mockResolvedValueOnce({
+      choices: [
+        {
+          message: {
+            content: "I'll write three priorities for today before I check messages.",
+          },
+        },
+      ],
+    });
+    const stillOwned = await applyFinalVoiceOwnershipGate({
+      proposedBody: MORNING_PLAN_THREE,
+      replySource: "v3_inbound_relationship_lane",
+      channel: "inbound_coach_reply",
+      activeCommitmentId: "c1",
+      behaviorStatement: MORNING_PLAN_THREE,
+      effectiveAsk: MORNING_PLAN_THREE,
+      latestInboundRaw: "Keep motivational texts coming.",
+      normalCoaching: true,
+    });
+    expect(stillOwned.shouldSend).toBe(false);
+    expect(stillOwned.body).toBe("");
+    expect(stillOwned.blockedReasons.some((r) => r.includes("user_commitment_as_coach_body"))).toBe(
+      true
+    );
   });
 });

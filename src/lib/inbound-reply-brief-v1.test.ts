@@ -1276,6 +1276,14 @@ describe("ambiguous_related_progress inbound brief", () => {
     expect(system).toMatch(/concretizing question/i);
   });
 
+  it("writer system prompt forbids pasting user first-person current_goal as coach body", () => {
+    const system = buildInboundBriefWriterSystemPrompt({ maxChars: 320 });
+    expect(system).toMatch(/You are the coach speaking to the user/i);
+    expect(system).toMatch(/never paste the user's first-person commitment/i);
+    expect(system).toMatch(/never emit current_goal as the entire response body/i);
+    expect(system).toMatch(/second-person coaching language/i);
+  });
+
   it("no creating phrase router in brief module", () => {
     const src = readFileSync(join(process.cwd(), "src/lib/inbound-reply-brief-v1.ts"), "utf8");
     expect(src).not.toMatch(/includes\s*\(\s*["']creating["']\s*\)/);
