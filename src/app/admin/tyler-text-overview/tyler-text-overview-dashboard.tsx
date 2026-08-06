@@ -10,6 +10,7 @@ import {
   buildTylerTextOverviewEveningPageHref,
   eveningGenerateButtonLabel,
   eveningSendButtonLabel,
+  EVENING_PROACTIVE_SEND_DISABLED_UI_COPY,
   EVENING_TTO_MANUAL_BANNER,
   EVENING_TTO_NON_TODAY_WARNING,
   EVENING_TTO_NO_PREVIEW_COPY,
@@ -1256,8 +1257,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             });
             const isGeneratingThisEvening =
               Boolean(row.clerkUserId?.trim()) && generatingUserId === row.clerkUserId;
-            const canSendThisEvening =
-              canSendEveningRow(row) && !eveningDirty && !isSendingThisEvening;
+            const eveningSendDisabledReason = EVENING_PROACTIVE_SEND_DISABLED_UI_COPY;
             const readOnlyBody =
               (eveningSent || morningSent) && row.finalBodySent?.trim()
                 ? row.finalBodySent
@@ -1551,11 +1551,12 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                       <button
                         type="button"
                         className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                        disabled={!canSendThisEvening}
-                        onClick={() => setConfirmSendRow(row)}
+                        disabled
+                        title={eveningSendDisabledReason}
                       >
-                        {eveningSendButtonLabel(isSendingThisEvening)}
+                        {eveningSendButtonLabel(false)}
                       </button>
+                      <p className="text-xs text-gray-600">{eveningSendDisabledReason}</p>
                     </>
                   ) : null}
                 </section>

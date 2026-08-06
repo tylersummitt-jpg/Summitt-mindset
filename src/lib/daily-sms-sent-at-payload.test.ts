@@ -85,11 +85,24 @@ describe("daily-sms Twilio success sms_send_events payload", () => {
     );
   });
 
-  it("scheduling gate uses evaluateDailySendTimeWindow, not toLocaleString hour", () => {
-    expect(src).toContain("evaluateDailySendTimeWindow");
-    expect(src).toContain("buildDailySchedulingTelemetry");
+  it("scheduling gate uses fixed Morning lane window, not adaptive hour authorities", () => {
+    expect(src).toContain("evaluateMorningLaneTiming");
+    expect(src).toContain("buildMorningLaneSchedulingTelemetry");
+    expect(src).not.toContain("evaluateDailySendTimeWindow");
+    expect(src).not.toContain("isLocalCatchupHour");
     expect(src).not.toMatch(
       /sendTimeWindowOk\s*=\s*isInSendWindow\(localNow/
     );
+  });
+
+  it("fresh reserved/no-SID rows are not reclaimed within lease", () => {
+    expect(src).toContain("isMorningReservationWithinLease");
+    expect(src).toContain("unknown_outcome_lease_expired");
+    expect(src).toContain("isSafeMorningRetryFailure");
+  });
+
+  it("force does not bypass Morning window", () => {
+    expect(src).toMatch(/force=1 does not bypass/);
+    expect(src).not.toMatch(/bypassWindowGate\s*=\s*Boolean\(existingEvent\)\s*\|\|\s*force/);
   });
 });

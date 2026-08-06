@@ -132,9 +132,9 @@ describe("tyler-text-overview-dashboard-copy evening send/generate UI helpers", 
     ).toBe(false);
   });
 
-  it("eveningSendButtonLabel never says Sending when not busy", () => {
-    expect(eveningSendButtonLabel(false)).toBe("Send Evening Text");
-    expect(eveningSendButtonLabel(true)).toBe("Sending…");
+  it("eveningSendButtonLabel reflects Evening send disabled", () => {
+    expect(eveningSendButtonLabel(false)).toBe("Evening send disabled");
+    expect(eveningSendButtonLabel(true)).toBe("Evening send disabled");
   });
 
   it("eveningGenerateButtonLabel covers generate/regenerate loading", () => {
@@ -462,7 +462,7 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(eveningGenerateButtonLabel({ isGenerating: false, hasPreview: true })).toBe(
       "Regenerate Evening Preview"
     );
-    expect(eveningSendButtonLabel(false)).toBe("Send Evening Text");
+    expect(eveningSendButtonLabel(false)).toBe("Evening send disabled");
     expect(dashboard).toContain("Morning Text Overview →");
     expect(dashboard).toContain("EVENING_TTO_NO_PREVIEW_COPY");
   });
@@ -502,7 +502,8 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("EVENING_TTO_SAVE_BEFORE_SEND_COPY");
     expect(dashboard).toContain("EVENING_TTO_REGENERATE_OVERWRITE_COPY");
     expect(dashboard).toContain("isEveningDraftDirty");
-    expect(dashboard).toContain("canSendThisEvening");
+    expect(dashboard).toContain("EVENING_PROACTIVE_SEND_DISABLED_UI_COPY");
+    expect(dashboard).toContain("eveningSendButtonLabel(false)");
     expect(EVENING_TTO_SAVE_ONLY_COPY).toContain("does not send");
     expect(EVENING_TTO_SAVE_BEFORE_SEND_COPY).toContain("Save changes");
     expect(EVENING_TTO_REGENERATE_OVERWRITE_COPY).toContain("replace saved edits");

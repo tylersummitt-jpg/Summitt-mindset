@@ -5,196 +5,153 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import {
-  buildDailySchedulingTelemetry,
-  clerkSendHourFromPreference,
-  evaluateDailySendTimeWindow,
-  isBlockedByDailyProductFloor,
+  MORNING_LANE_WINDOW_END_MINUTE_EXCLUSIVE,
+  MORNING_LANE_WINDOW_START_MINUTE,
+  MORNING_RESERVATION_LEASE_MS,
+  buildMorningLaneSchedulingTelemetry,
+  evaluateMorningLaneTiming,
+  isMorningLaneSendEligible,
+  isMorningReservationWithinLease,
+  isSafeMorningRetryFailure,
+  reservationAgeMs,
 } from "@/lib/daily-sms-scheduling";
-import { getLocalHourInTimezone as profileGetLocalHour } from "@/lib/v2-send-time-profile";
-import type { V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
 
-const basePrefs = (
-  over: Partial<V2UserSmsCommsPreferencesRow> = {}
-): V2UserSmsCommsPreferencesRow => ({
-  clerk_user_id: "u1",
-  pause_until: null,
-  pause_reason_category: null,
-  cadence_override: null,
-  weekend_send_policy: null,
-  preferred_send_window: null,
-  preferred_local_hour: null,
-  source_message_sid: null,
-  resume_prompt_sent_at: null,
-  created_at: "",
-  updated_at: "",
-  ...over,
-});
-
-const learnedMorningHigh = {
-  clerk_user_id: "u1",
-  preferred_window: "morning" as const,
-  confidence: 0.9,
-  reply_count_morning: 8,
-  reply_count_midday: 0,
-  reply_count_afternoon: 0,
-  reply_count_evening: 0,
-  weak_no_reply_morning: 0,
-  weak_no_reply_midday: 0,
-  weak_no_reply_afternoon: 0,
-  weak_no_reply_evening: 0,
-  updated_at: "",
-};
-
-describe("daily-sms-scheduling — local hour", () => {
-  it("America/New_York at 2026-06-27T10:00:00Z computes local hour 6", () => {
-    const now = new Date("2026-06-27T10:00:00.000Z");
-    expect(profileGetLocalHour(now, "America/New_York")).toBe(6);
+describe("Morning lane fixed window [07:00, 09:00)", () => {
+  it("06:59 ET blocked", () => {
+    const now = new Date("2026-06-27T10:59:00.000Z"); // 06:59 EDT
+    const d = evaluateMorningLaneTiming({ now, timezone: "America/New_York" });
+    expect(d.localHour).toBe(6);
+    expect(d.localMinute).toBe(59);
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toBe("before_morning_window");
+    expect(isMorningLaneSendEligible(now, "America/New_York")).toBe(false);
   });
 
-  it("America/Chicago boundary: 12:00Z is 7AM Central in June", () => {
+  it("07:00 ET eligible", () => {
+    const now = new Date("2026-06-27T11:00:00.000Z"); // 07:00 EDT
+    const d = evaluateMorningLaneTiming({ now, timezone: "America/New_York" });
+    expect(d.localHour).toBe(7);
+    expect(d.localMinute).toBe(0);
+    expect(d.allowed).toBe(true);
+    expect(d.reason).toBe("inside_morning_window");
+    expect(d.windowStartMinute).toBe(MORNING_LANE_WINDOW_START_MINUTE);
+    expect(d.windowEndMinuteExclusive).toBe(MORNING_LANE_WINDOW_END_MINUTE_EXCLUSIVE);
+  });
+
+  it("07:05 ET eligible", () => {
+    const now = new Date("2026-06-27T11:05:00.000Z");
+    expect(isMorningLaneSendEligible(now, "America/New_York")).toBe(true);
+  });
+
+  it("08:59 ET eligible", () => {
+    const now = new Date("2026-06-27T12:59:00.000Z");
+    const d = evaluateMorningLaneTiming({ now, timezone: "America/New_York" });
+    expect(d.localHour).toBe(8);
+    expect(d.localMinute).toBe(59);
+    expect(d.allowed).toBe(true);
+  });
+
+  it("09:00 ET blocked", () => {
+    const now = new Date("2026-06-27T13:00:00.000Z");
+    const d = evaluateMorningLaneTiming({ now, timezone: "America/New_York" });
+    expect(d.localHour).toBe(9);
+    expect(d.localMinute).toBe(0);
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toBe("after_morning_window");
+  });
+
+  it("15:00 ET blocked", () => {
+    const now = new Date("2026-06-27T19:00:00.000Z");
+    expect(isMorningLaneSendEligible(now, "America/New_York")).toBe(false);
+  });
+
+  it("19:00 ET blocked", () => {
+    const now = new Date("2026-06-27T23:00:00.000Z");
+    expect(isMorningLaneSendEligible(now, "America/New_York")).toBe(false);
+  });
+
+  it("21:00 ET blocked", () => {
+    const now = new Date("2026-06-28T01:00:00.000Z");
+    expect(isMorningLaneSendEligible(now, "America/New_York")).toBe(false);
+  });
+
+  it("Central 12:00Z is 07:00 eligible in June", () => {
     const now = new Date("2026-06-27T12:00:00.000Z");
-    expect(profileGetLocalHour(now, "America/Chicago")).toBe(7);
+    expect(isMorningLaneSendEligible(now, "America/Chicago")).toBe(true);
   });
 
-  it("America/Los_Angeles boundary: 14:00Z is 7AM Pacific in June", () => {
+  it("Pacific 14:00Z is 07:00 eligible in June", () => {
     const now = new Date("2026-06-27T14:00:00.000Z");
-    expect(profileGetLocalHour(now, "America/Los_Angeles")).toBe(7);
+    expect(isMorningLaneSendEligible(now, "America/Los_Angeles")).toBe(true);
+  });
+
+  it("Arizona 14:00Z is 07:00 eligible (no DST)", () => {
+    const now = new Date("2026-06-27T14:00:00.000Z");
+    expect(isMorningLaneSendEligible(now, "America/Phoenix")).toBe(true);
   });
 });
 
-describe("daily-sms-scheduling — 7AM product floor", () => {
-  const sixAmEt = new Date("2026-06-27T10:00:00.000Z");
-  const sevenAmEt = new Date("2026-06-27T11:00:00.000Z");
-
-  it("default Clerk morning / no prefs / learned inactive → no send at local hour 6", () => {
-    const result = evaluateDailySendTimeWindow({
-      now: sixAmEt,
+describe("legacy timing cannot move Morning window", () => {
+  it("telemetry is fixed_morning_window regardless of legacy prefs", () => {
+    const now = new Date("2026-06-27T11:00:00.000Z");
+    const timing = evaluateMorningLaneTiming({ now, timezone: "America/New_York" });
+    const telemetry = buildMorningLaneSchedulingTelemetry({
       timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: null,
-      bypassWindowGate: false,
+      timing,
+      attemptKind: "first_attempt",
     });
-    expect(result.computedLocalHour).toBe(6);
-    expect(result.sendTimeWindowOk).toBe(false);
-    expect(result.productFloorBlockedWithoutBypass).toBe(true);
-    expect(result.sendWindowPolicySource).toBe("clerk_hour");
+    expect(telemetry.timing_source).toBe("fixed_morning_window");
+    expect(telemetry.send_window_policy_source).toBe("fixed_morning_window");
+    expect(telemetry).not.toHaveProperty("learned_window");
+    expect(telemetry).not.toHaveProperty("clerk_send_hour");
+    expect(telemetry).not.toHaveProperty("product_floor_hour");
   });
 
-  it("preferred_send_window = morning → no send at local hour 6", () => {
-    const result = evaluateDailySendTimeWindow({
-      now: sixAmEt,
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: basePrefs({ preferred_send_window: "morning" }),
-      learnedProfile: null,
-      bypassWindowGate: false,
-    });
-    expect(result.sendTimeWindowOk).toBe(false);
-    expect(result.sendWindowPolicySource).toBe("explicit_window");
-    expect(result.productFloorBlockedWithoutBypass).toBe(true);
-  });
-
-  it("learned_profile preferred_window = morning, confidence high → no send at local hour 6", () => {
-    const result = evaluateDailySendTimeWindow({
-      now: sixAmEt,
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: learnedMorningHigh,
-      bypassWindowGate: false,
-    });
-    expect(result.sendTimeWindowOk).toBe(false);
-    expect(result.sendWindowPolicySource).toBe("learned_profile");
-    expect(result.productFloorBlockedWithoutBypass).toBe(true);
-  });
-
-  it("same user at 7AM local → send allowed", () => {
-    const result = evaluateDailySendTimeWindow({
-      now: sevenAmEt,
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: learnedMorningHigh,
-      bypassWindowGate: false,
-    });
-    expect(result.computedLocalHour).toBe(7);
-    expect(result.sendTimeWindowOk).toBe(true);
-    expect(result.productFloorBlockedWithoutBypass).toBe(false);
-  });
-
-  it("explicit preferred_local_hour = 6 → send allowed at 6", () => {
-    const result = evaluateDailySendTimeWindow({
-      now: sixAmEt,
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: basePrefs({ preferred_local_hour: 6 }),
-      learnedProfile: null,
-      bypassWindowGate: false,
-    });
-    expect(result.sendTimeWindowOk).toBe(true);
-    expect(result.productFloorBlockedWithoutBypass).toBe(false);
-    expect(result.sendWindowPolicySource).toBe("explicit_hour");
-  });
-
-  it("bypassWindowGate preserves retry path but flags product floor telemetry", () => {
-    const result = evaluateDailySendTimeWindow({
-      now: sixAmEt,
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: null,
-      learnedProfile: learnedMorningHigh,
-      bypassWindowGate: true,
-    });
-    expect(result.sendTimeWindowOk).toBe(true);
-    expect(result.sendTimeWindowOkWithoutBypass).toBe(false);
-    expect(result.productFloorBlockedWithoutBypass).toBe(true);
-    const telemetry = buildDailySchedulingTelemetry({
-      timezone: "America/New_York",
-      evaluation: result,
-      retryOutsideWindow: true,
-    });
-    expect(telemetry.retry_outside_window).toBe(true);
-    expect(telemetry.product_floor_hour).toBe(7);
-    expect(telemetry.computed_local_hour).toBe(6);
-    expect(telemetry.send_window_policy_source).toBe("learned_profile");
-  });
-
-  it("product_floor telemetry populated", () => {
-    const result = evaluateDailySendTimeWindow({
-      now: sevenAmEt,
-      timezone: "America/New_York",
-      clerkSmsTimePreference: "morning",
-      commsPrefs: basePrefs({ preferred_send_window: "morning" }),
-      learnedProfile: null,
-      bypassWindowGate: false,
-    });
-    const telemetry = buildDailySchedulingTelemetry({
-      timezone: "America/New_York",
-      evaluation: result,
-    });
-    expect(telemetry.user_timezone).toBe("America/New_York");
-    expect(telemetry.computed_local_hour).toBe(7);
-    expect(telemetry.clerk_send_hour).toBe(7);
-    expect(telemetry.product_floor_applied).toBe(true);
-    expect(telemetry.preferred_send_window).toBe("morning");
-  });
-
-  it("isBlockedByDailyProductFloor blocks hour 6 without explicit early hour", () => {
-    expect(isBlockedByDailyProductFloor(6, null)).toBe(true);
-    expect(isBlockedByDailyProductFloor(6, 6)).toBe(false);
-    expect(isBlockedByDailyProductFloor(7, null)).toBe(false);
-  });
-
-  it("clerkSendHourFromPreference maps morning to 7", () => {
-    expect(clerkSendHourFromPreference("morning")).toBe(7);
-    expect(clerkSendHourFromPreference("early_morning")).toBe(7);
+  it("scheduling module source has no catch-up / adaptive Morning authorities", () => {
+    const { readFileSync } = require("node:fs") as typeof import("node:fs");
+    const { join } = require("node:path") as typeof import("node:path");
+    const src = readFileSync(join(process.cwd(), "src/lib/daily-sms-scheduling.ts"), "utf8");
+    expect(src).toContain("fixed_morning_window");
+    expect(src).not.toMatch(/isLocalCatchupHour/);
+    expect(src).not.toMatch(/evaluateDailySendTimeWindow/);
+    expect(src).not.toMatch(/preferred_local_hour/);
+    expect(src).not.toMatch(/learnedProfile/);
   });
 });
 
-describe("daily-sms-scheduling — metadata.sent_at does not drive scheduling", () => {
-  it("scheduling uses now instant only (no sent_at field in evaluator)", () => {
-    const src = evaluateDailySendTimeWindow.toString();
-    expect(src).not.toMatch(/sent_at/);
+describe("reservation lease / safe retry", () => {
+  it("lease is 15 minutes", () => {
+    expect(MORNING_RESERVATION_LEASE_MS).toBe(15 * 60 * 1000);
+  });
+
+  it("fresh reservation is within lease", () => {
+    const now = new Date("2026-06-27T11:10:00.000Z");
+    const created = "2026-06-27T11:05:00.000Z";
+    expect(isMorningReservationWithinLease(created, now)).toBe(true);
+    expect(reservationAgeMs(created, now)).toBe(5 * 60 * 1000);
+  });
+
+  it("reservation older than lease is reclaimable for unknown marking only", () => {
+    const now = new Date("2026-06-27T11:30:00.000Z");
+    const created = "2026-06-27T11:00:00.000Z";
+    expect(isMorningReservationWithinLease(created, now)).toBe(false);
+  });
+
+  it("missing created_at treated as within lease (fail closed)", () => {
+    expect(isMorningReservationWithinLease(null, new Date())).toBe(true);
+  });
+
+  it("safe retry only for explicit pre-Twilio failures", () => {
+    expect(isSafeMorningRetryFailure({ note: "dry_run_enabled", twilio_send_attempted: false })).toBe(
+      true
+    );
+    expect(isSafeMorningRetryFailure({ note: "twilio_not_ready", twilio_send_attempted: false })).toBe(
+      true
+    );
+    expect(isSafeMorningRetryFailure({ note: "send_failed" })).toBe(false);
+    expect(isSafeMorningRetryFailure({ note: "unknown_outcome_lease_expired" })).toBe(false);
+    expect(isSafeMorningRetryFailure({ note: "retry_success", twilio_send_attempted: true })).toBe(
+      false
+    );
   });
 });

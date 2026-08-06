@@ -7,7 +7,6 @@ import { NextResponse } from "next/server";
 import { getClerkUser } from "@/lib/clerk-rest";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { supabaseServer } from "@/lib/supabase-server";
-import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
 import { getDateKeyInTimezone, resolveSmsUserTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 import {
@@ -24,11 +23,12 @@ import {
 } from "@/lib/v2-commitment";
 import { maybeRecordV2WeakNoReplyFromPriorAccountabilityDay } from "@/lib/v2-send-time-weak-no-reply";
 import {
-  buildDailySchedulingTelemetry,
-  evaluateDailySendTimeWindow,
-  isLocalCatchupHour,
+  buildMorningLaneSchedulingTelemetry,
+  evaluateMorningLaneTiming,
+  isMorningReservationWithinLease,
+  isSafeMorningRetryFailure,
+  reservationAgeMs,
 } from "@/lib/daily-sms-scheduling";
-import { fetchV2UserSendTimeProfile } from "@/lib/v2-send-time-profile";
 import {
   fetchV2UserSmsCommsPreferences,
   shouldApplyUserCadenceOverride,
@@ -66,9 +66,8 @@ async function shouldSkipDailyForActiveInboundThread(clerkUserId: string): Promi
   return hasRecentInboundAccountabilityExchange(ac.id);
 }
 
-function timeOfDayForOutboundContext(md: Record<string, unknown>): "morning" | "evening" {
-  const pref = smsTimePreferenceFromClerkMetadata(md).toLowerCase().trim();
-  if (pref === "midday" || pref === "evening") return "evening";
+function timeOfDayForOutboundContext(_md: Record<string, unknown>): "morning" | "evening" {
+  // Morning production lane always tags outbound context as morning.
   return "morning";
 }
 
@@ -599,18 +598,15 @@ function logDailySmsCronAuthFailure(req: Request) {
 
 /**
  * ======================================================
- * PREFERENCE-BASED SEND WINDOW
+ * MORNING LANE TIMING
  * ======================================================
  *
- * Goal:
- * - Each user receives at most ONE SMS per local day.
- * - Send time is based on Clerk public_metadata.smsTimePreference (early_morning/morning=7 local, midday/evening=19 local).
- * - Users are eligible for the entire preferred local hour (not only the first minutes).
- * - Cron runs every 5 minutes and may attempt multiple times within that hour; reservation
- *   (unique clerk_user_id + day_key) ensures only one SMS is sent.
+ * - User-local eligibility: [07:00, 09:00)
+ * - At most one potentially successful Twilio handoff per (user, local day, morning)
+ * - Cron runs every five minutes as a poller only; reservation uniqueness prevents repeats
+ * - Adaptive Clerk / learned / explicit hour authorities do not control Morning timing
  */
 const FIRST_14_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
-const SAFE_LOCAL_CUTOFF_HOUR = 22;
 
 function isWithinFirst14Days(activationAt: string | null, now: Date): boolean {
   if (!activationAt) return false;
@@ -980,73 +976,42 @@ export async function GET(req: Request) {
         else stats.expectedNormalActiveUsers += 1;
       }
 
-      const learnedProfForWindow = hasActiveBehavior
-        ? await fetchV2UserSendTimeProfile(audienceUser.clerk_user_id)
-        : null;
-
-      const pref = smsTimePreferenceFromClerkMetadata(md as Record<string, unknown>);
-
       // STEP 1: Read existing event before reserve (and before window check)
       stage = "query_send_events";
       const { data: existingRow } = await supabaseServer
         .from("sms_send_events")
-        .select("id, status, metadata, message_sid")
+        .select("id, status, metadata, message_sid, created_at")
         .eq("clerk_user_id", audienceUser.clerk_user_id)
         .eq("day_key", todayKey)
         .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
         .maybeSingle();
 
       let existingEvent = existingRow;
-      const bypassWindowGate = Boolean(existingEvent) || force;
 
-      const sendWindowEval = evaluateDailySendTimeWindow({
-        now,
-        timezone,
-        clerkSmsTimePreference: pref,
-        commsPrefs,
-        learnedProfile: learnedProfForWindow,
-        bypassWindowGate,
-      });
-      const computedLocalHour = sendWindowEval.computedLocalHour;
+      const morningTiming = evaluateMorningLaneTiming({ now, timezone });
+      const sendTimeWindowOk = morningTiming.allowed;
 
-      // Retries bypass send window; first-time sends require it (+ 7AM product floor).
-      let sendTimeWindowOk = sendWindowEval.sendTimeWindowOk;
-
-      if (!existingEvent && !force && !sendTimeWindowOk) {
-        const canCatchupNow =
-          isExpectedDailyAttemptUser && isLocalCatchupHour(computedLocalHour);
-        if (canCatchupNow) {
-          stats.catchupEligible += 1;
-          stats.catchupAttempted += 1;
-          sendTimeWindowOk = true;
+      // First attempts and retries both require the fixed Morning window. force=1 does not bypass it.
+      if (!sendTimeWindowOk) {
+        if (isExpectedDailyAttemptUser && morningTiming.reason === "after_morning_window") {
+          stats.skippedPastSafeLocalCutoff += 1;
         } else {
-          if (isExpectedDailyAttemptUser && computedLocalHour >= SAFE_LOCAL_CUTOFF_HOUR) {
-            stats.skippedPastSafeLocalCutoff += 1;
-          } else if (sendWindowEval.productFloorBlockedWithoutBypass) {
-            stats.skippedPreferredWindowWaiting += 1;
-          } else {
-            stats.skippedPreferredWindowWaiting += 1;
-          }
-          stats.skippedIntentional += 1;
-          stats.skippedNotTime += 1;
-          continue;
+          stats.skippedPreferredWindowWaiting += 1;
         }
-      }
-
-      if (!existingEvent && !force && !sendTimeWindowOk) {
+        stats.skippedIntentional += 1;
         stats.skippedNotTime += 1;
         continue;
       }
 
-      const retryOutsideWindow =
-        bypassWindowGate &&
-        !force &&
-        (!sendWindowEval.sendTimeWindowOkWithoutBypass ||
-          sendWindowEval.productFloorBlockedWithoutBypass);
-      const schedulingTelemetry = buildDailySchedulingTelemetry({
+      const resAgeMs = reservationAgeMs(
+        typeof existingEvent?.created_at === "string" ? existingEvent.created_at : null,
+        now
+      );
+      const schedulingTelemetry = buildMorningLaneSchedulingTelemetry({
         timezone,
-        evaluation: sendWindowEval,
-        retryOutsideWindow,
+        timing: morningTiming,
+        attemptKind: existingEvent ? "safe_retry" : "first_attempt",
+        reservationAgeMs: resAgeMs,
       });
 
       stats.eligible += 1;
@@ -1055,24 +1020,29 @@ export async function GET(req: Request) {
       if (existingEvent) {
         const hasMessageSid = hasAnyTwilioSidOnSendEvent(existingEvent);
 
-        // Unsent stuck "reserved" (insert succeeded, send/update never completed)
+        // Fresh reserved/no-SID = in-flight or unknown. Never reclaim on the next poll.
         if (existingEvent.status === "reserved" && !hasMessageSid) {
-          const priorStatus = existingEvent.status;
-          const reservedMeta = (existingEvent.metadata || {}) as Record<
-            string,
-            unknown
-          >;
+          const createdAt =
+            typeof existingEvent.created_at === "string" ? existingEvent.created_at : null;
+          if (isMorningReservationWithinLease(createdAt, now)) {
+            stats.alreadyReservedOrSentToday += 1;
+            stats.skippedIntentional += 1;
+            continue;
+          }
+
+          // Past lease with no SID: unknown outcome — fail closed, no automatic Twilio retry.
+          const reservedMeta = (existingEvent.metadata || {}) as Record<string, unknown>;
           const recoveredMeta = {
             ...reservedMeta,
-            retry_count: 0,
-            note: "recovered_stuck_reserved",
-            recovered_at: new Date().toISOString(),
+            note: "unknown_outcome_lease_expired",
+            unknown_outcome_no_automatic_retry: true,
+            lease_expired_at: now.toISOString(),
+            reservation_age_ms: reservationAgeMs(createdAt, now),
           };
 
-          console.log("[daily-sms] recovered stuck reserved row", {
+          console.log("[daily-sms] reserved/no-SID past lease — mark unknown, no auto-retry", {
             clerk_user_id: audienceUser.clerk_user_id,
-            priorStatus,
-            messageSidPresent: hasMessageSid,
+            created_at: createdAt,
           });
 
           stats.recoveredReserved += 1;
@@ -1087,14 +1057,12 @@ export async function GET(req: Request) {
             .eq("day_key", todayKey)
             .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
 
-          existingEvent = {
-            ...existingEvent,
-            status: "send_failed",
-            metadata: recoveredMeta,
-          };
+          stats.alreadyReservedOrSentToday += 1;
+          stats.skippedIntentional += 1;
+          continue;
         }
 
-        // CASE A: send_failed with retries left (never retry after Twilio SID is known)
+        // CASE A: send_failed with safe retry only (never retry after Twilio SID is known)
         if (existingEvent.status === "send_failed") {
           if (hasMessageSid) {
             stats.alreadyReservedOrSentToday += 1;
@@ -1104,6 +1072,12 @@ export async function GET(req: Request) {
 
           const existingMeta = (existingEvent.metadata || {}) as Record<string, unknown>;
           const retryCount = typeof existingMeta.retry_count === "number" ? existingMeta.retry_count : 0;
+
+          if (!isSafeMorningRetryFailure(existingMeta) || retryCount >= 3) {
+            stats.alreadyReservedOrSentToday += 1;
+            stats.skippedIntentional += 1;
+            continue;
+          }
 
           if (retryCount < 3) {
             // Legacy app completion only; V2 accountability does not use daily_completion_events.
@@ -1214,18 +1188,43 @@ export async function GET(req: Request) {
               retryCount,
               dryRun: SMS_DRY_RUN,
             });
+
             if (retrySendAttempt.outcome === "blocked") {
-              stats.skippedUnexpected += 1;
+              stats.skippedTtoAuthoritativeFailClosed += 1;
               stats.skippedIntentional += 1;
               continue;
             }
+
             if (retrySendAttempt.outcome === "dry_run") {
-              stats.alreadyReservedOrSentToday += 1;
+              await supabaseServer
+                .from("sms_send_events")
+                .update({
+                  status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
+                  metadata: {
+                    ...existingMeta,
+                    ...schedulingTelemetry,
+                    note: SMS_DRY_RUN ? "dry_run_enabled" : "twilio_not_ready",
+                    twilio_send_attempted: false,
+                    retry_count: retryCount,
+                    timezone,
+                    local_time: localNow.toISOString(),
+                  },
+                })
+                .eq("clerk_user_id", audienceUser.clerk_user_id)
+                .eq("day_key", todayKey)
+                .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
+              if (SMS_DRY_RUN) stats.dryRun += 1;
+              else {
+                stats.skippedMissingTwilio += 1;
+                stats.skippedUnexpected += 1;
+              }
               continue;
             }
+
             if (retrySendAttempt.outcome === "failed") {
               stats.failed += 1;
               stats.sendFailed += 1;
+              stats.retried += 1;
               stats.skippedUnexpected += 1;
               continue;
             }
@@ -1284,21 +1283,30 @@ export async function GET(req: Request) {
                   dayKey: todayKey,
                   sentBody: smsBody,
                   messageSid: retryMessageSid,
+                  sentAt: now,
                 });
               }
-            } else if (recordResult.orphanLogged) {
+            } else {
               stats.failed += 1;
               stats.sendFailed += 1;
               stats.skippedUnexpected += 1;
             }
             continue;
           }
+
+          stats.alreadyReservedOrSentToday += 1;
+          stats.skippedIntentional += 1;
+          continue;
         }
-        // CASE B: any other status - skip
+
+        // Already reserved/sent/skipped for this slot today
         stats.alreadyReservedOrSentToday += 1;
         stats.skippedIntentional += 1;
         continue;
       }
+
+      // MAIN PATH: no existing event — reserve and send inside Morning window only.
+      // (force does not bypass window, TTO, or duplicate protections.)
 
       // V2 cadence gate (explicit override only; silence cadence decoupled).
       stage = "cadence_gate";
@@ -1468,6 +1476,7 @@ export async function GET(req: Request) {
           .update({
             status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
             metadata: {
+              ...schedulingTelemetry,
               note: SMS_DRY_RUN ? "dry_run_enabled" : "twilio_not_ready",
               timezone,
               local_time: localNow.toISOString(),

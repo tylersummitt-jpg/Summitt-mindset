@@ -7,10 +7,17 @@ const ROUTE = path.join(process.cwd(), "src/app/api/cron/daily-sms/route.ts");
 describe("daily-sms — comms preferences wire", () => {
   const src = fs.readFileSync(ROUTE, "utf8");
 
-  it("imports and fetches comms prefs", () => {
+  it("imports and fetches comms prefs for pause/weekend/cadence", () => {
     expect(src).toContain("fetchV2UserSmsCommsPreferences");
     expect(src).toContain("shouldSkipDailyForCommsPrefs");
-    expect(src).toContain("resolveDailySendWindowPolicy");
+    expect(src).toContain("shouldApplyUserCadenceOverride");
+  });
+
+  it("does not use adaptive send-window policy for Morning timing", () => {
+    expect(src).not.toContain("resolveDailySendWindowPolicy");
+    expect(src).not.toContain("sendWindowPolicy.useExplicitHour");
+    expect(src).not.toContain("fetchV2UserSendTimeProfile");
+    expect(src).toContain("evaluateMorningLaneTiming");
   });
 
   it("pause skip happens before reserveTodaySendOrSkip", () => {
@@ -27,19 +34,17 @@ describe("daily-sms — comms preferences wire", () => {
     expect(reserveIdx).toBeGreaterThan(wkIdx);
   });
 
-  it("shouldEnterLowPressureReactivation gated during pause", () => {
-    expect(src).toContain("!isPauseActive(commsPrefs");
-    expect(src).toContain("shouldEnterLowPressureReactivation");
+  it("Morning fixed window gate happens before reserve", () => {
+    const windowIdx = src.indexOf("evaluateMorningLaneTiming");
+    const reserveIdx = src.indexOf("const reservation = await reserveTodaySendOrSkip");
+    expect(windowIdx).toBeGreaterThanOrEqual(0);
+    expect(reserveIdx).toBeGreaterThan(windowIdx);
   });
 
-  it("preferred hour/window before learned gate in send window block", () => {
-    expect(src).toContain("sendWindowPolicy.useExplicitHour");
-    expect(src).toContain("sendWindowPolicy.useExplicitWindow");
-  });
-
-  it("cadence_override can apply for expected daily users", () => {
+  it("cadence_override still applies via shouldApplyUserCadenceOverride", () => {
     expect(src).toContain("userCadenceOverride");
-    expect(src).toContain("!isExpectedDailyAttemptUser || userCadenceOverride != null");
+    expect(src).toContain("shouldApplyUserCadenceOverride");
+    expect(src).toContain("shouldSendV2CadenceToday");
   });
 
   it("does not add skipped_user_pause sms_send_events status", () => {

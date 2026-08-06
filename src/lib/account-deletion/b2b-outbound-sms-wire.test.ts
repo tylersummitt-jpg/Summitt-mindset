@@ -24,11 +24,19 @@ describe("APP-041B2b path hardening wire", () => {
     expect(src).toContain("evaluateOutboundSmsForAccountDeletion");
   });
 
-  it("evening eligibility and send catch deletion", () => {
+  it("evening proactive send is disabled before Twilio (no deletion catch required)", () => {
     const src = read("src/lib/tyler-text-overview-evening-send.ts");
-    expect(src).toContain("account_deletion_blocks_sms");
-    expect(src).toContain("evaluateOutboundSmsForAccountDeletion");
-    expect(src).toContain("isAccountDeletionOutboundSmsError");
+    expect(src).toContain("evening_proactive_send_disabled");
+    expect(src).toContain("EVENING_PROACTIVE_SEND_DISABLED_CODE");
+    // Entry fails closed before any Twilio attempt; no sendSMS and no post-Twilio deletion catch.
+    expect(src).not.toMatch(/\bsendSMS\s*\(/);
+    expect(src).not.toContain("isAccountDeletionOutboundSmsError");
+    expect(src).not.toContain("reservedSendEventPatchForDeletionError");
+    const fnStart = src.indexOf("export async function sendTylerTextOverviewEveningDraft");
+    expect(fnStart).toBeGreaterThanOrEqual(0);
+    const fnBody = src.slice(fnStart, fnStart + 600);
+    expect(fnBody).toContain("return refuse(");
+    expect(fnBody).toContain("EVENING_PROACTIVE_SEND_DISABLED_CODE");
   });
 
   it("guided shrink has early and pre-send deletion checks", () => {
@@ -53,16 +61,18 @@ describe("APP-041B2b path hardening wire", () => {
     expect(src).toContain("send deferred (deletion_lookup_failed)");
   });
 
-  it("daily/weekly/evening use reservedSendEventPatchForDeletionError", () => {
+  it("live Twilio send surfaces use reservedSendEventPatchForDeletionError; Evening does not (disabled)", () => {
     expect(read("src/app/api/cron/daily-sms/route.ts")).toContain(
       "reservedSendEventPatchForDeletionError"
     );
     expect(read("src/lib/tyler-text-overview-weekly-send.ts")).toContain(
       "reservedSendEventPatchForDeletionError"
     );
-    expect(read("src/lib/tyler-text-overview-evening-send.ts")).toContain(
-      "reservedSendEventPatchForDeletionError"
-    );
+    // Evening proactive send fails closed before Twilio — no reserved-patch wire while disabled.
+    const evening = read("src/lib/tyler-text-overview-evening-send.ts");
+    expect(evening).toContain("evening_proactive_send_disabled");
+    expect(evening).not.toContain("reservedSendEventPatchForDeletionError");
+    expect(evening).not.toMatch(/\bsendSMS\s*\(/);
   });
 
   it("35. messages.create remains only in twilio transport", () => {

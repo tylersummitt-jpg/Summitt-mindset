@@ -21,6 +21,8 @@ function adminErrorResponse(err: unknown) {
 
 function refusalStatus(code: string): number {
   switch (code) {
+    case "evening_proactive_send_disabled":
+      return 410;
     case "draft_not_found":
       return 404;
     case "draft_not_current":

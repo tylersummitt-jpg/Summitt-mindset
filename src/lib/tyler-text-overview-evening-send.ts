@@ -1,11 +1,8 @@
-import { buildStandardCheckSentPayload } from "@/lib/daily-sms-build";
 import { recentEventsIncludeUserYesOnLocalDay } from "@/lib/north-star-sms-context-packet";
 import { supabaseServer } from "@/lib/supabase-server";
-import { isTwilioReady, sendSMS } from "@/lib/twilio";
+import { isTwilioReady } from "@/lib/twilio";
 import {
   evaluateOutboundSmsForAccountDeletion,
-  isAccountDeletionOutboundSmsError,
-  reservedSendEventPatchForDeletionError,
 } from "@/lib/account-deletion/deletion-guards";
 import { loadTylerTextOverviewAudienceRow } from "@/lib/tyler-text-overview-generate";
 import {
@@ -14,8 +11,6 @@ import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
 } from "@/lib/tyler-text-overview-types";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
-import { buildCheckSentIdempotencyKey } from "@/lib/v2-check-sent-slot";
-import { onV2StandardCheckSentOutboundSendSuccess } from "@/lib/v2-outbound-check-sent";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import {
   fetchV2UserSmsCommsPreferences,
@@ -27,7 +22,14 @@ export const EVENING_PREVIEW_STALE_MS = 4 * 60 * 60 * 1000;
 
 export type TylerTextOverviewEveningSendMode = "manual_one";
 
+export const EVENING_PROACTIVE_SEND_DISABLED = true;
+export const EVENING_PROACTIVE_SEND_DISABLED_CODE =
+  "evening_proactive_send_disabled" as const;
+export const EVENING_PROACTIVE_SEND_DISABLED_MESSAGE =
+  "Evening proactive Twilio sends are disabled. Morning is the only proactive daily lane.";
+
 export type TylerTextOverviewEveningSendRefusalCode =
+  | "evening_proactive_send_disabled"
   | "draft_not_found"
   | "draft_not_current"
   | "wrong_send_slot"
@@ -666,308 +668,10 @@ export async function sendTylerTextOverviewEveningDraft(args: {
   mode: "manual_one";
   now?: Date;
 }): Promise<TylerTextOverviewEveningSendResult> {
-  const draftId = args.draftId.trim();
-  if (!draftId) {
-    return refuse("draft_not_found", "Missing draft id");
-  }
-
-  const loaded = await loadEveningDraftBundleForSend(draftId);
-  if (!loaded.ok) return loaded.refusal;
-
-  const { draft, generation } = loaded;
-  const bodyToSend =
-    typeof draft.current_body_to_send === "string" ? draft.current_body_to_send.trim() : "";
-  if (!bodyToSend) {
-    return refuse("body_empty", "Evening draft has no sendable body", {
-      draftId: draft.id,
-      clerkUserId: draft.clerk_user_id,
-      draftForDayKey: draft.draft_for_day_key,
-    });
-  }
-
-  const eligibilityBlock = await evaluateEveningSendEligibility({
-    draft,
-    generation,
-    bodyToSend,
-    now: args.now,
-  });
-  if (eligibilityBlock) return eligibilityBlock;
-
-  const generationMetadata = generation.generation_metadata ?? {};
-  const reservation = await reserveEveningSmsSendEvent({
-    clerkUserId: draft.clerk_user_id,
-    dayKey: draft.draft_for_day_key,
-    draftId: draft.id,
-    generationId: generation.id,
-    requestedByClerkUserId: args.requestedByClerkUserId,
-    mode: args.mode,
-    machineShouldSendAtSend: generation.machine_should_send === true,
-    generationMetadata,
-  });
-  if (!reservation.ok) return reservation.result;
-
-  const smsSendEventId = reservation.smsSendEventId;
-  const sentAtIso = (args.now ?? new Date()).toISOString();
-
-  const { data: audiencePhone } = await supabaseServer
-    .from("sms_audience")
-    .select("phone_number")
-    .eq("clerk_user_id", draft.clerk_user_id)
-    .maybeSingle();
-  const phone =
-    typeof audiencePhone?.phone_number === "string" ? audiencePhone.phone_number.trim() : "";
-  if (!phone) {
-    return refuse("no_phone", "User has no phone number", {
-      draftId: draft.id,
-      clerkUserId: draft.clerk_user_id,
-      draftForDayKey: draft.draft_for_day_key,
-    });
-  }
-
-  let twilioMessageSid: string;
-  let twilioStatus: string;
-  try {
-    const message = await sendSMS({
-      to: phone,
-      body: bodyToSend,
-      lastOutbound: {
-        clerkUserId: draft.clerk_user_id,
-        messageKind: "question",
-        timeOfDay: "evening",
-      },
-    });
-    twilioMessageSid = message.sid;
-    twilioStatus = typeof message.status === "string" ? message.status : "sent";
-  } catch (err) {
-    if (isAccountDeletionOutboundSmsError(err)) {
-      const patch = reservedSendEventPatchForDeletionError(err);
-      await supabaseServer
-        .from("sms_send_events")
-        .update({
-          status: patch.status,
-          metadata: {
-            ...generationMetadata,
-            send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-            preview_only: false,
-            tto_draft_id: draft.id,
-            send_mode: args.mode,
-            twilio_send_attempted: false,
-            note: patch.note,
-          },
-        })
-        .eq("id", smsSendEventId);
-      if (patch.metricCategory === "blocked_due_to_deletion") {
-        return refuse("account_deletion_blocks_sms", err.code, {
-          draftId: draft.id,
-          clerkUserId: draft.clerk_user_id,
-          draftForDayKey: draft.draft_for_day_key,
-          recoverable: false,
-        });
-      }
-      if (patch.metricCategory === "deletion_lookup_failed") {
-        return refuse("deletion_lookup_failed", err.code, {
-          draftId: draft.id,
-          clerkUserId: draft.clerk_user_id,
-          draftForDayKey: draft.draft_for_day_key,
-          recoverable: true,
-        });
-      }
-      return refuse("missing_clerk_user_id_for_outbound_sms", err.code, {
-        draftId: draft.id,
-        clerkUserId: draft.clerk_user_id,
-        draftForDayKey: draft.draft_for_day_key,
-        recoverable: false,
-      });
-    }
-    const message = err instanceof Error ? err.message : String(err);
-    await supabaseServer
-      .from("sms_send_events")
-      .update({
-        status: "send_failed",
-        metadata: {
-          ...generationMetadata,
-          send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-          preview_only: false,
-          tto_draft_id: draft.id,
-          send_mode: args.mode,
-          twilio_send_attempted: true,
-          twilio_error: message.slice(0, 500),
-          note: "evening_manual_twilio_failed",
-        },
-      })
-      .eq("id", smsSendEventId);
-    return refuse("twilio_failed", message, {
-      draftId: draft.id,
-      clerkUserId: draft.clerk_user_id,
-      draftForDayKey: draft.draft_for_day_key,
-    });
-  }
-
-  const outboundSnapshot = await resolveEveningV2OutboundSnapshot({
-    generation,
-    bodyToSend,
-    clerkUserId: draft.clerk_user_id,
-  });
-
-  const successMetadata: Record<string, unknown> = {
-    send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-    preview_only: false,
-    tto_draft_id: draft.id,
-    tto_generation_id: generation.id,
-    sent_by_clerk_user_id: args.requestedByClerkUserId,
-    send_mode: args.mode,
-    machine_should_send_at_send: generation.machine_should_send === true,
-    morning_anchor_source: readMetadataString(generationMetadata, "morning_anchor_source"),
-    morning_anchor_body_preview: readMetadataString(
-      generationMetadata,
-      "morning_anchor_body_preview"
-    ),
-    slot_coaching_context: readMetadataObject(generationMetadata, "slot_coaching_context"),
-    sent_at: sentAtIso,
-    twilio_send_attempted: true,
-    twilio_message_sid: twilioMessageSid,
-    message_sid: twilioMessageSid,
-    sms_body: bodyToSend,
-    final_sms_body: bodyToSend,
-    twilio_status: twilioStatus,
-    v2_accountability: true,
-    note: "evening_manual_send_success",
-    ...(outboundSnapshot
-      ? {
-          v2_commitment_id: outboundSnapshot.v2_commitment_id,
-          v2_template_id: outboundSnapshot.v2_template_id,
-          v2_template_family: outboundSnapshot.v2_template_family,
-        }
-      : {}),
-  };
-
-  const { error: sendEventUpdateError } = await supabaseServer
-    .from("sms_send_events")
-    .update({
-      message_sid: twilioMessageSid,
-      status: twilioStatus,
-      sms_body: bodyToSend,
-      metadata: successMetadata,
-    })
-    .eq("id", smsSendEventId);
-
-  if (sendEventUpdateError) {
-    console.error("[tyler-text-overview-evening-send] sms_send_events finalize failed after Twilio", {
-      sms_send_event_id: smsSendEventId,
-      twilio_message_sid: twilioMessageSid,
-      error: sendEventUpdateError.message,
-    });
-    return refuse("post_send_bookkeeping_failed", sendEventUpdateError.message, {
-      draftId: draft.id,
-      clerkUserId: draft.clerk_user_id,
-      draftForDayKey: draft.draft_for_day_key,
-      recoverable: true,
-      twilioMessageSid,
-    });
-  }
-
-  const draftFinalize = await finalizeEveningDraftAfterSend({
-    draftId: draft.id,
-    smsSendEventId,
-    twilioMessageSid,
-    finalBodySent: bodyToSend,
-    now: args.now,
-  });
-  if (!draftFinalize.ok) {
-    console.error("[tyler-text-overview-evening-send] draft finalize failed after Twilio", {
-      draft_id: draft.id,
-      twilio_message_sid: twilioMessageSid,
-      error: draftFinalize.error,
-    });
-    return refuse("post_send_bookkeeping_failed", draftFinalize.error ?? "draft_finalize_failed", {
-      draftId: draft.id,
-      clerkUserId: draft.clerk_user_id,
-      draftForDayKey: draft.draft_for_day_key,
-      recoverable: true,
-      twilioMessageSid,
-    });
-  }
-
-  const generationUpdate = await updateEveningGenerationMetadataAfterSend({
-    generationId: generation.id,
-    requestedByClerkUserId: args.requestedByClerkUserId,
-    mode: args.mode,
-    smsSendEventId,
-    twilioMessageSid,
-    sentAtIso,
-    existingMetadata: generationMetadata,
-  });
-  if (!generationUpdate.ok) {
-    console.error("[tyler-text-overview-evening-send] generation metadata update failed after Twilio", {
-      generation_id: generation.id,
-      twilio_message_sid: twilioMessageSid,
-      error: generationUpdate.error,
-    });
-    return refuse(
-      "post_send_bookkeeping_failed",
-      generationUpdate.error ?? "generation_metadata_update_failed",
-      {
-        draftId: draft.id,
-        clerkUserId: draft.clerk_user_id,
-        draftForDayKey: draft.draft_for_day_key,
-        recoverable: true,
-        twilioMessageSid,
-      }
-    );
-  }
-
-  let checkSentIdempotencyKey: string | undefined;
-  if (outboundSnapshot) {
-    checkSentIdempotencyKey = buildCheckSentIdempotencyKey(
-      outboundSnapshot.v2_commitment_id,
-      draft.draft_for_day_key,
-      SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
-    );
-    try {
-      await onV2StandardCheckSentOutboundSendSuccess({
-        commitmentId: outboundSnapshot.v2_commitment_id,
-        clerkUserId: draft.clerk_user_id,
-        dayKey: draft.draft_for_day_key,
-        templateId: outboundSnapshot.v2_template_id,
-        templateFamily: outboundSnapshot.v2_template_family,
-        messageSid: twilioMessageSid,
-        smsBody: bodyToSend,
-        effectiveAskText: outboundSnapshot.v2_effective_ask_text,
-        promptKind: "standard_accountability",
-        expectedReplySemantics: "yes_no_partial",
-        checkPayloadJson: buildStandardCheckSentPayload({
-          sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-          priorOutcome: outboundSnapshot.v2_prior_outcome,
-          blockerPreview: outboundSnapshot.v2_blocker_preview,
-        }),
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("[tyler-text-overview-evening-send] check_sent bookkeeping failed after Twilio", {
-        draft_id: draft.id,
-        twilio_message_sid: twilioMessageSid,
-        error: message,
-      });
-      return refuse("post_send_bookkeeping_failed", message, {
-        draftId: draft.id,
-        clerkUserId: draft.clerk_user_id,
-        draftForDayKey: draft.draft_for_day_key,
-        recoverable: true,
-        twilioMessageSid,
-      });
-    }
-  }
-
-  return {
-    ok: true,
-    draftId: draft.id,
-    clerkUserId: draft.clerk_user_id,
-    draftForDayKey: draft.draft_for_day_key,
-    sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-    smsSendEventId,
-    twilioMessageSid,
-    finalBodySent: bodyToSend,
-    checkSentIdempotencyKey,
-    mode: args.mode,
-  };
+  void args;
+  // Evening proactive Twilio sends are disabled. Draft generate/review may remain dormant.
+  return refuse(
+    EVENING_PROACTIVE_SEND_DISABLED_CODE,
+    EVENING_PROACTIVE_SEND_DISABLED_MESSAGE
+  );
 }

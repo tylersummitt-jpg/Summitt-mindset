@@ -187,8 +187,12 @@ export function isWeeklySendBusy(args: {
 }
 
 export function eveningSendButtonLabel(isSending: boolean): string {
-  return isSending ? "Sending…" : "Send Evening Text";
+  void isSending;
+  return "Evening send disabled";
 }
+
+export const EVENING_PROACTIVE_SEND_DISABLED_UI_COPY =
+  "Evening proactive Twilio sends are disabled. Generate and review may remain available for later.";
 
 export function weeklySendButtonLabel(isSending: boolean): string {
   return isSending ? "Sending Weekly Text…" : "Send Weekly Text";

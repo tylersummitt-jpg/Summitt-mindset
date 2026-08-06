@@ -77,12 +77,15 @@ describe("sms_daily_send_slot phase 1 constants", () => {
     expect(SMS_DAILY_PRODUCTION_SEND_SLOT).not.toBe("weekly_review");
   });
 
-  it("legacy smsTimePreference evening still maps to hour 19", () => {
+  it("Morning scheduling uses fixed [07:00,09:00) window, not Clerk evening→19", () => {
     const scheduling = readFileSync(
       join(process.cwd(), "src/lib/daily-sms-scheduling.ts"),
       "utf8"
     );
-    expect(scheduling).toMatch(/evening:\s*19/);
+    expect(scheduling).toContain("MORNING_LANE_WINDOW_START_MINUTE = 7 * 60");
+    expect(scheduling).toContain("MORNING_LANE_WINDOW_END_MINUTE_EXCLUSIVE = 9 * 60");
+    expect(scheduling).toContain("fixed_morning_window");
+    expect(scheduling).not.toMatch(/evening:\s*19/);
   });
 });
 
