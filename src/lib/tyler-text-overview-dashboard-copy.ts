@@ -332,6 +332,52 @@ export function getTylerTextOverviewAdminLocalDayKey(now: Date = new Date()): st
   return getDateKeyInTimezone(now, TYLER_TEXT_OVERVIEW_ADMIN_TIMEZONE);
 }
 
+/** Add calendar days to an admin YYYY-MM-DD day key (Eastern calendar math via UTC noon). */
+export function addDaysToTtoAdminDayKey(dayKey: string, deltaDays: number): string {
+  const parts = dayKey.trim().split("-").map((x) => parseInt(x, 10));
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    return dayKey;
+  }
+  const [y, m, d] = parts;
+  const base = new Date(Date.UTC(y!, m! - 1, d!, 12, 0, 0));
+  base.setUTCDate(base.getUTCDate() + deltaDays);
+  return getDateKeyInTimezone(base, "UTC");
+}
+
+/** Eastern wall-clock hour/minute for admin page defaults (DST-safe; not send authority). */
+function getTtoAdminEasternMinuteOfDay(now: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TYLER_TEXT_OVERVIEW_ADMIN_TIMEZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const hourRaw = parseInt(parts.find((p) => p.type === "hour")?.value ?? "0", 10);
+  const minute = parseInt(parts.find((p) => p.type === "minute")?.value ?? "0", 10);
+  const hour = Number.isFinite(hourRaw) ? (hourRaw === 24 ? 0 : hourRaw) : 0;
+  return hour * 60 + (Number.isFinite(minute) ? minute : 0);
+}
+
+/**
+ * Slot-aware ET default for Morning/Evening admin pages when no explicit day is selected.
+ * Morning: before 09:00 ET → today; at/after 09:00 ET → tomorrow.
+ * Evening: before 21:00 ET → today; at/after 21:00 ET → tomorrow.
+ * Does not affect send windows or explicit selected-day authority.
+ */
+export function resolveDefaultTtoAdminDraftDayKey(args: {
+  slot: "morning" | "evening_checkin";
+  now?: Date;
+}): string {
+  const now = args.now ?? new Date();
+  const today = getTylerTextOverviewAdminLocalDayKey(now);
+  const minuteOfDay = getTtoAdminEasternMinuteOfDay(now);
+  const cutoffMinute = args.slot === "evening_checkin" ? 21 * 60 : 9 * 60;
+  if (minuteOfDay >= cutoffMinute) {
+    return addDaysToTtoAdminDayKey(today, 1);
+  }
+  return today;
+}
+
 /** Admin-local Sunday week-end for Weekly TTO day filter default. */
 export function getTylerTextOverviewAdminWeeklySundayKey(now: Date = new Date()): string {
   return resolveTylerTextOverviewWeeklyPeriod({
@@ -341,7 +387,7 @@ export function getTylerTextOverviewAdminWeeklySundayKey(now: Date = new Date())
 }
 
 /**
- * Evening TTO selected day: explicit URL/filter wins; otherwise admin-local today.
+ * Evening TTO selected day: explicit URL/filter wins; otherwise slot-aware ET default.
  */
 export function resolveEveningTtoInitialSelectedDayKey(args: {
   searchParamDayKey?: string | null;
@@ -349,7 +395,10 @@ export function resolveEveningTtoInitialSelectedDayKey(args: {
 }): string {
   const fromUrl = args.searchParamDayKey?.trim() ?? "";
   if (fromUrl) return fromUrl;
-  return getTylerTextOverviewAdminLocalDayKey(args.now);
+  return resolveDefaultTtoAdminDraftDayKey({
+    slot: "evening_checkin",
+    now: args.now,
+  });
 }
 
 export function resolveWeeklyTtoInitialSelectedDayKey(args: {
@@ -386,14 +435,17 @@ export function resolveSiblingLinkDraftForDayKey(args: {
   return day === today ? day : undefined;
 }
 
-/** Morning TTO: explicit URL day wins; otherwise admin-local today (complete manifest). */
+/** Morning TTO: explicit URL day wins; otherwise slot-aware ET default. */
 export function resolveMorningTtoInitialSelectedDayKey(args: {
   searchParamDayKey?: string | null;
   now?: Date;
 }): string {
   const fromUrl = args.searchParamDayKey?.trim() ?? "";
   if (fromUrl) return fromUrl;
-  return getTylerTextOverviewAdminLocalDayKey(args.now);
+  return resolveDefaultTtoAdminDraftDayKey({
+    slot: "morning",
+    now: args.now,
+  });
 }
 
 export function buildSiblingTylerTextOverviewPageHref(args: {

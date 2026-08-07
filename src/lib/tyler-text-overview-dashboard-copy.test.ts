@@ -36,6 +36,7 @@ import {
   formatMorningTtoSendabilityCopy,
   resolveEveningTtoInitialSelectedDayKey,
   resolveMorningTtoInitialSelectedDayKey,
+  resolveDefaultTtoAdminDraftDayKey,
   resolveSiblingLinkDraftForDayKey,
   resolveTylerTextOverviewRootRedirectPath,
   rowStateLabel,
@@ -229,25 +230,37 @@ describe("tyler-text-overview-dashboard-copy evening send/generate UI helpers", 
 });
 
 describe("tyler-text-overview-dashboard-copy evening day defaults", () => {
-  const eveningNow = new Date("2026-07-10T01:00:00.000Z"); // 9 PM ET July 9
+  // 9:00 PM ET July 9 2026 (EDT) — at/after Evening default cutoff → tomorrow
+  const eveningAtCutoff = new Date("2026-07-10T01:00:00.000Z");
+  // 6:00 PM ET July 9 2026 — before cutoff → today
+  const eveningBeforeCutoff = new Date("2026-07-09T22:00:00.000Z");
   const todayEt = "2026-07-09";
   const tomorrowEt = "2026-07-10";
 
   it("admin local day key is Eastern calendar day", () => {
-    expect(getTylerTextOverviewAdminLocalDayKey(eveningNow)).toBe(todayEt);
+    expect(getTylerTextOverviewAdminLocalDayKey(eveningAtCutoff)).toBe(todayEt);
   });
 
-  it("Evening with no draft_for_day_key defaults to admin-local today", () => {
+  it("Evening with no draft_for_day_key defaults to tomorrow at/after 21:00 ET", () => {
     expect(
       resolveEveningTtoInitialSelectedDayKey({
         searchParamDayKey: null,
-        now: eveningNow,
+        now: eveningAtCutoff,
       })
-    ).toBe(todayEt);
+    ).toBe(tomorrowEt);
     expect(
       resolveEveningTtoInitialSelectedDayKey({
         searchParamDayKey: "",
-        now: eveningNow,
+        now: eveningAtCutoff,
+      })
+    ).toBe(tomorrowEt);
+  });
+
+  it("Evening with no draft_for_day_key defaults to today before 21:00 ET", () => {
+    expect(
+      resolveEveningTtoInitialSelectedDayKey({
+        searchParamDayKey: null,
+        now: eveningBeforeCutoff,
       })
     ).toBe(todayEt);
   });
@@ -256,15 +269,21 @@ describe("tyler-text-overview-dashboard-copy evening day defaults", () => {
     expect(
       resolveEveningTtoInitialSelectedDayKey({
         searchParamDayKey: tomorrowEt,
-        now: eveningNow,
+        now: eveningAtCutoff,
       })
     ).toBe(tomorrowEt);
+    expect(
+      resolveEveningTtoInitialSelectedDayKey({
+        searchParamDayKey: todayEt,
+        now: eveningAtCutoff,
+      })
+    ).toBe(todayEt);
   });
 
   it("non-today warning when selected day is not admin-local today", () => {
-    expect(shouldShowEveningNonTodayWarning(tomorrowEt, eveningNow)).toBe(true);
-    expect(shouldShowEveningNonTodayWarning(todayEt, eveningNow)).toBe(false);
-    expect(shouldShowEveningNonTodayWarning("", eveningNow)).toBe(true);
+    expect(shouldShowEveningNonTodayWarning(tomorrowEt, eveningAtCutoff)).toBe(true);
+    expect(shouldShowEveningNonTodayWarning(todayEt, eveningAtCutoff)).toBe(false);
+    expect(shouldShowEveningNonTodayWarning("", eveningAtCutoff)).toBe(true);
   });
 
   it("Morning → Evening sibling link drops tomorrow morning day", () => {
@@ -272,14 +291,14 @@ describe("tyler-text-overview-dashboard-copy evening day defaults", () => {
       resolveSiblingLinkDraftForDayKey({
         page: "evening",
         draftForDayKey: tomorrowEt,
-        now: eveningNow,
+        now: eveningAtCutoff,
       })
     ).toBeUndefined();
     expect(
       buildSiblingTylerTextOverviewPageHref({
         page: "evening",
         draftForDayKey: tomorrowEt,
-        now: eveningNow,
+        now: eveningAtCutoff,
       })
     ).toBe("/admin/tyler-text-overview/evening");
   });
@@ -289,7 +308,7 @@ describe("tyler-text-overview-dashboard-copy evening day defaults", () => {
       buildSiblingTylerTextOverviewPageHref({
         page: "evening",
         draftForDayKey: todayEt,
-        now: eveningNow,
+        now: eveningAtCutoff,
       })
     ).toBe(`/admin/tyler-text-overview/evening?draft_for_day_key=${todayEt}`);
   });
@@ -299,7 +318,7 @@ describe("tyler-text-overview-dashboard-copy evening day defaults", () => {
       buildSiblingTylerTextOverviewPageHref({
         page: "morning",
         draftForDayKey: tomorrowEt,
-        now: eveningNow,
+        now: eveningAtCutoff,
       })
     ).toBe(`/admin/tyler-text-overview/morning?draft_for_day_key=${tomorrowEt}`);
   });
@@ -509,7 +528,7 @@ describe("tyler-text-overview two-page UI wiring", () => {
     );
   });
 
-  it("evening defaults selected day to admin-local today and warns on non-today", () => {
+  it("evening defaults selected day via slot-aware resolver and warns on non-today", () => {
     expect(dashboard).toContain("resolveEveningTtoInitialSelectedDayKey");
     expect(dashboard).toContain("shouldShowEveningNonTodayWarning");
     expect(dashboard).toContain("EVENING_TTO_NON_TODAY_WARNING");
@@ -774,11 +793,13 @@ describe("evening bulk confirmation copy", () => {
 });
 
 describe("morning TTO manifest freshness defaults", () => {
-  it("defaults Morning selected day to Eastern today when URL has no day", () => {
+  it("defaults Morning selected day to Eastern tomorrow after 09:00 ET when URL has no day", () => {
+    // 10:00 AM EDT Aug 5 2026
     const now = new Date("2026-08-05T14:00:00.000Z");
+    expect(getTylerTextOverviewAdminLocalDayKey(now)).toBe("2026-08-05");
     expect(
       resolveMorningTtoInitialSelectedDayKey({ searchParamDayKey: null, now })
-    ).toBe(getTylerTextOverviewAdminLocalDayKey(now));
+    ).toBe("2026-08-06");
     expect(
       resolveMorningTtoInitialSelectedDayKey({
         searchParamDayKey: "2026-08-01",
@@ -791,5 +812,188 @@ describe("morning TTO manifest freshness defaults", () => {
     expect(MORNING_MISSING_DRAFT_BANNER).toContain("GENERATION INCOMPLETE");
     expect(MORNING_UNSAVED_COPY).toContain("not protecting the send yet");
     expect(TTO_MANIFEST_INCOMPLETE_BANNER).toContain("DO NOT TRUST THIS PAGE");
+  });
+});
+
+describe("TTO admin default draft day (slot-aware ET)", () => {
+  // Aug 7 2026 is EDT (UTC-4)
+  const morningBefore = new Date("2026-08-07T12:59:59.000Z"); // 08:59:59 ET
+  const morningAt = new Date("2026-08-07T13:00:00.000Z"); // 09:00:00 ET
+  const morningLate = new Date("2026-08-07T15:36:00.000Z"); // 11:36 ET
+  // July 9 2026 is EDT
+  const eveningBefore = new Date("2026-07-10T00:59:59.000Z"); // 20:59:59 ET July 9
+  const eveningAt = new Date("2026-07-10T01:00:00.000Z"); // 21:00:00 ET July 9
+  const eveningLate = new Date("2026-07-10T03:00:00.000Z"); // 23:00 ET July 9
+  // EST winter DST-safe representative (UTC-5)
+  const morningBeforeEst = new Date("2026-01-15T13:59:59.000Z"); // 08:59:59 EST
+  const morningAtEst = new Date("2026-01-15T14:00:00.000Z"); // 09:00:00 EST
+
+  it("Morning 08:59:59 ET + no explicit day → today", () => {
+    expect(resolveDefaultTtoAdminDraftDayKey({ slot: "morning", now: morningBefore })).toBe(
+      "2026-08-07"
+    );
+    expect(
+      resolveMorningTtoInitialSelectedDayKey({ searchParamDayKey: null, now: morningBefore })
+    ).toBe("2026-08-07");
+  });
+
+  it("Morning 09:00:00 ET + no explicit day → tomorrow", () => {
+    expect(resolveDefaultTtoAdminDraftDayKey({ slot: "morning", now: morningAt })).toBe(
+      "2026-08-08"
+    );
+  });
+
+  it("Morning 11:36 ET + no explicit day → tomorrow", () => {
+    expect(resolveDefaultTtoAdminDraftDayKey({ slot: "morning", now: morningLate })).toBe(
+      "2026-08-08"
+    );
+  });
+
+  it("Evening 20:59:59 ET + no explicit day → today", () => {
+    expect(
+      resolveDefaultTtoAdminDraftDayKey({ slot: "evening_checkin", now: eveningBefore })
+    ).toBe("2026-07-09");
+  });
+
+  it("Evening 21:00:00 ET + no explicit day → tomorrow", () => {
+    expect(resolveDefaultTtoAdminDraftDayKey({ slot: "evening_checkin", now: eveningAt })).toBe(
+      "2026-07-10"
+    );
+  });
+
+  it("Evening 23:00 ET + no explicit day → tomorrow", () => {
+    expect(
+      resolveDefaultTtoAdminDraftDayKey({ slot: "evening_checkin", now: eveningLate })
+    ).toBe("2026-07-10");
+  });
+
+  it("Morning 11:36 ET + explicit today → today", () => {
+    expect(
+      resolveMorningTtoInitialSelectedDayKey({
+        searchParamDayKey: "2026-08-07",
+        now: morningLate,
+      })
+    ).toBe("2026-08-07");
+  });
+
+  it("Evening 21:30 ET + explicit today → today", () => {
+    const eveningExplicit = new Date("2026-07-10T01:30:00.000Z"); // 21:30 ET July 9
+    expect(
+      resolveEveningTtoInitialSelectedDayKey({
+        searchParamDayKey: "2026-07-09",
+        now: eveningExplicit,
+      })
+    ).toBe("2026-07-09");
+  });
+
+  it("explicit tomorrow remains tomorrow", () => {
+    expect(
+      resolveMorningTtoInitialSelectedDayKey({
+        searchParamDayKey: "2026-08-08",
+        now: morningBefore,
+      })
+    ).toBe("2026-08-08");
+    expect(
+      resolveEveningTtoInitialSelectedDayKey({
+        searchParamDayKey: "2026-07-10",
+        now: eveningBefore,
+      })
+    ).toBe("2026-07-10");
+  });
+
+  it("explicit historical day remains explicit historical day", () => {
+    expect(
+      resolveMorningTtoInitialSelectedDayKey({
+        searchParamDayKey: "2026-08-01",
+        now: morningLate,
+      })
+    ).toBe("2026-08-01");
+    expect(
+      resolveEveningTtoInitialSelectedDayKey({
+        searchParamDayKey: "2026-07-01",
+        now: eveningAt,
+      })
+    ).toBe("2026-07-01");
+  });
+
+  it("Morning button reflects tomorrow after 9 AM ET when no explicit day", () => {
+    const day = resolveMorningTtoInitialSelectedDayKey({
+      searchParamDayKey: null,
+      now: morningLate,
+    });
+    expect(
+      ttoGenerateAllButtonLabel({ slot: "morning", draftForDayKey: day, isBusy: false })
+    ).toBe(`Generate Morning for ${formatTtoGenerateAllDayLabel("2026-08-08")}`);
+  });
+
+  it("Evening button reflects tomorrow after 9 PM ET when no explicit day", () => {
+    const day = resolveEveningTtoInitialSelectedDayKey({
+      searchParamDayKey: null,
+      now: eveningAt,
+    });
+    expect(
+      ttoGenerateAllButtonLabel({
+        slot: "evening_checkin",
+        draftForDayKey: day,
+        isBusy: false,
+      })
+    ).toBe(`Generate Evening for ${formatTtoGenerateAllDayLabel("2026-07-10")}`);
+  });
+
+  it("Morning before 9 AM still shows today on Generate All button", () => {
+    const day = resolveMorningTtoInitialSelectedDayKey({
+      searchParamDayKey: null,
+      now: morningBefore,
+    });
+    expect(
+      ttoGenerateAllButtonLabel({ slot: "morning", draftForDayKey: day, isBusy: false })
+    ).toBe(`Generate Morning for ${formatTtoGenerateAllDayLabel("2026-08-07")}`);
+  });
+
+  it("Evening before 9 PM still shows today on Generate All button", () => {
+    const day = resolveEveningTtoInitialSelectedDayKey({
+      searchParamDayKey: null,
+      now: eveningBefore,
+    });
+    expect(
+      ttoGenerateAllButtonLabel({
+        slot: "evening_checkin",
+        draftForDayKey: day,
+        isBusy: false,
+      })
+    ).toBe(`Generate Evening for ${formatTtoGenerateAllDayLabel("2026-07-09")}`);
+  });
+
+  it("DST-safe: EST winter Morning boundary uses Eastern wall clock", () => {
+    expect(getTylerTextOverviewAdminLocalDayKey(morningBeforeEst)).toBe("2026-01-15");
+    expect(resolveDefaultTtoAdminDraftDayKey({ slot: "morning", now: morningBeforeEst })).toBe(
+      "2026-01-15"
+    );
+    expect(resolveDefaultTtoAdminDraftDayKey({ slot: "morning", now: morningAtEst })).toBe(
+      "2026-01-16"
+    );
+  });
+
+  it("dashboard initializes selected day once; refresh/search do not recompute default", () => {
+    const dashboard = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
+      "utf8"
+    );
+    expect(dashboard).toMatch(
+      /useState<string>\(\(\) => \{\s*const fromUrl = searchParams\.get\("draft_for_day_key"\)/
+    );
+    expect(dashboard).toContain("resolveMorningTtoInitialSelectedDayKey");
+    expect(dashboard).toContain("resolveEveningTtoInitialSelectedDayKey");
+    // Refresh paths consume selectedDayKey state — not a fresh clock default.
+    expect(dashboard).toContain("void load(selectedDayKey, sendSlot, { forceOverwrite: true })");
+    expect(dashboard).toContain("void load(selectedDayKey, sendSlot, { preserveUnsaved: true })");
+    expect(dashboard).toContain("await load(selectedDayKey, sendSlot, { forceOverwrite: true })");
+    // Search is independent of selected day.
+    expect(dashboard).toContain('onChange={(e) => setSearchQuery(e.target.value)}');
+    expect(dashboard).not.toMatch(/setSelectedDayKey\([^)]*resolveDefault/);
+    expect(dashboard).not.toMatch(/setSelectedDayKey\([^)]*resolveMorningTtoInitial/);
+    expect(dashboard).not.toMatch(/setSelectedDayKey\([^)]*resolveEveningTtoInitial/);
+    // Manual day change is the only selected-day setter besides initializer.
+    expect(dashboard).toContain("setSelectedDayKey(nextDay)");
   });
 });
