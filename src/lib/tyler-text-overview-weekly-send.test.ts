@@ -826,7 +826,7 @@ describe("weekly send route / UI static contracts", () => {
     expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("draft-authoritative");
     expect(WEEKLY_TTO_AUTHORITY_BANNER).toContain("only sends current Weekly TTO drafts");
     expect(WEEKLY_TTO_AUTHORITY_BANNER).not.toContain("not cut over yet");
-    expect(eveningSendButtonLabel(false)).toBe("Evening send disabled");
+    expect(eveningSendButtonLabel(false)).toBe("Send Evening Text");
     expect(EVENING_TTO_SAVE_BEFORE_SEND_COPY).toBe("Save changes before sending.");
   });
 });

@@ -413,6 +413,20 @@ export type TylerTextOverviewAdminDraftRow = {
   morningCoachingBriefV1: Record<string, unknown> | null;
   /** Phase 2D — stored Sol writer forensic capture (generation-time only). */
   morningWriterCaptureV1: TylerTextOverviewMorningWriterCapturePanel | null;
+  /**
+   * Persisted generation-time message target (message_for).
+   * Never derived from the admin day selector.
+   */
+  messageFor: {
+    timezone: string;
+    local_date: string;
+    local_weekday: string;
+    daypart: "morning" | "evening";
+  } | null;
+  /** Persisted generation-time relationship packet (Evening Sol stores full packet). */
+  morningRelationshipPacketV1: Record<string, unknown> | null;
+  /** E3+ shared Sol marker from generation_metadata.coaching_stack. */
+  coachingStack: string | null;
   /** True when generation_metadata.preview_only is set (evening preview rows). */
   previewOnly?: boolean;
   morningAnchorSource?: string | null;

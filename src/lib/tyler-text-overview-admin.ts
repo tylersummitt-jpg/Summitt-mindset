@@ -123,6 +123,9 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   | "morningBriefInterpreterV1"
   | "morningCoachingBriefV1"
   | "morningWriterCaptureV1"
+  | "messageFor"
+  | "morningRelationshipPacketV1"
+  | "coachingStack"
 > = {
   writerOpenAiMessages: [],
   authoritativeRetryMessages: [],
@@ -153,6 +156,9 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   morningBriefInterpreterV1: null,
   morningCoachingBriefV1: null,
   morningWriterCaptureV1: null,
+  messageFor: null,
+  morningRelationshipPacketV1: null,
+  coachingStack: null,
 };
 
 export function isTylerBlankedMorningDraft(row: {
@@ -998,6 +1004,36 @@ export function mapMorningCoachingBriefFromMetadata(
   return raw as Record<string, unknown>;
 }
 
+/** Persisted generation-time message_for only — never reconstruct from admin day selector. */
+export function mapMessageForFromMetadata(
+  metadata: Record<string, unknown>
+): TylerTextOverviewAdminDraftRow["messageFor"] {
+  const raw = metadata.message_for;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const m = raw as Record<string, unknown>;
+  const timezone = typeof m.timezone === "string" ? m.timezone.trim() : "";
+  const local_date = typeof m.local_date === "string" ? m.local_date.trim() : "";
+  const local_weekday = typeof m.local_weekday === "string" ? m.local_weekday.trim() : "";
+  const daypart = m.daypart === "evening" || m.daypart === "morning" ? m.daypart : null;
+  if (!timezone || !local_date || !local_weekday || !daypart) return null;
+  return { timezone, local_date, local_weekday, daypart };
+}
+
+/** Persisted generation-time packet only — never rebuild from current DB. */
+export function mapMorningRelationshipPacketFromMetadata(
+  metadata: Record<string, unknown>
+): Record<string, unknown> | null {
+  const raw = metadata.morning_relationship_packet_v1;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  return raw as Record<string, unknown>;
+}
+
+export function mapCoachingStackFromMetadata(
+  metadata: Record<string, unknown>
+): string | null {
+  return readMetadataString(metadata, "coaching_stack");
+}
+
 /** Pass through stored generation-time Sol writer capture only — never reconstruct. */
 export function mapMorningWriterCapturePanel(
   metadata: Record<string, unknown>
@@ -1058,6 +1094,9 @@ function mapGenerationToNotebookFields(
   | "morningBriefInterpreterV1"
   | "morningCoachingBriefV1"
   | "morningWriterCaptureV1"
+  | "messageFor"
+  | "morningRelationshipPacketV1"
+  | "coachingStack"
 > {
   const writerOpenAiMessages = parseWriterOpenAiMessages(generation?.writer_openai_messages);
   const notebookMessageCount = writerOpenAiMessages.length;
@@ -1126,6 +1165,9 @@ function mapGenerationToNotebookFields(
     morningBriefInterpreterV1: mapMorningBriefInterpreterPanel(metadata),
     morningCoachingBriefV1: mapMorningCoachingBriefFromMetadata(metadata),
     morningWriterCaptureV1: mapMorningWriterCapturePanel(metadata),
+    messageFor: mapMessageForFromMetadata(metadata),
+    morningRelationshipPacketV1: mapMorningRelationshipPacketFromMetadata(metadata),
+    coachingStack: mapCoachingStackFromMetadata(metadata),
   };
 }
 

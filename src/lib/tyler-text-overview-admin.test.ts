@@ -18,6 +18,9 @@ import {
   mapMorningBriefInterpreterPanel,
   mapMorningCoachingBriefFromMetadata,
   mapMorningWriterCapturePanel,
+  mapMessageForFromMetadata,
+  mapMorningRelationshipPacketFromMetadata,
+  mapCoachingStackFromMetadata,
   deriveAuthoritativeMachineDraftStatus,
   pickTylerTextOverviewDraftOverlay,
   resolveAdminListSendSlot,
@@ -900,6 +903,108 @@ describe("tyler-text-overview-admin read model", () => {
       brief
     );
     expect(mapMorningBriefInterpreterPanel({})).toBeNull();
+  });
+
+  it("E4 maps persisted message_for, packet, and coaching_stack without reconstruction", () => {
+    const messageFor = {
+      timezone: "America/Chicago",
+      local_date: "2026-08-07",
+      local_weekday: "Friday",
+      daypart: "evening",
+    };
+    const packet = {
+      version: "morning_relationship_packet_v1",
+      message_for: messageFor,
+      exact_thread: {
+        messages: [
+          { sender: "coach", body: "Actually sent" },
+          { sender: "user", body: "Actually received" },
+        ],
+      },
+    };
+    expect(mapMessageForFromMetadata({ message_for: messageFor })).toEqual(messageFor);
+    expect(mapMessageForFromMetadata({})).toBeNull();
+    expect(
+      mapMessageForFromMetadata({
+        message_for: { ...messageFor, daypart: "afternoon" },
+      })
+    ).toBeNull();
+    expect(mapMorningRelationshipPacketFromMetadata({ morning_relationship_packet_v1: packet })).toEqual(
+      packet
+    );
+    expect(mapMorningRelationshipPacketFromMetadata({})).toBeNull();
+    expect(mapCoachingStackFromMetadata({ coaching_stack: "shared_sol_v1" })).toBe(
+      "shared_sol_v1"
+    );
+    expect(mapCoachingStackFromMetadata({})).toBeNull();
+
+    const dto = mapDraftRowsToAdminDto({
+      drafts: [
+        {
+          id: "draft-e4",
+          clerk_user_id: "user_e4",
+          draft_for_day_key: "2026-08-07",
+          send_slot: "evening_checkin",
+          current_generation_id: "gen-e4",
+          current_body_to_send: "Have a good evening.",
+          current_body_source: "tyler_edit",
+          edited_by_tyler: true,
+          status: "current",
+        },
+      ],
+      generationsById: new Map([
+        [
+          "gen-e4",
+          {
+            id: "gen-e4",
+            clerk_user_id: "user_e4",
+            draft_for_day_key: "2026-08-07",
+            send_slot: "evening_checkin",
+            generation_number: 1,
+            machine_draft_body: "Machine A",
+            machine_should_send: false,
+            machine_no_send_reason: "writer_error",
+            writer_prompt_path: "morning_brief_writer_v1",
+            writer_openai_messages: [
+              { role: "system", content: "sys" },
+              { role: "user", content: "MORNING_RELATIONSHIP_PACKET_V1\n{}" },
+            ],
+            generation_metadata: {
+              coaching_stack: "shared_sol_v1",
+              message_for: messageFor,
+              morning_relationship_packet_v1: packet,
+              morning_coaching_brief_v1: { version: "morning_coaching_brief_v1", confidence: "low" },
+              morning_brief_interpreter_v1: {
+                model: "gpt-5.6-sol",
+                reasoning_effort: "low",
+                error: "fail_soft",
+                raw_response: "{}",
+              },
+              morning_writer_capture_v1: {
+                model: "gpt-5.6-sol",
+                reasoning_effort: "low",
+                error: "writer_failed",
+                raw_response: null,
+              },
+            },
+          },
+        ],
+      ]),
+    })[0];
+
+    expect(dto.messageFor).toEqual(messageFor);
+    expect(dto.morningRelationshipPacketV1).toEqual(packet);
+    expect(dto.coachingStack).toBe("shared_sol_v1");
+    expect(dto.morningCoachingBriefV1).toEqual({
+      version: "morning_coaching_brief_v1",
+      confidence: "low",
+    });
+    expect(dto.morningBriefInterpreterV1?.error).toBe("fail_soft");
+    expect(dto.morningWriterCaptureV1?.error).toBe("writer_failed");
+    expect(dto.authoritativeMachineDraftBody).toBe("Machine A");
+    expect(dto.currentBodyToSend).toBe("Have a good evening.");
+    expect(dto.machineShouldSend).toBe(false);
+    expect(JSON.stringify(dto)).not.toContain("unsent Morning draft");
   });
 
   it("DTO exposes phone when audience overlay is provided", () => {

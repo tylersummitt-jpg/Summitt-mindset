@@ -53,6 +53,9 @@ import {
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
   ADMIN_INTERPRETATION_LINE,
+  EVENING_CURRENT_BODY_BLANK,
+  EVENING_CURRENT_BODY_HEADING,
+  EVENING_CURRENT_BODY_LABEL,
   MORNING_BODY_COMPARISON_HEADING,
   MORNING_BRIEF_INTERPRETER_INPUT_HEADING,
   MORNING_BRIEF_INTERPRETER_OUTPUT_HEADING,
@@ -69,14 +72,23 @@ import {
   MORNING_RAW_PRIMARY_INPUT_HEADING,
   MORNING_RAW_PRIMARY_INPUT_LABEL,
   RAW_NOTEBOOK_SECTION_HEADING,
+  TTO_MESSAGE_FOR_HEADING,
+  TTO_MESSAGE_FOR_UNAVAILABLE,
+  TTO_PERSISTED_EXACT_THREAD_HEADING,
+  TTO_PERSISTED_EXACT_THREAD_UNAVAILABLE,
+  TTO_PERSISTED_PACKET_HEADING,
+  TTO_PERSISTED_PACKET_UNAVAILABLE,
   buildProvenanceExplanationBlocks,
   formatMorningCurrentBodySourceLabel,
+  formatPersistedMessageForLine,
   getMorningBodyComparisonStatus,
   getMorningMachineDraftUnavailableReason,
   getMorningTechnicalRetrySectionCopy,
+  getPersistedExactThreadMessages,
   getRawNotebookSectionCopy,
-  isMorningRelationshipNotebookRow,
+  shouldShowEveningMorningAnchorPanel,
   shouldShowMorningDualBodyPanels,
+  shouldShowSolForensicPanels,
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import {
   shouldShowTtoBackgroundRefreshing,
@@ -181,13 +193,12 @@ function isEveningPreviewRow(row: TylerTextOverviewAdminDraftRow): boolean {
   return row.sendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT || row.previewOnly === true;
 }
 
-/** Option A: editable only when current, unsent, and machine_should_send=true. */
+/** Editable when current + unsent. Tyler authority is independent of machine_should_send. */
 function canEditEveningDraft(row: TylerTextOverviewAdminDraftRow): boolean {
   if (!row.draftId) return false;
   if (!isEveningPreviewRow(row)) return false;
   if (isEveningDraftSent(row)) return false;
   if (row.draftStatus !== "current") return false;
-  if (row.machineShouldSend !== true) return false;
   return true;
 }
 
@@ -244,7 +255,7 @@ function formatMachineShouldSend(row: TylerTextOverviewAdminDraftRow): string {
 function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
   const explanationBlocks = buildProvenanceExplanationBlocks(row);
   const evening = isEveningPreviewRow(row);
-  const morning = isMorningRelationshipNotebookRow(row);
+  const solForensics = shouldShowSolForensicPanels(row);
 
   return (
     <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-3 text-xs text-gray-700">
@@ -295,7 +306,7 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
         </div>
         <div>
           <dt className="font-medium text-gray-500">
-            {morning ? "Authoritative generation" : "Current generation"}
+            {solForensics ? "Authoritative generation" : "Current generation"}
           </dt>
           <dd className="font-mono break-all">
             #{formatOptional(row.currentGenerationNumber)} ({formatOptional(row.currentGenerationId)})
@@ -311,7 +322,7 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
           <dt className="font-medium text-gray-500">Is latest generation</dt>
           <dd>{formatOptional(row.isLatestGeneration)}</dd>
         </div>
-        {morning ? (
+        {solForensics ? (
           <>
             <div>
               <dt className="font-medium text-gray-500">writer model</dt>
@@ -367,6 +378,22 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
             </div>
           </>
         ) : null}
+        <div>
+          <dt className="font-medium text-gray-500">current_body_source</dt>
+          <dd className="font-mono">{formatOptional(row.currentBodySource)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">edited_by_tyler</dt>
+          <dd>{formatOptional(row.editedByTyler)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">edited_at</dt>
+          <dd className="font-mono break-all">{formatOptional(row.editedAt)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">coaching_stack</dt>
+          <dd className="font-mono break-all">{formatOptional(row.coachingStack)}</dd>
+        </div>
         <div>
           <dt className="font-medium text-gray-500">
             {evening ? "Would send" : "machine_should_send"}
@@ -695,6 +722,100 @@ function MorningAnchorPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
           </dd>
         </div>
       </dl>
+    </div>
+  );
+}
+
+function PersistedMessageForPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
+  const line = formatPersistedMessageForLine(row.messageFor);
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {TTO_MESSAGE_FOR_HEADING}
+      </p>
+      {line ? (
+        <p className="text-sm text-gray-900">{line}</p>
+      ) : (
+        <p className="text-sm text-gray-600">{TTO_MESSAGE_FOR_UNAVAILABLE}</p>
+      )}
+    </div>
+  );
+}
+
+function PersistedRelationshipPacketPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
+  const packet = row.morningRelationshipPacketV1;
+  const threadMessages = getPersistedExactThreadMessages(packet);
+  if (!packet) {
+    return <p className="text-sm text-gray-600">{TTO_PERSISTED_PACKET_UNAVAILABLE}</p>;
+  }
+
+  const messageFor =
+    packet.message_for && typeof packet.message_for === "object"
+      ? (packet.message_for as Record<string, unknown>)
+      : null;
+  const exactThread =
+    packet.exact_thread && typeof packet.exact_thread === "object"
+      ? (packet.exact_thread as Record<string, unknown>)
+      : null;
+
+  return (
+    <div className="space-y-4 text-xs text-gray-700">
+      <dl className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <dt className="font-medium text-gray-500">packet version</dt>
+          <dd className="font-mono">{formatOptional(packet.version as string | null)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">packet daypart</dt>
+          <dd className="font-mono">
+            {formatOptional(
+              messageFor && typeof messageFor.daypart === "string"
+                ? messageFor.daypart
+                : null
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">exact_thread omitted_older_turn_count</dt>
+          <dd>
+            {formatOptional(
+              exactThread && typeof exactThread.omitted_older_turn_count === "number"
+                ? exactThread.omitted_older_turn_count
+                : null
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">exact_thread message count</dt>
+          <dd>{formatOptional(threadMessages?.length ?? null)}</dd>
+        </div>
+      </dl>
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          {TTO_PERSISTED_EXACT_THREAD_HEADING}
+        </p>
+        {!threadMessages || threadMessages.length === 0 ? (
+          <p className="text-sm text-gray-600">{TTO_PERSISTED_EXACT_THREAD_UNAVAILABLE}</p>
+        ) : (
+          <div className="space-y-2">
+            {threadMessages.map((msg, index) => (
+              <div
+                key={`${row.draftId ?? row.clerkUserId}-thread-${index}`}
+                className="rounded border border-gray-200 bg-gray-50 p-2 space-y-1"
+              >
+                <p className="font-mono text-[11px] text-gray-500">
+                  {formatOptional(msg.sender as string | null)} ·{" "}
+                  {formatOptional(msg.sent_at_local as string | null)} ·{" "}
+                  {formatOptional(msg.local_weekday as string | null)}
+                </p>
+                <pre className="whitespace-pre-wrap font-mono text-xs text-gray-800">
+                  {typeof msg.body === "string" ? msg.body : "—"}
+                </pre>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1686,8 +1807,22 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                     })
                 : null;
             const morningDualBody = shouldShowMorningDualBodyPanels(row, isEveningPage);
-            const morningRelationshipNotebook =
-              !isEveningPage && isMorningRelationshipNotebookRow(row);
+            const solForensicPanels = shouldShowSolForensicPanels(row);
+            const showEveningMorningAnchor = shouldShowEveningMorningAnchorPanel(
+              row,
+              isEveningPage
+            );
+            const currentBodyHeading = morningDualBody
+              ? isEveningPage
+                ? EVENING_CURRENT_BODY_HEADING
+                : MORNING_CURRENT_BODY_HEADING
+              : "current_body_to_send";
+            const currentBodyLabel = isEveningPage
+              ? EVENING_CURRENT_BODY_LABEL
+              : MORNING_CURRENT_BODY_LABEL;
+            const currentBodyBlank = isEveningPage
+              ? EVENING_CURRENT_BODY_BLANK
+              : MORNING_CURRENT_BODY_BLANK;
             const morningSendabilityCopy =
               !isEveningPage && !morningSent && !missingMorningDraft && !isDirty
                 ? formatMorningTtoSendabilityCopy({
@@ -1836,11 +1971,11 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   ) : null}
                   <div>
                     <p className="text-xs font-medium text-gray-500">
-                      {morningDualBody ? MORNING_CURRENT_BODY_HEADING : "current_body_to_send"}
+                      {currentBodyHeading}
                     </p>
                     {morningDualBody ? (
                       <div className="mt-1 mb-2 space-y-1">
-                        <p className="text-xs text-gray-600">{MORNING_CURRENT_BODY_LABEL}</p>
+                        <p className="text-xs text-gray-600">{currentBodyLabel}</p>
                         <p className="text-xs font-medium text-gray-700">
                           {formatMorningCurrentBodySourceLabel(row)}
                         </p>
@@ -1876,7 +2011,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                         </div>
                       ) : morningDualBody && !(readOnlyBody?.trim() ?? "") ? (
                         <div className="mt-1 w-full min-h-[96px] rounded border border-dashed border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 space-y-2">
-                          <p className="font-medium">{MORNING_CURRENT_BODY_BLANK}</p>
+                          <p className="font-medium">{currentBodyBlank}</p>
                           <pre className="font-mono whitespace-pre-wrap text-xs text-gray-800">
                             {readOnlyBody ?? ""}
                           </pre>
@@ -1906,7 +2041,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                         />
                         {morningDualBody &&
                         !(edits[row.draftId as string]?.trim() ?? row.currentBodyToSend?.trim() ?? "") ? (
-                          <p className="mt-1 text-xs text-amber-800">{MORNING_CURRENT_BODY_BLANK}</p>
+                          <p className="mt-1 text-xs text-amber-800">{currentBodyBlank}</p>
                         ) : null}
                         {eveningEditable ? (
                           <p className="mt-1 text-xs text-gray-600">{EVENING_TTO_SAVE_ONLY_COPY}</p>
@@ -1973,12 +2108,18 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   ) : null}
                 </section>
 
-                {isEveningPage && eveningRow ? (
+                {showEveningMorningAnchor ? (
                   <section className="space-y-3 border-t border-gray-100 pt-5">
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
                       Morning anchor (context only)
                     </h2>
                     <MorningAnchorPanel row={row} />
+                  </section>
+                ) : null}
+
+                {solForensicPanels ? (
+                  <section className="space-y-3 border-t border-gray-100 pt-5">
+                    <PersistedMessageForPanel row={row} />
                   </section>
                 ) : null}
 
@@ -2001,20 +2142,29 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                 ) : null}
 
                 {(row.morningCoachingBriefV1 || row.morningBriefInterpreterV1) &&
-                (morningRelationshipNotebook || morningDualBody) ? (
+                solForensicPanels ? (
                   <section className="space-y-3 border-t border-gray-100 pt-5">
                     <MorningCoachingBriefObservationPanels row={row} />
                   </section>
                 ) : null}
 
+                {solForensicPanels ? (
+                  <section className="space-y-3 border-t border-gray-100 pt-5">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                      {TTO_PERSISTED_PACKET_HEADING}
+                    </h2>
+                    <PersistedRelationshipPacketPanel row={row} />
+                  </section>
+                ) : null}
+
                 <section className="space-y-3 border-t border-gray-100 pt-5">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                    {morningRelationshipNotebook || morningDualBody
+                    {solForensicPanels || morningDualBody
                       ? MORNING_GENERATION_PROVENANCE_HEADING
                       : "Notebook provenance"}
                   </h2>
                   <p className="text-xs text-gray-600">{ADMIN_INTERPRETATION_LINE}</p>
-                  {morningRelationshipNotebook || morningDualBody ? (
+                  {solForensicPanels || morningDualBody ? (
                     <p className="text-xs text-gray-600">{MORNING_GENERATION_PROVENANCE_LABEL}</p>
                   ) : null}
                   <NotebookProvenancePanel row={row} />
@@ -2029,17 +2179,17 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
                 <section className="space-y-3 border-t border-gray-100 pt-5">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                    {morningRelationshipNotebook
+                    {solForensicPanels
                       ? MORNING_RAW_PRIMARY_INPUT_HEADING
                       : RAW_NOTEBOOK_SECTION_HEADING}
                   </h2>
-                  {morningRelationshipNotebook ? (
+                  {solForensicPanels ? (
                     <p className="text-xs text-gray-600">{MORNING_RAW_PRIMARY_INPUT_LABEL}</p>
                   ) : null}
                   <NotebookMessagesSection row={row} />
                 </section>
 
-                {morningRelationshipNotebook ? (
+                {solForensicPanels ? (
                   <MorningTechnicalRetryPanel row={row} />
                 ) : null}
               </li>

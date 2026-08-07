@@ -11,13 +11,18 @@ import {
   buildProvenanceExplanationBlocks,
   buildWeeklyProvenanceExplanationBlocks,
   formatMorningCurrentBodySourceLabel,
+  formatPersistedMessageForLine,
   getMorningBodyComparisonStatus,
   getMorningMachineDraftUnavailableReason,
   getMorningTechnicalRetrySectionCopy,
+  getPersistedExactThreadMessages,
   getRawNotebookSectionCopy,
   getWeeklyRawNotebookSectionCopy,
   isMorningRelationshipNotebookRow,
+  isSharedSolCoachingRow,
+  shouldShowEveningMorningAnchorPanel,
   shouldShowMorningDualBodyPanels,
+  shouldShowSolForensicPanels,
   rawNotebookSectionContainsForbiddenAdminCopy,
   MORNING_BODY_COMPARISON_DIFFERS,
   MORNING_BODY_COMPARISON_MATCH,
@@ -77,6 +82,9 @@ function baseRow(
     morningBriefInterpreterV1: null,
     morningCoachingBriefV1: null,
     morningWriterCaptureV1: null,
+    messageFor: null,
+    morningRelationshipPacketV1: null,
+    coachingStack: null,
     ...overrides,
   };
 }
@@ -88,7 +96,7 @@ describe("tyler-text-overview-dashboard-sections", () => {
 
   it("exposes Phase 2D Brief-in-writer status copy", () => {
     expect(MORNING_BRIEF_OBSERVATION_STATUS).toBe(
-      "MORNING COACHING BRIEF WAS INCLUDED IN THIS WRITER INPUT."
+      "COACHING BRIEF WAS INCLUDED IN THIS WRITER INPUT."
     );
     expect(MORNING_BRIEF_OBSERVATION_STATUS).not.toMatch(/OBSERVATION ONLY/);
   });
@@ -389,5 +397,173 @@ describe("weekly raw notebook / provenance", () => {
     expect(src).not.toContain("authoritativeMachineDraftBody || row.currentBodyToSend");
     expect(src).not.toMatch(/authoritativeMachineDraftBody\s*!==\s*.*currentBodyToSend[\s\S]{0,80}MorningOriginal/);
     expect(src).not.toContain("reconstruct");
+  });
+
+  it("E4: Evening Sol dual-body is data-gated and blank stays blank", () => {
+    const eveningSol = baseRow({
+      sendSlot: "evening_checkin",
+      coachingStack: "shared_sol_v1",
+      writerPromptPath: "morning_brief_writer_v1",
+      morningCoachingBriefV1: { version: "morning_coaching_brief_v1", confidence: "low" },
+      currentBodyToSend: null,
+      currentBodySource: "tyler_edit",
+      editedByTyler: true,
+      authoritativeMachineDraftBody: "Machine evening A",
+      authoritativeMachineDraftStatus: "available",
+      machineShouldSend: true,
+    });
+    expect(isSharedSolCoachingRow(eveningSol)).toBe(true);
+    expect(shouldShowMorningDualBodyPanels(eveningSol, true)).toBe(true);
+    expect(shouldShowMorningDualBodyPanels(eveningSol, false)).toBe(false);
+    expect(shouldShowSolForensicPanels(eveningSol)).toBe(true);
+    expect(getMorningBodyComparisonStatus(eveningSol)).toBe(MORNING_BODY_COMPARISON_DIFFERS);
+
+    const tylerEdit = baseRow({
+      ...eveningSol,
+      currentBodyToSend: "Have a good evening.",
+    });
+    expect(getMorningBodyComparisonStatus(tylerEdit)).toBe(MORNING_BODY_COMPARISON_DIFFERS);
+    expect(formatMorningCurrentBodySourceLabel(tylerEdit)).toContain("Tyler edited");
+
+    const legacyEvening = baseRow({
+      sendSlot: "evening_checkin",
+      coachingStack: null,
+      writerPromptPath: "daily_writing_brief_v1",
+      notebookFamily: "daily_sms_writing_brief_v1",
+      morningCoachingBriefV1: null,
+      morningBriefInterpreterV1: null,
+      morningWriterCaptureV1: null,
+      morningRelationshipPacketV1: null,
+      morningAnchorSource: "sent_morning",
+      morningAnchorBodyPreview: "old morning text",
+    });
+    expect(isSharedSolCoachingRow(legacyEvening)).toBe(false);
+    expect(shouldShowMorningDualBodyPanels(legacyEvening, true)).toBe(false);
+    expect(shouldShowSolForensicPanels(legacyEvening)).toBe(false);
+    expect(shouldShowEveningMorningAnchorPanel(legacyEvening, true)).toBe(true);
+    expect(shouldShowEveningMorningAnchorPanel(eveningSol, true)).toBe(false);
+  });
+
+  it("E4: protected orphan latest generation is not treated as current body", () => {
+    const protectedOrphan = baseRow({
+      sendSlot: "evening_checkin",
+      coachingStack: "shared_sol_v1",
+      currentGenerationId: "gen-authoritative",
+      currentGenerationNumber: 1,
+      latestGenerationId: "gen-orphan",
+      latestGenerationNumber: 2,
+      isLatestGeneration: false,
+      currentBodyToSend: "Tyler B",
+      currentBodySource: "tyler_edit",
+      editedByTyler: true,
+      authoritativeMachineDraftBody: "Machine A",
+      authoritativeMachineDraftStatus: "available",
+    });
+    expect(protectedOrphan.isLatestGeneration).toBe(false);
+    expect(protectedOrphan.currentBodyToSend).toBe("Tyler B");
+    expect(protectedOrphan.authoritativeMachineDraftBody).toBe("Machine A");
+    expect(protectedOrphan.authoritativeMachineDraftBody).not.toBe(
+      protectedOrphan.currentBodyToSend
+    );
+    expect(getMorningBodyComparisonStatus(protectedOrphan)).toBe(MORNING_BODY_COMPARISON_DIFFERS);
+  });
+
+  it("E4: persisted message_for and exact_thread come from stored packet only", () => {
+    const messageFor = {
+      timezone: "America/New_York",
+      local_date: "2026-08-06",
+      local_weekday: "Thursday",
+      daypart: "evening" as const,
+    };
+    expect(formatPersistedMessageForLine(messageFor)).toBe(
+      "Thursday, 2026-08-06 · Evening · America/New_York"
+    );
+    expect(
+      formatPersistedMessageForLine({
+        ...messageFor,
+        daypart: "morning",
+      })
+    ).toBe("Thursday, 2026-08-06 · Morning · America/New_York");
+    expect(formatPersistedMessageForLine(null)).toBeNull();
+
+    const packet = {
+      version: "morning_relationship_packet_v1",
+      message_for: messageFor,
+      exact_thread: {
+        messages: [
+          {
+            sender: "coach",
+            body: "Sent morning text",
+            sent_at_local: "2026-08-06 08:00",
+            local_weekday: "Thursday",
+          },
+          {
+            sender: "user",
+            body: "Received reply",
+            sent_at_local: "2026-08-06 09:00",
+            local_weekday: "Thursday",
+          },
+        ],
+        omitted_older_turn_count: 0,
+      },
+    };
+    const thread = getPersistedExactThreadMessages(packet);
+    expect(thread).toHaveLength(2);
+    expect(thread?.map((m) => m.body)).toEqual(["Sent morning text", "Received reply"]);
+    expect(JSON.stringify(thread)).not.toContain("unsent Morning draft");
+    expect(JSON.stringify(thread)).not.toContain("machine proposal");
+    expect(getPersistedExactThreadMessages(null)).toBeNull();
+    expect(getPersistedExactThreadMessages({ version: "x" })).toBeNull();
+  });
+
+  it("E4: Evening Sol forensic metadata absence is honest; retry shows when present", () => {
+    const noMeta = baseRow({
+      sendSlot: "evening_checkin",
+      coachingStack: "shared_sol_v1",
+      morningCoachingBriefV1: null,
+      morningBriefInterpreterV1: null,
+      morningWriterCaptureV1: null,
+      morningRelationshipPacketV1: null,
+      messageFor: null,
+      authoritativeRetryOccurred: false,
+      authoritativeRetryMessages: [],
+    });
+    expect(shouldShowSolForensicPanels(noMeta)).toBe(true);
+    expect(formatPersistedMessageForLine(noMeta.messageFor)).toBeNull();
+    expect(getPersistedExactThreadMessages(noMeta.morningRelationshipPacketV1)).toBeNull();
+    expect(getMorningTechnicalRetrySectionCopy(noMeta).show).toBe(false);
+
+    const withRetry = baseRow({
+      sendSlot: "evening_checkin",
+      coachingStack: "shared_sol_v1",
+      authoritativeRetryOccurred: true,
+      authoritativeRetryMessages: [
+        { role: "assistant", content: "{bad" },
+        { role: "user", content: "retry reminder" },
+      ],
+    });
+    expect(getMorningTechnicalRetrySectionCopy(withRetry).show).toBe(true);
+
+    const dashboard = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
+      "utf8"
+    );
+    expect(dashboard).toContain("shouldShowSolForensicPanels");
+    expect(dashboard).toContain("shouldShowEveningMorningAnchorPanel");
+    expect(dashboard).toContain("PersistedMessageForPanel");
+    expect(dashboard).toContain("PersistedRelationshipPacketPanel");
+    expect(dashboard).not.toMatch(
+      /function canEditEveningDraft[\s\S]{0,400}machineShouldSend !== true/
+    );
+    expect(dashboard).toContain("EVENING_CURRENT_BODY_BLANK");
+    expect(dashboard).toContain("Tyler authority is independent of machine_should_send");
+    expect(dashboard).toContain("eveningSendButtonLabel(false)");
+    expect(dashboard).toContain('disabled\n                        title={eveningSendDisabledReason}');
+    const saveDraftFn = dashboard.match(
+      /async function saveDraft\([\s\S]*?\n  async function /
+    )?.[0] ?? "";
+    expect(saveDraftFn).toContain("/api/admin/tyler-text-overview/${encodeURIComponent(draftId)}");
+    expect(saveDraftFn).not.toContain("evening-send");
+    expect(saveDraftFn).not.toMatch(/openai/i);
   });
 });

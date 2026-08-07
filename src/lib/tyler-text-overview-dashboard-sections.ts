@@ -52,9 +52,9 @@ export const MORNING_RAW_PRIMARY_INPUT_LABEL =
   "These are the exact original system and user messages sent to OpenAI.";
 
 export const MORNING_BRIEF_OBSERVATION_STATUS =
-  "MORNING COACHING BRIEF WAS INCLUDED IN THIS WRITER INPUT.";
+  "COACHING BRIEF WAS INCLUDED IN THIS WRITER INPUT.";
 
-export const MORNING_COACHING_BRIEF_HEADING = "MORNING COACHING BRIEF";
+export const MORNING_COACHING_BRIEF_HEADING = "COACHING BRIEF";
 export const MORNING_BRIEF_PERSONAL_CONTEXT_HEADING = "PERSONAL CONTEXT OBSERVABILITY";
 export const MORNING_BRIEF_INTERPRETER_INPUT_HEADING = "INTERPRETER RAW INPUT";
 export const MORNING_BRIEF_INTERPRETER_OUTPUT_HEADING = "INTERPRETER RAW OUTPUT";
@@ -69,15 +69,46 @@ export const MORNING_GENERATION_PROVENANCE_HEADING = "GENERATION PROVENANCE";
 export const MORNING_GENERATION_PROVENANCE_LABEL =
   "Metadata about the authoritative generation — not writer input.";
 
-/** Morning page draft rows that must always show both body panels. */
+/** Evening dual-body labels (Morning copy stays Morning-specific). */
+export const EVENING_CURRENT_BODY_HEADING = "CURRENT AUTHORITATIVE BODY";
+export const EVENING_CURRENT_BODY_LABEL =
+  "This is the authoritative saved body. Evening sending is not enabled yet.";
+export const EVENING_CURRENT_BODY_BLANK =
+  "Blank current body — no Evening text will send when sending is enabled.";
+
+export const TTO_MESSAGE_FOR_HEADING = "THIS MESSAGE IS FOR";
+export const TTO_MESSAGE_FOR_UNAVAILABLE = "Target not captured";
+export const TTO_PERSISTED_PACKET_HEADING = "PERSISTED RELATIONSHIP PACKET";
+export const TTO_PERSISTED_EXACT_THREAD_HEADING = "PERSISTED EXACT THREAD";
+export const TTO_PERSISTED_PACKET_UNAVAILABLE =
+  "Relationship packet was not captured for this generation.";
+export const TTO_PERSISTED_EXACT_THREAD_UNAVAILABLE =
+  "Exact thread was not captured in the persisted packet.";
+
+/**
+ * Shared Sol coaching rows (Morning or Evening) — gate on persisted Sol metadata,
+ * never on page alone.
+ */
+export function isSharedSolCoachingRow(row: TylerTextOverviewAdminDraftRow): boolean {
+  if (row.coachingStack === "shared_sol_v1") return true;
+  if (row.writerPromptPath === "morning_brief_writer_v1") return true;
+  if (row.morningCoachingBriefV1 != null) return true;
+  if (row.morningBriefInterpreterV1 != null) return true;
+  if (row.morningWriterCaptureV1 != null) return true;
+  if (row.morningRelationshipPacketV1 != null) return true;
+  return false;
+}
+
+/** Morning page morning drafts, or Evening shared-Sol drafts — always show dual body. */
 export function shouldShowMorningDualBodyPanels(
   row: TylerTextOverviewAdminDraftRow,
   isEveningPage: boolean
 ): boolean {
-  if (isEveningPage) return false;
-  if (row.sendSlot !== "morning") return false;
   if (!row.draftId) return false;
-  return true;
+  if (!isEveningPage) {
+    return row.sendSlot === "morning";
+  }
+  return row.sendSlot === "evening_checkin" && isSharedSolCoachingRow(row);
 }
 
 export function isMorningRelationshipNotebookRow(
@@ -85,7 +116,53 @@ export function isMorningRelationshipNotebookRow(
 ): boolean {
   return (
     row.notebookFamily === "morning_relationship_v1" ||
-    row.writerPromptPath === "morning_relationship_v1"
+    row.writerPromptPath === "morning_relationship_v1" ||
+    row.writerPromptPath === "morning_brief_writer_v1"
+  );
+}
+
+/** Forensic Sol panels: Brief / interpreter / writer / retry — data-gated. */
+export function shouldShowSolForensicPanels(row: TylerTextOverviewAdminDraftRow): boolean {
+  return isSharedSolCoachingRow(row) || isMorningRelationshipNotebookRow(row);
+}
+
+/**
+ * Legacy Evening Morning-anchor panel only when real legacy metadata exists and
+ * the row is not shared-Sol (E3 Sol rows must not show a stale anchor panel).
+ */
+export function shouldShowEveningMorningAnchorPanel(
+  row: TylerTextOverviewAdminDraftRow,
+  isEveningPage: boolean
+): boolean {
+  if (!isEveningPage) return false;
+  if (isSharedSolCoachingRow(row)) return false;
+  return Boolean(
+    row.morningAnchorSource ||
+      row.morningAnchorSent != null ||
+      row.morningAnchorBodyPreview
+  );
+}
+
+/** Persisted message_for only — never derive from admin day selector. */
+export function formatPersistedMessageForLine(
+  messageFor: TylerTextOverviewAdminDraftRow["messageFor"]
+): string | null {
+  if (!messageFor) return null;
+  const daypartLabel = messageFor.daypart === "evening" ? "Evening" : "Morning";
+  return `${messageFor.local_weekday}, ${messageFor.local_date} · ${daypartLabel} · ${messageFor.timezone}`;
+}
+
+export function getPersistedExactThreadMessages(
+  packet: TylerTextOverviewAdminDraftRow["morningRelationshipPacketV1"]
+): Array<Record<string, unknown>> | null {
+  if (!packet) return null;
+  const exact = packet.exact_thread;
+  if (!exact || typeof exact !== "object" || Array.isArray(exact)) return null;
+  const messages = (exact as Record<string, unknown>).messages;
+  if (!Array.isArray(messages)) return null;
+  return messages.filter(
+    (m): m is Record<string, unknown> =>
+      !!m && typeof m === "object" && !Array.isArray(m)
   );
 }
 
