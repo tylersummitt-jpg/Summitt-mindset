@@ -47,6 +47,14 @@ import { hashWriterOpenAiMessages } from "@/lib/tyler-text-overview-writer-captu
 
 export const MORNING_RELATIONSHIP_ROUTE_KIND = "morning_relationship" as const;
 
+/** Slots where Tyler-saved draft bodies (including intentional blank) survive regenerate. */
+function isProtectedTtoOverwriteSlot(sendSlot: SmsDailySendSlot): boolean {
+  return (
+    sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT ||
+    sendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+  );
+}
+
 function mapOpenAiMessagesToWriterCapture(
   messages: Array<{ role: string; content?: unknown }>
 ): TylerTextOverviewWriterOpenAiMessage[] {
@@ -569,7 +577,7 @@ export async function persistMorningTtoGeneration(args: {
   );
   const protectExistingDraft =
     args.respectProtectedMorningDraft !== false &&
-    sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT &&
+    isProtectedTtoOverwriteSlot(sendSlot) &&
     existingDraft != null &&
     existingDraft.status === "current" &&
     isProtectedFromMorningDraftOverwrite({
@@ -780,7 +788,7 @@ async function upsertCurrentDraft(args: {
   );
   if (
     args.respectProtectedMorningDraft !== false &&
-    args.sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT &&
+    isProtectedTtoOverwriteSlot(args.sendSlot) &&
     existing &&
     existing.status === "current" &&
     isProtectedFromMorningDraftOverwrite({
@@ -910,12 +918,58 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
     generationMetadataExtra: args.generationMetadataExtra,
   });
 
+  const existingDraft = await loadExistingCurrentDraft(
+    args.clerkUserId,
+    args.draftForDayKey,
+    sendSlot
+  );
+  const protectExistingDraft =
+    args.respectProtectedMorningDraft !== false &&
+    isProtectedTtoOverwriteSlot(sendSlot) &&
+    existingDraft != null &&
+    existingDraft.status === "current" &&
+    isProtectedFromMorningDraftOverwrite({
+      current_body_to_send: existingDraft.current_body_to_send,
+      edited_by_tyler: existingDraft.edited_by_tyler,
+      current_body_source: existingDraft.current_body_source,
+    });
+
   const inserted = await insertGenerationRow(generationRow);
   if ("error" in inserted) {
     return { ok: false, reason: "insert_failed", error: inserted.error };
   }
 
   const nowIso = args.now.toISOString();
+
+  // Protected draft: keep history, but never supersede the still-authoritative generation
+  // the draft continues to point at (would leave current_generation_id → superseded row).
+  if (protectExistingDraft) {
+    const authoritativeId = existingDraft.current_generation_id;
+    if (authoritativeId) {
+      const { error: orphanError } = await supabaseServer
+        .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+        .update({
+          superseded_by_generation_id: authoritativeId,
+          superseded_at: nowIso,
+        })
+        .eq("id", inserted.id);
+      if (orphanError) {
+        console.warn("[tyler-text-overview] protected_history_generation_mark_failed", {
+          clerk_user_id: args.clerkUserId,
+          draft_for_day_key: args.draftForDayKey,
+          generation_id: inserted.id,
+          message: orphanError.message,
+        });
+      }
+    }
+    return {
+      ok: true,
+      generationId: inserted.id,
+      supersedeFailed: false,
+      currentDraftProtected: true,
+    };
+  }
+
   const supersede = await supersedePriorGenerations({
     clerkUserId: args.clerkUserId,
     draftForDayKey: args.draftForDayKey,
@@ -1525,7 +1579,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     now,
     sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
     generationMetadataExtra: previewMetadataExtra,
-    respectProtectedMorningDraft: false,
+    respectProtectedMorningDraft: true,
   });
 
   if (!persisted.ok) {

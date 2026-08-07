@@ -87,7 +87,7 @@ export const EVENING_TTO_SAVE_ONLY_COPY =
 export const EVENING_TTO_SAVE_BEFORE_SEND_COPY = "Save changes before sending.";
 
 export const EVENING_TTO_REGENERATE_OVERWRITE_COPY =
-  "Regenerate may replace saved edits.";
+  "Regenerate creates a new machine draft but keeps your saved edit/blank.";
 
 export const EVENING_TTO_NO_BODY_GENERATED_COPY = "No evening text body generated.";
 

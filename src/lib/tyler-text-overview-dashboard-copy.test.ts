@@ -511,7 +511,8 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("eveningSendButtonLabel(false)");
     expect(EVENING_TTO_SAVE_ONLY_COPY).toContain("does not send");
     expect(EVENING_TTO_SAVE_BEFORE_SEND_COPY).toContain("Save changes");
-    expect(EVENING_TTO_REGENERATE_OVERWRITE_COPY).toContain("replace saved edits");
+    expect(EVENING_TTO_REGENERATE_OVERWRITE_COPY).toContain("keeps your saved edit/blank");
+    expect(EVENING_TTO_REGENERATE_OVERWRITE_COPY).not.toContain("replace saved edits");
     expect(dashboard).not.toContain("showReadOnlyBody =\n              isEveningPage ||");
   });
 

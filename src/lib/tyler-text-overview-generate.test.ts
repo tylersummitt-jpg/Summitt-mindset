@@ -1609,4 +1609,287 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     if (!result.ok) return;
     expect(result.draftForDayKey).toBe("2026-07-10");
   });
+
+  it("does not overwrite protected tyler_edit evening draft on regenerate", async () => {
+    buildDailySmsContentMock.mockResolvedValue({
+      ...SUCCESS_BUILT,
+      smsBody: "New evening machine body must not become live",
+    });
+    db.drafts = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        status: "current",
+        current_generation_id: "gen-evening-prior",
+        current_body_to_send: "Tyler evening edit",
+        current_body_source: "tyler_edit",
+        edited_by_tyler: true,
+        edited_at: "2026-07-02T18:00:00.000Z",
+        edit_distance_chars: 12,
+      },
+    ];
+    db.generations = [
+      {
+        id: "gen-evening-prior",
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        generation_number: 1,
+        generation_reason: "manual_regenerate",
+        machine_draft_body: "Prior evening machine",
+        machine_should_send: true,
+        superseded_at: null,
+      },
+    ];
+    db.nextGenId = 2;
+
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+    expect(result.ok).toBe(true);
+    expect(db.drafts).toHaveLength(1);
+    expect(db.drafts[0]?.current_body_to_send).toBe("Tyler evening edit");
+    expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    expect(db.drafts[0]?.edited_at).toBe("2026-07-02T18:00:00.000Z");
+    expect(db.drafts[0]?.edit_distance_chars).toBe(12);
+    expect(db.drafts[0]?.current_generation_id).toBe("gen-evening-prior");
+    expect(db.generations).toHaveLength(2);
+    const authoritative = db.generations.find((g) => g.id === "gen-evening-prior");
+    const orphan = db.generations.find((g) => g.id !== "gen-evening-prior");
+    expect(authoritative?.superseded_at == null).toBe(true);
+    expect(orphan?.machine_draft_body).toBe("New evening machine body must not become live");
+    expect(orphan?.superseded_at).toBeTruthy();
+    expect(orphan?.superseded_by_generation_id).toBe("gen-evening-prior");
+  });
+
+  it("does not overwrite Tyler intentional evening blank on regenerate", async () => {
+    buildDailySmsContentMock.mockResolvedValue({
+      ...SUCCESS_BUILT,
+      smsBody: "Machine evening body must not restore over blank",
+    });
+    db.drafts = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        status: "current",
+        current_generation_id: "gen-evening-prior",
+        current_body_to_send: null,
+        current_body_source: "tyler_edit",
+        edited_by_tyler: true,
+        edited_at: "2026-07-02T18:00:00.000Z",
+        edit_distance_chars: 40,
+      },
+    ];
+    db.generations = [
+      {
+        id: "gen-evening-prior",
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        generation_number: 1,
+        generation_reason: "manual_regenerate",
+        machine_draft_body: "Prior evening machine",
+        machine_should_send: true,
+        superseded_at: null,
+      },
+    ];
+    db.nextGenId = 2;
+
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+    expect(result.ok).toBe(true);
+    expect(db.drafts[0]?.current_body_to_send).toBeNull();
+    expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    expect(db.drafts[0]?.edited_at).toBe("2026-07-02T18:00:00.000Z");
+    expect(db.drafts[0]?.current_generation_id).toBe("gen-evening-prior");
+    const orphan = db.generations.find((g) => g.id !== "gen-evening-prior");
+    expect(orphan?.superseded_by_generation_id).toBe("gen-evening-prior");
+    expect(orphan?.superseded_at).toBeTruthy();
+    expect(db.generations.find((g) => g.id === "gen-evening-prior")?.superseded_at == null).toBe(
+      true
+    );
+  });
+
+  it("overwrites evening machine null (no Tyler provenance) on regenerate", async () => {
+    buildDailySmsContentMock.mockResolvedValue({
+      ...SUCCESS_BUILT,
+      smsBody: "Recovered evening machine draft",
+    });
+    db.drafts = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        status: "current",
+        current_generation_id: "gen-evening-prior",
+        current_body_to_send: null,
+        current_body_source: "machine",
+        edited_by_tyler: false,
+        edited_at: null,
+      },
+    ];
+    db.generations = [
+      {
+        id: "gen-evening-prior",
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        generation_number: 1,
+        generation_reason: "manual_regenerate",
+        machine_draft_body: null,
+        machine_should_send: false,
+        machine_no_send_reason: "openai_request_failed",
+        superseded_at: null,
+      },
+    ];
+    db.nextGenId = 2;
+
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+    expect(result.ok).toBe(true);
+    expect(db.drafts[0]?.current_body_to_send).toBe("Recovered evening machine draft");
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+    expect(db.drafts[0]?.current_generation_id).not.toBe("gen-evening-prior");
+  });
+
+  it("does not overwrite never-edited non-empty evening machine draft on regenerate", async () => {
+    buildDailySmsContentMock.mockResolvedValue({
+      ...SUCCESS_BUILT,
+      smsBody: "Second evening machine body",
+    });
+    db.drafts = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        status: "current",
+        current_generation_id: "gen-evening-prior",
+        current_body_to_send: "First evening machine body",
+        current_body_source: "machine",
+        edited_by_tyler: false,
+        edited_at: null,
+      },
+    ];
+    db.generations = [
+      {
+        id: "gen-evening-prior",
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        generation_number: 1,
+        generation_reason: "manual_regenerate",
+        machine_draft_body: "First evening machine body",
+        machine_should_send: true,
+        superseded_at: null,
+      },
+    ];
+    db.nextGenId = 2;
+
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+    expect(result.ok).toBe(true);
+    // Same as Morning: non-empty current body is protected even without Tyler provenance.
+    expect(db.drafts[0]?.current_body_to_send).toBe("First evening machine body");
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+    expect(db.drafts[0]?.current_generation_id).toBe("gen-evening-prior");
+  });
+
+  it("failed evening generation null remains regeneratable and does not freeze machine provenance", async () => {
+    buildDailySmsContentMock.mockResolvedValue({
+      ...SUCCESS_BUILT,
+      smsBody: "Evening recovered after fail",
+    });
+    db.drafts = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        status: "current",
+        current_generation_id: "gen-evening-fail",
+        current_body_to_send: null,
+        current_body_source: "machine",
+        edited_by_tyler: false,
+        edited_at: null,
+      },
+    ];
+    db.generations = [
+      {
+        id: "gen-evening-fail",
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        generation_number: 1,
+        generation_reason: "manual_regenerate",
+        machine_draft_body: null,
+        machine_should_send: false,
+        machine_no_send_reason: "memory_repeat_no_send",
+        superseded_at: null,
+      },
+    ];
+    db.nextGenId = 2;
+
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+    expect(result.ok).toBe(true);
+    expect(db.drafts[0]?.current_body_to_send).toBe("Evening recovered after fail");
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+  });
+
+  it("no-draft evening generate still creates a draft", async () => {
+    buildDailySmsContentMock.mockResolvedValue({
+      ...SUCCESS_BUILT,
+      smsBody: "First evening draft body",
+    });
+    expect(db.drafts).toHaveLength(0);
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+    expect(result.ok).toBe(true);
+    expect(db.drafts).toHaveLength(1);
+    expect(db.drafts[0]?.send_slot).toBe(SMS_DAILY_EVENING_PREVIEW_SEND_SLOT);
+    expect(db.drafts[0]?.current_body_to_send).toBe("First evening draft body");
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+  });
+
+  it("evening protection enables Morning-style flag and leaves send disabled", () => {
+    const generateSrc = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"),
+      "utf8"
+    );
+    const eveningFn = generateSrc.slice(
+      generateSrc.indexOf("export async function generateTylerTextOverviewEveningPreviewForUser")
+    );
+    expect(eveningFn).toContain("respectProtectedMorningDraft: true");
+    expect(eveningFn).not.toContain("respectProtectedMorningDraft: false");
+
+    const sendSrc = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-evening-send.ts"),
+      "utf8"
+    );
+    expect(sendSrc).toMatch(/export const EVENING_PROACTIVE_SEND_DISABLED\s*=\s*true/);
+
+    const weeklySrc = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-weekly-generate.ts"),
+      "utf8"
+    );
+    expect(weeklySrc).toContain("respectProtectedMorningDraft: false");
+  });
 });
