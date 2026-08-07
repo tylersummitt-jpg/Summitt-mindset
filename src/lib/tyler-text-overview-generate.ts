@@ -385,11 +385,12 @@ export function mapMorningWriterToGenerationRow(args: {
   success?: {
     body: string;
     messages: TylerTextOverviewWriterOpenAiMessage[];
-    writerPromptPath: "morning_relationship_v1";
+    writerPromptPath: "morning_brief_writer_v1" | "morning_relationship_v1";
     model?: string;
     retryMessages?: TylerTextOverviewWriterOpenAiMessage[];
     retryOccurred?: boolean;
     retrySucceeded?: boolean;
+    writerCapture?: Record<string, unknown>;
   };
   failure?: {
     error: string;
@@ -399,6 +400,7 @@ export function mapMorningWriterToGenerationRow(args: {
     retryMessages?: TylerTextOverviewWriterOpenAiMessage[];
     retryOccurred?: boolean;
     retrySucceeded?: boolean;
+    writerCapture?: Record<string, unknown>;
   };
   packetMetadata?: {
     thread_message_count: number;
@@ -427,6 +429,8 @@ export function mapMorningWriterToGenerationRow(args: {
     retryMessages.length > 0;
   const retrySucceeded =
     args.success?.retrySucceeded ?? args.failure?.retrySucceeded ?? null;
+  const writerCapture =
+    args.success?.writerCapture ?? args.failure?.writerCapture ?? null;
 
   return {
     clerk_user_id: args.clerkUserId,
@@ -443,7 +447,7 @@ export function mapMorningWriterToGenerationRow(args: {
     writer_notebook_snapshot: null,
     notebook_hash: capturePresent ? hashWriterOpenAiMessages(messages) : null,
     notebook_verdict: "not_applicable",
-    notebook_verdict_reason: capturePresent ? "morning_relationship_writer_ran" : "writer_not_invoked",
+    notebook_verdict_reason: capturePresent ? "morning_brief_writer_ran" : "writer_not_invoked",
     notebook_source_candidate_count: null,
     notebook_exact_source_message_count: null,
     notebook_thread_message_count: args.packetMetadata?.thread_message_count ?? null,
@@ -461,12 +465,23 @@ export function mapMorningWriterToGenerationRow(args: {
       never_replied: args.packetMetadata?.never_replied ?? null,
       has_pending_goal_change: args.packetMetadata?.has_pending_goal_change ?? null,
       ...(model ? { writer_model: model } : {}),
-      morning_writer_capture_v1: {
-        model,
-        retry_occurred: retryOccurred,
-        retry_succeeded: retryOccurred ? retrySucceeded : null,
-        retry_messages: retryOccurred ? retryMessages : [],
-      },
+      morning_writer_capture_v1: writerCapture
+        ? {
+            ...writerCapture,
+            retry_messages: retryOccurred ? retryMessages : [],
+          }
+        : {
+            model,
+            temperature: null,
+            reasoning_effort: null,
+            max_completion_tokens: null,
+            retry_occurred: retryOccurred,
+            retry_succeeded: retryOccurred ? retrySucceeded : null,
+            retry_messages: retryOccurred ? retryMessages : [],
+            raw_response: null,
+            raw_retry_response: null,
+            error: args.success ? null : failureError,
+          },
       ...(args.generationMetadataExtra ?? {}),
     },
     timezone_snapshot: args.timezone,
@@ -487,11 +502,12 @@ export async function persistMorningTtoGeneration(args: {
   success?: {
     body: string;
     messages: TylerTextOverviewWriterOpenAiMessage[];
-    writerPromptPath: "morning_relationship_v1";
+    writerPromptPath: "morning_brief_writer_v1" | "morning_relationship_v1";
     model?: string;
     retryMessages?: TylerTextOverviewWriterOpenAiMessage[];
     retryOccurred?: boolean;
     retrySucceeded?: boolean;
+    writerCapture?: Record<string, unknown>;
   };
   failure?: {
     error: string;
@@ -501,6 +517,7 @@ export async function persistMorningTtoGeneration(args: {
     retryMessages?: TylerTextOverviewWriterOpenAiMessage[];
     retryOccurred?: boolean;
     retrySucceeded?: boolean;
+    writerCapture?: Record<string, unknown>;
   };
   packetMetadata?: {
     thread_message_count: number;
@@ -939,8 +956,8 @@ export type TylerTextOverviewMorningDraftResult =
     };
 
 /**
- * Phase 2C observational interpreter. Never mutates packet. Never throws to caller.
- * Failures still yield fail-soft metadata so writer can proceed unchanged.
+ * Morning Brief interpreter orchestration. Never mutates packet. Never throws to caller.
+ * Always returns a post-merge (or fail-soft) Brief for the final writer.
  */
 export async function runObservationalMorningBriefInterpreter(args: {
   packet: MorningRelationshipPacket;
@@ -1150,14 +1167,18 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     has_pending_goal_change: packet.hard_state.pending_goal_change != null,
   };
 
-  // Phase 2C: observational interpreter — never mutates packet; never feeds writer.
+  // Phase 2D: Brief → Sol final writer. Packet unmutated; Brief is separate input.
   const briefMetadataExtra = await runObservationalMorningBriefInterpreter({
     packet,
     clerkUserId,
     commitmentId,
   });
+  const morningCoachingBrief = briefMetadataExtra.morning_coaching_brief_v1;
 
-  const writerResult = await writeMorningTtoBody(packet);
+  const writerResult = await writeMorningTtoBody({
+    packet,
+    morningCoachingBrief,
+  });
   const writerMessages = writerResult.messages
     ? mapOpenAiMessagesToWriterCapture(writerResult.messages)
     : undefined;
@@ -1167,6 +1188,27 @@ export async function generateTylerTextOverviewDraftForUser(args: {
   const retryOccurred = writerResult.retryOccurred === true;
   const writerModel =
     typeof writerResult.model === "string" ? writerResult.model : null;
+  const writerCapture = writerResult.capture
+    ? {
+        capture_version: writerResult.capture.capture_version,
+        model: writerResult.capture.model,
+        temperature: writerResult.capture.temperature,
+        reasoning_effort: writerResult.capture.reasoning_effort,
+        max_completion_tokens: writerResult.capture.max_completion_tokens,
+        prompt_path: writerResult.capture.prompt_path,
+        request_started_at: writerResult.capture.request_started_at,
+        request_completed_at: writerResult.capture.request_completed_at,
+        latency_ms: writerResult.capture.latency_ms,
+        raw_response: writerResult.capture.raw_response,
+        raw_retry_response: writerResult.capture.raw_retry_response,
+        error: writerResult.capture.error,
+        retry_occurred: writerResult.capture.retry_occurred,
+        retry_succeeded: writerResult.capture.retry_succeeded,
+      }
+    : undefined;
+  const writerPromptPathForPersist = writerMessages?.length
+    ? ("morning_brief_writer_v1" as const)
+    : null;
 
   if (!writerResult.ok) {
     const persisted = await persistMorningTtoGeneration({
@@ -1180,11 +1222,12 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       failure: {
         error: writerResult.error,
         messages: writerMessages,
-        writerPromptPath: writerMessages?.length ? "morning_relationship_v1" : null,
+        writerPromptPath: writerPromptPathForPersist,
         model: writerModel,
         retryMessages,
         retryOccurred,
         retrySucceeded: retryOccurred ? false : undefined,
+        writerCapture,
       },
       packetMetadata,
       generationMetadataExtra: briefMetadataExtra,
@@ -1200,7 +1243,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       generationId: persisted.generationId,
       body: null,
       machineShouldSend: false,
-      writerPromptPath: writerMessages?.length ? "morning_relationship_v1" : null,
+      writerPromptPath: writerPromptPathForPersist,
       supersedeFailed: persisted.supersedeFailed,
       currentDraftProtected: persisted.currentDraftProtected,
     };
@@ -1222,6 +1265,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       retryMessages,
       retryOccurred,
       retrySucceeded: retryOccurred ? true : undefined,
+      writerCapture,
     },
     packetMetadata,
     generationMetadataExtra: briefMetadataExtra,

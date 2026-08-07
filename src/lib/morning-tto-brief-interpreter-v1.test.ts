@@ -418,21 +418,21 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(src).not.toMatch(/from\("v2_commitment"\)/);
   });
 
-  it("generate path wires observational interpreter without feeding writer (Phase 2C)", () => {
+  it("generate path wires Brief into Sol writer (Phase 2D)", () => {
     const generateSrc = readFileSync(
       path.join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"),
       "utf8"
     );
     expect(generateSrc).toMatch(/runObservationalMorningBriefInterpreter/);
     expect(generateSrc).toMatch(/morning-tto-brief-interpreter/);
-    expect(generateSrc).toMatch(/writeMorningTtoBody\(packet\)/);
-    expect(generateSrc).not.toMatch(/writeMorningTtoBody\([^)]*brief/);
+    expect(generateSrc).toMatch(/writeMorningTtoBody\(\{\s*packet,\s*morningCoachingBrief/);
     const writerSrc = readFileSync(
       path.join(process.cwd(), "src/lib/morning-tto-writer.ts"),
       "utf8"
     );
-    expect(writerSrc).not.toMatch(/morning-tto-brief|coaching_brief|MORNING_BRIEF/);
-    expect(writerSrc).toMatch(/MORNING_TTO_WRITER_MODEL = "gpt-4o-mini"/);
+    expect(writerSrc).toMatch(/MORNING_COACHING_BRIEF_V1/);
+    expect(writerSrc).toMatch(/MORNING_TTO_WRITER_MODEL = "gpt-5\.6-sol"/);
+    expect(writerSrc).not.toMatch(/runLaneOpenAiJsonWithOneRetry/);
   });
 });
 

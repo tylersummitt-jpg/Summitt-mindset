@@ -76,6 +76,7 @@ function baseRow(
     slotCoachingContext: null,
     morningBriefInterpreterV1: null,
     morningCoachingBriefV1: null,
+    morningWriterCaptureV1: null,
     ...overrides,
   };
 }
@@ -85,9 +86,11 @@ describe("tyler-text-overview-dashboard-sections", () => {
     expect(ADMIN_INTERPRETATION_LINE).toBe("Admin interpretation — not sent to OpenAI.");
   });
 
-  it("exposes Phase 2C observation-only status copy", () => {
-    expect(MORNING_BRIEF_OBSERVATION_STATUS).toMatch(/OBSERVATION ONLY/);
-    expect(MORNING_BRIEF_OBSERVATION_STATUS).toMatch(/did not affect this writer draft/);
+  it("exposes Phase 2D Brief-in-writer status copy", () => {
+    expect(MORNING_BRIEF_OBSERVATION_STATUS).toBe(
+      "MORNING COACHING BRIEF WAS INCLUDED IN THIS WRITER INPUT."
+    );
+    expect(MORNING_BRIEF_OBSERVATION_STATUS).not.toMatch(/OBSERVATION ONLY/);
   });
 
   it("raw section with messages returns message.content unchanged", () => {

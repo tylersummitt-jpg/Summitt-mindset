@@ -339,8 +339,12 @@ vi.mock("@/lib/supabase-server", () => {
 });
 
 const MORNING_WRITER_MESSAGES = [
-  { role: "system" as const, content: "Morning relationship system" },
-  { role: "user" as const, content: "MORNING_RELATIONSHIP_PACKET_V1\n{}" },
+  { role: "system" as const, content: "Morning brief writer system" },
+  {
+    role: "user" as const,
+    content:
+      'MORNING_COACHING_BRIEF_V1\n{"version":"morning_coaching_brief_v1"}\n\nMORNING_RELATIONSHIP_PACKET_V1\n{}',
+  },
 ];
 
 const MORNING_SUCCESS_BODY = "Did the two hours happen before noon?";
@@ -506,8 +510,24 @@ function setupHappyPath() {
     primaryMessages: MORNING_WRITER_MESSAGES,
     retryMessages: [],
     retryOccurred: false,
-    writer_prompt_path: "morning_relationship_v1",
-    model: "gpt-4o-mini",
+    writer_prompt_path: "morning_brief_writer_v1",
+    model: "gpt-5.6-sol",
+    capture: {
+      capture_version: "morning_writer_capture_v1",
+      model: "gpt-5.6-sol",
+      temperature: null,
+      reasoning_effort: "low",
+      max_completion_tokens: 1200,
+      prompt_path: "morning_brief_writer_v1",
+      raw_response: '{"body":"Did the two hours happen before noon?"}',
+      raw_retry_response: null,
+      error: null,
+      request_started_at: "2026-07-02T16:00:00.000Z",
+      request_completed_at: "2026-07-02T16:00:01.000Z",
+      latency_ms: 1000,
+      retry_occurred: false,
+      retry_succeeded: null,
+    },
   });
   runInterpreterMock.mockResolvedValue({
     ok: true,
@@ -719,7 +739,12 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
         draftForDayKey: "2026-07-03",
       })
     );
-    expect(writeMorningTtoBodyMock).toHaveBeenCalledWith(MORNING_PACKET);
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledWith({
+      packet: MORNING_PACKET,
+      morningCoachingBrief: expect.objectContaining({
+        version: "morning_coaching_brief_v1",
+      }),
+    });
   });
 
   it("skips non-V2 users", async () => {
@@ -750,7 +775,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     setupHappyPath();
     await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(db.generations[0]?.writer_openai_messages).toEqual(MORNING_WRITER_MESSAGES);
-    expect(db.generations[0]?.writer_prompt_path).toBe("morning_relationship_v1");
+    expect(db.generations[0]?.writer_prompt_path).toBe("morning_brief_writer_v1");
     expect(db.generations[0]?.route_kind).toBe("morning_relationship");
     expect(db.drafts[0]?.current_body_to_send).toBe(MORNING_SUCCESS_BODY);
     expect(db.drafts[0]?.current_body_source).toBe("machine");
@@ -760,13 +785,19 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(meta.build_ok).toBe(true);
     expect(meta.capture_present).toBe(true);
     expect(meta.thread_message_count).toBe(2);
-    expect(meta.writer_model).toBe("gpt-4o-mini");
-    expect(meta.morning_writer_capture_v1).toEqual({
-      model: "gpt-4o-mini",
-      retry_occurred: false,
-      retry_succeeded: null,
-      retry_messages: [],
-    });
+    expect(meta.writer_model).toBe("gpt-5.6-sol");
+    expect(meta.morning_writer_capture_v1).toEqual(
+      expect.objectContaining({
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        retry_occurred: false,
+        retry_succeeded: null,
+        retry_messages: [],
+        raw_response: expect.stringContaining('"body"'),
+      })
+    );
     expect(meta.morning_brief_interpreter_v1).toEqual(
       expect.objectContaining({
         model: "gpt-5.6-sol",
@@ -783,68 +814,69 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     ).toEqual(meta.morning_coaching_brief_v1);
   });
 
-  it("Phase 2C: interpreter runs before writer; packet not mutated; Brief absent from writer messages", async () => {
+  it("Phase 2D: Brief passed to writer; packet unmutated; Brief JSON in writer messages", async () => {
     setupHappyPath();
     const callOrder: string[] = [];
+    const briefForWriter = {
+      version: "morning_coaching_brief_v1" as const,
+      confidence: "medium" as const,
+      human_situation: {
+        most_alive: "alive",
+        direct_question_or_need: null,
+        relevant_life_event: null,
+        context_use: "background" as const,
+        identity_use: "background" as const,
+        person_use: "do_not_force" as const,
+        selected_person: null,
+        selected_person_reason: null,
+      },
+      truth_and_evidence: {
+        latest_user_truth: null,
+        outcome: "no_recent_evidence" as const,
+        evidence_note: "unknown",
+        evidence_strength: "none" as const,
+        consistency_supported: false,
+        proof_claims_allowed: {
+          completion: false,
+          miss: false,
+          partial: false,
+          proof: false,
+        },
+      },
+      conversation_continuity: {
+        already_acknowledged: [],
+        answered_question: null,
+        open_loop: null,
+        stale_or_exhausted_topics: [],
+        do_not_repeat: [],
+      },
+      goal_role_today: {
+        canonical_goal: "Two hours deep work",
+        pending_goal: null,
+        goal_alignment: "aligned" as const,
+        role: "background" as const,
+        note: "ok",
+      },
+      coaching_direction: {
+        primary_move: "continue_conversation" as const,
+        question_policy: "none" as const,
+        action_guidance: "none" as const,
+        pressure: "normal" as const,
+      },
+      boundaries: {
+        claims_to_avoid: ["no fake consistency"],
+        topics_not_to_force: [],
+        unsupported_capabilities: [],
+        goal_authority_boundaries: [],
+        identity_people_boundaries: [],
+        coach_history_is_not_style: "history",
+      },
+    };
     runInterpreterMock.mockImplementation(async () => {
       callOrder.push("interpreter");
       return {
         ok: true,
-        brief: {
-          version: "morning_coaching_brief_v1",
-          confidence: "medium",
-          human_situation: {
-            most_alive: "alive",
-            direct_question_or_need: null,
-            relevant_life_event: null,
-            context_use: "background",
-            identity_use: "background",
-            person_use: "do_not_force",
-            selected_person: null,
-            selected_person_reason: null,
-          },
-          truth_and_evidence: {
-            latest_user_truth: null,
-            outcome: "no_recent_evidence",
-            evidence_note: "unknown",
-            evidence_strength: "none",
-            consistency_supported: false,
-            proof_claims_allowed: {
-              completion: false,
-              miss: false,
-              partial: false,
-              proof: false,
-            },
-          },
-          conversation_continuity: {
-            already_acknowledged: [],
-            answered_question: null,
-            open_loop: null,
-            stale_or_exhausted_topics: [],
-            do_not_repeat: [],
-          },
-          goal_role_today: {
-            canonical_goal: "Two hours deep work",
-            pending_goal: null,
-            goal_alignment: "aligned",
-            role: "background",
-            note: "ok",
-          },
-          coaching_direction: {
-            primary_move: "continue_conversation",
-            question_policy: "none",
-            action_guidance: "none",
-            pressure: "normal",
-          },
-          boundaries: {
-            claims_to_avoid: [],
-            topics_not_to_force: [],
-            unsupported_capabilities: [],
-            goal_authority_boundaries: [],
-            identity_people_boundaries: [],
-            coach_history_is_not_style: "history",
-          },
-        },
+        brief: briefForWriter,
         capture: {
           capture_version: "morning_brief_interpreter_capture_v1",
           model: "gpt-5.6-sol",
@@ -852,7 +884,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
           reasoning_effort: "low",
           max_completion_tokens: 2500,
           prompt_path: "morning_brief_interpreter_v1",
-          system_message: "interpreter system never in writer",
+          system_message: "interpreter system never alone as writer",
           user_message: "interpreter user",
           canonical_input: { version: "morning_brief_interpreter_input_v1" },
           raw_response: "{}",
@@ -865,18 +897,47 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
         },
       };
     });
-    writeMorningTtoBodyMock.mockImplementation(async (packet) => {
+    writeMorningTtoBodyMock.mockImplementation(async (args) => {
       callOrder.push("writer");
-      expect(JSON.stringify(packet)).toBe(JSON.stringify(MORNING_PACKET));
+      expect(args).toEqual(
+        expect.objectContaining({
+          packet: MORNING_PACKET,
+          morningCoachingBrief: briefForWriter,
+        })
+      );
+      expect(JSON.stringify(args.packet)).toBe(JSON.stringify(MORNING_PACKET));
+      const messages = [
+        { role: "system" as const, content: "Morning brief writer system" },
+        {
+          role: "user" as const,
+          content: `MORNING_COACHING_BRIEF_V1\n${JSON.stringify(briefForWriter)}\n\nMORNING_RELATIONSHIP_PACKET_V1\n${JSON.stringify(args.packet)}`,
+        },
+      ];
       return {
         ok: true,
         body: MORNING_SUCCESS_BODY,
-        messages: MORNING_WRITER_MESSAGES,
-        primaryMessages: MORNING_WRITER_MESSAGES,
+        messages,
+        primaryMessages: messages,
         retryMessages: [],
         retryOccurred: false,
-        writer_prompt_path: "morning_relationship_v1",
-        model: "gpt-4o-mini",
+        writer_prompt_path: "morning_brief_writer_v1",
+        model: "gpt-5.6-sol",
+        capture: {
+          capture_version: "morning_writer_capture_v1",
+          model: "gpt-5.6-sol",
+          temperature: null,
+          reasoning_effort: "low",
+          max_completion_tokens: 1200,
+          prompt_path: "morning_brief_writer_v1",
+          raw_response: '{"body":"x"}',
+          raw_retry_response: null,
+          error: null,
+          request_started_at: null,
+          request_completed_at: null,
+          latency_ms: null,
+          retry_occurred: false,
+          retry_succeeded: null,
+        },
       };
     });
     await generateTylerTextOverviewDailyDrafts({
@@ -884,14 +945,53 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       now: new Date("2026-07-02T16:00:00.000Z"),
     });
     expect(callOrder).toEqual(["interpreter", "writer"]);
-    const msgs = JSON.stringify(db.generations[0]?.writer_openai_messages);
-    expect(msgs).not.toMatch(/morning_coaching_brief|interpreter system never in writer|gpt-5\.6-sol/);
+    const userMsg = (
+      db.generations[0]?.writer_openai_messages as Array<{ role: string; content: string }>
+    )?.find((m) => m.role === "user")?.content;
+    expect(userMsg).toContain("MORNING_COACHING_BRIEF_V1");
+    expect(userMsg).toContain(JSON.stringify(briefForWriter));
+    expect(userMsg).toContain("MORNING_RELATIONSHIP_PACKET_V1");
+    expect(userMsg).not.toMatch(/interpreter system never alone as writer/);
+    const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
+    expect(meta.morning_coaching_brief_v1).toEqual(briefForWriter);
+    expect(userMsg).toContain(JSON.stringify(meta.morning_coaching_brief_v1));
     expect(db.generations[0]?.machine_should_send).toBe(true);
   });
 
-  it("Phase 2C: interpreter failure still runs writer with machine_should_send from writer", async () => {
+  it("Phase 2D: fail-soft Brief still reaches writer; machine_should_send from writer", async () => {
     setupHappyPath();
     runInterpreterMock.mockRejectedValue(new Error("boom"));
+    writeMorningTtoBodyMock.mockImplementation(async (args) => {
+      expect(args.morningCoachingBrief).toEqual(
+        expect.objectContaining({ confidence: "low", version: "morning_coaching_brief_v1" })
+      );
+      return {
+        ok: true,
+        body: MORNING_SUCCESS_BODY,
+        messages: MORNING_WRITER_MESSAGES,
+        primaryMessages: MORNING_WRITER_MESSAGES,
+        retryMessages: [],
+        retryOccurred: false,
+        writer_prompt_path: "morning_brief_writer_v1",
+        model: "gpt-5.6-sol",
+        capture: {
+          capture_version: "morning_writer_capture_v1",
+          model: "gpt-5.6-sol",
+          temperature: null,
+          reasoning_effort: "low",
+          max_completion_tokens: 1200,
+          prompt_path: "morning_brief_writer_v1",
+          raw_response: '{"body":"x"}',
+          raw_retry_response: null,
+          error: null,
+          request_started_at: null,
+          request_completed_at: null,
+          latency_ms: null,
+          retry_occurred: false,
+          retry_succeeded: null,
+        },
+      };
+    });
     await generateTylerTextOverviewDailyDrafts({
       draftForDayKey: "2026-07-03",
       now: new Date("2026-07-02T16:00:00.000Z"),
@@ -925,20 +1025,43 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       primaryMessages: MORNING_WRITER_MESSAGES,
       retryMessages,
       retryOccurred: true,
-      writer_prompt_path: "morning_relationship_v1",
-      model: "gpt-4o-mini",
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
+      capture: {
+        capture_version: "morning_writer_capture_v1",
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        prompt_path: "morning_brief_writer_v1",
+        raw_response: "INVALID{",
+        raw_retry_response: '{"body":"Body after retry."}',
+        error: null,
+        request_started_at: null,
+        request_completed_at: null,
+        latency_ms: null,
+        retry_occurred: true,
+        retry_succeeded: true,
+      },
     });
     await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(db.generations[0]?.writer_openai_messages).toEqual(MORNING_WRITER_MESSAGES);
     expect(db.generations[0]?.machine_draft_body).toBe("Body after retry.");
     const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
-    expect(meta.writer_model).toBe("gpt-4o-mini");
-    expect(meta.morning_writer_capture_v1).toEqual({
-      model: "gpt-4o-mini",
-      retry_occurred: true,
-      retry_succeeded: true,
-      retry_messages: retryMessages,
-    });
+    expect(meta.writer_model).toBe("gpt-5.6-sol");
+    expect(meta.morning_writer_capture_v1).toEqual(
+      expect.objectContaining({
+        model: "gpt-5.6-sol",
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        temperature: null,
+        retry_occurred: true,
+        retry_succeeded: true,
+        retry_messages: retryMessages,
+        raw_response: "INVALID{",
+        raw_retry_response: '{"body":"Body after retry."}',
+      })
+    );
   });
 
   it("writes send_slot morning on generation insert and draft upsert", async () => {
@@ -958,7 +1081,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(db.generations[0]?.machine_should_send).toBe(false);
     expect(db.generations[0]?.machine_no_send_reason).toBe("openai_request_failed");
-    expect(db.generations[0]?.writer_prompt_path).toBe("morning_relationship_v1");
+    expect(db.generations[0]?.writer_prompt_path).toBe("morning_brief_writer_v1");
     expect(db.drafts[0]?.current_body_to_send).toBeNull();
   });
 
@@ -982,8 +1105,8 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       ok: true,
       body: "Updated body should be new generation only",
       messages: MORNING_WRITER_MESSAGES,
-      writer_prompt_path: "morning_relationship_v1",
-      model: "gpt-4o-mini",
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
     });
     await generateTylerTextOverviewDailyDrafts({
       draftForDayKey: "2026-07-03",
@@ -1019,8 +1142,8 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       ok: true,
       body: "New machine draft",
       messages: MORNING_WRITER_MESSAGES,
-      writer_prompt_path: "morning_relationship_v1",
-      model: "gpt-4o-mini",
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
     });
     await generateTylerTextOverviewDailyDrafts({
       draftForDayKey: "2026-07-03",
@@ -1050,8 +1173,8 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       ok: true,
       body: "New machine draft",
       messages: MORNING_WRITER_MESSAGES,
-      writer_prompt_path: "morning_relationship_v1",
-      model: "gpt-4o-mini",
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
     });
     await generateTylerTextOverviewDailyDrafts({
       draftForDayKey: "2026-07-03",

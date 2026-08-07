@@ -17,6 +17,7 @@ import {
   parseMorningWriterRetryCapture,
   mapMorningBriefInterpreterPanel,
   mapMorningCoachingBriefFromMetadata,
+  mapMorningWriterCapturePanel,
   deriveAuthoritativeMachineDraftStatus,
   pickTylerTextOverviewDraftOverlay,
   resolveAdminListSendSlot,
@@ -836,6 +837,29 @@ describe("tyler-text-overview-admin read model", () => {
         },
       }).retryMessages
     ).toEqual([]);
+  });
+
+  it("Phase 2D maps stored Sol writer capture without reconstruction", () => {
+    const panel = mapMorningWriterCapturePanel({
+      morning_writer_capture_v1: {
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        latency_ms: 900,
+        error: null,
+        raw_response: '{"body":"Hi"}',
+        raw_retry_response: null,
+        retry_occurred: false,
+        retry_succeeded: null,
+      },
+    });
+    expect(panel?.model).toBe("gpt-5.6-sol");
+    expect(panel?.reasoningEffort).toBe("low");
+    expect(panel?.maxCompletionTokens).toBe(1200);
+    expect(panel?.temperature).toBeNull();
+    expect(panel?.rawResponse).toBe('{"body":"Hi"}');
+    expect(mapMorningWriterCapturePanel({})).toBeNull();
   });
 
   it("Phase 2C maps stored interpreter metadata without reconstruction", () => {

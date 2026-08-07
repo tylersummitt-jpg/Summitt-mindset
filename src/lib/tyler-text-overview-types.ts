@@ -396,6 +396,8 @@ export type TylerTextOverviewAdminDraftRow = {
   morningBriefInterpreterV1: TylerTextOverviewMorningBriefInterpreterPanel | null;
   /** Phase 2C — stored final Morning Coaching Brief. */
   morningCoachingBriefV1: Record<string, unknown> | null;
+  /** Phase 2D — stored Sol writer forensic capture (generation-time only). */
+  morningWriterCaptureV1: TylerTextOverviewMorningWriterCapturePanel | null;
   /** True when generation_metadata.preview_only is set (evening preview rows). */
   previewOnly?: boolean;
   morningAnchorSource?: string | null;
@@ -437,4 +439,18 @@ export type TylerTextOverviewMorningBriefInterpreterPanel = {
   exactInputObject: Record<string, unknown> | null;
   rawResponse: string | null;
   parsedBrief: Record<string, unknown> | null;
+};
+
+/** Phase 2D — stored Morning Sol writer forensic capture (generation-time only). */
+export type TylerTextOverviewMorningWriterCapturePanel = {
+  model: string | null;
+  temperature: number | null;
+  reasoningEffort: string | null;
+  maxCompletionTokens: number | null;
+  latencyMs: number | null;
+  error: string | null;
+  rawResponse: string | null;
+  rawRetryResponse: string | null;
+  retryOccurred: boolean | null;
+  retrySucceeded: boolean | null;
 };

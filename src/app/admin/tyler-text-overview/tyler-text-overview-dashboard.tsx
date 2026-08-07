@@ -312,6 +312,42 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
                 {formatOptional(row.authoritativeWriterModel)}
               </dd>
             </div>
+            {row.morningWriterCaptureV1 ? (
+              <>
+                <div>
+                  <dt className="font-medium text-gray-500">writer reasoning_effort</dt>
+                  <dd className="font-mono break-all">
+                    {formatOptional(row.morningWriterCaptureV1.reasoningEffort)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500">writer max_completion_tokens</dt>
+                  <dd className="font-mono break-all">
+                    {formatOptional(row.morningWriterCaptureV1.maxCompletionTokens)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500">writer temperature</dt>
+                  <dd className="font-mono break-all">
+                    {row.morningWriterCaptureV1.temperature === null
+                      ? "null (not sent)"
+                      : formatOptional(row.morningWriterCaptureV1.temperature)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500">writer latency_ms</dt>
+                  <dd className="font-mono break-all">
+                    {formatOptional(row.morningWriterCaptureV1.latencyMs)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-500">writer capture error</dt>
+                  <dd className="font-mono break-all">
+                    {formatOptional(row.morningWriterCaptureV1.error)}
+                  </dd>
+                </div>
+              </>
+            ) : null}
             <div>
               <dt className="font-medium text-gray-500">technical retry occurred</dt>
               <dd>{formatOptional(row.authoritativeRetryOccurred)}</dd>
@@ -552,6 +588,40 @@ function MorningCoachingBriefObservationPanels({
             <BriefField label="Parsed brief" value={interpreter.parsedBrief} />
           </div>
         </>
+      ) : null}
+
+      {row.morningWriterCaptureV1 ? (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            WRITER RAW RESPONSE
+          </h3>
+          <BriefField label="Model" value={row.morningWriterCaptureV1.model} />
+          <BriefField
+            label="Reasoning effort"
+            value={row.morningWriterCaptureV1.reasoningEffort}
+          />
+          <BriefField
+            label="Max completion tokens"
+            value={row.morningWriterCaptureV1.maxCompletionTokens}
+          />
+          <BriefField
+            label="Temperature (actual)"
+            value={
+              row.morningWriterCaptureV1.temperature === null
+                ? "null (not sent)"
+                : row.morningWriterCaptureV1.temperature
+            }
+          />
+          <BriefField label="Latency ms" value={row.morningWriterCaptureV1.latencyMs} />
+          <BriefField label="Error" value={row.morningWriterCaptureV1.error} />
+          <BriefField label="Retry occurred" value={row.morningWriterCaptureV1.retryOccurred} />
+          <BriefField label="Retry succeeded" value={row.morningWriterCaptureV1.retrySucceeded} />
+          <BriefField label="Raw primary response" value={row.morningWriterCaptureV1.rawResponse} />
+          <BriefField
+            label="Raw retry response"
+            value={row.morningWriterCaptureV1.rawRetryResponse}
+          />
+        </div>
       ) : null}
     </div>
   );

@@ -546,8 +546,24 @@ function setupHappyPath() {
     ],
     retryMessages: [],
     retryOccurred: false,
-    writer_prompt_path: "morning_relationship_v1",
-    model: "gpt-4o-mini",
+    writer_prompt_path: "morning_brief_writer_v1",
+    model: "gpt-5.6-sol",
+    capture: {
+      capture_version: "morning_writer_capture_v1",
+      model: "gpt-5.6-sol",
+      temperature: null,
+      reasoning_effort: "low",
+      max_completion_tokens: 1200,
+      prompt_path: "morning_brief_writer_v1",
+      raw_response: '{"body":"After inbound refresh body"}',
+      raw_retry_response: null,
+      error: null,
+      request_started_at: null,
+      request_completed_at: null,
+      latency_ms: null,
+      retry_occurred: false,
+      retry_succeeded: null,
+    },
   });
   buildDailySmsContentMock.mockResolvedValue(REFRESHED_BUILT);
 }

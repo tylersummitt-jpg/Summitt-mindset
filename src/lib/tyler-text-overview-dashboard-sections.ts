@@ -52,7 +52,7 @@ export const MORNING_RAW_PRIMARY_INPUT_LABEL =
   "These are the exact original system and user messages sent to OpenAI.";
 
 export const MORNING_BRIEF_OBSERVATION_STATUS =
-  "OBSERVATION ONLY — Morning Coaching Brief did not affect this writer draft.";
+  "MORNING COACHING BRIEF WAS INCLUDED IN THIS WRITER INPUT.";
 
 export const MORNING_COACHING_BRIEF_HEADING = "MORNING COACHING BRIEF";
 export const MORNING_BRIEF_PERSONAL_CONTEXT_HEADING = "PERSONAL CONTEXT OBSERVABILITY";

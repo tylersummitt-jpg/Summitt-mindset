@@ -21,6 +21,7 @@ import {
   type TylerTextOverviewManifestIntegrity,
   type TylerTextOverviewRowState,
   type TylerTextOverviewMorningBriefInterpreterPanel,
+  type TylerTextOverviewMorningWriterCapturePanel,
   type TylerTextOverviewSlotCoachingContextPanel,
 } from "@/lib/tyler-text-overview-types";
 import { isPauseActive, type V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
@@ -120,6 +121,7 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   | "slotCoachingContext"
   | "morningBriefInterpreterV1"
   | "morningCoachingBriefV1"
+  | "morningWriterCaptureV1"
 > = {
   writerOpenAiMessages: [],
   authoritativeRetryMessages: [],
@@ -149,6 +151,7 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   slotCoachingContext: null,
   morningBriefInterpreterV1: null,
   morningCoachingBriefV1: null,
+  morningWriterCaptureV1: null,
 };
 
 export function isTylerBlankedMorningDraft(row: {
@@ -994,6 +997,36 @@ export function mapMorningCoachingBriefFromMetadata(
   return raw as Record<string, unknown>;
 }
 
+/** Pass through stored generation-time Sol writer capture only — never reconstruct. */
+export function mapMorningWriterCapturePanel(
+  metadata: Record<string, unknown>
+): TylerTextOverviewMorningWriterCapturePanel | null {
+  const raw = metadata.morning_writer_capture_v1;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const c = raw as Record<string, unknown>;
+  const hasSolFields =
+    typeof c.reasoning_effort === "string" ||
+    typeof c.max_completion_tokens === "number" ||
+    typeof c.raw_response === "string" ||
+    c.temperature === null;
+  if (!hasSolFields && typeof c.model !== "string") return null;
+  return {
+    model: typeof c.model === "string" ? c.model : null,
+    temperature: typeof c.temperature === "number" ? c.temperature : null,
+    reasoningEffort: typeof c.reasoning_effort === "string" ? c.reasoning_effort : null,
+    maxCompletionTokens:
+      typeof c.max_completion_tokens === "number" ? c.max_completion_tokens : null,
+    latencyMs: typeof c.latency_ms === "number" ? c.latency_ms : null,
+    error: typeof c.error === "string" ? c.error : null,
+    rawResponse: typeof c.raw_response === "string" ? c.raw_response : null,
+    rawRetryResponse: typeof c.raw_retry_response === "string" ? c.raw_retry_response : null,
+    retryOccurred:
+      c.retry_occurred === true ? true : c.retry_occurred === false ? false : null,
+    retrySucceeded:
+      c.retry_succeeded === true ? true : c.retry_succeeded === false ? false : null,
+  };
+}
+
 function mapGenerationToNotebookFields(
   generation: GenerationDbRow | undefined,
   draftCurrentGenerationId?: string | null
@@ -1023,6 +1056,7 @@ function mapGenerationToNotebookFields(
   | "slotCoachingContext"
   | "morningBriefInterpreterV1"
   | "morningCoachingBriefV1"
+  | "morningWriterCaptureV1"
 > {
   const writerOpenAiMessages = parseWriterOpenAiMessages(generation?.writer_openai_messages);
   const notebookMessageCount = writerOpenAiMessages.length;
@@ -1090,6 +1124,7 @@ function mapGenerationToNotebookFields(
     slotCoachingContext: mapSlotCoachingContextPanel(metadata),
     morningBriefInterpreterV1: mapMorningBriefInterpreterPanel(metadata),
     morningCoachingBriefV1: mapMorningCoachingBriefFromMetadata(metadata),
+    morningWriterCaptureV1: mapMorningWriterCapturePanel(metadata),
   };
 }
 
