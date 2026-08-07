@@ -16,6 +16,7 @@ import {
   MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT,
   parseAndMergeMorningBriefInterpreterResponse,
   runMorningBriefInterpreterV1,
+  classifyMorningBriefInterpreterParseFailure,
 } from "@/lib/morning-tto-brief-interpreter-v1";
 import {
   MORNING_COACHING_BRIEF_VERSION,
@@ -209,6 +210,9 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(p).toContain(
       "Return a single JSON object with sections: version, confidence, human_situation, truth_and_evidence, conversation_continuity, goal_role_today, coaching_direction, boundaries"
     );
+    expect(p).toContain("EXACT SCHEMA CONTRACT");
+    expect(p).toContain("primary_move=reconnect AND pressure=low");
+    expect(p).toContain("never low_pressure_reconnection");
     expect(p).not.toMatch(/Never say ['"]what'?s your plan/i);
     expect(p).not.toMatch(/Never say ['"]how did today go/i);
     expect(p).not.toMatch(/if \(.*daypart/);
@@ -423,7 +427,7 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(failSoft.goal_role_today.role).toBe("unknown");
   });
 
-  it("rejects body/message fields and has no retry loop requirement", async () => {
+  it("uses strict json_schema response_format; at most one technical schema retry", async () => {
     const input = assembleOrThrow();
     expect(
       parseAndMergeMorningBriefInterpreterResponse({
@@ -432,27 +436,71 @@ describe("morning-tto-brief-interpreter-v1", () => {
       })
     ).toBeNull();
 
-    const create = vi.fn().mockResolvedValue({
-      choices: [{ message: { content: "{bad" }, finish_reason: "stop" }],
-      usage: { prompt_tokens: 10, completion_tokens: 5 },
-    });
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: "{bad" }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 10, completion_tokens: 5 },
+      })
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: "{still-bad" }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 10, completion_tokens: 5 },
+      });
     const client = { chat: { completions: { create } } } as never;
     const result = await runMorningBriefInterpreterV1({ input, client });
     expect(result.ok).toBe(false);
     expect(result.brief.confidence).toBe("low");
-    expect(create).toHaveBeenCalledTimes(1);
+    expect(result.capture.parsed_brief).toBeNull();
+    expect(result.capture.error).toBe("invalid_json");
+    expect(result.capture.retry_occurred).toBe(true);
+    expect(result.capture.retry_succeeded).toBe(false);
+    expect(create).toHaveBeenCalledTimes(2);
     expect(create.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         model: "gpt-5.6-sol",
         reasoning_effort: "low",
         max_completion_tokens: 2500,
-        response_format: { type: "json_object" },
+        response_format: expect.objectContaining({
+          type: "json_schema",
+          json_schema: expect.objectContaining({
+            name: "morning_coaching_brief_v1",
+            strict: true,
+          }),
+        }),
       })
     );
+    expect(create.mock.calls[1]?.[0].model).toBe("gpt-5.6-sol");
+    expect(create.mock.calls[1]?.[0].response_format).toEqual(
+      create.mock.calls[0]?.[0].response_format
+    );
     expect(create.mock.calls[0]?.[0]).not.toHaveProperty("temperature");
-    expect(result.capture.error).toBeTruthy();
     expect(result.capture.temperature).toBeNull();
     expect(result.capture.reasoning_effort).toBe("low");
+  });
+
+  it("technical retry can recover with exact-schema JSON on second call only", async () => {
+    const input = assembleOrThrow();
+    const good = JSON.stringify(semanticBriefDraft());
+    const create = vi
+      .fn()
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: "{bad" }, finish_reason: "stop" }],
+      })
+      .mockResolvedValueOnce({
+        choices: [{ message: { content: good }, finish_reason: "stop" }],
+      });
+    const result = await runMorningBriefInterpreterV1({
+      input,
+      client: { chat: { completions: { create } } } as never,
+    });
+    expect(result.ok).toBe(true);
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(result.capture.retry_occurred).toBe(true);
+    expect(result.capture.retry_succeeded).toBe(true);
+    expect(result.capture.parsed_brief?.coaching_direction.primary_move).toBe(
+      "celebrate"
+    );
+    expect(result.brief.coaching_direction.primary_move).toBe("celebrate");
   });
 
   it("source module has no mutation or generation imports", () => {
@@ -794,5 +842,397 @@ describe("morning brief interpreter product scenarios", () => {
     });
     expect(merged?.human_situation.most_alive).toBe("unknown");
     expect(merged?.coaching_direction.primary_move).toBe("unknown");
+  });
+});
+
+describe("morning brief interpreter schema-contract fixtures", () => {
+  it("rejects synonym primary_move tokens the old rich Sol shape used", () => {
+    expect(
+      parseMorningCoachingBriefV1(
+        semanticBriefDraft({
+          coaching_direction: {
+            primary_move: "low_pressure_reconnection",
+            question_policy: "none",
+            action_guidance: "none",
+            pressure: "low",
+          },
+        })
+      )
+    ).toBeNull();
+    expect(
+      parseMorningCoachingBriefV1(
+        semanticBriefDraft({
+          coaching_direction: {
+            primary_move: "deliver_concise_evening_motivation",
+            question_policy: "none",
+            action_guidance: "none",
+            pressure: "low",
+          },
+        })
+      )
+    ).toBeNull();
+    expect(
+      parseMorningCoachingBriefV1(
+        semanticBriefDraft({
+          goal_role_today: {
+            role: "background_context",
+            note: "x",
+            goal_alignment: "aligned",
+            canonical_goal: "g",
+            pending_goal: null,
+          },
+        })
+      )
+    ).toBeNull();
+  });
+
+  it("accepts exact-schema reconnect + low pressure + question none (Angela-like)", () => {
+    const merged = parseAndMergeMorningBriefInterpreterResponse({
+      input: assembleOrThrow({
+        latestOutcome: null,
+        matchingOutcomeCount: 0,
+        exactThreadMessages: [
+          {
+            sender: "user",
+            sent_at_utc: "2026-08-01T18:00:00.000Z",
+            sent_at_local: "2026-08-01 14:00",
+            local_day_key: "2026-08-01",
+            local_weekday: "Saturday",
+            day_relation_to_message: "older",
+            body: "I gave a conference speech yesterday and it went well.",
+          },
+          {
+            sender: "coach",
+            sent_at_utc: "2026-08-02T12:00:00.000Z",
+            sent_at_local: "2026-08-02 08:00",
+            local_day_key: "2026-08-02",
+            local_weekday: "Sunday",
+            day_relation_to_message: "older",
+            body: "Proud of you. How is the bedtime goal going?",
+          },
+        ],
+      }),
+      raw: JSON.stringify(
+        semanticBriefDraft({
+          human_situation: {
+            most_alive: "Recent conference speech success; quiet since unanswered goal question",
+            relevant_life_event: "Conference speech went well",
+            context_use: "relevant",
+            identity_use: "background",
+            person_use: "do_not_force",
+          },
+          conversation_continuity: {
+            already_acknowledged: ["conference speech success"],
+            answered_question: null,
+            open_loop: null,
+            stale_or_exhausted_topics: ["How is the bedtime goal going?"],
+            do_not_repeat: ["How is the bedtime goal going?"],
+          },
+          goal_role_today: {
+            role: "background",
+            note: "Bedtime goal is light context; reconnect matters more",
+            goal_alignment: "unknown",
+            canonical_goal: "Dictate one story before noon",
+            pending_goal: null,
+          },
+          coaching_direction: {
+            primary_move: "reconnect",
+            question_policy: "none",
+            action_guidance: "none",
+            pressure: "low",
+          },
+        })
+      ),
+    });
+    expect(merged?.coaching_direction.primary_move).toBe("reconnect");
+    expect(merged?.coaching_direction.pressure).toBe("low");
+    expect(merged?.coaching_direction.question_policy).toBe("none");
+    expect(merged?.goal_role_today.role).toBe("background");
+    expect(merged?.conversation_continuity.do_not_repeat).toEqual(
+      expect.arrayContaining(["How is the bedtime goal going?"])
+    );
+  });
+
+  it("Dennis: explicit motivational request → support, goal background, no forced accountability", () => {
+    const input = assembleOrThrow({
+      daysSinceLastUserResponse: 2,
+      recentUnansweredOutboundCount: 2,
+      canonicalGoalText: "Walk 20 minutes",
+      latestOutcome: null,
+      matchingOutcomeCount: 0,
+      exactThreadMessages: [
+        {
+          sender: "user",
+          sent_at_utc: "2026-07-20T15:00:00.000Z",
+          sent_at_local: "2026-07-20 11:00",
+          local_day_key: "2026-07-20",
+          local_weekday: "Monday",
+          day_relation_to_message: "older",
+          body: "Keep texting me twice a day. Motivational, energetic and focused topics.",
+        },
+        {
+          sender: "user",
+          sent_at_utc: "2026-07-25T15:00:00.000Z",
+          sent_at_local: "2026-07-25 11:00",
+          local_day_key: "2026-07-25",
+          local_weekday: "Saturday",
+          day_relation_to_message: "older",
+          body: "Keep motivational texts coming.",
+        },
+        {
+          sender: "coach",
+          sent_at_utc: "2026-08-05T12:00:00.000Z",
+          sent_at_local: "2026-08-05 08:00",
+          local_day_key: "2026-08-05",
+          local_weekday: "Wednesday",
+          day_relation_to_message: "1_day_before",
+          body: "You've got this — stay locked in today.",
+        },
+        {
+          sender: "coach",
+          sent_at_utc: "2026-08-06T12:00:00.000Z",
+          sent_at_local: "2026-08-06 08:00",
+          local_day_key: "2026-08-06",
+          local_weekday: "Thursday",
+          day_relation_to_message: "same_day",
+          body: "Energy up. One focused block.",
+        },
+      ],
+    });
+    expect(input.mechanical.recent_unanswered_outbound_count).toBe(2);
+    const merged = parseAndMergeMorningBriefInterpreterResponse({
+      input,
+      raw: JSON.stringify(
+        semanticBriefDraft({
+          human_situation: {
+            most_alive:
+              "User explicitly asked for ongoing motivational texts; recent coach motivation unanswered",
+            context_use: "relevant",
+          },
+          conversation_continuity: {
+            already_acknowledged: ["Keep motivational texts coming"],
+            answered_question: null,
+            open_loop: null,
+            stale_or_exhausted_topics: [],
+            do_not_repeat: [],
+          },
+          goal_role_today: {
+            role: "background",
+            note: "Walking goal is supporting context; relationship request is the live ask",
+            goal_alignment: "unknown",
+            canonical_goal: "Walk 20 minutes",
+            pending_goal: null,
+          },
+          coaching_direction: {
+            primary_move: "support",
+            question_policy: "none",
+            action_guidance: "none",
+            pressure: "low",
+          },
+          truth_and_evidence: {
+            outcome: "no_recent_evidence",
+            evidence_note: "No completion/miss evidence",
+            evidence_strength: "none",
+            consistency_supported: false,
+            latest_user_truth: null,
+            proof_claims_allowed: {
+              completion: false,
+              miss: false,
+              partial: false,
+              proof: false,
+            },
+          },
+        })
+      ),
+    });
+    expect(merged?.coaching_direction.primary_move).toBe("support");
+    expect(merged?.coaching_direction.question_policy).toBe("none");
+    expect(merged?.goal_role_today.role).toBe("background");
+    expect(merged?.truth_and_evidence.proof_claims_allowed).toEqual({
+      completion: false,
+      miss: false,
+      partial: false,
+      proof: false,
+    });
+    expect(merged?.coaching_direction.primary_move).not.toBe("challenge");
+  });
+
+  it("Angel: health recovery + open loop → continue/close_loop + one useful question", () => {
+    const merged = parseAndMergeMorningBriefInterpreterResponse({
+      input: assembleOrThrow({
+        daypart: "evening",
+        localWeekday: "Friday",
+        exactThreadMessages: [
+          {
+            sender: "user",
+            sent_at_utc: "2026-08-06T20:00:00.000Z",
+            sent_at_local: "2026-08-06 16:00",
+            local_day_key: "2026-08-06",
+            local_weekday: "Thursday",
+            day_relation_to_message: "1_day_before",
+            body: "Finger is improving. I still need to make those calls.",
+          },
+        ],
+      }),
+      raw: JSON.stringify(
+        semanticBriefDraft({
+          human_situation: {
+            most_alive: "Improving finger; calls still open",
+            relevant_life_event: "Finger recovery",
+            context_use: "relevant",
+          },
+          conversation_continuity: {
+            already_acknowledged: ["finger improving"],
+            answered_question: null,
+            open_loop: "Make the planned calls",
+            stale_or_exhausted_topics: [],
+            do_not_repeat: [],
+          },
+          coaching_direction: {
+            primary_move: "close_loop",
+            question_policy: "one_useful_question",
+            action_guidance: "none",
+            pressure: "normal",
+          },
+          goal_role_today: {
+            role: "background",
+            note: "Calls open loop is more alive than goal homework",
+            goal_alignment: "unknown",
+            canonical_goal: "Dictate one story before noon",
+            pending_goal: null,
+          },
+        })
+      ),
+    });
+    expect(merged?.conversation_continuity.open_loop).toBe("Make the planned calls");
+    expect(merged?.coaching_direction.question_policy).toBe("one_useful_question");
+    expect(merged?.human_situation.relevant_life_event).toContain("Finger");
+  });
+
+  it("Anne/Cari: long silence → reconnect, low pressure, no invented miss, often no question", () => {
+    const input = assembleOrThrow({
+      daysSinceLastUserResponse: 57,
+      neverReplied: false,
+      recentUnansweredOutboundCount: 4,
+      latestOutcome: null,
+      matchingOutcomeCount: 0,
+    });
+    const merged = parseAndMergeMorningBriefInterpreterResponse({
+      input,
+      raw: JSON.stringify(
+        semanticBriefDraft({
+          human_situation: {
+            most_alive: "Long silence after repeated coach check-ins",
+            context_use: "do_not_force",
+          },
+          conversation_continuity: {
+            already_acknowledged: [],
+            answered_question: null,
+            open_loop: null,
+            stale_or_exhausted_topics: ["prior unanswered check-ins"],
+            do_not_repeat: ["prior unanswered check-ins"],
+          },
+          coaching_direction: {
+            primary_move: "reconnect",
+            question_policy: "none",
+            action_guidance: "none",
+            pressure: "low",
+          },
+          truth_and_evidence: {
+            outcome: "no_recent_evidence",
+            evidence_note: "No usable recent user evidence",
+            evidence_strength: "none",
+            consistency_supported: false,
+            latest_user_truth: null,
+            proof_claims_allowed: {
+              completion: false,
+              miss: false,
+              partial: false,
+              proof: false,
+            },
+          },
+        })
+      ),
+    });
+    expect(merged?.coaching_direction.primary_move).toBe("reconnect");
+    expect(merged?.coaching_direction.pressure).toBe("low");
+    expect(merged?.coaching_direction.question_policy).toBe("none");
+    expect(merged?.truth_and_evidence.outcome).toBe("no_recent_evidence");
+    expect(merged?.truth_and_evidence.proof_claims_allowed.miss).toBe(false);
+  });
+
+  it("Cheryl evening: before-bed goal still ahead → no invented outcome; one useful question ok", () => {
+    const merged = parseAndMergeMorningBriefInterpreterResponse({
+      input: assembleOrThrow({
+        daypart: "evening",
+        canonicalGoalText: "Stretch for 10 minutes before bed",
+        latestOutcome: null,
+        matchingOutcomeCount: 0,
+      }),
+      raw: JSON.stringify(
+        semanticBriefDraft({
+          human_situation: {
+            most_alive: "Before-bed stretch opportunity still ahead tonight",
+            context_use: "relevant",
+          },
+          goal_role_today: {
+            role: "central",
+            note: "Evening target; completion window not closed",
+            goal_alignment: "aligned",
+            canonical_goal: "Stretch for 10 minutes before bed",
+            pending_goal: null,
+          },
+          coaching_direction: {
+            primary_move: "simplify_next_move",
+            question_policy: "one_useful_question",
+            action_guidance: "one_specific_next_step",
+            pressure: "normal",
+          },
+          truth_and_evidence: {
+            outcome: "no_recent_evidence",
+            evidence_note: "No outcome yet for tonight's before-bed action",
+            evidence_strength: "none",
+            consistency_supported: false,
+            latest_user_truth: null,
+            proof_claims_allowed: {
+              completion: false,
+              miss: false,
+              partial: false,
+              proof: false,
+            },
+          },
+        })
+      ),
+    });
+    expect(merged?.goal_role_today.role).toBe("central");
+    expect(merged?.truth_and_evidence.outcome).toBe("no_recent_evidence");
+    expect(merged?.coaching_direction.question_policy).toBe("one_useful_question");
+    expect(merged?.truth_and_evidence.proof_claims_allowed.miss).toBe(false);
+  });
+
+  it("source has no deterministic synonym mapper for rich Sol tokens", () => {
+    const src = readFileSync(
+      path.join(process.cwd(), "src/lib/morning-tto-brief-interpreter-v1.ts"),
+      "utf8"
+    );
+    const schemaSrc = readFileSync(
+      path.join(process.cwd(), "src/lib/morning-tto-coaching-brief-json-schema-v1.ts"),
+      "utf8"
+    );
+    expect(src).not.toMatch(/low_pressure_reconnection\s*[=:]/);
+    expect(src).not.toMatch(/background_context\s*→|supporting_context\s*→/);
+    expect(src).not.toMatch(/mapRichSol|synonymMapper|normalizePrimaryMove/);
+    expect(schemaSrc).toContain("MORNING_BRIEF_INTERPRETER_RESPONSE_FORMAT");
+    expect(schemaSrc).toContain('type: "json_schema"');
+  });
+
+  it("classifyMorningBriefInterpreterParseFailure splits invalid_json vs schema", () => {
+    expect(classifyMorningBriefInterpreterParseFailure("{bad")).toBe("invalid_json");
+    expect(classifyMorningBriefInterpreterParseFailure(null)).toBe("invalid_json");
+    expect(
+      classifyMorningBriefInterpreterParseFailure(
+        JSON.stringify({ version: "wrong", confidence: "low" })
+      )
+    ).toBe("schema_validation_failed");
   });
 });

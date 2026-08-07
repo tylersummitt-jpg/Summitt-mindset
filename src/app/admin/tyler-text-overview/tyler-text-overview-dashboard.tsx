@@ -626,7 +626,11 @@ function MorningCoachingBriefObservationPanels({
             <BriefField label="Temperature (actual)" value={interpreter.temperature} />
             <BriefField label="Latency ms" value={interpreter.latencyMs} />
             <BriefField label="Error" value={interpreter.error} />
+            <BriefField label="Fallback brief used" value={interpreter.fallbackBriefUsed} />
+            <BriefField label="Retry occurred" value={interpreter.retryOccurred} />
+            <BriefField label="Retry succeeded" value={interpreter.retrySucceeded} />
             <BriefField label="Raw response" value={interpreter.rawResponse} />
+            <BriefField label="Raw retry response" value={interpreter.rawRetryResponse} />
             <BriefField label="Parsed brief" value={interpreter.parsedBrief} />
           </div>
         </>

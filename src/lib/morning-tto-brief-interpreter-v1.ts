@@ -13,13 +13,17 @@ import {
   type MorningCoachingBriefV1,
 } from "@/lib/morning-tto-coaching-brief-v1";
 import {
+  buildMorningBriefExactContractPromptAppendix,
+  MORNING_BRIEF_INTERPRETER_RESPONSE_FORMAT,
+} from "@/lib/morning-tto-coaching-brief-json-schema-v1";
+import {
   mapSpineOutcomeToBriefOutcome,
   type MorningBriefInterpreterInputV1,
 } from "@/lib/morning-tto-brief-canonical-input-v1";
 
 /**
  * Phase 2C locked interpreter model — quality-first.
- * Chat Completions + structured JSON; reasoning_effort low.
+ * Chat Completions + strict JSON Schema; reasoning_effort low.
  * Shared lane JSON helper is incompatible (forces temperature/max_tokens) — call API directly.
  */
 export const MORNING_BRIEF_INTERPRETER_MODEL = "gpt-5.6-sol" as const;
@@ -37,6 +41,9 @@ export const MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL = MORNING_BRIEF_INTERPR
 /** @deprecated Not used in API request for gpt-5.6-sol. */
 export const MORNING_BRIEF_INTERPRETER_MAX_TOKENS =
   MORNING_BRIEF_INTERPRETER_MAX_COMPLETION_TOKENS;
+
+export const MORNING_BRIEF_INTERPRETER_SCHEMA_RETRY_USER =
+  `Your previous response did not match morning_coaching_brief_v1. Return ONLY valid JSON for that exact schema (same field names and enum tokens). Do not change coaching meaning — fix structure only. No markdown. No SMS body.`;
 
 export const MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT = `You are a constrained relationship interpreter for Summitt Mindset Coach Pat texts.
 
@@ -64,6 +71,8 @@ Hard rules:
 - selected_person must be null or exactly one person from available_important_people (same name and relationship).
 - Do not invent outcomes, proof, or pending confirmation.
 - version must be "${MORNING_COACHING_BRIEF_VERSION}".
+- Silence or unanswered coach texts alone do not prove disengagement when the user previously asked for ongoing motivational support — read the exact thread.
+- Do not invent miss/progress/consistency from daypart or unanswered outbounds alone.
 
 TEMPORAL POSTURE (message_for.daypart — shared Morning and Evening):
 - Morning (daypart=morning): treat the target as a beginning-of-day receive context. Do not reason as if today's outcome is already known unless exact thread, evidence, and timing actually support that. Morning may answer, reconnect, acknowledge yesterday, prepare for later today, challenge, clarify, celebrate prior proof, ask one useful question, or ask none — it does not automatically mean "make a plan."
@@ -72,7 +81,10 @@ TEMPORAL POSTURE (message_for.daypart — shared Morning and Evening):
 - Relative time: words like today / tonight / tomorrow / yesterday / this morning / this afternoon / this evening / last night in older turns belong to that turn's local timestamp and day_relation_to_message — do not blindly re-anchor them to the new message_for target.
 - Evidence: daypart alone never creates evidence of completion, miss, attempt, consistency, failure, or success.
 
-Return a single JSON object with sections: version, confidence, human_situation, truth_and_evidence, conversation_continuity, goal_role_today, coaching_direction, boundaries.`;
+Return a single JSON object with sections: version, confidence, human_situation, truth_and_evidence, conversation_continuity, goal_role_today, coaching_direction, boundaries.
+
+${buildMorningBriefExactContractPromptAppendix()}`;
+
 
 const FIXED_UNSUPPORTED_CAPABILITIES = [
   "Do not give app menu or Reply YES/NO robot instructions.",
@@ -100,12 +112,22 @@ export type MorningBriefInterpreterCaptureV1 = {
   system_message: string;
   user_message: string;
   canonical_input: MorningBriefInterpreterInputV1;
+  /** Exact primary model content (structured-output JSON string when present). */
   raw_response: string | null;
+  /** Exact retry model content when a technical schema retry ran. */
+  raw_retry_response: string | null;
+  /**
+   * Successfully parsed+merged Brief from model output only.
+   * null when schema/JSON failed — writer may still use a separate fail-soft Brief.
+   */
   parsed_brief: MorningCoachingBriefV1 | null;
   error: string | null;
   request_started_at: string | null;
   request_completed_at: string | null;
   latency_ms: number | null;
+  retry_occurred: boolean;
+  retry_succeeded: boolean | null;
+  /** @deprecated Prefer retry_occurred / raw_retry_response. Always null for older readers. */
   retry: null;
 };
 
@@ -384,14 +406,31 @@ export function parseAndMergeMorningBriefInterpreterResponse(args: {
   return mergeMorningBriefWithCanonicalTruth({ parsed, input: args.input });
 }
 
+/** Classify why a raw response did not become a Brief (no meaning rewrite). */
+export function classifyMorningBriefInterpreterParseFailure(
+  raw: string | null
+): "invalid_json" | "schema_validation_failed" {
+  if (!raw?.trim()) return "invalid_json";
+  try {
+    JSON.parse(raw);
+  } catch {
+    return "invalid_json";
+  }
+  return "schema_validation_failed";
+}
+
 function buildCapture(args: {
   input: MorningBriefInterpreterInputV1;
   raw: string | null;
+  raw_retry_response?: string | null;
+  /** Model-parsed brief only — null on fail-soft. */
   brief: MorningCoachingBriefV1 | null;
   error: string | null;
   request_started_at: string | null;
   request_completed_at: string | null;
   latency_ms: number | null;
+  retry_occurred?: boolean;
+  retry_succeeded?: boolean | null;
 }): MorningBriefInterpreterCaptureV1 {
   const messages = buildMorningBriefInterpreterMessages(args.input);
   return {
@@ -405,19 +444,23 @@ function buildCapture(args: {
     user_message: String(messages[1]?.content ?? ""),
     canonical_input: args.input,
     raw_response: args.raw,
+    raw_retry_response: args.raw_retry_response ?? null,
     parsed_brief: args.brief,
     error: args.error,
     request_started_at: args.request_started_at,
     request_completed_at: args.request_completed_at,
     latency_ms: args.latency_ms,
+    retry_occurred: args.retry_occurred === true,
+    retry_succeeded:
+      args.retry_succeeded === undefined ? null : args.retry_succeeded,
     retry: null,
   };
 }
 
 /**
- * OpenAI call wrapper. Phase 2C observational wiring — fail-soft never blocks writer.
- * Uses Chat Completions directly (not shared lane helper) for gpt-5.6-sol compatibility.
- * Single call only (no retry loop).
+ * OpenAI call wrapper. Fail-soft never blocks writer.
+ * Uses Chat Completions + strict json_schema for gpt-5.6-sol.
+ * At most one technical schema-format retry (same model, structure-only).
  */
 export async function runMorningBriefInterpreterV1(args: {
   input: MorningBriefInterpreterInputV1;
@@ -431,6 +474,11 @@ export async function runMorningBriefInterpreterV1(args: {
       request_started_at: string | null;
       request_completed_at: string | null;
       latency_ms: number | null;
+    },
+    retryMeta?: {
+      raw_retry_response: string | null;
+      retry_occurred: boolean;
+      retry_succeeded: boolean | null;
     }
   ): MorningBriefInterpreterResultV1 => {
     const brief = buildLowConfidenceUnknownBriefFromCanonical(args.input);
@@ -441,11 +489,15 @@ export async function runMorningBriefInterpreterV1(args: {
       capture: buildCapture({
         input: args.input,
         raw,
-        brief,
+        raw_retry_response: retryMeta?.raw_retry_response ?? null,
+        // Forensic: do not present fail-soft as a successful model parse.
+        brief: null,
         error,
         request_started_at: timing?.request_started_at ?? null,
         request_completed_at: timing?.request_completed_at ?? null,
         latency_ms: timing?.latency_ms ?? null,
+        retry_occurred: retryMeta?.retry_occurred ?? false,
+        retry_succeeded: retryMeta?.retry_succeeded ?? null,
       }),
     };
   };
@@ -466,24 +518,45 @@ export async function runMorningBriefInterpreterV1(args: {
   const startedMs = Date.now();
   const request_started_at = new Date(startedMs).toISOString();
 
-  try {
-    const completion = await client.chat.completions.create({
+  const solCreate = (msgs: ChatCompletionMessageParam[]) =>
+    client.chat.completions.create({
       model: MORNING_BRIEF_INTERPRETER_MODEL,
       reasoning_effort: MORNING_BRIEF_INTERPRETER_REASONING_EFFORT,
       max_completion_tokens: MORNING_BRIEF_INTERPRETER_MAX_COMPLETION_TOKENS,
-      response_format: { type: "json_object" },
-      messages,
+      response_format: MORNING_BRIEF_INTERPRETER_RESPONSE_FORMAT,
+      messages: msgs,
     });
+
+  try {
+    const first = await solCreate(messages);
+    let raw = first.choices[0]?.message?.content?.trim() ?? "";
+    let merged = raw
+      ? parseAndMergeMorningBriefInterpreterResponse({ raw, input: args.input })
+      : null;
+
+    let rawRetry: string | null = null;
+    let retryOccurred = false;
+
+    if (!merged) {
+      retryOccurred = true;
+      const retryMessages: ChatCompletionMessageParam[] = [
+        { role: "assistant", content: raw.slice(0, 8000) },
+        { role: "user", content: MORNING_BRIEF_INTERPRETER_SCHEMA_RETRY_USER },
+      ];
+      const second = await solCreate([...messages, ...retryMessages]);
+      rawRetry = second.choices[0]?.message?.content?.trim() ?? "";
+      merged = rawRetry
+        ? parseAndMergeMorningBriefInterpreterResponse({
+            raw: rawRetry,
+            input: args.input,
+          })
+        : null;
+    }
 
     const completedMs = Date.now();
     const request_completed_at = new Date(completedMs).toISOString();
     const latency_ms = completedMs - startedMs;
     const timing = { request_started_at, request_completed_at, latency_ms };
-
-    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
-    const merged = raw
-      ? parseAndMergeMorningBriefInterpreterResponse({ raw, input: args.input })
-      : null;
 
     if (merged) {
       return {
@@ -492,14 +565,27 @@ export async function runMorningBriefInterpreterV1(args: {
         capture: buildCapture({
           input: args.input,
           raw,
+          raw_retry_response: rawRetry,
           brief: merged,
           error: null,
           ...timing,
+          retry_occurred: retryOccurred,
+          retry_succeeded: retryOccurred ? true : null,
         }),
       };
     }
 
-    return failSoft("invalid_json_or_schema", raw || null, timing);
+    const failRaw = rawRetry ?? raw;
+    return failSoft(
+      classifyMorningBriefInterpreterParseFailure(failRaw),
+      raw || null,
+      timing,
+      {
+        raw_retry_response: rawRetry,
+        retry_occurred: retryOccurred,
+        retry_succeeded: retryOccurred ? false : null,
+      }
+    );
   } catch {
     const completedMs = Date.now();
     return failSoft("openai_request_failed", null, {
@@ -528,8 +614,11 @@ export function buildMorningBriefInterpreterMetadataV1(
     exact_user_message: capture.user_message,
     exact_input_object: capture.canonical_input,
     raw_response: capture.raw_response,
+    raw_retry_response: capture.raw_retry_response,
     parsed_brief: capture.parsed_brief,
     error: capture.error,
+    retry_occurred: capture.retry_occurred,
+    retry_succeeded: capture.retry_succeeded,
     retry: null,
   };
 }

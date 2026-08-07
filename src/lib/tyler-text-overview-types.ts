@@ -467,6 +467,10 @@ export type TylerTextOverviewMorningBriefInterpreterPanel = {
   exactUserMessage: string | null;
   exactInputObject: Record<string, unknown> | null;
   rawResponse: string | null;
+  rawRetryResponse: string | null;
+  retryOccurred: boolean | null;
+  retrySucceeded: boolean | null;
+  fallbackBriefUsed: boolean | null;
   parsedBrief: Record<string, unknown> | null;
 };
 

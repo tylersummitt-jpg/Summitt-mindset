@@ -992,6 +992,11 @@ export function mapMorningBriefInterpreterPanel(
     exactUserMessage: typeof c.exact_user_message === "string" ? c.exact_user_message : null,
     exactInputObject: exactInput,
     rawResponse: typeof c.raw_response === "string" ? c.raw_response : null,
+    rawRetryResponse: typeof c.raw_retry_response === "string" ? c.raw_retry_response : null,
+    retryOccurred: typeof c.retry_occurred === "boolean" ? c.retry_occurred : null,
+    retrySucceeded: typeof c.retry_succeeded === "boolean" ? c.retry_succeeded : null,
+    fallbackBriefUsed:
+      typeof c.fallback_brief_used === "boolean" ? c.fallback_brief_used : null,
     parsedBrief,
   };
 }

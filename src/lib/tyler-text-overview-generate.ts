@@ -1096,7 +1096,9 @@ export async function runObservationalMorningBriefInterpreter(args: {
 
     const result = await runMorningBriefInterpreterV1({ input: assembled });
     const meta = buildMorningBriefInterpreterMetadataV1(result.capture);
-    meta.parsed_brief = result.brief;
+    if (!result.ok) {
+      meta.fallback_brief_used = true;
+    }
     return {
       morning_brief_interpreter_v1: meta,
       morning_coaching_brief_v1: result.brief,
