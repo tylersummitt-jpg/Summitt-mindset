@@ -539,6 +539,115 @@ export function ttoBulkSaveEndpoint(slot: TtoBulkUiSlot): string {
     : "/api/admin/tyler-text-overview/morning-bulk-save";
 }
 
+export function formatTtoGenerateAllDayLabel(draftForDayKey: string): string {
+  const key = draftForDayKey.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!m) return key || "selected day";
+  const y = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const utc = new Date(Date.UTC(y, month - 1, day));
+  if (
+    utc.getUTCFullYear() !== y ||
+    utc.getUTCMonth() !== month - 1 ||
+    utc.getUTCDate() !== day
+  ) {
+    return key;
+  }
+  return utc.toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+export function ttoGenerateAllEndpoint(slot: TtoBulkUiSlot): string {
+  return slot === "evening_checkin"
+    ? "/api/admin/tyler-text-overview/evening-generate-all"
+    : "/api/admin/tyler-text-overview/morning-generate-all";
+}
+
+export function ttoGenerateAllButtonLabel(args: {
+  slot: TtoBulkUiSlot;
+  draftForDayKey: string;
+  isBusy: boolean;
+}): string {
+  if (args.isBusy) return "Generating…";
+  const day = formatTtoGenerateAllDayLabel(args.draftForDayKey);
+  return args.slot === "evening_checkin"
+    ? `Generate Evening for ${day}`
+    : `Generate Morning for ${day}`;
+}
+
+export const TTO_GENERATE_ALL_SEARCH_WARNING =
+  "Search only filters the list below. Generate All still applies to the full selected-day sendable audience.";
+
+export const TTO_GENERATE_ALL_SELECT_DAY_HINT =
+  "Select a Draft day before using Generate All.";
+
+export function formatTtoGenerateAllConfirm(args: {
+  slot: TtoBulkUiSlot;
+  draftForDayKey: string;
+  audienceCount: number;
+  searchActive: boolean;
+}): string {
+  const dayLabel = formatTtoGenerateAllDayLabel(args.draftForDayKey);
+  const slotLabel = args.slot === "evening_checkin" ? "Evening" : "Morning";
+  const windowCopy =
+    args.slot === "evening_checkin"
+      ? "Successful nonblank current drafts are only eligible during each member's local 7–9 PM Evening window."
+      : "Successful nonblank current drafts are only eligible during each member's local 7–9 AM Morning window.";
+  const lines = [
+    `Generate ${slotLabel} for ${dayLabel} (${args.draftForDayKey})?`,
+    "",
+    `This runs Sol generation for the full selected-day sendable audience (${args.audienceCount} members).`,
+  ];
+  if (args.searchActive) {
+    lines.push("Active search does not narrow this Generate All action.");
+  }
+  lines.push(
+    "Tyler-saved edits and intentional blanks remain protected.",
+    "Already-sent / non-current slots for this day are skipped.",
+    "Generation does not send texts now.",
+    windowCopy,
+    "This generates the selected date exactly — it does not secretly advance the day."
+  );
+  return lines.join("\n");
+}
+
+export function formatTtoGenerateAllResultMessage(args: {
+  slot: TtoBulkUiSlot;
+  targeted: number;
+  generated: number;
+  protectedTylerAuthority: number;
+  skippedAlreadySent: number;
+  skippedNonCurrent: number;
+  failed: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
+}): string {
+  const slotLabel = args.slot === "evening_checkin" ? "Evening" : "Morning";
+  const lines = [
+    `${args.generated} ${slotLabel} drafts generated.`,
+    `${args.protectedTylerAuthority} Tyler-protected current drafts preserved.`,
+    `${args.skippedAlreadySent} already-sent skipped.`,
+    `${args.skippedNonCurrent} non-current skipped.`,
+    `${args.failed.length} failed.`,
+    `${args.targeted} targeted.`,
+  ];
+  if (args.failed.length > 0) {
+    lines.push("");
+    lines.push("Failed:");
+    for (const f of args.failed.slice(0, 20)) {
+      const label = f.preferredName?.trim() || f.clerkUserId;
+      lines.push(`- ${label}: ${f.error}`);
+    }
+    if (args.failed.length > 20) {
+      lines.push(`…and ${args.failed.length - 20} more`);
+    }
+  }
+  return lines.join("\n");
+}
+
 export function formatMorningBulkBlankConfirm(args: {
   draftForDayKey: string;
   currentDraftCount: number;

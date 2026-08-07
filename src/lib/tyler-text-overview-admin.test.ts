@@ -1946,6 +1946,42 @@ describe("tyler-text-overview-admin API auth", () => {
     expect(json.ok).toBe(false);
   });
 
+  it("unauthorized morning-generate-all rejected", async () => {
+    const err = Object.assign(new Error("UNAUTHORIZED"), { status: 401 });
+    requireTylerAdminMock.mockRejectedValueOnce(err);
+    const { POST } = await import(
+      "@/app/api/admin/tyler-text-overview/morning-generate-all/route"
+    );
+    const res = await POST(
+      new Request("http://localhost/api/admin/tyler-text-overview/morning-generate-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft_for_day_key: "2026-08-07" }),
+      })
+    );
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+  });
+
+  it("unauthorized evening-generate-all rejected", async () => {
+    const err = Object.assign(new Error("UNAUTHORIZED"), { status: 401 });
+    requireTylerAdminMock.mockRejectedValueOnce(err);
+    const { POST } = await import(
+      "@/app/api/admin/tyler-text-overview/evening-generate-all/route"
+    );
+    const res = await POST(
+      new Request("http://localhost/api/admin/tyler-text-overview/evening-generate-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft_for_day_key: "2026-08-07" }),
+      })
+    );
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+  });
+
   it("morning-bulk-save apply_all requires admin and returns aggregate", async () => {
     requireTylerAdminMock.mockResolvedValue(undefined);
     seedCurrentDraft();
@@ -2786,6 +2822,8 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
     expect(dashboard).toContain("Save Evening Text");
     expect(dashboard).toContain("canEditEveningDraft");
     expect(dashboard).toContain("MORNING_TTO_AUTHORITY_BANNER");
-    expect(dashboard).not.toMatch(/Generate all|Bulk generate/i);
+    expect(dashboard).toContain("runGenerateAll");
+    expect(dashboard).toContain("ttoGenerateAllEndpoint");
+    expect(dashboard).not.toMatch(/Bulk generate/i);
   });
 });

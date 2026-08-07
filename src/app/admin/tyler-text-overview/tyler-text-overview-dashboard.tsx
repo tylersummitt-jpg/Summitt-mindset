@@ -25,6 +25,8 @@ import {
   formatMorningBulkResultMessage,
   formatMorningTtoSaveToast,
   formatMorningTtoSendabilityCopy,
+  formatTtoGenerateAllConfirm,
+  formatTtoGenerateAllResultMessage,
   isEveningDashboardSendSlot,
   isEveningSendBusy,
   isTylerBlankedMorningDraftRow,
@@ -34,6 +36,10 @@ import {
   ttoBulkSaveEndpoint,
   ttoBulkSearchWarning,
   ttoBulkSelectDayHint,
+  ttoGenerateAllButtonLabel,
+  ttoGenerateAllEndpoint,
+  TTO_GENERATE_ALL_SEARCH_WARNING,
+  TTO_GENERATE_ALL_SELECT_DAY_HINT,
   MORNING_MISSING_DRAFT_BANNER,
   MORNING_MISSING_DRAFT_SUPPORTING_COPY,
   MORNING_SAVE_FAILED_COPY,
@@ -951,6 +957,8 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   const [bulkApplyText, setBulkApplyText] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkResultMessage, setBulkResultMessage] = useState<string | null>(null);
+  const [generateAllBusy, setGenerateAllBusy] = useState(false);
+  const [generateAllResultMessage, setGenerateAllResultMessage] = useState<string | null>(null);
 
   const loadGenerationRef = useRef(0);
   const loadAbortRef = useRef<AbortController | null>(null);
@@ -1158,20 +1166,84 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
   const bulkUiSlot = isEveningPage ? ("evening_checkin" as const) : ("morning" as const);
   const bulkSlotLabel = isEveningPage ? "Evening" : "Morning";
+  const pageBatchBusy = bulkBusy || generateAllBusy;
 
   const bulkCurrentDraftCount = useMemo(() => {
     return rows.filter((row) => canEditMorningDraft(row)).length;
   }, [rows]);
 
+  const sendableAudienceCount = counts?.sendableUsers ?? rows.length;
+
   const bulkApplyNormalized = bulkApplyText.trim();
   const bulkApplyEnabled = bulkApplyNormalized.length > 0;
+
+  async function runGenerateAll() {
+    const dayKey = selectedDayKey.trim();
+    if (!dayKey || pageBatchBusy) return;
+
+    const confirmed = window.confirm(
+      formatTtoGenerateAllConfirm({
+        slot: bulkUiSlot,
+        draftForDayKey: dayKey,
+        audienceCount: sendableAudienceCount,
+        searchActive: Boolean(searchQuery.trim()),
+      })
+    );
+    if (!confirmed) return;
+
+    setGenerateAllBusy(true);
+    setGenerateAllResultMessage(null);
+    try {
+      const res = await fetch(ttoGenerateAllEndpoint(bulkUiSlot), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draft_for_day_key: dayKey }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.result) {
+        const msg = json.error || "Generate All failed.";
+        setGenerateAllResultMessage(msg);
+        showToast(msg);
+        return;
+      }
+
+      const result = json.result as {
+        targeted: number;
+        generated: number;
+        protectedTylerAuthority: number;
+        skippedAlreadySent: number;
+        skippedNonCurrent: number;
+        failed: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
+      };
+      const message = formatTtoGenerateAllResultMessage({
+        slot: bulkUiSlot,
+        ...result,
+      });
+      setGenerateAllResultMessage(message);
+      showToast(
+        result.failed.length > 0
+          ? `Generate All partial: ${result.generated} generated, ${result.failed.length} failed.`
+          : `Generate All: ${result.generated} ${bulkSlotLabel} drafts generated.`
+      );
+
+      await load(dayKey, sendSlot, { forceOverwrite: true });
+    } catch (err) {
+      console.error(`${bulkSlotLabel} Generate All failed`, err);
+      const msg = "Generate All failed.";
+      setGenerateAllResultMessage(msg);
+      showToast(msg);
+    } finally {
+      setGenerateAllBusy(false);
+    }
+  }
 
   async function runBulkSave(args: {
     operation: "blank_all" | "apply_all";
     body?: string;
   }) {
     const dayKey = selectedDayKey.trim();
-    if (!dayKey || bulkBusy) return;
+    if (!dayKey || pageBatchBusy) return;
 
     setBulkBusy(true);
     setBulkResultMessage(null);
@@ -1224,7 +1296,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
   async function handleBlankAllTexts() {
     const dayKey = selectedDayKey.trim();
-    if (!dayKey || bulkBusy) return;
+    if (!dayKey || pageBatchBusy) return;
     const ok = window.confirm(
       formatTtoBulkBlankConfirm({
         slot: bulkUiSlot,
@@ -1238,7 +1310,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
   async function handleApplyTextToAll() {
     const dayKey = selectedDayKey.trim();
-    if (!dayKey || bulkBusy || !bulkApplyEnabled) return;
+    if (!dayKey || pageBatchBusy || !bulkApplyEnabled) return;
     const ok = window.confirm(
       formatTtoBulkApplyConfirm({
         slot: bulkUiSlot,
@@ -1253,7 +1325,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
   async function saveDraft(row: TylerTextOverviewAdminDraftRow) {
     if (!row.draftId) return;
-    if (bulkBusy) return;
+    if (pageBatchBusy) return;
     const draftId = row.draftId;
     const submittedBody = editsRef.current[draftId] ?? "";
     const attempt = (saveAttemptRef.current[draftId] ?? 0) + 1;
@@ -1354,6 +1426,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     if (!row.clerkUserId?.trim()) {
       return;
     }
+    if (pageBatchBusy) return;
 
     // Evening page: explicit filter/URL day wins; blank "All current days" omits day so
     // the server resolves user-local today (never pass a stale/tomorrow row day).
@@ -1661,6 +1734,53 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
       <div className="rounded-md border border-gray-300 bg-white px-4 py-4 space-y-3">
         <h2 className="text-sm font-semibold text-gray-900">
+          Generate {bulkSlotLabel} for selected day
+        </h2>
+        {!selectedDayKey.trim() ? (
+          <p className="text-sm text-amber-900">{TTO_GENERATE_ALL_SELECT_DAY_HINT}</p>
+        ) : (
+          <>
+            {searchQuery.trim() ? (
+              <p className="text-xs text-amber-900">{TTO_GENERATE_ALL_SEARCH_WARNING}</p>
+            ) : null}
+            <p className="text-xs text-gray-600">
+              Creates/refreshes drafts for the full sendable audience ({sendableAudienceCount}) on{" "}
+              <span className="font-mono">{selectedDayKey}</span>. Does not send texts. Search does
+              not narrow generation. Already-sent / non-current slots are skipped. Tyler-saved
+              edits/blanks stay protected.
+              {isEveningPage
+                ? " Successful nonblank current drafts are only eligible in each member's local 7–9 PM Evening window."
+                : " Successful nonblank current drafts are only eligible in each member's local 7–9 AM Morning window."}
+            </p>
+            <button
+              type="button"
+              className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              disabled={pageBatchBusy || !selectedDayKey.trim() || loading}
+              onClick={() => void runGenerateAll()}
+            >
+              {ttoGenerateAllButtonLabel({
+                slot: bulkUiSlot,
+                draftForDayKey: selectedDayKey,
+                isBusy: generateAllBusy,
+              })}
+            </button>
+            {generateAllResultMessage ? (
+              <pre
+                className={`whitespace-pre-wrap rounded border px-3 py-2 text-xs ${
+                  generateAllResultMessage.includes("\nFailed:")
+                    ? "border-amber-300 bg-amber-50 text-amber-950"
+                    : "border-green-200 bg-green-50 text-green-900"
+                }`}
+              >
+                {generateAllResultMessage}
+              </pre>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      <div className="rounded-md border border-gray-300 bg-white px-4 py-4 space-y-3">
+        <h2 className="text-sm font-semibold text-gray-900">
           {ttoBulkActionsHeading(bulkUiSlot)}
         </h2>
         {!selectedDayKey.trim() ? (
@@ -1682,7 +1802,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
               <button
                 type="button"
                 className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
-                disabled={bulkBusy || !selectedDayKey.trim() || loading}
+                disabled={pageBatchBusy || !selectedDayKey.trim() || loading}
                 onClick={() => void handleBlankAllTexts()}
               >
                 {bulkBusy ? "Working…" : "Blank all texts"}
@@ -1694,7 +1814,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                 <textarea
                   className="mt-1 block w-full min-h-[88px] rounded border border-gray-300 bg-white px-3 py-2 text-sm font-mono"
                   value={bulkApplyText}
-                  disabled={bulkBusy || !selectedDayKey.trim()}
+                  disabled={pageBatchBusy || !selectedDayKey.trim()}
                   onChange={(e) => setBulkApplyText(e.target.value)}
                   placeholder={`Exact text to save for every current ${bulkSlotLabel} draft`}
                 />
@@ -1705,7 +1825,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
               <button
                 type="button"
                 className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                disabled={bulkBusy || !selectedDayKey.trim() || loading || !bulkApplyEnabled}
+                disabled={pageBatchBusy || !selectedDayKey.trim() || loading || !bulkApplyEnabled}
                 onClick={() => void handleApplyTextToAll()}
               >
                 {bulkBusy ? "Working…" : "Apply text to all"}
@@ -2040,7 +2160,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                               : "border-gray-300"
                           }`}
                           value={edits[row.draftId as string] ?? ""}
-                          disabled={bulkBusy}
+                          disabled={pageBatchBusy}
                           onChange={(e) =>
                             setEdits((prev) => ({
                               ...prev,
@@ -2063,13 +2183,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                         <button
                           type="button"
                           className="mt-2 rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                          disabled={isSavingThis || bulkBusy || (!isDirty && !saveFailedMsg)}
+                          disabled={isSavingThis || pageBatchBusy || (!isDirty && !saveFailedMsg)}
                           onClick={() => saveDraft(row)}
                         >
                           {isSavingThis
                             ? "Saving…"
-                            : bulkBusy
-                              ? "Bulk save in progress…"
+                            : pageBatchBusy
+                              ? "Batch action in progress…"
                               : saveFailedMsg
                                 ? "Save failed — retry"
                                 : isDirty
@@ -2091,7 +2211,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                       <button
                         type="button"
                         className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
-                        disabled={isGeneratingThisEvening}
+                        disabled={isGeneratingThisEvening || pageBatchBusy}
                         onClick={() => generateEveningPreview(row)}
                       >
                         {eveningGenerateButtonLabel({

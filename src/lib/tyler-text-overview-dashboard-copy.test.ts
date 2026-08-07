@@ -41,6 +41,13 @@ import {
   rowStateLabel,
   shouldShowEveningNonTodayWarning,
   ttoBulkSaveEndpoint,
+  ttoGenerateAllButtonLabel,
+  ttoGenerateAllEndpoint,
+  formatTtoGenerateAllConfirm,
+  formatTtoGenerateAllDayLabel,
+  formatTtoGenerateAllResultMessage,
+  TTO_GENERATE_ALL_SEARCH_WARNING,
+  TTO_GENERATE_ALL_SELECT_DAY_HINT,
   MORNING_BULK_ACTIONS_HEADING,
   MORNING_BULK_SEARCH_WARNING,
   EVENING_BULK_ACTIONS_HEADING,
@@ -567,6 +574,105 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(ttoBulkSaveEndpoint("evening_checkin")).toBe(
       "/api/admin/tyler-text-overview/evening-bulk-save"
     );
+  });
+
+  it("Generate All UI: exact selected date, confirm, busy, refetch; Evening per-user Generate retained", () => {
+    expect(dashboard).toContain("ttoGenerateAllButtonLabel");
+    expect(dashboard).toContain("ttoGenerateAllEndpoint");
+    expect(dashboard).toContain("formatTtoGenerateAllConfirm");
+    expect(dashboard).toContain("formatTtoGenerateAllResultMessage");
+    expect(dashboard).toContain("runGenerateAll");
+    expect(dashboard).toContain("generateAllBusy");
+    expect(dashboard).toContain("pageBatchBusy");
+    expect(dashboard).toContain("TTO_GENERATE_ALL_SEARCH_WARNING");
+    expect(dashboard).toContain("forceOverwrite: true");
+    expect(dashboard).toContain("7–9 AM Morning window");
+    expect(dashboard).toContain("7–9 PM Evening window");
+    expect(dashboard).toContain("generateEveningPreview");
+    expect(dashboard).toContain("eveningGenerateButtonLabel");
+    expect(dashboard).not.toContain("/api/cron/tyler-text-overview-generate");
+    expect(ttoGenerateAllEndpoint("morning")).toBe(
+      "/api/admin/tyler-text-overview/morning-generate-all"
+    );
+    expect(ttoGenerateAllEndpoint("evening_checkin")).toBe(
+      "/api/admin/tyler-text-overview/evening-generate-all"
+    );
+  });
+});
+
+describe("TTO Generate All confirmation copy", () => {
+  it("Morning button and confirm use exact selected date + 7–9 AM + protections", () => {
+    expect(
+      ttoGenerateAllButtonLabel({
+        slot: "morning",
+        draftForDayKey: "2026-08-07",
+        isBusy: false,
+      })
+    ).toBe(`Generate Morning for ${formatTtoGenerateAllDayLabel("2026-08-07")}`);
+    expect(
+      ttoGenerateAllButtonLabel({
+        slot: "morning",
+        draftForDayKey: "2026-08-07",
+        isBusy: true,
+      })
+    ).toBe("Generating…");
+
+    const copy = formatTtoGenerateAllConfirm({
+      slot: "morning",
+      draftForDayKey: "2026-08-07",
+      audienceCount: 42,
+      searchActive: true,
+    });
+    expect(copy).toContain("2026-08-07");
+    expect(copy).toContain("Morning");
+    expect(copy).toContain("42");
+    expect(copy).toContain("Active search does not narrow");
+    expect(copy).toContain("Tyler-saved edits and intentional blanks remain protected");
+    expect(copy).toContain("Already-sent / non-current");
+    expect(copy).toContain("does not send texts now");
+    expect(copy).toContain("7–9 AM Morning window");
+    expect(copy).toContain("selected date exactly");
+  });
+
+  it("Evening button and confirm use exact selected date + 7–9 PM", () => {
+    expect(
+      ttoGenerateAllButtonLabel({
+        slot: "evening_checkin",
+        draftForDayKey: "2026-08-07",
+        isBusy: false,
+      })
+    ).toBe(`Generate Evening for ${formatTtoGenerateAllDayLabel("2026-08-07")}`);
+
+    const copy = formatTtoGenerateAllConfirm({
+      slot: "evening_checkin",
+      draftForDayKey: "2026-08-07",
+      audienceCount: 12,
+      searchActive: false,
+    });
+    expect(copy).toContain("Evening");
+    expect(copy).toContain("7–9 PM Evening window");
+    expect(copy).not.toContain("Active search does not narrow");
+    expect(TTO_GENERATE_ALL_SEARCH_WARNING).toContain("full selected-day sendable audience");
+    expect(TTO_GENERATE_ALL_SELECT_DAY_HINT).toContain("Select a Draft day");
+  });
+
+  it("result message reports counts truthfully", () => {
+    const msg = formatTtoGenerateAllResultMessage({
+      slot: "morning",
+      targeted: 40,
+      generated: 31,
+      protectedTylerAuthority: 5,
+      skippedAlreadySent: 2,
+      skippedNonCurrent: 1,
+      failed: [{ clerkUserId: "user_x", preferredName: "Pat", error: "sol_failed" }],
+    });
+    expect(msg).toContain("31 Morning drafts generated.");
+    expect(msg).toContain("5 Tyler-protected");
+    expect(msg).toContain("2 already-sent skipped.");
+    expect(msg).toContain("1 non-current skipped.");
+    expect(msg).toContain("1 failed.");
+    expect(msg).toContain("40 targeted.");
+    expect(msg).toContain("Pat: sol_failed");
   });
 });
 
