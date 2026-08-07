@@ -10,7 +10,11 @@ import {
   parseTylerTextOverviewStaleRefreshReason,
   refreshStaleTylerTextOverviewDrafts,
 } from "@/lib/tyler-text-overview-refresh-stale";
-import { TYLER_TEXT_OVERVIEW_ENABLED_ENV } from "@/lib/tyler-text-overview-types";
+import {
+  isProtectedFromMorningDraftOverwrite,
+  isProtectedTtoCurrentDraftBody,
+  TYLER_TEXT_OVERVIEW_ENABLED_ENV,
+} from "@/lib/tyler-text-overview-types";
 
 const buildDailySmsContentMock = vi.hoisted(() => vi.fn());
 const loadMorningPacketMock = vi.hoisted(() => vi.fn());
@@ -568,6 +572,56 @@ function setupHappyPath() {
   buildDailySmsContentMock.mockResolvedValue(REFRESHED_BUILT);
 }
 
+describe("isProtectedFromMorningDraftOverwrite", () => {
+  it("keeps isProtectedTtoCurrentDraftBody body-only (null/blank not body-protected)", () => {
+    expect(isProtectedTtoCurrentDraftBody(null)).toBe(false);
+    expect(isProtectedTtoCurrentDraftBody("")).toBe(false);
+    expect(isProtectedTtoCurrentDraftBody("   ")).toBe(false);
+    expect(isProtectedTtoCurrentDraftBody("Hello")).toBe(true);
+  });
+
+  it("protects non-empty body and Tyler provenance including intentional blank", () => {
+    expect(
+      isProtectedFromMorningDraftOverwrite({
+        current_body_to_send: "Machine body",
+        edited_by_tyler: false,
+        current_body_source: "machine",
+      })
+    ).toBe(true);
+    expect(
+      isProtectedFromMorningDraftOverwrite({
+        current_body_to_send: "Tyler body",
+        edited_by_tyler: true,
+        current_body_source: "tyler_edit",
+      })
+    ).toBe(true);
+    expect(
+      isProtectedFromMorningDraftOverwrite({
+        current_body_to_send: null,
+        edited_by_tyler: true,
+        current_body_source: "tyler_edit",
+      })
+    ).toBe(true);
+  });
+
+  it("does not protect machine/generation null without Tyler provenance", () => {
+    expect(
+      isProtectedFromMorningDraftOverwrite({
+        current_body_to_send: null,
+        edited_by_tyler: false,
+        current_body_source: "machine",
+      })
+    ).toBe(false);
+    expect(
+      isProtectedFromMorningDraftOverwrite({
+        current_body_to_send: null,
+        edited_by_tyler: false,
+        current_body_source: null,
+      })
+    ).toBe(false);
+  });
+});
+
 describe("refreshStaleTylerTextOverviewDrafts", () => {
   const env = { ...process.env };
 
@@ -701,7 +755,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
     expect(buildDailySmsContentMock).not.toHaveBeenCalled();
   });
 
-  it("inserts new generation with generation_reason evening_sweep by default", async () => {
+  it("skips Tyler intentional blank as protected (evening_sweep; no OpenAI)", async () => {
     setupHappyPath();
     seedCurrentDraft({ tylerEdited: true, emptySendBody: true });
     db.inbound = [
@@ -712,12 +766,40 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
     ];
     const stats = await refreshStaleTylerTextOverviewDrafts();
     expect(stats.generation_reason).toBe("evening_sweep");
-    expect(stats.refreshed).toBe(1);
-    const newGen = db.generations.find((g) => g.generation_reason === "evening_sweep");
-    expect(newGen).toBeTruthy();
+    expect(stats.refreshed).toBe(0);
+    expect(stats.skipped_protected_current_draft).toBe(1);
+    expect(loadMorningPacketMock).not.toHaveBeenCalled();
+    expect(writeMorningTtoBodyMock).not.toHaveBeenCalled();
+    expect(db.drafts[0]?.current_body_to_send).toBeNull();
+    expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    expect(db.drafts[0]?.edited_at).toBe("2026-07-02T18:00:00.000Z");
+    expect(db.drafts[0]?.current_generation_id).toBe("gen-original");
+    expect(db.generations).toHaveLength(1);
   });
 
-  it("inserts new generation with generation_reason pre_send_stale_refresh when requested", async () => {
+  it("skips Tyler intentional blank as protected on pre_send_stale_refresh", async () => {
+    setupHappyPath();
+    seedCurrentDraft({ tylerEdited: true, emptySendBody: true });
+    db.inbound = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        received_at: "2026-07-02T18:00:00.000Z",
+      },
+    ];
+    const stats = await refreshStaleTylerTextOverviewDrafts({
+      generationReason: "pre_send_stale_refresh",
+    });
+    expect(stats.generation_reason).toBe("pre_send_stale_refresh");
+    expect(stats.refreshed).toBe(0);
+    expect(stats.skipped_protected_current_draft).toBe(1);
+    expect(writeMorningTtoBodyMock).not.toHaveBeenCalled();
+    expect(db.drafts[0]?.current_body_to_send).toBeNull();
+    expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+  });
+
+  it("inserts new generation with generation_reason pre_send_stale_refresh when machine null refreshes", async () => {
     setupHappyPath();
     seedCurrentDraft({ emptySendBody: true });
     db.inbound = [
@@ -794,7 +876,7 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
     expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
   });
 
-  it("refreshes only when current draft body is empty", async () => {
+  it("refreshes machine null (no Tyler provenance) when current draft body is empty", async () => {
     setupHappyPath();
     seedCurrentDraft({ emptySendBody: true });
     db.inbound = [
@@ -804,9 +886,12 @@ describe("refreshStaleTylerTextOverviewDrafts", () => {
       },
     ];
     const stats = await refreshStaleTylerTextOverviewDrafts();
+    expect(stats.generation_reason).toBe("evening_sweep");
     expect(stats.refreshed).toBe(1);
     expect(stats.skipped_protected_current_draft).toBe(0);
     expect(db.drafts[0]?.current_body_to_send).toBe("After inbound refresh body");
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
   });
 
   it("does not mutate old machine_draft_body", async () => {

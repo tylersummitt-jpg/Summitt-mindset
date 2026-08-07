@@ -269,6 +269,21 @@ export function isProtectedTtoCurrentDraftBody(raw: string | null | undefined): 
   return raw.trim().length > 0;
 }
 
+/**
+ * Morning generation/stale-refresh overwrite protection.
+ * Keeps body-only pin semantics separate: non-empty bodies stay protected as before,
+ * and Tyler-saved drafts (including intentional blank) are also protected.
+ * Machine/generation nulls without Tyler provenance remain refreshable.
+ */
+export function isProtectedFromMorningDraftOverwrite(draft: {
+  current_body_to_send?: string | null;
+  edited_by_tyler?: boolean | null;
+  current_body_source?: string | null;
+}): boolean {
+  if (isProtectedTtoCurrentDraftBody(draft.current_body_to_send)) return true;
+  return draft.edited_by_tyler === true || draft.current_body_source === "tyler_edit";
+}
+
 /** Compact sms_send_events.metadata.tyler_text_overview block (Phase 5). */
 export type TylerTextOverviewSendMetadata = {
   enabled: true;

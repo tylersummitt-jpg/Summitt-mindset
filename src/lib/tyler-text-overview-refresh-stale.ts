@@ -6,7 +6,7 @@ import {
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   isTylerTextOverviewEnabled,
-  isProtectedTtoCurrentDraftBody,
+  isProtectedFromMorningDraftOverwrite,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
@@ -38,6 +38,8 @@ type CurrentDraftRow = {
   current_generation_id: string;
   status: string;
   current_body_to_send: string | null;
+  current_body_source: string | null;
+  edited_by_tyler: boolean;
 };
 
 type GenerationSnapshot = {
@@ -84,7 +86,7 @@ async function loadCurrentDraftRows(): Promise<CurrentDraftRow[]> {
   const { data, error } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
     .select(
-      "id, clerk_user_id, draft_for_day_key, current_generation_id, status, current_body_to_send"
+      "id, clerk_user_id, draft_for_day_key, current_generation_id, status, current_body_to_send, current_body_source, edited_by_tyler"
     )
     .eq("status", "current")
     .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
@@ -93,14 +95,31 @@ async function loadCurrentDraftRows(): Promise<CurrentDraftRow[]> {
     throw new Error(`current_drafts_query_failed:${error.message}`);
   }
 
-  return (data ?? []).filter(
-    (row): row is CurrentDraftRow =>
-      typeof row.id === "string" &&
-      typeof row.clerk_user_id === "string" &&
-      typeof row.draft_for_day_key === "string" &&
-      typeof row.current_generation_id === "string" &&
-      row.status === "current"
-  );
+  return (data ?? [])
+    .map((row) => {
+      if (
+        typeof row.id !== "string" ||
+        typeof row.clerk_user_id !== "string" ||
+        typeof row.draft_for_day_key !== "string" ||
+        typeof row.current_generation_id !== "string" ||
+        row.status !== "current"
+      ) {
+        return null;
+      }
+      return {
+        id: row.id,
+        clerk_user_id: row.clerk_user_id,
+        draft_for_day_key: row.draft_for_day_key,
+        current_generation_id: row.current_generation_id,
+        status: "current",
+        current_body_to_send:
+          typeof row.current_body_to_send === "string" ? row.current_body_to_send : null,
+        current_body_source:
+          typeof row.current_body_source === "string" ? row.current_body_source : null,
+        edited_by_tyler: row.edited_by_tyler === true,
+      } satisfies CurrentDraftRow;
+    })
+    .filter((row): row is CurrentDraftRow => row != null);
 }
 
 async function loadGenerationSnapshot(generationId: string): Promise<GenerationSnapshot | null> {
@@ -255,8 +274,15 @@ export async function refreshStaleTylerTextOverviewDrafts(args: {
   }
 
   for (const candidate of toRefresh) {
-    const protectedBody = currentDrafts.find((d) => d.id === candidate.draftId)?.current_body_to_send;
-    if (isProtectedTtoCurrentDraftBody(protectedBody)) {
+    const currentDraft = currentDrafts.find((d) => d.id === candidate.draftId);
+    if (
+      currentDraft &&
+      isProtectedFromMorningDraftOverwrite({
+        current_body_to_send: currentDraft.current_body_to_send,
+        edited_by_tyler: currentDraft.edited_by_tyler,
+        current_body_source: currentDraft.current_body_source,
+      })
+    ) {
       stats.skipped_protected_current_draft += 1;
       continue;
     }

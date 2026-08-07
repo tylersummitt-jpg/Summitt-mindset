@@ -1187,6 +1187,99 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(db.drafts[0]?.edit_distance_chars).toBe(10);
   });
 
+  it("does not overwrite Tyler intentional blank on generate", async () => {
+    setupHappyPath();
+    db.drafts = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        status: "current",
+        current_generation_id: "gen-prior",
+        current_body_to_send: null,
+        current_body_source: "tyler_edit",
+        edited_by_tyler: true,
+        edited_at: "2026-07-02T18:00:00.000Z",
+        edit_distance_chars: 40,
+      },
+    ];
+    db.generations = [
+      {
+        id: "gen-prior",
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: "morning",
+        generation_number: 1,
+        generation_reason: "noon_batch",
+        machine_draft_body: "Prior machine body",
+        machine_should_send: true,
+        superseded_at: null,
+      },
+    ];
+    db.nextGenId = 2;
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "New machine draft must not become live body",
+      messages: MORNING_WRITER_MESSAGES,
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
+    });
+    await generateTylerTextOverviewDailyDrafts({
+      draftForDayKey: "2026-07-03",
+      now: new Date("2026-07-02T16:00:00.000Z"),
+    });
+    expect(db.drafts[0]?.current_body_to_send).toBeNull();
+    expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    expect(db.drafts[0]?.edited_at).toBe("2026-07-02T18:00:00.000Z");
+    expect(db.drafts[0]?.edit_distance_chars).toBe(40);
+    expect(db.drafts[0]?.current_generation_id).toBe("gen-prior");
+  });
+
+  it("overwrites machine null (no Tyler provenance) on generate", async () => {
+    setupHappyPath();
+    db.drafts = [
+      {
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        status: "current",
+        current_generation_id: "gen-prior",
+        current_body_to_send: null,
+        current_body_source: "machine",
+        edited_by_tyler: false,
+        edited_at: null,
+      },
+    ];
+    db.generations = [
+      {
+        id: "gen-prior",
+        clerk_user_id: AUDIENCE_USER.clerk_user_id,
+        draft_for_day_key: "2026-07-03",
+        send_slot: "morning",
+        generation_number: 1,
+        generation_reason: "noon_batch",
+        machine_draft_body: null,
+        machine_should_send: false,
+        machine_no_send_reason: "openai_request_failed",
+        superseded_at: null,
+      },
+    ];
+    db.nextGenId = 2;
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "Recovered machine draft",
+      messages: MORNING_WRITER_MESSAGES,
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
+    });
+    await generateTylerTextOverviewDailyDrafts({
+      draftForDayKey: "2026-07-03",
+      now: new Date("2026-07-02T16:00:00.000Z"),
+    });
+    expect(db.drafts[0]?.current_body_to_send).toBe("Recovered machine draft");
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+  });
+
   it("loadTylerTextOverviewAudienceRows excludes stopped users", async () => {
     db.audience = [
       AUDIENCE_USER,

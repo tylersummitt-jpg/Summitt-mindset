@@ -26,7 +26,7 @@ import {
 import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-overview-writer-capture";
 import {
   isTylerTextOverviewEnabled,
-  isProtectedTtoCurrentDraftBody,
+  isProtectedFromMorningDraftOverwrite,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
@@ -572,7 +572,11 @@ export async function persistMorningTtoGeneration(args: {
     sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT &&
     existingDraft != null &&
     existingDraft.status === "current" &&
-    isProtectedTtoCurrentDraftBody(existingDraft.current_body_to_send);
+    isProtectedFromMorningDraftOverwrite({
+      current_body_to_send: existingDraft.current_body_to_send,
+      edited_by_tyler: existingDraft.edited_by_tyler,
+      current_body_source: existingDraft.current_body_source,
+    });
 
   const inserted = await insertGenerationRow(generationRow);
   if ("error" in inserted) {
@@ -723,10 +727,14 @@ async function loadExistingCurrentDraft(
   status: string;
   current_body_to_send: string | null;
   current_generation_id: string | null;
+  current_body_source: string | null;
+  edited_by_tyler: boolean;
 } | null> {
   const { data, error } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
-    .select("status, current_body_to_send, current_generation_id")
+    .select(
+      "status, current_body_to_send, current_generation_id, current_body_source, edited_by_tyler"
+    )
     .eq("clerk_user_id", clerkUserId)
     .eq("draft_for_day_key", draftForDayKey)
     .eq("send_slot", sendSlot)
@@ -749,6 +757,9 @@ async function loadExistingCurrentDraft(
       typeof data.current_generation_id === "string" && data.current_generation_id.trim()
         ? data.current_generation_id.trim()
         : null,
+    current_body_source:
+      typeof data.current_body_source === "string" ? data.current_body_source : null,
+    edited_by_tyler: data.edited_by_tyler === true,
   };
 }
 
@@ -772,7 +783,11 @@ async function upsertCurrentDraft(args: {
     args.sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT &&
     existing &&
     existing.status === "current" &&
-    isProtectedTtoCurrentDraftBody(existing.current_body_to_send)
+    isProtectedFromMorningDraftOverwrite({
+      current_body_to_send: existing.current_body_to_send,
+      edited_by_tyler: existing.edited_by_tyler,
+      current_body_source: existing.current_body_source,
+    })
   ) {
     return { ok: true, protected: true };
   }

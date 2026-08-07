@@ -1143,6 +1143,28 @@ describe("tyler-text-overview-admin save model", () => {
     expect(db.drafts[0].current_body_source).toBe("tyler_edit");
   });
 
+  it("save non-empty body after intentional blank replaces blank and keeps Tyler provenance", async () => {
+    await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body: "   ",
+      now,
+    });
+    expect(db.drafts[0].current_body_to_send).toBeNull();
+    expect(db.drafts[0].current_body_source).toBe("tyler_edit");
+
+    const later = new Date("2026-07-02T18:30:00.000Z");
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body: "Have a great Saturday!",
+      now: later,
+    });
+    expect(result.ok).toBe(true);
+    expect(db.drafts[0].current_body_to_send).toBe("Have a great Saturday!");
+    expect(db.drafts[0].current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0].edited_by_tyler).toBe(true);
+    expect(db.drafts[0].edited_at).toBe(later.toISOString());
+  });
+
   it("isTylerTextOverviewSaveApproval is always true", () => {
     expect(isTylerTextOverviewSaveApproval()).toBe(true);
   });
