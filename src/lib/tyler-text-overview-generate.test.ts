@@ -25,6 +25,7 @@ import {
 const buildDailySmsContentMock = vi.hoisted(() => vi.fn());
 const loadMorningPacketMock = vi.hoisted(() => vi.fn());
 const writeMorningTtoBodyMock = vi.hoisted(() => vi.fn());
+const runInterpreterMock = vi.hoisted(() => vi.fn());
 const getClerkUserMock = vi.hoisted(() => vi.fn());
 const resolveV2Mock = vi.hoisted(() => vi.fn());
 const fetchCommsMock = vi.hoisted(() => vi.fn());
@@ -241,6 +242,58 @@ vi.mock("@/lib/morning-tto-writer", () => ({
   writeMorningTtoBody: writeMorningTtoBodyMock,
 }));
 
+vi.mock("@/lib/morning-tto-brief-canonical-load-v1", () => ({
+  loadMorningBriefCanonicalExtrasV1: vi.fn(async () => ({
+    importantPeople: [],
+    outcomeSpine: {
+      latestOutcome: null,
+      latestOutcomeAt: null,
+      latestOutcomeMessage: null,
+      matchingOutcomeCount: 0,
+      hasVerifiedProofMetadata: false,
+    },
+    threadMemoryHint: null,
+  })),
+  assembleMorningBriefInterpreterInputFromPacket: vi.fn(({ packet }) => ({
+    version: "morning_brief_interpreter_input_v1",
+    message_for: packet.message_for,
+    mechanical: {
+      days_since_last_user_response: packet.last_user_response.days_since,
+      never_replied: packet.last_user_response.never_replied,
+      recent_unanswered_outbound_count: 0,
+    },
+    canonical_goal: { text: packet.current_goal.text },
+    pending_goal_change: packet.hard_state.pending_goal_change,
+    available_identity: null,
+    available_important_people: [],
+    available_life_context: [],
+    truth_spine: {
+      latest_outcome: null,
+      latest_outcome_at: null,
+      latest_outcome_message: null,
+      evidence_strength: "none",
+      consistency_supported: false,
+      proof_claims_allowed: {
+        completion: false,
+        miss: false,
+        partial: false,
+        proof: false,
+      },
+    },
+    thread_memory_hint: null,
+    exact_thread: packet.exact_thread,
+  })),
+  countRecentUnansweredOutboundFromExactThread: vi.fn(() => 0),
+}));
+
+vi.mock("@/lib/morning-tto-brief-interpreter-v1", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/morning-tto-brief-interpreter-v1")>();
+  return {
+    ...actual,
+    runMorningBriefInterpreterV1: runInterpreterMock,
+  };
+});
+
 vi.mock("@/lib/clerk-rest", () => ({
   getClerkUser: getClerkUserMock,
 }));
@@ -456,6 +509,82 @@ function setupHappyPath() {
     writer_prompt_path: "morning_relationship_v1",
     model: "gpt-4o-mini",
   });
+  runInterpreterMock.mockResolvedValue({
+    ok: true,
+    brief: {
+      version: "morning_coaching_brief_v1",
+      confidence: "medium",
+      human_situation: {
+        most_alive: "User finished the story",
+        direct_question_or_need: null,
+        relevant_life_event: null,
+        context_use: "background",
+        identity_use: "background",
+        person_use: "do_not_force",
+        selected_person: null,
+        selected_person_reason: null,
+      },
+      truth_and_evidence: {
+        latest_user_truth: null,
+        outcome: "no_recent_evidence",
+        evidence_note: "unknown",
+        evidence_strength: "none",
+        consistency_supported: false,
+        proof_claims_allowed: {
+          completion: false,
+          miss: false,
+          partial: false,
+          proof: false,
+        },
+      },
+      conversation_continuity: {
+        already_acknowledged: [],
+        answered_question: null,
+        open_loop: null,
+        stale_or_exhausted_topics: [],
+        do_not_repeat: [],
+      },
+      goal_role_today: {
+        canonical_goal: "Two hours deep work",
+        pending_goal: null,
+        goal_alignment: "aligned",
+        role: "background",
+        note: "ok",
+      },
+      coaching_direction: {
+        primary_move: "continue_conversation",
+        question_policy: "none",
+        action_guidance: "none",
+        pressure: "normal",
+      },
+      boundaries: {
+        claims_to_avoid: [],
+        topics_not_to_force: [],
+        unsupported_capabilities: [],
+        goal_authority_boundaries: [],
+        identity_people_boundaries: [],
+        coach_history_is_not_style: "Prior coach messages are history.",
+      },
+    },
+    capture: {
+      capture_version: "morning_brief_interpreter_capture_v1",
+      model: "gpt-5.6-sol",
+      temperature: null,
+      reasoning_effort: "low",
+      max_completion_tokens: 2500,
+      prompt_path: "morning_brief_interpreter_v1",
+      system_message: "interpreter system",
+      user_message: "interpreter user",
+      canonical_input: { version: "morning_brief_interpreter_input_v1" },
+      raw_response: "{}",
+      parsed_brief: null,
+      error: null,
+      request_started_at: "2026-07-02T16:00:00.000Z",
+      request_completed_at: "2026-07-02T16:00:01.000Z",
+      latency_ms: 1000,
+      retry: null,
+    },
+  });
   buildDailySmsContentMock.mockResolvedValue(SUCCESS_BUILT);
 }
 
@@ -638,6 +767,145 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       retry_succeeded: null,
       retry_messages: [],
     });
+    expect(meta.morning_brief_interpreter_v1).toEqual(
+      expect.objectContaining({
+        model: "gpt-5.6-sol",
+        reasoning_effort: "low",
+        temperature: null,
+        retry: null,
+      })
+    );
+    expect(meta.morning_coaching_brief_v1).toEqual(
+      expect.objectContaining({ version: "morning_coaching_brief_v1" })
+    );
+    expect(
+      (meta.morning_brief_interpreter_v1 as Record<string, unknown>).parsed_brief
+    ).toEqual(meta.morning_coaching_brief_v1);
+  });
+
+  it("Phase 2C: interpreter runs before writer; packet not mutated; Brief absent from writer messages", async () => {
+    setupHappyPath();
+    const callOrder: string[] = [];
+    runInterpreterMock.mockImplementation(async () => {
+      callOrder.push("interpreter");
+      return {
+        ok: true,
+        brief: {
+          version: "morning_coaching_brief_v1",
+          confidence: "medium",
+          human_situation: {
+            most_alive: "alive",
+            direct_question_or_need: null,
+            relevant_life_event: null,
+            context_use: "background",
+            identity_use: "background",
+            person_use: "do_not_force",
+            selected_person: null,
+            selected_person_reason: null,
+          },
+          truth_and_evidence: {
+            latest_user_truth: null,
+            outcome: "no_recent_evidence",
+            evidence_note: "unknown",
+            evidence_strength: "none",
+            consistency_supported: false,
+            proof_claims_allowed: {
+              completion: false,
+              miss: false,
+              partial: false,
+              proof: false,
+            },
+          },
+          conversation_continuity: {
+            already_acknowledged: [],
+            answered_question: null,
+            open_loop: null,
+            stale_or_exhausted_topics: [],
+            do_not_repeat: [],
+          },
+          goal_role_today: {
+            canonical_goal: "Two hours deep work",
+            pending_goal: null,
+            goal_alignment: "aligned",
+            role: "background",
+            note: "ok",
+          },
+          coaching_direction: {
+            primary_move: "continue_conversation",
+            question_policy: "none",
+            action_guidance: "none",
+            pressure: "normal",
+          },
+          boundaries: {
+            claims_to_avoid: [],
+            topics_not_to_force: [],
+            unsupported_capabilities: [],
+            goal_authority_boundaries: [],
+            identity_people_boundaries: [],
+            coach_history_is_not_style: "history",
+          },
+        },
+        capture: {
+          capture_version: "morning_brief_interpreter_capture_v1",
+          model: "gpt-5.6-sol",
+          temperature: null,
+          reasoning_effort: "low",
+          max_completion_tokens: 2500,
+          prompt_path: "morning_brief_interpreter_v1",
+          system_message: "interpreter system never in writer",
+          user_message: "interpreter user",
+          canonical_input: { version: "morning_brief_interpreter_input_v1" },
+          raw_response: "{}",
+          parsed_brief: null,
+          error: null,
+          request_started_at: null,
+          request_completed_at: null,
+          latency_ms: null,
+          retry: null,
+        },
+      };
+    });
+    writeMorningTtoBodyMock.mockImplementation(async (packet) => {
+      callOrder.push("writer");
+      expect(JSON.stringify(packet)).toBe(JSON.stringify(MORNING_PACKET));
+      return {
+        ok: true,
+        body: MORNING_SUCCESS_BODY,
+        messages: MORNING_WRITER_MESSAGES,
+        primaryMessages: MORNING_WRITER_MESSAGES,
+        retryMessages: [],
+        retryOccurred: false,
+        writer_prompt_path: "morning_relationship_v1",
+        model: "gpt-4o-mini",
+      };
+    });
+    await generateTylerTextOverviewDailyDrafts({
+      draftForDayKey: "2026-07-03",
+      now: new Date("2026-07-02T16:00:00.000Z"),
+    });
+    expect(callOrder).toEqual(["interpreter", "writer"]);
+    const msgs = JSON.stringify(db.generations[0]?.writer_openai_messages);
+    expect(msgs).not.toMatch(/morning_coaching_brief|interpreter system never in writer|gpt-5\.6-sol/);
+    expect(db.generations[0]?.machine_should_send).toBe(true);
+  });
+
+  it("Phase 2C: interpreter failure still runs writer with machine_should_send from writer", async () => {
+    setupHappyPath();
+    runInterpreterMock.mockRejectedValue(new Error("boom"));
+    await generateTylerTextOverviewDailyDrafts({
+      draftForDayKey: "2026-07-03",
+      now: new Date("2026-07-02T16:00:00.000Z"),
+    });
+    expect(writeMorningTtoBodyMock).toHaveBeenCalled();
+    expect(db.generations[0]?.machine_should_send).toBe(true);
+    expect(db.generations[0]?.writer_openai_messages).toEqual(MORNING_WRITER_MESSAGES);
+    const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
+    expect(meta.morning_brief_interpreter_v1).toEqual(
+      expect.objectContaining({ error: "boom" })
+    );
+    expect(meta.morning_coaching_brief_v1).toEqual(
+      expect.objectContaining({ confidence: "low" })
+    );
   });
 
   it("persists exact technical retry transcript in morning_writer_capture_v1", async () => {

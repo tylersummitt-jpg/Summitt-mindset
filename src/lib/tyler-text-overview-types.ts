@@ -392,6 +392,10 @@ export type TylerTextOverviewAdminDraftRow = {
   intentionalSpace: boolean | null;
   laneStage: string | null;
   slotCoachingContext: TylerTextOverviewSlotCoachingContextPanel | null;
+  /** Phase 2C — stored generation-time interpreter capture (observation only). */
+  morningBriefInterpreterV1: TylerTextOverviewMorningBriefInterpreterPanel | null;
+  /** Phase 2C — stored final Morning Coaching Brief. */
+  morningCoachingBriefV1: Record<string, unknown> | null;
   /** True when generation_metadata.preview_only is set (evening preview rows). */
   previewOnly?: boolean;
   morningAnchorSource?: string | null;
@@ -418,4 +422,19 @@ export type TylerTextOverviewSlotCoachingContextPanel = {
   userRepliesSincePreviousOutbound: string | null;
   shouldSendRecommendation: string | null;
   skipReasonHint: string | null;
+};
+
+/** Phase 2C — stored Morning Brief interpreter forensic capture (generation-time only). */
+export type TylerTextOverviewMorningBriefInterpreterPanel = {
+  model: string | null;
+  temperature: number | null;
+  reasoningEffort: string | null;
+  maxCompletionTokens: number | null;
+  latencyMs: number | null;
+  error: string | null;
+  exactSystemMessage: string | null;
+  exactUserMessage: string | null;
+  exactInputObject: Record<string, unknown> | null;
+  rawResponse: string | null;
+  parsedBrief: Record<string, unknown> | null;
 };

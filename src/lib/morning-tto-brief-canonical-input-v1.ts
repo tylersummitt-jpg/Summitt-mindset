@@ -189,7 +189,18 @@ export type AssembleMorningBriefInterpreterInputArgs = {
     status: "awaiting_user_confirmation";
   } | null;
   identityAnchorText: string | null;
+  /**
+   * Quotable-source gate for ungated callers. Ignored for inclusion when
+   * identityAlreadyQuotableGated is true (do not invent a source string).
+   */
   identitySource: string | null;
+  /**
+   * When true, identityAnchorText already passed the canonical quotable-identity
+   * gate upstream (e.g. MorningRelationshipPacket). Accept text without a
+   * fabricated identity_source. Ungated callers must leave this false/undefined
+   * and satisfy isQuotableIdentitySource(identitySource).
+   */
+  identityAlreadyQuotableGated?: boolean;
   importantPeople: Array<{
     display_name: string;
     relationship_type: string;
@@ -237,8 +248,13 @@ export function assembleMorningBriefInterpreterInputV1(
 
   let available_identity: { text: string } | null = null;
   const identityText = trimOrNull(args.identityAnchorText);
-  if (identityText && isQuotableIdentitySource(args.identitySource)) {
-    available_identity = { text: identityText };
+  if (identityText) {
+    if (args.identityAlreadyQuotableGated === true) {
+      // Upstream already applied the canonical quotable gate — no source invented.
+      available_identity = { text: identityText };
+    } else if (isQuotableIdentitySource(args.identitySource)) {
+      available_identity = { text: identityText };
+    }
   }
 
   const available_important_people: Array<{ name: string; relationship: string }> = [];

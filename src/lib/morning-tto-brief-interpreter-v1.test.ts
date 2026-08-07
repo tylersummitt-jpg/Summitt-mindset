@@ -11,6 +11,7 @@ import {
   buildMorningBriefInterpreterMessages,
   buildMorningBriefInterpreterUserMessage,
   mergeMorningBriefWithCanonicalTruth,
+  MORNING_BRIEF_INTERPRETER_MODEL,
   MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL,
   MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT,
   parseAndMergeMorningBriefInterpreterResponse,
@@ -186,14 +187,15 @@ describe("morning-tto-brief-interpreter-v1", () => {
   });
 
   it("provisional model constant is framed as placeholder, not a locked production choice", () => {
-    expect(MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL).toBe("gpt-4o-mini");
+    expect(MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL).toBe("gpt-5.6-sol");
+    expect(MORNING_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-sol");
     const src = readFileSync(
       path.join(process.cwd(), "src/lib/morning-tto-brief-interpreter-v1.ts"),
       "utf8"
     );
-    expect(src).toMatch(/Provisional Phase 2B placeholder/);
-    expect(src).toMatch(/NOT a locked production model decision/);
-    expect(src).not.toMatch(/export const MORNING_BRIEF_INTERPRETER_MODEL\b/);
+    expect(src).toMatch(/Phase 2C locked interpreter model/);
+    expect(src).toMatch(/reasoning_effort/);
+    expect(src).not.toMatch(/runLaneOpenAiJsonWithOneRetry/);
   });
 
   it("builds exact structured messages from canonical input", () => {
@@ -390,7 +392,18 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(result.ok).toBe(false);
     expect(result.brief.confidence).toBe("low");
     expect(create).toHaveBeenCalledTimes(1);
+    expect(create.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        model: "gpt-5.6-sol",
+        reasoning_effort: "low",
+        max_completion_tokens: 2500,
+        response_format: { type: "json_object" },
+      })
+    );
+    expect(create.mock.calls[0]?.[0]).not.toHaveProperty("temperature");
     expect(result.capture.error).toBeTruthy();
+    expect(result.capture.temperature).toBeNull();
+    expect(result.capture.reasoning_effort).toBe("low");
   });
 
   it("source module has no mutation or generation imports", () => {
@@ -405,14 +418,21 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(src).not.toMatch(/from\("v2_commitment"\)/);
   });
 
-  it("generate path does not import interpreter (Phase 2B unwired)", () => {
+  it("generate path wires observational interpreter without feeding writer (Phase 2C)", () => {
     const generateSrc = readFileSync(
       path.join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"),
       "utf8"
     );
-    expect(generateSrc).not.toMatch(/morning-tto-brief-interpreter/);
-    expect(generateSrc).not.toMatch(/morning-tto-coaching-brief/);
-    expect(generateSrc).not.toMatch(/morning-tto-brief-canonical-input/);
+    expect(generateSrc).toMatch(/runObservationalMorningBriefInterpreter/);
+    expect(generateSrc).toMatch(/morning-tto-brief-interpreter/);
+    expect(generateSrc).toMatch(/writeMorningTtoBody\(packet\)/);
+    expect(generateSrc).not.toMatch(/writeMorningTtoBody\([^)]*brief/);
+    const writerSrc = readFileSync(
+      path.join(process.cwd(), "src/lib/morning-tto-writer.ts"),
+      "utf8"
+    );
+    expect(writerSrc).not.toMatch(/morning-tto-brief|coaching_brief|MORNING_BRIEF/);
+    expect(writerSrc).toMatch(/MORNING_TTO_WRITER_MODEL = "gpt-4o-mini"/);
   });
 });
 

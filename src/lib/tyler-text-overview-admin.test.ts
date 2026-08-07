@@ -15,6 +15,8 @@ import {
   normalizeTylerTextOverviewDraftBodyInput,
   parseWriterOpenAiMessages,
   parseMorningWriterRetryCapture,
+  mapMorningBriefInterpreterPanel,
+  mapMorningCoachingBriefFromMetadata,
   deriveAuthoritativeMachineDraftStatus,
   pickTylerTextOverviewDraftOverlay,
   resolveAdminListSendSlot,
@@ -834,6 +836,45 @@ describe("tyler-text-overview-admin read model", () => {
         },
       }).retryMessages
     ).toEqual([]);
+  });
+
+  it("Phase 2C maps stored interpreter metadata without reconstruction", () => {
+    const brief = {
+      version: "morning_coaching_brief_v1",
+      confidence: "medium",
+      human_situation: { most_alive: "alive", person_use: "do_not_force" },
+    };
+    const panel = mapMorningBriefInterpreterPanel({
+      morning_brief_interpreter_v1: {
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 2500,
+        latency_ms: 1200,
+        error: null,
+        exact_system_message: "sys",
+        exact_user_message: "user",
+        exact_input_object: {
+          available_identity: { text: "I am a father" },
+          available_important_people: [{ name: "Brooke", relationship: "spouse/partner" }],
+        },
+        raw_response: "{}",
+        parsed_brief: brief,
+        retry: null,
+      },
+      morning_coaching_brief_v1: brief,
+    });
+    expect(panel?.model).toBe("gpt-5.6-sol");
+    expect(panel?.reasoningEffort).toBe("low");
+    expect(panel?.temperature).toBeNull();
+    expect(panel?.exactInputObject?.available_important_people).toEqual([
+      { name: "Brooke", relationship: "spouse/partner" },
+    ]);
+    expect(panel?.parsedBrief).toEqual(brief);
+    expect(mapMorningCoachingBriefFromMetadata({ morning_coaching_brief_v1: brief })).toEqual(
+      brief
+    );
+    expect(mapMorningBriefInterpreterPanel({})).toBeNull();
   });
 
   it("DTO exposes phone when audience overlay is provided", () => {

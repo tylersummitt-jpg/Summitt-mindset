@@ -51,6 +51,14 @@ export const MORNING_RAW_PRIMARY_INPUT_HEADING = "RAW PRIMARY OPENAI INPUT";
 export const MORNING_RAW_PRIMARY_INPUT_LABEL =
   "These are the exact original system and user messages sent to OpenAI.";
 
+export const MORNING_BRIEF_OBSERVATION_STATUS =
+  "OBSERVATION ONLY — Morning Coaching Brief did not affect this writer draft.";
+
+export const MORNING_COACHING_BRIEF_HEADING = "MORNING COACHING BRIEF";
+export const MORNING_BRIEF_PERSONAL_CONTEXT_HEADING = "PERSONAL CONTEXT OBSERVABILITY";
+export const MORNING_BRIEF_INTERPRETER_INPUT_HEADING = "INTERPRETER RAW INPUT";
+export const MORNING_BRIEF_INTERPRETER_OUTPUT_HEADING = "INTERPRETER RAW OUTPUT";
+
 export const MORNING_TECHNICAL_RETRY_HEADING = "TECHNICAL RETRY CONTEXT";
 export const MORNING_TECHNICAL_RETRY_LABEL =
   "Technical JSON retry context — also sent to OpenAI after the first response failed validation.";

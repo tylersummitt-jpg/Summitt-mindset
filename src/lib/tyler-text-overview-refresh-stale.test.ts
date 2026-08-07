@@ -225,6 +225,148 @@ vi.mock("@/lib/morning-tto-writer", () => ({
   writeMorningTtoBody: writeMorningTtoBodyMock,
 }));
 
+vi.mock("@/lib/morning-tto-brief-canonical-load-v1", () => ({
+  loadMorningBriefCanonicalExtrasV1: vi.fn(async () => ({
+    importantPeople: [],
+    outcomeSpine: {
+      latestOutcome: null,
+      latestOutcomeAt: null,
+      latestOutcomeMessage: null,
+      matchingOutcomeCount: 0,
+      hasVerifiedProofMetadata: false,
+    },
+    threadMemoryHint: null,
+  })),
+  assembleMorningBriefInterpreterInputFromPacket: vi.fn(({ packet }) => ({
+    version: "morning_brief_interpreter_input_v1",
+    message_for: {
+      timezone: "America/New_York",
+      local_date: "2026-07-03",
+      local_weekday: "Friday",
+      daypart: "morning",
+    },
+    mechanical: {
+      days_since_last_user_response: 1,
+      never_replied: false,
+      recent_unanswered_outbound_count: 0,
+    },
+    canonical_goal: { text: "Two hours deep work" },
+    pending_goal_change: null,
+    available_identity: null,
+    available_important_people: [],
+    available_life_context: [],
+    truth_spine: {
+      latest_outcome: null,
+      latest_outcome_at: null,
+      latest_outcome_message: null,
+      evidence_strength: "none",
+      consistency_supported: false,
+      proof_claims_allowed: {
+        completion: false,
+        miss: false,
+        partial: false,
+        proof: false,
+      },
+    },
+    thread_memory_hint: null,
+    exact_thread: packet.exact_thread ?? {
+      window_days: 21,
+      max_messages: 30,
+      messages: [],
+      omitted_older_turn_count: 0,
+    },
+  })),
+  countRecentUnansweredOutboundFromExactThread: vi.fn(() => 0),
+}));
+
+const runInterpreterMock = vi.hoisted(() =>
+  vi.fn(async () => ({
+    ok: false,
+    error: "openai_unavailable",
+    brief: {
+      version: "morning_coaching_brief_v1",
+      confidence: "low",
+      human_situation: {
+        most_alive: "unknown",
+        direct_question_or_need: "unknown",
+        relevant_life_event: "unknown",
+        context_use: "unknown",
+        identity_use: "unknown",
+        person_use: "unknown",
+        selected_person: null,
+        selected_person_reason: null,
+      },
+      truth_and_evidence: {
+        latest_user_truth: null,
+        outcome: "no_recent_evidence",
+        evidence_note: "unknown",
+        evidence_strength: "none",
+        consistency_supported: false,
+        proof_claims_allowed: {
+          completion: false,
+          miss: false,
+          partial: false,
+          proof: false,
+        },
+      },
+      conversation_continuity: {
+        already_acknowledged: "unknown",
+        answered_question: "unknown",
+        open_loop: "unknown",
+        stale_or_exhausted_topics: "unknown",
+        do_not_repeat: "unknown",
+      },
+      goal_role_today: {
+        canonical_goal: "Two hours deep work",
+        pending_goal: null,
+        goal_alignment: "unknown",
+        role: "unknown",
+        note: "unknown",
+      },
+      coaching_direction: {
+        primary_move: "unknown",
+        question_policy: "unknown",
+        action_guidance: "unknown",
+        pressure: "unknown",
+      },
+      boundaries: {
+        claims_to_avoid: [],
+        topics_not_to_force: [],
+        unsupported_capabilities: [],
+        goal_authority_boundaries: [],
+        identity_people_boundaries: [],
+        coach_history_is_not_style: "history",
+      },
+    },
+    capture: {
+      capture_version: "morning_brief_interpreter_capture_v1",
+      model: "gpt-5.6-sol",
+      temperature: null,
+      reasoning_effort: "low",
+      max_completion_tokens: 2500,
+      prompt_path: "morning_brief_interpreter_v1",
+      system_message: "sys",
+      user_message: "user",
+      canonical_input: { version: "morning_brief_interpreter_input_v1" },
+      raw_response: null,
+      parsed_brief: null,
+      error: "openai_unavailable",
+      request_started_at: null,
+      request_completed_at: null,
+      latency_ms: null,
+      retry: null,
+    },
+  }))
+);
+
+vi.mock("@/lib/morning-tto-brief-interpreter-v1", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/morning-tto-brief-interpreter-v1")>();
+  return {
+    ...actual,
+    runMorningBriefInterpreterV1: runInterpreterMock,
+  };
+});
+
 vi.mock("@/lib/clerk-rest", () => ({
   getClerkUser: getClerkUserMock,
 }));

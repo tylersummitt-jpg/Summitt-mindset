@@ -2,6 +2,17 @@ import { buildDailySmsContent, type DailySmsBuilt } from "@/lib/daily-sms-build"
 import { loadMorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
 import { writeMorningTtoBody } from "@/lib/morning-tto-writer";
 import {
+  assembleMorningBriefInterpreterInputFromPacket,
+  loadMorningBriefCanonicalExtrasV1,
+} from "@/lib/morning-tto-brief-canonical-load-v1";
+import {
+  buildLowConfidenceUnknownBriefFromCanonical,
+  buildMorningBriefInterpreterMetadataV1,
+  runMorningBriefInterpreterV1,
+} from "@/lib/morning-tto-brief-interpreter-v1";
+import type { MorningCoachingBriefV1 } from "@/lib/morning-tto-coaching-brief-v1";
+import type { MorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
+import {
   morningAnchorToPreviousOutbound,
   resolveEveningPreviewMorningAnchor,
 } from "@/lib/evening-preview-context-v1";
@@ -395,6 +406,7 @@ export function mapMorningWriterToGenerationRow(args: {
     never_replied: boolean;
     has_pending_goal_change: boolean;
   };
+  generationMetadataExtra?: Record<string, unknown>;
 }): TylerTextOverviewGenerationInsertRow {
   const sendSlot = args.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
   const messages = args.success?.messages ?? args.failure?.messages ?? [];
@@ -455,6 +467,7 @@ export function mapMorningWriterToGenerationRow(args: {
         retry_succeeded: retryOccurred ? retrySucceeded : null,
         retry_messages: retryOccurred ? retryMessages : [],
       },
+      ...(args.generationMetadataExtra ?? {}),
     },
     timezone_snapshot: args.timezone,
     send_pref_snapshot: args.sendPrefSnapshot,
@@ -495,6 +508,7 @@ export async function persistMorningTtoGeneration(args: {
     never_replied: boolean;
     has_pending_goal_change: boolean;
   };
+  generationMetadataExtra?: Record<string, unknown>;
   respectProtectedMorningDraft?: boolean;
 }): Promise<
   | { ok: true; generationId: string; supersedeFailed: boolean; currentDraftProtected?: boolean }
@@ -528,6 +542,7 @@ export async function persistMorningTtoGeneration(args: {
     success: args.success,
     failure: args.failure,
     packetMetadata: args.packetMetadata,
+    generationMetadataExtra: args.generationMetadataExtra,
   });
 
   const existingDraft = await loadExistingCurrentDraft(
@@ -923,6 +938,142 @@ export type TylerTextOverviewMorningDraftResult =
       error?: string;
     };
 
+/**
+ * Phase 2C observational interpreter. Never mutates packet. Never throws to caller.
+ * Failures still yield fail-soft metadata so writer can proceed unchanged.
+ */
+export async function runObservationalMorningBriefInterpreter(args: {
+  packet: MorningRelationshipPacket;
+  clerkUserId: string;
+  commitmentId: string;
+}): Promise<{
+  morning_brief_interpreter_v1: Record<string, unknown>;
+  morning_coaching_brief_v1: MorningCoachingBriefV1;
+}> {
+  try {
+    const extras = await loadMorningBriefCanonicalExtrasV1({
+      clerkUserId: args.clerkUserId,
+      commitmentId: args.commitmentId,
+    });
+    const assembled = assembleMorningBriefInterpreterInputFromPacket({
+      packet: args.packet,
+      extras,
+    });
+    if ("ok" in assembled) {
+      return {
+        morning_brief_interpreter_v1: {
+          capture_version: "morning_brief_interpreter_capture_v1",
+          error: assembled.error,
+          retry: null,
+          parsed_brief: null,
+          raw_response: null,
+        },
+        // Assemble failure is rare (packet already has goal/day); empty fail-soft without spine input.
+        morning_coaching_brief_v1: buildLowConfidenceUnknownBriefFromCanonical({
+          version: "morning_brief_interpreter_input_v1",
+          message_for: {
+            timezone: args.packet.message_for.timezone,
+            local_date: args.packet.message_for.local_date,
+            local_weekday: args.packet.message_for.local_weekday,
+            daypart: "morning",
+          },
+          mechanical: {
+            days_since_last_user_response: args.packet.last_user_response.days_since,
+            never_replied: args.packet.last_user_response.never_replied,
+            recent_unanswered_outbound_count: 0,
+          },
+          canonical_goal: { text: args.packet.current_goal.text },
+          pending_goal_change: args.packet.hard_state.pending_goal_change,
+          available_identity: args.packet.current_identity.text
+            ? { text: args.packet.current_identity.text }
+            : null,
+          available_important_people: [],
+          available_life_context: [],
+          truth_spine: {
+            latest_outcome: null,
+            latest_outcome_at: null,
+            latest_outcome_message: null,
+            evidence_strength: "none",
+            consistency_supported: false,
+            proof_claims_allowed: {
+              completion: false,
+              miss: false,
+              partial: false,
+              proof: false,
+            },
+          },
+          thread_memory_hint: null,
+          exact_thread: {
+            window_days: 21,
+            max_messages: 30,
+            messages: args.packet.exact_thread.messages,
+            omitted_older_turn_count: args.packet.exact_thread.omitted_older_turn_count,
+          },
+        }),
+      };
+    }
+
+    const result = await runMorningBriefInterpreterV1({ input: assembled });
+    const meta = buildMorningBriefInterpreterMetadataV1(result.capture);
+    meta.parsed_brief = result.brief;
+    return {
+      morning_brief_interpreter_v1: meta,
+      morning_coaching_brief_v1: result.brief,
+    };
+  } catch (e) {
+    return {
+      morning_brief_interpreter_v1: {
+        capture_version: "morning_brief_interpreter_capture_v1",
+        error: e instanceof Error ? e.message : "interpreter_orchestration_failed",
+        retry: null,
+        parsed_brief: null,
+        raw_response: null,
+      },
+      morning_coaching_brief_v1: buildLowConfidenceUnknownBriefFromCanonical({
+        version: "morning_brief_interpreter_input_v1",
+        message_for: {
+          timezone: args.packet.message_for.timezone,
+          local_date: args.packet.message_for.local_date,
+          local_weekday: args.packet.message_for.local_weekday,
+          daypart: "morning",
+        },
+        mechanical: {
+          days_since_last_user_response: args.packet.last_user_response.days_since,
+          never_replied: args.packet.last_user_response.never_replied,
+          recent_unanswered_outbound_count: 0,
+        },
+        canonical_goal: { text: args.packet.current_goal.text },
+        pending_goal_change: args.packet.hard_state.pending_goal_change,
+        available_identity: args.packet.current_identity.text
+          ? { text: args.packet.current_identity.text }
+          : null,
+        available_important_people: [],
+        available_life_context: [],
+        truth_spine: {
+          latest_outcome: null,
+          latest_outcome_at: null,
+          latest_outcome_message: null,
+          evidence_strength: "none",
+          consistency_supported: false,
+          proof_claims_allowed: {
+            completion: false,
+            miss: false,
+            partial: false,
+            proof: false,
+          },
+        },
+        thread_memory_hint: null,
+        exact_thread: {
+          window_days: 21,
+          max_messages: 30,
+          messages: args.packet.exact_thread.messages,
+          omitted_older_turn_count: args.packet.exact_thread.omitted_older_turn_count,
+        },
+      }),
+    };
+  }
+}
+
 export async function generateTylerTextOverviewDraftForUser(args: {
   audienceUser: TylerTextOverviewAudienceRow;
   now: Date;
@@ -999,6 +1150,13 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     has_pending_goal_change: packet.hard_state.pending_goal_change != null,
   };
 
+  // Phase 2C: observational interpreter — never mutates packet; never feeds writer.
+  const briefMetadataExtra = await runObservationalMorningBriefInterpreter({
+    packet,
+    clerkUserId,
+    commitmentId,
+  });
+
   const writerResult = await writeMorningTtoBody(packet);
   const writerMessages = writerResult.messages
     ? mapOpenAiMessagesToWriterCapture(writerResult.messages)
@@ -1029,6 +1187,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
         retrySucceeded: retryOccurred ? false : undefined,
       },
       packetMetadata,
+      generationMetadataExtra: briefMetadataExtra,
     });
 
     if (!persisted.ok) {
@@ -1065,6 +1224,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       retrySucceeded: retryOccurred ? true : undefined,
     },
     packetMetadata,
+    generationMetadataExtra: briefMetadataExtra,
   });
 
   if (!persisted.ok) {

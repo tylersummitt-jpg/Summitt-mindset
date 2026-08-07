@@ -47,6 +47,11 @@ import {
 import {
   ADMIN_INTERPRETATION_LINE,
   MORNING_BODY_COMPARISON_HEADING,
+  MORNING_BRIEF_INTERPRETER_INPUT_HEADING,
+  MORNING_BRIEF_INTERPRETER_OUTPUT_HEADING,
+  MORNING_BRIEF_OBSERVATION_STATUS,
+  MORNING_BRIEF_PERSONAL_CONTEXT_HEADING,
+  MORNING_COACHING_BRIEF_HEADING,
   MORNING_CURRENT_BODY_BLANK,
   MORNING_CURRENT_BODY_HEADING,
   MORNING_CURRENT_BODY_LABEL,
@@ -380,6 +385,174 @@ function MorningBodyComparisonPanel({ row }: { row: TylerTextOverviewAdminDraftR
     <div className="space-y-2">
       <p className="text-xs font-medium text-gray-800">{getMorningBodyComparisonStatus(row)}</p>
       <p className="text-xs text-gray-600">{formatMorningCurrentBodySourceLabel(row)}</p>
+    </div>
+  );
+}
+
+function formatBriefValue(value: unknown): string {
+  if (value === null || value === undefined) return "none";
+  if (value === "unknown") return "unknown";
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) {
+    if (!value.length) return "none";
+    return value.map((v) => `- ${formatBriefValue(v)}`).join("\n");
+  }
+  if (typeof value === "object") return JSON.stringify(value, null, 2);
+  return String(value);
+}
+
+function BriefField({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="space-y-0.5">
+      <p className="text-xs font-medium text-gray-500">{label}</p>
+      <pre className="whitespace-pre-wrap text-sm text-gray-900">{formatBriefValue(value)}</pre>
+    </div>
+  );
+}
+
+function MorningCoachingBriefObservationPanels({
+  row,
+}: {
+  row: TylerTextOverviewAdminDraftRow;
+}) {
+  const brief = row.morningCoachingBriefV1;
+  const interpreter = row.morningBriefInterpreterV1;
+  if (!brief && !interpreter) return null;
+
+  const hs =
+    brief?.human_situation && typeof brief.human_situation === "object"
+      ? (brief.human_situation as Record<string, unknown>)
+      : null;
+  const te =
+    brief?.truth_and_evidence && typeof brief.truth_and_evidence === "object"
+      ? (brief.truth_and_evidence as Record<string, unknown>)
+      : null;
+  const cc =
+    brief?.conversation_continuity && typeof brief.conversation_continuity === "object"
+      ? (brief.conversation_continuity as Record<string, unknown>)
+      : null;
+  const gr =
+    brief?.goal_role_today && typeof brief.goal_role_today === "object"
+      ? (brief.goal_role_today as Record<string, unknown>)
+      : null;
+  const cd =
+    brief?.coaching_direction && typeof brief.coaching_direction === "object"
+      ? (brief.coaching_direction as Record<string, unknown>)
+      : null;
+  const bd =
+    brief?.boundaries && typeof brief.boundaries === "object"
+      ? (brief.boundaries as Record<string, unknown>)
+      : null;
+  const inputObj = interpreter?.exactInputObject ?? null;
+  const availableIdentity = inputObj?.available_identity ?? null;
+  const availablePeople = inputObj?.available_important_people ?? null;
+
+  return (
+    <div className="space-y-5">
+      <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-950">
+        {MORNING_BRIEF_OBSERVATION_STATUS}
+      </p>
+
+      {brief ? (
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+            {MORNING_COACHING_BRIEF_HEADING}
+          </h3>
+          <BriefField label="Confidence" value={brief.confidence} />
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase text-gray-500">Human situation</p>
+            <BriefField label="Most alive" value={hs?.most_alive} />
+            <BriefField label="Direct question or need" value={hs?.direct_question_or_need} />
+            <BriefField label="Relevant life event" value={hs?.relevant_life_event} />
+            <BriefField label="Context use" value={hs?.context_use} />
+            <BriefField label="Identity use" value={hs?.identity_use} />
+            <BriefField label="Person use" value={hs?.person_use} />
+            <BriefField label="Selected person" value={hs?.selected_person} />
+            <BriefField label="Selected person reason" value={hs?.selected_person_reason} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase text-gray-500">Truth and evidence</p>
+            <BriefField label="Latest user truth" value={te?.latest_user_truth} />
+            <BriefField label="Outcome" value={te?.outcome} />
+            <BriefField label="Evidence note" value={te?.evidence_note} />
+            <BriefField label="Evidence strength" value={te?.evidence_strength} />
+            <BriefField label="Consistency supported" value={te?.consistency_supported} />
+            <BriefField label="Proof claims allowed" value={te?.proof_claims_allowed} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase text-gray-500">Conversation continuity</p>
+            <BriefField label="Already acknowledged" value={cc?.already_acknowledged} />
+            <BriefField label="Answered question" value={cc?.answered_question} />
+            <BriefField label="Open loop" value={cc?.open_loop} />
+            <BriefField label="Stale or exhausted topics" value={cc?.stale_or_exhausted_topics} />
+            <BriefField label="Do not repeat" value={cc?.do_not_repeat} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase text-gray-500">Goal role today</p>
+            <BriefField label="Canonical goal" value={gr?.canonical_goal} />
+            <BriefField label="Pending goal" value={gr?.pending_goal} />
+            <BriefField label="Goal alignment" value={gr?.goal_alignment} />
+            <BriefField label="Role" value={gr?.role} />
+            <BriefField label="Note" value={gr?.note} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase text-gray-500">Coaching direction</p>
+            <BriefField label="Primary move" value={cd?.primary_move} />
+            <BriefField label="Question policy" value={cd?.question_policy} />
+            <BriefField label="Action guidance" value={cd?.action_guidance} />
+            <BriefField label="Pressure" value={cd?.pressure} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase text-gray-500">Boundaries</p>
+            <BriefField label="Claims to avoid" value={bd?.claims_to_avoid} />
+            <BriefField label="Topics not to force" value={bd?.topics_not_to_force} />
+            <BriefField label="Unsupported capabilities" value={bd?.unsupported_capabilities} />
+            <BriefField label="Goal authority" value={bd?.goal_authority_boundaries} />
+            <BriefField label="Identity/people boundaries" value={bd?.identity_people_boundaries} />
+            <BriefField label="Coach history note" value={bd?.coach_history_is_not_style} />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          {MORNING_BRIEF_PERSONAL_CONTEXT_HEADING}
+        </h3>
+        <BriefField label="Available identity" value={availableIdentity} />
+        <BriefField label="Available important people" value={availablePeople} />
+        <BriefField label="Identity use" value={hs?.identity_use} />
+        <BriefField label="Person use" value={hs?.person_use} />
+        <BriefField label="Context use" value={hs?.context_use} />
+        <BriefField label="Selected person" value={hs?.selected_person} />
+        <BriefField label="Why selected" value={hs?.selected_person_reason} />
+      </div>
+
+      {interpreter ? (
+        <>
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              {MORNING_BRIEF_INTERPRETER_INPUT_HEADING}
+            </h3>
+            <BriefField label="Exact canonical input" value={interpreter.exactInputObject} />
+            <BriefField label="Exact system message" value={interpreter.exactSystemMessage} />
+            <BriefField label="Exact user message" value={interpreter.exactUserMessage} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              {MORNING_BRIEF_INTERPRETER_OUTPUT_HEADING}
+            </h3>
+            <BriefField label="Model" value={interpreter.model} />
+            <BriefField label="Reasoning effort" value={interpreter.reasoningEffort} />
+            <BriefField label="Max completion tokens" value={interpreter.maxCompletionTokens} />
+            <BriefField label="Temperature (actual)" value={interpreter.temperature} />
+            <BriefField label="Latency ms" value={interpreter.latencyMs} />
+            <BriefField label="Error" value={interpreter.error} />
+            <BriefField label="Raw response" value={interpreter.rawResponse} />
+            <BriefField label="Parsed brief" value={interpreter.parsedBrief} />
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -1585,6 +1758,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                       {MORNING_BODY_COMPARISON_HEADING}
                     </h2>
                     <MorningBodyComparisonPanel row={row} />
+                  </section>
+                ) : null}
+
+                {(row.morningCoachingBriefV1 || row.morningBriefInterpreterV1) &&
+                (morningRelationshipNotebook || morningDualBody) ? (
+                  <section className="space-y-3 border-t border-gray-100 pt-5">
+                    <MorningCoachingBriefObservationPanels row={row} />
                   </section>
                 ) : null}
 

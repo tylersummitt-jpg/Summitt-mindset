@@ -131,6 +131,92 @@ describe("morning-tto-brief-canonical-input-v1", () => {
     expect(legacy.available_identity).toBeNull();
   });
 
+  it("accepts already-quotable-gated identity without inventing a source", () => {
+    const result = assembleMorningBriefInterpreterInputV1(
+      baseArgs({
+        identityAnchorText: "I am a father who keeps his word",
+        identitySource: null,
+        identityAlreadyQuotableGated: true,
+      })
+    );
+    if ("ok" in result) throw new Error("fail");
+    expect(result.available_identity).toEqual({
+      text: "I am a father who keeps his word",
+    });
+    expect(result.available_identity).not.toHaveProperty("source");
+    expect(JSON.stringify(result)).not.toMatch(/onboarding_identity_anchor_v1/);
+    expect(JSON.stringify(result)).not.toMatch(/identity_source|identitySource/);
+  });
+
+  it("already-quotable-gated path does not require or invent onboarding source for other quotable origins", () => {
+    // Production no longer mislabels user_edited / guided / etc. as onboarding.
+    // Upstream gate already decided; source stays null and is not persisted.
+    for (const ignored of [
+      null,
+      "user_edited",
+      "explicitly_confirmed",
+      "guided_resolution_identity",
+      "not_a_real_source",
+    ]) {
+      const result = assembleMorningBriefInterpreterInputV1(
+        baseArgs({
+          identityAnchorText: "I show up for my kids",
+          identitySource: ignored,
+          identityAlreadyQuotableGated: true,
+        })
+      );
+      if ("ok" in result) throw new Error("fail");
+      expect(result.available_identity).toEqual({ text: "I show up for my kids" });
+      expect(JSON.stringify(result.available_identity)).not.toMatch(
+        /onboarding_identity_anchor_v1|user_edited|guided_resolution/
+      );
+    }
+  });
+
+  it("ungated identity still requires the existing quotable-source rule", () => {
+    const blocked = assembleMorningBriefInterpreterInputV1(
+      baseArgs({
+        identityAnchorText: "Arbitrary ungated identity text",
+        identitySource: null,
+        identityAlreadyQuotableGated: false,
+      })
+    );
+    if ("ok" in blocked) throw new Error("fail");
+    expect(blocked.available_identity).toBeNull();
+
+    const stillBlocked = assembleMorningBriefInterpreterInputV1(
+      baseArgs({
+        identityAnchorText: "Arbitrary ungated identity text",
+        identitySource: "onboarding_people_summary_v2",
+        // undefined already_quotable_gated
+      })
+    );
+    if ("ok" in stillBlocked) throw new Error("fail");
+    expect(stillBlocked.available_identity).toBeNull();
+
+    const allowed = assembleMorningBriefInterpreterInputV1(
+      baseArgs({
+        identityAnchorText: "I am a father who keeps his word",
+        identitySource: ONBOARDING_IDENTITY_ANCHOR_SOURCE,
+        identityAlreadyQuotableGated: undefined,
+      })
+    );
+    if ("ok" in allowed) throw new Error("fail");
+    expect(allowed.available_identity?.text).toMatch(/father/);
+  });
+
+  it("null identity remains null even when already-quotable-gated", () => {
+    const result = assembleMorningBriefInterpreterInputV1(
+      baseArgs({
+        identityAnchorText: null,
+        identitySource: null,
+        identityAlreadyQuotableGated: true,
+      })
+    );
+    if ("ok" in result) throw new Error("fail");
+    expect(result.available_identity).toBeNull();
+  });
+
   it("excludes inactive and removed people and caps at product max", () => {
     const many = Array.from({ length: 12 }, (_, i) => ({
       display_name: `Person${i}`,

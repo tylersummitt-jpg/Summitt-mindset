@@ -20,6 +20,7 @@ import {
   type TylerTextOverviewDraftStatus,
   type TylerTextOverviewManifestIntegrity,
   type TylerTextOverviewRowState,
+  type TylerTextOverviewMorningBriefInterpreterPanel,
   type TylerTextOverviewSlotCoachingContextPanel,
 } from "@/lib/tyler-text-overview-types";
 import { isPauseActive, type V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
@@ -117,6 +118,8 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   | "intentionalSpace"
   | "laneStage"
   | "slotCoachingContext"
+  | "morningBriefInterpreterV1"
+  | "morningCoachingBriefV1"
 > = {
   writerOpenAiMessages: [],
   authoritativeRetryMessages: [],
@@ -144,6 +147,8 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   intentionalSpace: null,
   laneStage: null,
   slotCoachingContext: null,
+  morningBriefInterpreterV1: null,
+  morningCoachingBriefV1: null,
 };
 
 export function isTylerBlankedMorningDraft(row: {
@@ -948,6 +953,47 @@ function mapSlotCoachingContextPanel(
   };
 }
 
+/** Pass through stored generation-time interpreter capture only — never reconstruct. */
+export function mapMorningBriefInterpreterPanel(
+  metadata: Record<string, unknown>
+): TylerTextOverviewMorningBriefInterpreterPanel | null {
+  const raw = metadata.morning_brief_interpreter_v1;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const c = raw as Record<string, unknown>;
+  const exactInput =
+    c.exact_input_object &&
+    typeof c.exact_input_object === "object" &&
+    !Array.isArray(c.exact_input_object)
+      ? (c.exact_input_object as Record<string, unknown>)
+      : null;
+  const parsedBrief =
+    c.parsed_brief && typeof c.parsed_brief === "object" && !Array.isArray(c.parsed_brief)
+      ? (c.parsed_brief as Record<string, unknown>)
+      : null;
+  return {
+    model: typeof c.model === "string" ? c.model : null,
+    temperature: typeof c.temperature === "number" ? c.temperature : null,
+    reasoningEffort: typeof c.reasoning_effort === "string" ? c.reasoning_effort : null,
+    maxCompletionTokens:
+      typeof c.max_completion_tokens === "number" ? c.max_completion_tokens : null,
+    latencyMs: typeof c.latency_ms === "number" ? c.latency_ms : null,
+    error: typeof c.error === "string" ? c.error : c.error === null ? null : null,
+    exactSystemMessage: typeof c.exact_system_message === "string" ? c.exact_system_message : null,
+    exactUserMessage: typeof c.exact_user_message === "string" ? c.exact_user_message : null,
+    exactInputObject: exactInput,
+    rawResponse: typeof c.raw_response === "string" ? c.raw_response : null,
+    parsedBrief,
+  };
+}
+
+export function mapMorningCoachingBriefFromMetadata(
+  metadata: Record<string, unknown>
+): Record<string, unknown> | null {
+  const raw = metadata.morning_coaching_brief_v1;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  return raw as Record<string, unknown>;
+}
+
 function mapGenerationToNotebookFields(
   generation: GenerationDbRow | undefined,
   draftCurrentGenerationId?: string | null
@@ -975,6 +1021,8 @@ function mapGenerationToNotebookFields(
   | "intentionalSpace"
   | "laneStage"
   | "slotCoachingContext"
+  | "morningBriefInterpreterV1"
+  | "morningCoachingBriefV1"
 > {
   const writerOpenAiMessages = parseWriterOpenAiMessages(generation?.writer_openai_messages);
   const notebookMessageCount = writerOpenAiMessages.length;
@@ -1040,6 +1088,8 @@ function mapGenerationToNotebookFields(
     intentionalSpace,
     laneStage: readMetadataString(metadata, "lane_stage"),
     slotCoachingContext: mapSlotCoachingContextPanel(metadata),
+    morningBriefInterpreterV1: mapMorningBriefInterpreterPanel(metadata),
+    morningCoachingBriefV1: mapMorningCoachingBriefFromMetadata(metadata),
   };
 }
 

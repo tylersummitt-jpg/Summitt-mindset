@@ -1,12 +1,11 @@
 /**
  * Morning Brief Interpreter V1 — constrained OpenAI semantic judgment.
  * Outputs structured Brief only. No SMS body. No DB mutation.
- * NOT imported by Morning generation in Phase 2B.
+ * Phase 2C: wired observationally into Morning generation (does not feed writer).
  */
 
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import {
   MORNING_COACHING_BRIEF_VERSION,
   parseMorningCoachingBriefV1,
@@ -19,14 +18,25 @@ import {
 } from "@/lib/morning-tto-brief-canonical-input-v1";
 
 /**
- * Provisional Phase 2B placeholder default for the unwired interpreter contract.
- * NOT a locked production model decision — final model will be chosen later.
+ * Phase 2C locked interpreter model — quality-first.
+ * Chat Completions + structured JSON; reasoning_effort low.
+ * Shared lane JSON helper is incompatible (forces temperature/max_tokens) — call API directly.
  */
-export const MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL = "gpt-4o-mini" as const;
-export const MORNING_BRIEF_INTERPRETER_TEMPERATURE = 0.25 as const;
-export const MORNING_BRIEF_INTERPRETER_MAX_TOKENS = 900 as const;
+export const MORNING_BRIEF_INTERPRETER_MODEL = "gpt-5.6-sol" as const;
+export const MORNING_BRIEF_INTERPRETER_REASONING_EFFORT = "low" as const;
+/** Not sent to gpt-5.6-sol (temperature unsupported for this model on Chat Completions). */
+export const MORNING_BRIEF_INTERPRETER_TEMPERATURE = null;
+export const MORNING_BRIEF_INTERPRETER_MAX_COMPLETION_TOKENS = 2500 as const;
 export const MORNING_BRIEF_INTERPRETER_PROMPT_PATH =
   "morning_brief_interpreter_v1" as const;
+export const MORNING_BRIEF_INTERPRETER_CAPTURE_VERSION =
+  "morning_brief_interpreter_capture_v1" as const;
+
+/** @deprecated Phase 2B name — alias of locked Phase 2C model. */
+export const MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL = MORNING_BRIEF_INTERPRETER_MODEL;
+/** @deprecated Not used in API request for gpt-5.6-sol. */
+export const MORNING_BRIEF_INTERPRETER_MAX_TOKENS =
+  MORNING_BRIEF_INTERPRETER_MAX_COMPLETION_TOKENS;
 
 export const MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT = `You are a constrained Morning relationship interpreter for Summitt Mindset Coach Pat texts.
 
@@ -72,9 +82,12 @@ const FIXED_COACH_HISTORY =
   "Prior coach messages are factual conversation history, not style examples to imitate.";
 
 export type MorningBriefInterpreterCaptureV1 = {
-  model: typeof MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL;
-  temperature: typeof MORNING_BRIEF_INTERPRETER_TEMPERATURE;
-  max_tokens: typeof MORNING_BRIEF_INTERPRETER_MAX_TOKENS;
+  capture_version: typeof MORNING_BRIEF_INTERPRETER_CAPTURE_VERSION;
+  model: typeof MORNING_BRIEF_INTERPRETER_MODEL;
+  /** null — temperature is not sent for gpt-5.6-sol. */
+  temperature: null;
+  reasoning_effort: typeof MORNING_BRIEF_INTERPRETER_REASONING_EFFORT;
+  max_completion_tokens: typeof MORNING_BRIEF_INTERPRETER_MAX_COMPLETION_TOKENS;
   prompt_path: typeof MORNING_BRIEF_INTERPRETER_PROMPT_PATH;
   system_message: string;
   user_message: string;
@@ -82,6 +95,10 @@ export type MorningBriefInterpreterCaptureV1 = {
   raw_response: string | null;
   parsed_brief: MorningCoachingBriefV1 | null;
   error: string | null;
+  request_started_at: string | null;
+  request_completed_at: string | null;
+  latency_ms: number | null;
+  retry: null;
 };
 
 export type MorningBriefInterpreterResultV1 =
@@ -364,12 +381,17 @@ function buildCapture(args: {
   raw: string | null;
   brief: MorningCoachingBriefV1 | null;
   error: string | null;
+  request_started_at: string | null;
+  request_completed_at: string | null;
+  latency_ms: number | null;
 }): MorningBriefInterpreterCaptureV1 {
   const messages = buildMorningBriefInterpreterMessages(args.input);
   return {
-    model: MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL,
-    temperature: MORNING_BRIEF_INTERPRETER_TEMPERATURE,
-    max_tokens: MORNING_BRIEF_INTERPRETER_MAX_TOKENS,
+    capture_version: MORNING_BRIEF_INTERPRETER_CAPTURE_VERSION,
+    model: MORNING_BRIEF_INTERPRETER_MODEL,
+    temperature: null,
+    reasoning_effort: MORNING_BRIEF_INTERPRETER_REASONING_EFFORT,
+    max_completion_tokens: MORNING_BRIEF_INTERPRETER_MAX_COMPLETION_TOKENS,
     prompt_path: MORNING_BRIEF_INTERPRETER_PROMPT_PATH,
     system_message: String(messages[0]?.content ?? ""),
     user_message: String(messages[1]?.content ?? ""),
@@ -377,19 +399,32 @@ function buildCapture(args: {
     raw_response: args.raw,
     parsed_brief: args.brief,
     error: args.error,
+    request_started_at: args.request_started_at,
+    request_completed_at: args.request_completed_at,
+    latency_ms: args.latency_ms,
+    retry: null,
   };
 }
 
 /**
- * Optional OpenAI call wrapper. Not imported by production generation in Phase 2B.
- * allowRetry: false — no retry loop. Fail-soft to low-confidence unknowns + canonical facts.
+ * OpenAI call wrapper. Phase 2C observational wiring — fail-soft never blocks writer.
+ * Uses Chat Completions directly (not shared lane helper) for gpt-5.6-sol compatibility.
+ * Single call only (no retry loop).
  */
 export async function runMorningBriefInterpreterV1(args: {
   input: MorningBriefInterpreterInputV1;
   /** Injected client for tests; defaults to env OPENAI_API_KEY. */
   client?: OpenAI | null;
 }): Promise<MorningBriefInterpreterResultV1> {
-  const failSoft = (error: string, raw: string | null): MorningBriefInterpreterResultV1 => {
+  const failSoft = (
+    error: string,
+    raw: string | null,
+    timing?: {
+      request_started_at: string | null;
+      request_completed_at: string | null;
+      latency_ms: number | null;
+    }
+  ): MorningBriefInterpreterResultV1 => {
     const brief = buildLowConfidenceUnknownBriefFromCanonical(args.input);
     return {
       ok: false,
@@ -400,6 +435,9 @@ export async function runMorningBriefInterpreterV1(args: {
         raw,
         brief,
         error,
+        request_started_at: timing?.request_started_at ?? null,
+        request_completed_at: timing?.request_completed_at ?? null,
+        latency_ms: timing?.latency_ms ?? null,
       }),
     };
   };
@@ -417,34 +455,73 @@ export async function runMorningBriefInterpreterV1(args: {
   }
 
   const messages = buildMorningBriefInterpreterMessages(args.input);
+  const startedMs = Date.now();
+  const request_started_at = new Date(startedMs).toISOString();
 
   try {
-    const jsonOut = await runLaneOpenAiJsonWithOneRetry<MorningCoachingBriefV1>({
-      client,
-      model: MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL,
-      temperature: MORNING_BRIEF_INTERPRETER_TEMPERATURE,
-      maxTokens: MORNING_BRIEF_INTERPRETER_MAX_TOKENS,
-      primaryMessages: messages,
-      allowRetry: false,
-      jsonSchemaReminder: `Return strict JSON only for version "${MORNING_COACHING_BRIEF_VERSION}" with no body/sms_body/message/final_message/reply keys.`,
-      parse: (raw) => parseAndMergeMorningBriefInterpreterResponse({ raw, input: args.input }),
+    const completion = await client.chat.completions.create({
+      model: MORNING_BRIEF_INTERPRETER_MODEL,
+      reasoning_effort: MORNING_BRIEF_INTERPRETER_REASONING_EFFORT,
+      max_completion_tokens: MORNING_BRIEF_INTERPRETER_MAX_COMPLETION_TOKENS,
+      response_format: { type: "json_object" },
+      messages,
     });
 
-    if (jsonOut.value) {
+    const completedMs = Date.now();
+    const request_completed_at = new Date(completedMs).toISOString();
+    const latency_ms = completedMs - startedMs;
+    const timing = { request_started_at, request_completed_at, latency_ms };
+
+    const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+    const merged = raw
+      ? parseAndMergeMorningBriefInterpreterResponse({ raw, input: args.input })
+      : null;
+
+    if (merged) {
       return {
         ok: true,
-        brief: jsonOut.value,
+        brief: merged,
         capture: buildCapture({
           input: args.input,
-          raw: jsonOut.raw,
-          brief: jsonOut.value,
+          raw,
+          brief: merged,
           error: null,
+          ...timing,
         }),
       };
     }
 
-    return failSoft("invalid_json_or_schema", jsonOut.raw || null);
+    return failSoft("invalid_json_or_schema", raw || null, timing);
   } catch {
-    return failSoft("openai_request_failed", null);
+    const completedMs = Date.now();
+    return failSoft("openai_request_failed", null, {
+      request_started_at,
+      request_completed_at: new Date(completedMs).toISOString(),
+      latency_ms: completedMs - startedMs,
+    });
   }
+}
+
+/** Shape persisted under generation_metadata.morning_brief_interpreter_v1 */
+export function buildMorningBriefInterpreterMetadataV1(
+  capture: MorningBriefInterpreterCaptureV1
+): Record<string, unknown> {
+  return {
+    capture_version: capture.capture_version,
+    model: capture.model,
+    temperature: capture.temperature,
+    reasoning_effort: capture.reasoning_effort,
+    max_completion_tokens: capture.max_completion_tokens,
+    prompt_path: capture.prompt_path,
+    request_started_at: capture.request_started_at,
+    request_completed_at: capture.request_completed_at,
+    latency_ms: capture.latency_ms,
+    exact_system_message: capture.system_message,
+    exact_user_message: capture.user_message,
+    exact_input_object: capture.canonical_input,
+    raw_response: capture.raw_response,
+    parsed_brief: capture.parsed_brief,
+    error: capture.error,
+    retry: null,
+  };
 }

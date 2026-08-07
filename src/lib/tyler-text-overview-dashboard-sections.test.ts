@@ -24,6 +24,7 @@ import {
   MORNING_BODY_COMPARISON_TYLER_SAVE_MATCHES,
   MORNING_BODY_COMPARISON_GENERATION_FAILED,
   MORNING_BODY_COMPARISON_GENERATION_MISSING,
+  MORNING_BRIEF_OBSERVATION_STATUS,
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import type { TylerTextOverviewAdminDraftRow } from "@/lib/tyler-text-overview-types";
 
@@ -73,6 +74,8 @@ function baseRow(
     intentionalSpace: true,
     laneStage: "silence_cadence_no_send",
     slotCoachingContext: null,
+    morningBriefInterpreterV1: null,
+    morningCoachingBriefV1: null,
     ...overrides,
   };
 }
@@ -80,6 +83,11 @@ function baseRow(
 describe("tyler-text-overview-dashboard-sections", () => {
   it("provenance includes admin interpretation line constant", () => {
     expect(ADMIN_INTERPRETATION_LINE).toBe("Admin interpretation — not sent to OpenAI.");
+  });
+
+  it("exposes Phase 2C observation-only status copy", () => {
+    expect(MORNING_BRIEF_OBSERVATION_STATUS).toMatch(/OBSERVATION ONLY/);
+    expect(MORNING_BRIEF_OBSERVATION_STATUS).toMatch(/did not affect this writer draft/);
   });
 
   it("raw section with messages returns message.content unchanged", () => {
