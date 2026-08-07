@@ -141,7 +141,9 @@ describe("tyler-text-overview-dashboard-copy evening send/generate UI helpers", 
   it("eveningSendButtonLabel stays visible while send remains disabled", () => {
     expect(eveningSendButtonLabel(false)).toBe("Send Evening Text");
     expect(eveningSendButtonLabel(true)).toBe("Send Evening Text");
-    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toBe("Evening sending not enabled yet");
+    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toBe(
+      "Evening drafts auto-send between 7–9 PM in the member's local time."
+    );
   });
 
   it("eveningGenerateButtonLabel covers generate/regenerate loading", () => {

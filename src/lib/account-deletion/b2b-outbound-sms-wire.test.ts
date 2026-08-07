@@ -24,19 +24,19 @@ describe("APP-041B2b path hardening wire", () => {
     expect(src).toContain("evaluateOutboundSmsForAccountDeletion");
   });
 
-  it("evening proactive send is disabled before Twilio (no deletion catch required)", () => {
+  it("evening manual send stays disabled; cron path has deletion guards before Twilio", () => {
     const src = read("src/lib/tyler-text-overview-evening-send.ts");
     expect(src).toContain("evening_proactive_send_disabled");
     expect(src).toContain("EVENING_PROACTIVE_SEND_DISABLED_CODE");
-    // Entry fails closed before any Twilio attempt; no sendSMS and no post-Twilio deletion catch.
-    expect(src).not.toMatch(/\bsendSMS\s*\(/);
-    expect(src).not.toContain("isAccountDeletionOutboundSmsError");
-    expect(src).not.toContain("reservedSendEventPatchForDeletionError");
+    expect(src).toContain("sendEveningTtoAuthoritativeCronSend");
+    expect(src).toContain("evaluateOutboundSmsForAccountDeletion");
+    expect(src).toContain("isAccountDeletionOutboundSmsError");
     const fnStart = src.indexOf("export async function sendTylerTextOverviewEveningDraft");
     expect(fnStart).toBeGreaterThanOrEqual(0);
     const fnBody = src.slice(fnStart, fnStart + 600);
     expect(fnBody).toContain("return refuse(");
     expect(fnBody).toContain("EVENING_PROACTIVE_SEND_DISABLED_CODE");
+    expect(fnBody).not.toMatch(/await sendSMS/);
   });
 
   it("guided shrink has early and pre-send deletion checks", () => {
@@ -68,11 +68,16 @@ describe("APP-041B2b path hardening wire", () => {
     expect(read("src/lib/tyler-text-overview-weekly-send.ts")).toContain(
       "reservedSendEventPatchForDeletionError"
     );
-    // Evening proactive send fails closed before Twilio — no reserved-patch wire while disabled.
+    // Evening manual admin send fails closed; cron path uses sendSMS via shared twilio.ts.
     const evening = read("src/lib/tyler-text-overview-evening-send.ts");
     expect(evening).toContain("evening_proactive_send_disabled");
-    expect(evening).not.toContain("reservedSendEventPatchForDeletionError");
-    expect(evening).not.toMatch(/\bsendSMS\s*\(/);
+    expect(evening).toContain("sendEveningTtoAuthoritativeCronSend");
+    expect(evening).toContain("evaluateOutboundSmsForAccountDeletion");
+    const manualFn = evening.slice(
+      evening.indexOf("export async function sendTylerTextOverviewEveningDraft"),
+      evening.indexOf("export async function sendTylerTextOverviewEveningDraft") + 600
+    );
+    expect(manualFn).not.toMatch(/await sendSMS/);
   });
 
   it("35. messages.create remains only in twilio transport", () => {

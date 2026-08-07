@@ -5,6 +5,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/evening-sms",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/weekly-sms",
       "schedule": "*/5 * * * *"
     },

@@ -192,7 +192,7 @@ export function eveningSendButtonLabel(isSending: boolean): string {
 }
 
 export const EVENING_PROACTIVE_SEND_DISABLED_UI_COPY =
-  "Evening sending not enabled yet";
+  "Evening drafts auto-send between 7–9 PM in the member's local time.";
 
 export function weeklySendButtonLabel(isSending: boolean): string {
   return isSending ? "Sending Weekly Text…" : "Send Weekly Text";
