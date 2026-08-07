@@ -26,6 +26,7 @@ import {
   formatMorningTtoSaveToast,
   formatMorningTtoSendabilityCopy,
   formatTtoGenerateAllConfirm,
+  formatTtoGenerateAllProgressLine,
   formatTtoGenerateAllResultMessage,
   isEveningDashboardSendSlot,
   isEveningSendBusy,
@@ -38,6 +39,7 @@ import {
   ttoBulkSelectDayHint,
   ttoGenerateAllButtonLabel,
   ttoGenerateAllEndpoint,
+  ttoGenerateAllSessionStorageKey,
   TTO_GENERATE_ALL_SEARCH_WARNING,
   TTO_GENERATE_ALL_SELECT_DAY_HINT,
   MORNING_MISSING_DRAFT_BANNER,
@@ -963,6 +965,8 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   const [bulkResultMessage, setBulkResultMessage] = useState<string | null>(null);
   const [generateAllBusy, setGenerateAllBusy] = useState(false);
   const [generateAllResultMessage, setGenerateAllResultMessage] = useState<string | null>(null);
+  const [generateAllResumeAvailable, setGenerateAllResumeAvailable] = useState(false);
+  const generateAllChainAbortRef = useRef(false);
 
   const loadGenerationRef = useRef(0);
   const loadAbortRef = useRef<AbortController | null>(null);
@@ -1172,6 +1176,82 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   const bulkSlotLabel = isEveningPage ? "Evening" : "Morning";
   const pageBatchBusy = bulkBusy || generateAllBusy;
 
+  type GenerateAllChunkResult = {
+    targeted: number;
+    generated: number;
+    generated_complete: number;
+    protectedTylerAuthority: number;
+    protected_complete: number;
+    skippedAlreadySent: number;
+    already_sent: number;
+    skippedNonCurrent: number;
+    noncurrent: number;
+    failed: number;
+    pending: number;
+    remaining: number;
+    processed_this_chunk: number;
+    is_complete: boolean;
+    audience_clerk_user_ids: string[];
+    failures: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
+  };
+
+  type GenerateAllSnapshot = {
+    draftForDayKey: string;
+    sendSlot: string;
+    audienceClerkUserIds: string[];
+  };
+
+  function readGenerateAllSnapshot(dayKey: string): GenerateAllSnapshot | null {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem(
+        ttoGenerateAllSessionStorageKey({ sendSlot: bulkUiSlot, draftForDayKey: dayKey })
+      );
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as GenerateAllSnapshot;
+      if (
+        !parsed ||
+        parsed.draftForDayKey !== dayKey ||
+        parsed.sendSlot !== bulkUiSlot ||
+        !Array.isArray(parsed.audienceClerkUserIds) ||
+        parsed.audienceClerkUserIds.length === 0
+      ) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeGenerateAllSnapshot(snapshot: GenerateAllSnapshot) {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem(
+      ttoGenerateAllSessionStorageKey({
+        sendSlot: bulkUiSlot,
+        draftForDayKey: snapshot.draftForDayKey,
+      }),
+      JSON.stringify(snapshot)
+    );
+  }
+
+  function clearGenerateAllSnapshot(dayKey: string) {
+    if (typeof window === "undefined") return;
+    sessionStorage.removeItem(
+      ttoGenerateAllSessionStorageKey({ sendSlot: bulkUiSlot, draftForDayKey: dayKey })
+    );
+  }
+
+  useEffect(() => {
+    const dayKey = selectedDayKey.trim();
+    if (!dayKey) {
+      setGenerateAllResumeAvailable(false);
+      return;
+    }
+    setGenerateAllResumeAvailable(Boolean(readGenerateAllSnapshot(dayKey)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute when day/slot changes
+  }, [selectedDayKey, bulkUiSlot]);
+
   const bulkCurrentDraftCount = useMemo(() => {
     return rows.filter((row) => canEditMorningDraft(row)).length;
   }, [rows]);
@@ -1185,53 +1265,122 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     const dayKey = selectedDayKey.trim();
     if (!dayKey || pageBatchBusy) return;
 
+    const existingSnapshot = readGenerateAllSnapshot(dayKey);
+    const resumeAvailable = Boolean(existingSnapshot);
+
     const confirmed = window.confirm(
       formatTtoGenerateAllConfirm({
         slot: bulkUiSlot,
         draftForDayKey: dayKey,
         audienceCount: sendableAudienceCount,
         searchActive: Boolean(searchQuery.trim()),
+        resumeAvailable,
       })
     );
     if (!confirmed) return;
 
     setGenerateAllBusy(true);
     setGenerateAllResultMessage(null);
-    try {
-      const res = await fetch(ttoGenerateAllEndpoint(bulkUiSlot), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_for_day_key: dayKey }),
-      });
-      const json = await res.json();
+    generateAllChainAbortRef.current = false;
 
-      if (!res.ok || !json.result) {
-        const msg = json.error || "Generate All failed.";
-        setGenerateAllResultMessage(msg);
-        showToast(msg);
-        return;
+    const excludeClerkUserIds: string[] = [];
+    let audienceClerkUserIds = existingSnapshot?.audienceClerkUserIds ?? null;
+    let lastResult: GenerateAllChunkResult | null = null;
+
+    try {
+      for (;;) {
+        if (generateAllChainAbortRef.current) break;
+
+        const res = await fetch(ttoGenerateAllEndpoint(bulkUiSlot), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            draft_for_day_key: dayKey,
+            ...(audienceClerkUserIds
+              ? { audience_clerk_user_ids: audienceClerkUserIds }
+              : {}),
+            ...(excludeClerkUserIds.length > 0
+              ? { exclude_clerk_user_ids: excludeClerkUserIds }
+              : {}),
+          }),
+        });
+        const json = await res.json();
+
+        if (!res.ok || !json.result) {
+          const msg = json.error || "Generate All failed.";
+          setGenerateAllResultMessage(msg);
+          showToast(msg);
+          break;
+        }
+
+        const result = json.result as GenerateAllChunkResult;
+        lastResult = result;
+        audienceClerkUserIds = result.audience_clerk_user_ids;
+
+        writeGenerateAllSnapshot({
+          draftForDayKey: dayKey,
+          sendSlot: bulkUiSlot,
+          audienceClerkUserIds,
+        });
+        setGenerateAllResumeAvailable(true);
+
+        for (const f of result.failures) {
+          if (!excludeClerkUserIds.includes(f.clerkUserId)) {
+            excludeClerkUserIds.push(f.clerkUserId);
+          }
+        }
+
+        const progress = formatTtoGenerateAllProgressLine({
+          generatedComplete: result.generated_complete,
+          targeted: result.targeted,
+          failed: result.failed,
+          remaining: result.remaining,
+        });
+        setGenerateAllResultMessage(
+          formatTtoGenerateAllResultMessage({
+            slot: bulkUiSlot,
+            targeted: result.targeted,
+            generated_complete: result.generated_complete,
+            protected_complete: result.protected_complete,
+            already_sent: result.already_sent,
+            noncurrent: result.noncurrent,
+            failed: result.failed,
+            pending: result.pending,
+            remaining: result.remaining,
+            failures: result.failures,
+          })
+        );
+        showToast(progress);
+
+        if (result.is_complete) {
+          clearGenerateAllSnapshot(dayKey);
+          setGenerateAllResumeAvailable(false);
+          break;
+        }
+
+        // No work started this chunk — remaining users are excluded failures or budget-empty.
+        // Do not endlessly re-attempt the same failures in this auto-chain.
+        if (result.processed_this_chunk === 0) {
+          break;
+        }
       }
 
-      const result = json.result as {
-        targeted: number;
-        generated: number;
-        protectedTylerAuthority: number;
-        skippedAlreadySent: number;
-        skippedNonCurrent: number;
-        failed: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
-      };
-      const message = formatTtoGenerateAllResultMessage({
-        slot: bulkUiSlot,
-        ...result,
-      });
-      setGenerateAllResultMessage(message);
-      showToast(
-        result.failed.length > 0
-          ? `Generate All partial: ${result.generated} generated, ${result.failed.length} failed.`
-          : `Generate All: ${result.generated} ${bulkSlotLabel} drafts generated.`
-      );
-
       await load(dayKey, sendSlot, { forceOverwrite: true });
+
+      if (lastResult?.is_complete) {
+        showToast(
+          `Generate All complete: ${lastResult.generated_complete} / ${lastResult.targeted}.`
+        );
+      } else if (lastResult && lastResult.remaining > 0) {
+        showToast(
+          `Generate All paused: ${formatTtoGenerateAllProgressLine({
+            generatedComplete: lastResult.generated_complete,
+            targeted: lastResult.targeted,
+            failed: lastResult.failed,
+            remaining: lastResult.remaining,
+          })}`
+        );
+      }
     } catch (err) {
       console.error(`${bulkSlotLabel} Generate All failed`, err);
       const msg = "Generate All failed.";
@@ -1749,9 +1898,9 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             ) : null}
             <p className="text-xs text-gray-600">
               Creates/refreshes drafts for the full sendable audience ({sendableAudienceCount}) on{" "}
-              <span className="font-mono">{selectedDayKey}</span>. Does not send texts. Search does
-              not narrow generation. Already-sent / non-current slots are skipped. Tyler-saved
-              edits/blanks stay protected.
+              <span className="font-mono">{selectedDayKey}</span> in resumable chunks (concurrency 2).
+              Does not send texts. Search does not narrow generation. Already-completed machine drafts,
+              Tyler-protected edits/blanks, already-sent, and non-current slots are skipped on Resume.
               {isEveningPage
                 ? " Successful nonblank current drafts are only eligible in each member's local 7–9 PM Evening window."
                 : " Successful nonblank current drafts are only eligible in each member's local 7–9 AM Morning window."}
@@ -1766,12 +1915,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                 slot: bulkUiSlot,
                 draftForDayKey: selectedDayKey,
                 isBusy: generateAllBusy,
+                resumeAvailable: generateAllResumeAvailable,
               })}
             </button>
             {generateAllResultMessage ? (
               <pre
                 className={`whitespace-pre-wrap rounded border px-3 py-2 text-xs ${
-                  generateAllResultMessage.includes("\nFailed:")
+                  generateAllResultMessage.includes("Failed")
                     ? "border-amber-300 bg-amber-50 text-amber-950"
                     : "border-green-200 bg-green-50 text-green-900"
                 }`}

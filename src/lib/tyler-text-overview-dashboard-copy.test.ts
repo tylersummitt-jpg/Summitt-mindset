@@ -44,6 +44,7 @@ import {
   ttoBulkSaveEndpoint,
   ttoGenerateAllButtonLabel,
   ttoGenerateAllEndpoint,
+  ttoGenerateAllSessionStorageKey,
   formatTtoGenerateAllConfirm,
   formatTtoGenerateAllDayLabel,
   formatTtoGenerateAllResultMessage,
@@ -648,6 +649,8 @@ describe("TTO Generate All confirmation copy", () => {
     expect(copy).toContain("Active search does not narrow");
     expect(copy).toContain("Tyler-saved edits and intentional blanks remain protected");
     expect(copy).toContain("Already-sent / non-current");
+    expect(copy).toContain("Successful current machine drafts are not regenerated");
+    expect(copy).toContain("resumable chunks");
     expect(copy).toContain("does not send texts now");
     expect(copy).toContain("7–9 AM Morning window");
     expect(copy).toContain("selected date exactly");
@@ -679,19 +682,52 @@ describe("TTO Generate All confirmation copy", () => {
     const msg = formatTtoGenerateAllResultMessage({
       slot: "morning",
       targeted: 40,
-      generated: 31,
-      protectedTylerAuthority: 5,
-      skippedAlreadySent: 2,
-      skippedNonCurrent: 1,
-      failed: [{ clerkUserId: "user_x", preferredName: "Pat", error: "sol_failed" }],
+      generated_complete: 31,
+      protected_complete: 5,
+      already_sent: 2,
+      noncurrent: 1,
+      failed: 1,
+      pending: 0,
+      remaining: 1,
+      failures: [{ clerkUserId: "user_x", preferredName: "Pat", error: "sol_failed" }],
     });
-    expect(msg).toContain("31 Morning drafts generated.");
+    expect(msg).toContain("31 / 40 generated · 1 failed · 1 remaining");
     expect(msg).toContain("5 Tyler-protected");
     expect(msg).toContain("2 already-sent skipped.");
     expect(msg).toContain("1 non-current skipped.");
-    expect(msg).toContain("1 failed.");
-    expect(msg).toContain("40 targeted.");
+    expect(msg).toContain("Morning Generate All targeted 40.");
     expect(msg).toContain("Pat: sol_failed");
+  });
+
+  it("Resume button label and confirm when resumeAvailable", () => {
+    expect(
+      ttoGenerateAllButtonLabel({
+        slot: "morning",
+        draftForDayKey: "2026-08-07",
+        isBusy: false,
+        resumeAvailable: true,
+      })
+    ).toBe(`Resume Morning Generation for ${formatTtoGenerateAllDayLabel("2026-08-07")}`);
+    expect(
+      ttoGenerateAllButtonLabel({
+        slot: "evening_checkin",
+        draftForDayKey: "2026-08-07",
+        isBusy: false,
+        resumeAvailable: true,
+      })
+    ).toBe(`Resume Evening Generation for ${formatTtoGenerateAllDayLabel("2026-08-07")}`);
+    const copy = formatTtoGenerateAllConfirm({
+      slot: "morning",
+      draftForDayKey: "2026-08-07",
+      audienceCount: 40,
+      searchActive: false,
+      resumeAvailable: true,
+    });
+    expect(copy).toContain("Resume Morning generation");
+    expect(copy).toContain("Already-completed machine drafts");
+    expect(ttoGenerateAllSessionStorageKey({ sendSlot: "morning", draftForDayKey: "2026-08-07" })).toBe(
+      "tto-generate-all:morning:2026-08-07"
+    );
   });
 });
 

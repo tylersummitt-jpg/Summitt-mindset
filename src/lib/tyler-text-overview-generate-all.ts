@@ -1,12 +1,14 @@
 /**
- * Admin page Generate All — orchestration only.
+ * Admin page Generate All — chunked, resumable orchestration only.
  * Calls existing Morning/Evening per-user Sol generators.
  * Never sends SMS. Never reserves send events. Never calls Twilio.
  *
- * Locked E7 laws:
+ * Laws:
  * - explicit draft_for_day_key (no wall-clock day rewrite)
- * - page-sendable audience (loadSendableTylerTextOverviewAudienceMembers)
- * - skip non-current / already-sent before generate (no sent→current resurrection)
+ * - frozen audience snapshot for one Generate All operation
+ * - COMPLETE skip on resume (do not regenerate successful machine currents)
+ * - per-user Regenerate is a separate path (not this module)
+ * - concurrency 2, chunk cap 8, soft time budget under maxDuration=300
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
@@ -18,7 +20,9 @@ import {
   type TylerTextOverviewAudienceRow,
 } from "@/lib/tyler-text-overview-generate";
 import {
+  isProtectedTtoCurrentDraftBody,
   isTylerTextOverviewEnabled,
+  SMS_DAILY_DRAFT_GENERATIONS_TABLE,
   SMS_DAILY_DRAFTS_TABLE,
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
@@ -28,51 +32,75 @@ export type TtoGenerateAllSlot =
   | typeof SMS_DAILY_PRODUCTION_SEND_SLOT
   | typeof SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
 
+/** Hard per-request processed-user cap. */
+export const TTO_GENERATE_ALL_CHUNK_USER_CAP = 8 as const;
+/** Max concurrent Sol generate calls per chunk. */
+export const TTO_GENERATE_ALL_CONCURRENCY = 2 as const;
+/** Soft wall-clock budget; do not start new users after this. */
+export const TTO_GENERATE_ALL_TIME_BUDGET_MS = 180_000 as const;
+
+export type TtoGenerateAllMemberClass =
+  | "pending"
+  | "already_sent"
+  | "noncurrent"
+  | "protected_complete"
+  | "generated_complete"
+  | "failed_or_incomplete";
+
 export type TtoGenerateAllFailure = {
   clerkUserId: string;
   preferredName: string | null;
   error: string;
 };
 
-export type TtoGenerateAllResult = {
+export type TtoGenerateAllChunkResult = {
   ok: boolean;
   draftForDayKey: string;
   sendSlot: TtoGenerateAllSlot;
   targeted: number;
+  generated_complete: number;
+  protected_complete: number;
+  already_sent: number;
+  noncurrent: number;
+  failed: number;
+  pending: number;
+  remaining: number;
+  processed_this_chunk: number;
+  is_complete: boolean;
+  audience_clerk_user_ids: string[];
+  failures: TtoGenerateAllFailure[];
+  /** Successful Sol invocations this chunk (including protected-no-overwrite returns). */
+  generated_this_chunk: number;
+  /**
+   * Backward-compatible aliases used by older UI/tests.
+   * protectedTylerAuthority === protected_complete
+   * skippedAlreadySent === already_sent
+   * skippedNonCurrent === noncurrent
+   * generated === generated_this_chunk
+   */
   generated: number;
   protectedTylerAuthority: number;
   skippedAlreadySent: number;
   skippedNonCurrent: number;
-  failed: TtoGenerateAllFailure[];
 };
 
-async function loadExistingDraftStatusForSlot(args: {
-  clerkUserId: string;
-  draftForDayKey: string;
-  sendSlot: TtoGenerateAllSlot;
-}): Promise<{ status: string } | null> {
-  const { data, error } = await supabaseServer
-    .from(SMS_DAILY_DRAFTS_TABLE)
-    .select("status")
-    .eq("clerk_user_id", args.clerkUserId)
-    .eq("draft_for_day_key", args.draftForDayKey)
-    .eq("send_slot", args.sendSlot)
-    .maybeSingle();
+type DraftClassifyRow = {
+  clerk_user_id: string;
+  status: string;
+  current_generation_id: string | null;
+  edited_by_tyler: boolean | null;
+  current_body_source: string | null;
+  current_body_to_send: string | null;
+};
 
-  if (error) {
-    throw new Error(`tto_generate_all_draft_status_lookup_failed:${error.message}`);
-  }
-  if (!data || typeof data.status !== "string" || !data.status.trim()) {
-    return null;
-  }
-  return { status: data.status.trim() };
-}
-
-function toAudienceRow(member: {
+type AudienceMember = {
   clerkUserId: string;
   phoneNumber: string;
   timezone: string | null;
-}): TylerTextOverviewAudienceRow {
+  preferredName: string | null;
+};
+
+function toAudienceRow(member: AudienceMember): TylerTextOverviewAudienceRow {
   return {
     clerk_user_id: member.clerkUserId,
     phone_number: member.phoneNumber,
@@ -84,14 +112,293 @@ function toAudienceRow(member: {
 }
 
 /**
- * Shared Generate All orchestrator for Morning / Evening admin pages.
- * Sequential. Continues on individual failure. Send-path free.
+ * Classify one draft (+ optional generation body) for Generate All resume.
+ * Pure / exported for tests.
+ *
+ * Note: Generate All COMPLETE skip is not identical to per-user Regenerate protection.
+ * - Tyler provenance (edited_by_tyler / tyler_edit) → protected_complete
+ * - Successful nonempty machine_draft_body → generated_complete (skip; do not redo)
+ * - Nonblank current body without Tyler provenance still skips (body pin)
+ * - Blank/missing machine generation on current → failed_or_incomplete (retryable)
  */
-export async function generateTtoDraftBatch(args: {
+export function classifyTtoGenerateAllMember(args: {
+  draft: DraftClassifyRow | null;
+  machineDraftBody: string | null | undefined;
+}): TtoGenerateAllMemberClass {
+  if (!args.draft) return "pending";
+  const status = args.draft.status.trim();
+  if (status === "sent") return "already_sent";
+  if (status !== "current") return "noncurrent";
+
+  const tylerAuthority =
+    args.draft.edited_by_tyler === true ||
+    args.draft.current_body_source === "tyler_edit";
+  if (tylerAuthority) {
+    return "protected_complete";
+  }
+
+  const body = args.machineDraftBody;
+  if (typeof body === "string" && body.trim().length > 0) {
+    return "generated_complete";
+  }
+
+  // Body-pin: nonblank current send body without Tyler provenance still must not be
+  // regenerated by Generate All (same skip action; counted protected for truthfulness).
+  if (isProtectedTtoCurrentDraftBody(args.draft.current_body_to_send)) {
+    return "protected_complete";
+  }
+
+  return "failed_or_incomplete";
+}
+
+export function isTtoGenerateAllWorkRemaining(
+  classification: TtoGenerateAllMemberClass
+): boolean {
+  return classification === "pending" || classification === "failed_or_incomplete";
+}
+
+async function loadDraftRowsForAudience(args: {
+  clerkUserIds: string[];
+  draftForDayKey: string;
+  sendSlot: TtoGenerateAllSlot;
+}): Promise<Map<string, DraftClassifyRow>> {
+  const out = new Map<string, DraftClassifyRow>();
+  if (args.clerkUserIds.length === 0) return out;
+
+  const chunkSize = 100;
+  for (let i = 0; i < args.clerkUserIds.length; i += chunkSize) {
+    const slice = args.clerkUserIds.slice(i, i + chunkSize);
+    const { data, error } = await supabaseServer
+      .from(SMS_DAILY_DRAFTS_TABLE)
+      .select(
+        "clerk_user_id, status, current_generation_id, edited_by_tyler, current_body_source, current_body_to_send"
+      )
+      .eq("draft_for_day_key", args.draftForDayKey)
+      .eq("send_slot", args.sendSlot)
+      .in("clerk_user_id", slice);
+
+    if (error) {
+      throw new Error(`tto_generate_all_draft_lookup_failed:${error.message}`);
+    }
+    for (const row of data ?? []) {
+      const id = typeof row.clerk_user_id === "string" ? row.clerk_user_id : "";
+      if (!id) continue;
+      out.set(id, {
+        clerk_user_id: id,
+        status: typeof row.status === "string" ? row.status : "",
+        current_generation_id:
+          typeof row.current_generation_id === "string"
+            ? row.current_generation_id
+            : null,
+        edited_by_tyler:
+          typeof row.edited_by_tyler === "boolean" ? row.edited_by_tyler : null,
+        current_body_source:
+          typeof row.current_body_source === "string" ? row.current_body_source : null,
+        current_body_to_send:
+          typeof row.current_body_to_send === "string" || row.current_body_to_send === null
+            ? (row.current_body_to_send as string | null)
+            : null,
+      });
+    }
+  }
+  return out;
+}
+
+async function loadMachineBodiesByGenerationId(
+  generationIds: string[]
+): Promise<Map<string, string | null>> {
+  const out = new Map<string, string | null>();
+  const unique = [...new Set(generationIds.filter(Boolean))];
+  if (unique.length === 0) return out;
+
+  const chunkSize = 100;
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const slice = unique.slice(i, i + chunkSize);
+    const { data, error } = await supabaseServer
+      .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+      .select("id, machine_draft_body")
+      .in("id", slice);
+    if (error) {
+      throw new Error(`tto_generate_all_generation_lookup_failed:${error.message}`);
+    }
+    for (const row of data ?? []) {
+      const id = typeof row.id === "string" ? row.id : "";
+      if (!id) continue;
+      out.set(
+        id,
+        typeof row.machine_draft_body === "string" ? row.machine_draft_body : null
+      );
+    }
+  }
+  return out;
+}
+
+async function classifyFrozenAudience(args: {
+  clerkUserIds: string[];
+  draftForDayKey: string;
+  sendSlot: TtoGenerateAllSlot;
+}): Promise<Map<string, TtoGenerateAllMemberClass>> {
+  const drafts = await loadDraftRowsForAudience(args);
+  const genIds: string[] = [];
+  for (const id of args.clerkUserIds) {
+    const d = drafts.get(id);
+    if (d?.current_generation_id) genIds.push(d.current_generation_id);
+  }
+  const bodies = await loadMachineBodiesByGenerationId(genIds);
+  const classes = new Map<string, TtoGenerateAllMemberClass>();
+  for (const id of args.clerkUserIds) {
+    const draft = drafts.get(id) ?? null;
+    const body = draft?.current_generation_id
+      ? bodies.get(draft.current_generation_id) ?? null
+      : null;
+    classes.set(id, classifyTtoGenerateAllMember({ draft, machineDraftBody: body }));
+  }
+  return classes;
+}
+
+function summarizeClasses(
+  clerkUserIds: string[],
+  classes: Map<string, TtoGenerateAllMemberClass>
+): {
+  generated_complete: number;
+  protected_complete: number;
+  already_sent: number;
+  noncurrent: number;
+  failed: number;
+  pending: number;
+  remaining: number;
+} {
+  let generated_complete = 0;
+  let protected_complete = 0;
+  let already_sent = 0;
+  let noncurrent = 0;
+  let failed = 0;
+  let pending = 0;
+  for (const id of clerkUserIds) {
+    const c = classes.get(id) ?? "pending";
+    if (c === "generated_complete") generated_complete += 1;
+    else if (c === "protected_complete") protected_complete += 1;
+    else if (c === "already_sent") already_sent += 1;
+    else if (c === "noncurrent") noncurrent += 1;
+    else if (c === "failed_or_incomplete") failed += 1;
+    else pending += 1;
+  }
+  return {
+    generated_complete,
+    protected_complete,
+    already_sent,
+    noncurrent,
+    failed,
+    pending,
+    remaining: pending + failed,
+  };
+}
+
+function parseFrozenAudienceIds(raw: unknown): string[] | null {
+  if (raw == null) return null;
+  if (!Array.isArray(raw)) return null;
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== "string") return null;
+    const id = item.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * Run async work over items with a fixed concurrency pool.
+ * Does not start a new item after `shouldStop()` returns true.
+ */
+export async function runPoolWithBudget<T, R>(args: {
+  items: T[];
+  concurrency: number;
+  shouldStop: () => boolean;
+  worker: (item: T) => Promise<R>;
+}): Promise<{ results: Array<R | undefined>; started: number }> {
+  const results: Array<R | undefined> = new Array(args.items.length);
+  let nextIndex = 0;
+  let started = 0;
+
+  async function runWorker(): Promise<void> {
+    for (;;) {
+      if (args.shouldStop()) return;
+      const idx = nextIndex;
+      nextIndex += 1;
+      if (idx >= args.items.length) return;
+      started += 1;
+      results[idx] = await args.worker(args.items[idx]!);
+    }
+  }
+
+  const n = Math.min(args.concurrency, Math.max(args.items.length, 0));
+  if (n <= 0) return { results, started: 0 };
+  await Promise.all(Array.from({ length: n }, () => runWorker()));
+  return { results, started };
+}
+
+async function generateOneUser(args: {
+  sendSlot: TtoGenerateAllSlot;
+  draftForDayKey: string;
+  now: Date;
+  member: AudienceMember | null;
+  clerkUserId: string;
+}): Promise<{ ok: true; protected: boolean } | { ok: false; error: string }> {
+  try {
+    if (args.sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT) {
+      if (!args.member) {
+        return { ok: false, error: "user_not_in_sendable_audience" };
+      }
+      const result = await generateTylerTextOverviewDraftForUser({
+        audienceUser: toAudienceRow(args.member),
+        now: args.now,
+        draftForDayKey: args.draftForDayKey,
+        generationReason: "manual_regenerate",
+      });
+      if (!result.ok) {
+        return { ok: false, error: result.error ?? result.reason };
+      }
+      return { ok: true, protected: result.currentDraftProtected === true };
+    }
+
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: args.clerkUserId,
+      draftForDayKey: args.draftForDayKey,
+      now: args.now,
+    });
+    if (!result.ok) {
+      return { ok: false, error: result.error ?? result.reason };
+    }
+    return { ok: true, protected: result.currentDraftProtected === true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Process one Generate All chunk (Morning or Evening).
+ * DB is source of truth for COMPLETE; client supplies frozen audience on resume.
+ */
+export async function processGenerateAllChunk(args: {
   draftForDayKey: string;
   sendSlot: TtoGenerateAllSlot;
   now?: Date;
-}): Promise<TtoGenerateAllResult | { ok: false; error: string; status: number }> {
+  /** Frozen audience from a prior chunk; omit/empty to freeze live sendable audience. */
+  audienceClerkUserIds?: string[] | null;
+  /** Users already attempted this auto-chain — do not re-attempt in this request. */
+  excludeClerkUserIds?: string[] | null;
+  chunkUserCap?: number;
+  concurrency?: number;
+  timeBudgetMs?: number;
+  /** Injected clock for tests. */
+  nowMs?: () => number;
+}): Promise<TtoGenerateAllChunkResult | { ok: false; error: string; status: number }> {
   if (
     args.sendSlot !== SMS_DAILY_PRODUCTION_SEND_SLOT &&
     args.sendSlot !== SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
@@ -112,10 +419,15 @@ export async function generateTtoDraftBatch(args: {
 
   const now = args.now ?? new Date();
   const sendSlot = args.sendSlot;
+  const chunkCap = args.chunkUserCap ?? TTO_GENERATE_ALL_CHUNK_USER_CAP;
+  const concurrency = args.concurrency ?? TTO_GENERATE_ALL_CONCURRENCY;
+  const timeBudgetMs = args.timeBudgetMs ?? TTO_GENERATE_ALL_TIME_BUDGET_MS;
+  const nowMs = args.nowMs ?? (() => Date.now());
+  const startedMs = nowMs();
 
-  let audience: Awaited<ReturnType<typeof loadSendableTylerTextOverviewAudienceMembers>>;
+  let liveAudience: AudienceMember[];
   try {
-    audience = await loadSendableTylerTextOverviewAudienceMembers(now);
+    liveAudience = await loadSendableTylerTextOverviewAudienceMembers(now);
   } catch (err) {
     return {
       ok: false,
@@ -124,122 +436,210 @@ export async function generateTtoDraftBatch(args: {
     };
   }
 
-  const failed: TtoGenerateAllFailure[] = [];
-  let generated = 0;
-  let protectedTylerAuthority = 0;
-  let skippedAlreadySent = 0;
-  let skippedNonCurrent = 0;
-  let targeted = 0;
+  const liveById = new Map(liveAudience.map((m) => [m.clerkUserId, m]));
 
-  for (const member of audience) {
-    targeted += 1;
+  let audienceClerkUserIds = args.audienceClerkUserIds?.filter((id) => id.trim()) ?? null;
+  if (!audienceClerkUserIds || audienceClerkUserIds.length === 0) {
+    audienceClerkUserIds = liveAudience.map((m) => m.clerkUserId);
+  }
 
-    let existing: { status: string } | null;
-    try {
-      existing = await loadExistingDraftStatusForSlot({
-        clerkUserId: member.clerkUserId,
-        draftForDayKey,
+  const exclude = new Set(
+    (args.excludeClerkUserIds ?? []).map((id) => id.trim()).filter(Boolean)
+  );
+
+  let classes: Map<string, TtoGenerateAllMemberClass>;
+  try {
+    classes = await classifyFrozenAudience({
+      clerkUserIds: audienceClerkUserIds,
+      draftForDayKey,
+      sendSlot,
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "classify_failed",
+      status: 500,
+    };
+  }
+
+  const workQueue: string[] = [];
+  for (const id of audienceClerkUserIds) {
+    const c = classes.get(id) ?? "pending";
+    if (!isTtoGenerateAllWorkRemaining(c)) continue;
+    if (exclude.has(id)) continue;
+    workQueue.push(id);
+    if (workQueue.length >= chunkCap) break;
+  }
+
+  const failures: TtoGenerateAllFailure[] = [];
+  let generatedThisChunk = 0;
+
+  const { results, started } = await runPoolWithBudget({
+    items: workQueue,
+    concurrency,
+    shouldStop: () => nowMs() - startedMs >= timeBudgetMs,
+    worker: async (clerkUserId) => {
+      const member = liveById.get(clerkUserId) ?? null;
+      const outcome = await generateOneUser({
         sendSlot,
+        draftForDayKey,
+        now,
+        member,
+        clerkUserId,
       });
-    } catch (err) {
-      failed.push({
-        clerkUserId: member.clerkUserId,
-        preferredName: member.preferredName,
-        error: err instanceof Error ? err.message : "draft_status_lookup_failed",
-      });
-      continue;
-    }
+      return { clerkUserId, member, outcome };
+    },
+  });
 
-    if (existing) {
-      if (existing.status === "sent") {
-        skippedAlreadySent += 1;
-        continue;
-      }
-      if (existing.status !== "current") {
-        skippedNonCurrent += 1;
-        continue;
-      }
-    }
-
-    try {
-      if (sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT) {
-        const result = await generateTylerTextOverviewDraftForUser({
-          audienceUser: toAudienceRow(member),
-          now,
-          draftForDayKey,
-          generationReason: "manual_regenerate",
-        });
-        if (!result.ok) {
-          failed.push({
-            clerkUserId: member.clerkUserId,
-            preferredName: member.preferredName,
-            error: result.error ?? result.reason,
-          });
-          continue;
-        }
-        generated += 1;
-        if (result.currentDraftProtected) {
-          protectedTylerAuthority += 1;
-        }
-      } else {
-        const result = await generateTylerTextOverviewEveningPreviewForUser({
-          clerkUserId: member.clerkUserId,
-          draftForDayKey,
-          now,
-        });
-        if (!result.ok) {
-          failed.push({
-            clerkUserId: member.clerkUserId,
-            preferredName: member.preferredName,
-            error: result.error ?? result.reason,
-          });
-          continue;
-        }
-        generated += 1;
-        if (result.currentDraftProtected) {
-          protectedTylerAuthority += 1;
-        }
-      }
-    } catch (err) {
-      failed.push({
-        clerkUserId: member.clerkUserId,
-        preferredName: member.preferredName,
-        error: err instanceof Error ? err.message : String(err),
+  for (const item of results) {
+    if (!item) continue;
+    const preferredName = item.member?.preferredName ?? null;
+    if (item.outcome.ok) {
+      generatedThisChunk += 1;
+    } else {
+      failures.push({
+        clerkUserId: item.clerkUserId,
+        preferredName,
+        error: item.outcome.error,
       });
     }
   }
 
+  // Recompute from DB after mutations.
+  try {
+    classes = await classifyFrozenAudience({
+      clerkUserIds: audienceClerkUserIds,
+      draftForDayKey,
+      sendSlot,
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "reclassify_failed",
+      status: 500,
+    };
+  }
+
+  const summary = summarizeClasses(audienceClerkUserIds, classes);
+  const is_complete = summary.remaining === 0;
+
   return {
-    ok: failed.length === 0,
+    ok: failures.length === 0,
     draftForDayKey,
     sendSlot,
-    targeted,
-    generated,
-    protectedTylerAuthority,
-    skippedAlreadySent,
-    skippedNonCurrent,
-    failed,
+    targeted: audienceClerkUserIds.length,
+    generated_complete: summary.generated_complete,
+    protected_complete: summary.protected_complete,
+    already_sent: summary.already_sent,
+    noncurrent: summary.noncurrent,
+    failed: summary.failed,
+    pending: summary.pending,
+    remaining: summary.remaining,
+    processed_this_chunk: started,
+    is_complete,
+    audience_clerk_user_ids: audienceClerkUserIds,
+    failures,
+    generated_this_chunk: generatedThisChunk,
+    generated: generatedThisChunk,
+    protectedTylerAuthority: summary.protected_complete,
+    skippedAlreadySent: summary.already_sent,
+    skippedNonCurrent: summary.noncurrent,
   };
+}
+
+/** @deprecated Prefer processGenerateAllChunk — kept as Morning wrapper. */
+export async function generateTtoDraftBatch(args: {
+  draftForDayKey: string;
+  sendSlot: TtoGenerateAllSlot;
+  now?: Date;
+  audienceClerkUserIds?: string[] | null;
+  excludeClerkUserIds?: string[] | null;
+  chunkUserCap?: number;
+  concurrency?: number;
+  timeBudgetMs?: number;
+  nowMs?: () => number;
+}): Promise<TtoGenerateAllChunkResult | { ok: false; error: string; status: number }> {
+  return processGenerateAllChunk(args);
 }
 
 export async function generateMorningTtoDraftBatch(args: {
   draftForDayKey: string;
   now?: Date;
-}): Promise<TtoGenerateAllResult | { ok: false; error: string; status: number }> {
-  return generateTtoDraftBatch({
+  audienceClerkUserIds?: string[] | null;
+  excludeClerkUserIds?: string[] | null;
+  chunkUserCap?: number;
+  concurrency?: number;
+  timeBudgetMs?: number;
+  nowMs?: () => number;
+}): Promise<TtoGenerateAllChunkResult | { ok: false; error: string; status: number }> {
+  return processGenerateAllChunk({
     draftForDayKey: args.draftForDayKey,
     sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
     now: args.now,
+    audienceClerkUserIds: args.audienceClerkUserIds,
+    excludeClerkUserIds: args.excludeClerkUserIds,
+    chunkUserCap: args.chunkUserCap,
+    concurrency: args.concurrency,
+    timeBudgetMs: args.timeBudgetMs,
+    nowMs: args.nowMs,
   });
 }
 
 export async function generateEveningTtoDraftBatch(args: {
   draftForDayKey: string;
   now?: Date;
-}): Promise<TtoGenerateAllResult | { ok: false; error: string; status: number }> {
-  return generateTtoDraftBatch({
+  audienceClerkUserIds?: string[] | null;
+  excludeClerkUserIds?: string[] | null;
+  chunkUserCap?: number;
+  concurrency?: number;
+  timeBudgetMs?: number;
+  nowMs?: () => number;
+}): Promise<TtoGenerateAllChunkResult | { ok: false; error: string; status: number }> {
+  return processGenerateAllChunk({
     draftForDayKey: args.draftForDayKey,
     sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
     now: args.now,
+    audienceClerkUserIds: args.audienceClerkUserIds,
+    excludeClerkUserIds: args.excludeClerkUserIds,
+    chunkUserCap: args.chunkUserCap,
+    concurrency: args.concurrency,
+    timeBudgetMs: args.timeBudgetMs,
+    nowMs: args.nowMs,
   });
+}
+
+export function parseGenerateAllRequestBody(body: unknown): {
+  draftForDayKey: string;
+  audienceClerkUserIds: string[] | null;
+  excludeClerkUserIds: string[] | null;
+} | { error: string } {
+  if (body == null || typeof body !== "object" || Array.isArray(body)) {
+    return { error: "Invalid JSON body" };
+  }
+  const record = body as Record<string, unknown>;
+  const draftForDayKey =
+    typeof record.draft_for_day_key === "string" ? record.draft_for_day_key : "";
+  const audienceClerkUserIds = parseFrozenAudienceIds(
+    record.audience_clerk_user_ids ?? record.audienceClerkUserIds
+  );
+  if (
+    record.audience_clerk_user_ids != null &&
+    audienceClerkUserIds == null
+  ) {
+    return { error: "Invalid audience_clerk_user_ids" };
+  }
+  const excludeClerkUserIds = parseFrozenAudienceIds(
+    record.exclude_clerk_user_ids ?? record.excludeClerkUserIds
+  );
+  if (
+    (record.exclude_clerk_user_ids != null || record.excludeClerkUserIds != null) &&
+    excludeClerkUserIds == null
+  ) {
+    return { error: "Invalid exclude_clerk_user_ids" };
+  }
+  return {
+    draftForDayKey,
+    audienceClerkUserIds,
+    excludeClerkUserIds,
+  };
 }

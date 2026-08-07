@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
-import { generateMorningTtoDraftBatch } from "@/lib/tyler-text-overview-generate-all";
+import {
+  generateMorningTtoDraftBatch,
+  parseGenerateAllRequestBody,
+} from "@/lib/tyler-text-overview-generate-all";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-/** Sequential Sol generation for the sendable TTO audience; allow longer than default. */
+/** Chunked Sol generation; hard ceiling. Soft budget stops work earlier. */
 export const maxDuration = 300;
 
 function adminErrorResponse(err: unknown) {
@@ -32,16 +35,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
     }
 
-    if (body == null || typeof body !== "object" || Array.isArray(body)) {
-      return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+    const parsed = parseGenerateAllRequestBody(body);
+    if ("error" in parsed) {
+      return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
 
-    const record = body as Record<string, unknown>;
-    const draftForDayKey =
-      typeof record.draft_for_day_key === "string" ? record.draft_for_day_key : "";
-
     // Slot is server-authoritative: morning. Never trust client slot.
-    const result = await generateMorningTtoDraftBatch({ draftForDayKey });
+    const result = await generateMorningTtoDraftBatch({
+      draftForDayKey: parsed.draftForDayKey,
+      audienceClerkUserIds: parsed.audienceClerkUserIds,
+      excludeClerkUserIds: parsed.excludeClerkUserIds,
+    });
 
     if ("status" in result) {
       return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
