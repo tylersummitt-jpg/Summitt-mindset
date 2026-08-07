@@ -151,7 +151,7 @@ export type TylerTextOverviewDashboardSendSlot =
   | typeof SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
   | typeof SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT;
 
-export type TylerTextOverviewSiblingPage = "morning" | "evening" | "weekly";
+export type TylerTextOverviewSiblingPage = "morning" | "evening" | "weekly" | "reply-report";
 
 export function isEveningDashboardSendSlot(
   sendSlot: TylerTextOverviewDashboardSendSlot
@@ -380,6 +380,7 @@ export function resolveSiblingLinkDraftForDayKey(args: {
 }): string | undefined {
   const day = args.draftForDayKey?.trim();
   if (!day) return undefined;
+  if (args.page === "reply-report") return undefined;
   if (args.page === "morning" || args.page === "weekly") return day;
   const today = getTylerTextOverviewAdminLocalDayKey(args.now);
   return day === today ? day : undefined;
@@ -423,6 +424,7 @@ export function tylerTextOverviewNavPages(
     { page: "morning", label: "Morning" },
     { page: "evening", label: "Evening" },
     { page: "weekly", label: "Weekly" },
+    { page: "reply-report", label: "Reply report" },
   ];
   return pages
     .filter((p) => p.page !== current)
