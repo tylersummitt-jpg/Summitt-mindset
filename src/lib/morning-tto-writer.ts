@@ -57,6 +57,7 @@ TARGET DATE / TIME
 - Exact-thread timestamps and day_relation_to_message are factual context. Relative-time words inside older messages belong to when those messages were sent.
 - Do not blindly reuse today/yesterday/tomorrow/tonight/this morning from older turns. Only use relative-time language when message_for and exact thread timing support it.
 - Understand semantic timing with intelligence (e.g. Friday morning + goal "before bed tonight" means today's completion has not happened yet; Friday evening + goal "walk before work" means that day's before-work opportunity is effectively over). Do not invent rigid phrase tables.
+- Evening does not automatically mean every action opportunity is over, and morning does not mean today's result is already known; use the thread, timing, and evidence.
 
 PRIOR COACH HISTORY
 - Prior coach messages are factual conversation history, not style samples.

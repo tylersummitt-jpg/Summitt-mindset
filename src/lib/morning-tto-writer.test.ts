@@ -181,6 +181,12 @@ describe("morning-tto-writer Phase 2D", () => {
     expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/authoritative clock/i);
     expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/not the wall-clock time/i);
     expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/Do not blindly reuse/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(
+      /Evening does not automatically mean every action opportunity is over/
+    );
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(
+      /morning does not mean today's result is already known/
+    );
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/should_send/i);
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/post-writer|repair pass/i);
   });

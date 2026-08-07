@@ -186,6 +186,55 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).not.toMatch(/set_today_rep|hallway/);
   });
 
+  it("shared TEMPORAL POSTURE seals Morning/Evening coaching semantics without phrase tables", () => {
+    const p = MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT;
+    expect(p).toContain("TEMPORAL POSTURE");
+    expect(p).toContain("shared Morning and Evening");
+    expect(p).toContain("beginning-of-day receive context");
+    expect(p).toContain("today's outcome is already known");
+    expect(p).toContain('does not automatically mean "make a plan."');
+    expect(p).toContain("near-end-of-day receive context");
+    expect(p).toContain('does not automatically mean "the day is over."');
+    expect(p).toContain("start-of-day framing");
+    expect(p).toContain(
+      "evening alone must not imply every goal/action opportunity has already happened"
+    );
+    expect(p).toContain("later-night action");
+    expect(p).toContain("day_relation_to_message");
+    expect(p).toContain("do not blindly re-anchor");
+    expect(p).toContain("today / tonight / tomorrow / yesterday");
+    expect(p).toContain("daypart alone never creates evidence");
+    expect(p).toContain("Answer direct user questions when present");
+    expect(p).toContain("Current Goal is context, not a compulsory subject");
+    expect(p).toContain(
+      "Return a single JSON object with sections: version, confidence, human_situation, truth_and_evidence, conversation_continuity, goal_role_today, coaching_direction, boundaries"
+    );
+    expect(p).not.toMatch(/Never say ['"]what'?s your plan/i);
+    expect(p).not.toMatch(/Never say ['"]how did today go/i);
+    expect(p).not.toMatch(/if \(.*daypart/);
+    const src = readFileSync(
+      path.join(process.cwd(), "src/lib/morning-tto-brief-interpreter-v1.ts"),
+      "utf8"
+    );
+    expect(src).toContain("MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT");
+    expect(src).not.toMatch(/EVENING_BRIEF_INTERPRETER_SYSTEM_PROMPT/);
+    expect(src).not.toMatch(/daypart === ["']evening["'].*SYSTEM_PROMPT|SYSTEM_PROMPT.*daypart ===/);
+  });
+
+  it("same shared interpreter system prompt for morning and evening daypart inputs", () => {
+    const morningMessages = buildMorningBriefInterpreterMessages(
+      assembleOrThrow({ daypart: "morning" })
+    );
+    const eveningMessages = buildMorningBriefInterpreterMessages(
+      assembleOrThrow({ daypart: "evening" })
+    );
+    expect(morningMessages[0]?.content).toBe(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT);
+    expect(eveningMessages[0]?.content).toBe(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT);
+    expect(morningMessages[0]?.content).toBe(eveningMessages[0]?.content);
+    expect(String(morningMessages[1]?.content)).toContain('"daypart":"morning"');
+    expect(String(eveningMessages[1]?.content)).toContain('"daypart":"evening"');
+  });
+
   it("provisional model constant is framed as placeholder, not a locked production choice", () => {
     expect(MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL).toBe("gpt-5.6-sol");
     expect(MORNING_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-sol");

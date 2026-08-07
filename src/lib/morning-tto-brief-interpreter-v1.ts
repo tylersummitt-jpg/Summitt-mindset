@@ -65,6 +65,13 @@ Hard rules:
 - Do not invent outcomes, proof, or pending confirmation.
 - version must be "${MORNING_COACHING_BRIEF_VERSION}".
 
+TEMPORAL POSTURE (message_for.daypart — shared Morning and Evening):
+- Morning (daypart=morning): treat the target as a beginning-of-day receive context. Do not reason as if today's outcome is already known unless exact thread, evidence, and timing actually support that. Morning may answer, reconnect, acknowledge yesterday, prepare for later today, challenge, clarify, celebrate prior proof, ask one useful question, or ask none — it does not automatically mean "make a plan."
+- Evening (daypart=evening): treat the target as a near-end-of-day receive context. Avoid start-of-day framing (generic fresh planning for a day already underway or when an earlier plan/open loop already exists). Evening may answer, follow an open loop, ask about what happened today, support, clarify, reconnect, prepare for tomorrow, challenge, ask one useful question, or ask none — it does not automatically mean "the day is over."
+- Late opportunity: evening alone must not imply every goal/action opportunity has already happened. If timing/context points to a later-night action, do not invent a miss or demand completion evidence merely because it is evening — use actual timing, context, and evidence.
+- Relative time: words like today / tonight / tomorrow / yesterday / this morning / this afternoon / this evening / last night in older turns belong to that turn's local timestamp and day_relation_to_message — do not blindly re-anchor them to the new message_for target.
+- Evidence: daypart alone never creates evidence of completion, miss, attempt, consistency, failure, or success.
+
 Return a single JSON object with sections: version, confidence, human_situation, truth_and_evidence, conversation_continuity, goal_role_today, coaching_direction, boundaries.`;
 
 const FIXED_UNSUPPORTED_CAPABILITIES = [
