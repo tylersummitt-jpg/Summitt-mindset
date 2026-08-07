@@ -24,6 +24,7 @@ import {
   type TylerTextOverviewMorningWriterCapturePanel,
   type TylerTextOverviewSlotCoachingContextPanel,
 } from "@/lib/tyler-text-overview-types";
+import { requireTylerTextOverviewDraftDayKey } from "@/lib/tyler-text-overview-draft-day-key";
 import { isPauseActive, type V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
 
 export const PREVIEW_ONLY_DRAFT_NOT_EDITABLE = "preview_only_draft_not_editable" as const;
@@ -1760,6 +1761,10 @@ export async function updateTylerTextOverviewDraftBody(args: {
   draftId: string;
   body: string;
   now?: Date;
+  /** When set, refuses if the draft row's day does not match (bulk day guard). */
+  expectedDraftForDayKey?: string;
+  /** When set, refuses if the draft row's send_slot does not match. */
+  expectedSendSlot?: SmsDailySendSlot;
 }): Promise<UpdateTylerTextOverviewDraftBodyResult> {
   const draftId = args.draftId.trim();
   if (!draftId) {
@@ -1791,7 +1796,15 @@ export async function updateTylerTextOverviewDraftBody(args: {
     return { ok: false, error: "Draft is not current", status: 409 };
   }
 
+  const expectedDay = args.expectedDraftForDayKey?.trim();
+  if (expectedDay && draft.draft_for_day_key !== expectedDay) {
+    return { ok: false, error: "Draft day mismatch", status: 409 };
+  }
+
   const draftSendSlot = mapDbSendSlotToAdminDto(draft.send_slot);
+  if (args.expectedSendSlot && draftSendSlot !== args.expectedSendSlot) {
+    return { ok: false, error: "Draft send_slot mismatch", status: 409 };
+  }
 
   const { data: generationRow, error: generationLoadError } = await supabaseServer
     .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
@@ -1876,5 +1889,213 @@ export async function updateTylerTextOverviewDraftBody(args: {
       generationsById: new Map([[generation.id, generation]]),
       latestGenerationsByKey,
     })[0],
+  };
+}
+
+export type MorningTtoBulkSaveOperation = "blank_all" | "apply_all";
+
+export type MorningTtoBulkSaveFailure = {
+  draftId: string;
+  clerkUserId: string;
+  preferredName: string | null;
+  error: string;
+};
+
+export type MorningTtoBulkSaveResult = {
+  ok: boolean;
+  draftForDayKey: string;
+  operation: MorningTtoBulkSaveOperation;
+  appliedBody: string | null;
+  targeted: number;
+  updated: number;
+  skippedNonCurrent: number;
+  skippedMissing: number;
+  failed: MorningTtoBulkSaveFailure[];
+  textsSentByThisAction: 0;
+};
+
+type MorningBulkDraftTargetRow = {
+  id: string;
+  clerk_user_id: string;
+  draft_for_day_key: string;
+  send_slot: string | null;
+  status: string;
+};
+
+async function fetchMorningDraftsForBulkDay(args: {
+  draftForDayKey: string;
+  clerkUserIds: string[];
+}): Promise<MorningBulkDraftTargetRow[]> {
+  const uniqueUserIds = [...new Set(args.clerkUserIds.filter((id) => id.trim()))];
+  if (uniqueUserIds.length === 0) return [];
+
+  const pageSize = TTO_MANIFEST_PAGE_SIZE;
+  const all: MorningBulkDraftTargetRow[] = [];
+
+  for (const chunk of chunkIdsForTtoManifestQuery(uniqueUserIds)) {
+    let from = 0;
+    for (;;) {
+      const { data, error } = await supabaseServer
+        .from(SMS_DAILY_DRAFTS_TABLE)
+        .select("id, clerk_user_id, draft_for_day_key, send_slot, status")
+        .eq("draft_for_day_key", args.draftForDayKey)
+        .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
+        .in("clerk_user_id", chunk)
+        .order("clerk_user_id", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (error) {
+        throw new Error(`morning_bulk_draft_query_failed:${error.message}`);
+      }
+
+      const rows = (data ?? []) as MorningBulkDraftTargetRow[];
+      for (const row of rows) {
+        if (
+          typeof row.id === "string" &&
+          typeof row.clerk_user_id === "string" &&
+          typeof row.draft_for_day_key === "string" &&
+          typeof row.status === "string"
+        ) {
+          all.push(row);
+        }
+      }
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+  }
+
+  return all;
+}
+
+/**
+ * Morning-admin bulk Tyler Save for one selected draft_for_day_key.
+ * Reuses updateTylerTextOverviewDraftBody; never sends, generates, or calls OpenAI.
+ */
+export async function bulkSaveMorningTtoDraftBodies(args: {
+  draftForDayKey: string;
+  operation: MorningTtoBulkSaveOperation;
+  body?: string;
+  now?: Date;
+}): Promise<
+  | MorningTtoBulkSaveResult
+  | { ok: false; error: string; status: number }
+> {
+  let draftForDayKey: string;
+  try {
+    draftForDayKey = requireTylerTextOverviewDraftDayKey(args.draftForDayKey);
+  } catch {
+    return { ok: false, error: "Invalid draft_for_day_key", status: 400 };
+  }
+
+  if (args.operation !== "blank_all" && args.operation !== "apply_all") {
+    return { ok: false, error: "operation must be blank_all or apply_all", status: 400 };
+  }
+
+  let bodyToSave = "";
+  let appliedBody: string | null = null;
+  if (args.operation === "blank_all") {
+    bodyToSave = "";
+    appliedBody = null;
+  } else {
+    const raw = typeof args.body === "string" ? args.body : "";
+    const normalized = normalizeTylerTextOverviewDraftBodyInput(raw);
+    if (normalized == null) {
+      return {
+        ok: false,
+        error: "apply_all requires a non-empty body; use blank_all to blank texts",
+        status: 400,
+      };
+    }
+    bodyToSave = normalized;
+    appliedBody = normalized;
+  }
+
+  const audience = await loadSendableTylerTextOverviewAudienceMembers(args.now ?? new Date());
+  const preferredNameByUserId = new Map(
+    audience.map((m) => [m.clerkUserId, m.preferredName] as const)
+  );
+  const audienceIds = audience.map((m) => m.clerkUserId);
+
+  let dayDrafts: MorningBulkDraftTargetRow[];
+  try {
+    dayDrafts = await fetchMorningDraftsForBulkDay({
+      draftForDayKey,
+      clerkUserIds: audienceIds,
+    });
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "morning_bulk_draft_query_failed",
+      status: 500,
+    };
+  }
+
+  const draftsByUserId = new Map<string, MorningBulkDraftTargetRow>();
+  for (const draft of dayDrafts) {
+    if (draft.draft_for_day_key !== draftForDayKey) continue;
+    const slot = mapDbSendSlotToAdminDto(draft.send_slot);
+    if (slot !== SMS_DAILY_PRODUCTION_SEND_SLOT) continue;
+    draftsByUserId.set(draft.clerk_user_id, draft);
+  }
+
+  const currentTargets: MorningBulkDraftTargetRow[] = [];
+  let skippedNonCurrent = 0;
+  let skippedMissing = 0;
+
+  for (const clerkUserId of audienceIds) {
+    const draft = draftsByUserId.get(clerkUserId);
+    if (!draft) {
+      skippedMissing += 1;
+      continue;
+    }
+    if (draft.status === "current") {
+      currentTargets.push(draft);
+    } else {
+      skippedNonCurrent += 1;
+    }
+  }
+
+  const failed: MorningTtoBulkSaveFailure[] = [];
+  let updated = 0;
+
+  for (const draft of currentTargets) {
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: draft.id,
+      body: bodyToSave,
+      now: args.now,
+      expectedDraftForDayKey: draftForDayKey,
+      expectedSendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    });
+
+    if (result.ok) {
+      updated += 1;
+      continue;
+    }
+
+    if (result.status === 409 && /not current|day mismatch|send_slot mismatch/i.test(result.error)) {
+      skippedNonCurrent += 1;
+      continue;
+    }
+
+    failed.push({
+      draftId: draft.id,
+      clerkUserId: draft.clerk_user_id,
+      preferredName: preferredNameByUserId.get(draft.clerk_user_id) ?? null,
+      error: result.error,
+    });
+  }
+
+  return {
+    ok: failed.length === 0,
+    draftForDayKey,
+    operation: args.operation,
+    appliedBody,
+    targeted: currentTargets.length,
+    updated,
+    skippedNonCurrent,
+    skippedMissing,
+    failed,
+    textsSentByThisAction: 0,
   };
 }

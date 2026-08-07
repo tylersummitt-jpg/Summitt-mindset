@@ -493,6 +493,76 @@ export const MORNING_SAVE_RELOAD_FAILED_COPY =
 
 export const TTO_FILTERED_ROWS_LABEL = "Visible filtered rows";
 
+export const MORNING_BULK_ACTIONS_HEADING = "Bulk Morning actions";
+
+export const MORNING_BULK_SEARCH_WARNING =
+  "Search only filters the list below. Bulk actions still apply to the full selected-day Morning batch.";
+
+export const MORNING_BULK_APPLY_EMPTY_HINT =
+  "Type a non-empty text to apply, or use Blank all texts.";
+
+export const MORNING_BULK_SELECT_DAY_HINT =
+  "Select a Draft day before using bulk actions.";
+
+export function formatMorningBulkBlankConfirm(args: {
+  draftForDayKey: string;
+  currentDraftCount: number;
+}): string {
+  return [
+    `Blank all ${args.currentDraftCount} unsent Morning texts for ${args.draftForDayKey}?`,
+    "",
+    "No Morning text will send for these drafts unless you add text again.",
+    "This overwrites existing Tyler edits on current drafts.",
+    "Already-sent drafts are skipped.",
+    "This saves blank bodies but does not send anything now.",
+  ].join("\n");
+}
+
+export function formatMorningBulkApplyConfirm(args: {
+  draftForDayKey: string;
+  currentDraftCount: number;
+  body: string;
+}): string {
+  return [
+    `Replace the saved body for all ${args.currentDraftCount} unsent ${args.draftForDayKey} Morning drafts with this exact text?`,
+    "",
+    "This overwrites existing Tyler edits.",
+    "Already-sent drafts are skipped.",
+    "This saves the text but does not send it now.",
+    "",
+    "Exact text:",
+    args.body,
+  ].join("\n");
+}
+
+export function formatMorningBulkResultMessage(args: {
+  updated: number;
+  skippedNonCurrent: number;
+  skippedMissing: number;
+  failed: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
+  textsSentByThisAction: number;
+}): string {
+  const lines = [
+    `${args.updated} Morning drafts updated.`,
+    `${args.skippedNonCurrent} already sent/skipped.`,
+    `${args.skippedMissing} missing drafts skipped.`,
+    `${args.failed.length} failed.`,
+    `${args.textsSentByThisAction} texts sent by this action.`,
+  ];
+  if (args.failed.length > 0) {
+    lines.push("");
+    lines.push("Failed:");
+    for (const f of args.failed.slice(0, 20)) {
+      const label = f.preferredName?.trim() || f.clerkUserId;
+      lines.push(`- ${label}: ${f.error}`);
+    }
+    if (args.failed.length > 20) {
+      lines.push(`…and ${args.failed.length - 20} more`);
+    }
+  }
+  return lines.join("\n");
+}
+
 /** True when a current draft was Tyler-blanked (blocks Morning send). */
 export function matchesTylerTextOverviewSearchQuery(
   row: {

@@ -25,6 +25,9 @@ import {
   MORNING_TTO_SAVE_TOAST_APPROVED,
   MORNING_TTO_SAVE_TOAST_BLANK,
   MORNING_TTO_TYLER_APPROVED_COPY,
+  formatMorningBulkApplyConfirm,
+  formatMorningBulkBlankConfirm,
+  formatMorningBulkResultMessage,
   formatMorningTtoSaveToast,
   formatMorningTtoSendabilityCopy,
   resolveEveningTtoInitialSelectedDayKey,
@@ -33,6 +36,8 @@ import {
   resolveTylerTextOverviewRootRedirectPath,
   rowStateLabel,
   shouldShowEveningNonTodayWarning,
+  MORNING_BULK_ACTIONS_HEADING,
+  MORNING_BULK_SEARCH_WARNING,
   MORNING_MISSING_DRAFT_BANNER,
   MORNING_UNSAVED_COPY,
   TTO_MANIFEST_INCOMPLETE_BANNER,
@@ -527,6 +532,67 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("formatEveningPreviewGenerateSuccessToast");
     expect(dashboard).toContain("formatEveningEmptyBodyPanelCopy");
     expect(dashboard).toContain("machine_no_send_reason");
+  });
+
+  it("Morning-only bulk actions call morning-bulk-save and force refetch", () => {
+    expect(dashboard).toContain("MORNING_BULK_ACTIONS_HEADING");
+    expect(dashboard).toContain("Blank all texts");
+    expect(dashboard).toContain("Apply text to all");
+    expect(dashboard).toContain("/api/admin/tyler-text-overview/morning-bulk-save");
+    expect(dashboard).toContain('operation: "blank_all"');
+    expect(dashboard).toContain('operation: "apply_all"');
+    expect(dashboard).toContain("formatMorningBulkBlankConfirm");
+    expect(dashboard).toContain("formatMorningBulkApplyConfirm");
+    expect(dashboard).toContain("MORNING_BULK_SEARCH_WARNING");
+    expect(dashboard).toContain("forceOverwrite: true");
+    expect(dashboard).toContain("{!isEveningPage ? (");
+    expect(dashboard).not.toContain("weekly-bulk-save");
+  });
+});
+
+describe("morning bulk confirmation copy", () => {
+  it("blank confirm states day, count, overwrite, and no-send", () => {
+    const copy = formatMorningBulkBlankConfirm({
+      draftForDayKey: "2026-07-04",
+      currentDraftCount: 38,
+    });
+    expect(copy).toContain("38");
+    expect(copy).toContain("2026-07-04");
+    expect(copy).toContain("No Morning text will send");
+    expect(copy).toContain("overwrites existing Tyler edits");
+    expect(copy).toContain("Already-sent drafts are skipped");
+    expect(copy).toContain("does not send");
+  });
+
+  it("apply confirm includes exact body and overwrite warning", () => {
+    const body = "Happy Fourth of July! 🇺🇸";
+    const copy = formatMorningBulkApplyConfirm({
+      draftForDayKey: "2026-07-04",
+      currentDraftCount: 38,
+      body,
+    });
+    expect(copy).toContain("38");
+    expect(copy).toContain("2026-07-04");
+    expect(copy).toContain(body);
+    expect(copy).toContain("overwrites existing Tyler edits");
+    expect(copy).toContain("does not send it now");
+  });
+
+  it("result message reports partial failure truthfully", () => {
+    const msg = formatMorningBulkResultMessage({
+      updated: 31,
+      skippedNonCurrent: 2,
+      skippedMissing: 1,
+      failed: [{ clerkUserId: "user_x", preferredName: "Pat", error: "draft_update_failed" }],
+      textsSentByThisAction: 0,
+    });
+    expect(msg).toContain("31 Morning drafts updated.");
+    expect(msg).toContain("2 already sent/skipped.");
+    expect(msg).toContain("1 failed.");
+    expect(msg).toContain("0 texts sent by this action.");
+    expect(msg).toContain("Pat: draft_update_failed");
+    expect(MORNING_BULK_ACTIONS_HEADING).toBe("Bulk Morning actions");
+    expect(MORNING_BULK_SEARCH_WARNING).toContain("full selected-day Morning batch");
   });
 });
 
