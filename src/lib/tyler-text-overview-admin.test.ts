@@ -27,9 +27,11 @@ import {
   resolveTylerTextOverviewRowState,
   updateTylerTextOverviewDraftBody,
   bulkSaveMorningTtoDraftBodies,
+  bulkSaveEveningTtoDraftBodies,
   isTylerTextOverviewSaveApproval,
 } from "@/lib/tyler-text-overview-admin";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
+import { SMS_DAILY_EVENING_PREVIEW_SEND_SLOT } from "@/lib/tyler-text-overview-types";
 
 const requireTylerAdminMock = vi.hoisted(() => vi.fn());
 
@@ -1605,6 +1607,264 @@ describe("tyler-text-overview-admin morning bulk save", () => {
   });
 });
 
+describe("tyler-text-overview-admin evening bulk save", () => {
+  const now = new Date("2026-07-02T17:00:00.000Z");
+  const DAY = "2026-07-03";
+  const OTHER_DAY = "2026-07-04";
+
+  function seedEveningBulkFixture() {
+    db.drafts = [];
+    db.generations = [];
+    db.smsAudience = [];
+    db.v2Commitments = [];
+    db.v2CommsPrefs = [];
+    db.userProfiles = [];
+    db.smsSendEventsWrites = 0;
+    db.generationUpdateCalls = 0;
+
+    const users = [
+      { id: "user_a", name: "Alpha", draftId: "draft-ea", genId: "gen-ea", body: "Machine A" },
+      { id: "user_b", name: "Beta", draftId: "draft-eb", genId: "gen-eb", body: "Machine B" },
+      { id: "user_c", name: "Charlie", draftId: "draft-ec", genId: "gen-ec", body: "Prior Tyler C" },
+      { id: "user_sent", name: "Sent", draftId: "draft-esent", genId: "gen-esent", body: "Already sent" },
+      { id: "user_missing", name: "Missing", draftId: null, genId: null, body: null },
+    ] as const;
+
+    for (const u of users) {
+      seedSendableUser({ clerkUserId: u.id, preferredName: u.name, phone: `+1555000${u.id.slice(-1)}` });
+      if (!u.draftId || !u.genId) continue;
+      db.generations.push({
+        id: u.genId,
+        generation_number: 1,
+        clerk_user_id: u.id,
+        draft_for_day_key: DAY,
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        writer_openai_messages: WRITER_MESSAGES,
+        writer_prompt_path: "shared_sol_v1",
+        machine_draft_body: u.body === "Prior Tyler C" ? "Machine C original" : u.body,
+        machine_should_send: true,
+        machine_no_send_reason: null,
+        notebook_hash: `hash-${u.id}`,
+        notebook_verdict: "verified",
+        generation_metadata: { capture_present: true, who: u.id, preview_only: true },
+      });
+      db.drafts.push({
+        id: u.draftId,
+        clerk_user_id: u.id,
+        draft_for_day_key: DAY,
+        current_generation_id: u.genId,
+        current_body_to_send: u.body,
+        status: u.id === "user_sent" ? "sent" : "current",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        current_body_source: u.id === "user_c" ? "tyler_edit" : "machine",
+        edited_by_tyler: u.id === "user_c",
+        edited_at: u.id === "user_c" ? "2026-07-02T12:00:00.000Z" : null,
+        sent_at: u.id === "user_sent" ? "2026-07-03T23:00:00.000Z" : null,
+      });
+    }
+
+    seedSendableUser({ clerkUserId: "user_other_day", preferredName: "OtherDay", phone: "+15550999" });
+    db.generations.push({
+      id: "gen-e-other-day",
+      generation_number: 1,
+      clerk_user_id: "user_other_day",
+      draft_for_day_key: OTHER_DAY,
+      send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      writer_openai_messages: WRITER_MESSAGES,
+      machine_draft_body: "Other day machine",
+      machine_should_send: true,
+    });
+    db.drafts.push({
+      id: "draft-e-other-day",
+      clerk_user_id: "user_other_day",
+      draft_for_day_key: OTHER_DAY,
+      current_generation_id: "gen-e-other-day",
+      current_body_to_send: "Other day evening body",
+      status: "current",
+      send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      current_body_source: "machine",
+      edited_by_tyler: false,
+    });
+
+    seedSendableUser({ clerkUserId: "user_morning", preferredName: "Morning", phone: "+15550888" });
+    db.generations.push({
+      id: "gen-morning-same-day",
+      generation_number: 1,
+      clerk_user_id: "user_morning",
+      draft_for_day_key: DAY,
+      send_slot: "morning",
+      writer_openai_messages: WRITER_MESSAGES,
+      machine_draft_body: "Morning machine",
+      machine_should_send: true,
+    });
+    db.drafts.push({
+      id: "draft-morning-same-day",
+      clerk_user_id: "user_morning",
+      draft_for_day_key: DAY,
+      current_generation_id: "gen-morning-same-day",
+      current_body_to_send: "Morning body",
+      status: "current",
+      send_slot: "morning",
+      current_body_source: "machine",
+      edited_by_tyler: false,
+    });
+  }
+
+  beforeEach(() => {
+    seedEveningBulkFixture();
+    vi.clearAllMocks();
+  });
+
+  it("blank_all blanks current evening drafts only with tyler_edit provenance", async () => {
+    const result = await bulkSaveEveningTtoDraftBodies({
+      draftForDayKey: DAY,
+      operation: "blank_all",
+      now,
+    });
+    expect("targeted" in result).toBe(true);
+    if (!("targeted" in result)) return;
+    expect(result.ok).toBe(true);
+    expect(result.sendSlot).toBe(SMS_DAILY_EVENING_PREVIEW_SEND_SLOT);
+    expect(result.targeted).toBe(3);
+    expect(result.updated).toBe(3);
+    expect(result.skippedNonCurrent).toBe(1);
+    expect(result.skippedMissing).toBe(3);
+    expect(result.failed).toEqual([]);
+    expect(result.textsSentByThisAction).toBe(0);
+    expect(result.appliedBody).toBeNull();
+
+    for (const id of ["draft-ea", "draft-eb", "draft-ec"]) {
+      const d = db.drafts.find((row) => row.id === id)!;
+      expect(d.current_body_to_send).toBeNull();
+      expect(d.current_body_source).toBe("tyler_edit");
+      expect(d.edited_by_tyler).toBe(true);
+      expect(d.edited_at).toBe(now.toISOString());
+      expect(d.current_generation_id).toMatch(/^gen-e/);
+    }
+
+    expect(db.drafts.find((d) => d.id === "draft-esent")!.current_body_to_send).toBe("Already sent");
+    expect(db.drafts.find((d) => d.id === "draft-e-other-day")!.current_body_to_send).toBe(
+      "Other day evening body"
+    );
+    expect(db.drafts.find((d) => d.id === "draft-morning-same-day")!.current_body_to_send).toBe(
+      "Morning body"
+    );
+    expect(db.generations.find((g) => g.id === "gen-ea")!.machine_draft_body).toBe("Machine A");
+    expect(db.generations.find((g) => g.id === "gen-ec")!.machine_draft_body).toBe(
+      "Machine C original"
+    );
+    expect(db.generations.find((g) => g.id === "gen-ea")!.machine_should_send).toBe(true);
+    expect(db.generations.find((g) => g.id === "gen-ea")!.generation_metadata).toEqual({
+      capture_present: true,
+      who: "user_a",
+      preview_only: true,
+    });
+    expect(db.smsSendEventsWrites).toBe(0);
+    expect(db.generationUpdateCalls).toBe(0);
+  });
+
+  it("apply_all writes exact normalized body and overwrites prior Tyler edits", async () => {
+    const body = "  Good evening! 🌙\nSee you tomorrow. https://example.com  ";
+    const result = await bulkSaveEveningTtoDraftBodies({
+      draftForDayKey: DAY,
+      operation: "apply_all",
+      body,
+      now,
+    });
+    expect("targeted" in result).toBe(true);
+    if (!("targeted" in result)) return;
+    expect(result.ok).toBe(true);
+    expect(result.updated).toBe(3);
+    expect(result.appliedBody).toBe(
+      "Good evening! 🌙\nSee you tomorrow. https://example.com"
+    );
+    expect(result.textsSentByThisAction).toBe(0);
+
+    const expected = normalizeTylerTextOverviewDraftBodyInput(body);
+    for (const id of ["draft-ea", "draft-eb", "draft-ec"]) {
+      const d = db.drafts.find((row) => row.id === id)!;
+      expect(d.current_body_to_send).toBe(expected);
+      expect(d.current_body_source).toBe("tyler_edit");
+      expect(d.edited_by_tyler).toBe(true);
+    }
+    expect(db.drafts.find((d) => d.id === "draft-ec")!.current_body_to_send).not.toBe("Prior Tyler C");
+    expect(db.generations.find((g) => g.id === "gen-ec")!.machine_draft_body).toBe(
+      "Machine C original"
+    );
+    expect(db.drafts.find((d) => d.id === "draft-esent")!.current_body_to_send).toBe("Already sent");
+    expect(db.drafts.find((d) => d.id === "draft-morning-same-day")!.current_body_to_send).toBe(
+      "Morning body"
+    );
+    expect(db.generations.find((g) => g.id === "gen-ea")!.machine_should_send).toBe(true);
+  });
+
+  it("apply_all rejects whitespace-only body", async () => {
+    const result = await bulkSaveEveningTtoDraftBodies({
+      draftForDayKey: DAY,
+      operation: "apply_all",
+      body: "   ",
+      now,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok && "status" in result) {
+      expect(result.status).toBe(400);
+      expect(result.error).toMatch(/blank_all/i);
+    }
+    expect(db.drafts.find((d) => d.id === "draft-ea")!.current_body_to_send).toBe("Machine A");
+  });
+
+  it("does not create drafts for missing audience members", async () => {
+    const before = db.drafts.length;
+    await bulkSaveEveningTtoDraftBodies({
+      draftForDayKey: DAY,
+      operation: "apply_all",
+      body: "Shared evening text",
+      now,
+    });
+    expect(db.drafts.length).toBe(before);
+    expect(db.drafts.some((d) => d.clerk_user_id === "user_missing")).toBe(false);
+  });
+
+  it("bulk blank leaves current null for pre-Twilio revalidation to refuse", async () => {
+    await bulkSaveEveningTtoDraftBodies({
+      draftForDayKey: DAY,
+      operation: "blank_all",
+      now,
+    });
+    expect(db.drafts.find((d) => d.id === "draft-ea")!.current_body_to_send).toBeNull();
+    expect(db.drafts.find((d) => d.id === "draft-ea")!.current_body_source).toBe("tyler_edit");
+  });
+
+  it("bulk apply leaves latest body B for pre-Twilio revalidation to prefer over stale A", async () => {
+    await bulkSaveEveningTtoDraftBodies({
+      draftForDayKey: DAY,
+      operation: "apply_all",
+      body: "Evening B",
+      now,
+    });
+    expect(db.drafts.find((d) => d.id === "draft-ea")!.current_body_to_send).toBe("Evening B");
+  });
+
+  it("shared helper wire: evening route uses evening wrapper / no Twilio", () => {
+    const route = readFileSync(
+      join(process.cwd(), "src/app/api/admin/tyler-text-overview/evening-bulk-save/route.ts"),
+      "utf8"
+    );
+    expect(route).toContain("requireTylerAdmin");
+    expect(route).toContain("bulkSaveEveningTtoDraftBodies");
+    expect(route).not.toMatch(/sendSMS/);
+    expect(route).not.toMatch(/openai/i);
+    expect(route).not.toContain("sendEveningTtoAuthoritativeCronSend");
+    const admin = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-admin.ts"),
+      "utf8"
+    );
+    expect(admin).toContain("export async function bulkSaveTtoDraftBodies");
+    expect(admin).toContain("bulkSaveEveningTtoDraftBodies");
+    expect(admin).toContain("SMS_DAILY_EVENING_PREVIEW_SEND_SLOT");
+  });
+});
+
 describe("tyler-text-overview-admin API auth", () => {
   const env = { ...process.env };
 
@@ -1665,6 +1925,27 @@ describe("tyler-text-overview-admin API auth", () => {
     expect(json.ok).toBe(false);
   });
 
+  it("unauthorized evening-bulk-save rejected", async () => {
+    const err = Object.assign(new Error("UNAUTHORIZED"), { status: 401 });
+    requireTylerAdminMock.mockRejectedValueOnce(err);
+    const { POST } = await import(
+      "@/app/api/admin/tyler-text-overview/evening-bulk-save/route"
+    );
+    const res = await POST(
+      new Request("http://localhost/api/admin/tyler-text-overview/evening-bulk-save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draft_for_day_key: "2026-07-03",
+          operation: "blank_all",
+        }),
+      })
+    );
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json.ok).toBe(false);
+  });
+
   it("morning-bulk-save apply_all requires admin and returns aggregate", async () => {
     requireTylerAdminMock.mockResolvedValue(undefined);
     seedCurrentDraft();
@@ -1691,6 +1972,67 @@ describe("tyler-text-overview-admin API auth", () => {
     expect(db.drafts[0].current_body_to_send).toBe("Shared holiday text");
     expect(db.drafts[0].current_body_source).toBe("tyler_edit");
     expect(db.smsSendEventsWrites).toBe(0);
+  });
+
+  it("evening-bulk-save apply_all requires admin and returns aggregate", async () => {
+    requireTylerAdminMock.mockResolvedValue(undefined);
+    db.smsAudience = [];
+    db.v2Commitments = [];
+    db.v2CommsPrefs = [];
+    db.userProfiles = [];
+    db.smsSendEventsWrites = 0;
+    db.generationUpdateCalls = 0;
+    seedSendableUser({ clerkUserId: "user_evening_bulk", preferredName: "Eve" });
+    db.generations = [
+      {
+        id: "gen-eve-bulk",
+        generation_number: 1,
+        clerk_user_id: "user_evening_bulk",
+        draft_for_day_key: "2026-07-03",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        writer_openai_messages: WRITER_MESSAGES,
+        machine_draft_body: "Eve machine",
+        machine_should_send: true,
+      },
+    ];
+    db.drafts = [
+      {
+        id: "draft-eve-bulk",
+        clerk_user_id: "user_evening_bulk",
+        draft_for_day_key: "2026-07-03",
+        current_generation_id: "gen-eve-bulk",
+        current_body_to_send: "Eve machine",
+        status: "current",
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        current_body_source: "machine",
+        edited_by_tyler: false,
+      },
+    ];
+    const { POST } = await import(
+      "@/app/api/admin/tyler-text-overview/evening-bulk-save/route"
+    );
+    const res = await POST(
+      new Request("http://localhost/api/admin/tyler-text-overview/evening-bulk-save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draft_for_day_key: "2026-07-03",
+          operation: "apply_all",
+          body: "Shared evening text",
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.ok).toBe(true);
+    expect(json.result.updated).toBe(1);
+    expect(json.result.sendSlot).toBe(SMS_DAILY_EVENING_PREVIEW_SEND_SLOT);
+    expect(json.result.appliedBody).toBe("Shared evening text");
+    expect(json.result.textsSentByThisAction).toBe(0);
+    expect(db.drafts[0].current_body_to_send).toBe("Shared evening text");
+    expect(db.drafts[0].current_body_source).toBe("tyler_edit");
+    expect(db.smsSendEventsWrites).toBe(0);
+    expect(db.generationUpdateCalls).toBe(0);
   });
 
   it("GET defaults sendSlot to morning", async () => {

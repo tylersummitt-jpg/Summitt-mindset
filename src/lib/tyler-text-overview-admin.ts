@@ -1934,29 +1934,42 @@ export async function updateTylerTextOverviewDraftBody(args: {
   };
 }
 
-export type MorningTtoBulkSaveOperation = "blank_all" | "apply_all";
+export type TtoBulkSaveOperation = "blank_all" | "apply_all";
 
-export type MorningTtoBulkSaveFailure = {
+/** @deprecated Prefer TtoBulkSaveOperation — kept for Morning route/test compatibility. */
+export type MorningTtoBulkSaveOperation = TtoBulkSaveOperation;
+
+export type TtoBulkSaveFailure = {
   draftId: string;
   clerkUserId: string;
   preferredName: string | null;
   error: string;
 };
 
-export type MorningTtoBulkSaveResult = {
+/** @deprecated Prefer TtoBulkSaveFailure — kept for Morning route/test compatibility. */
+export type MorningTtoBulkSaveFailure = TtoBulkSaveFailure;
+
+export type TtoBulkSaveResult = {
   ok: boolean;
   draftForDayKey: string;
-  operation: MorningTtoBulkSaveOperation;
+  sendSlot: typeof SMS_DAILY_PRODUCTION_SEND_SLOT | typeof SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
+  operation: TtoBulkSaveOperation;
   appliedBody: string | null;
   targeted: number;
   updated: number;
   skippedNonCurrent: number;
   skippedMissing: number;
-  failed: MorningTtoBulkSaveFailure[];
+  failed: TtoBulkSaveFailure[];
   textsSentByThisAction: 0;
 };
 
-type MorningBulkDraftTargetRow = {
+/**
+ * Morning bulk result shape (same fields as TtoBulkSaveResult minus required sendSlot
+ * in legacy callers — sendSlot is still present when returned from shared helper).
+ */
+export type MorningTtoBulkSaveResult = TtoBulkSaveResult;
+
+type TtoBulkDraftTargetRow = {
   id: string;
   clerk_user_id: string;
   draft_for_day_key: string;
@@ -1964,15 +1977,20 @@ type MorningBulkDraftTargetRow = {
   status: string;
 };
 
-async function fetchMorningDraftsForBulkDay(args: {
+type TtoBulkSaveableSlot =
+  | typeof SMS_DAILY_PRODUCTION_SEND_SLOT
+  | typeof SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
+
+async function fetchTtoDraftsForBulkDay(args: {
   draftForDayKey: string;
+  sendSlot: TtoBulkSaveableSlot;
   clerkUserIds: string[];
-}): Promise<MorningBulkDraftTargetRow[]> {
+}): Promise<TtoBulkDraftTargetRow[]> {
   const uniqueUserIds = [...new Set(args.clerkUserIds.filter((id) => id.trim()))];
   if (uniqueUserIds.length === 0) return [];
 
   const pageSize = TTO_MANIFEST_PAGE_SIZE;
-  const all: MorningBulkDraftTargetRow[] = [];
+  const all: TtoBulkDraftTargetRow[] = [];
 
   for (const chunk of chunkIdsForTtoManifestQuery(uniqueUserIds)) {
     let from = 0;
@@ -1981,17 +1999,17 @@ async function fetchMorningDraftsForBulkDay(args: {
         .from(SMS_DAILY_DRAFTS_TABLE)
         .select("id, clerk_user_id, draft_for_day_key, send_slot, status")
         .eq("draft_for_day_key", args.draftForDayKey)
-        .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
+        .eq("send_slot", args.sendSlot)
         .in("clerk_user_id", chunk)
         .order("clerk_user_id", { ascending: true })
         .order("id", { ascending: true })
         .range(from, from + pageSize - 1);
 
       if (error) {
-        throw new Error(`morning_bulk_draft_query_failed:${error.message}`);
+        throw new Error(`tto_bulk_draft_query_failed:${error.message}`);
       }
 
-      const rows = (data ?? []) as MorningBulkDraftTargetRow[];
+      const rows = (data ?? []) as TtoBulkDraftTargetRow[];
       for (const row of rows) {
         if (
           typeof row.id === "string" &&
@@ -2011,18 +2029,25 @@ async function fetchMorningDraftsForBulkDay(args: {
 }
 
 /**
- * Morning-admin bulk Tyler Save for one selected draft_for_day_key.
+ * Slot-aware admin bulk Tyler Save for one selected draft_for_day_key.
  * Reuses updateTylerTextOverviewDraftBody; never sends, generates, or calls OpenAI.
+ * Only morning and evening_checkin are supported.
  */
-export async function bulkSaveMorningTtoDraftBodies(args: {
+export async function bulkSaveTtoDraftBodies(args: {
   draftForDayKey: string;
-  operation: MorningTtoBulkSaveOperation;
+  sendSlot: TtoBulkSaveableSlot;
+  operation: TtoBulkSaveOperation;
   body?: string;
   now?: Date;
-}): Promise<
-  | MorningTtoBulkSaveResult
-  | { ok: false; error: string; status: number }
-> {
+}): Promise<TtoBulkSaveResult | { ok: false; error: string; status: number }> {
+  const sendSlot = args.sendSlot;
+  if (
+    sendSlot !== SMS_DAILY_PRODUCTION_SEND_SLOT &&
+    sendSlot !== SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+  ) {
+    return { ok: false, error: "Unsupported send_slot for bulk save", status: 400 };
+  }
+
   let draftForDayKey: string;
   try {
     draftForDayKey = requireTylerTextOverviewDraftDayKey(args.draftForDayKey);
@@ -2059,29 +2084,30 @@ export async function bulkSaveMorningTtoDraftBodies(args: {
   );
   const audienceIds = audience.map((m) => m.clerkUserId);
 
-  let dayDrafts: MorningBulkDraftTargetRow[];
+  let dayDrafts: TtoBulkDraftTargetRow[];
   try {
-    dayDrafts = await fetchMorningDraftsForBulkDay({
+    dayDrafts = await fetchTtoDraftsForBulkDay({
       draftForDayKey,
+      sendSlot,
       clerkUserIds: audienceIds,
     });
   } catch (err) {
     return {
       ok: false,
-      error: err instanceof Error ? err.message : "morning_bulk_draft_query_failed",
+      error: err instanceof Error ? err.message : "tto_bulk_draft_query_failed",
       status: 500,
     };
   }
 
-  const draftsByUserId = new Map<string, MorningBulkDraftTargetRow>();
+  const draftsByUserId = new Map<string, TtoBulkDraftTargetRow>();
   for (const draft of dayDrafts) {
     if (draft.draft_for_day_key !== draftForDayKey) continue;
     const slot = mapDbSendSlotToAdminDto(draft.send_slot);
-    if (slot !== SMS_DAILY_PRODUCTION_SEND_SLOT) continue;
+    if (slot !== sendSlot) continue;
     draftsByUserId.set(draft.clerk_user_id, draft);
   }
 
-  const currentTargets: MorningBulkDraftTargetRow[] = [];
+  const currentTargets: TtoBulkDraftTargetRow[] = [];
   let skippedNonCurrent = 0;
   let skippedMissing = 0;
 
@@ -2098,7 +2124,7 @@ export async function bulkSaveMorningTtoDraftBodies(args: {
     }
   }
 
-  const failed: MorningTtoBulkSaveFailure[] = [];
+  const failed: TtoBulkSaveFailure[] = [];
   let updated = 0;
 
   for (const draft of currentTargets) {
@@ -2107,7 +2133,7 @@ export async function bulkSaveMorningTtoDraftBodies(args: {
       body: bodyToSave,
       now: args.now,
       expectedDraftForDayKey: draftForDayKey,
-      expectedSendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      expectedSendSlot: sendSlot,
     });
 
     if (result.ok) {
@@ -2131,6 +2157,7 @@ export async function bulkSaveMorningTtoDraftBodies(args: {
   return {
     ok: failed.length === 0,
     draftForDayKey,
+    sendSlot,
     operation: args.operation,
     appliedBody,
     targeted: currentTargets.length,
@@ -2140,4 +2167,45 @@ export async function bulkSaveMorningTtoDraftBodies(args: {
     failed,
     textsSentByThisAction: 0,
   };
+}
+
+/**
+ * Morning-admin bulk Tyler Save for one selected draft_for_day_key.
+ * Thin wrapper over bulkSaveTtoDraftBodies(sendSlot=morning).
+ */
+export async function bulkSaveMorningTtoDraftBodies(args: {
+  draftForDayKey: string;
+  operation: MorningTtoBulkSaveOperation;
+  body?: string;
+  now?: Date;
+}): Promise<
+  | MorningTtoBulkSaveResult
+  | { ok: false; error: string; status: number }
+> {
+  return bulkSaveTtoDraftBodies({
+    draftForDayKey: args.draftForDayKey,
+    sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    operation: args.operation,
+    body: args.body,
+    now: args.now,
+  });
+}
+
+/**
+ * Evening-admin bulk Tyler Save for one selected draft_for_day_key.
+ * Thin wrapper over bulkSaveTtoDraftBodies(sendSlot=evening_checkin).
+ */
+export async function bulkSaveEveningTtoDraftBodies(args: {
+  draftForDayKey: string;
+  operation: TtoBulkSaveOperation;
+  body?: string;
+  now?: Date;
+}): Promise<TtoBulkSaveResult | { ok: false; error: string; status: number }> {
+  return bulkSaveTtoDraftBodies({
+    draftForDayKey: args.draftForDayKey,
+    sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+    operation: args.operation,
+    body: args.body,
+    now: args.now,
+  });
 }

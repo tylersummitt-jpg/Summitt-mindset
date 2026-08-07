@@ -504,6 +504,41 @@ export const MORNING_BULK_APPLY_EMPTY_HINT =
 export const MORNING_BULK_SELECT_DAY_HINT =
   "Select a Draft day before using bulk actions.";
 
+export const EVENING_BULK_ACTIONS_HEADING = "Bulk Evening actions";
+
+export const EVENING_BULK_SEARCH_WARNING =
+  "Search only filters the list below. Bulk actions still apply to the full selected-day Evening batch.";
+
+export const EVENING_BULK_APPLY_EMPTY_HINT =
+  "Type a non-empty text to apply, or use Blank all texts.";
+
+export const EVENING_BULK_SELECT_DAY_HINT =
+  "Select a Draft day before using bulk actions.";
+
+export type TtoBulkUiSlot = "morning" | "evening_checkin";
+
+export function ttoBulkActionsHeading(slot: TtoBulkUiSlot): string {
+  return slot === "evening_checkin" ? EVENING_BULK_ACTIONS_HEADING : MORNING_BULK_ACTIONS_HEADING;
+}
+
+export function ttoBulkSearchWarning(slot: TtoBulkUiSlot): string {
+  return slot === "evening_checkin" ? EVENING_BULK_SEARCH_WARNING : MORNING_BULK_SEARCH_WARNING;
+}
+
+export function ttoBulkApplyEmptyHint(slot: TtoBulkUiSlot): string {
+  return slot === "evening_checkin" ? EVENING_BULK_APPLY_EMPTY_HINT : MORNING_BULK_APPLY_EMPTY_HINT;
+}
+
+export function ttoBulkSelectDayHint(slot: TtoBulkUiSlot): string {
+  return slot === "evening_checkin" ? EVENING_BULK_SELECT_DAY_HINT : MORNING_BULK_SELECT_DAY_HINT;
+}
+
+export function ttoBulkSaveEndpoint(slot: TtoBulkUiSlot): string {
+  return slot === "evening_checkin"
+    ? "/api/admin/tyler-text-overview/evening-bulk-save"
+    : "/api/admin/tyler-text-overview/morning-bulk-save";
+}
+
 export function formatMorningBulkBlankConfirm(args: {
   draftForDayKey: string;
   currentDraftCount: number;
@@ -514,6 +549,21 @@ export function formatMorningBulkBlankConfirm(args: {
     "No Morning text will send for these drafts unless you add text again.",
     "This overwrites existing Tyler edits on current drafts.",
     "Already-sent drafts are skipped.",
+    "This saves blank bodies but does not send anything now.",
+  ].join("\n");
+}
+
+export function formatEveningBulkBlankConfirm(args: {
+  draftForDayKey: string;
+  currentDraftCount: number;
+}): string {
+  return [
+    `Blank all ${args.currentDraftCount} unsent Evening texts for ${args.draftForDayKey}?`,
+    "",
+    "Active search does not narrow this bulk action — the full selected-day Evening batch is affected.",
+    "No Evening text will auto-send for these drafts unless you add text again.",
+    "This overwrites existing Tyler edits on current drafts.",
+    "Already-sent / non-current drafts are skipped.",
     "This saves blank bodies but does not send anything now.",
   ].join("\n");
 }
@@ -535,6 +585,25 @@ export function formatMorningBulkApplyConfirm(args: {
   ].join("\n");
 }
 
+export function formatEveningBulkApplyConfirm(args: {
+  draftForDayKey: string;
+  currentDraftCount: number;
+  body: string;
+}): string {
+  return [
+    `Replace the saved body for all ${args.currentDraftCount} unsent ${args.draftForDayKey} Evening drafts with this exact text?`,
+    "",
+    "Active search does not narrow this bulk action — the full selected-day Evening batch is affected.",
+    "This overwrites existing Tyler edits.",
+    "Already-sent / non-current drafts are skipped.",
+    "This saves the text but does not send it now.",
+    "Nonblank saved Evening bodies may auto-send later during each member's 7–9 PM local Evening window.",
+    "",
+    "Exact text:",
+    args.body,
+  ].join("\n");
+}
+
 export function formatMorningBulkResultMessage(args: {
   updated: number;
   skippedNonCurrent: number;
@@ -542,8 +611,29 @@ export function formatMorningBulkResultMessage(args: {
   failed: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
   textsSentByThisAction: number;
 }): string {
+  return formatTtoBulkResultMessage({ ...args, slotLabel: "Morning" });
+}
+
+export function formatEveningBulkResultMessage(args: {
+  updated: number;
+  skippedNonCurrent: number;
+  skippedMissing: number;
+  failed: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
+  textsSentByThisAction: number;
+}): string {
+  return formatTtoBulkResultMessage({ ...args, slotLabel: "Evening" });
+}
+
+export function formatTtoBulkResultMessage(args: {
+  slotLabel: "Morning" | "Evening";
+  updated: number;
+  skippedNonCurrent: number;
+  skippedMissing: number;
+  failed: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
+  textsSentByThisAction: number;
+}): string {
   const lines = [
-    `${args.updated} Morning drafts updated.`,
+    `${args.updated} ${args.slotLabel} drafts updated.`,
     `${args.skippedNonCurrent} already sent/skipped.`,
     `${args.skippedMissing} missing drafts skipped.`,
     `${args.failed.length} failed.`,
@@ -561,6 +651,27 @@ export function formatMorningBulkResultMessage(args: {
     }
   }
   return lines.join("\n");
+}
+
+export function formatTtoBulkBlankConfirm(args: {
+  slot: TtoBulkUiSlot;
+  draftForDayKey: string;
+  currentDraftCount: number;
+}): string {
+  return args.slot === "evening_checkin"
+    ? formatEveningBulkBlankConfirm(args)
+    : formatMorningBulkBlankConfirm(args);
+}
+
+export function formatTtoBulkApplyConfirm(args: {
+  slot: TtoBulkUiSlot;
+  draftForDayKey: string;
+  currentDraftCount: number;
+  body: string;
+}): string {
+  return args.slot === "evening_checkin"
+    ? formatEveningBulkApplyConfirm(args)
+    : formatMorningBulkApplyConfirm(args);
 }
 
 /** True when a current draft was Tyler-blanked (blocks Morning send). */

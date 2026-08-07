@@ -29,6 +29,9 @@ import {
   formatMorningBulkApplyConfirm,
   formatMorningBulkBlankConfirm,
   formatMorningBulkResultMessage,
+  formatEveningBulkApplyConfirm,
+  formatEveningBulkBlankConfirm,
+  formatEveningBulkResultMessage,
   formatMorningTtoSaveToast,
   formatMorningTtoSendabilityCopy,
   resolveEveningTtoInitialSelectedDayKey,
@@ -37,8 +40,11 @@ import {
   resolveTylerTextOverviewRootRedirectPath,
   rowStateLabel,
   shouldShowEveningNonTodayWarning,
+  ttoBulkSaveEndpoint,
   MORNING_BULK_ACTIONS_HEADING,
   MORNING_BULK_SEARCH_WARNING,
+  EVENING_BULK_ACTIONS_HEADING,
+  EVENING_BULK_SEARCH_WARNING,
   MORNING_MISSING_DRAFT_BANNER,
   MORNING_UNSAVED_COPY,
   TTO_MANIFEST_INCOMPLETE_BANNER,
@@ -539,19 +545,28 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("machine_no_send_reason");
   });
 
-  it("Morning-only bulk actions call morning-bulk-save and force refetch", () => {
-    expect(dashboard).toContain("MORNING_BULK_ACTIONS_HEADING");
+  it("Morning and Evening bulk actions are slot-aware; Weekly has none", () => {
+    expect(dashboard).toContain("ttoBulkActionsHeading");
+    expect(dashboard).toContain("ttoBulkSaveEndpoint");
     expect(dashboard).toContain("Blank all texts");
     expect(dashboard).toContain("Apply text to all");
-    expect(dashboard).toContain("/api/admin/tyler-text-overview/morning-bulk-save");
+    expect(dashboard).toContain("ttoBulkSaveEndpoint(bulkUiSlot)");
     expect(dashboard).toContain('operation: "blank_all"');
     expect(dashboard).toContain('operation: "apply_all"');
-    expect(dashboard).toContain("formatMorningBulkBlankConfirm");
-    expect(dashboard).toContain("formatMorningBulkApplyConfirm");
-    expect(dashboard).toContain("MORNING_BULK_SEARCH_WARNING");
+    expect(dashboard).toContain("formatTtoBulkBlankConfirm");
+    expect(dashboard).toContain("formatTtoBulkApplyConfirm");
+    expect(dashboard).toContain("ttoBulkSearchWarning");
     expect(dashboard).toContain("forceOverwrite: true");
-    expect(dashboard).toContain("{!isEveningPage ? (");
+    expect(dashboard).toContain('bulkUiSlot = isEveningPage ? ("evening_checkin" as const)');
+    expect(dashboard).toContain("7–9 PM local window");
     expect(dashboard).not.toContain("weekly-bulk-save");
+    expect(dashboard).not.toContain("{!isEveningPage ? (");
+    expect(ttoBulkSaveEndpoint("morning")).toBe(
+      "/api/admin/tyler-text-overview/morning-bulk-save"
+    );
+    expect(ttoBulkSaveEndpoint("evening_checkin")).toBe(
+      "/api/admin/tyler-text-overview/evening-bulk-save"
+    );
   });
 });
 
@@ -598,6 +613,57 @@ describe("morning bulk confirmation copy", () => {
     expect(msg).toContain("Pat: draft_update_failed");
     expect(MORNING_BULK_ACTIONS_HEADING).toBe("Bulk Morning actions");
     expect(MORNING_BULK_SEARCH_WARNING).toContain("full selected-day Morning batch");
+  });
+});
+
+describe("evening bulk confirmation copy", () => {
+  it("blank confirm states day, overwrite, search, and no-send", () => {
+    const copy = formatEveningBulkBlankConfirm({
+      draftForDayKey: "2026-07-04",
+      currentDraftCount: 12,
+    });
+    expect(copy).toContain("12");
+    expect(copy).toContain("2026-07-04");
+    expect(copy).toContain("Evening");
+    expect(copy).toContain("Active search does not narrow");
+    expect(copy).toContain("overwrites existing Tyler edits");
+    expect(copy).toContain("does not send anything now");
+  });
+
+  it("apply confirm includes auto-send window and no-immediate-send", () => {
+    const body = "Have a good evening.";
+    const copy = formatEveningBulkApplyConfirm({
+      draftForDayKey: "2026-07-04",
+      currentDraftCount: 12,
+      body,
+    });
+    expect(copy).toContain("12");
+    expect(copy).toContain("2026-07-04");
+    expect(copy).toContain(body);
+    expect(copy).toContain("overwrites existing Tyler edits");
+    expect(copy).toContain("does not send it now");
+    expect(copy).toContain("7–9 PM local Evening window");
+    expect(copy).toContain("Active search does not narrow");
+  });
+
+  it("result message and helpers are Evening-labeled", () => {
+    const msg = formatEveningBulkResultMessage({
+      updated: 10,
+      skippedNonCurrent: 1,
+      skippedMissing: 2,
+      failed: [],
+      textsSentByThisAction: 0,
+    });
+    expect(msg).toContain("10 Evening drafts updated.");
+    expect(msg).toContain("0 texts sent by this action.");
+    expect(EVENING_BULK_ACTIONS_HEADING).toBe("Bulk Evening actions");
+    expect(EVENING_BULK_SEARCH_WARNING).toContain("full selected-day Evening batch");
+    expect(ttoBulkSaveEndpoint("evening_checkin")).toBe(
+      "/api/admin/tyler-text-overview/evening-bulk-save"
+    );
+    expect(ttoBulkSaveEndpoint("morning")).toBe(
+      "/api/admin/tyler-text-overview/morning-bulk-save"
+    );
   });
 });
 

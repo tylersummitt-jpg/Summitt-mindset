@@ -435,6 +435,45 @@ describe("Evening authoritative gate + cron send", () => {
     }
   });
 
+  it("bulk-style blank before handoff aborts stale A; apply B wins over stale A", async () => {
+    seedEveningDraft({
+      draft_for_day_key: "2026-06-27",
+      current_body_to_send: "A",
+      current_body_source: "machine",
+      edited_by_tyler: false,
+    });
+    // Simulate bulk blank Save fields
+    db.drafts[0].current_body_to_send = null;
+    db.drafts[0].current_body_source = "tyler_edit";
+    db.drafts[0].edited_by_tyler = true;
+    const blanked = await revalidateEveningTtoBodyBeforeTwilio({
+      draftId: "draft-e",
+      clerkUserId: "user_e5",
+      draftForDayKey: "2026-06-27",
+      pinnedBody: "A",
+    });
+    expect(blanked.ok).toBe(false);
+    if (!blanked.ok) expect(blanked.result.refusalCode).toBe("tto_blank_evening_body");
+
+    seedEveningDraft({
+      draft_for_day_key: "2026-06-27",
+      current_body_to_send: "Evening B",
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+    });
+    const applied = await revalidateEveningTtoBodyBeforeTwilio({
+      draftId: "draft-e",
+      clerkUserId: "user_e5",
+      draftForDayKey: "2026-06-27",
+      pinnedBody: "A",
+    });
+    expect(applied.ok).toBe(true);
+    if (applied.ok) {
+      expect(applied.bodyToSend).toBe("Evening B");
+      expect(applied.refreshed).toBe(true);
+    }
+  });
+
   it("rerun does not resend after accepted handoff", async () => {
     seedEveningDraft({ draft_for_day_key: "2026-06-27" });
     const first = await sendEveningTtoAuthoritativeCronSend({

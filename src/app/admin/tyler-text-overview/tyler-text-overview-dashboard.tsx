@@ -19,8 +19,9 @@ import {
   EVENING_TTO_SAVE_ONLY_COPY,
   formatEveningEmptyBodyPanelCopy,
   formatEveningPreviewGenerateSuccessToast,
-  formatMorningBulkApplyConfirm,
-  formatMorningBulkBlankConfirm,
+  formatTtoBulkApplyConfirm,
+  formatTtoBulkBlankConfirm,
+  formatEveningBulkResultMessage,
   formatMorningBulkResultMessage,
   formatMorningTtoSaveToast,
   formatMorningTtoSendabilityCopy,
@@ -28,10 +29,11 @@ import {
   isEveningSendBusy,
   isTylerBlankedMorningDraftRow,
   matchesTylerTextOverviewSearchQuery,
-  MORNING_BULK_ACTIONS_HEADING,
-  MORNING_BULK_APPLY_EMPTY_HINT,
-  MORNING_BULK_SEARCH_WARNING,
-  MORNING_BULK_SELECT_DAY_HINT,
+  ttoBulkActionsHeading,
+  ttoBulkApplyEmptyHint,
+  ttoBulkSaveEndpoint,
+  ttoBulkSearchWarning,
+  ttoBulkSelectDayHint,
   MORNING_MISSING_DRAFT_BANNER,
   MORNING_MISSING_DRAFT_SUPPORTING_COPY,
   MORNING_SAVE_FAILED_COPY,
@@ -1154,25 +1156,27 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     setSelectedDayKey(nextDay);
   }
 
-  const morningCurrentDraftCount = useMemo(() => {
-    if (isEveningPage) return 0;
+  const bulkUiSlot = isEveningPage ? ("evening_checkin" as const) : ("morning" as const);
+  const bulkSlotLabel = isEveningPage ? "Evening" : "Morning";
+
+  const bulkCurrentDraftCount = useMemo(() => {
     return rows.filter((row) => canEditMorningDraft(row)).length;
-  }, [isEveningPage, rows]);
+  }, [rows]);
 
   const bulkApplyNormalized = bulkApplyText.trim();
   const bulkApplyEnabled = bulkApplyNormalized.length > 0;
 
-  async function runMorningBulkSave(args: {
+  async function runBulkSave(args: {
     operation: "blank_all" | "apply_all";
     body?: string;
   }) {
     const dayKey = selectedDayKey.trim();
-    if (!dayKey || isEveningPage || bulkBusy) return;
+    if (!dayKey || bulkBusy) return;
 
     setBulkBusy(true);
     setBulkResultMessage(null);
     try {
-      const res = await fetch("/api/admin/tyler-text-overview/morning-bulk-save", {
+      const res = await fetch(ttoBulkSaveEndpoint(bulkUiSlot), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1197,17 +1201,19 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         failed: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
         textsSentByThisAction: number;
       };
-      const message = formatMorningBulkResultMessage(result);
+      const message = isEveningPage
+        ? formatEveningBulkResultMessage(result)
+        : formatMorningBulkResultMessage(result);
       setBulkResultMessage(message);
       showToast(
         result.failed.length > 0
           ? `Bulk save partial: ${result.updated} updated, ${result.failed.length} failed.`
-          : `Bulk save: ${result.updated} Morning drafts updated.`
+          : `Bulk save: ${result.updated} ${bulkSlotLabel} drafts updated.`
       );
 
       await load(dayKey, sendSlot, { forceOverwrite: true });
     } catch (err) {
-      console.error("Morning bulk save failed", err);
+      console.error(`${bulkSlotLabel} bulk save failed`, err);
       const msg = "Bulk save failed.";
       setBulkResultMessage(msg);
       showToast(msg);
@@ -1216,31 +1222,33 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     }
   }
 
-  async function handleBlankAllMorningTexts() {
+  async function handleBlankAllTexts() {
     const dayKey = selectedDayKey.trim();
-    if (!dayKey || isEveningPage || bulkBusy) return;
+    if (!dayKey || bulkBusy) return;
     const ok = window.confirm(
-      formatMorningBulkBlankConfirm({
+      formatTtoBulkBlankConfirm({
+        slot: bulkUiSlot,
         draftForDayKey: dayKey,
-        currentDraftCount: morningCurrentDraftCount,
+        currentDraftCount: bulkCurrentDraftCount,
       })
     );
     if (!ok) return;
-    await runMorningBulkSave({ operation: "blank_all" });
+    await runBulkSave({ operation: "blank_all" });
   }
 
-  async function handleApplyTextToAllMorning() {
+  async function handleApplyTextToAll() {
     const dayKey = selectedDayKey.trim();
-    if (!dayKey || isEveningPage || bulkBusy || !bulkApplyEnabled) return;
+    if (!dayKey || bulkBusy || !bulkApplyEnabled) return;
     const ok = window.confirm(
-      formatMorningBulkApplyConfirm({
+      formatTtoBulkApplyConfirm({
+        slot: bulkUiSlot,
         draftForDayKey: dayKey,
-        currentDraftCount: morningCurrentDraftCount,
+        currentDraftCount: bulkCurrentDraftCount,
         body: bulkApplyNormalized,
       })
     );
     if (!ok) return;
-    await runMorningBulkSave({ operation: "apply_all", body: bulkApplyText });
+    await runBulkSave({ operation: "apply_all", body: bulkApplyText });
   }
 
   async function saveDraft(row: TylerTextOverviewAdminDraftRow) {
@@ -1651,71 +1659,72 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         </div>
       </div>
 
-      {!isEveningPage ? (
-        <div className="rounded-md border border-gray-300 bg-white px-4 py-4 space-y-3">
-          <h2 className="text-sm font-semibold text-gray-900">{MORNING_BULK_ACTIONS_HEADING}</h2>
-          {!selectedDayKey.trim() ? (
-            <p className="text-sm text-amber-900">{MORNING_BULK_SELECT_DAY_HINT}</p>
-          ) : (
-            <>
-              {searchQuery.trim() ? (
-                <p className="text-xs text-amber-900">{MORNING_BULK_SEARCH_WARNING}</p>
+      <div className="rounded-md border border-gray-300 bg-white px-4 py-4 space-y-3">
+        <h2 className="text-sm font-semibold text-gray-900">
+          {ttoBulkActionsHeading(bulkUiSlot)}
+        </h2>
+        {!selectedDayKey.trim() ? (
+          <p className="text-sm text-amber-900">{ttoBulkSelectDayHint(bulkUiSlot)}</p>
+        ) : (
+          <>
+            {searchQuery.trim() ? (
+              <p className="text-xs text-amber-900">{ttoBulkSearchWarning(bulkUiSlot)}</p>
+            ) : null}
+            <p className="text-xs text-gray-600">
+              Targets all {bulkCurrentDraftCount} current unsent {bulkSlotLabel} drafts for{" "}
+              <span className="font-mono">{selectedDayKey}</span>. Already-sent and missing drafts
+              are skipped. Does not send texts
+              {isEveningPage
+                ? "; nonblank saved Evening bodies may auto-send later in each member's 7–9 PM local window."
+                : "."}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
+                disabled={bulkBusy || !selectedDayKey.trim() || loading}
+                onClick={() => void handleBlankAllTexts()}
+              >
+                {bulkBusy ? "Working…" : "Blank all texts"}
+              </button>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm">
+                <span className="font-medium text-gray-700">Apply same text to all</span>
+                <textarea
+                  className="mt-1 block w-full min-h-[88px] rounded border border-gray-300 bg-white px-3 py-2 text-sm font-mono"
+                  value={bulkApplyText}
+                  disabled={bulkBusy || !selectedDayKey.trim()}
+                  onChange={(e) => setBulkApplyText(e.target.value)}
+                  placeholder={`Exact text to save for every current ${bulkSlotLabel} draft`}
+                />
+              </label>
+              {!bulkApplyEnabled ? (
+                <p className="text-xs text-gray-600">{ttoBulkApplyEmptyHint(bulkUiSlot)}</p>
               ) : null}
-              <p className="text-xs text-gray-600">
-                Targets all {morningCurrentDraftCount} current unsent Morning drafts for{" "}
-                <span className="font-mono">{selectedDayKey}</span>. Already-sent and missing drafts
-                are skipped. Does not send texts.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
-                  disabled={bulkBusy || !selectedDayKey.trim() || loading}
-                  onClick={() => void handleBlankAllMorningTexts()}
-                >
-                  {bulkBusy ? "Working…" : "Blank all texts"}
-                </button>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm">
-                  <span className="font-medium text-gray-700">Apply same text to all</span>
-                  <textarea
-                    className="mt-1 block w-full min-h-[88px] rounded border border-gray-300 bg-white px-3 py-2 text-sm font-mono"
-                    value={bulkApplyText}
-                    disabled={bulkBusy || !selectedDayKey.trim()}
-                    onChange={(e) => setBulkApplyText(e.target.value)}
-                    placeholder="Exact text to save for every current Morning draft"
-                  />
-                </label>
-                {!bulkApplyEnabled ? (
-                  <p className="text-xs text-gray-600">{MORNING_BULK_APPLY_EMPTY_HINT}</p>
-                ) : null}
-                <button
-                  type="button"
-                  className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                  disabled={
-                    bulkBusy || !selectedDayKey.trim() || loading || !bulkApplyEnabled
-                  }
-                  onClick={() => void handleApplyTextToAllMorning()}
-                >
-                  {bulkBusy ? "Working…" : "Apply text to all"}
-                </button>
-              </div>
-                  {bulkResultMessage ? (
-                <pre
-                  className={`whitespace-pre-wrap rounded border px-3 py-2 text-xs ${
-                    bulkResultMessage.includes("\nFailed:")
-                      ? "border-amber-300 bg-amber-50 text-amber-950"
-                      : "border-green-200 bg-green-50 text-green-900"
-                  }`}
-                >
-                  {bulkResultMessage}
-                </pre>
-              ) : null}
-            </>
-          )}
-        </div>
-      ) : null}
+              <button
+                type="button"
+                className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                disabled={bulkBusy || !selectedDayKey.trim() || loading || !bulkApplyEnabled}
+                onClick={() => void handleApplyTextToAll()}
+              >
+                {bulkBusy ? "Working…" : "Apply text to all"}
+              </button>
+            </div>
+            {bulkResultMessage ? (
+              <pre
+                className={`whitespace-pre-wrap rounded border px-3 py-2 text-xs ${
+                  bulkResultMessage.includes("\nFailed:")
+                    ? "border-amber-300 bg-amber-50 text-amber-950"
+                    : "border-green-200 bg-green-50 text-green-900"
+                }`}
+              >
+                {bulkResultMessage}
+              </pre>
+            ) : null}
+          </>
+        )}
+      </div>
 
       {counts ? (
         <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800">
