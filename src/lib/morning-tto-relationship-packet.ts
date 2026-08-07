@@ -20,14 +20,17 @@ import {
 } from "@/lib/v2-guided-resolution";
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor-validation";
 
+/** Intended SMS daypart for shared Sol coaching (Morning wrappers always pass "morning"). */
+export type TtoMessageDaypart = "morning" | "evening";
+
 export type MorningRelationshipPacket = {
   version: "morning_relationship_v1";
-  /** Authoritative calendar day/daypart the Morning SMS is for (draft_for_day_key). */
+  /** Authoritative calendar day/daypart this SMS is for (draft_for_day_key). */
   message_for: {
     timezone: string;
     local_date: string;
     local_weekday: string;
-    daypart: "morning";
+    daypart: TtoMessageDaypart;
   };
   last_user_response: {
     at_utc: string | null;
@@ -122,13 +125,15 @@ export function weekdayLongFromLocalDayKey(dayKey: string): string {
 export function buildMorningMessageFor(args: {
   timezone: string;
   draftForDayKey: string;
+  /** Defaults to morning — Evening wrappers pass "evening". */
+  daypart?: TtoMessageDaypart;
 }): MorningRelationshipPacket["message_for"] {
   const local_date = args.draftForDayKey.trim();
   return {
     timezone: resolveUserTimezone(args.timezone),
     local_date,
     local_weekday: weekdayLongFromLocalDayKey(local_date),
-    daypart: "morning",
+    daypart: args.daypart ?? "morning",
   };
 }
 
@@ -193,9 +198,11 @@ export async function loadMorningRelationshipPacket(args: {
   clerkUserId: string;
   timezone: string;
   now?: Date;
-  /** Accountability / send day for this Morning draft — required; never inferred from local hour. */
+  /** Accountability / send day for this draft — required; never inferred from local hour. */
   draftForDayKey: string;
   commitmentId?: string | null;
+  /** Defaults to morning — Evening wrappers pass "evening". */
+  daypart?: TtoMessageDaypart;
 }): Promise<
   | { ok: true; packet: MorningRelationshipPacket; commitmentId: string }
   | { ok: false; error: string }
@@ -214,7 +221,11 @@ export async function loadMorningRelationshipPacket(args: {
     };
   }
 
-  const message_for = buildMorningMessageFor({ timezone: tz, draftForDayKey });
+  const message_for = buildMorningMessageFor({
+    timezone: tz,
+    draftForDayKey,
+    daypart: args.daypart ?? "morning",
+  });
 
   let commitment: ActiveV2CommitmentRow | null = null;
   if (args.commitmentId) {

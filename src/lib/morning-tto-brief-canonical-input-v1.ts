@@ -41,7 +41,7 @@ export type MorningBriefInterpreterInputV1 = {
     timezone: string;
     local_date: string;
     local_weekday: string;
-    daypart: "morning";
+    daypart: "morning" | "evening";
   };
   mechanical: {
     days_since_last_user_response: number | null;
@@ -179,6 +179,8 @@ export type AssembleMorningBriefInterpreterInputArgs = {
   timezone: string;
   localDate: string;
   localWeekday: string;
+  /** Defaults to morning — Evening wrappers pass evening via packet. */
+  daypart?: "morning" | "evening";
   daysSinceLastUserResponse: number | null;
   neverReplied: boolean;
   recentUnansweredOutboundCount: number;
@@ -343,7 +345,7 @@ export function assembleMorningBriefInterpreterInputV1(
       timezone,
       local_date: localDate,
       local_weekday: localWeekday,
-      daypart: "morning",
+      daypart: args.daypart === "evening" ? "evening" : "morning",
     },
     mechanical: {
       days_since_last_user_response:
@@ -383,7 +385,7 @@ export function isMorningBriefInterpreterInputV1(
   const v = value as MorningBriefInterpreterInputV1;
   return (
     v.version === MORNING_BRIEF_INTERPRETER_INPUT_VERSION &&
-    v.message_for?.daypart === "morning" &&
+    (v.message_for?.daypart === "morning" || v.message_for?.daypart === "evening") &&
     typeof v.canonical_goal?.text === "string" &&
     Array.isArray(v.available_important_people) &&
     Array.isArray(v.exact_thread?.messages)

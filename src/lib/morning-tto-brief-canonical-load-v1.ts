@@ -265,6 +265,7 @@ export function assembleMorningBriefInterpreterInputFromPacket(args: {
     timezone: packet.message_for.timezone,
     localDate: packet.message_for.local_date,
     localWeekday: packet.message_for.local_weekday,
+    daypart: packet.message_for.daypart,
     daysSinceLastUserResponse: packet.last_user_response.days_since,
     neverReplied: packet.last_user_response.never_replied,
     recentUnansweredOutboundCount:

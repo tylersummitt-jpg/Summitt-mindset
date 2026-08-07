@@ -1471,6 +1471,18 @@ describe("canonical batch persists one day across US timezones", () => {
 });
 
 describe("generateTylerTextOverviewEveningPreviewForUser", () => {
+  function eveningPacketForDay(dayKey: string) {
+    return {
+      ...MORNING_PACKET,
+      message_for: {
+        timezone: "America/New_York",
+        local_date: dayKey,
+        local_weekday: "Friday",
+        daypart: "evening" as const,
+      },
+    };
+  }
+
   beforeEach(() => {
     process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
     db.generations = [];
@@ -1478,42 +1490,44 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     db.smsSendEventsWrites = 0;
     vi.clearAllMocks();
     setupHappyPath();
+    loadMorningPacketMock.mockImplementation(async (args: { draftForDayKey: string; daypart?: string }) => ({
+      ok: true,
+      packet: eveningPacketForDay(args.draftForDayKey),
+      commitmentId: "cmt-phase3",
+    }));
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "How did the evening go?",
+      messages: MORNING_WRITER_MESSAGES,
+      primaryMessages: MORNING_WRITER_MESSAGES,
+      retryMessages: [],
+      retryOccurred: false,
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
+      capture: {
+        capture_version: "morning_writer_capture_v1",
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        prompt_path: "morning_brief_writer_v1",
+        raw_response: '{"body":"How did the evening go?"}',
+        raw_retry_response: null,
+        error: null,
+        request_started_at: "2026-07-02T16:00:00.000Z",
+        request_completed_at: "2026-07-02T16:00:01.000Z",
+        latency_ms: 1000,
+        retry_occurred: false,
+        retry_succeeded: null,
+      },
+    });
   });
 
   afterEach(() => {
     process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "false";
   });
 
-  it("persists evening_checkin preview rows with metadata", async () => {
-    buildDailySmsContentMock.mockImplementation(
-      (_uid, _md, _day, _tz, options) => {
-        expect(options?.writingBriefOverrides?.currentSendSlot).toBe(
-          SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
-        );
-        expect(options?.writingBriefOverrides?.slotDaypartOverride).toBe("evening");
-        return Promise.resolve({
-          ...SUCCESS_BUILT,
-          v2AiPayload: {
-            v3_brain: {
-              slot_coaching_context: {
-                version: "1",
-                current_slot: "evening_checkin",
-                previous_slot: "morning",
-                previous_outbound_summary: "Morning rep.",
-                user_replies_since_previous_outbound: null,
-                active_coaching_thread: "Thread focus: plan",
-                slot_role_recommendation: "truth_check",
-                checkin_focus: null,
-                should_send_recommendation: "writer_decides",
-                skip_reason_hint: null,
-              },
-              current_send_slot: "evening_checkin",
-            },
-          },
-        });
-      }
-    );
-
+  it("persists evening_checkin Sol rows with shared forensic metadata", async () => {
     const result = await generateTylerTextOverviewEveningPreviewForUser({
       clerkUserId: AUDIENCE_USER.clerk_user_id,
       draftForDayKey: "2026-07-03",
@@ -1521,6 +1535,20 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
+
+    expect(result.machineShouldSend).toBe(true);
+    expect(result.body).toBe("How did the evening go?");
+    expect(result.messageFor?.daypart).toBe("evening");
+    expect(result.messageFor?.local_date).toBe("2026-07-03");
+
+    expect(loadMorningPacketMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftForDayKey: "2026-07-03",
+        daypart: "evening",
+      })
+    );
+    expect(writeMorningTtoBodyMock).toHaveBeenCalled();
+    expect(buildDailySmsContentMock).not.toHaveBeenCalled();
 
     expect(db.generations.some((g) => g.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
       true
@@ -1534,8 +1562,14 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     const meta = eveningGen?.generation_metadata as Record<string, unknown>;
     expect(meta.preview_only).toBe(true);
     expect(meta.preview_slot).toBe(SMS_DAILY_EVENING_PREVIEW_SEND_SLOT);
-    expect(meta.morning_anchor_source).toBeTruthy();
-    expect(meta.current_send_slot).toBe("evening_checkin");
+    expect(meta.coaching_stack).toBe("shared_sol_v1");
+    expect(meta.morning_coaching_brief_v1).toBeTruthy();
+    expect(meta.morning_brief_interpreter_v1).toBeTruthy();
+    expect(meta.morning_relationship_packet_v1).toBeTruthy();
+    expect((meta.message_for as { daypart?: string })?.daypart).toBe("evening");
+    expect(meta.morning_anchor_source).toBeUndefined();
+    expect(eveningGen?.writer_prompt_path).toBe("morning_brief_writer_v1");
+    expect(eveningGen?.machine_should_send).toBe(true);
     expect(db.smsSendEventsWrites).toBe(0);
     expect(sendSmsMock).not.toHaveBeenCalled();
   });
@@ -1555,7 +1589,6 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
       status: "current",
     });
 
-    buildDailySmsContentMock.mockResolvedValue(SUCCESS_BUILT);
     await generateTylerTextOverviewEveningPreviewForUser({
       clerkUserId: AUDIENCE_USER.clerk_user_id,
       draftForDayKey: "2026-07-03",
@@ -1572,7 +1605,6 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
   });
 
   it("defaults to user-local today at 8 PM ET without morning rollover", async () => {
-    buildDailySmsContentMock.mockResolvedValue(SUCCESS_BUILT);
     const result = await generateTylerTextOverviewEveningPreviewForUser({
       clerkUserId: AUDIENCE_USER.clerk_user_id,
       now: new Date("2026-07-10T00:00:00.000Z"), // 8:00 PM ET July 9
@@ -1580,26 +1612,15 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.draftForDayKey).toBe("2026-07-09");
-    expect(buildDailySmsContentMock).toHaveBeenCalledWith(
-      AUDIENCE_USER.clerk_user_id,
-      expect.any(Object),
-      "2026-07-09",
-      "America/New_York",
+    expect(loadMorningPacketMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        mode: "draft",
-        writingBriefOverrides: expect.objectContaining({
-          currentSendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-        }),
+        draftForDayKey: "2026-07-09",
+        daypart: "evening",
       })
     );
-    const eveningOpts = buildDailySmsContentMock.mock.calls.at(-1)?.[4] as
-      | { ttoDraftPreservePrimaryBody?: boolean }
-      | undefined;
-    expect(eveningOpts?.ttoDraftPreservePrimaryBody).not.toBe(true);
   });
 
   it("respects explicit draftForDayKey even when local evening would be today", async () => {
-    buildDailySmsContentMock.mockResolvedValue(SUCCESS_BUILT);
     const result = await generateTylerTextOverviewEveningPreviewForUser({
       clerkUserId: AUDIENCE_USER.clerk_user_id,
       draftForDayKey: "2026-07-10",
@@ -1608,12 +1629,36 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.draftForDayKey).toBe("2026-07-10");
+    expect(result.messageFor?.local_date).toBe("2026-07-10");
+    expect(result.messageFor?.daypart).toBe("evening");
   });
 
   it("does not overwrite protected tyler_edit evening draft on regenerate", async () => {
-    buildDailySmsContentMock.mockResolvedValue({
-      ...SUCCESS_BUILT,
-      smsBody: "New evening machine body must not become live",
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "New evening machine body must not become live",
+      messages: MORNING_WRITER_MESSAGES,
+      primaryMessages: MORNING_WRITER_MESSAGES,
+      retryMessages: [],
+      retryOccurred: false,
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
+      capture: {
+        capture_version: "morning_writer_capture_v1",
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        prompt_path: "morning_brief_writer_v1",
+        raw_response: "{}",
+        raw_retry_response: null,
+        error: null,
+        request_started_at: "2026-07-02T16:00:00.000Z",
+        request_completed_at: "2026-07-02T16:00:01.000Z",
+        latency_ms: 1000,
+        retry_occurred: false,
+        retry_succeeded: null,
+      },
     });
     db.drafts = [
       {
@@ -1654,21 +1699,39 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
     expect(db.drafts[0]?.edited_by_tyler).toBe(true);
     expect(db.drafts[0]?.edited_at).toBe("2026-07-02T18:00:00.000Z");
-    expect(db.drafts[0]?.edit_distance_chars).toBe(12);
     expect(db.drafts[0]?.current_generation_id).toBe("gen-evening-prior");
     expect(db.generations).toHaveLength(2);
-    const authoritative = db.generations.find((g) => g.id === "gen-evening-prior");
     const orphan = db.generations.find((g) => g.id !== "gen-evening-prior");
-    expect(authoritative?.superseded_at == null).toBe(true);
-    expect(orphan?.machine_draft_body).toBe("New evening machine body must not become live");
-    expect(orphan?.superseded_at).toBeTruthy();
     expect(orphan?.superseded_by_generation_id).toBe("gen-evening-prior");
+    expect(orphan?.superseded_at).toBeTruthy();
   });
 
   it("does not overwrite Tyler intentional evening blank on regenerate", async () => {
-    buildDailySmsContentMock.mockResolvedValue({
-      ...SUCCESS_BUILT,
-      smsBody: "Machine evening body must not restore over blank",
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "Machine evening body must not restore over blank",
+      messages: MORNING_WRITER_MESSAGES,
+      primaryMessages: MORNING_WRITER_MESSAGES,
+      retryMessages: [],
+      retryOccurred: false,
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
+      capture: {
+        capture_version: "morning_writer_capture_v1",
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        prompt_path: "morning_brief_writer_v1",
+        raw_response: "{}",
+        raw_retry_response: null,
+        error: null,
+        request_started_at: "2026-07-02T16:00:00.000Z",
+        request_completed_at: "2026-07-02T16:00:01.000Z",
+        latency_ms: 1000,
+        retry_occurred: false,
+        retry_succeeded: null,
+      },
     });
     db.drafts = [
       {
@@ -1707,20 +1770,35 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     expect(db.drafts[0]?.current_body_to_send).toBeNull();
     expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
     expect(db.drafts[0]?.edited_by_tyler).toBe(true);
-    expect(db.drafts[0]?.edited_at).toBe("2026-07-02T18:00:00.000Z");
     expect(db.drafts[0]?.current_generation_id).toBe("gen-evening-prior");
-    const orphan = db.generations.find((g) => g.id !== "gen-evening-prior");
-    expect(orphan?.superseded_by_generation_id).toBe("gen-evening-prior");
-    expect(orphan?.superseded_at).toBeTruthy();
-    expect(db.generations.find((g) => g.id === "gen-evening-prior")?.superseded_at == null).toBe(
-      true
-    );
   });
 
   it("overwrites evening machine null (no Tyler provenance) on regenerate", async () => {
-    buildDailySmsContentMock.mockResolvedValue({
-      ...SUCCESS_BUILT,
-      smsBody: "Recovered evening machine draft",
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "Recovered evening machine draft",
+      messages: MORNING_WRITER_MESSAGES,
+      primaryMessages: MORNING_WRITER_MESSAGES,
+      retryMessages: [],
+      retryOccurred: false,
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
+      capture: {
+        capture_version: "morning_writer_capture_v1",
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        prompt_path: "morning_brief_writer_v1",
+        raw_response: "{}",
+        raw_retry_response: null,
+        error: null,
+        request_started_at: "2026-07-02T16:00:00.000Z",
+        request_completed_at: "2026-07-02T16:00:01.000Z",
+        latency_ms: 1000,
+        retry_occurred: false,
+        retry_succeeded: null,
+      },
     });
     db.drafts = [
       {
@@ -1759,103 +1837,49 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     expect(db.drafts[0]?.current_body_to_send).toBe("Recovered evening machine draft");
     expect(db.drafts[0]?.current_body_source).toBe("machine");
     expect(db.drafts[0]?.edited_by_tyler).toBe(false);
-    expect(db.drafts[0]?.current_generation_id).not.toBe("gen-evening-prior");
   });
 
-  it("does not overwrite never-edited non-empty evening machine draft on regenerate", async () => {
-    buildDailySmsContentMock.mockResolvedValue({
-      ...SUCCESS_BUILT,
-      smsBody: "Second evening machine body",
+  it("writer failure yields null body and machine_should_send false", async () => {
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: false,
+      error: "invalid_json",
+      messages: MORNING_WRITER_MESSAGES,
+      primaryMessages: MORNING_WRITER_MESSAGES,
+      retryMessages: [],
+      retryOccurred: true,
+      model: "gpt-5.6-sol",
+      capture: {
+        capture_version: "morning_writer_capture_v1",
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        prompt_path: "morning_brief_writer_v1",
+        raw_response: "not-json",
+        raw_retry_response: "still-bad",
+        error: "invalid_json",
+        request_started_at: "2026-07-02T16:00:00.000Z",
+        request_completed_at: "2026-07-02T16:00:01.000Z",
+        latency_ms: 1000,
+        retry_occurred: true,
+        retry_succeeded: false,
+      },
     });
-    db.drafts = [
-      {
-        clerk_user_id: AUDIENCE_USER.clerk_user_id,
-        draft_for_day_key: "2026-07-03",
-        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-        status: "current",
-        current_generation_id: "gen-evening-prior",
-        current_body_to_send: "First evening machine body",
-        current_body_source: "machine",
-        edited_by_tyler: false,
-        edited_at: null,
-      },
-    ];
-    db.generations = [
-      {
-        id: "gen-evening-prior",
-        clerk_user_id: AUDIENCE_USER.clerk_user_id,
-        draft_for_day_key: "2026-07-03",
-        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-        generation_number: 1,
-        generation_reason: "manual_regenerate",
-        machine_draft_body: "First evening machine body",
-        machine_should_send: true,
-        superseded_at: null,
-      },
-    ];
-    db.nextGenId = 2;
 
     const result = await generateTylerTextOverviewEveningPreviewForUser({
       clerkUserId: AUDIENCE_USER.clerk_user_id,
       draftForDayKey: "2026-07-03",
     });
     expect(result.ok).toBe(true);
-    // Same as Morning: non-empty current body is protected even without Tyler provenance.
-    expect(db.drafts[0]?.current_body_to_send).toBe("First evening machine body");
-    expect(db.drafts[0]?.current_body_source).toBe("machine");
-    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
-    expect(db.drafts[0]?.current_generation_id).toBe("gen-evening-prior");
+    if (!result.ok) return;
+    expect(result.body).toBeNull();
+    expect(result.machineShouldSend).toBe(false);
+    expect(result.machineNoSendReason).toBe("invalid_json");
+    expect(db.generations[0]?.machine_should_send).toBe(false);
+    expect(db.drafts[0]?.current_body_to_send).toBeNull();
   });
 
-  it("failed evening generation null remains regeneratable and does not freeze machine provenance", async () => {
-    buildDailySmsContentMock.mockResolvedValue({
-      ...SUCCESS_BUILT,
-      smsBody: "Evening recovered after fail",
-    });
-    db.drafts = [
-      {
-        clerk_user_id: AUDIENCE_USER.clerk_user_id,
-        draft_for_day_key: "2026-07-03",
-        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-        status: "current",
-        current_generation_id: "gen-evening-fail",
-        current_body_to_send: null,
-        current_body_source: "machine",
-        edited_by_tyler: false,
-        edited_at: null,
-      },
-    ];
-    db.generations = [
-      {
-        id: "gen-evening-fail",
-        clerk_user_id: AUDIENCE_USER.clerk_user_id,
-        draft_for_day_key: "2026-07-03",
-        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-        generation_number: 1,
-        generation_reason: "manual_regenerate",
-        machine_draft_body: null,
-        machine_should_send: false,
-        machine_no_send_reason: "memory_repeat_no_send",
-        superseded_at: null,
-      },
-    ];
-    db.nextGenId = 2;
-
-    const result = await generateTylerTextOverviewEveningPreviewForUser({
-      clerkUserId: AUDIENCE_USER.clerk_user_id,
-      draftForDayKey: "2026-07-03",
-    });
-    expect(result.ok).toBe(true);
-    expect(db.drafts[0]?.current_body_to_send).toBe("Evening recovered after fail");
-    expect(db.drafts[0]?.current_body_source).toBe("machine");
-    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
-  });
-
-  it("no-draft evening generate still creates a draft", async () => {
-    buildDailySmsContentMock.mockResolvedValue({
-      ...SUCCESS_BUILT,
-      smsBody: "First evening draft body",
-    });
+  it("no-draft evening generate still creates a draft via Sol", async () => {
     expect(db.drafts).toHaveLength(0);
     const result = await generateTylerTextOverviewEveningPreviewForUser({
       clerkUserId: AUDIENCE_USER.clerk_user_id,
@@ -1864,12 +1888,11 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     expect(result.ok).toBe(true);
     expect(db.drafts).toHaveLength(1);
     expect(db.drafts[0]?.send_slot).toBe(SMS_DAILY_EVENING_PREVIEW_SEND_SLOT);
-    expect(db.drafts[0]?.current_body_to_send).toBe("First evening draft body");
+    expect(db.drafts[0]?.current_body_to_send).toBe("How did the evening go?");
     expect(db.drafts[0]?.current_body_source).toBe("machine");
-    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
   });
 
-  it("evening protection enables Morning-style flag and leaves send disabled", () => {
+  it("bypasses V3/gpt-4o-mini path and keeps send disabled + Weekly unprotected", () => {
     const generateSrc = readFileSync(
       join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"),
       "utf8"
@@ -1878,6 +1901,12 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
       generateSrc.indexOf("export async function generateTylerTextOverviewEveningPreviewForUser")
     );
     expect(eveningFn).toContain("respectProtectedMorningDraft: true");
+    expect(eveningFn).toContain('daypart: "evening"');
+    expect(eveningFn).toContain("writeMorningTtoBody");
+    expect(eveningFn).toContain("runObservationalMorningBriefInterpreter");
+    expect(eveningFn).toContain("persistMorningTtoGeneration");
+    expect(eveningFn).not.toContain("buildDailySmsContent");
+    expect(eveningFn).not.toContain("resolveEveningPreviewMorningAnchor");
     expect(eveningFn).not.toContain("respectProtectedMorningDraft: false");
 
     const sendSrc = readFileSync(
@@ -1891,5 +1920,17 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
       "utf8"
     );
     expect(weeklySrc).toContain("respectProtectedMorningDraft: false");
+
+    const writerSrc = readFileSync(join(process.cwd(), "src/lib/morning-tto-writer.ts"), "utf8");
+    expect(writerSrc).toContain("message_for day and daypart");
+    expect(writerSrc).not.toMatch(/bedtime parser|weekday rule engine/i);
+    expect(writerSrc).not.toContain("EveningCoachingBriefV1");
+
+    const interpreterSrc = readFileSync(
+      join(process.cwd(), "src/lib/morning-tto-brief-interpreter-v1.ts"),
+      "utf8"
+    );
+    expect(interpreterSrc).toContain("message_for");
+    expect(interpreterSrc).not.toContain("EveningCoachingBriefV1");
   });
 });

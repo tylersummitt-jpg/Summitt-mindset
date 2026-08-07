@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
-import {
-  generateTylerTextOverviewEveningPreviewForUser,
-  resolveTylerTextOverviewMachineNoSendReason,
-} from "@/lib/tyler-text-overview-generate";
+import { generateTylerTextOverviewEveningPreviewForUser } from "@/lib/tyler-text-overview-generate";
 import { SMS_DAILY_EVENING_PREVIEW_SEND_SLOT } from "@/lib/tyler-text-overview-types";
 
 export const runtime = "nodejs";
@@ -66,10 +63,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const previewBody = result.built.ok ? result.built.smsBody : null;
-    const machineShouldSend = result.built.ok;
-    const machineNoSendReason = resolveTylerTextOverviewMachineNoSendReason(result.built);
-
     return NextResponse.json({
       ok: true,
       preview_only: true,
@@ -77,11 +70,15 @@ export async function POST(req: Request) {
       clerk_user_id: clerkUserId,
       draft_for_day_key: result.draftForDayKey,
       generation_id: result.generationId,
-      machine_should_send: machineShouldSend,
-      machine_draft_body: previewBody,
-      machine_no_send_reason: machineNoSendReason,
-      morning_anchor_source: result.morningAnchorSource,
-      slot_coaching_context: result.slotCoachingContext,
+      machine_should_send: result.machineShouldSend,
+      machine_draft_body: result.body,
+      machine_no_send_reason: result.machineNoSendReason,
+      message_for: result.messageFor,
+      writer_prompt_path: result.writerPromptPath,
+      current_draft_protected: result.currentDraftProtected === true,
+      // Legacy Evening V3 fields — no longer populated (shared Sol path).
+      morning_anchor_source: null,
+      slot_coaching_context: null,
     });
   } catch (err) {
     console.error("[admin/tyler-text-overview/evening-preview] POST failed", err);

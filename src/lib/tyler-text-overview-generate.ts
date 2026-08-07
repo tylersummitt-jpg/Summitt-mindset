@@ -1,4 +1,4 @@
-import { buildDailySmsContent, type DailySmsBuilt } from "@/lib/daily-sms-build";
+import { type DailySmsBuilt } from "@/lib/daily-sms-build";
 import { loadMorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
 import { writeMorningTtoBody } from "@/lib/morning-tto-writer";
 import {
@@ -12,10 +12,6 @@ import {
 } from "@/lib/morning-tto-brief-interpreter-v1";
 import type { MorningCoachingBriefV1 } from "@/lib/morning-tto-coaching-brief-v1";
 import type { MorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
-import {
-  morningAnchorToPreviousOutbound,
-  resolveEveningPreviewMorningAnchor,
-} from "@/lib/evening-preview-context-v1";
 import { getClerkUser } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
@@ -38,7 +34,6 @@ import {
 import { resolveSmsUserTimezone } from "@/lib/timezone";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
-import { getActiveCommitment } from "@/lib/v2-commitment";
 import {
   fetchV2UserSmsCommsPreferences,
   shouldSkipDailyForCommsPrefs,
@@ -1061,7 +1056,7 @@ export async function runObservationalMorningBriefInterpreter(args: {
             timezone: args.packet.message_for.timezone,
             local_date: args.packet.message_for.local_date,
             local_weekday: args.packet.message_for.local_weekday,
-            daypart: "morning",
+            daypart: args.packet.message_for.daypart,
           },
           mechanical: {
             days_since_last_user_response: args.packet.last_user_response.days_since,
@@ -1121,7 +1116,7 @@ export async function runObservationalMorningBriefInterpreter(args: {
           timezone: args.packet.message_for.timezone,
           local_date: args.packet.message_for.local_date,
           local_weekday: args.packet.message_for.local_weekday,
-          daypart: "morning",
+          daypart: args.packet.message_for.daypart,
         },
         mechanical: {
           days_since_last_user_response: args.packet.last_user_response.days_since,
@@ -1458,9 +1453,13 @@ export type TylerTextOverviewEveningPreviewResult =
       ok: true;
       draftForDayKey: string;
       generationId: string;
-      built: DailySmsBuilt;
-      morningAnchorSource: string;
-      slotCoachingContext: Record<string, unknown> | null;
+      body: string | null;
+      machineShouldSend: boolean;
+      machineNoSendReason: string | null;
+      writerPromptPath: string | null;
+      messageFor: MorningRelationshipPacket["message_for"] | null;
+      supersedeFailed: boolean;
+      currentDraftProtected?: boolean;
     }
   | {
       ok: false;
@@ -1469,12 +1468,16 @@ export type TylerTextOverviewEveningPreviewResult =
         | "audience"
         | "comms_prefs"
         | "not_v2"
-        | "build_failed"
         | "insert_failed"
         | "upsert_failed";
       error?: string;
     };
 
+/**
+ * Evening TTO Generate — shared Sol packet → interpreter → Brief → writer.
+ * Bypasses legacy V3 / gpt-4o-mini / writing-brief / slot-coaching path.
+ * Does not pass unsent Morning drafts into Sol context (exact_thread = sent/received only).
+ */
 export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   clerkUserId: string;
   draftForDayKey?: string;
@@ -1517,68 +1520,189 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   }
 
   const clerkSmsTimePreference = smsTimePreferenceFromClerkMetadata(md);
-  const draftForDayKey =
-    args.draftForDayKey?.trim() ||
-    resolveTylerTextOverviewEveningDraftForDayKey({
-      now,
-      timezone,
-    });
-
-  const morningAnchor = await resolveEveningPreviewMorningAnchor({
-    clerkUserId,
-    draftForDayKey,
-    supabase: supabaseServer,
-  });
-
-  const previousOutbound = morningAnchorToPreviousOutbound(morningAnchor);
-
-  const built = await buildDailySmsContent(clerkUserId, md, draftForDayKey, timezone, {
-    mode: "draft",
-    writingBriefOverrides: {
-      currentSendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-      slotDaypartOverride: "evening",
-      previousOutbound,
-      userRepliesSincePreviousOutbound: undefined,
-    },
-  });
-
-  const activeCommitment = await getActiveCommitment(clerkUserId);
-  const commitmentId =
-    (built.ok ? built.v2CommitmentId : null) ?? activeCommitment?.id ?? null;
   const sendPrefSnapshot = formatSendPrefSnapshot(clerkSmsTimePreference, commsPrefs);
 
-  const previewMetadataExtra = {
+  let draftForDayKey: string;
+  try {
+    draftForDayKey = args.draftForDayKey?.trim()
+      ? requireTylerTextOverviewDraftDayKey(args.draftForDayKey)
+      : resolveTylerTextOverviewEveningDraftForDayKey({ now, timezone });
+  } catch (e) {
+    return {
+      ok: false,
+      reason: "insert_failed",
+      error: e instanceof Error ? e.message : "invalid_draft_for_day_key",
+    };
+  }
+
+  const packetResult = await loadMorningRelationshipPacket({
+    clerkUserId,
+    timezone,
+    now,
+    draftForDayKey,
+    daypart: "evening",
+  });
+
+  const eveningMetaBase = {
     preview_only: true,
     preview_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-    morning_anchor_source: morningAnchor.source,
-    morning_anchor_sent: morningAnchor.sent,
-    morning_anchor_body_preview: morningAnchor.body?.slice(0, 160) ?? null,
-    ...(built.ok && commitmentId
-      ? {
-          v2_outbound_snapshot: {
-            v2_commitment_id: commitmentId,
-            v2_template_id: built.v2TemplateId,
-            v2_template_family:
-              built.v2TemplateFamily === "recovery" ? "recovery" : "standard",
-            v2_effective_ask_text: built.v2EffectiveAskText ?? built.smsBody,
-            v2_prior_outcome: built.v2PriorOutcome ?? null,
-            v2_blocker_preview: built.v2BlockerPreview ?? null,
-          },
-        }
-      : {}),
+    coaching_stack: "shared_sol_v1",
   };
 
-  const persisted = await persistTylerTextOverviewDraftFromBuilt({
+  if (!packetResult.ok) {
+    const persisted = await persistMorningTtoGeneration({
+      clerkUserId,
+      draftForDayKey,
+      generationReason: "manual_regenerate",
+      commitmentId: null,
+      timezone,
+      sendPrefSnapshot,
+      now,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      failure: { error: packetResult.error },
+      generationMetadataExtra: eveningMetaBase,
+      respectProtectedMorningDraft: true,
+    });
+
+    if (!persisted.ok) {
+      return { ok: false, reason: persisted.reason, error: persisted.error };
+    }
+
+    return {
+      ok: true,
+      draftForDayKey,
+      generationId: persisted.generationId,
+      body: null,
+      machineShouldSend: false,
+      machineNoSendReason: packetResult.error,
+      writerPromptPath: null,
+      messageFor: null,
+      supersedeFailed: persisted.supersedeFailed,
+      currentDraftProtected: persisted.currentDraftProtected,
+    };
+  }
+
+  const { packet, commitmentId } = packetResult;
+  const packetMetadata = {
+    thread_message_count: packet.exact_thread.messages.length,
+    days_since_last_user_response: packet.last_user_response.days_since,
+    never_replied: packet.last_user_response.never_replied,
+    has_pending_goal_change: packet.hard_state.pending_goal_change != null,
+  };
+
+  const briefMetadataExtra = await runObservationalMorningBriefInterpreter({
+    packet,
+    clerkUserId,
+    commitmentId,
+  });
+  const morningCoachingBrief = briefMetadataExtra.morning_coaching_brief_v1;
+
+  const writerResult = await writeMorningTtoBody({
+    packet,
+    morningCoachingBrief,
+  });
+  const writerMessages = writerResult.messages
+    ? mapOpenAiMessagesToWriterCapture(writerResult.messages)
+    : undefined;
+  const retryMessages = mapOpenAiMessagesToWriterCapture(
+    writerResult.retryMessages ?? []
+  );
+  const retryOccurred = writerResult.retryOccurred === true;
+  const writerModel =
+    typeof writerResult.model === "string" ? writerResult.model : null;
+  const writerCapture = writerResult.capture
+    ? {
+        capture_version: writerResult.capture.capture_version,
+        model: writerResult.capture.model,
+        temperature: writerResult.capture.temperature,
+        reasoning_effort: writerResult.capture.reasoning_effort,
+        max_completion_tokens: writerResult.capture.max_completion_tokens,
+        prompt_path: writerResult.capture.prompt_path,
+        request_started_at: writerResult.capture.request_started_at,
+        request_completed_at: writerResult.capture.request_completed_at,
+        latency_ms: writerResult.capture.latency_ms,
+        raw_response: writerResult.capture.raw_response,
+        raw_retry_response: writerResult.capture.raw_retry_response,
+        error: writerResult.capture.error,
+        retry_occurred: writerResult.capture.retry_occurred,
+        retry_succeeded: writerResult.capture.retry_succeeded,
+      }
+    : undefined;
+  const writerPromptPathForPersist = writerMessages?.length
+    ? ("morning_brief_writer_v1" as const)
+    : null;
+
+  const generationMetadataExtra = {
+    ...eveningMetaBase,
+    ...briefMetadataExtra,
+    message_for: packet.message_for,
+    morning_relationship_packet_v1: packet,
+  };
+
+  if (!writerResult.ok) {
+    const persisted = await persistMorningTtoGeneration({
+      clerkUserId,
+      draftForDayKey,
+      generationReason: "manual_regenerate",
+      commitmentId,
+      timezone,
+      sendPrefSnapshot,
+      now,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      failure: {
+        error: writerResult.error,
+        messages: writerMessages,
+        writerPromptPath: writerPromptPathForPersist,
+        model: writerModel,
+        retryMessages,
+        retryOccurred,
+        retrySucceeded: retryOccurred ? false : undefined,
+        writerCapture,
+      },
+      packetMetadata,
+      generationMetadataExtra,
+      respectProtectedMorningDraft: true,
+    });
+
+    if (!persisted.ok) {
+      return { ok: false, reason: persisted.reason, error: persisted.error };
+    }
+
+    return {
+      ok: true,
+      draftForDayKey,
+      generationId: persisted.generationId,
+      body: null,
+      machineShouldSend: false,
+      machineNoSendReason: writerResult.error,
+      writerPromptPath: writerPromptPathForPersist,
+      messageFor: packet.message_for,
+      supersedeFailed: persisted.supersedeFailed,
+      currentDraftProtected: persisted.currentDraftProtected,
+    };
+  }
+
+  const persisted = await persistMorningTtoGeneration({
     clerkUserId,
     draftForDayKey,
     generationReason: "manual_regenerate",
-    built,
     commitmentId,
     timezone,
     sendPrefSnapshot,
     now,
     sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
-    generationMetadataExtra: previewMetadataExtra,
+    success: {
+      body: writerResult.body,
+      messages: mapOpenAiMessagesToWriterCapture(writerResult.messages),
+      writerPromptPath: writerResult.writer_prompt_path,
+      model: writerResult.model,
+      retryMessages,
+      retryOccurred,
+      retrySucceeded: retryOccurred ? true : undefined,
+      writerCapture,
+    },
+    packetMetadata,
+    generationMetadataExtra,
     respectProtectedMorningDraft: true,
   });
 
@@ -1586,20 +1710,16 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     return { ok: false, reason: persisted.reason, error: persisted.error };
   }
 
-  const meta = metadataFromBuilt(built);
-  const slotCtx =
-    meta.slot_coaching_context &&
-    typeof meta.slot_coaching_context === "object" &&
-    !Array.isArray(meta.slot_coaching_context)
-      ? (meta.slot_coaching_context as Record<string, unknown>)
-      : null;
-
   return {
     ok: true,
     draftForDayKey,
     generationId: persisted.generationId,
-    built,
-    morningAnchorSource: morningAnchor.source,
-    slotCoachingContext: slotCtx,
+    body: writerResult.body,
+    machineShouldSend: true,
+    machineNoSendReason: null,
+    writerPromptPath: writerResult.writer_prompt_path,
+    messageFor: packet.message_for,
+    supersedeFailed: persisted.supersedeFailed,
+    currentDraftProtected: persisted.currentDraftProtected,
   };
 }

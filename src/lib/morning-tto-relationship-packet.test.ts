@@ -168,6 +168,25 @@ describe("loadMorningRelationshipPacket", () => {
     expect(JSON.stringify(result.packet)).not.toContain("current_local");
   });
 
+  it("Evening daypart wrapper sets message_for.daypart=evening without changing local_date law", async () => {
+    setupPacketSupabase({ profile: {} });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: "America/New_York",
+      now: new Date("2026-08-02T20:00:00.000Z"),
+      draftForDayKey: "2026-08-07",
+      daypart: "evening",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.message_for).toEqual({
+      timezone: "America/New_York",
+      local_date: "2026-08-07",
+      local_weekday: "Friday",
+      daypart: "evening",
+    });
+  });
+
   it("message_for uses tomorrow draft day after 11 AM, not generation Tuesday", async () => {
     setupPacketSupabase({ profile: {} });
     // Proven Aug 5 skew: generated Tue 19:40 ET for Wed draft
