@@ -751,7 +751,6 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
   }
 
   const snapParts = [
-    `title:${args.commitment.title?.trim().slice(0, 80) ?? ""}`,
     `behavior:${(args.commitment.behavior_statement ?? "").trim().replace(/\s+/g, " ").slice(0, 200)}`,
     `effective_ask:${args.effectiveAsk.trim().replace(/\s+/g, " ").slice(0, 200)}`,
   ];
@@ -934,7 +933,6 @@ export function buildCommitmentChangeContextFactsForHeuristicInbound(args: {
   shadowInterpretation: V2InboundShadowInterpretationResult | null;
 }): InboundV3CommitmentChangeContextFacts {
   const snapParts = [
-    `title:${args.commitment.title?.trim().slice(0, 80) ?? ""}`,
     `behavior:${(args.commitment.behavior_statement ?? "").trim().replace(/\s+/g, " ").slice(0, 200)}`,
   ];
   const currentCommitmentSnapshot = snapParts.join(" | ");
@@ -1016,7 +1014,6 @@ export function buildCommitmentChangeContextFactsFromTuGoalChange(args: {
   goalChangeFacts: InboundV3GoalChangeFacts;
 }): InboundV3CommitmentChangeContextFacts {
   const snapParts = [
-    `title:${args.commitment.title?.trim().slice(0, 80) ?? ""}`,
     `behavior:${(args.commitment.behavior_statement ?? "").trim().replace(/\s+/g, " ").slice(0, 200)}`,
   ];
   const preview = args.userMessage.trim().replace(/\s+/g, " ").slice(0, 320);
@@ -1247,7 +1244,6 @@ export function buildConversationBrainFallbackFacts(args: {
   else if (args.gatedMode === "clarify") suggested_coaching_move = "clarify_intent";
 
   const snapParts = [
-    `title:${args.commitment.title?.trim().slice(0, 80) ?? ""}`,
     `behavior:${(args.commitment.behavior_statement ?? "").trim().replace(/\s+/g, " ").slice(0, 200)}`,
     `effective_ask:${args.effectiveAsk.trim().replace(/\s+/g, " ").slice(0, 200)}`,
   ];

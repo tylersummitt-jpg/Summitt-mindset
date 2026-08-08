@@ -249,7 +249,7 @@ function getOpenAIClientOrNull(): OpenAI | null {
   return new OpenAI({ apiKey });
 }
 
-function buildCentralBrainUserPrompt(args: InterpretCentralSmsBrainArgs): string {
+export function buildCentralBrainUserPrompt(args: InterpretCentralSmsBrainArgs): string {
   const lines: string[] = [];
   lines.push("You are Shadow Classifier ONLY for SMS coaching inbound turns.");
   lines.push("");
@@ -292,7 +292,6 @@ function buildCentralBrainUserPrompt(args: InterpretCentralSmsBrainArgs): string
   lines.push(`clerk_user_id: ${args.clerkUserId}`);
   lines.push(`commitment_id: ${args.commitmentId}`);
   lines.push("");
-  lines.push(`COMMITMENT_TITLE: ${truncate(args.commitment.title, 160)}`);
   lines.push(`BEHAVIOR_STATEMENT: ${truncate(args.commitment.behavior_statement, 280)}`);
   lines.push(`EFFECTIVE_COACHING_ASK: ${truncate(args.effectiveAsk, 280)}`);
   lines.push("");

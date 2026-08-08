@@ -54,7 +54,8 @@ export function getConversationBrainConfidenceFloor(): number {
 }
 
 export type BuildConversationBrainPromptArgs = {
-  commitmentTitle: string;
+  /** @deprecated Ignored — legacy commitment title must not be model-facing goal context. */
+  commitmentTitle?: string;
   behaviorStatement: string;
   effectiveCoachingAsk: string;
   latestUserSms: string;
@@ -172,7 +173,6 @@ export function buildConversationBrainPrompt(args: BuildConversationBrainPromptA
     `"short_reason_for_logs":"compact server-safe summary without private quotes"}`,
     "",
     "## Active commitment",
-    `Title: ${args.commitmentTitle}`,
     `Behavior statement: ${args.behaviorStatement}`,
     `Effective coaching ask (may reflect adaptive overlay): ${args.effectiveCoachingAsk}`,
     "",

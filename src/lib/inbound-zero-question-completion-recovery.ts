@@ -119,7 +119,6 @@ export function buildZeroQuestionCompletionFallbackAck(
   const commitmentBlob = [
     facts.commitment.behavior_statement,
     facts.commitment.effective_ask,
-    facts.commitment.title,
   ]
     .filter(Boolean)
     .join(" ");
@@ -153,7 +152,6 @@ export function isAcknowledgeCompletionZeroQuestionRecoveryEligible(
   const explicitAligned = detectExplicitAlignedInboundCompletion(raw, {
     commitmentBehaviorStatement: args.facts.commitment.behavior_statement ?? null,
     effectiveAsk: args.facts.commitment.effective_ask ?? null,
-    commitmentTitle: args.facts.commitment.title ?? null,
   });
 
   if (proofPersisted) {

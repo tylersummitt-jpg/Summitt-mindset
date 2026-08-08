@@ -259,6 +259,7 @@ import {
   maybePersistInboundWinRecognitionBundle,
   persistInboundRecognizedWinsBeforeSend,
   runInboundWinRecognitionForCoachTurn,
+  resolveWinRecognitionCurrentGoal,
   type InboundWinRecognitionBundle,
 } from "@/lib/inbound-win-recognition-wire";
 import {
@@ -3444,7 +3445,10 @@ async function processV2NormalInboundOutcome(
             lastOutboundSmsPreview ||
             null,
           recentExactThreadExcerpt: minimalLinesEarly.slice(-8).join(" | ").slice(0, 800),
-          currentGoal: effectiveBehavior || commitment.behavior_statement || commitment.title || null,
+          currentGoal: resolveWinRecognitionCurrentGoal({
+            effectiveAsk: effectiveBehavior,
+            behaviorStatement: commitment.behavior_statement,
+          }),
           identityStatement: identityAnchorText,
           userFirstName: preferredName,
           pendingRouteSummary: null,
@@ -4184,7 +4188,10 @@ async function processV2NormalInboundOutcome(
               lastOutboundSmsPreview ||
               null,
             recentExactThreadExcerpt: minimalLinesCb.slice(-8).join(" | ").slice(0, 800),
-            currentGoal: effectiveBehavior || commitment.behavior_statement || commitment.title || null,
+            currentGoal: resolveWinRecognitionCurrentGoal({
+            effectiveAsk: effectiveBehavior,
+            behaviorStatement: commitment.behavior_statement,
+          }),
             identityStatement: identityAnchorText,
             userFirstName: preferredName,
             pendingRouteSummary: null,
@@ -4732,7 +4739,10 @@ async function processV2NormalInboundOutcome(
           lastOutboundSmsPreview ||
           null,
         recentExactThreadExcerpt: null,
-        currentGoal: effectiveBehavior || commitment.behavior_statement || commitment.title || null,
+        currentGoal: resolveWinRecognitionCurrentGoal({
+            effectiveAsk: effectiveBehavior,
+            behaviorStatement: commitment.behavior_statement,
+          }),
         identityStatement: identityAnchorText,
         userFirstName: preferredName,
         pendingRouteSummary: getPendingResolutionOrNull(commitment)
@@ -7850,7 +7860,10 @@ async function processV2BlockerCapture(
     context: {
       priorOutboundOrOpenQuestion: null,
       recentExactThreadExcerpt: null,
-      currentGoal: getEffectiveCoachingAsk(commitment) || commitment.behavior_statement || commitment.title || null,
+      currentGoal: resolveWinRecognitionCurrentGoal({
+      effectiveAsk: getEffectiveCoachingAsk(commitment),
+      behaviorStatement: commitment.behavior_statement,
+    }),
       identityStatement: blockerIdentityAnchorText,
       userFirstName: blockerPreferredName,
       pendingRouteSummary: null,
@@ -9331,11 +9344,10 @@ async function buildTransactionalInboundLaneFactsPackage(args: {
         northStarPkt.latestOutboundBody ||
         null,
       recentExactThreadExcerpt: minimalLines.slice(-8).join(" | ").slice(0, 800),
-      currentGoal:
-        getEffectiveCoachingAsk(args.commitment, Date.now()) ||
-        args.commitment.behavior_statement ||
-        args.commitment.title ||
-        null,
+      currentGoal: resolveWinRecognitionCurrentGoal({
+        effectiveAsk: getEffectiveCoachingAsk(args.commitment, Date.now()),
+        behaviorStatement: args.commitment.behavior_statement,
+      }),
       identityStatement: identityForWin,
       userFirstName: preferredNameForWin,
       pendingRouteSummary: args.pendingResolutionFacts

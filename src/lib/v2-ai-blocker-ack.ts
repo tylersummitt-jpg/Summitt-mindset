@@ -138,7 +138,8 @@ export function validateV2AiBlockerAckMessage(args: {
   modelStrategy: unknown;
   blockerText: string;
   behaviorStatement: string;
-  commitmentTitle: string;
+  /** @deprecated Ignored — legacy title must not ground replies. */
+  commitmentTitle?: string;
 }): { ok: true } | { ok: false; reason: string } {
   const msg = (args.message || "").trim().replace(/\s+/g, " ").replace(/\n+/g, " ");
   if (!msg) return { ok: false, reason: "empty_message" };
@@ -159,10 +160,7 @@ export function validateV2AiBlockerAckMessage(args: {
     return { ok: false, reason: "missing_blocker_grounding" };
   }
 
-  const words = [
-    ...tokenizeAnchorWords(args.behaviorStatement),
-    ...tokenizeAnchorWords(args.commitmentTitle),
-  ].slice(0, 12);
+  const words = tokenizeAnchorWords(args.behaviorStatement).slice(0, 12);
   const seen = new Set<string>();
   const uniq = words.filter((w) => {
     if (seen.has(w)) return false;
@@ -218,7 +216,6 @@ function buildDeveloperPrompt(ctx: V2AiBlockerAckContext): string {
   lines.push("strategy in your JSON MUST exactly equal server_strategy.");
   lines.push("");
   lines.push("COMMITMENT:");
-  lines.push(`title: ${truncateOneLine(ctx.commitment.title, 80)}`);
   lines.push(`behavior_statement: ${truncateOneLine(ctx.commitment.behavior_statement, 200)}`);
   if (ctx.commitment.success_criteria?.trim()) {
     lines.push(`success_criteria: ${truncateOneLine(ctx.commitment.success_criteria, 160)}`);
@@ -346,7 +343,6 @@ export async function tryGenerateV2BlockerAckMessage(
       modelStrategy,
       blockerText: ctx.blockerText,
       behaviorStatement: ctx.commitment.behavior_statement,
-      commitmentTitle: ctx.commitment.title,
     });
     if (!validated.ok) {
       return { ok: false, fallbackUsed: true, reason: validated.reason };

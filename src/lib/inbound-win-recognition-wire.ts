@@ -26,6 +26,23 @@ export type InboundWinRecognitionBundle = {
   ran: boolean;
 };
 
+/**
+ * Model-facing Current Goal for Win recognition.
+ * Law: effective ask → behavior_statement → null. Never legacy commitment.title.
+ */
+export function resolveWinRecognitionCurrentGoal(args: {
+  effectiveAsk?: string | null;
+  behaviorStatement?: string | null;
+}): string | null {
+  const effective =
+    typeof args.effectiveAsk === "string" ? args.effectiveAsk.trim() : "";
+  if (effective) return effective;
+  const behavior =
+    typeof args.behaviorStatement === "string" ? args.behaviorStatement.trim() : "";
+  if (behavior) return behavior;
+  return null;
+}
+
 export async function runInboundWinRecognitionForCoachTurn(args: {
   inboundBody: string;
   isTapback?: boolean;

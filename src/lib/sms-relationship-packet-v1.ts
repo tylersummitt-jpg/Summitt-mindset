@@ -962,7 +962,7 @@ function resolveRecentThread72hDaily(
 function buildCanonicalInbound(f: InboundV3RelationshipFacts): RelationshipPacketCanonicalState {
   return {
     commitment_id: f.commitment.id,
-    title: f.commitment.title,
+    // Legacy commitment.title is intentionally omitted — never model-facing Current Goal context.
     behavior_statement: f.commitment.behavior_statement,
     effective_ask: f.commitment.effective_ask,
     accountability_phase: f.commitment.accountability_phase,
@@ -983,7 +983,7 @@ function buildCanonicalInbound(f: InboundV3RelationshipFacts): RelationshipPacke
 function buildCanonicalDaily(f: DailyV3RelationshipFacts): RelationshipPacketCanonicalState {
   return {
     commitment_id: f.commitment.id,
-    title: f.commitment.title,
+    // Legacy commitment.title is intentionally omitted — never model-facing Current Goal context.
     behavior_statement: f.commitment.behavior_statement,
     effective_ask: f.commitment.effective_ask,
     accountability_phase: f.commitment.accountability_phase,

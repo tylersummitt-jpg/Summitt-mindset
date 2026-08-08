@@ -47,10 +47,18 @@ describe("buildConversationBrainPrompt", () => {
     deterministicClassifierNormalizedHint: "unclear",
   };
 
-  it("includes commitment title and behavior_statement", () => {
-    const p = buildConversationBrainPrompt(baseArgs);
-    expect(p).toContain("Morning deep work");
-    expect(p).toContain("90 minutes of focused building before noon.");
+  it("includes behavior_statement and effective ask, never legacy title", () => {
+    const p = buildConversationBrainPrompt({
+      ...baseArgs,
+      commitmentTitle: "SaaS App",
+      behaviorStatement: "Lift weights for 30 minutes a day",
+      effectiveCoachingAsk: "Lift weights for 30 minutes a day",
+    });
+    expect(p).toContain("Lift weights for 30 minutes a day");
+    expect(p).toContain("Behavior statement:");
+    expect(p).toContain("Effective coaching ask");
+    expect(p).not.toContain("Title:");
+    expect(p).not.toContain("SaaS App");
   });
 
   it("includes recent SMS transcript block", () => {

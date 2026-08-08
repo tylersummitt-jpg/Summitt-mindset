@@ -120,7 +120,7 @@ function extractExplicitClaimedGoalObject(raw: string): string | null {
 }
 
 function commitmentBlobFromContext(ctx: CompletionAlignmentContext): string {
-  return [ctx.commitmentBehaviorStatement, ctx.effectiveAsk, ctx.commitmentTitle]
+  return [ctx.commitmentBehaviorStatement, ctx.effectiveAsk]
     .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
     .join(" ")
     .trim();
@@ -171,6 +171,7 @@ function hasDominantOffGoalActivityWithoutAnchor(raw: string, commitmentBlob: st
 export type CompletionAlignmentContext = {
   commitmentBehaviorStatement?: string | null;
   effectiveAsk?: string | null;
+  /** @deprecated Ignored — legacy title must not act as goal/theme evidence. */
   commitmentTitle?: string | null;
 };
 
@@ -228,6 +229,7 @@ export type CommitmentAlignedRoutineStatusArgs = {
   raw: string;
   commitmentBehaviorStatement?: string | null;
   effectiveAsk?: string | null;
+  /** @deprecated Ignored — legacy title must not act as goal/theme evidence. */
   commitmentTitle?: string | null;
 };
 
@@ -249,11 +251,7 @@ export function isCommitmentAlignedRoutineStatusUpdateCompletion(
   if (looksLikeFutureOrIntentOnlyStatusUpdate(t)) return false;
   if (inboundHasExplicitMissClause(t) && !inboundHasExplicitCompletionClause(t)) return false;
 
-  const commitmentBlob = [
-    args.commitmentBehaviorStatement,
-    args.effectiveAsk,
-    args.commitmentTitle,
-  ]
+  const commitmentBlob = [args.commitmentBehaviorStatement, args.effectiveAsk]
     .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
     .join(" ");
   if (!commitmentBlob.trim()) return false;
@@ -265,6 +263,7 @@ export function isCommitmentAlignedRoutineStatusUpdateCompletion(
 export type SubstantiveSelfReportedCompletionOptions = {
   commitmentBehaviorStatement?: string | null;
   effectiveAsk?: string | null;
+  /** @deprecated Ignored — legacy title must not act as goal/theme evidence. */
   commitmentTitle?: string | null;
 };
 

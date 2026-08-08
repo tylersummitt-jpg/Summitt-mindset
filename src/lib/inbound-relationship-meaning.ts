@@ -126,6 +126,7 @@ export type DeriveInboundRelationshipMeaningArgs = {
   recentEventsNewestFirst?: V2EventRowForAi[];
   effectiveAsk?: string | null;
   behaviorStatement?: string | null;
+  /** @deprecated Ignored — legacy title must not act as goal evidence. */
   commitmentTitle?: string | null;
   shortAnswerContext?: ShortAnswerContextAuthority | null;
   /** OpenAI TU fallback polarity when deterministic SACA is unclear (server gate still required). */
@@ -382,7 +383,6 @@ export function deriveInboundRelationshipMeaning(
       openQuestionPending: args.openQuestionPending,
       effectiveAsk: args.effectiveAsk,
       behaviorStatement: args.behaviorStatement,
-      commitmentTitle: args.commitmentTitle,
       recentEventsNewestFirst: args.recentEventsNewestFirst,
     });
 
@@ -1257,7 +1257,6 @@ export function buildInboundMeaningFacts(
       openQuestionPending: args.openQuestionPending,
       effectiveAsk: args.effectiveAsk,
       behaviorStatement: args.behaviorStatement,
-      commitmentTitle: args.commitmentTitle,
       recentEventsNewestFirst: args.recentEventsNewestFirst,
       tuAnsweredLastCoachAsk: args.tuAnsweredLastCoachAsk,
     });

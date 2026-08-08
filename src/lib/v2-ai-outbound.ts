@@ -1032,7 +1032,6 @@ function buildDeveloperPromptReactivation(ctx: V2AiOutboundContext): string {
   lines.push("state in your JSON should echo server_state.");
   lines.push("");
   lines.push("COMMITMENT (anchor; use behavior_statement wording lightly—no binary check):");
-  lines.push(`title: ${truncateOneLine(ctx.commitment.title, 80)}`);
   lines.push(`behavior_statement: ${truncateOneLine(ctx.commitment.behavior_statement, 200)}`);
   if (ctx.commitment.success_criteria?.trim()) {
     lines.push(`success_criteria: ${truncateOneLine(ctx.commitment.success_criteria, 160)}`);
@@ -1185,7 +1184,6 @@ function buildDeveloperPrompt(ctx: V2AiOutboundContext): string {
   );
   lines.push("");
   lines.push("COMMITMENT:");
-  lines.push(`title: ${truncateOneLine(ctx.commitment.title, 80)}`);
   lines.push(
     `effective_coaching_ask (authoritative for daily checks): ${truncateOneLine(ctx.effectiveCoachingAsk, 200)}`
   );

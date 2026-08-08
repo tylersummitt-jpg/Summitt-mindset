@@ -72,6 +72,7 @@ export type ResolveShortAnswerContextAuthorityArgs = {
   openQuestionPending?: boolean;
   effectiveAsk?: string | null;
   behaviorStatement?: string | null;
+  /** @deprecated Ignored — legacy title must not act as goal evidence. */
   commitmentTitle?: string | null;
   recentEventsNewestFirst?: V2EventRowForAi[];
   hasLiveAccountabilityPrompt?: boolean;
@@ -217,7 +218,6 @@ function resolvePromptFreshness(args: ResolveShortAnswerContextAuthorityArgs): {
   const ctx = buildV2ActiveReplyContext({
     inboundText: args.rawInbound,
     eventsNewestFirst: args.recentEventsNewestFirst,
-    commitmentTitle: args.commitmentTitle ?? null,
     behaviorStatement: args.behaviorStatement ?? "",
     effectiveAsk: args.effectiveAsk ?? "",
   });

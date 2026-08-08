@@ -447,6 +447,58 @@ function hugePad(label: string, chars: number): string {
 }
 
 describe("buildRelationshipPacketForOpenAI", () => {
+  it("omits legacy commitment title from inbound canonical goal context", () => {
+    const facts = minimalInboundFacts({
+      commitment: {
+        id: "cmt_pkt",
+        title: "SaaS App",
+        behavior_statement: "Lift weights for 30 minutes a day",
+        effective_ask: "Lift weights for 30 minutes a day",
+        accountability_phase: "active_accountability",
+      },
+    });
+    const { packet, userPromptJson } = buildRelationshipPacketForOpenAI({
+      lane: "inbound",
+      sourceFacts: facts,
+    });
+    expect(packet.canonical_state.data.behavior_statement).toBe(
+      "Lift weights for 30 minutes a day"
+    );
+    expect(packet.canonical_state.data.effective_ask).toBe(
+      "Lift weights for 30 minutes a day"
+    );
+    expect(packet.canonical_state.data.title).toBeUndefined();
+    expect(userPromptJson).toContain("Lift weights for 30 minutes a day");
+    expect(userPromptJson).not.toContain("SaaS App");
+  });
+
+  it("omits legacy commitment title from daily canonical goal context", () => {
+    const facts = minimalDailyFacts({
+      commitment: {
+        id: "cmt_pkt",
+        title: "SaaS App",
+        behavior_statement: "Lift weights for 30 minutes a day",
+        effective_ask: "Lift weights for 30 minutes a day",
+        accountability_phase: "active_accountability",
+        identity_anchor_allowed: false,
+        identity_anchor_short: null,
+      },
+    });
+    const { packet, userPromptJson } = buildRelationshipPacketForOpenAI({
+      lane: "daily",
+      sourceFacts: facts,
+    });
+    expect(packet.canonical_state.data.behavior_statement).toBe(
+      "Lift weights for 30 minutes a day"
+    );
+    expect(packet.canonical_state.data.effective_ask).toBe(
+      "Lift weights for 30 minutes a day"
+    );
+    expect(packet.canonical_state.data.title).toBeUndefined();
+    expect(userPromptJson).toContain("Lift weights for 30 minutes a day");
+    expect(userPromptJson).not.toContain("SaaS App");
+  });
+
   it("includes ordered core sections with recent_exact_thread_72h and stays under budget", () => {
     const facts = minimalInboundFacts({
       thread_freshness: {

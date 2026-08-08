@@ -215,11 +215,11 @@ function tokenizeAnchorWords(text: string): string[] {
     .slice(0, 8);
 }
 
-/** Deduped meaningful tokens from behavior + title (reduces brittleness vs behavior-only). */
-function anchorWordCandidates(behaviorStatement: string, title: string, max: number): string[] {
+/** Deduped meaningful tokens from behavior/effective ask only (never legacy title). */
+function anchorWordCandidates(behaviorStatement: string, max: number): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const w of [...tokenizeAnchorWords(behaviorStatement), ...tokenizeAnchorWords(title)]) {
+  for (const w of tokenizeAnchorWords(behaviorStatement)) {
     if (seen.has(w)) continue;
     seen.add(w);
     out.push(w);
@@ -249,10 +249,9 @@ function passesCompactBehaviorOverlap(messageLower: string, behaviorStatement: s
  */
 function passesCommitmentGrounding(
   messageLower: string,
-  behaviorStatement: string,
-  commitmentTitle: string
+  behaviorStatement: string
 ): boolean {
-  const words = anchorWordCandidates(behaviorStatement, commitmentTitle, 12);
+  const words = anchorWordCandidates(behaviorStatement, 12);
   if (words.length === 0) return true;
   if (words.some((w: string) => messageLower.includes(w))) return true;
   return passesCompactBehaviorOverlap(messageLower, behaviorStatement);
@@ -272,7 +271,8 @@ export function validateV2AiInboundMessage(args: {
   serverStrategy: V2InboundReplyStrategy;
   modelStrategy: unknown;
   behaviorStatement: string;
-  commitmentTitle: string;
+  /** @deprecated Ignored — legacy title must not ground replies. */
+  commitmentTitle?: string;
   afterSilence?: boolean;
   brokePause?: boolean;
   lastOutboundNextMove?: V2NextMoveType | null;
@@ -329,7 +329,7 @@ export function validateV2AiInboundMessage(args: {
   }
 
   const ml = msg.toLowerCase();
-  if (!passesCommitmentGrounding(ml, args.behaviorStatement, args.commitmentTitle)) {
+  if (!passesCommitmentGrounding(ml, args.behaviorStatement)) {
     return { ok: false, reason: "missing_commitment_grounding" };
   }
 
@@ -399,7 +399,6 @@ function buildDeveloperPrompt(ctx: V2AiInboundContext): string {
   lines.push("- tighten_partial: partial means still in the fight; exactly ONE gap-closing question.");
   lines.push("");
   lines.push("COMMITMENT:");
-  lines.push(`title: ${truncateOneLine(ctx.commitment.title, 80)}`);
   lines.push(
     `effective_coaching_ask (authoritative for replies): ${truncateOneLine(getEffectiveCoachingAsk(ctx.commitment), 200)}`
   );
@@ -634,7 +633,6 @@ export async function tryGenerateV2InboundMessage(
       serverStrategy: ctx.serverStrategy,
       modelStrategy,
       behaviorStatement: getEffectiveCoachingAsk(ctx.commitment),
-      commitmentTitle: ctx.commitment.title,
       afterSilence: ctx.afterSilence,
       brokePause: ctx.brokePause,
       lastOutboundNextMove: ctx.lastOutboundNextMove,
@@ -704,7 +702,8 @@ function validateV2ContractConsentAckMessage(args: {
   modelStrategy: unknown;
   bindingText?: string | null;
   behaviorStatement: string;
-  commitmentTitle: string;
+  /** @deprecated Ignored — legacy title must not ground replies. */
+  commitmentTitle?: string;
 }): { ok: true } | { ok: false; reason: string } {
   const msg = (args.message || "").trim().replace(/\s+/g, " ").replace(/\n+/g, " ");
   if (!msg) return { ok: false, reason: "empty_message" };
@@ -722,7 +721,7 @@ function validateV2ContractConsentAckMessage(args: {
     }
   }
   const ml = msg.toLowerCase();
-  if (!passesCommitmentGrounding(ml, args.behaviorStatement, args.commitmentTitle)) {
+  if (!passesCommitmentGrounding(ml, args.behaviorStatement)) {
     return { ok: false, reason: "missing_commitment_grounding" };
   }
   const ackHygiene = inboundCoachComplianceHygieneFailReason(msg);
@@ -768,7 +767,8 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
   /** When known, steers copy away from "smaller bar" for recommit_same. */
   overlayContractKind?: "shrink_ask" | "recommit_same" | null;
   originalBehaviorStatement: string;
-  commitmentTitle: string;
+  /** @deprecated Ignored — legacy title must not be model-facing goal context. */
+  commitmentTitle?: string;
   preferredName: string | null;
 }): Promise<V2AiInboundAttempt> {
   if (!isV2AiInboundEnabled()) {
@@ -788,7 +788,6 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
     lines.push(`overlay_contract_kind (authoritative): ${args.overlayContractKind}`);
   }
   lines.push(`original_behavior_statement: ${truncateOneLine(args.originalBehaviorStatement, 200)}`);
-  lines.push(`commitment_title: ${truncateOneLine(args.commitmentTitle, 80)}`);
   if (args.bindingText?.trim()) {
     lines.push(
       `BINDING_TEXT (must appear verbatim as substring if kind is overlay_activated_ack): ${truncateOneLine(args.bindingText, 200)}`
@@ -820,7 +819,7 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
     lines.push(
       "- Acknowledge plainly: we will not lock in the extra-simple week; their commitment stays exactly as it was."
     );
-    lines.push("- Tie to original_behavior_statement or commitment_title with grounded language.");
+    lines.push("- Tie to original_behavior_statement with grounded language.");
     lines.push("- End with ONE concrete accountability question or next move for today.");
     lines.push("- Forbidden tone: shame, moralizing, implying they 'chose a lower bar', 'declined the standard', or personal failure.");
     lines.push("- Forbidden words/phrases: overlay, contract, proposal, pending resolution, V2, commitment event, accountability system.");
@@ -866,7 +865,6 @@ export async function tryGenerateV2ContractConsentAckMessage(args: {
           modelStrategy,
           bindingText: args.bindingText,
           behaviorStatement: args.originalBehaviorStatement,
-          commitmentTitle: args.commitmentTitle,
         });
     if (!validated.ok) {
       return { ok: false, fallbackUsed: true, reason: validated.reason };
@@ -1074,7 +1072,6 @@ function buildShadowInterpretationUserPrompt(args: V2InboundInterpretationShadow
   }
   lines.push("");
   lines.push("COMMITMENT:");
-  lines.push(`- title: ${truncateOneLine(args.commitment.title, 90)}`);
   lines.push(`- behavior_statement: ${truncateOneLine(args.commitment.behavior_statement, 220)}`);
   lines.push(`- effective_coaching_ask: ${truncateOneLine(args.effectiveAsk, 220)}`);
   lines.push("");

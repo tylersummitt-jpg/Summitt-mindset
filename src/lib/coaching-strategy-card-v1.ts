@@ -2368,7 +2368,6 @@ export function resolveShortAnswerPlanAckFromInboundFacts(
     openQuestionPending: mp?.open_question_pending,
     effectiveAsk: facts.commitment.effective_ask,
     behaviorStatement: facts.commitment.behavior_statement,
-    commitmentTitle: facts.commitment.title,
     tuAnsweredLastCoachAsk: facts.turn_understanding?.proposal?.answered_last_coach_ask ?? null,
   });
   if (isPlanAckFromShortAnswerContext(saca)) return true;

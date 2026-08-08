@@ -86,6 +86,7 @@ export function isAmbiguousShortReplyNeedingContext(text: string): boolean {
 
 export type IsSelfContainedAccountabilityAnswerArgs = {
   text: string;
+  /** @deprecated Ignored — legacy title must not act as goal evidence. */
   commitmentTitle?: string | null;
   behaviorStatement?: string | null;
   effectiveAsk?: string | null;
@@ -110,7 +111,6 @@ export function isSelfContainedAccountabilityAnswer(args: IsSelfContainedAccount
   const barHints = [
     args.effectiveAsk?.trim().slice(0, 72),
     args.behaviorStatement?.trim().slice(0, 72),
-    args.commitmentTitle?.trim().slice(0, 48),
   ].filter((x): x is string => Boolean(x?.length));
 
   const mentionsBarSlice = barHints.some((h) => {
@@ -144,7 +144,8 @@ export function isSelfContainedAccountabilityAnswer(args: IsSelfContainedAccount
 export type BuildV2ActiveReplyContextArgs = {
   inboundText: string;
   eventsNewestFirst: V2EventRowForAi[];
-  commitmentTitle: string | null;
+  /** @deprecated Ignored — legacy title must not act as goal evidence. */
+  commitmentTitle?: string | null;
   behaviorStatement: string;
   effectiveAsk: string;
   nowMs?: number;
@@ -191,7 +192,6 @@ export function buildV2ActiveReplyContext(args: BuildV2ActiveReplyContextArgs): 
   const ambiguous_short_reply = isAmbiguousShortReplyNeedingContext(args.inboundText);
   const self_contained_accountability_answer = isSelfContainedAccountabilityAnswer({
     text: args.inboundText,
-    commitmentTitle: args.commitmentTitle,
     behaviorStatement: args.behaviorStatement,
     effectiveAsk: args.effectiveAsk,
   });

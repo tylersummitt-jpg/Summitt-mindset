@@ -2604,6 +2604,7 @@ export type RunInboundTurnUnderstandingArgs = {
   openQuestionFacts?: unknown;
   expectedAnswerType?: string | null;
   recentEventsNewestFirst?: import("@/lib/v2-commitment").V2EventRowForAi[];
+  /** @deprecated Ignored — legacy title must not act as goal evidence. */
   commitmentTitle?: string | null;
 };
 
@@ -2635,7 +2636,6 @@ export async function runInboundRelationshipTurnUnderstanding(
     expectedReplySemantics: args.expectedReplySemantics,
     effectiveAsk: args.effectiveAsk,
     behaviorStatement: args.behaviorStatement,
-    commitmentTitle: args.commitmentTitle,
     recentEventsNewestFirst: args.recentEventsNewestFirst,
   });
 

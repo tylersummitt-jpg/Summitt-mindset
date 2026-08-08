@@ -30,7 +30,6 @@ export function completionAlignmentContextFromInboundFacts(
   return {
     commitmentBehaviorStatement: facts.commitment.behavior_statement ?? null,
     effectiveAsk: facts.commitment.effective_ask ?? null,
-    commitmentTitle: facts.commitment.title ?? null,
   };
 }
 

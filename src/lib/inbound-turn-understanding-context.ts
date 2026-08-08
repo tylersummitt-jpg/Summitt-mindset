@@ -1004,7 +1004,6 @@ export async function runInboundTurnUnderstandingContext(
     expectedReplySemantics: args.expectedReplySemantics,
     effectiveAsk: args.effectiveAsk,
     behaviorStatement: args.behaviorStatement,
-    commitmentTitle: args.commitmentTitle,
     recentEventsNewestFirst: args.recentEventsNewestFirst,
   });
 
