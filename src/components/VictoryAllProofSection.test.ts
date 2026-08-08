@@ -32,6 +32,8 @@ describe("VictoryAllProofSection", () => {
     expect(html).not.toContain("All Proof");
     expect(html).toContain("← Victory Room");
     expect(html).toContain("/dashboard/victory-room");
+    expect(html).toContain("Add a Win");
+    expect(html).toContain("/dashboard/victory-room/add-win?from=all-wins");
     expect(html).toContain("Showed up");
     expect(html).not.toContain("Every saved proof moment");
     expect(html).not.toContain("Share");

@@ -68,6 +68,15 @@ export default async function VictorySeasonDetailPage({ params }: PageProps) {
           timeZone={timeZone}
         />
 
+        <p className="mb-10 -mt-4">
+          <Link
+            href={`/dashboard/victory-room/add-win?seasonId=${encodeURIComponent(view.seasonId)}`}
+            className={vrAccentLink}
+          >
+            Add a Win
+          </Link>
+        </p>
+
         {showSummary && view.summary ? <VictorySeasonSummaryBlock summary={view.summary} /> : null}
 
         {!view.hasProof ? (

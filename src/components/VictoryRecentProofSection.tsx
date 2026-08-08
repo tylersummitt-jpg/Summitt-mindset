@@ -32,6 +32,11 @@ export function VictoryRecentProofSection({
         <p className="mt-2 text-sm font-semibold uppercase tracking-[0.14em] text-stone-400">
           {totalActiveWins === 1 ? "Win" : "Wins"}
         </p>
+        <p className="mt-4">
+          <Link href="/dashboard/victory-room/add-win" className={vrAccentLink}>
+            Add a Win
+          </Link>
+        </p>
       </div>
 
       {wins.length === 0 ? (

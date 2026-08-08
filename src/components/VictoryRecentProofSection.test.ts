@@ -34,6 +34,8 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain("two loops done");
     expect(html).toContain("View all Wins");
     expect(html).toContain("/dashboard/victory-room/all-proof");
+    expect(html).toContain("Add a Win");
+    expect(html).toContain('/dashboard/victory-room/add-win"');
     expect(html).not.toContain("See all proof");
     expect(html).not.toContain("Kept the goal");
     expect(html).not.toContain("Share");
@@ -50,6 +52,7 @@ describe("VictoryRecentProofSection", () => {
     );
     expect(html).toContain("No Wins yet.");
     expect(html).toContain("worth remembering");
+    expect(html).toContain("Add a Win");
     expect(html).not.toContain("Recent Proof");
     expect(html).not.toContain("saved");
     expect(html).not.toContain("logged");
