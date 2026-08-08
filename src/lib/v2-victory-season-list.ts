@@ -11,6 +11,7 @@ import {
   deriveMergedProofMomentsFromEventWindow,
   mapVictoryCommitmentEventRows,
 } from "@/lib/v2-victory-room-view";
+import { formatUserFacingGoal } from "@/lib/v2-user-facing-goal";
 
 const PAST_SEASON_LIMIT = 5;
 
@@ -45,44 +46,33 @@ type SeasonListRow = {
   goal_snapshot: unknown;
 };
 
-function parseGoalTitle(raw: unknown): string | null {
-  if (!raw || typeof raw !== "object") return null;
-  const title = (raw as Record<string, unknown>).title;
-  return typeof title === "string" && title.trim() ? title.trim() : null;
-}
-
 function parseGoalBehavior(raw: unknown): string | null {
   if (!raw || typeof raw !== "object") return null;
   const behavior = (raw as Record<string, unknown>).behavior_statement;
   return typeof behavior === "string" && behavior.trim() ? behavior.trim() : null;
 }
 
-async function resolveLiveGoalTitleForActiveSeason(args: {
+/** Active season goal label: live behavior, then snapshot behavior — never legacy title. */
+async function resolveLiveGoalLabelForActiveSeason(args: {
   clerkUserId: string;
   seasonCommitmentId: string;
   goalSnapshot: unknown;
-}): Promise<string | null> {
-  const snapshotTitle = parseGoalTitle(args.goalSnapshot);
+}): Promise<string> {
   const snapshotBehavior = parseGoalBehavior(args.goalSnapshot);
 
   const { data: activeCommitment, error: activeErr } = await supabaseServer
     .from("v2_commitment")
-    .select("id, title, behavior_statement")
+    .select("id, behavior_statement")
     .eq("clerk_user_id", args.clerkUserId)
     .eq("status", "active")
     .maybeSingle();
 
   if (!activeErr && activeCommitment?.id) {
-    const activeTitle =
-      typeof activeCommitment.title === "string" && activeCommitment.title.trim()
-        ? activeCommitment.title.trim()
-        : null;
     const activeBehavior =
       typeof activeCommitment.behavior_statement === "string" &&
       activeCommitment.behavior_statement.trim()
         ? activeCommitment.behavior_statement.trim()
         : null;
-    const fromActive = activeTitle ?? activeBehavior;
 
     if (activeCommitment.id !== args.seasonCommitmentId) {
       console.warn("[v2-victory-season-list] season_commitment_drift", {
@@ -90,29 +80,31 @@ async function resolveLiveGoalTitleForActiveSeason(args: {
         season_commitment_id: args.seasonCommitmentId,
         active_commitment_id: activeCommitment.id,
       });
-      if (fromActive) return fromActive;
-    } else if (fromActive) {
-      return fromActive;
+      if (activeBehavior) {
+        return formatUserFacingGoal({ behaviorStatement: activeBehavior });
+      }
+    } else if (activeBehavior) {
+      return formatUserFacingGoal({ behaviorStatement: activeBehavior });
     }
   }
 
   const { data: live, error } = await supabaseServer
     .from("v2_commitment")
-    .select("title, behavior_statement")
+    .select("behavior_statement")
     .eq("id", args.seasonCommitmentId)
     .maybeSingle();
 
   if (error || !live) {
-    return snapshotTitle ?? snapshotBehavior;
+    return formatUserFacingGoal({ behaviorStatement: snapshotBehavior });
   }
 
-  const liveTitle =
-    typeof live.title === "string" && live.title.trim() ? live.title.trim() : null;
   const liveBehavior =
     typeof live.behavior_statement === "string" && live.behavior_statement.trim()
       ? live.behavior_statement.trim()
       : null;
-  return liveTitle ?? liveBehavior ?? snapshotTitle ?? snapshotBehavior;
+  return formatUserFacingGoal({
+    behaviorStatement: liveBehavior ?? snapshotBehavior,
+  });
 }
 
 /** One bounded event window + same derivation as season detail; used only for the active season card. */
@@ -185,7 +177,7 @@ function toCard(
   hasSavedProof: boolean,
   summary: SeasonSummaryForDisplay | undefined,
   isCurrent: boolean,
-  goalTitleOverride?: string | null
+  goalTitleOverride?: string
 ): VictorySeasonCardData {
   const teaser =
     summary?.summaryText &&
@@ -206,7 +198,11 @@ function toCard(
     status: row.status,
     startedAt: row.started_at,
     endedAt: row.ended_at,
-    goalTitle: goalTitleOverride ?? parseGoalTitle(row.goal_snapshot),
+    goalTitle:
+      goalTitleOverride ??
+      formatUserFacingGoal({
+        behaviorStatement: parseGoalBehavior(row.goal_snapshot),
+      }),
     hasSavedProof,
     summaryTeaser: teaser,
     principleLivedTitle: principle,
@@ -262,12 +258,12 @@ export async function loadVictorySeasonListForRoom(
   if (activeRow) {
     const ar = activeRow as SeasonListRow;
     const hasSavedProof = await hasCuratedProofForCommitment(ar.commitment_id);
-    const liveGoalTitle = await resolveLiveGoalTitleForActiveSeason({
+    const liveGoalLabel = await resolveLiveGoalLabelForActiveSeason({
       clerkUserId,
       seasonCommitmentId: ar.commitment_id,
       goalSnapshot: ar.goal_snapshot,
     });
-    currentSeason = toCard(ar, hasSavedProof, undefined, true, liveGoalTitle);
+    currentSeason = toCard(ar, hasSavedProof, undefined, true, liveGoalLabel);
   }
 
   const pastSeasons = past.map((row) => {

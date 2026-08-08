@@ -156,6 +156,7 @@ describe("v2-victory-earlier-chapter-index", () => {
         {
           id: "c1",
           title: "Walk",
+          behavior_statement: "Walk before work",
           status: "completed",
           started_at: "2025-01-01T00:00:00Z",
           ended_at: null,
@@ -183,8 +184,56 @@ describe("v2-victory-earlier-chapter-index", () => {
     expect(index.chapters[0]?.linkTarget).toBe("season");
     expect(index.chapters[0]?.detailHref).toBe("/dashboard/victory-room/seasons/s1");
     expect(index.chapters[0]?.linkLabel).toBe("View season proof");
-    expect(index.chapters[0]?.title).toBe("Walk");
+    expect(index.chapters[0]?.title).toBe("Walk before work");
     expect(mockSeasonIn).toHaveBeenCalled();
+  });
+
+  it("index title uses behavior_statement and never SaaS App title", async () => {
+    mockCommitmentLimit.mockResolvedValue({
+      data: [
+        {
+          id: "c1",
+          title: "SaaS App",
+          behavior_statement: "Lift weights for 15 minutes a day",
+          status: "superseded",
+          started_at: "2026-05-25T00:00:00Z",
+          ended_at: "2026-08-08T00:00:00Z",
+          updated_at: null,
+        },
+      ],
+      error: null,
+    });
+    const index = await loadVictoryEarlierChapterIndex({
+      clerkUserId: "u1",
+      activeCommitmentId: "c-active",
+      excludeCommitmentIds: [],
+    });
+    expect(index.chapters[0]?.title).toBe("Lift weights for 15 minutes a day");
+    expect(index.chapters[0]?.title).not.toContain("SaaS App");
+  });
+
+  it("index does not fall back to title when behavior is missing", async () => {
+    mockCommitmentLimit.mockResolvedValue({
+      data: [
+        {
+          id: "c1",
+          title: "SaaS App",
+          behavior_statement: null,
+          status: "completed",
+          started_at: "2025-01-01T00:00:00Z",
+          ended_at: null,
+          updated_at: null,
+        },
+      ],
+      error: null,
+    });
+    const index = await loadVictoryEarlierChapterIndex({
+      clerkUserId: "u1",
+      activeCommitmentId: "c-active",
+      excludeCommitmentIds: [],
+    });
+    expect(index.chapters[0]?.title).toBe("Goal unavailable");
+    expect(index.chapters[0]?.title).not.toContain("SaaS App");
   });
 
   it("links to chapter route when no season row", async () => {

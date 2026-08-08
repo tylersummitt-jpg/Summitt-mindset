@@ -11,6 +11,7 @@ import {
   type VictoryMoment,
 } from "@/lib/v2-victory-room-view";
 import { earlierChapterStatusLabel } from "@/lib/v2-victory-earlier-chapter-index";
+import { formatUserFacingGoal } from "@/lib/v2-user-facing-goal";
 
 const ELIGIBLE_STATUSES = ["completed", "abandoned", "superseded"] as const;
 
@@ -41,12 +42,11 @@ function truncateBody(body: string, max = 400): string {
   return `${t.slice(0, max - 1)}…`;
 }
 
+/** User-facing chapter goal label — behavior only; never legacy title. */
 function chapterTitleFromRow(row: Record<string, unknown>): string {
-  const t = typeof row.title === "string" ? row.title.trim() : "";
-  if (t) return t.length > 120 ? `${t.slice(0, 119)}…` : t;
   const b = typeof row.behavior_statement === "string" ? row.behavior_statement.trim() : "";
-  if (b) return b.length > 100 ? `${b.slice(0, 99)}…` : b;
-  return "Earlier commitment";
+  const label = formatUserFacingGoal({ behaviorStatement: b || null });
+  return label.length > 120 ? `${label.slice(0, 119)}…` : label;
 }
 
 function isEligibleStatus(status: string): boolean {

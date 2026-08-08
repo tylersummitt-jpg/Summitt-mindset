@@ -2,6 +2,7 @@ import "server-only";
 
 import { supabaseServer } from "@/lib/supabase-server";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
+import { formatUserFacingGoal } from "@/lib/v2-user-facing-goal";
 
 const EARLIER_CHAPTER_STATUSES = ["completed", "abandoned", "superseded"] as const;
 export const EARLIER_CHAPTER_INDEX_LIMIT = 15;
@@ -30,12 +31,11 @@ function truncateOneLine(s: string, max: number): string {
   return `${x.slice(0, max - 1)}…`;
 }
 
+/** User-facing chapter goal label — behavior only; never legacy title. */
 function chapterTitleFromRow(row: Record<string, unknown>): string {
-  const t = typeof row.title === "string" ? row.title.trim() : "";
-  if (t) return truncateOneLine(t, 120);
   const b = typeof row.behavior_statement === "string" ? row.behavior_statement.trim() : "";
-  if (b) return truncateOneLine(b, 100);
-  return "Earlier commitment";
+  const label = formatUserFacingGoal({ behaviorStatement: b || null });
+  return truncateOneLine(label, 120);
 }
 
 function formatChapterRangeLabel(

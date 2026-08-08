@@ -118,6 +118,51 @@ describe("v2-victory-earlier-chapter-proof-view", () => {
     expect(view?.proofMoments[0]).not.toHaveProperty("event_type");
   });
 
+  it("chapter title uses behavior_statement and never legacy title", async () => {
+    mockCommitmentMaybeSingle.mockResolvedValue({
+      data: {
+        id: "c1",
+        clerk_user_id: "u1",
+        title: "SaaS App",
+        behavior_statement: "Lift weights for 15 minutes a day",
+        status: "superseded",
+        started_at: "2026-05-25T00:00:00Z",
+        ended_at: "2026-08-08T00:00:00Z",
+        reactivation_entered_at: null,
+      },
+      error: null,
+    });
+    const view = await loadVictoryEarlierChapterProofView({
+      clerkUserId: "u1",
+      commitmentId: "c1",
+    });
+    expect(view?.title).toBe("Lift weights for 15 minutes a day");
+    expect(view?.title).not.toContain("SaaS App");
+    expect(view?.behaviorStatement).toBe("Lift weights for 15 minutes a day");
+  });
+
+  it("does not fall back to title when behavior is missing", async () => {
+    mockCommitmentMaybeSingle.mockResolvedValue({
+      data: {
+        id: "c1",
+        clerk_user_id: "u1",
+        title: "SaaS App",
+        behavior_statement: null,
+        status: "completed",
+        started_at: "2026-01-01T00:00:00Z",
+        ended_at: null,
+        reactivation_entered_at: null,
+      },
+      error: null,
+    });
+    const view = await loadVictoryEarlierChapterProofView({
+      clerkUserId: "u1",
+      commitmentId: "c1",
+    });
+    expect(view?.title).toBe("Goal unavailable");
+    expect(view?.title).not.toContain("SaaS App");
+  });
+
   it("system events do not create curated proof", async () => {
     mockEventsLimit.mockResolvedValue({
       data: [

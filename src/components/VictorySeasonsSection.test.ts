@@ -89,4 +89,31 @@ describe("VictorySeasonsSection", () => {
     expect(html).toContain("Principle lived:");
     expect(html).not.toMatch(/Coach Pat/i);
   });
+
+  it("renders behavior goal labels and never shows SaaS App title", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictorySeasonsSection, {
+        currentSeason: card({
+          isCurrent: true,
+          status: "active",
+          seasonName: "Season 2",
+          goalTitle: "Lift weights for 30 minutes a day",
+          endedAt: null,
+          statusLine: "This season is still building.",
+          hasSavedProof: false,
+          detailHref: "/dashboard/victory-room/seasons/s2",
+        }),
+        pastSeasons: [
+          card({
+            seasonName: "Season 1",
+            goalTitle: "Lift weights for 15 minutes a day",
+          }),
+        ],
+        timeZone: "UTC",
+      })
+    );
+    expect(html).toContain("Lift weights for 30 minutes a day");
+    expect(html).toContain("Lift weights for 15 minutes a day");
+    expect(html).not.toContain("SaaS App");
+  });
 });

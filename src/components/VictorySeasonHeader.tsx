@@ -1,5 +1,6 @@
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
 import type { SeasonGoalSnapshot } from "@/lib/v2-victory-season-proof-view";
+import { formatUserFacingGoal } from "@/lib/v2-user-facing-goal";
 import {
   vrBody,
   vrBodyMuted,
@@ -45,6 +46,9 @@ export function VictorySeasonHeader({
   timeZone,
 }: VictorySeasonHeaderProps) {
   const active = status === "active";
+  const goalLabel = formatUserFacingGoal({
+    behaviorStatement: goalSnapshot.behaviorStatement,
+  });
 
   return (
     <header className={`${vrSectionCard} mb-10 ${active ? "border-amber-500/40" : "border-white/12"}`}>
@@ -55,12 +59,10 @@ export function VictorySeasonHeader({
       <p className={vrLabel}>{statusLabel(status)}</p>
       <h1 className={`${vrSectionTitle} mt-3`}>{seasonName}</h1>
       <p className={`${vrBodyMuted} mt-2 text-sm`}>{formatRange(startedAt, endedAt, timeZone)}</p>
-      {goalSnapshot.title ? (
-        <p className={`${vrBody} mt-4 text-stone-300`}>
-          <span className="font-medium text-stone-200">Goal this season: </span>
-          {goalSnapshot.title}
-        </p>
-      ) : null}
+      <p className={`${vrBody} mt-4 text-stone-300`}>
+        <span className="font-medium text-stone-200">Goal this season: </span>
+        {goalLabel}
+      </p>
     </header>
   );
 }

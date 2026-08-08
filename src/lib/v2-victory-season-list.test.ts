@@ -111,7 +111,7 @@ describe("v2-victory-season-list", () => {
       error: null,
     });
     mockCommitmentByIdMaybeSingle.mockResolvedValue({
-      data: { reactivation_entered_at: null },
+      data: { reactivation_entered_at: null, behavior_statement: "Walk 30 min daily" },
       error: null,
     });
     mockEventsLimit.mockResolvedValue({ data: [], error: null });
@@ -134,7 +134,10 @@ describe("v2-victory-season-list", () => {
           status: "completed",
           started_at: "2026-01-01T00:00:00Z",
           ended_at: "2026-04-01T00:00:00Z",
-          goal_snapshot: { title: "Morning walk" },
+          goal_snapshot: {
+            title: "Morning walk",
+            behavior_statement: "Walk before breakfast",
+          },
         },
       ],
       error: null,
@@ -168,12 +171,42 @@ describe("v2-victory-season-list", () => {
     expect(list.currentSeason?.statusLine).toContain("still building");
   });
 
-  it("active season card prefers live commitment over stale goal_snapshot", async () => {
+  it("active season card prefers live behavior_statement over stale title and snapshot", async () => {
     const list = await loadVictorySeasonListForRoom("u1");
-    expect(list.currentSeason?.goalTitle).toBe("Live walking goal");
+    expect(list.currentSeason?.goalTitle).toBe("Walk 30 min daily");
+    expect(list.currentSeason?.goalTitle).not.toBe("Live walking goal");
   });
 
-  it("active season card prefers user active commitment when season commitment drifted", async () => {
+  it("active season hides SaaS App title when behavior is lifting goal", async () => {
+    mockActiveMaybeSingle.mockResolvedValue({
+      data: {
+        id: "s-active",
+        commitment_id: "c-active",
+        season_name: "Season 2",
+        status: "active",
+        started_at: "2026-08-08T00:00:00Z",
+        ended_at: null,
+        goal_snapshot: {
+          title: "SaaS App",
+          behavior_statement: "Lift weights for 30 minutes a day",
+        },
+      },
+      error: null,
+    });
+    mockCommitmentActiveMaybeSingle.mockResolvedValue({
+      data: {
+        id: "c-active",
+        title: "SaaS App",
+        behavior_statement: "Lift weights for 30 minutes a day",
+      },
+      error: null,
+    });
+    const list = await loadVictorySeasonListForRoom("u1");
+    expect(list.currentSeason?.goalTitle).toBe("Lift weights for 30 minutes a day");
+    expect(list.currentSeason?.goalTitle).not.toContain("SaaS App");
+  });
+
+  it("active season card prefers user active behavior when season commitment drifted", async () => {
     mockActiveMaybeSingle.mockResolvedValue({
       data: {
         id: "s-active",
@@ -182,7 +215,10 @@ describe("v2-victory-season-list", () => {
         status: "active",
         started_at: "2026-05-10T00:00:00Z",
         ended_at: null,
-        goal_snapshot: { title: "Stale evening walk" },
+        goal_snapshot: {
+          title: "Stale evening walk",
+          behavior_statement: "Stale snapshot behavior",
+        },
       },
       error: null,
     });
@@ -195,7 +231,53 @@ describe("v2-victory-season-list", () => {
       error: null,
     });
     const list = await loadVictorySeasonListForRoom("u1");
-    expect(list.currentSeason?.goalTitle).toBe("Current active goal");
+    expect(list.currentSeason?.goalTitle).toBe("Walk 30 min daily");
+    expect(list.currentSeason?.goalTitle).not.toBe("Current active goal");
+  });
+
+  it("past season uses snapshot behavior_statement and never title", async () => {
+    mockActiveMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mockPastLimit.mockResolvedValue({
+      data: [
+        {
+          id: "s-past",
+          commitment_id: "c-past",
+          season_name: "Season 1",
+          status: "completed",
+          started_at: "2026-01-01T00:00:00Z",
+          ended_at: "2026-04-01T00:00:00Z",
+          goal_snapshot: {
+            title: "SaaS App",
+            behavior_statement: "Lift weights for 15 minutes a day",
+          },
+        },
+      ],
+      error: null,
+    });
+    const list = await loadVictorySeasonListForRoom("u1");
+    expect(list.pastSeasons[0]?.goalTitle).toBe("Lift weights for 15 minutes a day");
+    expect(list.pastSeasons[0]?.goalTitle).not.toContain("SaaS App");
+  });
+
+  it("past season does not fall back to title when behavior is missing", async () => {
+    mockActiveMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mockPastLimit.mockResolvedValue({
+      data: [
+        {
+          id: "s-past",
+          commitment_id: "c-past",
+          season_name: "Season 1",
+          status: "completed",
+          started_at: "2026-01-01T00:00:00Z",
+          ended_at: "2026-04-01T00:00:00Z",
+          goal_snapshot: { title: "SaaS App" },
+        },
+      ],
+      error: null,
+    });
+    const list = await loadVictorySeasonListForRoom("u1");
+    expect(list.pastSeasons[0]?.goalTitle).toBe("Goal unavailable");
+    expect(list.pastSeasons[0]?.goalTitle).not.toContain("SaaS App");
   });
 
   it("past season uses snapshot hints for saved proof without event fetch", async () => {
@@ -209,7 +291,10 @@ describe("v2-victory-season-list", () => {
           status: "completed",
           started_at: "2026-01-01T00:00:00Z",
           ended_at: "2026-04-01T00:00:00Z",
-          goal_snapshot: { title: "Morning walk" },
+          goal_snapshot: {
+            title: "Morning walk",
+            behavior_statement: "Walk before breakfast",
+          },
         },
       ],
       error: null,
