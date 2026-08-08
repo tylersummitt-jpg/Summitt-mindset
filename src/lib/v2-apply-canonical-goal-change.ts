@@ -32,6 +32,7 @@ export type ApplyCanonicalGoalChangeResult =
 
 /**
  * Canonical season-aware goal change — shared by SMS confirmation, app goal-change, and guided resolution.
+ * Product law: saved Current Goal change always uses new_chapter (RPC also auto-upgrades legacy same_season_sync).
  */
 export async function applyCanonicalGoalChangeWithSeasonMutation(
   args: ApplyCanonicalGoalChangeArgs
@@ -40,11 +41,14 @@ export async function applyCanonicalGoalChangeWithSeasonMutation(
     return { ok: false, code: "unsafe_goal_content" };
   }
 
+  // Callers may still pass legacy same_season_sync; mutation authority is always new_chapter.
+  const seasonMode: SmsSeasonMode = "new_chapter";
+
   const { data, error } = await supabaseServer.rpc("v2_apply_sms_goal_change_with_season_mutation", {
     p_old_commitment_id: args.commitment.id,
     p_clerk_user_id: args.clerkUserId,
     p_new_behavior_statement: args.behaviorStatement,
-    p_season_mode: args.seasonMode,
+    p_season_mode: seasonMode,
     p_expected_old_updated_at: args.commitment.updated_at,
     p_idempotency_key: args.idempotencyKey,
     p_now: new Date().toISOString(),
@@ -52,7 +56,7 @@ export async function applyCanonicalGoalChangeWithSeasonMutation(
   if (error) return { ok: false, code: `rpc_error:${error.message}` };
 
   const row = Array.isArray(data) ? data[0] : null;
-  const mapped = mapSmsGoalSeasonMutationRpcRow(row, args.seasonMode, args.commitment.id);
+  const mapped = mapSmsGoalSeasonMutationRpcRow(row, seasonMode, args.commitment.id);
   if (!mapped.ok) return mapped;
 
   await clearStaleAdaptiveContractColumns(mapped.newCommitmentId);
@@ -78,7 +82,6 @@ export async function applyCanonicalGoalChangeWithSeasonMutation(
   }
 
   // Goal mutation already succeeded — never block on snapshot cleanup failure.
-  // same_season_sync: clears stale current-goal Pat/Principles for the in-place id.
   // new_chapter: clears any rows on the new active id; old commitment history remains.
   try {
     const inv = await invalidateVictorySnapshotsAfterCanonicalGoalChange({

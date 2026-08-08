@@ -88,17 +88,17 @@ describe("applyCanonicalGoalChangeWithSeasonMutation", () => {
     });
   });
 
-  it("calls season RPC with same_season_sync and invalidates Victory snapshots after success", async () => {
+  it("forces new_chapter even when caller passes same_season_sync", async () => {
     rpcMock.mockResolvedValue({
       data: [
         {
           result: "applied",
-          commitment_replace_applied: false,
+          commitment_replace_applied: true,
           old_commitment_id: "cmt_1",
-          new_commitment_id: "cmt_1",
+          new_commitment_id: "cmt_2",
           season_transition_applied: true,
-          season_transition_action: "same_season_sync",
-          same_season_goal_snapshot_synced: true,
+          season_transition_action: "new_chapter",
+          same_season_goal_snapshot_synced: false,
           idempotent_replay: false,
         },
       ],
@@ -116,20 +116,24 @@ describe("applyCanonicalGoalChangeWithSeasonMutation", () => {
     });
 
     expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.seasonMode).toBe("new_chapter");
+      expect(r.sameSeasonGoalSnapshotSynced).toBe(false);
+    }
     expect(rpcMock).toHaveBeenCalledWith("v2_apply_sms_goal_change_with_season_mutation", {
       p_old_commitment_id: "cmt_1",
       p_clerk_user_id: "user_1",
       p_new_behavior_statement: "Walk 20 minutes",
-      p_season_mode: "same_season_sync",
+      p_season_mode: "new_chapter",
       p_expected_old_updated_at: baseCommitment.updated_at,
       p_idempotency_key: "app_goal_change:test-uuid",
       p_now: expect.any(String),
     });
-    expect(proofInsertMock).not.toHaveBeenCalled();
+    expect(proofInsertMock).toHaveBeenCalledTimes(1);
     expect(invalidateMock).toHaveBeenCalledWith({
       clerkUserId: "user_1",
       oldCommitmentId: "cmt_1",
-      newCommitmentId: "cmt_1",
+      newCommitmentId: "cmt_2",
     });
   });
 
@@ -143,7 +147,7 @@ describe("applyCanonicalGoalChangeWithSeasonMutation", () => {
       clerkUserId: "user_1",
       commitment: baseCommitment,
       behaviorStatement: "Walk 20 minutes",
-      seasonMode: "same_season_sync",
+      seasonMode: "new_chapter",
       idempotencyKey: "k-fail",
       proofMessageSid: "k-fail",
       memoryReasonCode: "app_goal_change",
@@ -158,12 +162,12 @@ describe("applyCanonicalGoalChangeWithSeasonMutation", () => {
       data: [
         {
           result: "applied",
-          commitment_replace_applied: false,
+          commitment_replace_applied: true,
           old_commitment_id: "cmt_1",
-          new_commitment_id: "cmt_1",
+          new_commitment_id: "cmt_2",
           season_transition_applied: true,
-          season_transition_action: "same_season_sync",
-          same_season_goal_snapshot_synced: true,
+          season_transition_action: "new_chapter",
+          same_season_goal_snapshot_synced: false,
           idempotent_replay: false,
         },
       ],
@@ -181,7 +185,7 @@ describe("applyCanonicalGoalChangeWithSeasonMutation", () => {
       clerkUserId: "user_1",
       commitment: baseCommitment,
       behaviorStatement: "Walk 20 minutes",
-      seasonMode: "same_season_sync",
+      seasonMode: "new_chapter",
       idempotencyKey: "k-inv-fail",
       proofMessageSid: "k-inv-fail",
       memoryReasonCode: "app_goal_change",

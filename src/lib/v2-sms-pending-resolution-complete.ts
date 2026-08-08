@@ -637,17 +637,16 @@ async function applySmsGoalChangeWithSeasonMutation(args: {
   seasonMode: SmsSeasonMode;
   messageSid: string;
 }): Promise<SmsGoalSeasonMutationResult | { ok: false; code: string }> {
+  // Product law: saved Current Goal replacement always new_chapter (legacy seasonMode ignored).
+  void args.seasonMode;
   return applyCanonicalGoalChangeWithSeasonMutation({
     clerkUserId: args.clerkUserId,
     commitment: args.commitment,
     behaviorStatement: args.behaviorStatement,
-    seasonMode: args.seasonMode,
+    seasonMode: "new_chapter",
     idempotencyKey: args.messageSid,
     proofMessageSid: args.messageSid,
-    memoryReasonCode:
-      args.seasonMode === "new_chapter"
-        ? "sms_pending_resolution_replace"
-        : "sms_pending_resolution_same_season_sync",
+    memoryReasonCode: "sms_pending_resolution_replace",
     memoryReasonCodeIdempotentReplay: "sms_pending_resolution_replace_raced_winner",
   });
 }
@@ -1332,6 +1331,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     c = (await getActiveCommitment(args.clerkUserId)) ?? c;
 
     if (kind === "commitment_replace") {
+      // Product law: ignore stored/heuristic season_mode; always new_chapter for saved goal replace.
       const seasonResolved = resolveSeasonModeForPendingReplace({
         payload,
         candidateBar: cand,
@@ -1344,7 +1344,8 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         mutation_attempted: true,
         mutation_success: false,
         rpc: "v2_apply_sms_goal_change_with_season_mutation",
-        season_mode: seasonResolved.mode,
+        season_mode: "new_chapter",
+        season_mode_requested: seasonResolved.mode,
         old_commitment_id: c.id,
         new_commitment_id: null,
         message_sid: args.job.message_sid,
@@ -1354,7 +1355,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
         clerkUserId: args.clerkUserId,
         commitment: c,
         behaviorStatement: cand,
-        seasonMode: seasonResolved.mode,
+        seasonMode: "new_chapter",
         messageSid: args.job.message_sid,
       });
       if (!rep.ok) {
@@ -1365,7 +1366,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
           mutation_attempted: true,
           mutation_success: false,
           rpc: "v2_apply_sms_goal_change_with_season_mutation",
-          season_mode: seasonResolved.mode,
+          season_mode: "new_chapter",
           old_commitment_id: c.id,
           new_commitment_id: null,
           message_sid: args.job.message_sid,
@@ -1420,22 +1421,18 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       if (thinReplace) {
         vrAppend = null;
       }
-      const replaceReply =
-        rep.seasonMode === "new_chapter"
-          ? `Done. New commitment: ${cand}. I’ll hold you to that tomorrow.`
-          : `Done. Updated bar: ${cand}. I’ll hold you to that tomorrow.`;
+      // Existing new-chapter machine draft (no same-season "Updated bar" path).
+      const replaceReply = `Done. New commitment: ${cand}. I’ll hold you to that tomorrow.`;
       let replaceReplyFinal = replaceReply;
-      if (rep.seasonMode === "new_chapter") {
-        const proofInserted = !rep.idempotentReplay;
-        if (proofInserted && vrAppend) {
-          const beforeReplaceCallout = replaceReplyFinal;
-          replaceReplyFinal = appendSmsParagraphIfUnderCap(replaceReplyFinal, vrAppend);
-          if (replaceReplyFinal !== beforeReplaceCallout) {
-            await patchVictoryCalloutOnSpineEventBestEffort({
-              idempotencyKey: `v2_sms_commitment_change_proof:commitment_replaced:${args.job.message_sid}`,
-              spineExtras: replaceCallout.eventPayloadExtras,
-            });
-          }
+      const proofInserted = !rep.idempotentReplay;
+      if (proofInserted && vrAppend) {
+        const beforeReplaceCallout = replaceReplyFinal;
+        replaceReplyFinal = appendSmsParagraphIfUnderCap(replaceReplyFinal, vrAppend);
+        if (replaceReplyFinal !== beforeReplaceCallout) {
+          await patchVictoryCalloutOnSpineEventBestEffort({
+            idempotencyKey: `v2_sms_commitment_change_proof:commitment_replaced:${args.job.message_sid}`,
+            spineExtras: replaceCallout.eventPayloadExtras,
+          });
         }
       }
       const allowVrReplace = /\bvictory room\b/i.test(replaceReplyFinal);

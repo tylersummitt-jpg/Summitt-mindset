@@ -6,9 +6,6 @@ import {
   ensureCommitmentReplacePendingForCanonicalGoalChange,
 } from "@/lib/v2-guided-resolution";
 import { isUnsafeSmsGoalCandidateText } from "@/lib/sms-inbound-safety";
-import { UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE } from "@/lib/update-goal-season-copy";
-import { hasActiveAccountabilitySeasonForCommitment } from "@/lib/v2-accountability-season-alignment";
-import { isSmsSeasonMode } from "@/lib/v2-sms-season-mode";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +21,8 @@ function normalizeBar(s: string): string {
 /**
  * POST /api/v2/commitment/goal-change
  * Proactive in-app goal update via canonical season-aware RPC (after pending bootstrap).
+ * Product law: saved Current Goal change always starts a new season (new_chapter).
+ * Client-provided season_mode is ignored for mutation authority.
  */
 export async function POST(req: Request) {
   try {
@@ -41,7 +40,6 @@ export async function POST(req: Request) {
 
     const raw =
       typeof body.behavior_statement === "string" ? body.behavior_statement.trim() : "";
-    const seasonModeRaw = body.season_mode;
     const clientRequestId =
       typeof body.client_request_id === "string" ? body.client_request_id.trim() : "";
 
@@ -51,12 +49,6 @@ export async function POST(req: Request) {
     if (raw.length > BEHAVIOR_MAX) {
       return NextResponse.json(
         { ok: false, error: `behavior_statement too long (max ${BEHAVIOR_MAX})` },
-        { status: 400 }
-      );
-    }
-    if (!isSmsSeasonMode(seasonModeRaw)) {
-      return NextResponse.json(
-        { ok: false, error: "season_mode must be same_season_sync or new_chapter" },
         { status: 400 }
       );
     }
@@ -84,25 +76,11 @@ export async function POST(req: Request) {
       );
     }
 
-    if (seasonModeRaw === "same_season_sync") {
-      const aligned = await hasActiveAccountabilitySeasonForCommitment(userId, commitment.id);
-      if (!aligned) {
-        return NextResponse.json(
-          {
-            ok: false,
-            code: "requires_new_chapter_no_active_season",
-            error: UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE,
-          },
-          { status: 400 }
-        );
-      }
-    }
-
     const pendingResult = await ensureCommitmentReplacePendingForCanonicalGoalChange({
       clerkUserId: userId,
       commitment,
       behaviorStatement: raw,
-      seasonMode: seasonModeRaw,
+      seasonMode: "new_chapter",
       clientRequestId,
       allowExistingAppGoalChangeOnly: true,
     });
@@ -132,7 +110,7 @@ export async function POST(req: Request) {
       clerkUserId: userId,
       commitment,
       behaviorStatement: raw,
-      seasonMode: seasonModeRaw,
+      seasonMode: "new_chapter",
       idempotencyKey,
       proofMessageSid: idempotencyKey,
       memoryReasonCode: "app_goal_change",
@@ -147,6 +125,7 @@ export async function POST(req: Request) {
         );
       }
       if (applied.code === "no_active_season_for_commitment") {
+        // Legacy sync error — should not occur under new_chapter-only law.
         return NextResponse.json(
           {
             ok: false,
@@ -172,7 +151,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       seasonMode: applied.seasonMode,
-      sameChapter: applied.seasonMode === "same_season_sync",
+      sameChapter: false,
       oldCommitmentId: applied.oldCommitmentId,
       newCommitmentId: applied.newCommitmentId,
       idempotentReplay: applied.idempotentReplay,

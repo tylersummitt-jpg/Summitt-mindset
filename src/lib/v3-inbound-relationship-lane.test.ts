@@ -2058,8 +2058,8 @@ describe("buildSeasonTransitionRouteAux", () => {
       ...baseFacts(),
       season_transition_facts: {
         chapter_changed: false,
-        user_facing_transition: "same_chapter",
-        bar_raised_in_same_chapter: true,
+        user_facing_transition: "none",
+        bar_raised_in_same_chapter: false,
         old_season_name: "Morning Focus",
         new_season_name: "Morning Focus",
       },
@@ -2068,7 +2068,7 @@ describe("buildSeasonTransitionRouteAux", () => {
     expect(aux).toContain("Do NOT expose internal labels");
     expect(aux).toMatch(/Never say:.*same_season_sync/);
     expect(aux).toMatch(/Never say:.*snapshot/);
-    expect(aux).toContain("same chapter");
+    expect(aux).toContain("do not claim any season or chapter change");
   });
 
   it("guides new_chapter language without IDs when chapter changed", () => {
@@ -2096,17 +2096,17 @@ describe("season_transition_facts in V3 facts JSON", () => {
     const mutationFacts = buildInboundSeasonTransitionFacts({
       ok: true,
       rpcResult: "applied",
-      seasonMode: "same_season_sync",
-      commitmentReplaceApplied: false,
+      seasonMode: "new_chapter",
+      commitmentReplaceApplied: true,
       oldCommitmentId: "cmt-uuid",
-      newCommitmentId: "cmt-uuid",
+      newCommitmentId: "cmt-new",
       seasonTransitionApplied: true,
-      seasonTransitionAction: "same_season_sync",
+      seasonTransitionAction: "new_chapter",
       oldSeasonId: "season-uuid",
-      newSeasonId: "season-uuid",
+      newSeasonId: "season-new",
       oldSeasonName: "Focus",
-      newSeasonName: "Focus",
-      sameSeasonGoalSnapshotSynced: true,
+      newSeasonName: "Stronger Focus",
+      sameSeasonGoalSnapshotSynced: false,
       idempotentReplay: false,
       warningCode: null,
     });

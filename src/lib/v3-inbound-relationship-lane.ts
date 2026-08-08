@@ -2152,13 +2152,12 @@ export function buildSeasonTransitionRouteAux(f: InboundV3RelationshipFacts): st
 - You may reference old_season_name or new_season_name when helpful — never IDs or database terms.
 - Do not overexplain season mechanics.`;
   } else if (sameChapterBarRaised) {
+    // Legacy same-chapter bar-raise facts are retired for saved goal replacement; keep a safe no-claim fallback.
     transitionGuidance = `
-- user_facing_transition is same_chapter / bar_raised_in_same_chapter is true: frame as same season, same chapter, or stronger standard — NOT a new chapter or new season.
-- Good examples (guidance only — vary naturally): "Same chapter, stronger standard." / "We kept the focus and raised the bar." / "I'll hold you to the sharper version."
-- Do NOT say "new chapter," "new season," "season closed," or "chapter closed."`;
+- Do not claim a new chapter or that the same chapter continued. Keep the reply simple and human.`;
   } else {
     transitionGuidance = `
-- season_transition_facts present but no chapter change and no same-chapter bar raise signaled: do not claim any season or chapter change. Keep the reply simple and human.`;
+- season_transition_facts present but no chapter change signaled: do not claim any season or chapter change. Keep the reply simple and human.`;
   }
 
   return `

@@ -224,19 +224,19 @@ describe("tryHandleSmsInboundPendingResolution — replace YES", () => {
     }
   });
 
-  it("same_season_sync does not insert commitment_replaced proof", async () => {
+  it("old pending same_season_sync + YES upgrades to new_chapter and inserts proof", async () => {
     rpcMock.mockResolvedValue({
       data: [
         {
           result: "applied",
-          commitment_replace_applied: false,
+          commitment_replace_applied: true,
           old_commitment_id: "cmt_pr",
-          new_commitment_id: "cmt_pr",
+          new_commitment_id: "cmt_pr_new",
           season_transition_applied: true,
-          season_transition_action: "same_season_sync",
+          season_transition_action: "new_chapter",
           old_season_id: "s-active",
-          new_season_id: "s-active",
-          same_season_goal_snapshot_synced: true,
+          new_season_id: "s-new",
+          same_season_goal_snapshot_synced: false,
           idempotent_replay: false,
         },
       ],
@@ -244,25 +244,33 @@ describe("tryHandleSmsInboundPendingResolution — replace YES", () => {
     });
     const c = commitmentAwaitingConfirm({
       season_mode: "same_season_sync",
+      candidate_behavior_statement: "Walk 20 minutes after dinner",
+      candidate_new_bar: "Walk 20 minutes after dinner",
     });
     getActiveCommitmentMock
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
         ...c,
+        id: "cmt_pr_new",
         behavior_statement: "Walk 20 minutes after dinner",
         pending_resolution_kind: null,
         pending_resolution_payload: null,
       });
 
     const r = await tryHandleSmsInboundPendingResolution({
-      job: { message_sid: "SMpr1", raw_body: "yes" },
+      job: { message_sid: "SMpr_sync_upgrade", raw_body: "yes" },
       clerkUserId: "user_pr",
       commitment: c,
     });
 
     expect(r.handled).toBe(true);
-    expect(rpcMock.mock.calls[0]![1]).toMatchObject({ p_season_mode: "same_season_sync" });
-    expect(proofInsertMock).not.toHaveBeenCalled();
+    expect(rpcMock.mock.calls[0]![1]).toMatchObject({ p_season_mode: "new_chapter" });
+    expect(proofInsertMock).toHaveBeenCalledTimes(1);
+    if (r.handled) {
+      expect(r.seasonMutation?.seasonMode).toBe("new_chapter");
+      expect(r.replyBody).toMatch(/New commitment:/i);
+      expect(r.replyBody).not.toMatch(/Updated bar:/i);
+    }
   });
 
   it("already_applied from bundled RPC is treated as success", async () => {

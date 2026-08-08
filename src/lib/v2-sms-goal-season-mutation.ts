@@ -57,21 +57,27 @@ export function mapSmsGoalSeasonMutationRpcRow(
       ? row.new_commitment_id
       : oldCommitmentId;
 
+  // Prefer RPC-reported action; saved-goal law maps legacy same_season_sync truth to new_chapter.
+  void seasonMode;
+  const rawAction =
+    typeof row.season_transition_action === "string" ? row.season_transition_action : null;
+  const action = rawAction === "same_season_sync" ? "new_chapter" : rawAction;
+
   return {
     ok: true,
     rpcResult: result,
-    seasonMode,
+    seasonMode: "new_chapter",
     commitmentReplaceApplied: Boolean(row.commitment_replace_applied),
     oldCommitmentId,
     newCommitmentId,
     seasonTransitionApplied: Boolean(row.season_transition_applied),
-    seasonTransitionAction:
-      typeof row.season_transition_action === "string" ? row.season_transition_action : null,
+    seasonTransitionAction: action,
     oldSeasonId: typeof row.old_season_id === "string" ? row.old_season_id : null,
     newSeasonId: typeof row.new_season_id === "string" ? row.new_season_id : null,
     oldSeasonName: typeof row.old_season_name === "string" ? row.old_season_name : null,
     newSeasonName: typeof row.new_season_name === "string" ? row.new_season_name : null,
-    sameSeasonGoalSnapshotSynced: Boolean(row.same_season_goal_snapshot_synced),
+    // Saved goal replacement never same-season syncs under current law.
+    sameSeasonGoalSnapshotSynced: false,
     idempotentReplay: result === "already_applied" || Boolean(row.idempotent_replay),
     warningCode: typeof row.warning_code === "string" ? row.warning_code : null,
   };
@@ -94,19 +100,17 @@ export function buildInboundSeasonTransitionFacts(
   const chapterChanged =
     mutation.seasonTransitionApplied &&
     (mutation.seasonMode === "new_chapter" || mutation.seasonTransitionAction === "new_chapter");
-  const barRaisedInSameChapter = !chapterChanged && mutation.sameSeasonGoalSnapshotSynced;
 
+  // Saved Current Goal replacement always opens a new chapter; same-chapter bar-raise is retired.
   let userFacingTransition: InboundV3SeasonTransitionFacts["user_facing_transition"] = "none";
   if (chapterChanged) {
     userFacingTransition = "new_chapter";
-  } else if (barRaisedInSameChapter) {
-    userFacingTransition = "same_chapter";
   }
 
   return {
     chapter_changed: chapterChanged,
     user_facing_transition: userFacingTransition,
-    bar_raised_in_same_chapter: barRaisedInSameChapter,
+    bar_raised_in_same_chapter: false,
     old_season_name: mutation.oldSeasonName,
     new_season_name: mutation.newSeasonName,
   };

@@ -7,8 +7,6 @@ const {
   clearPendingMock,
   getPendingMock,
   applyCanonicalMock,
-  hasAlignedSeasonMock,
-  resolveSeasonModeMock,
   unsafeMock,
 } = vi.hoisted(() => ({
   authMock: vi.fn(),
@@ -17,8 +15,6 @@ const {
   clearPendingMock: vi.fn(),
   getPendingMock: vi.fn(),
   applyCanonicalMock: vi.fn(),
-  hasAlignedSeasonMock: vi.fn(),
-  resolveSeasonModeMock: vi.fn(),
   unsafeMock: vi.fn(),
 }));
 
@@ -38,14 +34,6 @@ vi.mock("@/lib/v2-guided-resolution", () => ({
 
 vi.mock("@/lib/v2-apply-canonical-goal-change", () => ({
   applyCanonicalGoalChangeWithSeasonMutation: (...args: unknown[]) => applyCanonicalMock(...args),
-}));
-
-vi.mock("@/lib/v2-accountability-season-alignment", () => ({
-  hasActiveAccountabilitySeasonForCommitment: (...args: unknown[]) => hasAlignedSeasonMock(...args),
-}));
-
-vi.mock("@/lib/v2-sms-season-mode", () => ({
-  resolveSeasonModeForGuidedCommitmentReplace: (...args: unknown[]) => resolveSeasonModeMock(...args),
 }));
 
 vi.mock("@/lib/sms-inbound-safety", () => ({
@@ -82,6 +70,7 @@ function baseCommitment() {
       resolution: "change",
       session_id: "sess_1",
       inbound_message_sid: "SM123",
+      season_mode: "same_season_sync",
     },
     updated_at: "2026-01-01T00:00:00.000Z",
     started_at: null,
@@ -104,17 +93,16 @@ describe("POST /api/v2/guided-resolution/commitment", () => {
         resolution: "change",
         session_id: "sess_1",
         inbound_message_sid: "SM123",
+        season_mode: "same_season_sync",
       },
     });
     unsafeMock.mockReturnValue(false);
-    hasAlignedSeasonMock.mockResolvedValue(true);
-    resolveSeasonModeMock.mockReturnValue({ mode: "same_season_sync" });
 
     applyCanonicalMock.mockResolvedValue({
       ok: true,
-      seasonMode: "same_season_sync",
+      seasonMode: "new_chapter",
       oldCommitmentId: "cmt_1",
-      newCommitmentId: "cmt_1",
+      newCommitmentId: "cmt_2",
       idempotentReplay: false,
     });
   });
@@ -140,9 +128,7 @@ describe("POST /api/v2/guided-resolution/commitment", () => {
     expect(applyCanonicalMock).not.toHaveBeenCalled();
   });
 
-  it("forces new_chapter when resolver returns same_season_sync but season is missing", async () => {
-    hasAlignedSeasonMock.mockResolvedValue(false);
-
+  it("always applies new_chapter even when pending payload has same_season_sync", async () => {
     const { POST } = await import("./route");
     const res = await POST(
       new Request("http://localhost/api/v2/guided-resolution/commitment", {
@@ -155,31 +141,29 @@ describe("POST /api/v2/guided-resolution/commitment", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(hasAlignedSeasonMock).toHaveBeenCalledWith("user_1", "cmt_1");
     expect(applyCanonicalMock).toHaveBeenCalledWith(
       expect.objectContaining({ seasonMode: "new_chapter" })
     );
+    const body = await res.json();
+    expect(body.seasonMode).toBe("new_chapter");
+    expect(body.newCommitmentId).toBe("cmt_2");
   });
 
-  it("returns friendly message instead of Database error for no_active_season_for_commitment", async () => {
-    applyCanonicalMock.mockResolvedValue({ ok: false, code: "no_active_season_for_commitment" });
-
+  it("applies new_chapter when no active season (legacy cohort)", async () => {
     const { POST } = await import("./route");
     const res = await POST(
       new Request("http://localhost/api/v2/guided-resolution/commitment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          behavior_statement: "Read 10 pages daily",
+          behavior_statement: "Lift weights 3x/week",
         }),
       })
     );
 
-    expect(res.status).toBe(409);
-    const body = await res.json();
-    expect(body.ok).toBe(false);
-    expect(body.code).toBe("requires_new_chapter_no_active_season");
-    expect(String(body.error)).toContain("new chapter");
-    expect(String(body.error)).toContain("past proof stays safe");
+    expect(res.status).toBe(200);
+    expect(applyCanonicalMock).toHaveBeenCalledWith(
+      expect.objectContaining({ seasonMode: "new_chapter" })
+    );
   });
 });

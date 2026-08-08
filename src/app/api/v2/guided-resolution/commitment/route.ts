@@ -1,46 +1,18 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE } from "@/lib/update-goal-season-copy";
 import { applyCanonicalGoalChangeWithSeasonMutation } from "@/lib/v2-apply-canonical-goal-change";
-import { hasActiveAccountabilitySeasonForCommitment } from "@/lib/v2-accountability-season-alignment";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import {
   clearPendingResolution,
   clearPendingResolutionIfExpired,
   getPendingResolutionOrNull,
   type V2AppGoalChangePendingPayload,
-  type V2GuidedResolutionPayload,
-  type V2SmsPendingResolutionPayload,
 } from "@/lib/v2-guided-resolution";
-import {
-  resolveSeasonModeForGuidedCommitmentReplace,
-  type SeasonModePendingContext,
-} from "@/lib/v2-sms-season-mode";
 import { isUnsafeSmsGoalCandidateText } from "@/lib/sms-inbound-safety";
 
 export const dynamic = "force-dynamic";
 
 const BEHAVIOR_MAX = 2000;
-
-function pendingSeasonContext(
-  pending: ReturnType<typeof getPendingResolutionOrNull>
-): {
-  pendingPayload: SeasonModePendingContext | null;
-  refreshResolution: V2GuidedResolutionPayload["resolution"] | null;
-} {
-  const payload = pending?.payload ?? null;
-  if (!payload) return { pendingPayload: null, refreshResolution: null };
-  if (payload.source === "coaching_refresh_resolved") {
-    return { pendingPayload: null, refreshResolution: payload.resolution };
-  }
-  if (payload.source === "sms_inbound" || payload.source === "app_goal_change") {
-    return {
-      pendingPayload: payload as SeasonModePendingContext & V2SmsPendingResolutionPayload,
-      refreshResolution: null,
-    };
-  }
-  return { pendingPayload: null, refreshResolution: null };
-}
 
 function guidedIdempotencyKey(
   commitmentId: string,
@@ -65,7 +37,8 @@ function guidedIdempotencyKey(
 
 /**
  * POST /api/v2/guided-resolution/commitment
- * Completes pending commitment_replace via canonical season-aware RPC (not guided_replace alone).
+ * Completes pending commitment_replace via canonical season-aware RPC.
+ * Product law: saved Current Goal replacement always starts a new season.
  */
 export async function POST(req: Request) {
   try {
@@ -125,28 +98,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const { pendingPayload, refreshResolution } = pendingSeasonContext(pending);
-    const seasonResolved = resolveSeasonModeForGuidedCommitmentReplace({
-      behaviorStatement: raw,
-      currentBehaviorStatement: commitment.behavior_statement,
-      pendingPayload,
-      refreshResolution,
-    });
-
-    let seasonModeToApply = seasonResolved.mode;
-    if (seasonModeToApply === "same_season_sync") {
-      const aligned = await hasActiveAccountabilitySeasonForCommitment(userId, commitment.id);
-      if (!aligned) {
-        seasonModeToApply = "new_chapter";
-      }
-    }
-
     const idempotencyKey = guidedIdempotencyKey(commitment.id, pending, raw);
     const applied = await applyCanonicalGoalChangeWithSeasonMutation({
       clerkUserId: userId,
       commitment,
       behaviorStatement: raw,
-      seasonMode: seasonModeToApply,
+      seasonMode: "new_chapter",
       idempotencyKey,
       proofMessageSid: idempotencyKey,
       memoryReasonCode: "guided_resolution_replace",
@@ -167,11 +124,12 @@ export async function POST(req: Request) {
         );
       }
       if (applied.code === "no_active_season_for_commitment") {
+        // Legacy sync-only error; should not occur under new_chapter-only law.
         return NextResponse.json(
           {
             ok: false,
-            code: "requires_new_chapter_no_active_season",
-            error: UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE,
+            code: applied.code,
+            error: "Could not update goal. Please try again.",
           },
           { status: 409 }
         );

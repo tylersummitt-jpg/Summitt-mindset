@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildInboundSeasonTransitionFacts,
+  mapSmsGoalSeasonMutationRpcRow,
   type SmsGoalSeasonMutationResult,
 } from "@/lib/v2-sms-goal-season-mutation";
 
@@ -10,22 +11,52 @@ function successMutation(
   return {
     ok: true,
     rpcResult: "applied",
-    seasonMode: "same_season_sync",
-    commitmentReplaceApplied: false,
+    seasonMode: "new_chapter",
+    commitmentReplaceApplied: true,
     oldCommitmentId: "cmt_old",
-    newCommitmentId: "cmt_old",
+    newCommitmentId: "cmt_new",
     seasonTransitionApplied: true,
-    seasonTransitionAction: "same_season_sync",
+    seasonTransitionAction: "new_chapter",
     oldSeasonId: "season-uuid-old",
-    newSeasonId: "season-uuid-old",
+    newSeasonId: "season-uuid-new",
     oldSeasonName: "Morning Focus",
-    newSeasonName: "Morning Focus",
-    sameSeasonGoalSnapshotSynced: true,
+    newSeasonName: "Stronger Steps",
+    sameSeasonGoalSnapshotSynced: false,
     idempotentReplay: false,
     warningCode: null,
     ...overrides,
   };
 }
+
+describe("mapSmsGoalSeasonMutationRpcRow", () => {
+  it("normalizes legacy same_season_sync RPC rows to new_chapter truth", () => {
+    const mapped = mapSmsGoalSeasonMutationRpcRow(
+      {
+        result: "applied",
+        commitment_replace_applied: true,
+        old_commitment_id: "cmt_1",
+        new_commitment_id: "cmt_2",
+        season_transition_applied: true,
+        season_transition_action: "same_season_sync",
+        old_season_id: null,
+        new_season_id: "s2",
+        old_season_name: null,
+        new_season_name: "Season 2",
+        same_season_goal_snapshot_synced: true,
+        idempotent_replay: false,
+        warning_code: null,
+      },
+      "same_season_sync",
+      "cmt_1"
+    );
+    expect(mapped.ok).toBe(true);
+    if (mapped.ok) {
+      expect(mapped.seasonMode).toBe("new_chapter");
+      expect(mapped.seasonTransitionAction).toBe("new_chapter");
+      expect(mapped.sameSeasonGoalSnapshotSynced).toBe(false);
+    }
+  });
+});
 
 describe("buildInboundSeasonTransitionFacts", () => {
   it("returns null when mutation failed or missing", () => {
@@ -33,35 +64,11 @@ describe("buildInboundSeasonTransitionFacts", () => {
     expect(buildInboundSeasonTransitionFacts(undefined)).toBeNull();
   });
 
-  it("sanitizes same_chapter facts without internal labels or UUIDs", () => {
-    const facts = buildInboundSeasonTransitionFacts(
-      successMutation({
-        seasonMode: "same_season_sync",
-        seasonTransitionAction: "same_season_sync",
-        sameSeasonGoalSnapshotSynced: true,
-      })
-    );
-    expect(facts).toEqual({
-      chapter_changed: false,
-      user_facing_transition: "same_chapter",
-      bar_raised_in_same_chapter: true,
-      old_season_name: "Morning Focus",
-      new_season_name: "Morning Focus",
-    });
-    expect(JSON.stringify(facts)).not.toMatch(
-      /same_season_sync|snapshot|sync|season_mode|season_transition|uuid|season-uuid/i
-    );
-  });
-
-  it("sanitizes new_chapter facts for natural chapter language without IDs", () => {
+  it("never claims same-chapter bar raise after saved goal law", () => {
     const facts = buildInboundSeasonTransitionFacts(
       successMutation({
         seasonMode: "new_chapter",
         seasonTransitionAction: "new_chapter",
-        commitmentReplaceApplied: true,
-        newCommitmentId: "cmt_new",
-        oldSeasonName: "Phone Discipline",
-        newSeasonName: "Walking Every Morning",
         sameSeasonGoalSnapshotSynced: false,
       })
     );
@@ -69,20 +76,19 @@ describe("buildInboundSeasonTransitionFacts", () => {
       chapter_changed: true,
       user_facing_transition: "new_chapter",
       bar_raised_in_same_chapter: false,
-      old_season_name: "Phone Discipline",
-      new_season_name: "Walking Every Morning",
+      old_season_name: "Morning Focus",
+      new_season_name: "Stronger Steps",
     });
     expect(JSON.stringify(facts)).not.toMatch(
       /same_season_sync|snapshot|sync|old_season_id|new_season_id|commitment_id/i
     );
   });
 
-  it("uses none when no chapter change and no same-chapter bar raise", () => {
+  it("uses none when no chapter change signaled", () => {
     const facts = buildInboundSeasonTransitionFacts(
       successMutation({
         seasonTransitionApplied: false,
         sameSeasonGoalSnapshotSynced: false,
-        seasonMode: "same_season_sync",
       })
     );
     expect(facts?.user_facing_transition).toBe("none");

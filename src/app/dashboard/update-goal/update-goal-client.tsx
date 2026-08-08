@@ -2,29 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import GoalBuilderClient, {
   type GoalBuilderAppEditDraft,
 } from "@/components/GoalBuilderClient";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import type { GoalPersonalizationInput } from "@/lib/onboarding-goal-personalization";
 import { normalizeIntakeWhitespace } from "@/lib/v2-commitment-intake-validation";
-import {
-  deriveSeasonModeForSmsGoalChange,
-  type SmsSeasonMode,
-} from "@/lib/v2-sms-season-mode";
-import { UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE } from "@/lib/update-goal-season-copy";
 
-type Step = "builder" | "chapter" | "confirm" | "success";
+type Step = "builder" | "confirm" | "success";
 
 type Props = {
   identityAnchor: string;
   personalizationContext: GoalPersonalizationInput;
   currentBehaviorStatement: string;
   effectiveCoachingAsk: string | null;
-  defaultRecommendedSeasonMode: SmsSeasonMode;
-  /** When true: skip Same chapter, force new_chapter, explain pre-season / drift cohort. */
-  requiresNewChapter?: boolean;
 };
 
 function newClientRequestId(): string {
@@ -35,29 +27,13 @@ function newClientRequestId(): string {
 }
 
 export default function UpdateGoalClient(props: Props) {
-  const requiresNewChapter = props.requiresNewChapter === true;
   const router = useRouter();
   const [step, setStep] = useState<Step>("builder");
   const [newBar, setNewBar] = useState("");
   const [builderDraft, setBuilderDraft] = useState<GoalBuilderAppEditDraft | null>(null);
-  const [seasonMode, setSeasonMode] = useState<SmsSeasonMode>(() =>
-    requiresNewChapter ? "new_chapter" : props.defaultRecommendedSeasonMode
-  );
   const [clientRequestId] = useState(() => newClientRequestId());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const recommendation = useMemo(() => {
-    const candidate = newBar.trim();
-    if (!candidate) {
-      return { mode: props.defaultRecommendedSeasonMode, reason: "default" };
-    }
-    return deriveSeasonModeForSmsGoalChange({
-      rawBody: candidate,
-      candidateBar: candidate,
-      currentBehaviorStatement: props.currentBehaviorStatement,
-    });
-  }, [newBar, props.currentBehaviorStatement, props.defaultRecommendedSeasonMode]);
 
   const pageShellClass = "mx-auto max-w-2xl min-w-0 px-6 py-8 pb-10 md:py-10";
   const cardClass =
@@ -70,19 +46,7 @@ export default function UpdateGoalClient(props: Props) {
   function onGoalReady(payload: { title: string; behaviorStatement: string }) {
     setError(null);
     setNewBar(payload.behaviorStatement);
-    if (requiresNewChapter) {
-      setSeasonMode("new_chapter");
-      setStep("confirm");
-      return;
-    }
-    setSeasonMode(
-      deriveSeasonModeForSmsGoalChange({
-        rawBody: payload.behaviorStatement,
-        candidateBar: payload.behaviorStatement,
-        currentBehaviorStatement: props.currentBehaviorStatement,
-      }).mode
-    );
-    setStep("chapter");
+    setStep("confirm");
   }
 
   async function onConfirm() {
@@ -95,7 +59,8 @@ export default function UpdateGoalClient(props: Props) {
         credentials: "include",
         body: JSON.stringify({
           behavior_statement: normalizeIntakeWhitespace(newBar),
-          season_mode: requiresNewChapter ? "new_chapter" : seasonMode,
+          // Legacy field ignored server-side; always new_chapter for saved goal change.
+          season_mode: "new_chapter",
           client_request_id: clientRequestId,
         }),
       });
@@ -167,79 +132,8 @@ export default function UpdateGoalClient(props: Props) {
           </>
         ) : null}
 
-        {step === "chapter" && !requiresNewChapter ? (
-          <>
-            <p className="mt-4 text-sm leading-relaxed text-gray-600">
-              Is this the same chapter with a sharper drill, or a new chapter in your story?
-            </p>
-            <fieldset className="mt-6 space-y-3">
-              <label className="flex cursor-pointer gap-3 rounded-lg border border-gray-200 p-4 hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="season_mode"
-                  className="mt-1"
-                  checked={seasonMode === "same_season_sync"}
-                  onChange={() => setSeasonMode("same_season_sync")}
-                />
-                <span>
-                  <span className="block text-sm font-medium text-gray-900">Same chapter</span>
-                  <span className="mt-1 block text-sm text-[var(--muted)]">
-                    Keep this season. Update the daily bar Pat texts you about.
-                  </span>
-                </span>
-              </label>
-              <label className="flex cursor-pointer gap-3 rounded-lg border border-gray-200 p-4 hover:bg-gray-50">
-                <input
-                  type="radio"
-                  name="season_mode"
-                  className="mt-1"
-                  checked={seasonMode === "new_chapter"}
-                  onChange={() => setSeasonMode("new_chapter")}
-                />
-                <span>
-                  <span className="block text-sm font-medium text-gray-900">New chapter</span>
-                  <span className="mt-1 block text-sm text-[var(--muted)]">
-                    Close this season and start fresh with a new focus.
-                  </span>
-                </span>
-              </label>
-            </fieldset>
-            {recommendation.mode === seasonMode ? (
-              <p className="mt-3 text-xs text-[var(--muted)]">
-                We suggested &ldquo;{seasonMode === "new_chapter" ? "new chapter" : "same chapter"}
-                &rdquo; based on how different this bar is from your current one.
-              </p>
-            ) : null}
-            <div className="mt-8 flex flex-wrap gap-3">
-              <button
-                type="button"
-                className="member-attention-cta disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={busy}
-                onClick={() => setStep("confirm")}
-              >
-                Continue
-              </button>
-              <button
-                type="button"
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50"
-                onClick={() => setStep("builder")}
-              >
-                Back
-              </button>
-            </div>
-          </>
-        ) : null}
-
         {step === "confirm" ? (
           <>
-            {requiresNewChapter ? (
-              <p
-                className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
-                role="status"
-              >
-                {UPDATE_GOAL_REQUIRES_NEW_CHAPTER_USER_MESSAGE}
-              </p>
-            ) : null}
             <div className="mt-6 space-y-4 rounded-lg border border-gray-100 bg-gray-50/80 p-4 text-sm">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
@@ -252,14 +146,6 @@ export default function UpdateGoalClient(props: Props) {
                   New bar
                 </p>
                 <p className="mt-1 font-medium text-gray-900">{newBar.trim()}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                  Chapter choice
-                </p>
-                <p className="mt-1 text-gray-900">
-                  {seasonMode === "new_chapter" ? "New chapter" : "Same chapter"}
-                </p>
               </div>
             </div>
             <p className="mt-4 text-sm leading-relaxed text-gray-600">
@@ -278,7 +164,7 @@ export default function UpdateGoalClient(props: Props) {
                 type="button"
                 className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 disabled:opacity-50"
                 disabled={busy}
-                onClick={() => setStep(requiresNewChapter ? "builder" : "chapter")}
+                onClick={() => setStep("builder")}
               >
                 Back
               </button>
