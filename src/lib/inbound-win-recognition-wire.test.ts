@@ -56,6 +56,8 @@ describe("inbound Win recognition wire / order (Umbrella 1)", () => {
     expect(winIdx).toBeGreaterThan(acctIdx);
     expect(spine).toContain("throwOnPersistError: gatedDecision.should_write_outcome_event");
     expect(spine).toContain("Win persistence after accountability spine; before send");
+    expect(spine).toContain("confirmedUserYesWinContextFromPersistResult");
+    expect(spine).toContain("confirmedUserYes:");
   });
 
   it("Win persist failure is caught and does not replace accountability throwOnPersistError", () => {
@@ -124,6 +126,23 @@ describe("static anti-regression — no keyword Win classifier", () => {
     expect(migration).not.toMatch(/IF EXISTS[\s\S]{0,200}v2_win_source_message_id_fkey/);
     expect(migration).toContain("source_type IN ('sms_inbound', 'system_event')");
     expect(migration).toContain("candidate_ordinal IN (0, 1)");
+  });
+
+  it("wire exposes accountability merge persist path", () => {
+    expect(wire).toContain("persistInboundWinsWithAccountability");
+    expect(wire).toContain("confirmedUserYes");
+    expect(wire).toContain("confirmedUserYesWinContextFromPersistResult");
+    expect(wire).toContain("inboundMessage");
+    expect(persist).toContain("buildAccountabilityWinIdempotencyKey");
+    expect(persist).toContain("persistInboundWinsWithAccountability");
+    expect(persist).toContain("acc_yes");
+    expect(persist).toContain("classifyWinCandidatesEquivalenceV1");
+    expect(persist).toContain("hideStaleRecognitionCompletionWinForAccountability");
+  });
+
+  it("confirmedUserYes helper only accepts inserted/duplicate user_yes", () => {
+    expect(wire).toContain('args.eventType !== "user_yes"');
+    expect(wire).toContain('args.persistStatus !== "inserted" && args.persistStatus !== "duplicate"');
   });
 });
 

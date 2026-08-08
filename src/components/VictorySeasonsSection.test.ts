@@ -116,4 +116,35 @@ describe("VictorySeasonsSection", () => {
     expect(html).toContain("Lift weights for 15 minutes a day");
     expect(html).not.toContain("SaaS App");
   });
+
+  it("renders 1 WIN / N WINS and nothing for zero", () => {
+    const zero = renderToStaticMarkup(
+      React.createElement(VictorySeasonsSection, {
+        currentSeason: card({ isCurrent: true, status: "active", winCount: 0 }),
+        pastSeasons: [],
+        timeZone: "UTC",
+      })
+    );
+    expect(zero).not.toMatch(/\b0 WINS?\b/);
+    expect(zero).not.toMatch(/\bWIN\b/);
+
+    const one = renderToStaticMarkup(
+      React.createElement(VictorySeasonsSection, {
+        currentSeason: card({ isCurrent: true, status: "active", winCount: 1 }),
+        pastSeasons: [],
+        timeZone: "UTC",
+      })
+    );
+    expect(one).toContain("1 WIN");
+    expect(one).not.toContain("1 WINS");
+
+    const two = renderToStaticMarkup(
+      React.createElement(VictorySeasonsSection, {
+        currentSeason: card({ isCurrent: true, status: "active", winCount: 2 }),
+        pastSeasons: [],
+        timeZone: "UTC",
+      })
+    );
+    expect(two).toContain("2 WINS");
+  });
 });

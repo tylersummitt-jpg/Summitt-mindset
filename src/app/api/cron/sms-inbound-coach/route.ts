@@ -260,6 +260,7 @@ import {
   persistInboundRecognizedWinsBeforeSend,
   runInboundWinRecognitionForCoachTurn,
   resolveWinRecognitionCurrentGoal,
+  confirmedUserYesWinContextFromPersistResult,
   type InboundWinRecognitionBundle,
 } from "@/lib/inbound-win-recognition-wire";
 import {
@@ -2847,12 +2848,37 @@ function turnUnderstandingPersistSkipReasonForTelemetry(
 }
 
 async function persistExplicitOutcomeBeforeReplyNoSend(
-  args: InboundOutcomePersistOrchestrationArgs
+  args: InboundOutcomePersistOrchestrationArgs & {
+    winRecognitionBundle?: InboundWinRecognitionBundle | null;
+  }
 ): Promise<{
   persistResult: InboundOutcomePersistResult;
   telemetry: Record<string, unknown>;
 }> {
   const persistResult = await tryPersistInboundAccountabilityOutcomeBeforeSend(args);
+
+  // No-send paths still must materialize Overall/Season Wins for confirmed user_yes.
+  await maybePersistInboundWinRecognitionBundle({
+    bundle: args.winRecognitionBundle ?? null,
+    clerkUserId: args.userId,
+    messageSid: args.job.message_sid,
+    activeCommitmentId: args.commitment.id,
+    fallbackOccurredAtIso: args.job.created_at ?? null,
+    branch: `${args.branch}_no_send`,
+    confirmedUserYes: confirmedUserYesWinContextFromPersistResult({
+      persistStatus: persistResult.status,
+      eventType:
+        persistResult.status === "inserted" || persistResult.status === "duplicate"
+          ? persistResult.eventType
+          : null,
+      eventId: persistResult.status === "inserted" ? persistResult.eventId : null,
+      commitmentId: args.commitment.id,
+      effectiveAsk: args.effectiveBehavior,
+      behaviorStatement: args.commitment.behavior_statement,
+      inboundMessage: args.userMessage,
+    }),
+  });
+
   const meaning =
     args.inboundMeaningForPersist ??
     args.turnUnderstandingContext?.inboundMeaningForPersist ??
@@ -3826,7 +3852,7 @@ async function processV2NormalInboundOutcome(
       if (!persistedV3) {
         const j3 = await loadJob(job.message_sid);
         if (j3?.reply_body?.trim()) {
-          await tryPersistInboundAccountabilityOutcomeBeforeSend({
+          const oqPersistEarly = await tryPersistInboundAccountabilityOutcomeBeforeSend({
             branch: "open_question",
             job,
             userId,
@@ -3844,15 +3870,32 @@ async function processV2NormalInboundOutcome(
               ...(finalGuardsOq.truthGuard?.metadata ?? {}),
             },
           });
-          if (inboundWinRecognitionBundle?.result.has_win) {
+          const oqConfirmedUserYesEarly = confirmedUserYesWinContextFromPersistResult({
+            persistStatus: oqPersistEarly.status,
+            eventType:
+              oqPersistEarly.status === "inserted" || oqPersistEarly.status === "duplicate"
+                ? oqPersistEarly.eventType
+                : null,
+            eventId: oqPersistEarly.status === "inserted" ? oqPersistEarly.eventId : null,
+            commitmentId: commitment.id,
+            effectiveAsk: effectiveBehavior,
+            behaviorStatement: commitment.behavior_statement,
+            inboundMessage: userMessage,
+          });
+          if (inboundWinRecognitionBundle?.result.has_win || oqConfirmedUserYesEarly) {
             try {
               await persistInboundRecognizedWinsBeforeSend({
                 clerkUserId: userId,
                 messageSid: job.message_sid,
                 activeCommitmentId: commitment.id,
                 activeCommitmentClerkUserId: userId,
-                recognition: inboundWinRecognitionBundle.result,
+                recognition: inboundWinRecognitionBundle?.result ?? {
+                  version: "win_v1",
+                  has_win: false,
+                  wins: [],
+                },
                 fallbackOccurredAtIso: job.created_at ?? null,
+                confirmedUserYes: oqConfirmedUserYesEarly,
               });
             } catch (winPersistErr) {
               console.warn("[win_persist_failed]", {
@@ -3873,7 +3916,7 @@ async function processV2NormalInboundOutcome(
         throw new Error("v3_open_question_reply_ready_persist_failed");
       }
 
-      await tryPersistInboundAccountabilityOutcomeBeforeSend({
+      const oqPersist = await tryPersistInboundAccountabilityOutcomeBeforeSend({
         branch: "open_question",
         job,
         userId,
@@ -3891,15 +3934,32 @@ async function processV2NormalInboundOutcome(
           ...(finalGuardsOq.truthGuard?.metadata ?? {}),
         },
       });
-      if (inboundWinRecognitionBundle?.result.has_win) {
+      const oqConfirmedUserYes = confirmedUserYesWinContextFromPersistResult({
+        persistStatus: oqPersist.status,
+        eventType:
+          oqPersist.status === "inserted" || oqPersist.status === "duplicate"
+            ? oqPersist.eventType
+            : null,
+        eventId: oqPersist.status === "inserted" ? oqPersist.eventId : null,
+        commitmentId: commitment.id,
+        effectiveAsk: effectiveBehavior,
+        behaviorStatement: commitment.behavior_statement,
+        inboundMessage: userMessage,
+      });
+      if (inboundWinRecognitionBundle?.result.has_win || oqConfirmedUserYes) {
         try {
           await persistInboundRecognizedWinsBeforeSend({
             clerkUserId: userId,
             messageSid: job.message_sid,
             activeCommitmentId: commitment.id,
             activeCommitmentClerkUserId: userId,
-            recognition: inboundWinRecognitionBundle.result,
+            recognition: inboundWinRecognitionBundle?.result ?? {
+              version: "win_v1",
+              has_win: false,
+              wins: [],
+            },
             fallbackOccurredAtIso: job.created_at ?? null,
+            confirmedUserYes: oqConfirmedUserYes,
           });
         } catch (winPersistErr) {
           console.warn("[win_persist_failed]", {
@@ -4306,6 +4366,8 @@ async function processV2NormalInboundOutcome(
             gdFallback.final_event_type as V2AccountabilityOutcome
           );
         }
+
+        return legacyPersistResult;
       };
 
       if (!cbLaneRes.shouldSend || !cbLaneRes.body.trim()) {
@@ -4515,7 +4577,7 @@ async function processV2NormalInboundOutcome(
 
       const legacyFinalBody = finalGuardsLegacy.body;
 
-      await persistConversationBrainLegacyDisabledServerOutcome(
+      const legacyOutcomePersist = await persistConversationBrainLegacyDisabledServerOutcome(
         legacyFinalBody,
         "conversation_brain_legacy_fallback_disabled",
         {
@@ -4525,6 +4587,20 @@ async function processV2NormalInboundOutcome(
           },
         }
       );
+
+      const legacyConfirmedUserYes = confirmedUserYesWinContextFromPersistResult({
+        persistStatus: legacyOutcomePersist.status,
+        eventType:
+          legacyOutcomePersist.status === "inserted" || legacyOutcomePersist.status === "duplicate"
+            ? legacyOutcomePersist.eventType
+            : null,
+        eventId:
+          legacyOutcomePersist.status === "inserted" ? legacyOutcomePersist.eventId : null,
+        commitmentId: commitment.id,
+        effectiveAsk: effectiveBehavior,
+        behaviorStatement: commitment.behavior_statement,
+        inboundMessage: userMessage,
+      });
 
       const nowFb = new Date().toISOString();
       const { data: persistedFb } = await supabaseServer
@@ -4568,6 +4644,7 @@ async function processV2NormalInboundOutcome(
             activeCommitmentId: commitment.id,
             fallbackOccurredAtIso: job.created_at ?? null,
             branch: "conversation_brain_legacy_fallback",
+            confirmedUserYes: legacyConfirmedUserYes,
           });
           await commitAndSendInboundRelationshipCoachReply(jfb, userId, legacyFallbackThreadMemoryCtx);
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -4584,6 +4661,7 @@ async function processV2NormalInboundOutcome(
         activeCommitmentId: commitment.id,
         fallbackOccurredAtIso: job.created_at ?? null,
         branch: "conversation_brain_legacy_fallback",
+        confirmedUserYes: legacyConfirmedUserYes,
       });
       await commitAndSendInboundRelationshipCoachReply(freshFb, userId, legacyFallbackThreadMemoryCtx);
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -5430,7 +5508,7 @@ async function processV2NormalInboundOutcome(
     if (!persistedPivot) {
       const j2 = await loadJob(job.message_sid);
       if (j2?.reply_body?.trim()) {
-        await tryPersistInboundAccountabilityOutcomeBeforeSend({
+        const pivotPersistEarly = await tryPersistInboundAccountabilityOutcomeBeforeSend({
           branch: "central_pivot",
           job,
           userId,
@@ -5452,6 +5530,18 @@ async function processV2NormalInboundOutcome(
           activeCommitmentId: commitment.id,
           fallbackOccurredAtIso: job.created_at ?? null,
           branch: "central_brain_pivot",
+          confirmedUserYes: confirmedUserYesWinContextFromPersistResult({
+            persistStatus: pivotPersistEarly.status,
+            eventType:
+              pivotPersistEarly.status === "inserted" || pivotPersistEarly.status === "duplicate"
+                ? pivotPersistEarly.eventType
+                : null,
+            eventId: pivotPersistEarly.status === "inserted" ? pivotPersistEarly.eventId : null,
+            commitmentId: commitment.id,
+            effectiveAsk: effectiveBehavior,
+            behaviorStatement: commitment.behavior_statement,
+            inboundMessage: userMessage,
+          }),
         });
         await commitAndSendInboundRelationshipCoachReply(j2, userId, centralBrainPivotThreadMemoryCtx);
         await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -5460,7 +5550,7 @@ async function processV2NormalInboundOutcome(
       throw new Error("v2_reply_ready_persist_failed");
     }
 
-    await tryPersistInboundAccountabilityOutcomeBeforeSend({
+    const pivotPersist = await tryPersistInboundAccountabilityOutcomeBeforeSend({
       branch: "central_pivot",
       job,
       userId,
@@ -5483,6 +5573,18 @@ async function processV2NormalInboundOutcome(
       activeCommitmentId: commitment.id,
       fallbackOccurredAtIso: job.created_at ?? null,
       branch: "central_brain_pivot",
+      confirmedUserYes: confirmedUserYesWinContextFromPersistResult({
+        persistStatus: pivotPersist.status,
+        eventType:
+          pivotPersist.status === "inserted" || pivotPersist.status === "duplicate"
+            ? pivotPersist.eventType
+            : null,
+        eventId: pivotPersist.status === "inserted" ? pivotPersist.eventId : null,
+        commitmentId: commitment.id,
+        effectiveAsk: effectiveBehavior,
+        behaviorStatement: commitment.behavior_statement,
+        inboundMessage: userMessage,
+      }),
     });
     await commitAndSendInboundRelationshipCoachReply(freshPivot, userId, centralBrainPivotThreadMemoryCtx);
     await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -5848,7 +5950,7 @@ async function processV2NormalInboundOutcome(
       if (!persistedArc) {
         const j2 = await loadJob(job.message_sid);
         if (j2?.reply_body?.trim()) {
-          await tryPersistInboundAccountabilityOutcomeBeforeSend({
+          const arcPersistEarly = await tryPersistInboundAccountabilityOutcomeBeforeSend({
             branch: "arc_clarify",
             laneExclusion: arcClarifyLaneExclusion,
             job,
@@ -5871,6 +5973,18 @@ async function processV2NormalInboundOutcome(
             activeCommitmentId: commitment.id,
             fallbackOccurredAtIso: job.created_at ?? null,
             branch: "arc_clarify",
+            confirmedUserYes: confirmedUserYesWinContextFromPersistResult({
+              persistStatus: arcPersistEarly.status,
+              eventType:
+                arcPersistEarly.status === "inserted" || arcPersistEarly.status === "duplicate"
+                  ? arcPersistEarly.eventType
+                  : null,
+              eventId: arcPersistEarly.status === "inserted" ? arcPersistEarly.eventId : null,
+              commitmentId: commitment.id,
+              effectiveAsk: effectiveBehavior,
+              behaviorStatement: commitment.behavior_statement,
+              inboundMessage: userMessage,
+            }),
           });
           await commitAndSendInboundRelationshipCoachReply(j2, userId, arcClarifyThreadMemoryCtx);
           await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -5879,7 +5993,7 @@ async function processV2NormalInboundOutcome(
         throw new Error("v2_reply_ready_persist_failed");
       }
 
-      await tryPersistInboundAccountabilityOutcomeBeforeSend({
+      const arcPersist = await tryPersistInboundAccountabilityOutcomeBeforeSend({
         branch: "arc_clarify",
         laneExclusion: arcClarifyLaneExclusion,
         job,
@@ -5903,6 +6017,18 @@ async function processV2NormalInboundOutcome(
         activeCommitmentId: commitment.id,
         fallbackOccurredAtIso: job.created_at ?? null,
         branch: "arc_clarify",
+        confirmedUserYes: confirmedUserYesWinContextFromPersistResult({
+          persistStatus: arcPersist.status,
+          eventType:
+            arcPersist.status === "inserted" || arcPersist.status === "duplicate"
+              ? arcPersist.eventType
+              : null,
+          eventId: arcPersist.status === "inserted" ? arcPersist.eventId : null,
+          commitmentId: commitment.id,
+          effectiveAsk: effectiveBehavior,
+          behaviorStatement: commitment.behavior_statement,
+          inboundMessage: userMessage,
+        }),
       });
       await commitAndSendInboundRelationshipCoachReply(freshArc, userId, arcClarifyThreadMemoryCtx);
       await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
@@ -7590,6 +7716,7 @@ async function processV2NormalInboundOutcome(
   });
 
   // Win persistence after accountability spine; before send. Failure does not silence the reply.
+  // Confirmed user_yes ensures an accountability Win; goal recognition is merged/suppressed.
   await maybePersistInboundWinRecognitionBundle({
     bundle: inboundWinRecognitionBundle,
     clerkUserId: userId,
@@ -7597,6 +7724,18 @@ async function processV2NormalInboundOutcome(
     activeCommitmentId: commitment.id,
     fallbackOccurredAtIso: job.created_at ?? null,
     branch: "main",
+    confirmedUserYes: confirmedUserYesWinContextFromPersistResult({
+      persistStatus: persistResult.status,
+      eventType:
+        persistResult.status === "inserted" || persistResult.status === "duplicate"
+          ? persistResult.eventType
+          : null,
+      eventId: persistResult.status === "inserted" ? persistResult.eventId : null,
+      commitmentId: commitment.id,
+      effectiveAsk: effectiveBehavior,
+      behaviorStatement: commitment.behavior_statement,
+      inboundMessage: userMessage,
+    }),
   });
 
   const spineInsertSucceeded = persistResult.status === "inserted";

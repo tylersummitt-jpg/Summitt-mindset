@@ -6,6 +6,7 @@ const mockCommitmentActiveMaybeSingle = vi.fn();
 const mockCommitmentByIdMaybeSingle = vi.fn();
 const mockEventsLimit = vi.fn();
 const mockFetchHints = vi.fn();
+const mockWinCountEq = vi.fn();
 
 vi.mock("@/lib/v2-victory-season-summary-persist", () => ({
   fetchSeasonListHintsForRoom: (...args: unknown[]) => mockFetchHints(...args),
@@ -76,6 +77,15 @@ vi.mock("@/lib/supabase-server", () => ({
           }),
         };
       }
+      if (table === "v2_win") {
+        return {
+          select: () => ({
+            in: () => ({
+              eq: mockWinCountEq,
+            }),
+          }),
+        };
+      }
       throw new Error(`unexpected table ${table}`);
     },
   },
@@ -116,6 +126,7 @@ describe("v2-victory-season-list", () => {
     });
     mockEventsLimit.mockResolvedValue({ data: [], error: null });
     mockFetchHints.mockResolvedValue(new Map());
+    mockWinCountEq.mockResolvedValue({ data: [], error: null });
   });
 
   it("active season no proof -> still building copy", async () => {
@@ -314,5 +325,40 @@ describe("v2-victory-season-list", () => {
     expect(list.pastSeasons[0]?.hasSavedProof).toBe(true);
     expect(list.pastSeasons[0]?.statusLine).toBe("Proof was saved for this season.");
     expect(mockEventsLimit).not.toHaveBeenCalled();
+  });
+
+  it("attaches active winCount by commitment_id and excludes other commitments", async () => {
+    mockWinCountEq.mockResolvedValue({
+      data: [
+        { commitment_id: "c-active" },
+        { commitment_id: "c-active" },
+        { commitment_id: "c-active" },
+        { commitment_id: "c-past" },
+      ],
+      error: null,
+    });
+    mockPastLimit.mockResolvedValue({
+      data: [
+        {
+          id: "s-past",
+          commitment_id: "c-past",
+          season_name: "Season 1",
+          status: "completed",
+          started_at: "2026-01-01T00:00:00Z",
+          ended_at: "2026-04-01T00:00:00Z",
+          goal_snapshot: { behavior_statement: "Walk before breakfast" },
+        },
+      ],
+      error: null,
+    });
+    const list = await loadVictorySeasonListForRoom("u1");
+    expect(list.currentSeason?.winCount).toBe(3);
+    expect(list.pastSeasons[0]?.winCount).toBe(1);
+  });
+
+  it("zero wins → winCount 0 on card model", async () => {
+    mockWinCountEq.mockResolvedValue({ data: [], error: null });
+    const list = await loadVictorySeasonListForRoom("u1");
+    expect(list.currentSeason?.winCount).toBe(0);
   });
 });

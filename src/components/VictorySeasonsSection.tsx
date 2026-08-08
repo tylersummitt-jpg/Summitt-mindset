@@ -64,6 +64,11 @@ function SeasonCard({
               {card.goalTitle}
             </p>
           ) : null}
+          {typeof card.winCount === "number" && card.winCount > 0 ? (
+            <p className={`${vrBodyMuted} mt-2 text-sm tracking-wide text-stone-400`}>
+              {card.winCount === 1 ? "1 WIN" : `${card.winCount} WINS`}
+            </p>
+          ) : null}
           {card.principleLivedTitle ? (
             <p className={`${vrBodyMuted} mt-2 text-sm`}>
               <span className="font-medium text-stone-400">Principle lived: </span>

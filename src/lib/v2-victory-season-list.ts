@@ -24,6 +24,8 @@ export type VictorySeasonCardData = {
   endedAt: string | null;
   goalTitle: string | null;
   hasSavedProof: boolean;
+  /** Active goal-linked v2_win count for this season's commitment. Omit/0 → no UI. */
+  winCount?: number;
   summaryTeaser: string | null;
   principleLivedTitle: string | null;
   statusLine: string;
@@ -177,7 +179,8 @@ function toCard(
   hasSavedProof: boolean,
   summary: SeasonSummaryForDisplay | undefined,
   isCurrent: boolean,
-  goalTitleOverride?: string
+  goalTitleOverride?: string,
+  winCount = 0
 ): VictorySeasonCardData {
   const teaser =
     summary?.summaryText &&
@@ -204,6 +207,7 @@ function toCard(
         behaviorStatement: parseGoalBehavior(row.goal_snapshot),
       }),
     hasSavedProof,
+    winCount,
     summaryTeaser: teaser,
     principleLivedTitle: principle,
     statusLine: buildStatusLine({
@@ -214,6 +218,42 @@ function toCard(
     detailHref: `/dashboard/victory-room/seasons/${row.id}`,
     isCurrent,
   };
+}
+
+/**
+ * One bounded query: active Wins grouped by commitment_id for the Season cards on this page.
+ * Whole-life (null commitment_id) naturally excluded. Hidden excluded via status=active.
+ */
+export async function countActiveWinsByCommitmentIds(
+  commitmentIds: string[]
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  const ids = [...new Set(commitmentIds.map((id) => id.trim()).filter(Boolean))];
+  if (ids.length === 0) return counts;
+
+  const { data, error } = await supabaseServer
+    .from("v2_win")
+    .select("commitment_id")
+    .in("commitment_id", ids)
+    .eq("status", "active");
+
+  if (error) {
+    console.error("[v2-victory-season-list] win count query failed", {
+      commitment_count: ids.length,
+      message: error.message,
+    });
+    return counts;
+  }
+
+  for (const row of data ?? []) {
+    const cid =
+      row && typeof row === "object" && typeof (row as { commitment_id?: unknown }).commitment_id === "string"
+        ? (row as { commitment_id: string }).commitment_id
+        : null;
+    if (!cid) continue;
+    counts.set(cid, (counts.get(cid) ?? 0) + 1);
+  }
+  return counts;
 }
 
 export async function loadVictorySeasonListForRoom(
@@ -254,6 +294,16 @@ export async function loadVictorySeasonListForRoom(
   const pastSeasonIds = past.map((r) => r.id);
   const hintsMap = await fetchSeasonListHintsForRoom(clerkUserId, pastSeasonIds);
 
+  const commitmentIdsForCounts: string[] = [];
+  if (activeRow) {
+    const ar = activeRow as SeasonListRow;
+    if (ar.commitment_id) commitmentIdsForCounts.push(ar.commitment_id);
+  }
+  for (const row of past) {
+    if (row.commitment_id) commitmentIdsForCounts.push(row.commitment_id);
+  }
+  const winCountsByCommitment = await countActiveWinsByCommitmentIds(commitmentIdsForCounts);
+
   let currentSeason: VictorySeasonCardData | null = null;
   if (activeRow) {
     const ar = activeRow as SeasonListRow;
@@ -263,13 +313,27 @@ export async function loadVictorySeasonListForRoom(
       seasonCommitmentId: ar.commitment_id,
       goalSnapshot: ar.goal_snapshot,
     });
-    currentSeason = toCard(ar, hasSavedProof, undefined, true, liveGoalLabel);
+    currentSeason = toCard(
+      ar,
+      hasSavedProof,
+      undefined,
+      true,
+      liveGoalLabel,
+      winCountsByCommitment.get(ar.commitment_id) ?? 0
+    );
   }
 
   const pastSeasons = past.map((row) => {
     const hint = hintsMap.get(row.id);
     const hasSavedProof = hint?.hasSavedProof ?? false;
-    return toCard(row, hasSavedProof, hint?.summary, false);
+    return toCard(
+      row,
+      hasSavedProof,
+      hint?.summary,
+      false,
+      undefined,
+      winCountsByCommitment.get(row.commitment_id) ?? 0
+    );
   });
 
   return { currentSeason, pastSeasons };
