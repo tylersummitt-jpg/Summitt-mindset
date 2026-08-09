@@ -40,6 +40,7 @@ function winRow(overrides: Record<string, unknown> = {}) {
     celebration_appropriate: false,
     commitment_id: "c-season-2",
     status: "active",
+    updated_at: "2026-08-08T12:05:00.000Z",
     ...overrides,
   };
 }

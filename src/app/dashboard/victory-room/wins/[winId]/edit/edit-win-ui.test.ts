@@ -17,10 +17,11 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { VictoryWinCard } from "@/components/VictoryWinCard";
+import { VictoryWinCardActions } from "@/components/VictoryWinCardActions";
 import EditWinClient from "@/app/dashboard/victory-room/wins/[winId]/edit/edit-win-client";
 
 describe("Edit Win UI", () => {
-  it("VictoryWinCard shows Edit only when editHref provided", () => {
+  it("VictoryWinCard shows More menu with Edit+Delete when actions wired", () => {
     const plain = renderToStaticMarkup(
       React.createElement(VictoryWinCard, {
         displayTitle: "Done",
@@ -28,9 +29,30 @@ describe("Edit Win UI", () => {
         dateLabel: "Aug 8, 2026",
       })
     );
+    expect(plain).not.toContain("Win actions");
     expect(plain).not.toContain(">Edit<");
+    expect(plain).not.toContain(">Delete<");
 
-    const withEdit = renderToStaticMarkup(
+    const withActions = renderToStaticMarkup(
+      React.createElement(VictoryWinCard, {
+        displayTitle: "Done",
+        displayBody: "Done",
+        dateLabel: "Aug 8, 2026",
+        winId: "w1",
+        expectedUpdatedAt: "2026-08-09T12:00:00.000Z",
+        editHref: "/dashboard/victory-room/wins/w1/edit?from=victory-room",
+      })
+    );
+    expect(withActions).toContain('aria-label="Win actions"');
+    expect(withActions).toContain("Edit");
+    expect(withActions).toContain("Delete");
+    expect(withActions).toContain("/dashboard/victory-room/wins/w1/edit?from=victory-room");
+    expect(withActions).not.toContain("permanently delete");
+    expect(withActions).not.toContain("user_deleted");
+  });
+
+  it("Edit-only without expectedUpdatedAt stays actionless (safe)", () => {
+    const html = renderToStaticMarkup(
       React.createElement(VictoryWinCard, {
         displayTitle: "Done",
         displayBody: "Done",
@@ -38,8 +60,25 @@ describe("Edit Win UI", () => {
         editHref: "/dashboard/victory-room/wins/w1/edit?from=victory-room",
       })
     );
-    expect(withEdit).toContain("Edit");
-    expect(withEdit).toContain("/dashboard/victory-room/wins/w1/edit?from=victory-room");
+    expect(html).not.toContain("Win actions");
+    expect(html).not.toContain(">Edit<");
+  });
+
+  it("actions source uses DELETE with expected_updated_at and calm copy", () => {
+    const src = fs.readFileSync(
+      path.join(process.cwd(), "src/components/VictoryWinCardActions.tsx"),
+      "utf8"
+    );
+    expect(src).toContain('method: "DELETE"');
+    expect(src).toContain("expected_updated_at");
+    expect(src).toContain("router.refresh()");
+    expect(src).toContain("Delete this Win?");
+    expect(src).toContain("accountability history and messages are not");
+    expect(src).toContain("Delete Win");
+    expect(src).toContain("We couldn’t delete this Win");
+    expect(src).toContain("changed since you opened");
+    expect(src).not.toContain("permanently");
+    expect(src).not.toContain("openai");
   });
 
   it("Edit form prepopulates fields without provenance", () => {
@@ -92,5 +131,20 @@ describe("Edit Win UI", () => {
     expect(pageSrc).toContain("editWinOriginHref");
     expect(pageSrc).not.toContain("returnTo");
     expect(pageSrc).not.toContain("openai");
+  });
+
+  it("confirm UI copy is available from actions component", () => {
+    // Initial render is menu; confirm copy lives in source (stateful).
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryWinCardActions, {
+        winId: "w1",
+        editHref: "/dashboard/victory-room/wins/w1/edit?from=victory-room",
+        expectedUpdatedAt: "t1",
+      })
+    );
+    expect(html).toContain("Win actions");
+    expect(html).toContain("Edit");
+    expect(html).toContain("Delete");
+    expect(html).toContain("min-h-11");
   });
 });

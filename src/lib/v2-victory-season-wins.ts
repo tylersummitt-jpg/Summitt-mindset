@@ -25,6 +25,7 @@ type WinRow = {
   celebration_appropriate: boolean;
   commitment_id: string | null;
   status: string;
+  updated_at: string;
 };
 
 function isWinRow(raw: unknown): raw is WinRow {
@@ -34,7 +35,8 @@ function isWinRow(raw: unknown): raw is WinRow {
     typeof r.id === "string" &&
     typeof r.occurred_at === "string" &&
     typeof r.display_title === "string" &&
-    typeof r.display_body === "string"
+    typeof r.display_body === "string" &&
+    typeof r.updated_at === "string"
   );
 }
 

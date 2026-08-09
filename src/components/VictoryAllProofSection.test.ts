@@ -6,6 +6,14 @@ vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {},
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    push: vi.fn(),
+  }),
+}));
+
 import { VictoryAllProofSection } from "@/components/VictoryAllProofSection";
 
 describe("VictoryAllProofSection", () => {
@@ -21,6 +29,7 @@ describe("VictoryAllProofSection", () => {
             supportingQuote: null,
             celebrationAppropriate: true,
             commitmentId: "c1",
+            updatedAt: "2026-06-15T12:05:00.000Z",
           },
         ],
         timeZone: "America/New_York",
@@ -35,8 +44,11 @@ describe("VictoryAllProofSection", () => {
     expect(html).toContain("Add a Win");
     expect(html).toContain("/dashboard/victory-room/add-win?from=all-wins");
     expect(html).toContain("Showed up");
+    expect(html).toContain('aria-label="Win actions"');
     expect(html).toContain("Edit");
+    expect(html).toContain("Delete");
     expect(html).toContain("/dashboard/victory-room/wins/m1/edit?from=all-wins");
+    expect(html).not.toContain("permanently delete");
     expect(html).not.toContain("Every saved proof moment");
     expect(html).not.toContain("Share");
     expect(html).not.toContain("Kept the goal");
@@ -54,6 +66,7 @@ describe("VictoryAllProofSection", () => {
             supportingQuote: null,
             celebrationAppropriate: true,
             commitmentId: null,
+            updatedAt: "2026-06-15T12:05:00.000Z",
           },
         ],
         timeZone: "UTC",
@@ -78,6 +91,7 @@ describe("VictoryAllProofSection", () => {
             supportingQuote: "it was hard and I said so",
             celebrationAppropriate: true,
             commitmentId: null,
+            updatedAt: "2026-06-07T12:05:00.000Z",
           },
         ],
         timeZone: "UTC",

@@ -6,6 +6,14 @@ vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {},
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    push: vi.fn(),
+  }),
+}));
+
 import { VictoryRecentProofSection } from "@/components/VictoryRecentProofSection";
 
 describe("VictoryRecentProofSection", () => {
@@ -23,6 +31,7 @@ describe("VictoryRecentProofSection", () => {
             supportingQuote: "two loops done",
             celebrationAppropriate: true,
             commitmentId: null,
+            updatedAt: "2026-06-01T12:05:00.000Z",
           },
         ],
       })
@@ -36,8 +45,11 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain("/dashboard/victory-room/all-proof");
     expect(html).toContain("Add a Win");
     expect(html).toContain('/dashboard/victory-room/add-win"');
+    expect(html).toContain('aria-label="Win actions"');
     expect(html).toContain("Edit");
+    expect(html).toContain("Delete");
     expect(html).toContain("/dashboard/victory-room/wins/w1/edit?from=victory-room");
+    expect(html).not.toContain("permanently delete");
     expect(html).not.toContain("See all proof");
     expect(html).not.toContain("Kept the goal");
     expect(html).not.toContain("Share");

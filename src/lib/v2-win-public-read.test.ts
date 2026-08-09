@@ -48,6 +48,7 @@ function winRow(overrides: Record<string, unknown> = {}) {
     celebration_appropriate: true,
     commitment_id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
     status: "active",
+    updated_at: "2026-08-01T12:05:00.000Z",
     ...overrides,
   };
 }
@@ -138,10 +139,15 @@ describe("mapV2WinRowToPublicDto", () => {
       supportingQuote: null,
       celebrationAppropriate: true,
       commitmentId: null,
+      updatedAt: "2026-08-01T12:05:00.000Z",
     });
     expect(dto).not.toHaveProperty("model_confidence");
     expect(dto).not.toHaveProperty("idempotency_key");
     expect(dto).not.toHaveProperty("source_message_sid");
+    expect(dto).not.toHaveProperty("hidden_reason");
+    expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("updated_at");
+    expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("source_message");
+    expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("hidden_reason");
   });
 
   it("includes whole-life and commitment-linked rows", () => {

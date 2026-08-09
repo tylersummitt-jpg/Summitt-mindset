@@ -16,7 +16,7 @@ export const PUBLIC_WINS_PAGE_LIMIT = 50;
 
 /** Columns selected from v2_win for public mapping (never returned raw to clients). */
 export const PUBLIC_WIN_SELECT_COLUMNS =
-  "id, occurred_at, display_title, display_body, supporting_quote, sensitivity_caution, celebration_appropriate, commitment_id, status" as const;
+  "id, occurred_at, display_title, display_body, supporting_quote, sensitivity_caution, celebration_appropriate, commitment_id, status, updated_at" as const;
 
 export type PublicWinDto = {
   id: string;
@@ -27,6 +27,8 @@ export type PublicWinDto = {
   supportingQuote: string | null;
   celebrationAppropriate: boolean;
   commitmentId: string | null;
+  /** Concurrency token for Delete (and future card mutations). Not shown in UI copy. */
+  updatedAt: string;
 };
 
 export type PublicVictoryWinsHomeResult = {
@@ -58,6 +60,7 @@ type WinRow = {
   celebration_appropriate: boolean;
   commitment_id: string | null;
   status: string;
+  updated_at: string;
 };
 
 function requireClerkUserId(clerkUserId: string): string {
@@ -96,6 +99,7 @@ export function mapV2WinRowToPublicDto(row: WinRow): PublicWinDto {
     }),
     celebrationAppropriate: row.celebration_appropriate !== false,
     commitmentId: row.commitment_id,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -106,7 +110,8 @@ function isWinRow(raw: unknown): raw is WinRow {
     typeof r.id === "string" &&
     typeof r.occurred_at === "string" &&
     typeof r.display_title === "string" &&
-    typeof r.display_body === "string"
+    typeof r.display_body === "string" &&
+    typeof r.updated_at === "string"
   );
 }
 

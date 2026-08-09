@@ -80,6 +80,8 @@ export function VictoryAllProofSection({
                         dateLabel={formatVictoryRoomDate(w.occurredAt, timeZone)}
                         supportingQuote={w.supportingQuote}
                         celebrationAppropriate={w.celebrationAppropriate}
+                        winId={w.id}
+                        expectedUpdatedAt={w.updatedAt}
                         editHref={buildEditWinHref(w.id, { kind: "all-wins" })}
                       />
                     </li>

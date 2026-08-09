@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { vrAccentLink, vrMomentCardBase } from "@/components/victory-room-visual";
+import { VictoryWinCardActions } from "@/components/VictoryWinCardActions";
+import { vrMomentCardBase } from "@/components/victory-room-visual";
 
 type VictoryWinCardProps = {
   displayTitle: string;
@@ -7,8 +7,13 @@ type VictoryWinCardProps = {
   dateLabel: string;
   supportingQuote?: string | null;
   celebrationAppropriate?: boolean;
-  /** Optional Edit Win entry — omitted cards stay visually unchanged. */
+  /**
+   * When all three are set, shows More menu (Edit + Delete).
+   * Omitted → card has no actions (unchanged visual).
+   */
+  winId?: string | null;
   editHref?: string | null;
+  expectedUpdatedAt?: string | null;
 };
 
 /**
@@ -20,7 +25,9 @@ export function VictoryWinCard({
   dateLabel,
   supportingQuote,
   celebrationAppropriate = true,
+  winId = null,
   editHref = null,
+  expectedUpdatedAt = null,
 }: VictoryWinCardProps) {
   const quiet = celebrationAppropriate === false;
   const border = quiet ? "border-white/12" : "border-amber-500/30";
@@ -41,6 +48,11 @@ export function VictoryWinCard({
   const quote = supportingQuote?.trim() || null;
   const title = displayTitle.trim();
   const body = displayBody.trim();
+
+  const actionsReady =
+    Boolean(winId?.trim()) &&
+    Boolean(editHref?.trim()) &&
+    Boolean(expectedUpdatedAt?.trim());
 
   return (
     <article className={`${vrMomentCardBase} ${border} ${shadow}`}>
@@ -75,12 +87,12 @@ export function VictoryWinCard({
           &ldquo;{quote}&rdquo;
         </p>
       ) : null}
-      {editHref ? (
-        <p className="relative mt-5">
-          <Link href={editHref} className={vrAccentLink}>
-            Edit
-          </Link>
-        </p>
+      {actionsReady ? (
+        <VictoryWinCardActions
+          winId={winId!.trim()}
+          editHref={editHref!.trim()}
+          expectedUpdatedAt={expectedUpdatedAt!.trim()}
+        />
       ) : null}
     </article>
   );

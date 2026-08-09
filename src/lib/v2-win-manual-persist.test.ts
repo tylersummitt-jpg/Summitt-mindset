@@ -287,6 +287,35 @@ describe("persistManualV2Win", () => {
     expect(r).toMatchObject({ ok: true, status: "existing", id: "win-existing" });
   });
 
+  it("same client_request_id after user Delete returns existing without reactivate update", async () => {
+    insertMaybeSingle.mockResolvedValue({
+      data: null,
+      error: { code: "23505", message: "duplicate key" },
+    });
+    // Hidden row still owns the key — conflict returns id; default mock has no update().
+    existingMaybeSingle.mockResolvedValue({
+      data: { id: "win-hidden-manual" },
+      error: null,
+    });
+    const r = await persistManualV2Win({
+      clerkUserId: "user_1",
+      clientRequestId: REQ,
+      title: "Done",
+      occurredOn: "2026-08-01",
+      timeZone: "UTC",
+    });
+    expect(r).toMatchObject({ ok: true, status: "existing", id: "win-hidden-manual" });
+    const persistSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/v2-win-manual-persist.ts"),
+      "utf8"
+    );
+    const conflictBlock = persistSrc.slice(
+      persistSrc.indexOf("isUniqueViolation"),
+      persistSrc.indexOf("manual_win_persist_failed")
+    );
+    expect(conflictBlock).not.toContain(".update(");
+  });
+
   it("different client_request_id creates distinct keys", async () => {
     insertMaybeSingle.mockResolvedValue({ data: { id: "w1" }, error: null });
     await persistManualV2Win({
@@ -321,9 +350,11 @@ describe("manual Win Overall + Season count integration", () => {
       celebration_appropriate: false,
       commitment_id: null,
       status: "active",
+      updated_at: "2026-08-08T12:05:00.000Z",
     });
     expect(dto.displayTitle).toBe("Done");
     expect(dto.commitmentId).toBeNull();
+    expect(dto.updatedAt).toBe("2026-08-08T12:05:00.000Z");
   });
 
   it("season count query includes active commitment-linked rows (manual or otherwise)", async () => {
