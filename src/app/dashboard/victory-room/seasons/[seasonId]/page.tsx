@@ -5,9 +5,11 @@ import { VictorySeasonEmptyState } from "@/components/VictorySeasonEmptyState";
 import { VictorySeasonHeader } from "@/components/VictorySeasonHeader";
 import { VictorySeasonProofList } from "@/components/VictorySeasonProofList";
 import { VictorySeasonSummaryBlock } from "@/components/VictorySeasonSummaryBlock";
+import { VictorySeasonWinsSection } from "@/components/VictorySeasonWinsSection";
 import { vrAccentLink, vrPageGlow, vrPageInner, vrPageOuter } from "@/components/victory-room-visual";
 import { resolveUserTimezone } from "@/lib/timezone";
 import { loadVictorySeasonProofView } from "@/lib/v2-victory-season-proof-view";
+import { loadActiveWinsForSeasonCommitment } from "@/lib/v2-victory-season-wins";
 
 type PageProps = {
   params: Promise<{ seasonId: string }>;
@@ -45,6 +47,12 @@ export default async function VictorySeasonDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  // Authoritative Season commitment only (already ownership-checked by proof view).
+  const seasonWins = await loadActiveWinsForSeasonCommitment({
+    clerkUserId: user.id,
+    commitmentId: view.commitmentId,
+  });
+
   const showSummary =
     view.summary?.summaryText &&
     (view.summary.confidence === "medium" || view.summary.confidence === "high");
@@ -76,6 +84,8 @@ export default async function VictorySeasonDetailPage({ params }: PageProps) {
             Add a Win
           </Link>
         </p>
+
+        <VictorySeasonWinsSection wins={seasonWins} timeZone={timeZone} />
 
         {showSummary && view.summary ? <VictorySeasonSummaryBlock summary={view.summary} /> : null}
 
