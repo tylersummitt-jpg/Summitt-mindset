@@ -134,10 +134,10 @@ describe("Victory Room loader policy", () => {
     expect(PAGE_SRC).not.toContain("VictorySeasonsPreviewSection");
     expect(PAGE_SRC).not.toContain("loadPriorChaptersView");
     expect(PAGE_SRC).not.toContain("VictoryArchiveSection");
-    expect(PAGE_SRC).toContain("hasEarlierChapterHistory");
+    expect(PAGE_SRC).not.toContain("hasEarlierChapterHistory");
+    expect(PAGE_SRC).not.toContain("VictoryEarlierHistoryLinkSection");
     expect(PAGE_SRC).not.toContain("loadVictoryEarlierChapterIndex");
     expect(PAGE_SRC).not.toContain("loadVictoryEarlierChapterProofView");
-    expect(PAGE_SRC).toContain("VictoryEarlierHistoryLinkSection");
     expect(PAGE_SRC).not.toContain("VictoryRoomSmsNotice");
     expect(PAGE_SRC).toContain("loadVictoryEvolutionNudge");
     expect(PAGE_SRC).toContain("loadVictoryEvolutionNudge");

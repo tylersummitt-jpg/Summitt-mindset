@@ -31,63 +31,56 @@ function card(overrides: Partial<VictorySeasonCardData> = {}): VictorySeasonCard
 }
 
 describe("VictorySeasonsSection", () => {
-  it("renders current and past season cards with links, no numeric proof count", () => {
+  it("renders calm chapter cards with View season, no proof narrative", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictorySeasonsSection, {
         currentSeason: card({
           isCurrent: true,
           status: "active",
-          statusLine: "This season is still building.",
+          statusLine: "Proof is forming in this season.",
           hasSavedProof: false,
           seasonName: "Season 2",
+          goalTitle: "Lift weights for 30 minutes a day",
+          winCount: 2,
+          principleLivedTitle: "Take Full Responsibility",
+          summaryTeaser: "This season saved proof that you told the truth.",
           detailHref: "/dashboard/victory-room/seasons/s2",
+          endedAt: null,
         }),
-        pastSeasons: [card()],
+        pastSeasons: [
+          card({
+            seasonName: "Season 1",
+            goalTitle: "Lift weights for 15 minutes a day",
+            winCount: 3,
+            principleLivedTitle: "Discipline",
+            statusLine: "Little was captured in text for this season.",
+            summaryTeaser: "teaser",
+          }),
+        ],
         timeZone: "UTC",
       })
     );
     expect(html).toContain("My Seasons");
-    expect(html).toContain("still building");
-    expect(html).toContain("View season proof");
-    expect(html).not.toMatch(/proof moments saved/i);
-    expect(html).not.toMatch(/\b0 proof\b/i);
-  });
-
-  it("shows summary teaser only when provided", () => {
-    const html = renderToStaticMarkup(
-      React.createElement(VictorySeasonsSection, {
-        currentSeason: null,
-        pastSeasons: [
-          card({
-            summaryTeaser: "This season saved proof that you told the truth.",
-            statusLine: "This season saved proof that you told the truth.",
-          }),
-        ],
-        timeZone: "UTC",
-      })
-    );
-    expect(html).toContain("told the truth");
+    expect(html).toContain("Each season is a chapter of your accountability.");
+    expect(html).not.toContain("proof lives");
+    expect(html).toContain("Current chapter");
+    expect(html).toContain("Past chapters");
+    expect(html).toContain("Season 2");
+    expect(html).toContain("Season 1");
+    expect(html).toContain("Lift weights for 30 minutes a day");
+    expect(html).toContain("Lift weights for 15 minutes a day");
+    expect(html).toContain("2 WINS");
+    expect(html).toContain("3 WINS");
+    expect(html).toContain("View season");
+    expect(html).not.toContain("View season proof");
+    expect(html).not.toContain("Proof is forming");
+    expect(html).not.toContain("Little was captured");
+    expect(html).not.toContain("Proof was saved");
+    expect(html).not.toContain("Principle lived");
+    expect(html).not.toContain("Take Full Responsibility");
+    expect(html).not.toContain("told the truth");
+    expect(html).not.toContain("teaser");
     expect(html).not.toMatch(GAMIFICATION);
-    expect(html).not.toMatch(/Pat said/i);
-    expect(html).not.toMatch(/Coach Pat saw/i);
-  });
-
-  it("summary block fields do not duplicate proof-only teaser", () => {
-    const html = renderToStaticMarkup(
-      React.createElement(VictorySeasonsSection, {
-        currentSeason: null,
-        pastSeasons: [
-          card({
-            principleLivedTitle: "Take Full Responsibility",
-            summaryTeaser: "This season saved proof that you told the truth.",
-            statusLine: "This season saved proof that you told the truth.",
-          }),
-        ],
-        timeZone: "UTC",
-      })
-    );
-    expect(html).toContain("Principle lived:");
-    expect(html).not.toMatch(/Coach Pat/i);
   });
 
   it("renders behavior goal labels and never shows SaaS App title", () => {
@@ -99,8 +92,6 @@ describe("VictorySeasonsSection", () => {
           seasonName: "Season 2",
           goalTitle: "Lift weights for 30 minutes a day",
           endedAt: null,
-          statusLine: "This season is still building.",
-          hasSavedProof: false,
           detailHref: "/dashboard/victory-room/seasons/s2",
         }),
         pastSeasons: [

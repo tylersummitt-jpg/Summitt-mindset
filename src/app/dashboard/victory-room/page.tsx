@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { VictoryPatPrinciplesSection } from "@/components/VictoryPatPrinciplesSection";
 import { VictoryPatReadSection } from "@/components/VictoryPatReadSection";
 import { VictoryRecentProofSection } from "@/components/VictoryRecentProofSection";
-import { VictoryEarlierHistoryLinkSection } from "@/components/VictoryEarlierHistoryLinkSection";
 import { VictoryRoomTopCard } from "@/components/VictoryRoomTopCard";
 import { VictorySeasonsSection } from "@/components/VictorySeasonsSection";
 import {
@@ -15,7 +14,6 @@ import {
   vrPageOuter,
   vrSectionCard,
 } from "@/components/victory-room-visual";
-import { hasEarlierChapterHistory } from "@/lib/v2-victory-earlier-chapter-index";
 import { loadPatReadForVictoryRoom } from "@/lib/v2-victory-pat-read-persist";
 import { loadPatPrinciplesForVictoryRoom } from "@/lib/v2-victory-principles-persist";
 import { loadVictorySeasonListForRoom } from "@/lib/v2-victory-season-list";
@@ -88,21 +86,6 @@ export default async function VictoryRoomPage() {
     ? await loadVictorySeasonListForRoom(user.id)
     : null;
 
-  const seasonCommitmentIds: string[] = [];
-  if (seasonList?.currentSeason) seasonCommitmentIds.push(seasonList.currentSeason.commitmentId);
-  if (seasonList?.pastSeasons) {
-    for (const p of seasonList.pastSeasons) seasonCommitmentIds.push(p.commitmentId);
-  }
-
-  const hasEarlierHistory =
-    view.hasActiveV2Commitment && view.commitment
-      ? await hasEarlierChapterHistory({
-          clerkUserId: user.id,
-          activeCommitmentId: view.commitment.id,
-          excludeCommitmentIds: seasonCommitmentIds,
-        })
-      : false;
-
   const evolutionNudge = view.hasActiveV2Commitment
     ? await loadVictoryEvolutionNudge({ clerkUserId: user.id })
     : null;
@@ -163,8 +146,6 @@ export default async function VictoryRoomPage() {
                 timeZone={timeZone}
               />
             ) : null}
-
-            <VictoryEarlierHistoryLinkSection hasEarlierHistory={hasEarlierHistory} />
           </>
         )}
       </main>

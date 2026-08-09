@@ -3,7 +3,6 @@ import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import { VrIconSeason } from "@/components/VictoryRoomIcons";
 import {
   vrAccentLink,
-  vrBody,
   vrBodyLarge,
   vrBodyMuted,
   vrIconCircle,
@@ -69,15 +68,8 @@ function SeasonCard({
               {card.winCount === 1 ? "1 WIN" : `${card.winCount} WINS`}
             </p>
           ) : null}
-          {card.principleLivedTitle ? (
-            <p className={`${vrBodyMuted} mt-2 text-sm`}>
-              <span className="font-medium text-stone-400">Principle lived: </span>
-              {card.principleLivedTitle}
-            </p>
-          ) : null}
-          <p className={`${vrBody} mt-4 text-stone-400`}>{card.statusLine}</p>
           <Link href={card.detailHref} className={`${vrAccentLink} mt-4 inline-block`}>
-            View season proof
+            View season
           </Link>
         </div>
       </div>
@@ -93,7 +85,7 @@ export function VictorySeasonsSection({
   return (
     <VictoryRoomSectionShell
       title="My Seasons"
-      subtitle="Each season is a chapter of your accountability — proof lives inside the season where it happened."
+      subtitle="Each season is a chapter of your accountability."
     >
       {currentSeason ? (
         <div className="mt-8">

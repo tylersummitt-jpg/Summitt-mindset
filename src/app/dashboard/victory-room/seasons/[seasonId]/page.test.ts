@@ -2,35 +2,42 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 
-describe("Victory Season detail Wins + proof separation", () => {
+describe("Victory Season detail — Wins-only surface", () => {
   const pageSrc = fs.readFileSync(
     path.join(process.cwd(), "src/app/dashboard/victory-room/seasons/[seasonId]/page.tsx"),
     "utf8"
   );
 
-  it("loads Season Wins from authoritative commitment and renders Wins section", () => {
+  it("keeps Season header, Add a Win, and Season Wins wiring", () => {
+    expect(pageSrc).toContain("VictorySeasonHeader");
+    expect(pageSrc).toContain("Add a Win");
+    expect(pageSrc).toContain("/dashboard/victory-room/add-win?seasonId=");
     expect(pageSrc).toContain("loadActiveWinsForSeasonCommitment");
     expect(pageSrc).toContain("view.commitmentId");
     expect(pageSrc).toContain("VictorySeasonWinsSection");
-    expect(pageSrc).toContain("Add a Win");
-    expect(pageSrc).toContain("/dashboard/victory-room/add-win?seasonId=");
-  });
-
-  it("preserves proof-event path and does not mix sources", () => {
     expect(pageSrc).toContain("loadVictorySeasonProofView");
-    expect(pageSrc).toContain("VictorySeasonProofList");
-    expect(pageSrc).not.toContain("openai");
-    // JSX order: Wins section before proof list
-    const winsJsx = pageSrc.indexOf("<VictorySeasonWinsSection");
-    const proofJsx = pageSrc.indexOf("<VictorySeasonProofList");
-    expect(winsJsx).toBeGreaterThan(-1);
-    expect(proofJsx).toBeGreaterThan(winsJsx);
   });
 
-  it("does not trust client commitment_id or redesign proof semantics", () => {
+  it("no longer renders Season Summary or Proof from this season", () => {
+    expect(pageSrc).not.toContain("VictorySeasonSummaryBlock");
+    expect(pageSrc).not.toContain("VictorySeasonProofList");
+    expect(pageSrc).not.toContain("VictorySeasonEmptyState");
+    expect(pageSrc).not.toContain("VictoryMomentCard");
+    expect(pageSrc).not.toContain("showSummary");
+    expect(pageSrc).not.toContain("Proof from this season");
+    expect(pageSrc).not.toContain("Little was captured");
+    expect(pageSrc).not.toContain("Proof is forming");
+    expect(pageSrc).not.toContain("enough proof");
+    expect(pageSrc).not.toContain("Pattern:");
+    expect(pageSrc).not.toContain("Principle lived");
+    expect(pageSrc).not.toContain("Told the Truth");
+    expect(pageSrc).not.toContain("Kept the Goal");
+    expect(pageSrc).not.toContain("openai");
+  });
+
+  it("does not trust client commitment_id", () => {
     expect(pageSrc).not.toContain("searchParams");
     expect(pageSrc).not.toMatch(/commitmentId\s*=\s*.*params/);
-    expect(pageSrc).toContain("VictorySeasonEmptyState");
   });
 });
 
