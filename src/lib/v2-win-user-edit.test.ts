@@ -216,6 +216,9 @@ describe("v2-win-user-edit migration shape", () => {
     // Early stale conflict still returns before revision INSERT.
     expect(sql).toContain("v_row.updated_at IS DISTINCT FROM p_expected_updated_at");
     expect(sql).toContain("RETURN QUERY SELECT 'conflict'::TEXT, v_row.updated_at, NULL::UUID");
+    // RETURNS TABLE exposes updated_at as an OUT var — UPDATE WHERE must be table-qualified.
+    expect(sql).toContain("AND public.v2_win.updated_at = p_expected_updated_at");
+    expect(sql).not.toMatch(/AND\s+updated_at\s*=\s*p_expected_updated_at/);
     // Post-revision impossible UPDATE miss must RAISE (rollback), not RETURN.
     expect(sql).toContain("RAISE EXCEPTION 'v2_win_edit_conflict_after_revision'");
     expect(sql).toContain("USING ERRCODE = '40001'");

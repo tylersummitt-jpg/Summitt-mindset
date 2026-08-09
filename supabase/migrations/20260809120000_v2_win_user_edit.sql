@@ -200,7 +200,7 @@ BEGIN
   WHERE id = v_row.id
     AND clerk_user_id = v_clerk
     AND status = 'active'
-    AND updated_at = p_expected_updated_at
+    AND public.v2_win.updated_at = p_expected_updated_at
   RETURNING public.v2_win.updated_at INTO v_new_updated_at;
 
   IF v_new_updated_at IS NULL THEN
