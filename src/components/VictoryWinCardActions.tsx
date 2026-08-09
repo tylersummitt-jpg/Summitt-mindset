@@ -73,8 +73,9 @@ export function VictoryWinCardActions({
   }
 
   if (confirming) {
+    // In-flow confirmation: expands the card; never absolute (card uses overflow-hidden).
     return (
-      <div className="relative mt-5">
+      <div className="mt-5">
         <p className="font-medium text-stone-100">Delete this Win?</p>
         <p className={`${vrBodyMuted} mt-2 text-sm`}>
           This removes it from your Victory Room. Your accountability history and messages are not
@@ -111,8 +112,8 @@ export function VictoryWinCardActions({
   }
 
   return (
-    <div className="relative mt-5">
-      <details ref={detailsRef} className="group relative">
+    <div className="mt-5">
+      <details ref={detailsRef} className="group">
         <summary
           className={`${vrAccentLink} inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center px-2 [&::-webkit-details-marker]:hidden`}
           aria-label="Win actions"
@@ -122,11 +123,15 @@ export function VictoryWinCardActions({
             ···
           </span>
         </summary>
+        {/*
+          In-flow panel (not absolute): card keeps overflow-hidden for decorative blur;
+          open menu must expand card height so Edit/Delete stay visible.
+        */}
         <div
           id={menuId}
           role="menu"
           aria-label="Win actions"
-          className="absolute left-0 z-20 mt-2 min-w-[10.5rem] rounded-xl border border-white/15 bg-[#0c1018] py-1 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.9)]"
+          className="mt-2 w-full rounded-xl border border-white/15 bg-[#0c1018] py-1 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.9)]"
         >
           <Link
             href={editHref}

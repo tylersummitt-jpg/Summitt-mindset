@@ -79,6 +79,10 @@ describe("Edit Win UI", () => {
     expect(src).toContain("changed since you opened");
     expect(src).not.toContain("permanently");
     expect(src).not.toContain("openai");
+    // Clip regression: open panel must not use absolute positioning.
+    expect(src).not.toMatch(/className="[^"]*\babsolute\b/);
+    expect(src).not.toMatch(/\bleft-0\b/);
+    expect(src).not.toMatch(/\bz-20\b/);
   });
 
   it("Edit form prepopulates fields without provenance", () => {
