@@ -36,6 +36,8 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain("/dashboard/victory-room/all-proof");
     expect(html).toContain("Add a Win");
     expect(html).toContain('/dashboard/victory-room/add-win"');
+    expect(html).toContain("Edit");
+    expect(html).toContain("/dashboard/victory-room/wins/w1/edit?from=victory-room");
     expect(html).not.toContain("See all proof");
     expect(html).not.toContain("Kept the goal");
     expect(html).not.toContain("Share");

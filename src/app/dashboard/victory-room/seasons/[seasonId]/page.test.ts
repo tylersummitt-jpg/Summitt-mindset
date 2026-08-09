@@ -15,6 +15,7 @@ describe("Victory Season detail — Wins-only surface", () => {
     expect(pageSrc).toContain("loadActiveWinsForSeasonCommitment");
     expect(pageSrc).toContain("view.commitmentId");
     expect(pageSrc).toContain("VictorySeasonWinsSection");
+    expect(pageSrc).toContain("seasonId={view.seasonId}");
     expect(pageSrc).toContain("loadVictorySeasonProofView");
   });
 
@@ -51,6 +52,8 @@ describe("VictorySeasonWinsSection source", () => {
     expect(src).toContain("VictoryWinCard");
     expect(src).toContain("wins.length === 0");
     expect(src).toContain("return null");
+    expect(src).toContain("buildEditWinHref");
+    expect(src).toContain("seasonId");
     expect(src).not.toMatch(/Manual|SMS|source_type|streak|score/);
   });
 });

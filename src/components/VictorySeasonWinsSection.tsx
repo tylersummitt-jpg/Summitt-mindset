@@ -1,11 +1,14 @@
 import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import { VictoryWinCard } from "@/components/VictoryWinCard";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
+import { buildEditWinHref } from "@/lib/v2-win-edit-origin";
 import type { PublicWinDto } from "@/lib/v2-win-public-read";
 
 type VictorySeasonWinsSectionProps = {
   wins: PublicWinDto[];
   timeZone: string;
+  /** Owned Season id for Edit origin return. */
+  seasonId: string;
 };
 
 /**
@@ -14,6 +17,7 @@ type VictorySeasonWinsSectionProps = {
 export function VictorySeasonWinsSection({
   wins,
   timeZone,
+  seasonId,
 }: VictorySeasonWinsSectionProps) {
   if (wins.length === 0) return null;
 
@@ -29,6 +33,7 @@ export function VictorySeasonWinsSection({
                 dateLabel={formatVictoryRoomDate(w.occurredAt, timeZone)}
                 supportingQuote={w.supportingQuote}
                 celebrationAppropriate={w.celebrationAppropriate}
+                editHref={buildEditWinHref(w.id, { kind: "season", seasonId })}
               />
             </li>
           ))}

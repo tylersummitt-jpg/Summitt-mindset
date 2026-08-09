@@ -3,6 +3,7 @@ import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import { VictoryWinCard } from "@/components/VictoryWinCard";
 import { vrAccentLink, vrEmptyState } from "@/components/victory-room-visual";
 import { formatVictoryRoomDate, formatVictoryRoomMonthYear } from "@/lib/v2-victory-room-view";
+import { buildEditWinHref } from "@/lib/v2-win-edit-origin";
 import type { PublicWinDto } from "@/lib/v2-win-public-read";
 
 type VictoryAllProofSectionProps = {
@@ -79,6 +80,7 @@ export function VictoryAllProofSection({
                         dateLabel={formatVictoryRoomDate(w.occurredAt, timeZone)}
                         supportingQuote={w.supportingQuote}
                         celebrationAppropriate={w.celebrationAppropriate}
+                        editHref={buildEditWinHref(w.id, { kind: "all-wins" })}
                       />
                     </li>
                   ))}

@@ -13,9 +13,10 @@ describe("VictorySeasonWinsSection", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictorySeasonWinsSection, {
         timeZone: "UTC",
+        seasonId: "11111111-1111-4111-8111-111111111111",
         wins: [
           {
-            id: "manual-1",
+            id: "win-manual-1",
             occurredAt: "2026-08-08T12:00:00.000Z",
             displayTitle: "Done",
             displayBody: "Done",
@@ -24,7 +25,7 @@ describe("VictorySeasonWinsSection", () => {
             commitmentId: "c1",
           },
           {
-            id: "sms-1",
+            id: "win-sms-1",
             occurredAt: "2026-08-07T12:00:00.000Z",
             displayTitle: "Showed up",
             displayBody: "You kept the goal.",
@@ -39,13 +40,16 @@ describe("VictorySeasonWinsSection", () => {
     expect(html).toContain("Done");
     expect(html).toContain("Showed up");
     expect(html).toContain("got it done");
-    expect(html).not.toMatch(/\bManual\b|\bSMS\b|\bAI\b|streak|score|badge|trophy/i);
+    expect(html).toContain("Edit");
+    expect(html).toContain("/dashboard/victory-room/wins/win-manual-1/edit?from=season%3A");
+    expect(html).not.toMatch(/\bstreak\b|\bscore\b|\bbadge\b|\btrophy\b/i);
   });
 
   it("omits section entirely when zero Wins", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictorySeasonWinsSection, {
         timeZone: "UTC",
+        seasonId: "11111111-1111-4111-8111-111111111111",
         wins: [],
       })
     );

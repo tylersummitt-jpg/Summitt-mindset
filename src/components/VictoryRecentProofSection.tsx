@@ -9,6 +9,7 @@ import {
   vrIconCircle,
 } from "@/components/victory-room-visual";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
+import { buildEditWinHref } from "@/lib/v2-win-edit-origin";
 import type { PublicWinDto } from "@/lib/v2-win-public-read";
 
 type VictoryRecentProofSectionProps = {
@@ -60,6 +61,7 @@ export function VictoryRecentProofSection({
                   dateLabel={formatVictoryRoomDate(w.occurredAt, timeZone)}
                   supportingQuote={w.supportingQuote}
                   celebrationAppropriate={w.celebrationAppropriate}
+                  editHref={buildEditWinHref(w.id, { kind: "victory-room" })}
                 />
               </li>
             ))}

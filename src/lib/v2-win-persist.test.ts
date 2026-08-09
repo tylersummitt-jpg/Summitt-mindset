@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const { insertMaybeSingle, existingMaybeSingle, fromMock } = vi.hoisted(() => {
   const insertMaybeSingle = vi.fn();
@@ -632,5 +634,18 @@ describe("accountability user_yes Win persistence", () => {
     expect(updateEq2).toHaveBeenCalled();
     expect(r.persisted).toBe(1);
     expect(r.wins[0]?.idempotency_key).toBe("win_v1:acc_yes:SMstale");
+  });
+
+  it("duplicate recognition/accountability paths never UPDATE display presentation fields", () => {
+    const persistSrc = readFileSync(join(process.cwd(), "src/lib/v2-win-persist.ts"), "utf8");
+    // Only UPDATE in this module is stale-hide (status/hidden_*), not presentation.
+    const updateBlocks = [...persistSrc.matchAll(/\.update\(\{([\s\S]*?)\}\)/g)].map((m) => m[1]);
+    expect(updateBlocks.length).toBeGreaterThanOrEqual(1);
+    for (const block of updateBlocks) {
+      expect(block).not.toMatch(/display_title|display_body|action_fact|supporting_quote|occurred_at/);
+      expect(block).toMatch(/status|hidden_at|hidden_reason/);
+    }
+    expect(persistSrc).toContain('status: "existing"');
+    expect(persistSrc).toContain("lookupExistingWinByKey");
   });
 });

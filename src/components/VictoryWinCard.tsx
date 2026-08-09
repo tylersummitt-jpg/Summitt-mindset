@@ -1,4 +1,5 @@
-import { vrMomentCardBase } from "@/components/victory-room-visual";
+import Link from "next/link";
+import { vrAccentLink, vrMomentCardBase } from "@/components/victory-room-visual";
 
 type VictoryWinCardProps = {
   displayTitle: string;
@@ -6,6 +7,8 @@ type VictoryWinCardProps = {
   dateLabel: string;
   supportingQuote?: string | null;
   celebrationAppropriate?: boolean;
+  /** Optional Edit Win entry — omitted cards stay visually unchanged. */
+  editHref?: string | null;
 };
 
 /**
@@ -17,6 +20,7 @@ export function VictoryWinCard({
   dateLabel,
   supportingQuote,
   celebrationAppropriate = true,
+  editHref = null,
 }: VictoryWinCardProps) {
   const quiet = celebrationAppropriate === false;
   const border = quiet ? "border-white/12" : "border-amber-500/30";
@@ -69,6 +73,13 @@ export function VictoryWinCard({
       {quote ? (
         <p className="relative mt-4 text-base leading-relaxed text-stone-200 sm:text-lg">
           &ldquo;{quote}&rdquo;
+        </p>
+      ) : null}
+      {editHref ? (
+        <p className="relative mt-5">
+          <Link href={editHref} className={vrAccentLink}>
+            Edit
+          </Link>
         </p>
       ) : null}
     </article>

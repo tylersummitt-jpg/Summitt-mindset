@@ -65,7 +65,11 @@ export default async function VictorySeasonDetailPage({ params }: PageProps) {
           </Link>
         </p>
 
-        <VictorySeasonWinsSection wins={seasonWins} timeZone={timeZone} />
+        <VictorySeasonWinsSection
+          wins={seasonWins}
+          timeZone={timeZone}
+          seasonId={view.seasonId}
+        />
       </main>
     </div>
   );
