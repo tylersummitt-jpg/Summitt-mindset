@@ -88,6 +88,8 @@ import {
   TTO_PERSISTED_EXACT_THREAD_UNAVAILABLE,
   TTO_PERSISTED_PACKET_HEADING,
   TTO_PERSISTED_PACKET_UNAVAILABLE,
+  TTO_INTERPRETER_OPENAI_ERROR_HEADING,
+  TTO_WRITER_OPENAI_ERROR_HEADING,
   buildProvenanceExplanationBlocks,
   formatMorningCurrentBodySourceLabel,
   formatPersistedMessageForLine,
@@ -96,6 +98,7 @@ import {
   getMorningTechnicalRetrySectionCopy,
   getPersistedExactThreadMessages,
   getRawNotebookSectionCopy,
+  openAiErrorForensicLines,
   shouldShowEveningMorningAnchorPanel,
   shouldShowMorningDualBodyPanels,
   shouldShowSolForensicPanels,
@@ -110,6 +113,7 @@ import type {
   TylerTextOverviewAdminCounts,
   TylerTextOverviewAdminDraftRow,
   TylerTextOverviewManifestIntegrity,
+  TylerTextOverviewOpenAiErrorPanel,
 } from "@/lib/tyler-text-overview-types";
 import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
@@ -374,15 +378,20 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
                     {formatOptional(row.morningWriterCaptureV1.error)}
                   </dd>
                 </div>
-                <div>
-                  <dt className="font-medium text-gray-500">writer openai_error</dt>
-                  <dd className="font-mono break-all whitespace-pre-wrap">
-                    {row.morningWriterCaptureV1.openaiError
-                      ? JSON.stringify(row.morningWriterCaptureV1.openaiError, null, 2)
-                      : "—"}
-                  </dd>
-                </div>
               </>
+            ) : null}
+            {row.morningWriterCaptureV1?.openaiError ||
+            row.morningBriefInterpreterV1?.openaiError ? (
+              <div className="sm:col-span-2 space-y-2">
+                <OpenAiErrorForensicBlock
+                  heading={TTO_WRITER_OPENAI_ERROR_HEADING}
+                  error={row.morningWriterCaptureV1?.openaiError}
+                />
+                <OpenAiErrorForensicBlock
+                  heading={TTO_INTERPRETER_OPENAI_ERROR_HEADING}
+                  error={row.morningBriefInterpreterV1?.openaiError}
+                />
+              </div>
             ) : null}
             <div>
               <dt className="font-medium text-gray-500">technical retry occurred</dt>
@@ -452,6 +461,8 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
 function MorningOriginalMachineDraftPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
   const body = row.authoritativeMachineDraftBody;
   const available = row.authoritativeMachineDraftStatus === "available" && typeof body === "string";
+  const writerError = row.morningWriterCaptureV1?.openaiError ?? null;
+  const interpreterError = row.morningBriefInterpreterV1?.openaiError ?? null;
   return (
     <div className="space-y-2">
       <p className="text-xs text-gray-600">{MORNING_ORIGINAL_MACHINE_DRAFT_LABEL}</p>
@@ -464,6 +475,40 @@ function MorningOriginalMachineDraftPanel({ row }: { row: TylerTextOverviewAdmin
           {getMorningMachineDraftUnavailableReason(row)}
         </p>
       )}
+      <OpenAiErrorForensicBlock
+        heading={TTO_WRITER_OPENAI_ERROR_HEADING}
+        error={writerError}
+      />
+      <OpenAiErrorForensicBlock
+        heading={TTO_INTERPRETER_OPENAI_ERROR_HEADING}
+        error={interpreterError}
+      />
+    </div>
+  );
+}
+
+function OpenAiErrorForensicBlock({
+  heading,
+  error,
+}: {
+  heading: string;
+  error: TylerTextOverviewOpenAiErrorPanel | null | undefined;
+}) {
+  const lines = openAiErrorForensicLines(error);
+  if (lines.length === 0) return null;
+  return (
+    <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 space-y-1">
+      <p className="text-xs font-semibold uppercase tracking-wide text-rose-900">{heading}</p>
+      <dl className="space-y-1">
+        {lines.map((line) => (
+          <div key={`${heading}-${line.label}`}>
+            <dt className="text-[11px] font-medium text-rose-800">{line.label}:</dt>
+            <dd className="whitespace-pre-wrap break-words font-mono text-xs text-rose-950">
+              {line.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
@@ -636,7 +681,6 @@ function MorningCoachingBriefObservationPanels({
             <BriefField label="Temperature (actual)" value={interpreter.temperature} />
             <BriefField label="Latency ms" value={interpreter.latencyMs} />
             <BriefField label="Error" value={interpreter.error} />
-            <BriefField label="OpenAI error" value={interpreter.openaiError} />
             <BriefField label="Fallback brief used" value={interpreter.fallbackBriefUsed} />
             <BriefField label="Retry occurred" value={interpreter.retryOccurred} />
             <BriefField label="Retry succeeded" value={interpreter.retrySucceeded} />
@@ -644,6 +688,10 @@ function MorningCoachingBriefObservationPanels({
             <BriefField label="Raw retry response" value={interpreter.rawRetryResponse} />
             <BriefField label="Parsed brief" value={interpreter.parsedBrief} />
           </div>
+          <OpenAiErrorForensicBlock
+            heading={TTO_INTERPRETER_OPENAI_ERROR_HEADING}
+            error={interpreter.openaiError}
+          />
         </>
       ) : null}
 
@@ -671,13 +719,16 @@ function MorningCoachingBriefObservationPanels({
           />
           <BriefField label="Latency ms" value={row.morningWriterCaptureV1.latencyMs} />
           <BriefField label="Error" value={row.morningWriterCaptureV1.error} />
-          <BriefField label="OpenAI error" value={row.morningWriterCaptureV1.openaiError} />
           <BriefField label="Retry occurred" value={row.morningWriterCaptureV1.retryOccurred} />
           <BriefField label="Retry succeeded" value={row.morningWriterCaptureV1.retrySucceeded} />
           <BriefField label="Raw primary response" value={row.morningWriterCaptureV1.rawResponse} />
           <BriefField
             label="Raw retry response"
             value={row.morningWriterCaptureV1.rawRetryResponse}
+          />
+          <OpenAiErrorForensicBlock
+            heading={TTO_WRITER_OPENAI_ERROR_HEADING}
+            error={row.morningWriterCaptureV1.openaiError}
           />
         </div>
       ) : null}

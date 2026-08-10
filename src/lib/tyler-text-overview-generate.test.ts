@@ -1137,12 +1137,162 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       ok: false,
       error: "openai_request_failed",
       messages: MORNING_WRITER_MESSAGES,
+      capture: {
+        capture_version: "morning_writer_capture_v1",
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        prompt_path: "morning_brief_writer_v1",
+        raw_response: null,
+        raw_retry_response: null,
+        error: "openai_request_failed",
+        openai_error: {
+          name: "APIError",
+          message: "429 rate limit",
+          status: 429,
+          code: "rate_limit_exceeded",
+          type: "insufficient_quota",
+          request_id: "req_persist_w",
+        },
+        request_started_at: "2026-07-02T16:00:00.000Z",
+        request_completed_at: "2026-07-02T16:00:01.000Z",
+        latency_ms: 1000,
+        retry_occurred: false,
+        retry_succeeded: null,
+      },
     });
     await generateTylerTextOverviewDailyDrafts({ now: new Date("2026-07-02T16:00:00.000Z"), draftForDayKey: "2026-07-03" });
     expect(db.generations[0]?.machine_should_send).toBe(false);
     expect(db.generations[0]?.machine_no_send_reason).toBe("openai_request_failed");
     expect(db.generations[0]?.writer_prompt_path).toBe("morning_brief_writer_v1");
     expect(db.drafts[0]?.current_body_to_send).toBeNull();
+    const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
+    expect(meta.morning_writer_capture_v1).toEqual(
+      expect.objectContaining({
+        error: "openai_request_failed",
+        openai_error: {
+          name: "APIError",
+          message: "429 rate limit",
+          status: 429,
+          code: "rate_limit_exceeded",
+          type: "insufficient_quota",
+          request_id: "req_persist_w",
+        },
+      })
+    );
+  });
+
+  it("interpreter thrown request persists scrubbed openai_error in generation metadata", async () => {
+    setupHappyPath();
+    runInterpreterMock.mockResolvedValue({
+      ok: false,
+      error: "openai_request_failed",
+      brief: {
+        version: "morning_coaching_brief_v1",
+        confidence: "low",
+        human_situation: {
+          most_alive: "unknown",
+          direct_question_or_need: null,
+          relevant_life_event: null,
+          context_use: "unknown",
+          identity_use: "unknown",
+          person_use: "unknown",
+          selected_person: null,
+          selected_person_reason: null,
+        },
+        truth_and_evidence: {
+          latest_user_truth: null,
+          outcome: "unknown",
+          evidence_note: "unknown",
+          evidence_strength: "none",
+          consistency_supported: false,
+          proof_claims_allowed: {
+            completion: false,
+            miss: false,
+            partial: false,
+            proof: false,
+          },
+        },
+        conversation_continuity: {
+          already_acknowledged: [],
+          answered_question: null,
+          open_loop: null,
+          stale_or_exhausted_topics: [],
+          do_not_repeat: [],
+        },
+        goal_role_today: {
+          canonical_goal: "Two hours deep work",
+          pending_goal: null,
+          goal_alignment: "unknown",
+          role: "unknown",
+          note: "unknown",
+        },
+        coaching_direction: {
+          primary_move: "unknown",
+          question_policy: "none",
+          action_guidance: "none",
+          pressure: "unknown",
+        },
+        boundaries: {
+          claims_to_avoid: [],
+          topics_not_to_force: [],
+          unsupported_capabilities: [],
+          goal_authority_boundaries: [],
+          identity_people_boundaries: [],
+          coach_history_is_not_style: "Prior coach messages are history.",
+        },
+      },
+      capture: {
+        capture_version: "morning_brief_interpreter_capture_v1",
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 2500,
+        prompt_path: "morning_brief_interpreter_v1",
+        system_message: "interpreter system",
+        user_message: "interpreter user",
+        canonical_input: { version: "morning_brief_interpreter_input_v1" },
+        raw_response: null,
+        raw_retry_response: null,
+        parsed_brief: null,
+        error: "openai_request_failed",
+        openai_error: {
+          name: "Error",
+          message: "Invalid schema",
+          status: 400,
+          code: "invalid_request_error",
+          type: "invalid_request_error",
+          request_id: "req_persist_i",
+        },
+        request_started_at: "2026-07-02T16:00:00.000Z",
+        request_completed_at: "2026-07-02T16:00:01.000Z",
+        latency_ms: 1000,
+        retry_occurred: false,
+        retry_succeeded: null,
+        retry: null,
+      },
+    });
+    await generateTylerTextOverviewDailyDrafts({
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    const meta = db.generations[0]?.generation_metadata as Record<string, unknown>;
+    expect(meta.morning_brief_interpreter_v1).toEqual(
+      expect.objectContaining({
+        error: "openai_request_failed",
+        openai_error: {
+          name: "Error",
+          message: "Invalid schema",
+          status: 400,
+          code: "invalid_request_error",
+          type: "invalid_request_error",
+          request_id: "req_persist_i",
+        },
+        fallback_brief_used: true,
+      })
+    );
+    expect(db.generations[0]?.machine_should_send).toBe(true);
   });
 
   it("packet failure persists generation history without clearing protected draft", async () => {

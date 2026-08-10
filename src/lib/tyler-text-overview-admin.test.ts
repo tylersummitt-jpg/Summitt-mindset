@@ -900,6 +900,25 @@ describe("tyler-text-overview-admin read model", () => {
     expect(JSON.stringify(panel?.openaiError)).not.toContain("Bearer");
   });
 
+  it("maps empty openai_error object to null (no junk placeholders)", () => {
+    expect(
+      mapMorningWriterCapturePanel({
+        morning_writer_capture_v1: {
+          model: "gpt-5.6-sol",
+          temperature: null,
+          openai_error: {
+            name: null,
+            message: null,
+            status: null,
+            code: null,
+            type: null,
+            request_id: null,
+          },
+        },
+      })?.openaiError
+    ).toBeNull();
+  });
+
   it("Phase 2C maps stored interpreter metadata without reconstruction", () => {
     const brief = {
       version: "morning_coaching_brief_v1",

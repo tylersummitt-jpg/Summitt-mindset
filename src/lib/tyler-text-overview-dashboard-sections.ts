@@ -4,7 +4,10 @@ import {
   notebookDisplayHeadline,
   notebookDisplaySubtext,
 } from "@/lib/tyler-text-overview-notebook-display";
-import type { TylerTextOverviewAdminDraftRow } from "@/lib/tyler-text-overview-types";
+import type {
+  TylerTextOverviewAdminDraftRow,
+  TylerTextOverviewOpenAiErrorPanel,
+} from "@/lib/tyler-text-overview-types";
 
 export const ADMIN_INTERPRETATION_LINE = "Admin interpretation — not sent to OpenAI.";
 
@@ -58,6 +61,9 @@ export const MORNING_COACHING_BRIEF_HEADING = "COACHING BRIEF";
 export const MORNING_BRIEF_PERSONAL_CONTEXT_HEADING = "PERSONAL CONTEXT OBSERVABILITY";
 export const MORNING_BRIEF_INTERPRETER_INPUT_HEADING = "INTERPRETER RAW INPUT";
 export const MORNING_BRIEF_INTERPRETER_OUTPUT_HEADING = "INTERPRETER RAW OUTPUT";
+
+export const TTO_INTERPRETER_OPENAI_ERROR_HEADING = "INTERPRETER OPENAI ERROR";
+export const TTO_WRITER_OPENAI_ERROR_HEADING = "WRITER OPENAI ERROR";
 
 export const MORNING_TECHNICAL_RETRY_HEADING = "TECHNICAL RETRY CONTEXT";
 export const MORNING_TECHNICAL_RETRY_LABEL =
@@ -198,6 +204,39 @@ export function getMorningMachineDraftUnavailableReason(
     default:
       return MORNING_BODY_COMPARISON_HISTORICAL_UNAVAILABLE;
   }
+}
+
+/** Present scrubbed OpenAI error fields only — no null/empty placeholders. */
+export function openAiErrorForensicLines(
+  error: TylerTextOverviewOpenAiErrorPanel | null | undefined
+): Array<{ label: string; value: string }> {
+  if (!error) return [];
+  const lines: Array<{ label: string; value: string }> = [];
+  if (error.status != null) lines.push({ label: "status", value: String(error.status) });
+  if (typeof error.code === "string" && error.code.trim()) {
+    lines.push({ label: "code", value: error.code.trim() });
+  }
+  if (typeof error.type === "string" && error.type.trim()) {
+    lines.push({ label: "type", value: error.type.trim() });
+  }
+  if (typeof error.name === "string" && error.name.trim()) {
+    lines.push({ label: "name", value: error.name.trim() });
+  }
+  if (typeof error.requestId === "string" && error.requestId.trim()) {
+    lines.push({ label: "request_id", value: error.requestId.trim() });
+  }
+  if (typeof error.message === "string" && error.message.trim()) {
+    lines.push({ label: "message", value: error.message.trim() });
+  }
+  return lines;
+}
+
+export function rowHasWriterOpenAiError(row: TylerTextOverviewAdminDraftRow): boolean {
+  return openAiErrorForensicLines(row.morningWriterCaptureV1?.openaiError ?? null).length > 0;
+}
+
+export function rowHasInterpreterOpenAiError(row: TylerTextOverviewAdminDraftRow): boolean {
+  return openAiErrorForensicLines(row.morningBriefInterpreterV1?.openaiError ?? null).length > 0;
 }
 
 /**

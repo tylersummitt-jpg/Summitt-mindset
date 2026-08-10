@@ -967,19 +967,35 @@ function mapSlotCoachingContextPanel(
 function mapOpenAiErrorPanel(raw: unknown): TylerTextOverviewOpenAiErrorPanel | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const e = raw as Record<string, unknown>;
-  return {
-    name: typeof e.name === "string" ? e.name : null,
-    message: typeof e.message === "string" ? e.message : null,
+  const panel: TylerTextOverviewOpenAiErrorPanel = {
+    name: typeof e.name === "string" && e.name.trim() ? e.name.trim() : null,
+    message: typeof e.message === "string" && e.message.trim() ? e.message.trim() : null,
     status: typeof e.status === "number" && Number.isFinite(e.status) ? e.status : null,
     code:
-      typeof e.code === "string"
-        ? e.code
+      typeof e.code === "string" && e.code.trim()
+        ? e.code.trim()
         : typeof e.code === "number" && Number.isFinite(e.code)
           ? String(e.code)
           : null,
-    type: typeof e.type === "string" ? e.type : null,
-    requestId: typeof e.request_id === "string" ? e.request_id : null,
+    type: typeof e.type === "string" && e.type.trim() ? e.type.trim() : null,
+    requestId:
+      typeof e.request_id === "string" && e.request_id.trim()
+        ? e.request_id.trim()
+        : typeof e.requestId === "string" && e.requestId.trim()
+          ? e.requestId.trim()
+          : null,
   };
+  if (
+    panel.name == null &&
+    panel.message == null &&
+    panel.status == null &&
+    panel.code == null &&
+    panel.type == null &&
+    panel.requestId == null
+  ) {
+    return null;
+  }
+  return panel;
 }
 
 /** Pass through stored generation-time interpreter capture only — never reconstruct. */

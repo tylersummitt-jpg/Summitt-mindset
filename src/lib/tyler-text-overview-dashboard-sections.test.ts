@@ -30,6 +30,9 @@ import {
   MORNING_BODY_COMPARISON_GENERATION_FAILED,
   MORNING_BODY_COMPARISON_GENERATION_MISSING,
   MORNING_BRIEF_OBSERVATION_STATUS,
+  TTO_INTERPRETER_OPENAI_ERROR_HEADING,
+  TTO_WRITER_OPENAI_ERROR_HEADING,
+  openAiErrorForensicLines,
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import type { TylerTextOverviewAdminDraftRow } from "@/lib/tyler-text-overview-types";
 
@@ -565,5 +568,52 @@ describe("weekly raw notebook / provenance", () => {
     expect(saveDraftFn).toContain("/api/admin/tyler-text-overview/${encodeURIComponent(draftId)}");
     expect(saveDraftFn).not.toContain("evening-send");
     expect(saveDraftFn).not.toMatch(/openai/i);
+  });
+
+  it("openAiErrorForensicLines omits null/empty fields and keeps order", () => {
+    expect(openAiErrorForensicLines(null)).toEqual([]);
+    expect(
+      openAiErrorForensicLines({
+        name: null,
+        message: null,
+        status: null,
+        code: null,
+        type: null,
+        requestId: null,
+      })
+    ).toEqual([]);
+    expect(
+      openAiErrorForensicLines({
+        name: "APIError",
+        message: "429 rate limit",
+        status: 429,
+        code: "rate_limit_exceeded",
+        type: "insufficient_quota",
+        requestId: "req_1",
+      })
+    ).toEqual([
+      { label: "status", value: "429" },
+      { label: "code", value: "rate_limit_exceeded" },
+      { label: "type", value: "insufficient_quota" },
+      { label: "name", value: "APIError" },
+      { label: "request_id", value: "req_1" },
+      { label: "message", value: "429 rate limit" },
+    ]);
+  });
+
+  it("dashboard renders dedicated INTERPRETER/WRITER OPENAI ERROR blocks as escaped text", () => {
+    const dashboard = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
+      "utf8"
+    );
+    expect(dashboard).toContain("TTO_INTERPRETER_OPENAI_ERROR_HEADING");
+    expect(dashboard).toContain("TTO_WRITER_OPENAI_ERROR_HEADING");
+    expect(dashboard).toContain("OpenAiErrorForensicBlock");
+    expect(dashboard).toContain("openAiErrorForensicLines");
+    expect(dashboard).toContain("{line.value}");
+    expect(dashboard).not.toMatch(/dangerouslySetInnerHTML/);
+    expect(dashboard).not.toMatch(/OpenAI error.*formatBriefValue|BriefField label=\"OpenAI error\"/);
+    expect(TTO_INTERPRETER_OPENAI_ERROR_HEADING).toBe("INTERPRETER OPENAI ERROR");
+    expect(TTO_WRITER_OPENAI_ERROR_HEADING).toBe("WRITER OPENAI ERROR");
   });
 });
