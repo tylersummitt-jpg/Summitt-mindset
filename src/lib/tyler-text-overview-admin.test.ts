@@ -865,7 +865,39 @@ describe("tyler-text-overview-admin read model", () => {
     expect(panel?.maxCompletionTokens).toBe(1200);
     expect(panel?.temperature).toBeNull();
     expect(panel?.rawResponse).toBe('{"body":"Hi"}');
+    expect(panel?.openaiError).toBeNull();
     expect(mapMorningWriterCapturePanel({})).toBeNull();
+  });
+
+  it("maps scrubbed writer openai_error forensics without leaking extra fields", () => {
+    const panel = mapMorningWriterCapturePanel({
+      morning_writer_capture_v1: {
+        model: "gpt-5.6-sol",
+        temperature: null,
+        reasoning_effort: "low",
+        max_completion_tokens: 1200,
+        error: "openai_request_failed",
+        openai_error: {
+          name: "APIError",
+          message: "429",
+          status: 429,
+          code: "rate_limit_exceeded",
+          type: "insufficient_quota",
+          request_id: "req_1",
+          headers: { authorization: "Bearer sk" },
+        },
+      },
+    });
+    expect(panel?.error).toBe("openai_request_failed");
+    expect(panel?.openaiError).toEqual({
+      name: "APIError",
+      message: "429",
+      status: 429,
+      code: "rate_limit_exceeded",
+      type: "insufficient_quota",
+      requestId: "req_1",
+    });
+    expect(JSON.stringify(panel?.openaiError)).not.toContain("Bearer");
   });
 
   it("Phase 2C maps stored interpreter metadata without reconstruction", () => {
@@ -897,6 +929,7 @@ describe("tyler-text-overview-admin read model", () => {
     expect(panel?.model).toBe("gpt-5.6-sol");
     expect(panel?.reasoningEffort).toBe("low");
     expect(panel?.temperature).toBeNull();
+    expect(panel?.openaiError).toBeNull();
     expect(panel?.exactInputObject?.available_important_people).toEqual([
       { name: "Brooke", relationship: "spouse/partner" },
     ]);
@@ -905,6 +938,32 @@ describe("tyler-text-overview-admin read model", () => {
       brief
     );
     expect(mapMorningBriefInterpreterPanel({})).toBeNull();
+  });
+
+  it("maps scrubbed interpreter openai_error forensics", () => {
+    const panel = mapMorningBriefInterpreterPanel({
+      morning_brief_interpreter_v1: {
+        model: "gpt-5.6-sol",
+        error: "openai_request_failed",
+        openai_error: {
+          name: "Error",
+          message: "Bad schema",
+          status: 400,
+          code: "invalid_request_error",
+          type: "invalid_request_error",
+          request_id: "req_i",
+        },
+      },
+    });
+    expect(panel?.error).toBe("openai_request_failed");
+    expect(panel?.openaiError).toEqual({
+      name: "Error",
+      message: "Bad schema",
+      status: 400,
+      code: "invalid_request_error",
+      type: "invalid_request_error",
+      requestId: "req_i",
+    });
   });
 
   it("E4 maps persisted message_for, packet, and coaching_stack without reconstruction", () => {

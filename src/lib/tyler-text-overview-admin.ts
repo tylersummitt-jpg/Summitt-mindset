@@ -22,6 +22,7 @@ import {
   type TylerTextOverviewRowState,
   type TylerTextOverviewMorningBriefInterpreterPanel,
   type TylerTextOverviewMorningWriterCapturePanel,
+  type TylerTextOverviewOpenAiErrorPanel,
   type TylerTextOverviewSlotCoachingContextPanel,
 } from "@/lib/tyler-text-overview-types";
 import { requireTylerTextOverviewDraftDayKey } from "@/lib/tyler-text-overview-draft-day-key";
@@ -963,6 +964,24 @@ function mapSlotCoachingContextPanel(
   };
 }
 
+function mapOpenAiErrorPanel(raw: unknown): TylerTextOverviewOpenAiErrorPanel | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const e = raw as Record<string, unknown>;
+  return {
+    name: typeof e.name === "string" ? e.name : null,
+    message: typeof e.message === "string" ? e.message : null,
+    status: typeof e.status === "number" && Number.isFinite(e.status) ? e.status : null,
+    code:
+      typeof e.code === "string"
+        ? e.code
+        : typeof e.code === "number" && Number.isFinite(e.code)
+          ? String(e.code)
+          : null,
+    type: typeof e.type === "string" ? e.type : null,
+    requestId: typeof e.request_id === "string" ? e.request_id : null,
+  };
+}
+
 /** Pass through stored generation-time interpreter capture only — never reconstruct. */
 export function mapMorningBriefInterpreterPanel(
   metadata: Record<string, unknown>
@@ -988,6 +1007,7 @@ export function mapMorningBriefInterpreterPanel(
       typeof c.max_completion_tokens === "number" ? c.max_completion_tokens : null,
     latencyMs: typeof c.latency_ms === "number" ? c.latency_ms : null,
     error: typeof c.error === "string" ? c.error : c.error === null ? null : null,
+    openaiError: mapOpenAiErrorPanel(c.openai_error),
     exactSystemMessage: typeof c.exact_system_message === "string" ? c.exact_system_message : null,
     exactUserMessage: typeof c.exact_user_message === "string" ? c.exact_user_message : null,
     exactInputObject: exactInput,
@@ -1060,6 +1080,7 @@ export function mapMorningWriterCapturePanel(
       typeof c.max_completion_tokens === "number" ? c.max_completion_tokens : null,
     latencyMs: typeof c.latency_ms === "number" ? c.latency_ms : null,
     error: typeof c.error === "string" ? c.error : null,
+    openaiError: mapOpenAiErrorPanel(c.openai_error),
     rawResponse: typeof c.raw_response === "string" ? c.raw_response : null,
     rawRetryResponse: typeof c.raw_retry_response === "string" ? c.raw_retry_response : null,
     retryOccurred:

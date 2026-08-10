@@ -340,6 +340,28 @@ export async function runPoolWithBudget<T, R>(args: {
   return { results, started };
 }
 
+/**
+ * Generate All accounting only: ok:true with empty machine body is a soft failure
+ * for this auto-chain (exclude + advance). Does not change generator ok semantics.
+ * Real generators always return `body` on ok:true; undefined body is ignored (not soft-fail).
+ */
+export function generateAllSoftFailureError(result: {
+  body?: string | null;
+  machineNoSendReason?: string | null;
+}): string | null {
+  if (!("body" in result) || result.body === undefined) {
+    return null;
+  }
+  if (typeof result.body === "string" && result.body.trim().length > 0) {
+    return null;
+  }
+  const reason =
+    typeof result.machineNoSendReason === "string" && result.machineNoSendReason.trim()
+      ? result.machineNoSendReason.trim()
+      : "generation_incomplete";
+  return reason;
+}
+
 async function generateOneUser(args: {
   sendSlot: TtoGenerateAllSlot;
   draftForDayKey: string;
@@ -361,6 +383,10 @@ async function generateOneUser(args: {
       if (!result.ok) {
         return { ok: false, error: result.error ?? result.reason };
       }
+      const softError = generateAllSoftFailureError(result);
+      if (softError) {
+        return { ok: false, error: softError };
+      }
       return { ok: true, protected: result.currentDraftProtected === true };
     }
 
@@ -371,6 +397,10 @@ async function generateOneUser(args: {
     });
     if (!result.ok) {
       return { ok: false, error: result.error ?? result.reason };
+    }
+    const softError = generateAllSoftFailureError(result);
+    if (softError) {
+      return { ok: false, error: softError };
     }
     return { ok: true, protected: result.currentDraftProtected === true };
   } catch (err) {

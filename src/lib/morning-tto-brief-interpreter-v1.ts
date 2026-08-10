@@ -20,6 +20,10 @@ import {
   mapSpineOutcomeToBriefOutcome,
   type MorningBriefInterpreterInputV1,
 } from "@/lib/morning-tto-brief-canonical-input-v1";
+import {
+  scrubOpenAiRequestErrorForCapture,
+  type ScrubbedOpenAiRequestError,
+} from "@/lib/openai-request-error-scrub";
 
 /**
  * Phase 2C locked interpreter model — quality-first.
@@ -122,6 +126,8 @@ export type MorningBriefInterpreterCaptureV1 = {
    */
   parsed_brief: MorningCoachingBriefV1 | null;
   error: string | null;
+  /** Scrubbed thrown-request diagnostics; null when no throw or unavailable. */
+  openai_error: ScrubbedOpenAiRequestError | null;
   request_started_at: string | null;
   request_completed_at: string | null;
   latency_ms: number | null;
@@ -426,6 +432,7 @@ function buildCapture(args: {
   /** Model-parsed brief only — null on fail-soft. */
   brief: MorningCoachingBriefV1 | null;
   error: string | null;
+  openai_error?: ScrubbedOpenAiRequestError | null;
   request_started_at: string | null;
   request_completed_at: string | null;
   latency_ms: number | null;
@@ -447,6 +454,7 @@ function buildCapture(args: {
     raw_retry_response: args.raw_retry_response ?? null,
     parsed_brief: args.brief,
     error: args.error,
+    openai_error: args.openai_error ?? null,
     request_started_at: args.request_started_at,
     request_completed_at: args.request_completed_at,
     latency_ms: args.latency_ms,
@@ -479,7 +487,8 @@ export async function runMorningBriefInterpreterV1(args: {
       raw_retry_response: string | null;
       retry_occurred: boolean;
       retry_succeeded: boolean | null;
-    }
+    },
+    openai_error?: ScrubbedOpenAiRequestError | null
   ): MorningBriefInterpreterResultV1 => {
     const brief = buildLowConfidenceUnknownBriefFromCanonical(args.input);
     return {
@@ -493,6 +502,7 @@ export async function runMorningBriefInterpreterV1(args: {
         // Forensic: do not present fail-soft as a successful model parse.
         brief: null,
         error,
+        openai_error: openai_error ?? null,
         request_started_at: timing?.request_started_at ?? null,
         request_completed_at: timing?.request_completed_at ?? null,
         latency_ms: timing?.latency_ms ?? null,
@@ -586,13 +596,19 @@ export async function runMorningBriefInterpreterV1(args: {
         retry_succeeded: retryOccurred ? false : null,
       }
     );
-  } catch {
+  } catch (err) {
     const completedMs = Date.now();
-    return failSoft("openai_request_failed", null, {
-      request_started_at,
-      request_completed_at: new Date(completedMs).toISOString(),
-      latency_ms: completedMs - startedMs,
-    });
+    return failSoft(
+      "openai_request_failed",
+      null,
+      {
+        request_started_at,
+        request_completed_at: new Date(completedMs).toISOString(),
+        latency_ms: completedMs - startedMs,
+      },
+      undefined,
+      scrubOpenAiRequestErrorForCapture(err)
+    );
   }
 }
 
@@ -617,6 +633,7 @@ export function buildMorningBriefInterpreterMetadataV1(
     raw_retry_response: capture.raw_retry_response,
     parsed_brief: capture.parsed_brief,
     error: capture.error,
+    openai_error: capture.openai_error,
     retry_occurred: capture.retry_occurred,
     retry_succeeded: capture.retry_succeeded,
     retry: null,

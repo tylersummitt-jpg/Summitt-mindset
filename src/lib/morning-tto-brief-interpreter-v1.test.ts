@@ -10,6 +10,7 @@ import {
   buildLowConfidenceUnknownBriefFromCanonical,
   buildMorningBriefInterpreterMessages,
   buildMorningBriefInterpreterUserMessage,
+  buildMorningBriefInterpreterMetadataV1,
   mergeMorningBriefWithCanonicalTruth,
   MORNING_BRIEF_INTERPRETER_MODEL,
   MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL,
@@ -501,6 +502,40 @@ describe("morning-tto-brief-interpreter-v1", () => {
       "celebrate"
     );
     expect(result.brief.coaching_direction.primary_move).toBe("celebrate");
+    expect(result.capture.openai_error).toBeNull();
+  });
+
+  it("persists scrubbed openai_error on thrown request while keeping openai_request_failed", async () => {
+    const input = assembleOrThrow();
+    const err = Object.assign(new Error("Invalid schema"), {
+      status: 400,
+      code: "invalid_request_error",
+      type: "invalid_request_error",
+      request_id: "req_interp_1",
+      headers: { authorization: "Bearer sk-secret" },
+      stack: "Error: Invalid schema\n    at create",
+    });
+    const create = vi.fn().mockRejectedValue(err);
+    const result = await runMorningBriefInterpreterV1({
+      input,
+      client: { chat: { completions: { create } } } as never,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("openai_request_failed");
+    expect(result.capture.error).toBe("openai_request_failed");
+    expect(result.capture.openai_error).toEqual({
+      name: "Error",
+      message: "Invalid schema",
+      status: 400,
+      code: "invalid_request_error",
+      type: "invalid_request_error",
+      request_id: "req_interp_1",
+    });
+    expect(result.brief.confidence).toBe("low");
+    expect(JSON.stringify(result.capture.openai_error)).not.toContain("sk-secret");
+    expect(JSON.stringify(buildMorningBriefInterpreterMetadataV1(result.capture))).toContain(
+      "openai_error"
+    );
   });
 
   it("source module has no mutation or generation imports", () => {

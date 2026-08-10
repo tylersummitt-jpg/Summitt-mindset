@@ -338,7 +338,15 @@ describe("morning-tto-writer Phase 2D", () => {
   });
 
   it("returns openai_request_failed on thrown request error", async () => {
-    createMock.mockRejectedValue(new Error("network down"));
+    const err = Object.assign(new Error("429 rate limit"), {
+      status: 429,
+      code: "rate_limit_exceeded",
+      type: "insufficient_quota",
+      request_id: "req_writer_1",
+      headers: { authorization: "Bearer sk-secret" },
+      stack: "Error: 429 rate limit\n    at fail",
+    });
+    createMock.mockRejectedValue(err);
 
     const result = await writeMorningTtoBody({
       packet: samplePacket(),
@@ -350,6 +358,16 @@ describe("morning-tto-writer Phase 2D", () => {
     expect(result.retryOccurred).toBe(false);
     expect(result.model).toBe(MORNING_TTO_WRITER_MODEL);
     expect(result.capture?.error).toBe("openai_request_failed");
+    expect(result.capture?.openai_error).toEqual({
+      name: "Error",
+      message: "429 rate limit",
+      status: 429,
+      code: "rate_limit_exceeded",
+      type: "insufficient_quota",
+      request_id: "req_writer_1",
+    });
+    expect(JSON.stringify(result.capture?.openai_error)).not.toContain("sk-secret");
+    expect(JSON.stringify(result.capture?.openai_error)).not.toContain("at fail");
   });
 
   it("source has no lane helper, repair writer, fallback, or mini model", () => {

@@ -7,6 +7,10 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import type { MorningCoachingBriefV1 } from "@/lib/morning-tto-coaching-brief-v1";
 import type { MorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
+import {
+  scrubOpenAiRequestErrorForCapture,
+  type ScrubbedOpenAiRequestError,
+} from "@/lib/openai-request-error-scrub";
 
 export const MORNING_TTO_WRITER_MODEL = "gpt-5.6-sol" as const;
 export const MORNING_TTO_WRITER_REASONING_EFFORT = "low" as const;
@@ -80,6 +84,8 @@ export type MorningWriterCaptureV1 = {
   raw_response: string | null;
   raw_retry_response: string | null;
   error: string | null;
+  /** Scrubbed thrown-request diagnostics; null when no throw or unavailable. */
+  openai_error: ScrubbedOpenAiRequestError | null;
   request_started_at: string | null;
   request_completed_at: string | null;
   latency_ms: number | null;
@@ -159,6 +165,7 @@ function buildCapture(args: {
   raw_response: string | null;
   raw_retry_response: string | null;
   error: string | null;
+  openai_error?: ScrubbedOpenAiRequestError | null;
   request_started_at: string | null;
   request_completed_at: string | null;
   latency_ms: number | null;
@@ -175,6 +182,7 @@ function buildCapture(args: {
     raw_response: args.raw_response,
     raw_retry_response: args.raw_retry_response,
     error: args.error,
+    openai_error: args.openai_error ?? null,
     request_started_at: args.request_started_at,
     request_completed_at: args.request_completed_at,
     latency_ms: args.latency_ms,
@@ -308,7 +316,7 @@ export async function writeMorningTtoBody(
         retry_succeeded: retryOccurred ? false : null,
       }),
     };
-  } catch {
+  } catch (err) {
     const completedMs = Date.now();
     return {
       ok: false,
@@ -322,6 +330,7 @@ export async function writeMorningTtoBody(
         raw_response: null,
         raw_retry_response: null,
         error: "openai_request_failed",
+        openai_error: scrubOpenAiRequestErrorForCapture(err),
         request_started_at,
         request_completed_at: new Date(completedMs).toISOString(),
         latency_ms: completedMs - startedMs,
@@ -350,6 +359,7 @@ export function buildMorningWriterMetadataV1(args: {
     raw_response: args.capture.raw_response,
     raw_retry_response: args.capture.raw_retry_response,
     error: args.capture.error,
+    openai_error: args.capture.openai_error,
     retry_occurred: args.capture.retry_occurred,
     retry_succeeded: args.capture.retry_succeeded,
     retry_messages: args.capture.retry_occurred ? args.retryMessages : [],

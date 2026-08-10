@@ -1268,6 +1268,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
         raw_response: writerResult.capture.raw_response,
         raw_retry_response: writerResult.capture.raw_retry_response,
         error: writerResult.capture.error,
+        openai_error: writerResult.capture.openai_error ?? null,
         retry_occurred: writerResult.capture.retry_occurred,
         retry_succeeded: writerResult.capture.retry_succeeded,
       }
@@ -1626,6 +1627,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
         raw_response: writerResult.capture.raw_response,
         raw_retry_response: writerResult.capture.raw_retry_response,
         error: writerResult.capture.error,
+        openai_error: writerResult.capture.openai_error ?? null,
         retry_occurred: writerResult.capture.retry_occurred,
         retry_succeeded: writerResult.capture.retry_succeeded,
       }

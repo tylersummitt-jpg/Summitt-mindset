@@ -455,6 +455,16 @@ export type TylerTextOverviewSlotCoachingContextPanel = {
   skipReasonHint: string | null;
 };
 
+/** Scrubbed OpenAI thrown-request diagnostics (admin forensics). */
+export type TylerTextOverviewOpenAiErrorPanel = {
+  name: string | null;
+  message: string | null;
+  status: number | null;
+  code: string | null;
+  type: string | null;
+  requestId: string | null;
+};
+
 /** Phase 2C — stored Morning Brief interpreter forensic capture (generation-time only). */
 export type TylerTextOverviewMorningBriefInterpreterPanel = {
   model: string | null;
@@ -463,6 +473,7 @@ export type TylerTextOverviewMorningBriefInterpreterPanel = {
   maxCompletionTokens: number | null;
   latencyMs: number | null;
   error: string | null;
+  openaiError: TylerTextOverviewOpenAiErrorPanel | null;
   exactSystemMessage: string | null;
   exactUserMessage: string | null;
   exactInputObject: Record<string, unknown> | null;
@@ -482,6 +493,7 @@ export type TylerTextOverviewMorningWriterCapturePanel = {
   maxCompletionTokens: number | null;
   latencyMs: number | null;
   error: string | null;
+  openaiError: TylerTextOverviewOpenAiErrorPanel | null;
   rawResponse: string | null;
   rawRetryResponse: string | null;
   retryOccurred: boolean | null;

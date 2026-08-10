@@ -374,6 +374,14 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
                     {formatOptional(row.morningWriterCaptureV1.error)}
                   </dd>
                 </div>
+                <div>
+                  <dt className="font-medium text-gray-500">writer openai_error</dt>
+                  <dd className="font-mono break-all whitespace-pre-wrap">
+                    {row.morningWriterCaptureV1.openaiError
+                      ? JSON.stringify(row.morningWriterCaptureV1.openaiError, null, 2)
+                      : "—"}
+                  </dd>
+                </div>
               </>
             ) : null}
             <div>
@@ -628,6 +636,7 @@ function MorningCoachingBriefObservationPanels({
             <BriefField label="Temperature (actual)" value={interpreter.temperature} />
             <BriefField label="Latency ms" value={interpreter.latencyMs} />
             <BriefField label="Error" value={interpreter.error} />
+            <BriefField label="OpenAI error" value={interpreter.openaiError} />
             <BriefField label="Fallback brief used" value={interpreter.fallbackBriefUsed} />
             <BriefField label="Retry occurred" value={interpreter.retryOccurred} />
             <BriefField label="Retry succeeded" value={interpreter.retrySucceeded} />
@@ -662,6 +671,7 @@ function MorningCoachingBriefObservationPanels({
           />
           <BriefField label="Latency ms" value={row.morningWriterCaptureV1.latencyMs} />
           <BriefField label="Error" value={row.morningWriterCaptureV1.error} />
+          <BriefField label="OpenAI error" value={row.morningWriterCaptureV1.openaiError} />
           <BriefField label="Retry occurred" value={row.morningWriterCaptureV1.retryOccurred} />
           <BriefField label="Retry succeeded" value={row.morningWriterCaptureV1.retrySucceeded} />
           <BriefField label="Raw primary response" value={row.morningWriterCaptureV1.rawResponse} />

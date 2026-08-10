@@ -1010,4 +1010,247 @@ describe("processGenerateAllChunk / Generate All", () => {
     expect(eveningPreview).not.toContain("classifyTtoGenerateAllMember");
     expect(eveningPreview).toContain("generateTylerTextOverviewEveningPreviewForUser");
   });
+
+  it("ok:true + null body + openai_request_failed becomes Generate All failure/exclude", async () => {
+    generateEveningUserMock.mockImplementation(async (args: { clerkUserId: string }) => {
+      const id = args.clerkUserId;
+      setDraft({
+        clerk_user_id: id,
+        send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        status: "current",
+        current_generation_id: `gen-soft-${id}`,
+        edited_by_tyler: false,
+        current_body_source: "machine",
+        current_body_to_send: null,
+      });
+      setGen(`gen-soft-${id}`, null, false);
+      return {
+        ok: true,
+        body: null,
+        machineShouldSend: false,
+        machineNoSendReason: "openai_request_failed",
+        generationId: `gen-soft-${id}`,
+        supersedeFailed: false,
+        currentDraftProtected: false,
+      };
+    });
+
+    const frozen = ["user_a", "user_b"];
+    const chunk1 = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: frozen,
+    });
+    if ("status" in chunk1) throw new Error("unexpected");
+    expect(chunk1.processed_this_chunk).toBe(2);
+    expect(chunk1.failures).toHaveLength(2);
+    expect(chunk1.failures.every((f) => f.error === "openai_request_failed")).toBe(true);
+    expect(chunk1.generated_this_chunk).toBe(0);
+    expect(generateEveningUserMock).toHaveBeenCalledTimes(2);
+
+    const chunk2 = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: frozen,
+      excludeClerkUserIds: chunk1.failures.map((f) => f.clerkUserId),
+    });
+    if ("status" in chunk2) throw new Error("unexpected");
+    expect(chunk2.processed_this_chunk).toBe(0);
+    expect(generateEveningUserMock).toHaveBeenCalledTimes(2);
+    expect(chunk2.failed).toBe(2);
+    expect(chunk2.is_complete).toBe(false);
+  });
+
+  it("full chunk of soft failures advances later frozen-audience users", async () => {
+    const audience = audienceOf(10);
+    loadAudienceMock.mockResolvedValue(audience);
+    const softFailed = new Set<string>();
+    generateEveningUserMock.mockImplementation(async (args: { clerkUserId: string }) => {
+      const id = args.clerkUserId;
+      const idx = audience.findIndex((m) => m.clerkUserId === id);
+      if (idx >= 0 && idx < 8) {
+        softFailed.add(id);
+        setDraft({
+          clerk_user_id: id,
+          send_slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+          status: "current",
+          current_generation_id: `gen-soft-${id}`,
+          edited_by_tyler: false,
+          current_body_source: "machine",
+          current_body_to_send: null,
+        });
+        setGen(`gen-soft-${id}`, null, false);
+        return {
+          ok: true,
+          body: null,
+          machineShouldSend: false,
+          machineNoSendReason: "openai_request_failed",
+          generationId: `gen-soft-${id}`,
+          supersedeFailed: false,
+          currentDraftProtected: false,
+        };
+      }
+      markGeneratedComplete(id, SMS_DAILY_EVENING_PREVIEW_SEND_SLOT);
+      return {
+        ok: true,
+        body: `Evening body for ${id}`,
+        machineShouldSend: true,
+        machineNoSendReason: null,
+        generationId: `gen-${id}-evening`,
+        supersedeFailed: false,
+        currentDraftProtected: false,
+      };
+    });
+
+    const frozen = audience.map((m) => m.clerkUserId);
+    const chunk1 = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: frozen,
+      chunkUserCap: 8,
+    });
+    if ("status" in chunk1) throw new Error("unexpected");
+    expect(chunk1.processed_this_chunk).toBe(8);
+    expect(chunk1.failures).toHaveLength(8);
+    expect(chunk1.failures.every((f) => f.error === "openai_request_failed")).toBe(true);
+
+    const chunk2 = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: frozen,
+      excludeClerkUserIds: chunk1.failures.map((f) => f.clerkUserId),
+      chunkUserCap: 8,
+    });
+    if ("status" in chunk2) throw new Error("unexpected");
+    expect(chunk2.processed_this_chunk).toBe(2);
+    expect(chunk2.generated_complete).toBe(2);
+    expect(chunk2.failed).toBe(8);
+    expect(chunk2.failures).toHaveLength(0);
+    const secondIds = generateEveningUserMock.mock.calls
+      .slice(8)
+      .map((c) => c[0].clerkUserId);
+    expect(secondIds).toEqual(["user_009", "user_010"]);
+    expect(secondIds.every((id) => !softFailed.has(id))).toBe(true);
+  });
+
+  it("Morning soft-fail ok:true + null body uses same shared orchestration", async () => {
+    generateMorningUserMock.mockImplementation(async (args: {
+      audienceUser: { clerk_user_id: string };
+    }) => {
+      const id = args.audienceUser.clerk_user_id;
+      if (id === "user_a") {
+        setDraft({
+          clerk_user_id: id,
+          status: "current",
+          current_generation_id: "gen-soft-a",
+          edited_by_tyler: false,
+          current_body_source: "machine",
+          current_body_to_send: null,
+        });
+        setGen("gen-soft-a", null, false);
+        return {
+          ok: true,
+          body: null,
+          machineShouldSend: false,
+          generationId: "gen-soft-a",
+          supersedeFailed: false,
+          currentDraftProtected: false,
+        };
+      }
+      markGeneratedComplete(id);
+      return {
+        ok: true,
+        body: `Machine draft for ${id}`,
+        machineShouldSend: true,
+        generationId: `gen-${id}-morning`,
+        supersedeFailed: false,
+        currentDraftProtected: false,
+      };
+    });
+
+    const chunk1 = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      now: NOW,
+    });
+    if ("status" in chunk1) throw new Error("unexpected");
+    expect(chunk1.failures).toEqual([
+      expect.objectContaining({
+        clerkUserId: "user_a",
+        error: "generation_incomplete",
+      }),
+    ]);
+    expect(chunk1.generated_complete).toBe(1);
+
+    const chunk2 = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: chunk1.audience_clerk_user_ids,
+      excludeClerkUserIds: chunk1.failures.map((f) => f.clerkUserId),
+    });
+    if ("status" in chunk2) throw new Error("unexpected");
+    expect(chunk2.processed_this_chunk).toBe(0);
+    expect(generateMorningUserMock.mock.calls.map((c) => c[0].audienceUser.clerk_user_id)).toEqual([
+      "user_a",
+      "user_b",
+    ]);
+  });
+
+  it("Resume without exclude can retry failed_or_incomplete soft failures", async () => {
+    setDraft({
+      clerk_user_id: "user_a",
+      status: "current",
+      current_generation_id: "gen-soft-a",
+      edited_by_tyler: false,
+      current_body_source: "machine",
+      current_body_to_send: null,
+    });
+    setGen("gen-soft-a", null, false);
+    markGeneratedComplete("user_b");
+
+    generateMorningUserMock.mockImplementation(async (args: {
+      audienceUser: { clerk_user_id: string };
+    }) => {
+      const id = args.audienceUser.clerk_user_id;
+      markGeneratedComplete(id);
+      return {
+        ok: true,
+        body: `Recovered ${id}`,
+        machineShouldSend: true,
+        generationId: `gen-${id}-recovered`,
+        supersedeFailed: false,
+        currentDraftProtected: false,
+      };
+    });
+
+    const result = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a", "user_b"],
+      excludeClerkUserIds: [],
+    });
+    if ("status" in result) throw new Error("unexpected");
+    expect(result.processed_this_chunk).toBe(1);
+    expect(generateMorningUserMock).toHaveBeenCalledTimes(1);
+    expect(generateMorningUserMock.mock.calls[0]![0].audienceUser.clerk_user_id).toBe(
+      "user_a"
+    );
+    expect(result.generated_complete).toBe(2);
+    expect(result.is_complete).toBe(true);
+  });
+
+  it("Generate All soft-fail helper is exported for shared Morning/Evening accounting", () => {
+    const orch = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-generate-all.ts"),
+      "utf8"
+    );
+    expect(orch).toContain("generateAllSoftFailureError");
+    expect(orch).toContain('return { ok: false, error: softError }');
+  });
 });
