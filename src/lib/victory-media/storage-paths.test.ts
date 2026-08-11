@@ -6,6 +6,7 @@ import {
   victoryMediaMasterPath,
   victoryMediaMmsTempPath,
   victoryMediaTempUploadPath,
+  victoryMediaUserStoragePrefix,
 } from "@/lib/victory-media/storage-paths";
 
 const USER = "user_2AbCdEfGhIjKlMnOpQrStUv";
@@ -34,6 +35,16 @@ describe("victory-media storage paths", () => {
     );
     expect(victoryMediaMmsTempPath(USER, JOB, "jpg")).toBe(
       `${USER}/mms-temp/${JOB}.jpg`
+    );
+  });
+
+  it("builds user storage ownership prefix with trailing slash", () => {
+    expect(victoryMediaUserStoragePrefix(USER)).toBe(`${USER}/`);
+    expect(() => victoryMediaUserStoragePrefix("user_abc/../x")).toThrow(
+      VictoryMediaPathError
+    );
+    expect(() => victoryMediaUserStoragePrefix("user_abc/extra")).toThrow(
+      VictoryMediaPathError
     );
   });
 

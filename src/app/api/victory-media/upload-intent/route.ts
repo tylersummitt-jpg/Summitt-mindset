@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+import { hasUnresolvedAccountDeletionRequest } from "@/lib/account-deletion/deletion-guards";
 import { createWebUploadIntent } from "@/lib/victory-media/create-web-upload-intent";
 
 export const runtime = "nodejs";
@@ -10,6 +11,7 @@ const UI_SESSION = "Your session expired. Please sign in again.";
 const UI_GENERIC = "We couldn’t prepare this upload. Please try again.";
 const UI_UNSUPPORTED =
   "That image type isn’t supported. Use HEIC, JPEG, PNG, or WebP.";
+const UI_DELETION = "This action is unavailable.";
 
 /**
  * POST /api/victory-media/upload-intent
@@ -23,6 +25,26 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { ok: false, error: UI_SESSION, code: "unauthorized" },
         { status: 401 }
+      );
+    }
+
+    let deleting: boolean;
+    try {
+      deleting = await hasUnresolvedAccountDeletionRequest(userId);
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: UI_GENERIC, code: "deletion_lookup_failed" },
+        { status: 503 }
+      );
+    }
+    if (deleting) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: UI_DELETION,
+          code: "account_deletion_in_progress",
+        },
+        { status: 409 }
       );
     }
 

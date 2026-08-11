@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const authMock = vi.fn();
 const finalizeMock = vi.fn();
+const hasUnresolvedMock = vi.fn();
 
 vi.mock("@clerk/nextjs/server", () => ({
   auth: () => authMock(),
@@ -11,6 +12,11 @@ vi.mock("@/lib/victory-media/finalize-web-upload", () => ({
   finalizeWebUpload: (...args: unknown[]) => finalizeMock(...args),
 }));
 
+vi.mock("@/lib/account-deletion/deletion-guards", () => ({
+  hasUnresolvedAccountDeletionRequest: (...args: unknown[]) =>
+    hasUnresolvedMock(...args),
+}));
+
 const WIN = "550e8400-e29b-41d4-a716-446655440010";
 const UPLOAD = "660e8400-e29b-41d4-a716-446655440001";
 
@@ -18,6 +24,7 @@ describe("POST /api/victory-media/finalize-upload", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     authMock.mockResolvedValue({ userId: "user_1" });
+    hasUnresolvedMock.mockResolvedValue(false);
     finalizeMock.mockResolvedValue({
       ok: true,
       status: "attached",
@@ -54,6 +61,39 @@ describe("POST /api/victory-media/finalize-upload", () => {
       })
     );
     expect(res.status).toBe(401);
+    expect(finalizeMock).not.toHaveBeenCalled();
+    expect(hasUnresolvedMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks when unresolved account deletion exists", async () => {
+    hasUnresolvedMock.mockResolvedValue(true);
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/victory-media/finalize-upload", {
+        method: "POST",
+        body: JSON.stringify({ winId: WIN, uploadId: UPLOAD }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(409);
+    const json = await res.json();
+    expect(json.code).toBe("account_deletion_in_progress");
+    expect(finalizeMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when deletion lookup throws", async () => {
+    hasUnresolvedMock.mockRejectedValue(new Error("db down"));
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/victory-media/finalize-upload", {
+        method: "POST",
+        body: JSON.stringify({ winId: WIN, uploadId: UPLOAD }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.code).toBe("deletion_lookup_failed");
     expect(finalizeMock).not.toHaveBeenCalled();
   });
 

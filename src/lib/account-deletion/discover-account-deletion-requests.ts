@@ -3,8 +3,12 @@
  *
  * No leases acquired, no state mutation, no provider calls.
  * SQL source of truth: list_account_deletion_requests_for_reconcile.
+ *
+ * Victory Media token barrier: happy-path `app_data_purged` is eligible only after
+ * created_at + VICTORY_MEDIA_ACCOUNT_DELETION_BARRIER_MS (2h + 5m).
  */
 
+import { VICTORY_MEDIA_ACCOUNT_DELETION_BARRIER_MS } from "@/lib/victory-media/constants";
 import type {
   AccountDeletionRequestRow,
   AccountDeletionStatus,
@@ -16,6 +20,10 @@ export const ACCOUNT_DELETION_DISCOVERY_MAX_LIMIT = 10;
 export const ACCOUNT_DELETION_DISCOVERY_MIN_LEASE_MS = 1000;
 export const ACCOUNT_DELETION_DISCOVERY_MAX_LEASE_MS = 3_600_000;
 export const ACCOUNT_DELETION_DISCOVERY_DEFAULT_LEASE_MS = 120_000;
+
+/** Mirror of SQL `INTERVAL '2 hours 5 minutes'` for app_data_purged eligibility. */
+export const ACCOUNT_DELETION_VICTORY_MEDIA_TOKEN_BARRIER_MS =
+  VICTORY_MEDIA_ACCOUNT_DELETION_BARRIER_MS;
 
 const HAPPY_PATH_STATUSES: ReadonlySet<AccountDeletionStatus> = new Set([
   "requested",
@@ -84,25 +92,37 @@ export function isLeaseFreeForDiscovery(
 export function effectiveDiscoveryEligibilityMs(
   row: Pick<
     AccountDeletionRequestRow,
-    "status" | "attempt_count" | "last_retry_at" | "updated_at"
+    | "status"
+    | "attempt_count"
+    | "last_retry_at"
+    | "updated_at"
+    | "created_at"
   >
 ): number | null {
   const updatedMs = Date.parse(row.updated_at);
   if (Number.isNaN(updatedMs)) return null;
 
-  if (row.status !== "failed_retryable") {
-    return updatedMs;
+  if (row.status === "failed_retryable") {
+    // Match SQL: GREATEST(COALESCE(last_retry_at, updated_at), updated_at).
+    let lastRetryMs: number | null = null;
+    if (row.last_retry_at) {
+      lastRetryMs = Date.parse(row.last_retry_at);
+      if (Number.isNaN(lastRetryMs)) return null;
+    }
+    const baseMs =
+      lastRetryMs == null ? updatedMs : Math.max(lastRetryMs, updatedMs);
+    return baseMs + accountDeletionRetryBackoffMs(row.attempt_count);
   }
 
-  // Match SQL: GREATEST(COALESCE(last_retry_at, updated_at), updated_at).
-  let lastRetryMs: number | null = null;
-  if (row.last_retry_at) {
-    lastRetryMs = Date.parse(row.last_retry_at);
-    if (Number.isNaN(lastRetryMs)) return null;
+  // Happy-path app_data_purged: wait Victory Media signed-upload token barrier.
+  // Do not apply this to failed_retryable / deleting_clerk.
+  if (row.status === "app_data_purged") {
+    const createdMs = Date.parse(row.created_at);
+    if (Number.isNaN(createdMs)) return null;
+    return createdMs + ACCOUNT_DELETION_VICTORY_MEDIA_TOKEN_BARRIER_MS;
   }
-  const baseMs =
-    lastRetryMs == null ? updatedMs : Math.max(lastRetryMs, updatedMs);
-  return baseMs + accountDeletionRetryBackoffMs(row.attempt_count);
+
+  return updatedMs;
 }
 
 /**

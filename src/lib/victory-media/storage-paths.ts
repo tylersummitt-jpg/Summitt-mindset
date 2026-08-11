@@ -71,6 +71,14 @@ function normalizeExtension(extension?: string | null): string {
   return raw;
 }
 
+/**
+ * Exact Storage ownership root for a user under victory-media.
+ * Returns `{clerkUserId}/` (trailing slash). Rejects traversal / malformed ids.
+ */
+export function victoryMediaUserStoragePrefix(clerkUserId: string): string {
+  return `${requireClerkUserId(clerkUserId)}/`;
+}
+
 export function victoryMediaMasterPath(
   clerkUserId: string,
   mediaId: string

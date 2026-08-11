@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+import { hasUnresolvedAccountDeletionRequest } from "@/lib/account-deletion/deletion-guards";
 import { finalizeWebUpload } from "@/lib/victory-media/finalize-web-upload";
 
 export const runtime = "nodejs";
@@ -11,6 +12,7 @@ const UI_GENERIC = "We couldn’t save this photo. Please try again.";
 const UI_MISSING = "We couldn’t find that upload. Please try again.";
 const UI_EXISTS = "This Win already has a photo.";
 const UI_NOT_FOUND = "Win not found.";
+const UI_DELETION = "This action is unavailable.";
 
 function statusForCode(code: string): number {
   switch (code) {
@@ -76,6 +78,26 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { ok: false, error: UI_SESSION, code: "unauthorized" },
         { status: 401 }
+      );
+    }
+
+    let deleting: boolean;
+    try {
+      deleting = await hasUnresolvedAccountDeletionRequest(userId);
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: UI_GENERIC, code: "deletion_lookup_failed" },
+        { status: 503 }
+      );
+    }
+    if (deleting) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: UI_DELETION,
+          code: "account_deletion_in_progress",
+        },
+        { status: 409 }
       );
     }
 

@@ -25,6 +25,7 @@ import {
   encodeClerkDeleteRpcMarkerDetail,
   isEligiblePriorStagesForClerkDeletion,
   isValidIsoTimestamp,
+  isVictoryMediaTokenBarrierElapsed,
   orchestrateClerkDeletion,
   parseClerkDeleteRpcMarkerDetail,
   readClerkDeleteRpcMarker,
@@ -38,11 +39,30 @@ import {
   getAccountDeletionRequestById,
   patchAccountDeletionRequestWhileLeased,
   releaseAccountDeletionLease,
+  seedAccountDeletionRequestForTests,
   transitionAccountDeletionRequest,
   useInMemoryAccountDeletionStoreForTests,
 } from "./repository";
 import * as repository from "./repository";
 import type { AccountDeletionRequestRow } from "./types";
+import { VICTORY_MEDIA_ACCOUNT_DELETION_BARRIER_MS } from "@/lib/victory-media/constants";
+import type { DeleteAllVictoryMediaForUserResult } from "@/lib/victory-media/delete-all-victory-media-for-user";
+
+const emptyVictoryMediaCleanup = async (): Promise<DeleteAllVictoryMediaForUserResult> => ({
+  ok: true,
+  found: 0,
+  deleted: 0,
+  alreadyEmpty: true,
+});
+
+function withCleanup(
+  input: Parameters<typeof orchestrateClerkDeletion>[0]
+): Parameters<typeof orchestrateClerkDeletion>[0] {
+  return {
+    deleteAllVictoryMediaForUser: emptyVictoryMediaCleanup,
+    ...input,
+  };
+}
 
 const ORCHESTRATOR = join(
   process.cwd(),
@@ -177,6 +197,16 @@ async function seedAppDataPurged(
     await releaseAccountDeletionLease({ requestId: id, lockOwner: owner });
   }
 
+  const final = await getAccountDeletionRequestById(id);
+  expect(final).not.toBeNull();
+  const createdAt = new Date(
+    Date.now() - VICTORY_MEDIA_ACCOUNT_DELETION_BARRIER_MS - 60_000
+  ).toISOString();
+  await seedAccountDeletionRequestForTests({
+    ...final!,
+    created_at: createdAt,
+  });
+
   return id;
 }
 
@@ -189,43 +219,43 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
   describe("eligibility", () => {
     it("1–5. missing/wrong owner/completed already_done with no lease/adapter", async () => {
       const adapter = countingAdapter([{ outcome: "deleted" }]);
-      const missing = await orchestrateClerkDeletion({
+      const missing = await orchestrateClerkDeletion(withCleanup({
         requestId: "00000000-0000-4000-8000-000000000099",
         clerkUserId: "user_x",
         lockOwner: "w",
         adapter,
-      });
+      }));
       expect(missing.ok).toBe(false);
       if (!missing.ok) expect(missing.code).toBe("not_found");
       expect(adapter.calls).toBe(0);
 
       const id = await seedAppDataPurged("user_d1_own", "kown");
-      const wrong = await orchestrateClerkDeletion({
+      const wrong = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_other",
         lockOwner: "w",
         adapter,
-      });
+      }));
       expect(wrong.ok).toBe(false);
       if (!wrong.ok) expect(wrong.code).toBe("invalid_argument");
       expect(adapter.calls).toBe(0);
 
-      const ok = await orchestrateClerkDeletion({
+      const ok = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_own",
         lockOwner: "w",
         adapter,
-      });
+      }));
       expect(ok.ok).toBe(true);
       expect(adapter.calls).toBe(1);
 
       const spyAcquire = vi.spyOn(repository, "acquireAccountDeletionLease");
-      const again = await orchestrateClerkDeletion({
+      const again = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_own",
         lockOwner: "w2",
         adapter: countingAdapter([{ outcome: "deleted" }]),
-      });
+      }));
       expect(again.ok).toBe(true);
       if (!again.ok) return;
       expect(again.value.outcome).toBe("already_done");
@@ -274,12 +304,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
       }
       await releaseAccountDeletionLease({ requestId: blockId, lockOwner: owner });
 
-      const wrongStatus = await orchestrateClerkDeletion({
+      const wrongStatus = await orchestrateClerkDeletion(withCleanup({
         requestId: blockId,
         clerkUserId: "user_d1_block",
         lockOwner: "w",
         adapter,
-      });
+      }));
       expect(wrongStatus.ok).toBe(false);
       if (!wrongStatus.ok) expect(wrongStatus.code).toBe("illegal_transition");
       expect(adapter.calls).toBe(0);
@@ -331,12 +361,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
       expect(toDeleting.ok).toBe(true);
       await releaseAccountDeletionLease({ requestId: id, lockOwner: "w" });
 
-      const contradicted = await orchestrateClerkDeletion({
+      const contradicted = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_el",
         lockOwner: "w2",
         adapter,
-      });
+      }));
       expect(contradicted.ok).toBe(false);
       if (!contradicted.ok) expect(contradicted.code).toBe("illegal_transition");
       expect(adapter.calls).toBe(0);
@@ -345,13 +375,13 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
     it("12–13. stale pre-adapter version and start CAS conflict block adapter", async () => {
       const id = await seedAppDataPurged("user_d1_ver", "kver");
       const adapter = countingAdapter([{ outcome: "deleted" }]);
-      const stale = await orchestrateClerkDeletion({
+      const stale = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_ver",
         lockOwner: "w",
         expectedOrchestrationVersion: 999,
         adapter,
-      });
+      }));
       expect(stale.ok).toBe(false);
       if (!stale.ok) {
         expect(stale.code).toBe("unsupported_orchestration_version");
@@ -365,12 +395,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
           code: "cas_conflict",
           message: "start conflict",
         });
-      const conflict = await orchestrateClerkDeletion({
+      const conflict = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_ver",
         lockOwner: "w",
         adapter,
-      });
+      }));
       expect(conflict.ok).toBe(false);
       if (!conflict.ok) expect(conflict.code).toBe("cas_conflict");
       expect(adapter.calls).toBe(0);
@@ -425,12 +455,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
         },
       };
 
-      const result = await orchestrateClerkDeletion({
+      const result = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_ok",
         lockOwner: "worker-d1",
         adapter: wrapped,
-      });
+      }));
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.value.outcome).toBe("completed");
@@ -451,14 +481,14 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
       vi.restoreAllMocks();
 
       const id2 = await seedAppDataPurged("user_d1_aa", "kaa");
-      const aa = await orchestrateClerkDeletion({
+      const aa = await orchestrateClerkDeletion(withCleanup({
         requestId: id2,
         clerkUserId: "user_d1_aa",
         lockOwner: "w",
         adapter: createFixedClerkDeletionAdapter({
           outcome: "already_absent",
         }),
-      });
+      }));
       expect(aa.ok).toBe(true);
       if (!aa.ok) return;
       expect(aa.value.outcome).toBe("already_done");
@@ -598,12 +628,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
       await releaseAccountDeletionLease({ requestId: id, lockOwner: owner });
 
       const adapter = countingAdapter([{ outcome: "deleted" }]);
-      const result = await orchestrateClerkDeletion({
+      const result = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_mal",
         lockOwner: "w2",
         adapter,
-      });
+      }));
       expect(result.ok).toBe(false);
       expect(adapter.calls).toBe(0);
       const after = await getAccountDeletionRequestById(id);
@@ -629,12 +659,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
       ] as const) {
         const id = await seedAppDataPurged(`user_d1_${key}`, `k${key}`);
         const adapter = countingAdapter([adapterResult]);
-        const result = await orchestrateClerkDeletion({
+        const result = await orchestrateClerkDeletion(withCleanup({
           requestId: id,
           clerkUserId: `user_d1_${key}`,
           lockOwner: "w",
           adapter,
-        });
+        }));
         expect(result.ok).toBe(false);
         const row = await getAccountDeletionRequestById(id);
         expect(row?.status).toBe("failed_retryable");
@@ -657,12 +687,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
           throw new Error("user_d1_throw secret token=abc");
         },
       };
-      const thrown = await orchestrateClerkDeletion({
+      const thrown = await orchestrateClerkDeletion(withCleanup({
         requestId: idThrow,
         clerkUserId: "user_d1_throw",
         lockOwner: "w",
         adapter: throwAdapter,
-      });
+      }));
       expect(thrown.ok).toBe(false);
       const row = await getAccountDeletionRequestById(idThrow);
       expect(row?.status).toBe("failed_retryable");
@@ -695,12 +725,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
         }
       );
 
-      const first = await orchestrateClerkDeletion({
+      const first = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_recon",
         lockOwner: "w1",
         adapter,
-      });
+      }));
       expect(first.ok).toBe(false);
       if (!first.ok) expect(first.code).toBe("cas_conflict");
       expect(adapter.calls).toBe(1);
@@ -711,24 +741,24 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
 
       vi.mocked(repository.markAccountDeletionCompleted).mockRestore();
       // Stale caller version must not strand post-marker finalize.
-      const second = await orchestrateClerkDeletion({
+      const second = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_recon",
         lockOwner: "w2",
         expectedOrchestrationVersion: 999,
         adapter,
-      });
+      }));
       expect(second.ok).toBe(true);
       if (!second.ok) return;
       expect(second.value.row.status).toBe("completed");
       expect(adapter.calls).toBe(1);
 
-      const third = await orchestrateClerkDeletion({
+      const third = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_recon",
         lockOwner: "w3",
         adapter,
-      });
+      }));
       expect(third.ok).toBe(true);
       if (!third.ok) return;
       expect(third.value.outcome).toBe("already_done");
@@ -748,12 +778,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
         code: "cas_conflict",
         message: "block complete",
       });
-      const first = await orchestrateClerkDeletion({
+      const first = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_fr",
         lockOwner: "w",
         adapter,
-      });
+      }));
       expect(first.ok).toBe(false);
       expect(adapter.calls).toBe(1);
       const mid = await getAccountDeletionRequestById(id);
@@ -788,13 +818,13 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
         repository,
         "transitionAccountDeletionRequest"
       );
-      const second = await orchestrateClerkDeletion({
+      const second = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_fr",
         lockOwner: "w2",
         expectedOrchestrationVersion: 999,
         adapter,
-      });
+      }));
       expect(second.ok).toBe(true);
       if (!second.ok) return;
       expect(second.value.row.status).toBe("completed");
@@ -815,12 +845,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
         includePurgeMarker: false,
       });
       const adapter = countingAdapter([{ outcome: "deleted" }]);
-      const missing = await orchestrateClerkDeletion({
+      const missing = await orchestrateClerkDeletion(withCleanup({
         requestId: missingId,
         clerkUserId: "user_d1_nomarker",
         lockOwner: "w",
         adapter,
-      });
+      }));
       expect(missing.ok).toBe(false);
       expect(adapter.calls).toBe(0);
 
@@ -847,12 +877,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
         },
       });
       await releaseAccountDeletionLease({ requestId: badId, lockOwner: owner });
-      const bad = await orchestrateClerkDeletion({
+      const bad = await orchestrateClerkDeletion(withCleanup({
         requestId: badId,
         clerkUserId: "user_d1_badpurge",
         lockOwner: "w2",
         adapter,
-      });
+      }));
       expect(bad.ok).toBe(false);
       expect(adapter.calls).toBe(0);
     });
@@ -860,12 +890,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
     it("valid C3 marker required; adapter receives row.clerk_user_id", async () => {
       const id = await seedAppDataPurged("user_d1_rowid", "krow");
       const adapter = countingAdapter([{ outcome: "deleted" }]);
-      const result = await orchestrateClerkDeletion({
+      const result = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_rowid",
         lockOwner: "w",
         adapter,
-      });
+      }));
       expect(result.ok).toBe(true);
       expect(adapter.seenIds).toEqual(["user_d1_rowid"]);
       expect(result.ok && result.value.row.steps[APP_DATA_PURGE_RPC_STEP]?.ok).toBe(
@@ -921,12 +951,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
         return out;
       });
 
-      const result = await orchestrateClerkDeletion({
+      const result = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_ownfin",
         lockOwner: "w",
         adapter,
-      });
+      }));
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.code).toBe("invalid_argument");
       expect(adapter.calls).toBe(1);
@@ -960,12 +990,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
         return realPatch(input);
       });
 
-      const first = await orchestrateClerkDeletion({
+      const first = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_crash",
         lockOwner: "w1",
         adapter,
-      });
+      }));
       expect(first.ok).toBe(false);
       expect(adapter.calls).toBe(1);
       const mid = await getAccountDeletionRequestById(id);
@@ -975,12 +1005,12 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
 
       vi.mocked(repository.patchAccountDeletionRequestWhileLeased).mockRestore();
 
-      const second = await orchestrateClerkDeletion({
+      const second = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_crash",
         lockOwner: "w2",
         adapter,
-      });
+      }));
       expect(second.ok).toBe(true);
       if (!second.ok) return;
       expect(adapter.calls).toBe(2);
@@ -1024,16 +1054,141 @@ describe("APP-041D1 orchestrateClerkDeletion", () => {
         lockOwner: "thief",
       });
       expect(stolen.ok).toBe(true);
-      const blocked = await orchestrateClerkDeletion({
+      const blocked = await orchestrateClerkDeletion(withCleanup({
         requestId: id,
         clerkUserId: "user_d1_lease",
         lockOwner: "w",
         adapter,
-      });
+      }));
       expect(blocked.ok).toBe(false);
       if (!blocked.ok) expect(blocked.code).toBe("lease_held");
       expect(adapter.calls).toBe(0);
       await releaseAccountDeletionLease({ requestId: id, lockOwner: "thief" });
+    });
+  });
+
+  describe("victory media storage sweep", () => {
+    it("barrier blocks Clerk when created_at is too recent", async () => {
+      const id = await seedAppDataPurged("user_d1_barrier", "kbar");
+      const row = await getAccountDeletionRequestById(id);
+      expect(row).not.toBeNull();
+      await seedAccountDeletionRequestForTests({
+        ...row!,
+        created_at: new Date().toISOString(),
+      });
+      const cleanupCalls: string[] = [];
+      const adapter = countingAdapter([{ outcome: "deleted" }]);
+      const result = await orchestrateClerkDeletion(
+        withCleanup({
+          requestId: id,
+          clerkUserId: "user_d1_barrier",
+          lockOwner: "w",
+          adapter,
+          deleteAllVictoryMediaForUser: async ({ clerkUserId }) => {
+            cleanupCalls.push(clerkUserId);
+            return emptyVictoryMediaCleanup();
+          },
+        })
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.code).toBe("illegal_transition");
+      expect(adapter.calls).toBe(0);
+      expect(cleanupCalls).toHaveLength(0);
+      const after = await getAccountDeletionRequestById(id);
+      expect(after?.status).toBe("app_data_purged");
+      expect(
+        isVictoryMediaTokenBarrierElapsed(new Date().toISOString(), new Date())
+      ).toBe(false);
+    });
+
+    it("sweep runs before Clerk; failure blocks Clerk and is retryable", async () => {
+      const id = await seedAppDataPurged("user_d1_sweep", "ksweep");
+      const adapter = countingAdapter([{ outcome: "deleted" }]);
+      let sweeps = 0;
+      const first = await orchestrateClerkDeletion(
+        withCleanup({
+          requestId: id,
+          clerkUserId: "user_d1_sweep",
+          lockOwner: "w",
+          adapter,
+          deleteAllVictoryMediaForUser: async () => {
+            sweeps += 1;
+            return { ok: false, code: "verify_not_empty" };
+          },
+        })
+      );
+      expect(first.ok).toBe(false);
+      expect(adapter.calls).toBe(0);
+      expect(sweeps).toBe(1);
+      const mid = await getAccountDeletionRequestById(id);
+      expect(mid?.status).toBe("failed_retryable");
+      expect(mid?.current_step).toBe("deleting_clerk");
+      expect(mid?.last_error_code).toBe("victory_media_storage_cleanup_failed");
+
+      const second = await orchestrateClerkDeletion(
+        withCleanup({
+          requestId: id,
+          clerkUserId: "user_d1_sweep",
+          lockOwner: "w2",
+          adapter,
+          deleteAllVictoryMediaForUser: async () => {
+            sweeps += 1;
+            return emptyVictoryMediaCleanup();
+          },
+        })
+      );
+      expect(second.ok).toBe(true);
+      expect(adapter.calls).toBe(1);
+      expect(sweeps).toBe(2);
+    });
+
+    it("marker-first completion still reruns sweep", async () => {
+      const id = await seedAppDataPurged("user_d1_msweep", "kmsweep");
+      const adapter = countingAdapter([{ outcome: "deleted" }]);
+      let sweeps = 0;
+      const first = await orchestrateClerkDeletion(
+        withCleanup({
+          requestId: id,
+          clerkUserId: "user_d1_msweep",
+          lockOwner: "w",
+          adapter,
+          deleteAllVictoryMediaForUser: async () => {
+            sweeps += 1;
+            return emptyVictoryMediaCleanup();
+          },
+        })
+      );
+      expect(first.ok).toBe(true);
+      expect(sweeps).toBe(1);
+
+      // Force status back to deleting_clerk with valid marker still present
+      // by re-seeding a synthetic mid-state (marker retained, not completed).
+      const done = await getAccountDeletionRequestById(id);
+      expect(done?.status).toBe("completed");
+      await seedAccountDeletionRequestForTests({
+        ...done!,
+        status: "deleting_clerk",
+        current_step: "deleting_clerk",
+        completed_at: null,
+        clerk_result: "pending",
+        lock_owner: null,
+        locked_at: null,
+      });
+
+      const again = await orchestrateClerkDeletion(
+        withCleanup({
+          requestId: id,
+          clerkUserId: "user_d1_msweep",
+          lockOwner: "w2",
+          adapter: countingAdapter([{ outcome: "already_absent" }]),
+          deleteAllVictoryMediaForUser: async () => {
+            sweeps += 1;
+            return emptyVictoryMediaCleanup();
+          },
+        })
+      );
+      expect(again.ok).toBe(true);
+      expect(sweeps).toBe(2);
     });
   });
 

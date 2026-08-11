@@ -19,6 +19,7 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import {
   accountDeletionRetryBackoffMs,
+  ACCOUNT_DELETION_VICTORY_MEDIA_TOKEN_BARRIER_MS,
   selectAccountDeletionRequestIdsForReconcile,
 } from "./discover-account-deletion-requests";
 import {
@@ -33,6 +34,10 @@ import {
 import type { AccountDeletionRequestRow, AccountDeletionStatus } from "./types";
 
 const MIGRATION = join(
+  process.cwd(),
+  "supabase/migrations/20260810180000_list_account_deletion_requests_victory_media_token_barrier.sql"
+);
+const LEGACY_MIGRATION = join(
   process.cwd(),
   "supabase/migrations/20260719140000_list_account_deletion_requests_for_reconcile.sql"
 );
@@ -79,6 +84,7 @@ async function seed(row: AccountDeletionRequestRow) {
 
 describe("APP-041E3b discovery migration (static)", () => {
   const sql = readFileSync(MIGRATION, "utf8");
+  const legacy = readFileSync(LEGACY_MIGRATION, "utf8");
 
   it("36–46. service-role-only; INVOKER; IDs-only; no mutation/dynamic SQL", () => {
     expect(sql).toContain(
@@ -116,6 +122,17 @@ describe("APP-041E3b discovery migration (static)", () => {
     expect(sql).not.toMatch(
       /THEN\s+COALESCE\s*\(\s*r\.last_retry_at\s*,\s*r\.updated_at\s*\)\s*\+/
     );
+    // Victory Media token barrier (happy-path app_data_purged only).
+    expect(sql).toMatch(
+      /WHEN\s+r\.status\s*=\s*'app_data_purged'\s+THEN\s+r\.created_at\s*\+\s*INTERVAL\s+'2 hours 5 minutes'/
+    );
+    // failed_retryable branch still uses GREATEST(...)+backoff.
+    expect(sql).toMatch(
+      /WHEN\s+r\.status\s*=\s*'failed_retryable'\s+THEN[\s\S]*?GREATEST\s*\(\s*COALESCE/
+    );
+    expect(legacy).toContain(
+      "list_account_deletion_requests_for_reconcile"
+    );
   });
 });
 
@@ -144,12 +161,20 @@ describe("APP-041E3b in-memory discovery eligibility", () => {
     "%s. %s/%s included",
     async (_n, status) => {
       const id = `00000000-0000-4000-8000-0000000000${String(_n).padStart(2, "0")}`;
+      const createdAt =
+        status === "app_data_purged"
+          ? new Date(
+              now.getTime() - ACCOUNT_DELETION_VICTORY_MEDIA_TOKEN_BARRIER_MS
+            ).toISOString()
+          : "2026-07-19T12:00:00.000Z";
       await seed(
         baseRow({
           id,
           clerk_user_id: `user_${status}`,
           status,
           current_step: status,
+          created_at: createdAt,
+          updated_at: "2026-07-19T12:00:00.000Z",
         })
       );
       const result = await listAccountDeletionRequestIdsForReconcile({
@@ -162,6 +187,82 @@ describe("APP-041E3b in-memory discovery eligibility", () => {
       expect(result.value.requestIds).toContain(id);
     }
   );
+
+  it("app_data_purged before barrier excluded; at barrier included; does not starve", async () => {
+    const t0 = new Date("2026-07-19T10:00:00.000Z");
+    const waitingId = "00000000-0000-4000-8000-000000000801";
+    const readyOtherId = "00000000-0000-4000-8000-000000000802";
+    await seed(
+      baseRow({
+        id: waitingId,
+        clerk_user_id: "user_wait",
+        status: "app_data_purged",
+        current_step: "app_data_purged",
+        created_at: t0.toISOString(),
+        updated_at: "2026-07-19T09:00:00.000Z",
+      })
+    );
+    await seed(
+      baseRow({
+        id: readyOtherId,
+        clerk_user_id: "user_ready",
+        status: "requested",
+        current_step: "requested",
+        created_at: "2026-07-19T11:00:00.000Z",
+        updated_at: "2026-07-19T11:00:00.000Z",
+      })
+    );
+
+    const beforeBarrier = new Date(
+      t0.getTime() + ACCOUNT_DELETION_VICTORY_MEDIA_TOKEN_BARRIER_MS - 1000
+    );
+    const early = await listAccountDeletionRequestIdsForReconcile({
+      limit: 1,
+      leaseMs: 120_000,
+      now: beforeBarrier,
+    });
+    expect(early.ok).toBe(true);
+    if (!early.ok) return;
+    expect(early.value.requestIds).toEqual([readyOtherId]);
+    expect(early.value.requestIds).not.toContain(waitingId);
+
+    const pure = selectAccountDeletionRequestIdsForReconcile(
+      [
+        baseRow({
+          id: waitingId,
+          clerk_user_id: "user_wait",
+          status: "app_data_purged",
+          current_step: "app_data_purged",
+          created_at: t0.toISOString(),
+          updated_at: "2026-07-19T09:00:00.000Z",
+        }),
+      ],
+      {
+        limit: 1,
+        leaseMs: 120_000,
+        now: beforeBarrier,
+      }
+    );
+    expect(pure).toEqual([]);
+
+    const atBarrier = new Date(
+      t0.getTime() + ACCOUNT_DELETION_VICTORY_MEDIA_TOKEN_BARRIER_MS
+    );
+    const ready = selectAccountDeletionRequestIdsForReconcile(
+      [
+        baseRow({
+          id: waitingId,
+          clerk_user_id: "user_wait",
+          status: "app_data_purged",
+          current_step: "app_data_purged",
+          created_at: t0.toISOString(),
+          updated_at: "2026-07-19T09:00:00.000Z",
+        }),
+      ],
+      { limit: 1, leaseMs: 120_000, now: atBarrier }
+    );
+    expect(ready).toEqual([waitingId]);
+  });
 
   it("9. failed_retryable valid step included after backoff", async () => {
     const id = "00000000-0000-4000-8000-000000000101";

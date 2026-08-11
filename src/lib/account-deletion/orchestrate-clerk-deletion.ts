@@ -8,6 +8,12 @@
  * only an injected ClerkDeletionAdapter. APP-041D1 does not call the real
  * Clerk API, create routes/workers, or expose public initiation.
  *
+ * Victory Media: after entering/resuming deleting_clerk and BEFORE the Clerk
+ * adapter (and before marker-first completion), always:
+ *   1) assert created_at + token barrier has elapsed
+ *   2) deleteAllVictoryMediaForUser + verify empty
+ * Every Clerk-stage attempt re-runs the sweep; no marker skips it.
+ *
  * Version pins:
  * - Pre-adapter start/resume CAS may honor caller `expectedOrchestrationVersion`
  *   (fail closed on mismatch before irreversible work).
@@ -47,6 +53,11 @@ import type {
   AccountDeletionStepResult,
   AccountDeletionStepsJson,
 } from "./types";
+import { VICTORY_MEDIA_ACCOUNT_DELETION_BARRIER_MS } from "@/lib/victory-media/constants";
+import {
+  deleteAllVictoryMediaForUser,
+  type DeleteAllVictoryMediaForUserResult,
+} from "@/lib/victory-media/delete-all-victory-media-for-user";
 
 const FINAL_CAS_MAX_ATTEMPTS = 3;
 
@@ -67,6 +78,10 @@ export const CLERK_DELETE_ERROR_RETRYABLE = "clerk_delete_retryable_error" as co
 export const CLERK_DELETE_ERROR_TERMINAL_RETRYABLE =
   "clerk_delete_terminal_error_retryable" as const;
 export const CLERK_DELETE_ERROR_INTERNAL = "clerk_delete_internal_error" as const;
+export const CLERK_DELETE_ERROR_VICTORY_MEDIA_STORAGE =
+  "victory_media_storage_cleanup_failed" as const;
+export const CLERK_DELETE_ERROR_VICTORY_MEDIA_BARRIER =
+  "victory_media_token_barrier" as const;
 
 const SUCCESSFUL_STEP_RESULTS: ReadonlySet<AccountDeletionStepResult> = new Set([
   "ok",
@@ -93,7 +108,23 @@ export type OrchestrateClerkDeletionInput = {
   expectedOrchestrationVersion?: number;
   /** Required injected adapter. Production Clerk is not wired in D1. */
   adapter: ClerkDeletionAdapter;
+  /**
+   * Test seam for Victory Media prefix cleanup. Production omits this and uses
+   * deleteAllVictoryMediaForUser against service-role Storage.
+   */
+  deleteAllVictoryMediaForUser?: (input: {
+    clerkUserId: string;
+  }) => Promise<DeleteAllVictoryMediaForUserResult>;
 };
+
+export function isVictoryMediaTokenBarrierElapsed(
+  createdAtIso: string,
+  now: Date
+): boolean {
+  const createdMs = Date.parse(createdAtIso);
+  if (!Number.isFinite(createdMs)) return false;
+  return now.getTime() >= createdMs + VICTORY_MEDIA_ACCOUNT_DELETION_BARRIER_MS;
+}
 
 export type OrchestrateClerkDeletionOutcome = "completed" | "already_done";
 
@@ -511,6 +542,89 @@ async function recordClerkDeleteFailure(input: {
 }
 
 /**
+ * Mandatory Victory Media prefix sweep before any Clerk delete / completion.
+ * Requires status deleting_clerk. Re-runs on every attempt (markers do not skip).
+ */
+async function runMandatoryVictoryMediaSweepBeforeClerk(input: {
+  row: AccountDeletionRequestRow;
+  requestId: string;
+  lockOwner: string;
+  leaseMs: number;
+  now: Date;
+  expectedOrchestrationVersion?: number;
+  cleanup: (args: {
+    clerkUserId: string;
+  }) => Promise<DeleteAllVictoryMediaForUserResult>;
+}): Promise<{
+  earlyFailure: AccountDeletionRepoResult<OrchestrateClerkDeletionValue> | null;
+  leaseAlreadyReleased: boolean;
+}> {
+  if (
+    input.row.status !== "deleting_clerk" ||
+    input.row.current_step !== "deleting_clerk"
+  ) {
+    return {
+      earlyFailure: {
+        ok: false,
+        code: "cas_conflict",
+        message: "Expected deleting_clerk before Victory Media Storage sweep",
+      },
+      leaseAlreadyReleased: false,
+    };
+  }
+
+  if (!isVictoryMediaTokenBarrierElapsed(input.row.created_at, input.now)) {
+    return {
+      earlyFailure: {
+        ok: false,
+        code: "illegal_transition",
+        message: CLERK_DELETE_ERROR_VICTORY_MEDIA_BARRIER,
+      },
+      leaseAlreadyReleased: false,
+    };
+  }
+
+  let sweep: DeleteAllVictoryMediaForUserResult;
+  try {
+    sweep = await input.cleanup({ clerkUserId: input.row.clerk_user_id });
+  } catch {
+    const recorded = await recordClerkDeleteFailure({
+      requestId: input.requestId,
+      lockOwner: input.lockOwner,
+      leaseMs: input.leaseMs,
+      now: input.now,
+      expectedOrchestrationVersion:
+        input.expectedOrchestrationVersion ?? input.row.orchestration_version,
+      errorCode: CLERK_DELETE_ERROR_VICTORY_MEDIA_STORAGE,
+      errorDetail: "cleanup_threw",
+    });
+    return {
+      earlyFailure: recorded.failure,
+      leaseAlreadyReleased: recorded.leaseAlreadyReleased,
+    };
+  }
+
+  if (!sweep.ok) {
+    const recorded = await recordClerkDeleteFailure({
+      requestId: input.requestId,
+      lockOwner: input.lockOwner,
+      leaseMs: input.leaseMs,
+      now: input.now,
+      expectedOrchestrationVersion:
+        input.expectedOrchestrationVersion ?? input.row.orchestration_version,
+      errorCode: CLERK_DELETE_ERROR_VICTORY_MEDIA_STORAGE,
+      errorDetail: sweep.code,
+    });
+    return {
+      earlyFailure: recorded.failure,
+      leaseAlreadyReleased: recorded.leaseAlreadyReleased,
+    };
+  }
+
+  return { earlyFailure: null, leaseAlreadyReleased: false };
+}
+
+/**
  * Orchestrate Clerk deletion LAST for an account-deletion request.
  * Requires lockOwner and an injected adapter; acquires/releases the B1 lease.
  */
@@ -539,6 +653,8 @@ export async function orchestrateClerkDeletion(
   const now = input.now ?? new Date();
   const expectedOrchestrationVersion = input.expectedOrchestrationVersion;
   const adapter = input.adapter;
+  const victoryMediaCleanup =
+    input.deleteAllVictoryMediaForUser ?? deleteAllVictoryMediaForUser;
 
   const existing = await getAccountDeletionRequestById(requestId);
   if (!existing) {
@@ -672,6 +788,24 @@ export async function orchestrateClerkDeletion(
           }
 
           if (!earlyFailure) {
+            const sweep = await runMandatoryVictoryMediaSweepBeforeClerk({
+              row,
+              requestId,
+              lockOwner,
+              leaseMs,
+              now,
+              expectedOrchestrationVersion: row.orchestration_version,
+              cleanup: victoryMediaCleanup,
+            });
+            if (sweep.earlyFailure) {
+              earlyFailure = sweep.earlyFailure;
+              if (sweep.leaseAlreadyReleased) {
+                leaseAlreadyReleased = true;
+              }
+            }
+          }
+
+          if (!earlyFailure) {
             const completed = await completeFromSuccessfulAdapter({
               requestId,
               expectedClerkUserId: clerkUserId,
@@ -709,29 +843,37 @@ export async function orchestrateClerkDeletion(
         successOutcome = "already_done";
         successClerkResult = row.clerk_result ?? "already_done";
       } else if (row.status === "app_data_purged") {
-        const prior = priorStagesAndPurgeMarkerReady(row);
-        if (!prior.ok) {
+        if (!isVictoryMediaTokenBarrierElapsed(row.created_at, now)) {
           earlyFailure = {
             ok: false,
-            code: prior.code,
-            message: prior.message,
+            code: "illegal_transition",
+            message: CLERK_DELETE_ERROR_VICTORY_MEDIA_BARRIER,
           };
         } else {
-          const toDeleting = await transitionAccountDeletionRequest({
-            requestId,
-            fromStatus: "app_data_purged",
-            toStatus: "deleting_clerk",
-            lockOwner,
-            leaseMs,
-            now,
-            expectedOrchestrationVersion,
-            clerkResult: "pending",
-            stepNote: { ok: true, code: "clerk_delete_begin" },
-          });
-          if (!toDeleting.ok) {
-            earlyFailure = toDeleting;
+          const prior = priorStagesAndPurgeMarkerReady(row);
+          if (!prior.ok) {
+            earlyFailure = {
+              ok: false,
+              code: prior.code,
+              message: prior.message,
+            };
           } else {
-            row = toDeleting.value;
+            const toDeleting = await transitionAccountDeletionRequest({
+              requestId,
+              fromStatus: "app_data_purged",
+              toStatus: "deleting_clerk",
+              lockOwner,
+              leaseMs,
+              now,
+              expectedOrchestrationVersion,
+              clerkResult: "pending",
+              stepNote: { ok: true, code: "clerk_delete_begin" },
+            });
+            if (!toDeleting.ok) {
+              earlyFailure = toDeleting;
+            } else {
+              row = toDeleting.value;
+            }
           }
         }
       } else if (row.status === "failed_retryable") {
@@ -808,6 +950,35 @@ export async function orchestrateClerkDeletion(
           code: "cas_conflict",
           message: "Expected deleting_clerk before Clerk adapter",
         };
+      }
+    }
+
+    if (!earlyFailure && !finalRow) {
+      // Re-assert C3 purge marker immediately before irreversible adapter.
+      const prior = priorStagesAndPurgeMarkerReady(row);
+      if (!prior.ok) {
+        earlyFailure = {
+          ok: false,
+          code: prior.code,
+          message: prior.message,
+        };
+      } else {
+        const sweep = await runMandatoryVictoryMediaSweepBeforeClerk({
+          row,
+          requestId,
+          lockOwner,
+          leaseMs,
+          now,
+          expectedOrchestrationVersion:
+            expectedOrchestrationVersion ?? row.orchestration_version,
+          cleanup: victoryMediaCleanup,
+        });
+        if (sweep.earlyFailure) {
+          earlyFailure = sweep.earlyFailure;
+          if (sweep.leaseAlreadyReleased) {
+            leaseAlreadyReleased = true;
+          }
+        }
       }
     }
 

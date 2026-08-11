@@ -54,3 +54,18 @@ export const VICTORY_MEDIA_TEMP_PURGE_HOURS = 24;
 export const VICTORY_MEDIA_SIGNED_UPLOAD_CLIENT_CONTRACT = {
   contentTypeMustEqualDeclaredMime: true,
 } as const;
+
+/**
+ * Installed Supabase createSignedUploadUrl token lifetime (fixed; not configurable
+ * via SDK options). Account deletion must wait this horizon before final Storage
+ * sweep + Clerk so pre-gate tokens cannot orphan objects after completed.
+ */
+export const VICTORY_MEDIA_SIGNED_UPLOAD_TOKEN_TTL_MS = 2 * 60 * 60 * 1000;
+
+/** Deterministic buffer for clock skew + concurrent intent/deletion TOCTOU. */
+export const VICTORY_MEDIA_ACCOUNT_DELETION_SAFETY_MARGIN_MS = 5 * 60 * 1000;
+
+/** created_at + this duration = Clerk-stage / final-sweep eligibility. */
+export const VICTORY_MEDIA_ACCOUNT_DELETION_BARRIER_MS =
+  VICTORY_MEDIA_SIGNED_UPLOAD_TOKEN_TTL_MS +
+  VICTORY_MEDIA_ACCOUNT_DELETION_SAFETY_MARGIN_MS;
