@@ -18,6 +18,7 @@ export type RemoveVictoryWinMediaErrorCode =
   | "invalid_input"
   | "not_found"
   | "media_lookup_failed"
+  | "stale_media"
   | "mms_tombstone_failed"
   | "invalid_storage_path"
   | "storage_remove_failed"
@@ -179,15 +180,20 @@ function isMediaRow(raw: MediaRow): boolean {
 
 /**
  * Remove photo for an owned active Win. Idempotent when media already absent.
+ * expectedMediaId is a concurrency token — must match the current media row.
  */
 export async function removeVictoryWinMediaForUser(
-  args: { clerkUserId: string; winId: string },
+  args: { clerkUserId: string; winId: string; expectedMediaId: string },
   deps: RemoveVictoryWinMediaDeps = {}
 ): Promise<RemoveVictoryWinMediaResult> {
   const clerkUserId =
     typeof args.clerkUserId === "string" ? args.clerkUserId.trim() : "";
   const winId = typeof args.winId === "string" ? args.winId.trim().toLowerCase() : "";
-  if (!clerkUserId || !UUID_RE.test(winId)) {
+  const expectedMediaId =
+    typeof args.expectedMediaId === "string"
+      ? args.expectedMediaId.trim().toLowerCase()
+      : "";
+  if (!clerkUserId || !UUID_RE.test(winId) || !UUID_RE.test(expectedMediaId)) {
     return { ok: false, code: "invalid_input" };
   }
 
@@ -218,6 +224,9 @@ export async function removeVictoryWinMediaForUser(
   }
 
   const mediaId = media.id.trim().toLowerCase();
+  if (mediaId !== expectedMediaId) {
+    return { ok: false, code: "stale_media" };
+  }
 
   let expectedMaster: string;
   let expectedCard: string;

@@ -124,7 +124,7 @@ describe("removeVictoryWinMediaForUser", () => {
     const db = makeDb({ media: null });
     const storage = makeStorage();
     await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage, nowIso: () => NOW }
     );
     expect(db.calls.getOwnedActiveWin).toHaveLength(1);
@@ -142,7 +142,7 @@ describe("removeVictoryWinMediaForUser", () => {
     const db = makeDb({ win: null, media: mediaRow() });
     const storage = makeStorage();
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(result).toEqual({ ok: false, code: "not_found" });
@@ -155,7 +155,7 @@ describe("removeVictoryWinMediaForUser", () => {
     const db = makeDb({ media: null });
     const storage = makeStorage();
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(result).toEqual({ ok: true, status: "already_absent" });
@@ -164,11 +164,35 @@ describe("removeVictoryWinMediaForUser", () => {
     expect(db.calls.deleteMediaRow).toHaveLength(0);
   });
 
+  it("3c. expectedMediaId mismatch → stale_media with no mutations", async () => {
+    const OTHER_MEDIA = "550e8400-e29b-41d4-a716-446655440099";
+    const db = makeDb({
+      media: mediaRow({ id: OTHER_MEDIA.toLowerCase() }),
+    });
+    const storage = makeStorage();
+    const result = await removeVictoryWinMediaForUser(
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
+      { db, storage }
+    );
+    expect(result).toEqual({ ok: false, code: "stale_media" });
+    expect(db.calls.tombstoneInboundJob).toHaveLength(0);
+    expect(storage.removeCalls).toHaveLength(0);
+    expect(db.calls.deleteMediaRow).toHaveLength(0);
+  });
+
+  it("3d. missing expectedMediaId → invalid_input", async () => {
+    const result = await removeVictoryWinMediaForUser(
+      { clerkUserId: USER, winId: WIN, expectedMediaId: "" },
+      { db: makeDb(), storage: makeStorage() }
+    );
+    expect(result).toEqual({ ok: false, code: "invalid_input" });
+  });
+
   it("3b. owned Win + media DB query error → media_lookup_failed (not already_absent)", async () => {
     const db = makeDb({ mediaLookup: "query_failed" });
     const storage = makeStorage();
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(result).toEqual({ ok: false, code: "media_lookup_failed" });
@@ -182,7 +206,7 @@ describe("removeVictoryWinMediaForUser", () => {
     const db = makeDb();
     const storage = makeStorage();
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(result).toEqual({ ok: true, status: "removed" });
@@ -235,7 +259,7 @@ describe("removeVictoryWinMediaForUser", () => {
     };
 
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage, nowIso: () => NOW }
     );
     expect(result).toEqual({ ok: true, status: "removed" });
@@ -261,7 +285,7 @@ describe("removeVictoryWinMediaForUser", () => {
     });
     const storage = makeStorage();
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(result).toEqual({ ok: false, code: "mms_tombstone_failed" });
@@ -281,7 +305,7 @@ describe("removeVictoryWinMediaForUser", () => {
     });
     const storage = makeStorage();
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage, nowIso: () => NOW }
     );
     expect(result).toEqual({ ok: false, code: "mms_tombstone_failed" });
@@ -293,7 +317,7 @@ describe("removeVictoryWinMediaForUser", () => {
     const db = makeDb();
     const storage = makeStorage();
     await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(storage.removeCalls[0]?.paths).toEqual([
@@ -311,7 +335,7 @@ describe("removeVictoryWinMediaForUser", () => {
     });
     const storage = makeStorage();
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(result).toEqual({ ok: false, code: "invalid_storage_path" });
@@ -327,7 +351,7 @@ describe("removeVictoryWinMediaForUser", () => {
     });
     const storage = makeStorage();
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(result).toEqual({ ok: false, code: "invalid_storage_path" });
@@ -339,7 +363,7 @@ describe("removeVictoryWinMediaForUser", () => {
     const db = makeDb();
     const storage = makeStorage({ ok: false });
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(result).toEqual({ ok: false, code: "storage_remove_failed" });
@@ -350,7 +374,7 @@ describe("removeVictoryWinMediaForUser", () => {
     const db = makeDb({ deleted: false });
     const storage = makeStorage();
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(result).toEqual({ ok: false, code: "db_delete_failed" });
@@ -362,7 +386,7 @@ describe("removeVictoryWinMediaForUser", () => {
     const db = makeDb();
     const storage = makeStorage({ ok: true });
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(result).toEqual({ ok: true, status: "removed" });
@@ -373,11 +397,11 @@ describe("removeVictoryWinMediaForUser", () => {
     const db = makeDb({ media: null });
     const storage = makeStorage();
     const first = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     const second = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage }
     );
     expect(first).toEqual({ ok: true, status: "already_absent" });
@@ -404,7 +428,7 @@ describe("removeVictoryWinMediaForUser", () => {
   it("15. no v2_win mutation surface on deps", async () => {
     const db = makeDb();
     await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage: makeStorage() }
     );
     expect(db).not.toHaveProperty("updateWin");
@@ -418,7 +442,7 @@ describe("removeVictoryWinMediaForUser", () => {
       media: mediaRow({ clerk_user_id: OTHER }),
     });
     const result = await removeVictoryWinMediaForUser(
-      { clerkUserId: USER, winId: WIN },
+      { clerkUserId: USER, winId: WIN, expectedMediaId: MEDIA },
       { db, storage: makeStorage() }
     );
     expect(result).toEqual({ ok: false, code: "not_found" });

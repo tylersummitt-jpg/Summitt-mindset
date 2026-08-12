@@ -35,6 +35,7 @@ import { VictoryWinCardActions } from "@/components/VictoryWinCardActions";
 import { vrMomentCardBase } from "@/components/victory-room-visual";
 
 const WIN = "550e8400-e29b-41d4-a716-446655440010";
+const MEDIA = "550e8400-e29b-41d4-a716-446655440020";
 
 describe("VictoryWinCardActions in-flow menu (overflow clip regression)", () => {
   it("menu panel is not absolutely positioned (avoids card overflow-hidden clip)", () => {
@@ -154,6 +155,7 @@ describe("VictoryWinCardActions Remove photo", () => {
         editHref: "/edit",
         expectedUpdatedAt: "t1",
         hasMedia: true,
+        mediaId: MEDIA,
       })
     );
     expect(html).toContain("Remove photo");
@@ -169,6 +171,7 @@ describe("VictoryWinCardActions Remove photo", () => {
         editHref: "/edit",
         expectedUpdatedAt: "t1",
         hasMedia: true,
+        mediaId: MEDIA,
       })
     );
 
@@ -205,6 +208,7 @@ describe("VictoryWinCardActions Remove photo", () => {
         editHref: "/edit",
         expectedUpdatedAt: "t1",
         hasMedia: true,
+        mediaId: MEDIA,
       })
     );
 
@@ -216,7 +220,7 @@ describe("VictoryWinCardActions Remove photo", () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(`/api/victory-media/win/${WIN}`);
     expect(init).toMatchObject({ method: "DELETE", credentials: "include" });
-    expect(init).not.toHaveProperty("body");
+    expect(JSON.parse(init.body as string)).toEqual({ expectedMediaId: MEDIA });
     await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
 
     cleanup();
@@ -232,6 +236,7 @@ describe("VictoryWinCardActions Remove photo", () => {
         editHref: "/edit",
         expectedUpdatedAt: "t1",
         hasMedia: true,
+        mediaId: MEDIA,
       })
     );
     revealMenu();
@@ -256,6 +261,7 @@ describe("VictoryWinCardActions Remove photo", () => {
         editHref: "/edit",
         expectedUpdatedAt: "t1",
         hasMedia: true,
+        mediaId: MEDIA,
       })
     );
 
@@ -310,6 +316,7 @@ describe("VictoryWinCardActions Remove photo", () => {
         editHref: `/dashboard/victory-room/wins/${WIN}/edit?from=victory-room`,
         expectedUpdatedAt: "t1",
         hasMedia: true,
+        mediaId: MEDIA,
       })
     );
     revealMenu();
@@ -342,9 +349,10 @@ describe("VictoryWinCardActions Remove photo", () => {
       "utf8"
     );
     expect(card).toContain("hasMedia={hasMedia}");
+    expect(card).toContain("mediaId={mediaId ?? media?.id ?? null}");
   });
 
-  it("15. no Replace UI", () => {
+  it("15. no Replace UI on card menu", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "src/components/VictoryWinCardActions.tsx"),
       "utf8"
@@ -356,6 +364,7 @@ describe("VictoryWinCardActions Remove photo", () => {
         editHref: "/edit",
         expectedUpdatedAt: "t1",
         hasMedia: true,
+        mediaId: MEDIA,
       })
     );
     expect(html).not.toMatch(/Replace/i);

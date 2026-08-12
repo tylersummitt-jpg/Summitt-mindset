@@ -11,6 +11,8 @@ const UI_SESSION = "Your session expired. Please sign in again.";
 const UI_GENERIC = "We couldn’t remove this photo. Please try again.";
 const UI_DELETION = "This action is unavailable.";
 const UI_NOT_FOUND = "Win not found.";
+const UI_STALE =
+  "This photo changed since you opened it. Refresh and try again.";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -25,9 +27,10 @@ async function resolveWinId(params: RouteParams["params"]): Promise<string> {
 /**
  * DELETE /api/victory-media/win/[winId]
  * Authenticated: removes optional photo for an owned Win.
- * Never accepts Storage paths or mediaId from the client.
+ * Body: { expectedMediaId } — concurrency token only (never a Storage selector).
+ * Never accepts Storage paths from the client.
  */
-export async function DELETE(_req: Request, ctx: RouteParams) {
+export async function DELETE(req: Request, ctx: RouteParams) {
   try {
     const { userId } = await auth();
     if (!userId) {
@@ -65,9 +68,39 @@ export async function DELETE(_req: Request, ctx: RouteParams) {
       );
     }
 
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    if (
+      body.path != null ||
+      body.tempPath != null ||
+      body.storageMasterPath != null ||
+      body.storageCardPath != null ||
+      body.clerkUserId != null ||
+      body.clerk_user_id != null
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid request.", code: "invalid_input" },
+        { status: 400 }
+      );
+    }
+
+    const expectedMediaIdRaw =
+      typeof body.expectedMediaId === "string"
+        ? body.expectedMediaId
+        : typeof body.expected_media_id === "string"
+          ? body.expected_media_id
+          : "";
+    const expectedMediaId = expectedMediaIdRaw.trim();
+    if (!expectedMediaId || !UUID_RE.test(expectedMediaId)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid request.", code: "invalid_input" },
+        { status: 400 }
+      );
+    }
+
     const result = await removeVictoryWinMediaForUser({
       clerkUserId: userId,
       winId,
+      expectedMediaId,
     });
 
     if (!result.ok) {
@@ -75,6 +108,12 @@ export async function DELETE(_req: Request, ctx: RouteParams) {
         return NextResponse.json(
           { ok: false, error: UI_NOT_FOUND, code: "not_found" },
           { status: 404 }
+        );
+      }
+      if (result.code === "stale_media") {
+        return NextResponse.json(
+          { ok: false, error: UI_STALE, code: "stale_media" },
+          { status: 409 }
         );
       }
       if (result.code === "invalid_input") {

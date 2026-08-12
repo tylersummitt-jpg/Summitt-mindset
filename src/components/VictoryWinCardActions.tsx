@@ -13,6 +13,8 @@ type VictoryWinCardActionsProps = {
   expectedUpdatedAt: string;
   /** When true, show Remove photo (presentation-only; does not delete the Win). */
   hasMedia?: boolean;
+  /** Displayed media id — concurrency token for Remove (expectedMediaId). */
+  mediaId?: string | null;
 };
 
 /**
@@ -25,6 +27,7 @@ export function VictoryWinCardActions({
   editHref,
   expectedUpdatedAt,
   hasMedia = false,
+  mediaId = null,
 }: VictoryWinCardActionsProps) {
   const router = useRouter();
   const menuId = useId();
@@ -80,6 +83,12 @@ export function VictoryWinCardActions({
 
   async function onConfirmRemovePhoto() {
     if (busy) return;
+    const expectedMediaId =
+      typeof mediaId === "string" ? mediaId.trim() : "";
+    if (!expectedMediaId) {
+      setError("This photo changed since you opened it. Refresh and try again.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -87,7 +96,9 @@ export function VictoryWinCardActions({
         `/api/victory-media/win/${encodeURIComponent(winId)}`,
         {
           method: "DELETE",
+          headers: { "Content-Type": "application/json" },
           credentials: "include",
+          body: JSON.stringify({ expectedMediaId }),
         }
       );
       const data = (await res.json().catch(() => ({}))) as {
@@ -96,6 +107,12 @@ export function VictoryWinCardActions({
         error?: string;
         code?: string;
       };
+      if (res.status === 409 || data.code === "stale_media") {
+        throw new Error(
+          data.error ||
+            "This photo changed since you opened it. Refresh and try again."
+        );
+      }
       if (
         res.ok &&
         data.ok &&

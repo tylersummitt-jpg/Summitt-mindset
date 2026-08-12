@@ -20,6 +20,8 @@ type VictoryWinCardProps = {
   expectedUpdatedAt?: string | null;
   /** When true with actions, show Remove photo (caller passes Boolean(w.media)). */
   hasMedia?: boolean;
+  /** Displayed media id for Remove concurrency (expectedMediaId). */
+  mediaId?: string | null;
 };
 
 /**
@@ -36,6 +38,7 @@ export function VictoryWinCard({
   editHref = null,
   expectedUpdatedAt = null,
   hasMedia = false,
+  mediaId = null,
 }: VictoryWinCardProps) {
   const quiet = celebrationAppropriate === false;
   const border = quiet ? "border-white/12" : "border-amber-500/30";
@@ -108,6 +111,7 @@ export function VictoryWinCard({
           editHref={editHref!.trim()}
           expectedUpdatedAt={expectedUpdatedAt!.trim()}
           hasMedia={hasMedia}
+          mediaId={mediaId ?? media?.id ?? null}
         />
       ) : null}
     </article>

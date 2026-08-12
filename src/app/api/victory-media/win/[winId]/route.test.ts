@@ -18,6 +18,15 @@ vi.mock("@/lib/account-deletion/deletion-guards", () => ({
 }));
 
 const WIN = "550e8400-e29b-41d4-a716-446655440010";
+const MEDIA = "550e8400-e29b-41d4-a716-446655440020";
+
+function deleteReq(body?: unknown) {
+  return new Request(`http://localhost/api/victory-media/win/${WIN}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body ?? { expectedMediaId: MEDIA }),
+  });
+}
 
 describe("DELETE /api/victory-media/win/[winId]", () => {
   beforeEach(() => {
@@ -30,12 +39,7 @@ describe("DELETE /api/victory-media/win/[winId]", () => {
   it("returns 401 when unauthenticated", async () => {
     authMock.mockResolvedValue({ userId: null });
     const { DELETE } = await import("./route");
-    const res = await DELETE(
-      new Request(`http://localhost/api/victory-media/win/${WIN}`, {
-        method: "DELETE",
-      }),
-      { params: { winId: WIN } }
-    );
+    const res = await DELETE(deleteReq(), { params: { winId: WIN } });
     expect(res.status).toBe(401);
     expect(removeMock).not.toHaveBeenCalled();
     expect(hasUnresolvedMock).not.toHaveBeenCalled();
@@ -46,6 +50,8 @@ describe("DELETE /api/victory-media/win/[winId]", () => {
     const res = await DELETE(
       new Request("http://localhost/api/victory-media/win/not-a-uuid", {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedMediaId: MEDIA }),
       }),
       { params: { winId: "not-a-uuid" } }
     );
@@ -55,15 +61,17 @@ describe("DELETE /api/victory-media/win/[winId]", () => {
     expect(removeMock).not.toHaveBeenCalled();
   });
 
+  it("rejects missing expectedMediaId", async () => {
+    const { DELETE } = await import("./route");
+    const res = await DELETE(deleteReq({}), { params: { winId: WIN } });
+    expect(res.status).toBe(400);
+    expect(removeMock).not.toHaveBeenCalled();
+  });
+
   it("blocks when unresolved account deletion exists", async () => {
     hasUnresolvedMock.mockResolvedValue(true);
     const { DELETE } = await import("./route");
-    const res = await DELETE(
-      new Request(`http://localhost/api/victory-media/win/${WIN}`, {
-        method: "DELETE",
-      }),
-      { params: { winId: WIN } }
-    );
+    const res = await DELETE(deleteReq(), { params: { winId: WIN } });
     expect(res.status).toBe(409);
     const json = await res.json();
     expect(json).toEqual({
@@ -77,12 +85,7 @@ describe("DELETE /api/victory-media/win/[winId]", () => {
   it("fails closed when deletion lookup throws", async () => {
     hasUnresolvedMock.mockRejectedValue(new Error("db down"));
     const { DELETE } = await import("./route");
-    const res = await DELETE(
-      new Request(`http://localhost/api/victory-media/win/${WIN}`, {
-        method: "DELETE",
-      }),
-      { params: { winId: WIN } }
-    );
+    const res = await DELETE(deleteReq(), { params: { winId: WIN } });
     expect(res.status).toBe(503);
     const json = await res.json();
     expect(json.code).toBe("deletion_lookup_failed");
@@ -91,17 +94,13 @@ describe("DELETE /api/victory-media/win/[winId]", () => {
 
   it("owned removed → 200", async () => {
     const { DELETE } = await import("./route");
-    const res = await DELETE(
-      new Request(`http://localhost/api/victory-media/win/${WIN}`, {
-        method: "DELETE",
-      }),
-      { params: { winId: WIN } }
-    );
+    const res = await DELETE(deleteReq(), { params: { winId: WIN } });
     expect(res.status).toBe(200);
     expect(hasUnresolvedMock).toHaveBeenCalledWith("user_1");
     expect(removeMock).toHaveBeenCalledWith({
       clerkUserId: "user_1",
       winId: WIN,
+      expectedMediaId: MEDIA,
     });
     const json = await res.json();
     expect(json).toEqual({ ok: true, status: "removed" });
@@ -110,25 +109,27 @@ describe("DELETE /api/victory-media/win/[winId]", () => {
   it("owned already_absent → 200", async () => {
     removeMock.mockResolvedValue({ ok: true, status: "already_absent" });
     const { DELETE } = await import("./route");
-    const res = await DELETE(
-      new Request(`http://localhost/api/victory-media/win/${WIN}`, {
-        method: "DELETE",
-      }),
-      { params: { winId: WIN } }
-    );
+    const res = await DELETE(deleteReq(), { params: { winId: WIN } });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, status: "already_absent" });
+  });
+
+  it("stale_media → 409", async () => {
+    removeMock.mockResolvedValue({ ok: false, code: "stale_media" });
+    const { DELETE } = await import("./route");
+    const res = await DELETE(deleteReq(), { params: { winId: WIN } });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: "This photo changed since you opened it. Refresh and try again.",
+      code: "stale_media",
+    });
   });
 
   it("foreign/not-owned → safe not_found", async () => {
     removeMock.mockResolvedValue({ ok: false, code: "not_found" });
     const { DELETE } = await import("./route");
-    const res = await DELETE(
-      new Request(`http://localhost/api/victory-media/win/${WIN}`, {
-        method: "DELETE",
-      }),
-      { params: { winId: WIN } }
-    );
+    const res = await DELETE(deleteReq(), { params: { winId: WIN } });
     expect(res.status).toBe(404);
     const json = await res.json();
     expect(json).toEqual({
@@ -143,12 +144,7 @@ describe("DELETE /api/victory-media/win/[winId]", () => {
   it("helper failure → generic 5xx", async () => {
     removeMock.mockResolvedValue({ ok: false, code: "storage_remove_failed" });
     const { DELETE } = await import("./route");
-    const res = await DELETE(
-      new Request(`http://localhost/api/victory-media/win/${WIN}`, {
-        method: "DELETE",
-      }),
-      { params: { winId: WIN } }
-    );
+    const res = await DELETE(deleteReq(), { params: { winId: WIN } });
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.ok).toBe(false);
@@ -160,12 +156,7 @@ describe("DELETE /api/victory-media/win/[winId]", () => {
   it("media_lookup_failed → generic non-2xx (not 200 already_absent)", async () => {
     removeMock.mockResolvedValue({ ok: false, code: "media_lookup_failed" });
     const { DELETE } = await import("./route");
-    const res = await DELETE(
-      new Request(`http://localhost/api/victory-media/win/${WIN}`, {
-        method: "DELETE",
-      }),
-      { params: { winId: WIN } }
-    );
+    const res = await DELETE(deleteReq(), { params: { winId: WIN } });
     expect(res.status).toBe(500);
     expect(res.status).not.toBe(200);
     const json = await res.json();
@@ -180,12 +171,7 @@ describe("DELETE /api/victory-media/win/[winId]", () => {
   it("response never includes Storage paths", async () => {
     removeMock.mockResolvedValue({ ok: true, status: "removed" });
     const { DELETE } = await import("./route");
-    const res = await DELETE(
-      new Request(`http://localhost/api/victory-media/win/${WIN}`, {
-        method: "DELETE",
-      }),
-      { params: { winId: WIN } }
-    );
+    const res = await DELETE(deleteReq(), { params: { winId: WIN } });
     const text = await res.text();
     expect(text).not.toMatch(/master\.jpg|card\.jpg|victory-media\//i);
     expect(text).not.toMatch(/storage_/i);
