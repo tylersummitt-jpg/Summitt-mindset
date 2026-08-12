@@ -18,6 +18,8 @@ type VictoryWinCardProps = {
   winId?: string | null;
   editHref?: string | null;
   expectedUpdatedAt?: string | null;
+  /** When true with actions, show Remove photo (caller passes Boolean(w.media)). */
+  hasMedia?: boolean;
 };
 
 /**
@@ -33,6 +35,7 @@ export function VictoryWinCard({
   winId = null,
   editHref = null,
   expectedUpdatedAt = null,
+  hasMedia = false,
 }: VictoryWinCardProps) {
   const quiet = celebrationAppropriate === false;
   const border = quiet ? "border-white/12" : "border-amber-500/30";
@@ -104,6 +107,7 @@ export function VictoryWinCard({
           winId={winId!.trim()}
           editHref={editHref!.trim()}
           expectedUpdatedAt={expectedUpdatedAt!.trim()}
+          hasMedia={hasMedia}
         />
       ) : null}
     </article>

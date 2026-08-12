@@ -81,6 +81,7 @@ export function VictoryAllProofSection({
                         supportingQuote={w.supportingQuote}
                         celebrationAppropriate={w.celebrationAppropriate}
                         media={w.media}
+                        hasMedia={Boolean(w.media)}
                         winId={w.id}
                         expectedUpdatedAt={w.updatedAt}
                         editHref={buildEditWinHref(w.id, { kind: "all-wins" })}

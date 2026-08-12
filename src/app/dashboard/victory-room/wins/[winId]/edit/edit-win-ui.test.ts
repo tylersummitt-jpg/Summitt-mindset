@@ -77,7 +77,14 @@ describe("Edit Win UI", () => {
     expect(src).toContain("Delete Win");
     expect(src).toContain("We couldn’t delete this Win");
     expect(src).toContain("changed since you opened");
-    expect(src).not.toContain("permanently");
+    // Delete Win copy must not imply permanent/proof deletion; Remove photo may say permanently.
+    expect(src).toContain("This permanently removes the photo");
+    expect(src).toContain("Your Win stays in Victory Room");
+    const deleteConfirmBlock = src.slice(
+      src.indexOf("Delete this Win?"),
+      src.indexOf("Remove this photo?")
+    );
+    expect(deleteConfirmBlock).not.toContain("permanently");
     expect(src).not.toContain("openai");
     // Clip regression: open panel must not use absolute positioning.
     expect(src).not.toMatch(/className="[^"]*\babsolute\b/);
