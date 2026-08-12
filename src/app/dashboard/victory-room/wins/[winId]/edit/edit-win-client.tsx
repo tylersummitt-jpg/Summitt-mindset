@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { VictoryWinMediaImage } from "@/components/VictoryWinMediaImage";
 import {
   vrAccentLink,
   vrBodyMuted,
@@ -10,6 +11,7 @@ import {
   vrSectionCard,
   vrSectionTitle,
 } from "@/components/victory-room-visual";
+import type { PublicWinMediaDto } from "@/lib/v2-win-public-read";
 import {
   MANUAL_WIN_DETAILS_MAX,
   MANUAL_WIN_TITLE_MAX,
@@ -28,6 +30,8 @@ type Props = {
   seasonOptions: ManualWinSeasonOption[];
   cancelHref: string;
   orphanCommitmentNotice: boolean;
+  /** Optional signed card media from server enrichment. */
+  media?: PublicWinMediaDto | null;
 };
 
 const inputClass =
@@ -40,14 +44,32 @@ export default function EditWinClient(props: Props) {
   const [occurredOn, setOccurredOn] = useState(props.initialOccurredOn);
   const [seasonChoice, setSeasonChoice] = useState(props.initialSeasonId);
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(props.expectedUpdatedAt);
-  const [busy, setBusy] = useState(false);
+  const [currentMedia, setCurrentMedia] = useState<PublicWinMediaDto | null>(
+    props.media ?? null
+  );
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
+  const [removeBusy, setRemoveBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
 
   const seasonSelectOptions = useMemo(() => props.seasonOptions, [props.seasonOptions]);
 
+  useEffect(() => {
+    if (!confirmingRemove) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setConfirmingRemove(false);
+        setMediaError(null);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [confirmingRemove]);
+
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
+    setSaveBusy(true);
     setError(null);
     try {
       const body: Record<string, unknown> = {
@@ -86,7 +108,48 @@ export default function EditWinClient(props: Props) {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save");
     } finally {
-      setBusy(false);
+      setSaveBusy(false);
+    }
+  }
+
+  async function onConfirmRemovePhoto() {
+    if (removeBusy) return;
+    setRemoveBusy(true);
+    setMediaError(null);
+    try {
+      const res = await fetch(
+        `/api/victory-media/win/${encodeURIComponent(props.winId)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        status?: string;
+        error?: string;
+      };
+      if (
+        res.ok &&
+        data.ok &&
+        (data.status === "removed" || data.status === "already_absent")
+      ) {
+        setCurrentMedia(null);
+        setConfirmingRemove(false);
+        setMediaError(null);
+        return;
+      }
+      throw new Error(
+        data.error || "We couldn’t remove the photo. Please try again."
+      );
+    } catch (err) {
+      setMediaError(
+        err instanceof Error
+          ? err.message
+          : "We couldn’t remove the photo. Please try again."
+      );
+    } finally {
+      setRemoveBusy(false);
     }
   }
 
@@ -148,6 +211,75 @@ export default function EditWinClient(props: Props) {
           </p>
         </div>
 
+        {currentMedia ? (
+          <div>
+            <p className={vrLabel} id="edit-win-photo-label">
+              Photo
+            </p>
+            <div aria-labelledby="edit-win-photo-label">
+              <VictoryWinMediaImage
+                cardUrl={currentMedia.cardUrl}
+                width={currentMedia.width}
+                height={currentMedia.height}
+              />
+            </div>
+            {confirmingRemove ? (
+              <div className="mt-2">
+                <p className="font-medium text-stone-100">Remove this photo?</p>
+                <p className={`${vrBodyMuted} mt-2 text-sm`}>
+                  This permanently removes the photo. Your Win stays in Victory Room. This
+                  can’t be undone.
+                </p>
+                {mediaError ? (
+                  <p className="mt-3 text-sm text-red-300" role="alert">
+                    {mediaError}
+                  </p>
+                ) : null}
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    className={`${vrAccentLink} min-h-11 px-1`}
+                    disabled={removeBusy}
+                    onClick={() => {
+                      setConfirmingRemove(false);
+                      setMediaError(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className={`${vrAccentLink} min-h-11 px-1 text-red-300 decoration-red-400/40 hover:text-red-200`}
+                    disabled={removeBusy}
+                    onClick={() => void onConfirmRemovePhoto()}
+                  >
+                    {removeBusy ? "Removing…" : "Remove photo"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2">
+                {mediaError ? (
+                  <p className="mb-3 text-sm text-red-300" role="alert">
+                    {mediaError}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  className={`${vrAccentLink} min-h-11 px-1`}
+                  disabled={removeBusy || saveBusy}
+                  onClick={() => {
+                    setMediaError(null);
+                    setConfirmingRemove(true);
+                  }}
+                >
+                  Remove photo
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
+
         <div>
           <label htmlFor="edit-win-date" className={vrLabel}>
             Date
@@ -192,10 +324,10 @@ export default function EditWinClient(props: Props) {
 
         <button
           type="submit"
-          disabled={busy}
+          disabled={saveBusy}
           className="inline-flex w-full items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/15 px-5 py-3 text-base font-semibold text-amber-50 transition hover:bg-amber-500/25 disabled:opacity-60 sm:w-auto"
         >
-          {busy ? "Saving…" : "Save Changes"}
+          {saveBusy ? "Saving…" : "Save Changes"}
         </button>
       </form>
     </div>

@@ -12,6 +12,8 @@ import {
   loadOwnedActiveWinForEdit,
   occurredOnFromWinOccurredAt,
 } from "@/lib/v2-win-user-edit";
+import { enrichPublicWinsWithMedia } from "@/lib/victory-media/enrich-public-wins-with-media";
+import type { PublicWinDto } from "@/lib/v2-win-public-read";
 import EditWinClient from "./edit-win-client";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +62,23 @@ export default async function VictoryRoomEditWinPage({ params, searchParams }: P
   const today = getDateKeyInTimezone(new Date(), timeZone);
   const occurredOn = occurredOnFromWinOccurredAt(win.occurredAt, timeZone);
 
+  // Fail-soft: enricher returns the stub unchanged when media/signing fails.
+  const stub: PublicWinDto = {
+    id: win.id,
+    occurredAt: win.occurredAt,
+    displayTitle: win.displayTitle,
+    displayBody: win.displayBody,
+    supportingQuote: win.supportingQuote,
+    celebrationAppropriate: true,
+    commitmentId: win.commitmentId,
+    updatedAt: win.updatedAt,
+  };
+  const [enriched] = await enrichPublicWinsWithMedia({
+    clerkUserId: user.id,
+    wins: [stub],
+  });
+  const media = enriched?.media ?? null;
+
   return (
     <div className={`victory-room-route-canvas ${vrPageOuter}`}>
       <div className={vrPageGlow} aria-hidden />
@@ -75,6 +94,7 @@ export default async function VictoryRoomEditWinPage({ params, searchParams }: P
           seasonOptions={seasonOptions}
           cancelHref={cancelHref}
           orphanCommitmentNotice={win.orphanCommitment}
+          media={media}
         />
       </main>
     </div>

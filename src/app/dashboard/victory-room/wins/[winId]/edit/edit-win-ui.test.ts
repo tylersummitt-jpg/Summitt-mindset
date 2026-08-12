@@ -116,6 +116,7 @@ describe("Edit Win UI", () => {
         ],
         cancelHref: "/dashboard/victory-room",
         orphanCommitmentNotice: false,
+        media: null,
       })
     );
     expect(html).toContain("Edit Win");
@@ -130,18 +131,22 @@ describe("Edit Win UI", () => {
     expect(html).not.toContain("recognition_mode");
     expect(html).not.toContain("model_confidence");
     expect(html).not.toContain("MessageSid");
+    expect(html).not.toContain("Remove photo");
   });
 
-  it("edit page wires ownership loader and bounded from origin", () => {
+  it("edit page wires ownership loader, enricher, and bounded from origin", () => {
     const pageSrc = fs.readFileSync(
       path.join(process.cwd(), "src/app/dashboard/victory-room/wins/[winId]/edit/page.tsx"),
       "utf8"
     );
     expect(pageSrc).toContain("loadOwnedActiveWinForEdit");
+    expect(pageSrc).toContain("enrichPublicWinsWithMedia");
     expect(pageSrc).toContain("parseEditWinOrigin");
     expect(pageSrc).toContain("editWinOriginHref");
+    expect(pageSrc).toContain("media={media}");
     expect(pageSrc).not.toContain("returnTo");
     expect(pageSrc).not.toContain("openai");
+    expect(pageSrc).not.toContain("storage_master_path");
   });
 
   it("confirm UI copy is available from actions component", () => {
