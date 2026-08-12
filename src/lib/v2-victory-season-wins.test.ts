@@ -23,6 +23,14 @@ vi.mock("@/lib/supabase-server", () => ({
   },
 }));
 
+const enrichMock = vi.hoisted(() =>
+  vi.fn(async ({ wins }: { wins: unknown[] }) => wins)
+);
+
+vi.mock("@/lib/victory-media/enrich-public-wins-with-media", () => ({
+  enrichPublicWinsWithMedia: enrichMock,
+}));
+
 import {
   loadActiveWinsForSeasonCommitment,
   SEASON_WINS_DISPLAY_LIMIT,
@@ -72,6 +80,7 @@ function installFromMock() {
 describe("loadActiveWinsForSeasonCommitment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    enrichMock.mockImplementation(async ({ wins }: { wins: unknown[] }) => wins);
     state.pageResult = { data: [], error: null };
     state.lastEqCalls = [];
     state.lastOrders = [];
@@ -126,6 +135,42 @@ describe("loadActiveWinsForSeasonCommitment", () => {
     expect(wins[1]?.id).toBe("sms-1");
   });
 
+  it("enriches after canonical season wins; preserves order and ownership", async () => {
+    state.pageResult = {
+      data: [
+        winRow({ id: "manual-1" }),
+        winRow({ id: "sms-1", occurred_at: "2026-08-07T12:00:00.000Z" }),
+      ],
+      error: null,
+    };
+    enrichMock.mockImplementation(async ({ wins }: { wins: Array<{ id: string }> }) =>
+      wins.map((w) =>
+        w.id === "manual-1"
+          ? {
+              ...w,
+              media: { id: "m", cardUrl: "https://signed/s", width: 10, height: 8 },
+            }
+          : w
+      )
+    );
+
+    const wins = await loadActiveWinsForSeasonCommitment({
+      clerkUserId: "user_1",
+      commitmentId: "c-season-2",
+    });
+
+    expect(enrichMock).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      wins: expect.arrayContaining([
+        expect.objectContaining({ id: "manual-1" }),
+        expect.objectContaining({ id: "sms-1" }),
+      ]),
+    });
+    expect(wins[0]?.id).toBe("manual-1");
+    expect(wins[0]?.media?.cardUrl).toBe("https://signed/s");
+    expect(wins[1]?.media).toBeUndefined();
+  });
+
   it("scopes by clerk + commitment + active only; no provenance filters", async () => {
     await loadActiveWinsForSeasonCommitment({
       clerkUserId: "user_1",
@@ -149,6 +194,7 @@ describe("loadActiveWinsForSeasonCommitment", () => {
       await loadActiveWinsForSeasonCommitment({ clerkUserId: "u1", commitmentId: "  " })
     ).toEqual([]);
     expect(fromMock).not.toHaveBeenCalled();
+    expect(enrichMock).not.toHaveBeenCalled();
   });
 
   it("does not date-window filter (no started_at/ended_at/gte/lte)", async () => {

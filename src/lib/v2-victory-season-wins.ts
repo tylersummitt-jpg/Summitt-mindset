@@ -6,6 +6,7 @@
 import "server-only";
 
 import { supabaseServer } from "@/lib/supabase-server";
+import { enrichPublicWinsWithMedia } from "@/lib/victory-media/enrich-public-wins-with-media";
 import {
   mapV2WinRowToPublicDto,
   PUBLIC_WIN_SELECT_COLUMNS,
@@ -77,7 +78,9 @@ export async function loadActiveWinsForSeasonCommitment(args: {
     return [];
   }
 
-  return (data ?? [])
+  const wins = (data ?? [])
     .filter(isWinRow)
     .map((row) => mapV2WinRowToPublicDto(row));
+
+  return enrichPublicWinsWithMedia({ clerkUserId: clerk, wins });
 }

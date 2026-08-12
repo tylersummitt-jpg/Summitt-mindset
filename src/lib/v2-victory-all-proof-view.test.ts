@@ -17,6 +17,10 @@ vi.mock("@/lib/supabase-server", () => ({
   },
 }));
 
+vi.mock("@/lib/victory-media/enrich-public-wins-with-media", () => ({
+  enrichPublicWinsWithMedia: vi.fn(async ({ wins }: { wins: unknown[] }) => wins),
+}));
+
 import { PUBLIC_WINS_PAGE_LIMIT } from "@/lib/v2-win-public-read";
 import { loadVictoryAllProofView } from "@/lib/v2-victory-all-proof-view";
 
@@ -37,6 +41,7 @@ describe("loadVictoryAllProofView (v2_win)", () => {
           celebration_appropriate: true,
           commitment_id: null,
           status: "active",
+          updated_at: "2026-06-10T12:05:00Z",
         },
         {
           id: "e2",
@@ -48,6 +53,7 @@ describe("loadVictoryAllProofView (v2_win)", () => {
           celebration_appropriate: true,
           commitment_id: "c1",
           status: "active",
+          updated_at: "2026-05-01T12:05:00Z",
         },
       ],
       error: null,

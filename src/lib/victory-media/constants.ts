@@ -56,6 +56,12 @@ export const VICTORY_MEDIA_SIGNED_UPLOAD_CLIENT_CONTRACT = {
 } as const;
 
 /**
+ * Private read: signed download URL lifetime for Victory Room card display.
+ * Regenerated on each server render / router.refresh. Never persisted.
+ */
+export const VICTORY_MEDIA_SIGNED_READ_TTL_SECONDS = 3600;
+
+/**
  * Installed Supabase createSignedUploadUrl token lifetime (fixed; not configurable
  * via SDK options). Account deletion must wait this horizon before final Storage
  * sweep + Clerk so pre-gate tokens cannot orphan objects after completed.

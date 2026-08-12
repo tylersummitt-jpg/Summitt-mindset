@@ -23,6 +23,14 @@ vi.mock("@/lib/supabase-server", () => ({
   },
 }));
 
+const enrichMock = vi.hoisted(() =>
+  vi.fn(async ({ wins }: { wins: unknown[] }) => wins)
+);
+
+vi.mock("@/lib/victory-media/enrich-public-wins-with-media", () => ({
+  enrichPublicWinsWithMedia: enrichMock,
+}));
+
 import {
   PUBLIC_WIN_SELECT_COLUMNS,
   PUBLIC_WINS_PAGE_LIMIT,
@@ -229,6 +237,7 @@ describe("public wins cursor helpers", () => {
 describe("loadPublicVictoryWinsForUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    enrichMock.mockImplementation(async ({ wins }: { wins: unknown[] }) => wins);
     state.lastEqCalls = [];
     state.lastOrders = [];
     state.lastLimit = null;
@@ -289,11 +298,42 @@ describe("loadPublicVictoryWinsForUser", () => {
     expect(state.lastLimit).toBe(PUBLIC_WINS_RECENT_LIMIT);
     expect(fromMock).toHaveBeenCalledWith("v2_win");
   });
+
+  it("enriches after canonical wins; media failure does not change win list", async () => {
+    enrichMock.mockImplementation(async ({ wins }: { wins: Array<{ id: string }> }) =>
+      wins.map((w, i) =>
+        i === 0
+          ? {
+              ...w,
+              media: {
+                id: "m1",
+                cardUrl: "https://signed.example/card.jpg",
+                width: 100,
+                height: 80,
+              },
+            }
+          : w
+      )
+    );
+
+    const result = await loadPublicVictoryWinsForUser({ clerkUserId: "user_1" });
+    expect(enrichMock).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      wins: expect.arrayContaining([
+        expect.objectContaining({ id: "cccccccc-cccc-cccc-cccc-cccccccccccc" }),
+        expect.objectContaining({ id: "dddddddd-dddd-dddd-dddd-dddddddddddd" }),
+      ]),
+    });
+    expect(result.recentWins[0]?.media?.cardUrl).toBe("https://signed.example/card.jpg");
+    expect(result.recentWins).toHaveLength(2);
+    expect(result.totalActiveWins).toBe(2);
+  });
 });
 
 describe("loadPublicAllWinsForUser", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    enrichMock.mockImplementation(async ({ wins }: { wins: unknown[] }) => wins);
     state.lastEqCalls = [];
     state.lastOrders = [];
     state.lastLimit = null;
@@ -338,6 +378,25 @@ describe("loadPublicAllWinsForUser", () => {
     );
     expect(page2.hasMore).toBe(false);
     expect(page2.nextCursor).toBeNull();
+  });
+
+  it("enriches page wins only; preserves pagination when enrichment adds media", async () => {
+    enrichMock.mockImplementation(async ({ wins }: { wins: unknown[] }) =>
+      (wins as Array<Record<string, unknown>>).map((w) => ({
+        ...w,
+        media: { id: "m", cardUrl: "https://signed/x", width: 1, height: 1 },
+      }))
+    );
+    const result = await loadPublicAllWinsForUser({ clerkUserId: "user_1" });
+    expect(result.wins).toHaveLength(PUBLIC_WINS_PAGE_LIMIT);
+    expect(result.hasMore).toBe(true);
+    expect(result.nextCursor).toBeTruthy();
+    expect(result.wins[0]?.media?.cardUrl).toBe("https://signed/x");
+    expect(enrichMock).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      wins: expect.any(Array),
+    });
+    expect(enrichMock.mock.calls[0]?.[0]?.wins).toHaveLength(PUBLIC_WINS_PAGE_LIMIT);
   });
 
   it("malformed cursor is ignored and still clerk/active-scoped", async () => {

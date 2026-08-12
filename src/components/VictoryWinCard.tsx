@@ -1,5 +1,7 @@
 import { VictoryWinCardActions } from "@/components/VictoryWinCardActions";
+import { VictoryWinMediaImage } from "@/components/VictoryWinMediaImage";
 import { vrMomentCardBase } from "@/components/victory-room-visual";
+import type { PublicWinMediaDto } from "@/lib/v2-win-public-read";
 
 type VictoryWinCardProps = {
   displayTitle: string;
@@ -7,6 +9,8 @@ type VictoryWinCardProps = {
   dateLabel: string;
   supportingQuote?: string | null;
   celebrationAppropriate?: boolean;
+  /** Optional signed card photo from server enrichment. */
+  media?: PublicWinMediaDto | null;
   /**
    * When all three are set, shows More menu (Edit + Delete).
    * Omitted → card has no actions (unchanged visual).
@@ -25,6 +29,7 @@ export function VictoryWinCard({
   dateLabel,
   supportingQuote,
   celebrationAppropriate = true,
+  media = null,
   winId = null,
   editHref = null,
   expectedUpdatedAt = null,
@@ -81,6 +86,13 @@ export function VictoryWinCard({
         ) : null}
       </div>
       <div className={`border-t my-4 ${divider}`} />
+      {media?.cardUrl ? (
+        <VictoryWinMediaImage
+          cardUrl={media.cardUrl}
+          width={media.width}
+          height={media.height}
+        />
+      ) : null}
       {body ? <p className={bodyClass}>{body}</p> : null}
       {quote ? (
         <p className="relative mt-4 text-base leading-relaxed text-stone-200 sm:text-lg">

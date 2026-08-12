@@ -7,6 +7,7 @@
 import "server-only";
 
 import { supabaseServer } from "@/lib/supabase-server";
+import { enrichPublicWinsWithMedia } from "@/lib/victory-media/enrich-public-wins-with-media";
 
 /** Home "Your Wins" recent card cap. */
 export const PUBLIC_WINS_RECENT_LIMIT = 7;
@@ -17,6 +18,14 @@ export const PUBLIC_WINS_PAGE_LIMIT = 50;
 /** Columns selected from v2_win for public mapping (never returned raw to clients). */
 export const PUBLIC_WIN_SELECT_COLUMNS =
   "id, occurred_at, display_title, display_body, supporting_quote, sensitivity_caution, celebration_appropriate, commitment_id, status, updated_at" as const;
+
+/** Optional Victory Media card presentation — never includes Storage paths. */
+export type PublicWinMediaDto = {
+  id: string;
+  cardUrl: string;
+  width: number;
+  height: number;
+};
 
 export type PublicWinDto = {
   id: string;
@@ -29,6 +38,8 @@ export type PublicWinDto = {
   commitmentId: string | null;
   /** Concurrency token for Delete (and future card mutations). Not shown in UI copy. */
   updatedAt: string;
+  /** Optional signed card photo; omitted when absent or enrichment failed. */
+  media?: PublicWinMediaDto;
 };
 
 export type PublicVictoryWinsHomeResult = {
@@ -220,9 +231,14 @@ export async function loadPublicVictoryWinsForUser(args: {
     fetchActiveWinsPage({ clerkUserId, limit: recentLimit, cursor: null }),
   ]);
 
+  const recentWins = await enrichPublicWinsWithMedia({
+    clerkUserId,
+    wins: rows.map(mapV2WinRowToPublicDto),
+  });
+
   return {
     totalActiveWins,
-    recentWins: rows.map(mapV2WinRowToPublicDto),
+    recentWins,
   };
 }
 
@@ -253,8 +269,13 @@ export async function loadPublicAllWinsForUser(args: {
       ? encodePublicWinsCursor({ occurredAt: last.occurred_at, id: last.id })
       : null;
 
-  return {
+  const wins = await enrichPublicWinsWithMedia({
+    clerkUserId,
     wins: pageRows.map(mapV2WinRowToPublicDto),
+  });
+
+  return {
+    wins,
     hasMore,
     nextCursor,
     pageLimit,
