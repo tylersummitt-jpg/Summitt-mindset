@@ -257,7 +257,9 @@ export async function processInboundMediaJobB1(
     console.info("[victory-media/mms-b1] download_failed", {
       ...logBase,
       error_code: err.code,
+      stage: err.stage,
       http_status: err.httpStatus,
+      abort_name: err.abortName,
       terminal,
     });
 
@@ -320,6 +322,8 @@ export async function processInboundMediaJobB1(
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[victory-media/mms-b1] temp_upload_failed", {
       ...logBase,
+      stage: "storage_upload",
+      error_code: "temp_upload_failed",
       message: msg,
     });
     const terminal = fresh.attempt_count >= INBOUND_MEDIA_B1_MAX_ATTEMPTS;

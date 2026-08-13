@@ -174,17 +174,19 @@ function scheduleSmsInboundCoachWorkerKick(req: Request): void {
 /**
  * Non-blocking B1 MMS download kick after successful media job insert.
  * Failure must never affect Twilio TwiML. No new cron / env.
+ * after() MUST await the kick so Vercel waitUntil holds the B1 promise.
  */
 function scheduleInboundMediaB1Kick(insertedCount: number): void {
   if (!Number.isFinite(insertedCount) || insertedCount <= 0) return;
-  after(() => {
-    void kickInboundMediaB1Downloads()
-      .then((r) => {
-        console.info("[twilio/inbound] mms-b1 kick done", r);
-      })
-      .catch((err) => {
-        console.error("[twilio/inbound] mms-b1 kick error", err);
+  after(async () => {
+    try {
+      const result = await kickInboundMediaB1Downloads();
+      console.info("[twilio/inbound] mms-b1 kick done", result);
+    } catch (err) {
+      console.error("[twilio/inbound] mms-b1 kick error", {
+        message: err instanceof Error ? err.message : String(err),
       });
+    }
   });
 }
 

@@ -139,7 +139,7 @@ describe("downloadTwilioMmsMediaBytes", () => {
     ).rejects.toMatchObject({ code: "second_redirect_forbidden", retryable: false });
   });
 
-  it("timeout is retryable", async () => {
+  it("AbortError without our timer → request_aborted (first_hop)", async () => {
     const fetchFn = vi.fn(async () => {
       const err = new Error("aborted");
       err.name = "AbortError";
@@ -150,7 +150,143 @@ describe("downloadTwilioMmsMediaBytes", () => {
         { messageSid: SM, mediaSid: ME },
         { fetchFn: fetchFn as unknown as typeof fetch, accountSid: AC, authToken: TOKEN }
       )
-    ).rejects.toMatchObject({ code: "timeout", retryable: true });
+    ).rejects.toMatchObject({
+      code: "request_aborted",
+      retryable: true,
+      stage: "first_hop",
+      abortName: "AbortError",
+    });
+  });
+
+  it("our AbortController timer → timeout (first_hop)", async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchFn = vi.fn((_url: string, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          if (!signal) {
+            reject(new Error("missing_signal"));
+            return;
+          }
+          signal.addEventListener("abort", () => {
+            const err = new Error("The operation was aborted");
+            err.name = "AbortError";
+            reject(err);
+          });
+        });
+      });
+
+      const pending = downloadTwilioMmsMediaBytes(
+        { messageSid: SM, mediaSid: ME },
+        {
+          fetchFn: fetchFn as unknown as typeof fetch,
+          accountSid: AC,
+          authToken: TOKEN,
+          firstHopTimeoutMs: 50,
+        }
+      );
+
+      const expectation = expect(pending).rejects.toMatchObject({
+        code: "timeout",
+        retryable: true,
+        stage: "first_hop",
+      });
+      await vi.advanceTimersByTimeAsync(50);
+      await expectation;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("CDN AbortError without timer → request_aborted stage=cdn_fetch", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { Location: "https://mms.twiliocdn.com/a" },
+        })
+      )
+      .mockImplementationOnce(async () => {
+        const err = new Error("aborted");
+        err.name = "AbortError";
+        throw err;
+      });
+    await expect(
+      downloadTwilioMmsMediaBytes(
+        { messageSid: SM, mediaSid: ME },
+        { fetchFn: fetchFn as unknown as typeof fetch, accountSid: AC, authToken: TOKEN }
+      )
+    ).rejects.toMatchObject({
+      code: "request_aborted",
+      stage: "cdn_fetch",
+      retryable: true,
+    });
+  });
+
+  it("stream Content-Length reject uses stage=stream_read", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { Location: "https://mms.twiliocdn.com/big" },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(streamBody(JPEG), {
+          status: 200,
+          headers: { "content-length": String(12_000_001) },
+        })
+      );
+    await expect(
+      downloadTwilioMmsMediaBytes(
+        { messageSid: SM, mediaSid: ME },
+        { fetchFn: fetchFn as unknown as typeof fetch, accountSid: AC, authToken: TOKEN }
+      )
+    ).rejects.toMatchObject({
+      code: "content_length_too_large",
+      stage: "stream_read",
+    });
+  });
+
+  it("hostile redirect stage=redirect_validation", async () => {
+    const fetchFn = vi.fn(async () =>
+      new Response(null, {
+        status: 302,
+        headers: { Location: "https://evil.example/x" },
+      })
+    );
+    await expect(
+      downloadTwilioMmsMediaBytes(
+        { messageSid: SM, mediaSid: ME },
+        { fetchFn: fetchFn as unknown as typeof fetch, accountSid: AC, authToken: TOKEN }
+      )
+    ).rejects.toMatchObject({
+      code: "redirect_host_forbidden",
+      stage: "redirect_validation",
+    });
+  });
+
+  it("404 first hop includes stage=first_hop", async () => {
+    const fetchFn = vi.fn(async () => new Response(null, { status: 404 }));
+    await expect(
+      downloadTwilioMmsMediaBytes(
+        { messageSid: SM, mediaSid: ME },
+        { fetchFn: fetchFn as unknown as typeof fetch, accountSid: AC, authToken: TOKEN }
+      )
+    ).rejects.toMatchObject({ code: "http_404", stage: "first_hop", retryable: true });
+  });
+
+  it("timeout constants remain milliseconds (10s/15s/20s)", async () => {
+    const {
+      TWILIO_MMS_LIST_TIMEOUT_MS,
+      TWILIO_MMS_FIRST_HOP_TIMEOUT_MS,
+      TWILIO_MMS_BYTE_FETCH_TIMEOUT_MS,
+    } = await import("@/lib/victory-media/download-twilio-mms-media");
+    expect(TWILIO_MMS_LIST_TIMEOUT_MS).toBe(10_000);
+    expect(TWILIO_MMS_FIRST_HOP_TIMEOUT_MS).toBe(15_000);
+    expect(TWILIO_MMS_BYTE_FETCH_TIMEOUT_MS).toBe(20_000);
   });
 
   it("429 and 5xx are retryable", async () => {
@@ -165,6 +301,7 @@ describe("downloadTwilioMmsMediaBytes", () => {
       } catch (e) {
         expect(e).toBeInstanceOf(TwilioMmsDownloadError);
         expect((e as TwilioMmsDownloadError).retryable).toBe(true);
+        expect((e as TwilioMmsDownloadError).stage).toBe("first_hop");
       }
     }
   });

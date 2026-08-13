@@ -22,10 +22,19 @@ describe("twilio inbound — MMS B1 wire", () => {
   it("after() kick schedules B1 without new cron/env", () => {
     expect(src).toContain("scheduleInboundMediaB1Kick");
     expect(src).toContain("kickInboundMediaB1Downloads");
-    expect(src).toContain("after(() =>");
+    expect(src).toContain("after(async () =>");
     expect(src).not.toContain("VICTORY_MEDIA_MMS_DOWNLOAD_ENABLED");
     expect(src).not.toContain("VICTORY_MEDIA_MMS_WORKER_ENABLED");
     expect(src).not.toMatch(/crons:[\s\S]*mms/i);
+  });
+
+  it("after() awaits B1 kick (no detached void promise)", () => {
+    const fn = src.slice(src.indexOf("function scheduleInboundMediaB1Kick"));
+    const body = fn.slice(0, fn.indexOf("/** HELP"));
+    expect(body).toContain("after(async () =>");
+    expect(body).toContain("await kickInboundMediaB1Downloads()");
+    expect(body).not.toMatch(/void\s+kickInboundMediaB1Downloads/);
+    expect(body).not.toMatch(/kickInboundMediaB1Downloads\(\)\s*\n?\s*\.then/);
   });
 
   it("kick is after enqueue insert and cannot block TwiML", () => {
@@ -38,6 +47,24 @@ describe("twilio inbound — MMS B1 wire", () => {
     expect(imageBlock.indexOf("scheduleInboundMediaB1Kick")).toBeLessThan(
       imageBlock.indexOf("return fastAckTwiml()")
     );
+    // Kick is scheduled via after(), not awaited in the webhook path.
+    expect(imageBlock).not.toContain("await kickInboundMediaB1Downloads");
+  });
+
+  it("download abort classification distinguishes timer timeout vs request_aborted", () => {
+    expect(dl).toContain('timedOut = true');
+    expect(dl).toContain('"request_aborted"');
+    expect(dl).toContain('"timeout"');
+    expect(dl).toContain('stage: "first_hop"');
+    expect(dl).toContain('stage: "cdn_fetch"');
+    expect(dl).toContain('stage: "stream_read"');
+  });
+
+  it("processor download_failed log includes stage without secrets", () => {
+    expect(proc).toContain("stage: err.stage");
+    expect(proc).toContain("abort_name: err.abortName");
+    expect(proc).not.toContain("Authorization");
+    expect(proc).not.toContain("TWILIO_AUTH_TOKEN");
   });
 
   it("B1 processor does not normalize / finalize / OpenAI / v2_win_media", () => {
