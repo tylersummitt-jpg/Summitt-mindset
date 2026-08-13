@@ -18,6 +18,9 @@ import {
   evaluateTwilioInboundTransportGate,
   parseTwilioInboundNumMedia,
 } from "@/lib/twilio-inbound-transport";
+import { maybeEnqueueInboundMediaJobsFromTwilioParams } from "@/lib/victory-media/enqueue-inbound-media-jobs";
+import { canEnqueueInboundMedia } from "@/lib/victory-media/mms-ingest-eligibility";
+import { isInboundMediaEnqueueAllowedByAccountDeletion } from "@/lib/victory-media/mms-ingest-deletion-gate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -298,12 +301,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // Image-only MMS: transport-accept with valid empty TwiML. No fabricated Body,
-    // no sms_inbound_messages, no coach job, no media job (Slice A1).
-    if (transport.imageOnly) {
-      return fastAckTwiml();
-    }
-
     const { data: identity } = await supabaseServer
       .from("sms_identities")
       .select("phone_number, clerk_user_id, sms_enabled, stopped_at")
@@ -311,10 +308,38 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (!identity?.clerk_user_id) {
+      // Image-only: still return valid empty TwiML (A1). No orphan media jobs.
+      if (transport.imageOnly) {
+        return fastAckTwiml();
+      }
       return NextResponse.json({ ok: true });
     }
 
     const userId = identity.clerk_user_id;
+
+    // Image-only MMS: ownership + shared media eligibility → optional enqueue → TwiML.
+    // No fabricated Body, no sms_inbound_messages, no coach job (A1 + A2).
+    if (transport.imageOnly) {
+      if (identity.sms_enabled === true && typeof identity.stopped_at !== "string") {
+        const imageOnlyMd = await getClerkPublicMetadata(userId);
+        if (
+          canEnqueueInboundMedia({
+            identitySmsEnabled: identity.sms_enabled,
+            identityStoppedAt: identity.stopped_at,
+            clerkSmsEnabled: imageOnlyMd.smsEnabled,
+          }) &&
+          (await isInboundMediaEnqueueAllowedByAccountDeletion(userId))
+        ) {
+          await maybeEnqueueInboundMediaJobsFromTwilioParams({
+            clerkUserId: userId,
+            messageSid,
+            params,
+            numMedia,
+          });
+        }
+      }
+      return fastAckTwiml();
+    }
 
     const { error: sidInsertError } = await supabaseServer
       .from("sms_inbound_messages")
@@ -359,12 +384,29 @@ export async function POST(req: Request) {
         }
 
         const dupMd = await getClerkPublicMetadata(userId);
-        if (dupMd.smsEnabled !== true) {
+        if (
+          !canEnqueueInboundMedia({
+            identitySmsEnabled: identity.sms_enabled,
+            identityStoppedAt: identity.stopped_at,
+            clerkSmsEnabled: dupMd.smsEnabled,
+          })
+        ) {
           console.warn("[twilio/inbound] coach job skipped (duplicate webhook): Clerk smsEnabled not true", {
             clerk_user_id: userId,
             message_sid: messageSid,
           });
           return NextResponse.json({ ok: true });
+        }
+
+        // Media enqueue is additive / non-blocking; never gates coach durability.
+        // Unresolved account deletion suppresses media only (text/coach unchanged).
+        if (await isInboundMediaEnqueueAllowedByAccountDeletion(userId)) {
+          await maybeEnqueueInboundMediaJobsFromTwilioParams({
+            clerkUserId: userId,
+            messageSid,
+            params,
+            numMedia,
+          });
         }
 
         await ensureCoachJobPresent({
@@ -415,12 +457,29 @@ export async function POST(req: Request) {
     }
 
     const md = await getClerkPublicMetadata(userId);
-    if (md.smsEnabled !== true) {
+    if (
+      !canEnqueueInboundMedia({
+        identitySmsEnabled: identity.sms_enabled,
+        identityStoppedAt: identity.stopped_at,
+        clerkSmsEnabled: md.smsEnabled,
+      })
+    ) {
       console.warn("[twilio/inbound] coach job skipped: Clerk smsEnabled not true", {
         clerk_user_id: userId,
         message_sid: messageSid,
       });
       return NextResponse.json({ ok: true });
+    }
+
+    // Media enqueue is additive / non-blocking; never gates coach durability.
+    // Same opt-out + deletion law as image-only (deletion suppresses media only).
+    if (await isInboundMediaEnqueueAllowedByAccountDeletion(userId)) {
+      await maybeEnqueueInboundMediaJobsFromTwilioParams({
+        clerkUserId: userId,
+        messageSid,
+        params,
+        numMedia,
+      });
     }
 
     await ensureCoachJobPresent({

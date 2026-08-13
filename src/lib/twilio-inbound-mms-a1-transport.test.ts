@@ -175,7 +175,9 @@ describe("twilio inbound route — MMS A1 transport wire", () => {
 
   it("image-only returns fastAckTwiml before sms_inbound_messages / coach job", () => {
     const post = src.slice(src.indexOf("export async function POST"));
-    const imageOnlyIdx = post.indexOf("if (transport.imageOnly)");
+    // Owned image-only path (after identity) — not the unknown-phone fastAck branch.
+    const ownedImageOnlyMarker = "No fabricated Body, no sms_inbound_messages, no coach job";
+    const imageOnlyIdx = post.indexOf(ownedImageOnlyMarker);
     const messagesIdx = post.indexOf('from("sms_inbound_messages")');
     const coachIdx = post.indexOf("ensureCoachJobPresent");
     expect(imageOnlyIdx).toBeGreaterThanOrEqual(0);
@@ -183,24 +185,24 @@ describe("twilio inbound route — MMS A1 transport wire", () => {
     expect(coachIdx).toBeGreaterThan(imageOnlyIdx);
     const imageBlock = post.slice(imageOnlyIdx, messagesIdx);
     expect(imageBlock).toContain("return fastAckTwiml()");
+    expect(imageBlock).toContain("if (transport.imageOnly)");
     expect(imageBlock).not.toContain("ensureCoachJobPresent");
     expect(imageBlock).not.toContain('from("sms_inbound_messages")');
-    expect(imageBlock).not.toContain("v2_inbound_media_job");
-    expect(imageBlock).not.toContain("MediaUrl");
     expect(imageBlock).not.toContain("OpenAI");
   });
 
   it("does not fabricate inbound Body for image-only", () => {
     const post = src.slice(src.indexOf("export async function POST"));
+    const ownedImageOnlyMarker = "No fabricated Body, no sms_inbound_messages, no coach job";
     const imageBlock = post.slice(
-      post.indexOf("if (transport.imageOnly)"),
+      post.indexOf(ownedImageOnlyMarker),
       post.indexOf('from("sms_inbound_messages")')
     );
     expect(imageBlock).not.toMatch(/raw_body:\s*["']/);
     expect(imageBlock).not.toMatch(/body\s*=\s*["'][^"']+["']/);
   });
 
-  it("no MediaUrl parsing / fetch / media job writes in route", () => {
+  it("route does not fetch MediaUrl or write media jobs inline", () => {
     expect(src).not.toContain("MediaUrl");
     expect(src).not.toContain("MediaContentType");
     expect(src).not.toContain("v2_inbound_media_job");
