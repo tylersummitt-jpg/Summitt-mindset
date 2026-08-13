@@ -21,6 +21,7 @@ import {
 import { maybeEnqueueInboundMediaJobsFromTwilioParams } from "@/lib/victory-media/enqueue-inbound-media-jobs";
 import { canEnqueueInboundMedia } from "@/lib/victory-media/mms-ingest-eligibility";
 import { isInboundMediaEnqueueAllowedByAccountDeletion } from "@/lib/victory-media/mms-ingest-deletion-gate";
+import { kickInboundMediaB1Downloads } from "@/lib/victory-media/kick-inbound-media-b1";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -166,6 +167,23 @@ function scheduleSmsInboundCoachWorkerKick(req: Request): void {
       })
       .catch((err) => {
         console.error("[twilio/inbound] sms-inbound-coach worker kick error", err);
+      });
+  });
+}
+
+/**
+ * Non-blocking B1 MMS download kick after successful media job insert.
+ * Failure must never affect Twilio TwiML. No new cron / env.
+ */
+function scheduleInboundMediaB1Kick(insertedCount: number): void {
+  if (!Number.isFinite(insertedCount) || insertedCount <= 0) return;
+  after(() => {
+    void kickInboundMediaB1Downloads()
+      .then((r) => {
+        console.info("[twilio/inbound] mms-b1 kick done", r);
+      })
+      .catch((err) => {
+        console.error("[twilio/inbound] mms-b1 kick error", err);
       });
   });
 }
@@ -330,12 +348,13 @@ export async function POST(req: Request) {
           }) &&
           (await isInboundMediaEnqueueAllowedByAccountDeletion(userId))
         ) {
-          await maybeEnqueueInboundMediaJobsFromTwilioParams({
+          const enqueueResult = await maybeEnqueueInboundMediaJobsFromTwilioParams({
             clerkUserId: userId,
             messageSid,
             params,
             numMedia,
           });
+          scheduleInboundMediaB1Kick(enqueueResult?.inserted ?? 0);
         }
       }
       return fastAckTwiml();
@@ -401,12 +420,13 @@ export async function POST(req: Request) {
         // Media enqueue is additive / non-blocking; never gates coach durability.
         // Unresolved account deletion suppresses media only (text/coach unchanged).
         if (await isInboundMediaEnqueueAllowedByAccountDeletion(userId)) {
-          await maybeEnqueueInboundMediaJobsFromTwilioParams({
+          const enqueueResult = await maybeEnqueueInboundMediaJobsFromTwilioParams({
             clerkUserId: userId,
             messageSid,
             params,
             numMedia,
           });
+          scheduleInboundMediaB1Kick(enqueueResult?.inserted ?? 0);
         }
 
         await ensureCoachJobPresent({
@@ -474,12 +494,13 @@ export async function POST(req: Request) {
     // Media enqueue is additive / non-blocking; never gates coach durability.
     // Same opt-out + deletion law as image-only (deletion suppresses media only).
     if (await isInboundMediaEnqueueAllowedByAccountDeletion(userId)) {
-      await maybeEnqueueInboundMediaJobsFromTwilioParams({
+      const enqueueResult = await maybeEnqueueInboundMediaJobsFromTwilioParams({
         clerkUserId: userId,
         messageSid,
         params,
         numMedia,
       });
+      scheduleInboundMediaB1Kick(enqueueResult?.inserted ?? 0);
     }
 
     await ensureCoachJobPresent({
