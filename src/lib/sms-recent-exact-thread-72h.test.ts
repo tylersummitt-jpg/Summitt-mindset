@@ -18,6 +18,7 @@ vi.mock("@/lib/v2-commitment", async (importOriginal) => {
 import {
   bodyFromSendEventRow,
   bodyFromWeeklySendEventRow,
+  buildMorningExactThreadForPacket,
   buildRecentExactThread72h,
   buildRecentExactThreadForBrief,
   BRIEF_THREAD_MAX_CHARS,
@@ -43,6 +44,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { extractCoachBodiesFromBriefThread } from "@/lib/sms-recent-coach-body-anti-repeat";
 import { deriveFreshnessAvoidPhrasesForBrief } from "@/lib/sms-daily-fresh-move";
+import { countRecentUnansweredOutboundFromExactThread } from "@/lib/morning-tto-brief-canonical-load-v1";
 
 const NOW = new Date("2026-05-18T12:00:00.000Z");
 const TZ = "America/Chicago";
@@ -239,6 +241,43 @@ describe("isSendEventTrulySent", () => {
       false
     );
     expect(isSendEventTrulySent({ status: "preview", sms_body: "Hi" })).toBe(false);
+  });
+});
+
+describe("bodyFromSendEventRow TTO Evening metadata", () => {
+  const ARON_BODY =
+    "Hey A-Ron—no pressure to respond. Just sending some encouragement your way tonight. I’m here when you’re ready to reconnect.";
+
+  it("resolves metadata.final_body_sent when top-level sms_body is absent", () => {
+    expect(
+      bodyFromSendEventRow({
+        status: "sent",
+        message_sid: "SMd7f9cc138078662f422f0057cd3ad260",
+        send_slot: "evening_checkin",
+        metadata: { final_body_sent: ARON_BODY },
+      })
+    ).toBe(ARON_BODY);
+  });
+
+  it("resolves metadata.final_sms_body when sms_body and final_body_sent are absent", () => {
+    expect(
+      bodyFromSendEventRow({
+        status: "sent",
+        message_sid: "SM_FINAL_SMS",
+        metadata: { final_sms_body: "Morning canonical metadata body." },
+      })
+    ).toBe("Morning canonical metadata body.");
+  });
+
+  it("keeps top-level sms_body preferred when both sms_body and final_body_sent exist", () => {
+    expect(
+      bodyFromSendEventRow({
+        sms_body: "Morning top-level sms_body",
+        status: "sent",
+        message_sid: "SM_MORNING",
+        metadata: { final_body_sent: "Must not override Morning sms_body" },
+      })
+    ).toBe("Morning top-level sms_body");
   });
 });
 
@@ -2668,5 +2707,136 @@ describe("Morning TTO user-body preservation and role-aware budget", () => {
     expect(morningSlice).not.toMatch(/preview_body|exact_body_full|long_message_summary/);
     expect(morningSlice).toMatch(/omitted_older_turn_count/);
     expect(morningSlice).toMatch(/MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE/);
+  });
+});
+
+describe("Evening TTO exact-thread gap (metadata.final_body_sent)", () => {
+  const ARON_CLERK = "user_3EzZE1EtG4wAM2HuwPWZhbWipVR";
+  const ARON_SID = "SMd7f9cc138078662f422f0057cd3ad260";
+  const ARON_BODY =
+    "Hey A-Ron—no pressure to respond. Just sending some encouragement your way tonight. I’m here when you’re ready to reconnect.";
+  const NOW_AUG13 = new Date("2026-08-13T12:00:00.000Z");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getRecentV2EventsForAi.mockResolvedValue([]);
+  });
+
+  it("includes a sent Evening event that has only metadata.final_body_sent", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          send_slot: "evening_checkin",
+          status: "sent",
+          message_sid: ARON_SID,
+          created_at: "2026-08-12T23:05:00.000Z",
+          metadata: {
+            final_body_sent: ARON_BODY,
+            sent_at: "2026-08-12T23:05:00.000Z",
+            twilio_status: "accepted",
+            note: "evening_sms_cron_sent",
+          },
+        },
+      ],
+      inboundMsgRows: [
+        {
+          raw_body: "I'll try tomorrow.",
+          received_at: "2026-08-11T16:00:00.000Z",
+          message_sid: "SM_ARON_INBOUND",
+        },
+      ],
+    });
+
+    const morning = await buildMorningExactThreadForPacket({
+      clerkUserId: ARON_CLERK,
+      timezone: "America/New_York",
+      now: NOW_AUG13,
+      messageForLocalDate: "2026-08-13",
+    });
+
+    const evening = morning.messages.find((m) => m.body === ARON_BODY);
+    expect(evening).toMatchObject({
+      sender: "coach",
+      body: ARON_BODY,
+    });
+    expect(evening?.local_day_key).toBe("2026-08-12");
+    expect(countRecentUnansweredOutboundFromExactThread(morning.messages)).toBe(1);
+  });
+
+  it("excludes reserved, failed, and empty-body Evening events", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          send_slot: "evening_checkin",
+          status: "reserved",
+          created_at: "2026-08-12T23:00:00.000Z",
+          metadata: { note: "reserved_by_evening_sms_cron" },
+        },
+        {
+          send_slot: "evening_checkin",
+          status: "send_failed",
+          created_at: "2026-08-11T23:00:00.000Z",
+          metadata: { note: "twilio_failed", final_body_sent: "Must not appear after failed send." },
+        },
+        {
+          send_slot: "evening_checkin",
+          status: "sent",
+          message_sid: "SM_EMPTY_EVENING",
+          created_at: "2026-08-10T23:00:00.000Z",
+          metadata: { sent_at: "2026-08-10T23:00:00.000Z", note: "evening_sms_cron_sent" },
+        },
+      ],
+    });
+
+    const morning = await buildMorningExactThreadForPacket({
+      clerkUserId: ARON_CLERK,
+      timezone: "America/New_York",
+      now: NOW_AUG13,
+      messageForLocalDate: "2026-08-13",
+    });
+
+    expect(morning.messages).toHaveLength(0);
+  });
+
+  it("keeps inbound coach-job replies visible beside recovered Evening sends", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          send_slot: "evening_checkin",
+          status: "sent",
+          message_sid: ARON_SID,
+          created_at: "2026-08-12T23:05:00.000Z",
+          metadata: {
+            final_body_sent: ARON_BODY,
+            sent_at: "2026-08-12T23:05:00.000Z",
+          },
+        },
+      ],
+      jobRows: [
+        {
+          raw_body: "I got the walk in.",
+          reply_body: "Proud of you for getting the walk in.",
+          status: "sent",
+          sent_at: "2026-08-12T20:00:00.000Z",
+          created_at: "2026-08-12T19:59:00.000Z",
+          updated_at: "2026-08-12T20:00:00.000Z",
+          message_sid: "SM_USER_WALK",
+          outbound_message_sid: "SM_COACH_WALK",
+        },
+      ],
+    });
+
+    const morning = await buildMorningExactThreadForPacket({
+      clerkUserId: "user_inbound_and_evening",
+      timezone: "America/New_York",
+      now: NOW_AUG13,
+      messageForLocalDate: "2026-08-13",
+    });
+
+    expect(morning.messages.some((m) => m.sender === "user" && m.body.includes("walk"))).toBe(true);
+    expect(
+      morning.messages.some((m) => m.sender === "coach" && m.body.includes("Proud of you"))
+    ).toBe(true);
+    expect(morning.messages.some((m) => m.body === ARON_BODY)).toBe(true);
   });
 });

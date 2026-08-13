@@ -53,6 +53,7 @@ vi.mock("@/lib/supabase-server", () => {
         };
       },
       maybeSingle: async () => {
+        applyPendingUpdate();
         if (table === "sms_daily_drafts") {
           const row = db.drafts.find((d) => {
             if (state.filters.id && d.id !== state.filters.id) return false;
@@ -67,9 +68,6 @@ vi.mock("@/lib/supabase-server", () => {
             if (state.filters.status && d.status !== state.filters.status) return false;
             return true;
           });
-          if (state.updatePayload && row) {
-            Object.assign(row, state.updatePayload);
-          }
           return { data: row ?? null, error: null };
         }
         if (table === "sms_daily_draft_generations") {
@@ -85,9 +83,6 @@ vi.mock("@/lib/supabase-server", () => {
             if (state.filters.id && e.id !== state.filters.id) return false;
             return true;
           });
-          if (state.updatePayload && row) {
-            Object.assign(row, state.updatePayload);
-          }
           return { data: row ?? null, error: null };
         }
         if (table === "sms_audience") {
@@ -98,7 +93,34 @@ vi.mock("@/lib/supabase-server", () => {
         }
         return { data: null, error: null };
       },
+      then: (resolve: (v: { data: unknown; error: null }) => void) => {
+        applyPendingUpdate();
+        resolve({ data: null, error: null });
+      },
     };
+
+    function applyPendingUpdate() {
+      if (!state.updatePayload) return;
+      if (table === "sms_send_events") {
+        const row = db.sendEvents.find((e) => {
+          if (state.filters.id && e.id !== state.filters.id) return false;
+          if (state.filters.clerk_user_id && e.clerk_user_id !== state.filters.clerk_user_id)
+            return false;
+          if (state.filters.day_key && e.day_key !== state.filters.day_key) return false;
+          if (state.filters.send_slot && e.send_slot !== state.filters.send_slot) return false;
+          return true;
+        });
+        if (row) Object.assign(row, state.updatePayload);
+      }
+      if (table === "sms_daily_drafts") {
+        const row = db.drafts.find((d) => {
+          if (state.filters.id && d.id !== state.filters.id) return false;
+          if (state.filters.status && d.status !== state.filters.status) return false;
+          return true;
+        });
+        if (row) Object.assign(row, state.updatePayload);
+      }
+    }
     return builder;
   }
   return { supabaseServer: { from } };
@@ -374,6 +396,13 @@ describe("Evening authoritative gate + cron send", () => {
     expect(sendSMS.mock.calls[0]?.[0]?.body).toBe("Current A");
     expect(db.sendEvents[0]?.send_slot).toBe("evening_checkin");
     expect(db.sendEvents[0]?.day_key).toBe("2026-06-27");
+    expect(db.sendEvents[0]?.status).toBe("sent");
+    expect(db.sendEvents[0]?.sms_body).toBe("Current A");
+    expect(db.sendEvents[0]?.message_sid).toBe("SM_EVENING_TEST");
+    const meta = db.sendEvents[0]?.metadata as Record<string, unknown>;
+    expect(meta.sms_body).toBe("Current A");
+    expect(meta.final_sms_body).toBe("Current A");
+    expect(meta.final_body_sent).toBe("Current A");
   });
 
   it("Tyler B sends B not machine A", async () => {
@@ -517,6 +546,26 @@ describe("Evening authoritative gate + cron send", () => {
     );
     expect(src).not.toMatch(/ageMs > EVENING_PREVIEW_STALE_MS/);
     expect(src).not.toMatch(/stale_preview/);
+  });
+
+  it("Twilio success finalize writes canonical sms_body fields without changing reservation insert", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-evening-send.ts"),
+      "utf8"
+    );
+    const insertStart = src.indexOf("const { data: inserted, error } = await supabaseServer");
+    const insertEnd = src.indexOf("if (error)", insertStart);
+    const insertBlock = src.slice(insertStart, insertEnd);
+    expect(insertBlock).toContain('status: "reserved"');
+    expect(insertBlock).not.toMatch(/sms_body:/);
+
+    const finalizeStart = src.indexOf("const sentAtIso = now.toISOString();");
+    const finalizeEnd = src.indexOf("if (eventUpdErr)", finalizeStart);
+    const finalizeBlock = src.slice(finalizeStart, finalizeEnd);
+    expect(finalizeBlock).toMatch(/sms_body:\s*smsBody/);
+    expect(finalizeBlock).toContain("final_sms_body: smsBody");
+    expect(finalizeBlock).toContain("final_body_sent: smsBody");
+    expect(finalizeBlock).toContain('status: "sent"');
   });
 });
 

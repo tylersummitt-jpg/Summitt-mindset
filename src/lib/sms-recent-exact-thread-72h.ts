@@ -537,6 +537,9 @@ export function bodyFromSendEventRow(row: Record<string, unknown>): string {
   if (meta && typeof meta === "object" && !Array.isArray(meta)) {
     const m = meta as Record<string, unknown>;
     const nested = firstNonEmptyBody(
+      // TTO Evening/forensic keys — same metadata names as resolveSendEventBody.
+      metaPathString(m, "final_body_sent"),
+      metaPathString(m, "final_sms_body"),
       metaPathString(m, "sms_body"),
       metaPathString(m, "body"),
       metaPathString(m, "final_body"),

@@ -923,11 +923,14 @@ export async function sendEveningTtoAuthoritativeCronSend(args: {
     .update({
       status: "sent",
       message_sid: messageSid,
+      sms_body: smsBody,
       metadata: {
         ...eventMeta,
         note: "evening_sms_cron_sent",
         twilio_send_attempted: true,
         twilio_status: twilioStatus,
+        sms_body: smsBody,
+        final_sms_body: smsBody,
         final_body_sent: smsBody,
         final_body_sent_hash: hashSmsSnippet(smsBody),
         sent_at: sentAtIso,
