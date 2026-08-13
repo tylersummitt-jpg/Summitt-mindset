@@ -14,6 +14,10 @@ import {
 } from "@/lib/sms-inbound-safety";
 import { clearCommsPreferencesOnSmsResume } from "@/lib/v2-sms-comms-preferences";
 import { enqueueNormalCoachJobWithBurstQuiet } from "@/lib/sms-inbound-burst-pace";
+import {
+  evaluateTwilioInboundTransportGate,
+  parseTwilioInboundNumMedia,
+} from "@/lib/twilio-inbound-transport";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -282,9 +286,22 @@ export async function POST(req: Request) {
     const messageSid = params.get("MessageSid");
     const from = normalizePhone(params.get("From") || "");
     const body = normalizeBody(params.get("Body") || "");
+    const numMedia = parseTwilioInboundNumMedia(params.get("NumMedia"));
+    const transport = evaluateTwilioInboundTransportGate({
+      messageSid,
+      from,
+      body,
+      numMedia,
+    });
 
-    if (!messageSid || !from || !body) {
+    if (!transport.accept || !messageSid) {
       return NextResponse.json({ ok: true });
+    }
+
+    // Image-only MMS: transport-accept with valid empty TwiML. No fabricated Body,
+    // no sms_inbound_messages, no coach job, no media job (Slice A1).
+    if (transport.imageOnly) {
+      return fastAckTwiml();
     }
 
     const { data: identity } = await supabaseServer
