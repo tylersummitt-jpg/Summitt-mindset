@@ -22,7 +22,10 @@ import {
   type TwilioMmsDownloadDeps,
 } from "@/lib/victory-media/download-twilio-mms-media";
 import type { SniffedImageFormat } from "@/lib/victory-media/image-types";
-import { sniffImageFormat } from "@/lib/victory-media/sniff-image-format";
+import {
+  sniffImageFormat,
+  storageMimeForSniffedImageFormat,
+} from "@/lib/victory-media/sniff-image-format";
 import { victoryMediaMmsTempPath } from "@/lib/victory-media/storage-paths";
 import {
   isTwilioMediaSid,
@@ -31,13 +34,6 @@ import {
 
 /** Re-export retry cap for callers/tests. */
 export { INBOUND_MEDIA_B1_MAX_ATTEMPTS };
-
-const SUPPORTED_SNIFF = new Set<SniffedImageFormat>([
-  "jpeg",
-  "png",
-  "webp",
-  "heic_heif",
-]);
 
 export type ProcessInboundMediaB1Result =
   | { ok: true; jobId: string; tempStoragePath: string; sniffedFormat: SniffedImageFormat }
@@ -49,6 +45,7 @@ export type ProcessInboundMediaB1Deps = {
     bucket: string;
     path: string;
     bytes: Buffer;
+    contentType: string;
   }) => Promise<void>;
   removeTemp?: (args: { bucket: string; path: string }) => Promise<void>;
   hasUnresolvedDeletion?: (clerkUserId: string) => Promise<boolean>;
@@ -61,17 +58,14 @@ function computeNextRetryIso(attempt: number): string {
   return new Date(Date.now() + sec * 1000).toISOString();
 }
 
-function isSupportedSniff(format: SniffedImageFormat): boolean {
-  return SUPPORTED_SNIFF.has(format);
-}
-
 async function defaultUploadTemp(args: {
   bucket: string;
   path: string;
   bytes: Buffer;
+  contentType: string;
 }): Promise<void> {
   const { error } = await supabaseServer.storage.from(args.bucket).upload(args.path, args.bytes, {
-    contentType: "application/octet-stream",
+    contentType: args.contentType,
     upsert: true,
   });
   if (error) {
@@ -273,6 +267,7 @@ export async function processInboundMediaJobB1(
   }
 
   const sniffed = sniffImageFormat(bytes);
+  const contentType = storageMimeForSniffedImageFormat(sniffed);
   console.info("[victory-media/mms-b1] sniffed", {
     ...logBase,
     declared_mime: fresh.declared_content_type,
@@ -281,7 +276,7 @@ export async function processInboundMediaJobB1(
     byte_count: bytes.length,
   });
 
-  if (!isSupportedSniff(sniffed)) {
+  if (!contentType) {
     await markFailed({
       jobId: fresh.id,
       attemptCount: fresh.attempt_count,
@@ -317,6 +312,7 @@ export async function processInboundMediaJobB1(
       bucket: VICTORY_MEDIA_BUCKET,
       path: tempPath,
       bytes,
+      contentType,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

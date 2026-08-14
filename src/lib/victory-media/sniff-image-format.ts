@@ -3,6 +3,7 @@
  * Extension and declared MIME are irrelevant — bytes only.
  */
 
+import type { VictoryMediaAllowedUploadMime } from "@/lib/victory-media/constants";
 import type { SniffedImageFormat } from "@/lib/victory-media/image-types";
 
 const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -121,4 +122,35 @@ export function isNativeSharpRasterFormat(
   format: SniffedImageFormat
 ): format is "jpeg" | "png" | "webp" {
   return format === "jpeg" || format === "png" || format === "webp";
+}
+
+/**
+ * Canonical private Storage contentType from sniffed bytes.
+ * Declared MIME and HTTP response MIME are not inputs.
+ *
+ * sniffImageFormat returns a combined `heic_heif` — it does not distinguish
+ * HEIC vs HEIF containers. Existing PATH B (`normalizeVictoryImage` with
+ * `kind: "supabase_object"`) is likewise unified: byte sniff of `heic_heif`
+ * triggers the Storage transform bridge regardless of container brand.
+ * `image/heic` is the existing allowed bucket MIME used by the web HEIC
+ * temp-object contract and is accepted by victory-media.
+ */
+export function storageMimeForSniffedImageFormat(
+  format: SniffedImageFormat
+): VictoryMediaAllowedUploadMime | null {
+  switch (format) {
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    case "heic_heif":
+      return "image/heic";
+    case "gif":
+    case "svg":
+    case "avif":
+    case "unknown":
+      return null;
+  }
 }

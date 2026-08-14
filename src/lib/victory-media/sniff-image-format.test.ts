@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { sniffImageFormat } from "@/lib/victory-media/sniff-image-format";
+import { VICTORY_MEDIA_ALLOWED_UPLOAD_MIMES } from "@/lib/victory-media/constants";
+import {
+  sniffImageFormat,
+  storageMimeForSniffedImageFormat,
+} from "@/lib/victory-media/sniff-image-format";
 
 function ftypBox(major: string, compat: string[] = []): Buffer {
   const parts = [
@@ -84,5 +88,47 @@ describe("sniffImageFormat", () => {
   it("does not treat corrupt near-JPEG as JPEG", () => {
     // Missing third FF.
     expect(sniffImageFormat(Buffer.from([0xff, 0xd8, 0x00, 0x00]))).toBe("unknown");
+  });
+});
+
+describe("storageMimeForSniffedImageFormat", () => {
+  it("maps supported sniffs to bucket-allowed Storage MIME", () => {
+    expect(storageMimeForSniffedImageFormat("jpeg")).toBe("image/jpeg");
+    expect(storageMimeForSniffedImageFormat("png")).toBe("image/png");
+    expect(storageMimeForSniffedImageFormat("webp")).toBe("image/webp");
+    expect(storageMimeForSniffedImageFormat("heic_heif")).toBe("image/heic");
+    for (const mime of [
+      storageMimeForSniffedImageFormat("jpeg"),
+      storageMimeForSniffedImageFormat("png"),
+      storageMimeForSniffedImageFormat("webp"),
+      storageMimeForSniffedImageFormat("heic_heif"),
+    ]) {
+      expect(VICTORY_MEDIA_ALLOWED_UPLOAD_MIMES).toContain(mime);
+    }
+  });
+
+  it("returns null for unsupported sniffs (no Storage MIME)", () => {
+    expect(storageMimeForSniffedImageFormat("gif")).toBeNull();
+    expect(storageMimeForSniffedImageFormat("svg")).toBeNull();
+    expect(storageMimeForSniffedImageFormat("avif")).toBeNull();
+    expect(storageMimeForSniffedImageFormat("unknown")).toBeNull();
+  });
+
+  it("does not emit application/octet-stream", () => {
+    const formats = [
+      "jpeg",
+      "png",
+      "webp",
+      "heic_heif",
+      "gif",
+      "svg",
+      "avif",
+      "unknown",
+    ] as const;
+    for (const format of formats) {
+      expect(storageMimeForSniffedImageFormat(format)).not.toBe(
+        "application/octet-stream"
+      );
+    }
   });
 });

@@ -76,6 +76,9 @@ describe("twilio inbound — MMS B1 wire", () => {
     expect(proc).toContain("victoryMediaMmsTempPath");
     expect(proc).toContain('status: "normalizing"');
     expect(proc).toContain("temp_storage_path");
+    expect(proc).toContain("storageMimeForSniffedImageFormat");
+    expect(proc).toContain("upsert: true");
+    expect(proc).not.toContain("application/octet-stream");
   });
 
   it("download uses redirect manual and locked CDN host", () => {

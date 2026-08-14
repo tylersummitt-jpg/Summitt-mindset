@@ -53,7 +53,19 @@ type Job = {
 };
 
 const store = new Map<string, Job>();
-const uploadCalls: Array<{ bucket: string; path: string; bytes: Buffer }> = [];
+const uploadCalls: Array<{
+  bucket: string;
+  path: string;
+  bytes: Buffer;
+  contentType: string;
+}> = [];
+const storageUploads: Array<{
+  bucket: string;
+  path: string;
+  bytes: Buffer;
+  contentType: string | undefined;
+  upsert: boolean | undefined;
+}> = [];
 const removeCalls: string[] = [];
 const fetchCalls: Array<{ url: string; auth: boolean }> = [];
 
@@ -131,8 +143,21 @@ vi.mock("@/lib/supabase-server", () => ({
       };
     },
     storage: {
-      from: () => ({
-        upload: async () => ({ error: null }),
+      from: (bucket: string) => ({
+        upload: async (
+          path: string,
+          bytes: Buffer,
+          opts?: { contentType?: string; upsert?: boolean }
+        ) => {
+          storageUploads.push({
+            bucket,
+            path,
+            bytes,
+            contentType: opts?.contentType,
+            upsert: opts?.upsert,
+          });
+          return { error: null };
+        },
         remove: async () => ({ error: null }),
       }),
     },
@@ -192,7 +217,7 @@ function stream(bytes: Buffer): ReadableStream<Uint8Array> {
   });
 }
 
-function redirectThenBytes(bytes: Buffer) {
+function redirectThenBytes(bytes: Buffer, cdnContentType?: string) {
   return vi
     .fn()
     .mockImplementation(async (url: string, init?: RequestInit) => {
@@ -208,7 +233,10 @@ function redirectThenBytes(bytes: Buffer) {
       }
       if (url.includes("mms.twiliocdn.com")) {
         expect(auth).toBe(false);
-        return new Response(stream(bytes), { status: 200 });
+        const headers = cdnContentType
+          ? { "content-type": cdnContentType }
+          : undefined;
+        return new Response(stream(bytes), { status: 200, headers });
       }
       if (url.includes("/Media.json")) {
         return new Response(JSON.stringify({ media_list: [{ sid: ME }] }), {
@@ -223,6 +251,7 @@ describe("processInboundMediaJobB1", () => {
   beforeEach(() => {
     store.clear();
     uploadCalls.length = 0;
+    storageUploads.length = 0;
     removeCalls.length = 0;
     fetchCalls.length = 0;
     vi.stubEnv("TWILIO_ACCOUNT_SID", AC);
@@ -251,6 +280,9 @@ describe("processInboundMediaJobB1", () => {
     expect(uploadCalls).toHaveLength(1);
     expect(uploadCalls[0]!.bucket).toBe(VICTORY_MEDIA_BUCKET);
     expect(uploadCalls[0]!.path).toBe(expected);
+    expect(uploadCalls[0]!.path).toMatch(/\/mms-temp\/[0-9a-f-]+\.bin$/);
+    expect(uploadCalls[0]!.contentType).toBe("image/jpeg");
+    expect(uploadCalls[0]!.contentType).not.toBe("application/octet-stream");
     const job = store.get(JOB_ID)!;
     expect(job.status).toBe("normalizing");
     expect(job.temp_storage_path).toBe(expected);
@@ -260,13 +292,22 @@ describe("processInboundMediaJobB1", () => {
     expect(job.attached_win_id).toBeNull();
   });
 
-  it("accepts png/webp/heic/heif sniff; rejects gif/avif/unknown", async () => {
-    const cases: Array<{ bytes: Buffer; ok: boolean; format?: string }> = [
-      { bytes: PNG, ok: true, format: "png" },
-      { bytes: WEBP, ok: true, format: "webp" },
-      { bytes: ftyp("heic"), ok: true, format: "heic_heif" },
-      { bytes: ftyp("heif"), ok: true, format: "heic_heif" },
+  it("accepts png/webp/heic/heif sniff; rejects gif/svg/avif/unknown; never uploads unsupported", async () => {
+    const cases: Array<{
+      bytes: Buffer;
+      ok: boolean;
+      format?: string;
+      mime?: string;
+    }> = [
+      { bytes: PNG, ok: true, format: "png", mime: "image/png" },
+      { bytes: WEBP, ok: true, format: "webp", mime: "image/webp" },
+      { bytes: ftyp("heic"), ok: true, format: "heic_heif", mime: "image/heic" },
+      { bytes: ftyp("heif"), ok: true, format: "heic_heif", mime: "image/heic" },
       { bytes: Buffer.from("GIF89a......"), ok: false },
+      {
+        bytes: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+        ok: false,
+      },
       { bytes: ftyp("avif"), ok: false },
       { bytes: Buffer.from("not-an-image-xxx"), ok: false },
     ];
@@ -289,9 +330,15 @@ describe("processInboundMediaJobB1", () => {
         expect(r.ok).toBe(true);
         if (r.ok) expect(r.sniffedFormat).toBe(c.format);
         expect(uploadCalls.length).toBe(1);
+        expect(uploadCalls[0]!.contentType).toBe(c.mime);
+        expect(uploadCalls[0]!.contentType).not.toBe("application/octet-stream");
+        expect(uploadCalls[0]!.path).toBe(victoryMediaMmsTempPath(USER, JOB_ID));
       } else {
         expect(r.ok).toBe(false);
-        if (!r.ok) expect(r.terminal).toBe(true);
+        if (!r.ok) {
+          expect(r.terminal).toBe(true);
+          expect(r.reason).toMatch(/^unsupported_format:/);
+        }
         expect(uploadCalls.length).toBe(0);
       }
     }
@@ -313,6 +360,74 @@ describe("processInboundMediaJobB1", () => {
     });
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.sniffedFormat).toBe("heic_heif");
+    expect(uploadCalls).toHaveLength(1);
+    expect(uploadCalls[0]!.contentType).toBe("image/heic");
+    expect(uploadCalls[0]!.contentType).not.toBe("image/jpeg");
+    expect(uploadCalls[0]!.contentType).not.toBe("application/octet-stream");
+  });
+
+  it("byte sniff MIME wins over HTTP response MIME disagreement", async () => {
+    seed({ declared_content_type: "image/png" });
+    const r = await processInboundMediaJobB1(JOB_ID, {
+      downloadDeps: {
+        fetchFn: redirectThenBytes(JPEG, "image/png") as unknown as typeof fetch,
+        accountSid: AC,
+        authToken: "tok",
+      },
+      uploadTemp: async (args) => {
+        uploadCalls.push(args);
+      },
+      hasUnresolvedDeletion: async () => false,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.sniffedFormat).toBe("jpeg");
+    expect(uploadCalls).toHaveLength(1);
+    expect(uploadCalls[0]!.contentType).toBe("image/jpeg");
+    expect(uploadCalls[0]!.contentType).not.toBe("image/png");
+    expect(uploadCalls[0]!.contentType).not.toBe("application/octet-stream");
+  });
+
+  it("default Storage upload uses sniffed MIME + upsert:true, never octet-stream", async () => {
+    seed();
+    const expected = victoryMediaMmsTempPath(USER, JOB_ID);
+    const r = await processInboundMediaJobB1(JOB_ID, {
+      downloadDeps: {
+        fetchFn: redirectThenBytes(JPEG) as unknown as typeof fetch,
+        accountSid: AC,
+        authToken: "tok",
+      },
+      hasUnresolvedDeletion: async () => false,
+    });
+    expect(r.ok).toBe(true);
+    expect(storageUploads).toHaveLength(1);
+    expect(storageUploads[0]!.bucket).toBe(VICTORY_MEDIA_BUCKET);
+    expect(storageUploads[0]!.path).toBe(expected);
+    expect(storageUploads[0]!.path.endsWith(".bin")).toBe(true);
+    expect(storageUploads[0]!.contentType).toBe("image/jpeg");
+    expect(storageUploads[0]!.contentType).not.toBe("application/octet-stream");
+    expect(storageUploads[0]!.upsert).toBe(true);
+    expect(uploadCalls).toHaveLength(0);
+  });
+
+  it("default HEIC/HEIF temp upload uses image/heic (bucket-allowed transform MIME)", async () => {
+    seed({ declared_content_type: "application/octet-stream" });
+    const expected = victoryMediaMmsTempPath(USER, JOB_ID);
+    const r = await processInboundMediaJobB1(JOB_ID, {
+      downloadDeps: {
+        fetchFn: redirectThenBytes(ftyp("heic"), "application/octet-stream") as unknown as typeof fetch,
+        accountSid: AC,
+        authToken: "tok",
+      },
+      hasUnresolvedDeletion: async () => false,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.sniffedFormat).toBe("heic_heif");
+    expect(storageUploads).toHaveLength(1);
+    expect(storageUploads[0]!.path).toBe(expected);
+    expect(storageUploads[0]!.contentType).toBe("image/heic");
+    expect(storageUploads[0]!.contentType).not.toBe("image/heif");
+    expect(storageUploads[0]!.contentType).not.toBe("application/octet-stream");
+    expect(storageUploads[0]!.upsert).toBe(true);
   });
 
   it("deletion-pending never contacts Twilio and expires job", async () => {
@@ -473,5 +588,7 @@ describe("processInboundMediaJobB1", () => {
     });
     expect(uploadCalls[1]!.path).toBe(path);
     expect(new Set(uploadCalls.map((c) => c.path)).size).toBe(1);
+    expect(uploadCalls[0]!.contentType).toBe("image/jpeg");
+    expect(uploadCalls[1]!.contentType).toBe("image/jpeg");
   });
 });
