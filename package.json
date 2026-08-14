@@ -16,6 +16,7 @@
     "pat:search-source": "tsx scripts/pat-candidates/search-source.mts"
   },
   "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
     "@clerk/nextjs": "^6.35.5",
     "@supabase/supabase-js": "^2.89.0",
     "html-to-image": "^1.11.13",
