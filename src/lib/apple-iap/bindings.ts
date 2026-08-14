@@ -135,3 +135,20 @@ export async function getOrCreateLiveAppleAccountToken(
 
   return { ok: false, reason: "insert_failed" };
 }
+
+/**
+ * Look up this Clerk user's LIVE appAccountToken. Does not mint a token.
+ */
+export async function getLiveAppleAccountToken(
+  clerkUserId: string,
+  deps: { store?: AppleAccountBindingStore } = {}
+): Promise<
+  | { ok: true; appAccountToken: string }
+  | { ok: false; reason: "not_found" | "read_failed" }
+> {
+  const store = deps.store ?? createSupabaseAppleAccountBindingStore();
+  const existing = await store.findLiveBinding(clerkUserId);
+  if (existing === "read_failed") return { ok: false, reason: "read_failed" };
+  if (!existing) return { ok: false, reason: "not_found" };
+  return { ok: true, appAccountToken: existing.appAccountToken };
+}

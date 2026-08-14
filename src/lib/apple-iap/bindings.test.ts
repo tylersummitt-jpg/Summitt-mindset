@@ -11,6 +11,7 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import {
   createSupabaseAppleAccountBindingStore,
+  getLiveAppleAccountToken,
   getOrCreateLiveAppleAccountToken,
   isPostgresUniqueViolation,
   type AppleAccountBindingStore,
@@ -185,6 +186,29 @@ describe("getOrCreateLiveAppleAccountToken", () => {
       randomUUID: () => TOKEN_A,
     });
     expect(result).toEqual({ ok: false, reason: "insert_failed" });
+  });
+});
+
+describe("getLiveAppleAccountToken", () => {
+  it("returns the live token without minting", async () => {
+    const insert = vi.fn(async () => ({
+      status: "inserted" as const,
+      appAccountToken: TOKEN_B,
+    }));
+    const result = await getLiveAppleAccountToken(USER, {
+      store: memoryStore({ live: TOKEN_A, insert }),
+    });
+    expect(result).toEqual({ ok: true, appAccountToken: TOKEN_A });
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("returns not_found when no live row exists", async () => {
+    const insert = vi.fn();
+    const result = await getLiveAppleAccountToken(USER, {
+      store: memoryStore({ live: null, insert }),
+    });
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+    expect(insert).not.toHaveBeenCalled();
   });
 });
 

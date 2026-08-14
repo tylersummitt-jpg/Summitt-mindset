@@ -29,11 +29,17 @@ vi.mock("@/lib/sms-audience-sync", () => ({
   syncSmsAudience: (...args: unknown[]) => syncSmsMock(...args),
 }));
 
+const getClerkMetadataMock = vi.fn();
+vi.mock("@/lib/clerk-rest", () => ({
+  getClerkPublicMetadata: (...args: unknown[]) => getClerkMetadataMock(...args),
+}));
+
 import {
   createMembershipEntitlementDeps,
   isRetryableMembershipSourceOrClerkFailure,
   membershipProjectionClerkSucceeded,
   recomputeMembershipFromAuthoritativeStripeSubscription,
+  recomputeMembershipFromDurableSources,
   resolveAppleMembershipGrantForUser,
 } from "./summitt-membership-entitlement.server";
 
@@ -56,6 +62,7 @@ describe("summitt-membership-entitlement.server", () => {
     appleEqMock.mockResolvedValue({ data: [], error: null });
     updateClerkMock.mockResolvedValue(undefined);
     syncSmsMock.mockResolvedValue(undefined);
+    getClerkMetadataMock.mockResolvedValue({});
   });
 
   it("empty Apple rows are no grant, not infrastructure failure", async () => {
@@ -148,5 +155,119 @@ describe("summitt-membership-entitlement.server", () => {
         clerkUpdated: true,
       })
     ).toBe(true);
+  });
+});
+
+describe("recomputeMembershipFromDurableSources", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    appleEqMock.mockResolvedValue({ data: [], error: null });
+    updateClerkMock.mockResolvedValue(undefined);
+    syncSmsMock.mockResolvedValue(undefined);
+    getClerkMetadataMock.mockResolvedValue({});
+  });
+  it("Apple-only active grants membership when Clerk has no Stripe id", async () => {
+    appleEqMock.mockResolvedValue({
+      data: [
+        {
+          product_id: APPLE_PRODUCT,
+          status: "active",
+          expires_at: FUTURE,
+        },
+      ],
+      error: null,
+    });
+    getClerkMetadataMock.mockResolvedValue({});
+    const retrieve = vi.fn();
+    const result = await recomputeMembershipFromDurableSources("user_1", {
+      retrieveStripeSubscription: retrieve,
+      readClerkPublicMetadata: getClerkMetadataMock,
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  it("missing stripeSubscriptionId is no Stripe grant, not a lookup failure", async () => {
+    getClerkMetadataMock.mockResolvedValue({ stripeSubscriptionId: "" });
+    const retrieve = vi.fn(async () => {
+      throw new Error("should not retrieve");
+    });
+    const result = await recomputeMembershipFromDurableSources("user_1", {
+      retrieveStripeSubscription: retrieve,
+      readClerkPublicMetadata: getClerkMetadataMock,
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      summittSubscribed: false,
+      summittPlan: null,
+    });
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  it("Stripe retrieve throw is retryable and does not write Clerk false", async () => {
+    getClerkMetadataMock.mockResolvedValue({
+      stripeSubscriptionId: "sub_live",
+    });
+    const result = await recomputeMembershipFromDurableSources("user_1", {
+      retrieveStripeSubscription: async () => {
+        throw new Error("stripe down");
+      },
+      readClerkPublicMetadata: getClerkMetadataMock,
+    });
+    expect(result).toEqual({
+      ok: false,
+      retryable: true,
+      reason: "stripe_lookup_failed",
+      clerkUpdated: false,
+    });
+    expect(updateClerkMock).not.toHaveBeenCalled();
+  });
+
+  it("Stripe OR Apple: canceled Stripe plus active Apple still grants", async () => {
+    appleEqMock.mockResolvedValue({
+      data: [
+        {
+          product_id: APPLE_PRODUCT,
+          status: "active",
+          expires_at: FUTURE,
+        },
+      ],
+      error: null,
+    });
+    getClerkMetadataMock.mockResolvedValue({
+      stripeSubscriptionId: "sub_canceled",
+    });
+    const result = await recomputeMembershipFromDurableSources("user_1", {
+      retrieveStripeSubscription: async () => ({
+        status: "canceled",
+        pause_collection: null,
+        items: { data: [] },
+      }),
+      readClerkPublicMetadata: getClerkMetadataMock,
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
+  });
+
+  it("Stripe OR Apple: active Stripe plus empty Apple still grants", async () => {
+    getClerkMetadataMock.mockResolvedValue({
+      stripeSubscriptionId: "sub_active",
+    });
+    const result = await recomputeMembershipFromDurableSources("user_1", {
+      retrieveStripeSubscription: async () => stripeActive(),
+      readClerkPublicMetadata: getClerkMetadataMock,
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
   });
 });
