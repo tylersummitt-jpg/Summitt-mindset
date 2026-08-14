@@ -10,6 +10,7 @@ import { AppleIapError } from "./errors";
 import {
   createSignedDataVerifier,
   verifySignedNotification,
+  verifySignedRenewalInfo,
   verifySignedTransaction,
 } from "./verifier";
 
@@ -77,6 +78,25 @@ describe("Apple IAP verification helpers", () => {
     ).rejects.toMatchObject({ code: "apple_iap_verification_failed" });
     expect(verifyAndDecodeNotification).toHaveBeenCalledWith(
       "signed.notification.placeholder"
+    );
+  });
+
+  it("calls verifyAndDecodeRenewalInfo and normalizes failure", async () => {
+    const verifyAndDecodeRenewalInfo = vi.fn(async () => {
+      throw new VerificationException(VerificationStatus.VERIFICATION_FAILURE);
+    });
+    const verifier = {
+      verifyAndDecodeRenewalInfo,
+    } as unknown as SignedDataVerifier;
+
+    await expect(
+      verifySignedRenewalInfo("signed.renewal.placeholder", verifier)
+    ).rejects.toMatchObject({
+      name: "AppleIapError",
+      code: "apple_iap_verification_failed",
+    });
+    expect(verifyAndDecodeRenewalInfo).toHaveBeenCalledWith(
+      "signed.renewal.placeholder"
     );
   });
 });

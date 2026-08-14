@@ -270,4 +270,76 @@ describe("recomputeMembershipFromDurableSources", () => {
       summittPlan: "monthly",
     });
   });
+
+  it("Apple expiry + active Stripe still grants", async () => {
+    appleEqMock.mockResolvedValue({
+      data: [
+        {
+          product_id: APPLE_PRODUCT,
+          status: "expired",
+          expires_at: "2020-01-01T00:00:00.000Z",
+        },
+      ],
+      error: null,
+    });
+    getClerkMetadataMock.mockResolvedValue({
+      stripeSubscriptionId: "sub_active",
+    });
+    const result = await recomputeMembershipFromDurableSources("user_1", {
+      retrieveStripeSubscription: async () => stripeActive(),
+      readClerkPublicMetadata: getClerkMetadataMock,
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
+  });
+
+  it("Apple expiry + no Stripe is inactive", async () => {
+    appleEqMock.mockResolvedValue({
+      data: [
+        {
+          product_id: APPLE_PRODUCT,
+          status: "expired",
+          expires_at: "2020-01-01T00:00:00.000Z",
+        },
+      ],
+      error: null,
+    });
+    getClerkMetadataMock.mockResolvedValue({});
+    const result = await recomputeMembershipFromDurableSources("user_1", {
+      retrieveStripeSubscription: vi.fn(),
+      readClerkPublicMetadata: getClerkMetadataMock,
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      summittSubscribed: false,
+      summittPlan: null,
+    });
+  });
+
+  it("Apple refunded + active Stripe still grants", async () => {
+    appleEqMock.mockResolvedValue({
+      data: [
+        {
+          product_id: APPLE_PRODUCT,
+          status: "refunded",
+          expires_at: FUTURE,
+        },
+      ],
+      error: null,
+    });
+    getClerkMetadataMock.mockResolvedValue({
+      stripeSubscriptionId: "sub_active",
+    });
+    const result = await recomputeMembershipFromDurableSources("user_1", {
+      retrieveStripeSubscription: async () => stripeActive(),
+      readClerkPublicMetadata: getClerkMetadataMock,
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      summittSubscribed: true,
+    });
+  });
 });

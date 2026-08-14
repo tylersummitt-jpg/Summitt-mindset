@@ -24,6 +24,8 @@ import {
 import {
   appleAccountTokensEqual,
   persistOwnedAppleSubscription,
+  preferNewerExpiryIso,
+  preferNewerTransactionId,
   validateDecodedAppleTransaction,
   type AppleSubscriptionStore,
 } from "./subscriptions";
@@ -174,6 +176,7 @@ describe("persistOwnedAppleSubscription", () => {
     status: "active" as const,
     entitled: true,
     refundedAt: null,
+    signedAt: null,
   };
 
   it("inserts when no row exists", async () => {
@@ -331,5 +334,16 @@ describe("persistOwnedAppleSubscription", () => {
       }),
     });
     expect(result).toEqual({ ok: false, reason: "update_failed" });
+  });
+});
+
+describe("preferNewerExpiryIso / preferNewerTransactionId", () => {
+  it("does not replace a newer expiry or transaction id with an older one", () => {
+    const newer = "2099-12-01T00:00:00.000Z";
+    expect(
+      preferNewerExpiryIso(newer, new Date("2020-01-01T00:00:00.000Z"))
+    ).toBe(newer);
+    expect(preferNewerTransactionId("2001", "1500")).toBe("2001");
+    expect(preferNewerTransactionId("2001", "3001")).toBe("3001");
   });
 });

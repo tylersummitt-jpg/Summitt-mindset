@@ -19,6 +19,14 @@ export type AppleSubscriptionNormalizedStatus =
   | "expired"
   | "refunded";
 
+export type AppleSubscriptionLifecycleStatus =
+  | "active"
+  | "grace_period"
+  | "billing_retry"
+  | "expired"
+  | "revoked"
+  | "refunded";
+
 export type AppleIapVerifyErrorCode =
   | "apple_invalid_bundle"
   | "apple_invalid_environment"
@@ -43,6 +51,7 @@ export type ValidatedAppleTransaction = {
   status: AppleSubscriptionNormalizedStatus;
   entitled: boolean;
   refundedAt: string | null;
+  signedAt: Date | null;
 };
 
 export type AppleTransactionValidationResult =
@@ -80,6 +89,7 @@ export type AppleSubscriptionStore = {
     status: AppleSubscriptionNormalizedStatus;
     expiresAtIso: string;
     refundedAt: string | null;
+    lastSignedAtIso?: string | null;
   }) => Promise<"inserted" | "unique_violation" | "failed">;
   updateOwned: (args: {
     originalTransactionId: string;
@@ -105,7 +115,23 @@ export function appleAccountTokensEqual(a: string, b: string): boolean {
   return normalizeAppleAccountToken(a) === normalizeAppleAccountToken(b);
 }
 
-function mapDbEnvironment(
+export function appleSignedDateFromMs(value: unknown): Date | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+/**
+ * Embed a filter value in a PostgREST `.or()` expression.
+ * ISO timestamps contain `:` and `.` and must be double-quoted.
+ */
+export function quotePostgrestFilterValue(value: string): string {
+  const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `"${escaped}"`;
+}
+
+export function mapAppleEnvironmentToDb(
   environment: Environment | string | undefined
 ): "sandbox" | "production" | null {
   if (
@@ -133,11 +159,11 @@ export function validateDecodedAppleTransaction(
     return { ok: false, error: "apple_invalid_bundle" };
   }
 
-  const environment = mapDbEnvironment(decoded.environment);
+  const environment = mapAppleEnvironmentToDb(decoded.environment);
   if (!environment) {
     return { ok: false, error: "apple_invalid_environment" };
   }
-  const expectedDb = mapDbEnvironment(expected.environment);
+  const expectedDb = mapAppleEnvironmentToDb(expected.environment);
   if (expectedDb !== environment) {
     return { ok: false, error: "apple_invalid_environment" };
   }
@@ -222,6 +248,7 @@ export function validateDecodedAppleTransaction(
       refundedAt: refunded
         ? new Date(decoded.revocationDate as number).toISOString()
         : null,
+      signedAt: appleSignedDateFromMs(decoded.signedDate),
     },
   };
 }
@@ -254,6 +281,9 @@ export function createSupabaseAppleSubscriptionStore(): AppleSubscriptionStore {
         status: row.status,
         expires_at: row.expiresAtIso,
         refunded_at: row.refundedAt,
+        ...(row.lastSignedAtIso
+          ? { last_signed_at: row.lastSignedAtIso }
+          : {}),
       });
       if (!error) return "inserted";
       if (isPostgresUniqueViolation(error)) return "unique_violation";
@@ -348,6 +378,9 @@ export async function persistOwnedAppleSubscription(args: {
     ...patch,
     clerkUserId,
     appAccountToken: transaction.appAccountToken,
+    lastSignedAtIso: transaction.signedAt
+      ? transaction.signedAt.toISOString()
+      : null,
   });
   if (inserted === "inserted") return { ok: true, outcome: "inserted" };
   if (inserted === "failed") return { ok: false, reason: "insert_failed" };
@@ -362,4 +395,158 @@ export async function persistOwnedAppleSubscription(args: {
   const updated = await store.updateOwned({ ...patch, clerkUserId });
   if (updated === "updated") return { ok: true, outcome: "updated" };
   return { ok: false, reason: "update_failed" };
+}
+
+export type AppleLifecycleRow = {
+  original_transaction_id: string;
+  clerk_user_id: string | null;
+  last_signed_at: string | null;
+  expires_at: string | null;
+  latest_transaction_id: string;
+  status: string;
+  auto_renew_enabled: boolean;
+};
+
+export type AppleLifecycleUpdatePatch = {
+  originalTransactionId: string;
+  incomingSignedAt: Date;
+  status: AppleSubscriptionLifecycleStatus;
+  latestTransactionId: string;
+  environment: "sandbox" | "production";
+  productId: string;
+  expiresAtIso: string | null;
+  autoRenewEnabled: boolean | null;
+  refundedAt: string | null;
+  revokedAt: string | null;
+};
+
+export type AppleLifecycleUpdateResult =
+  | { outcome: "updated"; row: AppleLifecycleRow }
+  | { outcome: "stale"; row: AppleLifecycleRow }
+  | { outcome: "failed" };
+
+export type AppleSubscriptionLifecycleStore = {
+  findLifecycleRow: (
+    originalTransactionId: string
+  ) => Promise<AppleLifecycleRow | null | "read_failed">;
+  updateLifecycleIfNotNewer: (
+    patch: AppleLifecycleUpdatePatch
+  ) => Promise<AppleLifecycleUpdateResult>;
+};
+
+const LIFECYCLE_SELECT =
+  "original_transaction_id, clerk_user_id, last_signed_at, expires_at, latest_transaction_id, status, auto_renew_enabled";
+
+function parseLifecycleRow(data: Record<string, unknown>): AppleLifecycleRow {
+  return {
+    original_transaction_id: String(data.original_transaction_id ?? ""),
+    clerk_user_id:
+      typeof data.clerk_user_id === "string" ? data.clerk_user_id : null,
+    last_signed_at:
+      typeof data.last_signed_at === "string" ? data.last_signed_at : null,
+    expires_at: typeof data.expires_at === "string" ? data.expires_at : null,
+    latest_transaction_id: String(data.latest_transaction_id ?? ""),
+    status: String(data.status ?? ""),
+    auto_renew_enabled: data.auto_renew_enabled === true,
+  };
+}
+
+function lastSignedAtNotNewerFilter(incomingIso: string): string {
+  const quoted = quotePostgrestFilterValue(incomingIso);
+  return `last_signed_at.is.null,last_signed_at.lte.${quoted}`;
+}
+
+function isStoredSignedAtNewer(storedIso: string | null, incoming: Date): boolean {
+  if (!storedIso) return false;
+  const storedMs = Date.parse(storedIso);
+  if (!Number.isFinite(storedMs)) return false;
+  return storedMs > incoming.getTime();
+}
+
+export function createSupabaseAppleSubscriptionLifecycleStore(): AppleSubscriptionLifecycleStore {
+  return {
+    async findLifecycleRow(originalTransactionId) {
+      const { data, error } = await supabaseServer
+        .from("apple_subscriptions")
+        .select(LIFECYCLE_SELECT)
+        .eq("original_transaction_id", originalTransactionId)
+        .maybeSingle();
+      if (error) return "read_failed";
+      if (!data) return null;
+      return parseLifecycleRow(data as Record<string, unknown>);
+    },
+
+    async updateLifecycleIfNotNewer(patch) {
+      const incomingIso = patch.incomingSignedAt.toISOString();
+      const updatePayload: Record<string, unknown> = {
+        status: patch.status,
+        latest_transaction_id: patch.latestTransactionId,
+        environment: patch.environment,
+        product_id: patch.productId,
+        expires_at: patch.expiresAtIso,
+        last_signed_at: incomingIso,
+        refunded_at: patch.refundedAt,
+        revoked_at: patch.revokedAt,
+        updated_at: new Date().toISOString(),
+      };
+      if (patch.autoRenewEnabled !== null) {
+        updatePayload.auto_renew_enabled = patch.autoRenewEnabled;
+      }
+
+      const { data, error, count } = await supabaseServer
+        .from("apple_subscriptions")
+        .update(updatePayload, { count: "exact" })
+        .eq("original_transaction_id", patch.originalTransactionId)
+        .or(lastSignedAtNotNewerFilter(incomingIso))
+        .select(LIFECYCLE_SELECT)
+        .maybeSingle();
+
+      if (error) return { outcome: "failed" };
+      if ((count ?? 0) >= 1 && data) {
+        return {
+          outcome: "updated",
+          row: parseLifecycleRow(data as Record<string, unknown>),
+        };
+      }
+
+      const { data: existing, error: readError } = await supabaseServer
+        .from("apple_subscriptions")
+        .select(LIFECYCLE_SELECT)
+        .eq("original_transaction_id", patch.originalTransactionId)
+        .maybeSingle();
+      if (readError || !existing) return { outcome: "failed" };
+      const row = parseLifecycleRow(existing as Record<string, unknown>);
+      if (isStoredSignedAtNewer(row.last_signed_at, patch.incomingSignedAt)) {
+        return { outcome: "stale", row };
+      }
+      return { outcome: "failed" };
+    },
+  };
+}
+
+export function preferNewerExpiryIso(
+  existingIso: string | null,
+  incoming: Date | null
+): string | null {
+  if (!incoming) return existingIso;
+  const incomingIso = incoming.toISOString();
+  if (!existingIso) return incomingIso;
+  const existingMs = Date.parse(existingIso);
+  if (!Number.isFinite(existingMs) || incoming.getTime() >= existingMs) {
+    return incomingIso;
+  }
+  return existingIso;
+}
+
+export function preferNewerTransactionId(
+  existing: string,
+  incoming: string | undefined
+): string {
+  const next = typeof incoming === "string" ? incoming.trim() : "";
+  if (!next) return existing;
+  try {
+    return BigInt(next) >= BigInt(existing) ? next : existing;
+  } catch {
+    return next;
+  }
 }

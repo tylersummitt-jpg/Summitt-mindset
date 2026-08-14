@@ -3,6 +3,8 @@ import "server-only";
 import {
   SignedDataVerifier,
   VerificationException,
+  VerificationStatus,
+  type JWSRenewalInfoDecodedPayload,
   type JWSTransactionDecodedPayload,
   type ResponseBodyV2DecodedPayload,
 } from "@apple/app-store-server-library";
@@ -95,4 +97,35 @@ export async function verifySignedNotification(
   } catch (error) {
     throw normalizeVerificationFailure(error);
   }
+}
+
+export async function verifySignedRenewalInfo(
+  signedRenewalInfo: string,
+  verifier: SignedDataVerifier = createSignedDataVerifier()
+): Promise<JWSRenewalInfoDecodedPayload> {
+  try {
+    return await verifier.verifyAndDecodeRenewalInfo(signedRenewalInfo);
+  } catch (error) {
+    throw normalizeVerificationFailure(error);
+  }
+}
+
+function verificationStatusOf(error: unknown): unknown {
+  if (typeof error === "object" && error !== null && "status" in error) {
+    return (error as { status: unknown }).status;
+  }
+  return undefined;
+}
+
+/** OCSP / retryable SignedDataVerifier failures. Duck-typed for module isolation. */
+export function isRetryableAppleVerificationFailure(error: unknown): boolean {
+  const nested =
+    typeof error === "object" && error !== null && "cause" in error
+      ? (error as { cause: unknown }).cause
+      : undefined;
+  return [error, nested].some(
+    (candidate) =>
+      verificationStatusOf(candidate) ===
+      VerificationStatus.RETRYABLE_VERIFICATION_FAILURE
+  );
 }
