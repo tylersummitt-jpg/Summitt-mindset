@@ -16,6 +16,15 @@ import {
   type EntitlementRestorationDecision,
 } from "@/lib/account-deletion/deletion-guards";
 import { releaseStripeWebhookEventDedupe } from "@/lib/stripe-webhook-dedupe";
+import {
+  isRetryableMembershipSourceOrClerkFailure,
+  recomputeMembershipFromAuthoritativeStripeSubscription,
+  isSmsReplicaFailureAfterClerkSuccess,
+} from "@/lib/summitt-membership-entitlement.server";
+import {
+  isSummittEntitledFromSubscription,
+  resolvePlanFromSubscription,
+} from "@/lib/summitt-subscription-membership";
 
 export const runtime = "nodejs";
 
@@ -64,31 +73,54 @@ if (!clerkSecretKey) console.warn("Missing CLERK_SECRET_KEY");
 
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
+async function releaseDedupeAndRetry(
+  eventId: string,
+  reason: string
+): Promise<NextResponse> {
+  await releaseStripeWebhookEventDedupe(eventId);
+  console.warn(
+    "[webhook] retryable membership projection failure; released dedupe",
+    { event_id: eventId, reason }
+  );
+  return new NextResponse("Webhook error", { status: 500 });
+}
+
+/**
+ * Project Clerk + SMS from the authoritative Stripe subscription for this event.
+ * Source/Clerk failures → caller must return 500 (dedupe already released).
+ * SMS-only failure after Clerk success → log, treat as processed (keep dedupe).
+ */
+async function projectMembershipFromEventSubscription(args: {
+  eventId: string;
+  userId: string;
+  subscription: Stripe.Subscription;
+}): Promise<"ok" | "retry"> {
+  const result = await recomputeMembershipFromAuthoritativeStripeSubscription(
+    args.userId,
+    args.subscription
+  );
+  if (isRetryableMembershipSourceOrClerkFailure(result)) {
+    await releaseStripeWebhookEventDedupe(args.eventId);
+    console.warn(
+      "[webhook] retryable membership projection failure; released dedupe",
+      { event_id: args.eventId, reason: result.reason }
+    );
+    return "retry";
+  }
+  if (isSmsReplicaFailureAfterClerkSuccess(result)) {
+    console.error(
+      "[webhook] SMS replica failed after Clerk projection; keeping dedupe",
+      { event_id: args.eventId, userId: args.userId }
+    );
+  }
+  return "ok";
+}
+
 /**
  * ======================================================
  * Helpers
  * ======================================================
  */
-
-function resolvePlanFromSubscription(
-  sub: Stripe.Subscription
-): "monthly" | "annual" | "unknown" {
-  const interval = sub.items.data[0]?.price?.recurring?.interval;
-
-  if (interval === "year") return "annual";
-  if (interval === "month") return "monthly";
-  return "unknown";
-}
-
-/**
- * Summitt access from Stripe subscription: active or trialing, and not billing-paused
- * (pause_collection is set when e.g. pause-membership uses pause_collection).
- */
-function isSummittEntitledFromSubscription(sub: Stripe.Subscription): boolean {
-  if (sub.status !== "active" && sub.status !== "trialing") return false;
-  if (sub.pause_collection != null) return false;
-  return true;
-}
 
 /**
  * Robustly find Clerk userId for a subscription event.
@@ -177,19 +209,6 @@ function extractSubscriptionIdFromInvoice(invoice: Stripe.Invoice): string | nul
 }
 
 /**
- * Robustly find Clerk userId for invoice events.
- */
-async function resolveUserIdForInvoice(
-  invoice: Stripe.Invoice
-): Promise<string | null> {
-  const subscriptionId = extractSubscriptionIdFromInvoice(invoice);
-  if (!subscriptionId) return null;
-
-  const subscription = await stripe!.subscriptions.retrieve(subscriptionId);
-  return resolveUserIdForSubscription(subscription);
-}
-
-/**
  * ======================================================
  * STRIPE WEBHOOK (CANONICAL MEMBERSHIP TRUTH)
  * ======================================================
@@ -258,6 +277,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
+      let subscription: Stripe.Subscription;
+      try {
+        subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      } catch (err) {
+        console.error(
+          "[webhook] checkout.session.completed Stripe retrieve failed",
+          err
+        );
+        return releaseDedupeAndRetry(event.id, "stripe_lookup_failed");
+      }
+
       const firstGate = await gateEntitlementIncreasingWebhook(event.id, userId);
       if (firstGate.outcome === "ack_blocked") {
         return NextResponse.json({ received: true });
@@ -275,7 +305,6 @@ export async function POST(req: NextRequest) {
         console.warn("Unable to set Stripe customer metadata:", err);
       }
 
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       const plan = resolvePlanFromSubscription(subscription);
       const entitled = isSummittEntitledFromSubscription(subscription);
 
@@ -294,23 +323,30 @@ export async function POST(req: NextRequest) {
         return new NextResponse("Webhook lookup failed", { status: 500 });
       }
 
-      await updateClerkPublicMetadata(userId, {
-        summittSubscribed: entitled,
-        summittPlan: plan,
-        stripeCustomerId: customerId,
-        stripeSubscriptionId: subscriptionId,
-        ...(isCoachAcquisitionFromStripe ? { acquisitionSource: "coach" } : {}),
+      try {
+        await updateClerkPublicMetadata(userId, {
+          stripeCustomerId: customerId,
+          stripeSubscriptionId: subscriptionId,
+          ...(isCoachAcquisitionFromStripe ? { acquisitionSource: "coach" } : {}),
+        });
+      } catch (err) {
+        console.error(
+          "[webhook] checkout.session.completed linkage Clerk write failed",
+          err
+        );
+        return releaseDedupeAndRetry(event.id, "clerk_projection_failed");
+      }
+
+      const projected = await projectMembershipFromEventSubscription({
+        eventId: event.id,
+        userId,
+        subscription,
       });
+      if (projected === "retry") {
+        return new NextResponse("Webhook error", { status: 500 });
+      }
 
       const existing = await getClerkPublicMetadata(userId);
-      await syncSmsAudience({
-        userId: userId,
-        phoneNumber: existing?.phoneNumber ?? null,
-        smsEnabled: existing?.smsEnabled ?? null,
-        timezone: existing?.timezone ?? null,
-        smsTimePreference: existing?.smsTimePreference ?? null,
-        summittSubscribed: entitled,
-      });
 
       if (
         isCoachAcquisitionFromStripe &&
@@ -429,7 +465,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      const plan = resolvePlanFromSubscription(subscription);
       const entitled = isSummittEntitledFromSubscription(subscription);
 
       // Deletion-aware branch (any status row blocks restoration side channels).
@@ -489,33 +524,36 @@ export async function POST(req: NextRequest) {
       }
 
       const clerkPatch: Record<string, unknown> = {
-        summittSubscribed: entitled,
         stripeCustomerId:
           typeof subscription.customer === "string"
             ? subscription.customer
             : null,
         stripeSubscriptionId: subscription.id,
       };
-      if (subscription.pause_collection == null) {
-        clerkPatch.summittPlan = plan;
-      }
 
       const subMeta = subscription.metadata as Record<string, unknown> | null | undefined;
       if (subMeta?.summittAcquisition === "coach") {
         clerkPatch.acquisitionSource = "coach";
       }
 
-      await updateClerkPublicMetadata(userId, clerkPatch as Record<string, any>);
+      try {
+        await updateClerkPublicMetadata(userId, clerkPatch as Record<string, any>);
+      } catch (err) {
+        console.error(
+          "[webhook] customer.subscription.updated linkage Clerk write failed",
+          err
+        );
+        return releaseDedupeAndRetry(event.id, "clerk_projection_failed");
+      }
 
-      const existing = await getClerkPublicMetadata(userId);
-      await syncSmsAudience({
-        userId: userId,
-        phoneNumber: existing?.phoneNumber ?? null,
-        smsEnabled: existing?.smsEnabled ?? null,
-        timezone: existing?.timezone ?? null,
-        smsTimePreference: existing?.smsTimePreference ?? null,
-        summittSubscribed: entitled,
+      const projected = await projectMembershipFromEventSubscription({
+        eventId: event.id,
+        userId,
+        subscription,
       });
+      if (projected === "retry") {
+        return new NextResponse("Webhook error", { status: 500 });
+      }
 
       console.log("✅ customer.subscription.updated → metadata updated", userId);
     }
@@ -532,23 +570,28 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      console.log("🚫 Subscription canceled → locking access", userId);
+      console.log("🚫 Subscription canceled → projecting membership", userId);
 
-      await updateClerkPublicMetadata(userId, {
-        summittSubscribed: false,
-        summittPlan: null,
-        stripeSubscriptionId: subscription.id,
-      });
+      try {
+        await updateClerkPublicMetadata(userId, {
+          stripeSubscriptionId: subscription.id,
+        });
+      } catch (err) {
+        console.error(
+          "[webhook] customer.subscription.deleted linkage Clerk write failed",
+          err
+        );
+        return releaseDedupeAndRetry(event.id, "clerk_projection_failed");
+      }
 
-      const existing = await getClerkPublicMetadata(userId);
-      await syncSmsAudience({
-        userId: userId,
-        phoneNumber: existing?.phoneNumber ?? null,
-        smsEnabled: existing?.smsEnabled ?? null,
-        timezone: existing?.timezone ?? null,
-        smsTimePreference: existing?.smsTimePreference ?? null,
-        summittSubscribed: false,
+      const projected = await projectMembershipFromEventSubscription({
+        eventId: event.id,
+        userId,
+        subscription,
       });
+      if (projected === "retry") {
+        return new NextResponse("Webhook error", { status: 500 });
+      }
     }
 
     // ======================================================
@@ -557,27 +600,39 @@ export async function POST(req: NextRequest) {
     if (event.type === "invoice.payment_failed") {
       const invoice = event.data.object as Stripe.Invoice;
 
-      const userId = await resolveUserIdForInvoice(invoice);
+      const subscriptionId = extractSubscriptionIdFromInvoice(invoice);
+      if (!subscriptionId) {
+        console.warn("invoice.payment_failed missing subscription on invoice");
+        return NextResponse.json({ received: true });
+      }
+
+      let subscription: Stripe.Subscription;
+      try {
+        subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      } catch (err) {
+        console.error(
+          "[webhook] invoice.payment_failed Stripe retrieve failed",
+          err
+        );
+        return releaseDedupeAndRetry(event.id, "stripe_lookup_failed");
+      }
+
+      const userId = await resolveUserIdForSubscription(subscription);
       if (!userId) {
         console.warn("invoice.payment_failed missing userId");
         return NextResponse.json({ received: true });
       }
 
-      console.log("⚠️ Payment failed → locking access", userId);
+      console.log("⚠️ Payment failed → projecting membership", userId);
 
-      await updateClerkPublicMetadata(userId, {
-        summittSubscribed: false,
+      const projected = await projectMembershipFromEventSubscription({
+        eventId: event.id,
+        userId,
+        subscription,
       });
-
-      const existing = await getClerkPublicMetadata(userId);
-      await syncSmsAudience({
-        userId: userId,
-        phoneNumber: existing?.phoneNumber ?? null,
-        smsEnabled: existing?.smsEnabled ?? null,
-        timezone: existing?.timezone ?? null,
-        smsTimePreference: existing?.smsTimePreference ?? null,
-        summittSubscribed: false,
-      });
+      if (projected === "retry") {
+        return new NextResponse("Webhook error", { status: 500 });
+      }
     }
 
     // ======================================================
@@ -592,7 +647,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ received: true });
       }
 
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      let subscription: Stripe.Subscription;
+      try {
+        subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      } catch (err) {
+        console.error("[webhook] invoice.paid Stripe retrieve failed", err);
+        return releaseDedupeAndRetry(event.id, "stripe_lookup_failed");
+      }
+
       const userId = await resolveUserIdForSubscription(subscription);
       if (!userId) {
         console.warn("invoice.paid missing userId");
@@ -626,24 +688,19 @@ export async function POST(req: NextRequest) {
         console.log("✅ Payment restored → unlocking access", userId);
       } else {
         console.log(
-          "✅ invoice.paid → subscription not entitled (e.g. paused); summittSubscribed=false",
+          "✅ invoice.paid → subscription not entitled (e.g. paused); projecting membership",
           userId
         );
       }
 
-      await updateClerkPublicMetadata(userId, {
-        summittSubscribed: entitled,
+      const projected = await projectMembershipFromEventSubscription({
+        eventId: event.id,
+        userId,
+        subscription,
       });
-
-      const existing = await getClerkPublicMetadata(userId);
-      await syncSmsAudience({
-        userId: userId,
-        phoneNumber: existing?.phoneNumber ?? null,
-        smsEnabled: existing?.smsEnabled ?? null,
-        timezone: existing?.timezone ?? null,
-        smsTimePreference: existing?.smsTimePreference ?? null,
-        summittSubscribed: entitled,
-      });
+      if (projected === "retry") {
+        return new NextResponse("Webhook error", { status: 500 });
+      }
     }
 
     return NextResponse.json({ received: true });

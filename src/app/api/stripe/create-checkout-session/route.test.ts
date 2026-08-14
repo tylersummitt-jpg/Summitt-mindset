@@ -5,6 +5,8 @@ import {
   isCheckoutBlockedMembershipClass,
 } from "@/lib/summitt-subscription-membership";
 
+vi.mock("server-only", () => ({}));
+
 const authMock = vi.fn();
 const currentUserMock = vi.fn();
 
@@ -27,6 +29,25 @@ vi.mock("@/lib/clerk-public-metadata", () => ({
 
 vi.mock("@/lib/coach-attribution", () => ({
   maySetCoachAcquisitionSource: () => false,
+}));
+
+vi.mock("@/lib/sms-audience-sync", () => ({
+  syncSmsAudience: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: {
+    from: (table: string) => {
+      if (table === "apple_subscriptions") {
+        return {
+          select: () => ({
+            eq: async () => ({ data: [], error: null }),
+          }),
+        };
+      }
+      return {};
+    },
+  },
 }));
 
 const assertDeletionMock = vi.fn();
@@ -294,10 +315,14 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith(
       "user_1",
       expect.objectContaining({
-        summittPlan: "paused",
-        summittSubscribed: false,
+        stripeCustomerId: "cus_1",
+        stripeSubscriptionId: "sub_1",
       })
     );
+    expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith("user_1", {
+      summittSubscribed: false,
+      summittPlan: "paused",
+    });
     expect(createSessionMock).not.toHaveBeenCalled();
   });
 

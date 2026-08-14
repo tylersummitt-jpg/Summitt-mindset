@@ -10,8 +10,6 @@ import {
   checkoutBlockErrorForClass,
   classifySummittMembership,
   isCheckoutBlockedMembershipClass,
-  isSummittEntitledFromSubscription,
-  resolvePlanFromSubscription,
   type SummittMembershipClass,
 } from "@/lib/summitt-subscription-membership";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
@@ -21,6 +19,10 @@ import {
 } from "@/lib/account-deletion/deletion-guards";
 import { isNativeSummittMindsetAppRequestFromRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { NATIVE_APP_CHECKOUT_UNAVAILABLE_ERROR } from "@/lib/native-app/membership-paths";
+import {
+  isSmsReplicaFailureAfterClerkSuccess,
+  recomputeMembershipFromAuthoritativeStripeSubscription,
+} from "@/lib/summitt-membership-entitlement.server";
 
 export const runtime = "nodejs";
 
@@ -298,8 +300,6 @@ export async function POST(req: Request) {
 
     if (blockingHit) {
       const sub = blockingHit.subscription;
-      const planResolved = resolvePlanFromSubscription(sub);
-      const summittSubscribed = isSummittEntitledFromSubscription(sub);
       const classification = blockingHit.classification;
       const blockBody = checkoutBlockErrorForClass(classification);
 
@@ -317,16 +317,9 @@ export async function POST(req: Request) {
 
       try {
         const clerkPatch: Record<string, unknown> = {
-          summittSubscribed,
           stripeCustomerId: blockingHit.customerId,
           stripeSubscriptionId: sub.id,
         };
-        if (classification === "paused_recoverable") {
-          clerkPatch.summittPlan = "paused";
-        } else {
-          clerkPatch.summittPlan =
-            planResolved === "unknown" ? null : planResolved;
-        }
         // Second guard: Stripe scan already found a sub; only skip local entitlement
         // restore if deletion began mid-flight (Stripe/Postgres/Clerk are not atomic).
         const secondGate =
@@ -343,6 +336,21 @@ export async function POST(req: Request) {
           });
         }
         await updateClerkPublicMetadata(userId, clerkPatch);
+        const projection =
+          await recomputeMembershipFromAuthoritativeStripeSubscription(
+            userId,
+            sub
+          );
+        if (isSmsReplicaFailureAfterClerkSuccess(projection)) {
+          console.error(
+            "[stripe/create-checkout-session] SMS replica failed after Clerk projection"
+          );
+        } else if (!projection.ok) {
+          console.error(
+            "[stripe/create-checkout-session] membership recompute failed during reconcile",
+            projection.reason
+          );
+        }
       } catch (reconcileErr) {
         console.error(
           "[stripe/create-checkout-session] reconcile Clerk from Stripe subscription failed",

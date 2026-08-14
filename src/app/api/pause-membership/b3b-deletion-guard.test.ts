@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 const authMock = vi.fn();
 const currentUserMock = vi.fn();
 vi.mock("@clerk/nextjs/server", () => ({
@@ -9,9 +11,18 @@ vi.mock("@clerk/nextjs/server", () => ({
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {
-    from: () => ({
-      insert: vi.fn(async () => ({ error: null })),
-    }),
+    from: (table: string) => {
+      if (table === "apple_subscriptions") {
+        return {
+          select: () => ({
+            eq: async () => ({ data: [], error: null }),
+          }),
+        };
+      }
+      return {
+        insert: vi.fn(async () => ({ error: null })),
+      };
+    },
   },
 }));
 

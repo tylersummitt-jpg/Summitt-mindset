@@ -4,7 +4,6 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
-import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import {
   classifySummittMembership,
   customerIdFromSubscription,
@@ -15,6 +14,12 @@ import {
   ACCOUNT_DELETION_IN_PROGRESS_BODY,
   assertEntitlementMutationAllowedForAccountDeletion,
 } from "@/lib/account-deletion/deletion-guards";
+import {
+  isRetryableMembershipSourceOrClerkFailure,
+  isSmsReplicaFailureAfterClerkSuccess,
+  membershipProjectionClerkSucceeded,
+  recomputeMembershipFromAuthoritativeStripeSubscription,
+} from "@/lib/summitt-membership-entitlement.server";
 
 export const runtime = "nodejs";
 
@@ -45,15 +50,13 @@ type SuccessCode = "resumed" | "already_active";
  */
 async function reconcileMembershipFromStripeSubscription(args: {
   userId: string;
-  metadata: Record<string, unknown>;
   subscription: Stripe.Subscription;
   fallbackCustomerId: string | null;
   code: SuccessCode;
 }): Promise<NextResponse | null> {
-  const { userId, metadata, subscription, fallbackCustomerId, code } = args;
+  const { userId, subscription, fallbackCustomerId, code } = args;
 
   const entitled = isSummittEntitledFromSubscription(subscription);
-  const plan = resolvePlanFromSubscription(subscription);
   const verifiedCustomerId =
     customerIdFromSubscription(subscription) || fallbackCustomerId;
 
@@ -77,13 +80,11 @@ async function reconcileMembershipFromStripeSubscription(args: {
 
   try {
     await updateClerkPublicMetadata(userId, {
-      summittSubscribed: entitled,
-      summittPlan: plan === "unknown" ? null : plan,
       stripeCustomerId: verifiedCustomerId,
       stripeSubscriptionId: subscription.id,
     });
   } catch (err) {
-    console.error("[resume-membership] Clerk update failed", {
+    console.error("[resume-membership] Clerk linkage update failed", {
       userId,
       subscriptionId: subscription.id,
       code,
@@ -92,27 +93,27 @@ async function reconcileMembershipFromStripeSubscription(args: {
     return json({ ok: false, code: "clerk_error" }, 500);
   }
 
-  try {
-    await syncSmsAudience({
+  const projection = await recomputeMembershipFromAuthoritativeStripeSubscription(
+    userId,
+    subscription
+  );
+  if (isRetryableMembershipSourceOrClerkFailure(projection)) {
+    console.error("[resume-membership] membership projection retryable failure", {
       userId,
-      phoneNumber:
-        typeof metadata?.phoneNumber === "string" ? metadata.phoneNumber : null,
-      smsEnabled:
-        typeof metadata?.smsEnabled === "boolean" ? metadata.smsEnabled : null,
-      timezone: typeof metadata?.timezone === "string" ? metadata.timezone : null,
-      smsTimePreference:
-        typeof metadata?.smsTimePreference === "string"
-          ? metadata.smsTimePreference
-          : null,
-      summittSubscribed: entitled,
+      subscriptionId: subscription.id,
+      code,
+      reason: projection.reason,
     });
-  } catch (err) {
-    // Audience sync is repairable via webhook/cron; membership reconcile succeeded.
+    return json({ ok: false, code: "clerk_error" }, 500);
+  }
+  if (!membershipProjectionClerkSucceeded(projection)) {
+    return json({ ok: false, code: "clerk_error" }, 500);
+  }
+  if (isSmsReplicaFailureAfterClerkSuccess(projection)) {
     console.error("[resume-membership] syncSmsAudience failed (non-fatal)", {
       userId,
       subscriptionId: subscription.id,
       code,
-      message: err instanceof Error ? err.message : String(err),
     });
   }
 
@@ -202,7 +203,6 @@ export async function POST() {
     if (isSummittEntitledFromSubscription(subscription)) {
       const clerkError = await reconcileMembershipFromStripeSubscription({
         userId,
-        metadata,
         subscription,
         fallbackCustomerId: stripeCustomerId || clerkCustomerId || null,
         code: "already_active",
@@ -254,7 +254,6 @@ export async function POST() {
 
   const clerkError = await reconcileMembershipFromStripeSubscription({
     userId,
-    metadata,
     subscription: resumed,
     fallbackCustomerId: stripeCustomerId || clerkCustomerId || null,
     code: successCode,

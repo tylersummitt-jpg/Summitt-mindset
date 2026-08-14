@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 const authMock = vi.fn();
 vi.mock("@clerk/nextjs/server", () => ({
   auth: () => authMock(),
@@ -15,6 +17,26 @@ const updateClerkPublicMetadataMock = vi.fn();
 vi.mock("@/lib/clerk-public-metadata", () => ({
   updateClerkPublicMetadata: (...args: unknown[]) =>
     updateClerkPublicMetadataMock(...args),
+}));
+
+const syncSmsMock = vi.fn();
+vi.mock("@/lib/sms-audience-sync", () => ({
+  syncSmsAudience: (...args: unknown[]) => syncSmsMock(...args),
+}));
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: {
+    from: (table: string) => {
+      if (table === "apple_subscriptions") {
+        return {
+          select: () => ({
+            eq: async () => ({ data: [], error: null }),
+          }),
+        };
+      }
+      return {};
+    },
+  },
 }));
 
 const assertDeletionMock = vi.fn();
@@ -53,6 +75,7 @@ describe("POST /api/stripe/confirm-checkout B3b", () => {
     assertDeletionMock.mockResolvedValue({ ok: true });
     updateClerkPublicMetadataMock.mockResolvedValue(undefined);
     getClerkPublicMetadataMock.mockResolvedValue({});
+    syncSmsMock.mockResolvedValue(undefined);
   });
 
   it("unresolved deletion → 409, no Stripe retrieve, no entitlement write", async () => {
@@ -116,14 +139,19 @@ describe("POST /api/stripe/confirm-checkout B3b", () => {
     );
     expect(res.status).toBe(200);
     expect(assertDeletionMock).toHaveBeenCalledTimes(2);
-    expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith(
-      "user_1",
-      expect.objectContaining({
-        summittSubscribed: true,
-        summittPlan: "monthly",
-        stripeSubscriptionId: "sub_1",
-      })
-    );
+    expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith("user_1", {
+      stripeCustomerId: "cus_1",
+      stripeSubscriptionId: "sub_1",
+    });
+    expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith("user_1", {
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
+    expect(retrieveSubMock).toHaveBeenCalledWith("sub_1");
+    expect(syncSmsMock).toHaveBeenCalledWith({
+      userId: "user_1",
+      summittSubscribed: true,
+    });
   });
 
   it("9. second-check race: first allowed, second blocks → no entitlement write", async () => {

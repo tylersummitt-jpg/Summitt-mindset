@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 const authMock = vi.fn();
 const currentUserMock = vi.fn();
 
@@ -17,6 +19,21 @@ vi.mock("@/lib/clerk-public-metadata", () => ({
 const syncSmsAudienceMock = vi.fn();
 vi.mock("@/lib/sms-audience-sync", () => ({
   syncSmsAudience: (...args: unknown[]) => syncSmsAudienceMock(...args),
+}));
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: {
+    from: (table: string) => {
+      if (table === "apple_subscriptions") {
+        return {
+          select: () => ({
+            eq: async () => ({ data: [], error: null }),
+          }),
+        };
+      }
+      return {};
+    },
+  },
 }));
 
 const assertDeletionMock = vi.fn();
@@ -151,22 +168,19 @@ describe("POST /api/resume-membership", () => {
 
     expect(updateMock).not.toHaveBeenCalled();
     expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith("user_1", {
-      summittSubscribed: true,
-      summittPlan: "monthly",
       stripeCustomerId: "cus_1",
       stripeSubscriptionId: "sub_paused",
     });
+    expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith("user_1", {
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
 
     expect(syncSmsAudienceMock).toHaveBeenCalledTimes(1);
-    const smsArgs = syncSmsAudienceMock.mock.calls[0][0];
-    expect(smsArgs).toMatchObject({
+    expect(syncSmsAudienceMock).toHaveBeenCalledWith({
       userId: "user_1",
       summittSubscribed: true,
-      smsEnabled: true,
-      phoneNumber: "+15551234567",
-      timezone: "America/New_York",
     });
-    expect(smsArgs).not.toHaveProperty("stoppedAt");
   });
 
   it("already_active annual heals Clerk to annual plan", async () => {
@@ -201,8 +215,6 @@ describe("POST /api/resume-membership", () => {
       expect.objectContaining({
         summittSubscribed: true,
         summittPlan: "annual",
-        stripeSubscriptionId: "sub_paused",
-        stripeCustomerId: "cus_1",
       })
     );
   });
@@ -275,20 +287,17 @@ describe("POST /api/resume-membership", () => {
     expect(updatePayload).not.toHaveProperty("proration_behavior");
 
     expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith("user_1", {
-      summittSubscribed: true,
-      summittPlan: "monthly",
       stripeCustomerId: "cus_1",
       stripeSubscriptionId: "sub_paused",
     });
-    expect(syncSmsAudienceMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "user_1",
-        summittSubscribed: true,
-        smsEnabled: true,
-        phoneNumber: "+15551234567",
-      })
-    );
-    expect(syncSmsAudienceMock.mock.calls[0][0]).not.toHaveProperty("stoppedAt");
+    expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith("user_1", {
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
+    expect(syncSmsAudienceMock).toHaveBeenCalledWith({
+      userId: "user_1",
+      summittSubscribed: true,
+    });
   });
 
   it("resumes paused annual with annual plan", async () => {
@@ -315,7 +324,6 @@ describe("POST /api/resume-membership", () => {
       expect.objectContaining({
         summittSubscribed: true,
         summittPlan: "annual",
-        stripeSubscriptionId: "sub_paused",
       })
     );
   });

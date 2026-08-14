@@ -9,6 +9,12 @@ import {
   ACCOUNT_DELETION_IN_PROGRESS_BODY,
   assertEntitlementMutationAllowedForAccountDeletion,
 } from "@/lib/account-deletion/deletion-guards";
+import {
+  isRetryableMembershipSourceOrClerkFailure,
+  isSmsReplicaFailureAfterClerkSuccess,
+  membershipProjectionClerkSucceeded,
+  recomputeMembershipFromAuthoritativeStripeSubscription,
+} from "@/lib/summitt-membership-entitlement.server";
 
 export const runtime = "nodejs";
 
@@ -168,13 +174,31 @@ export async function POST(req: Request) {
       }
     }
 
-    // 🔥 Immediately patch Clerk metadata
+    // 🔥 Persist Stripe linkage, then project membership from THIS subscription.
     await updateClerkPublicMetadata(userId, {
-      summittSubscribed: isActive,
-      summittPlan: plan,
       stripeCustomerId: customerId,
       stripeSubscriptionId: subscription.id,
     });
+
+    const projection = await recomputeMembershipFromAuthoritativeStripeSubscription(
+      userId,
+      subscription
+    );
+    if (isRetryableMembershipSourceOrClerkFailure(projection)) {
+      console.error(
+        "[stripe/confirm-checkout] membership projection retryable failure",
+        projection.reason
+      );
+      return new NextResponse("Internal Server Error", { status: 500 });
+    }
+    if (!membershipProjectionClerkSucceeded(projection)) {
+      return new NextResponse("Internal Server Error", { status: 500 });
+    }
+    if (isSmsReplicaFailureAfterClerkSuccess(projection)) {
+      console.error(
+        "[stripe/confirm-checkout] SMS replica failed after Clerk projection"
+      );
+    }
 
     return NextResponse.json({
       success: true,

@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { supabaseServer } from "@/lib/supabase-server";
-import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
-import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import {
   ACCOUNT_DELETION_IN_PROGRESS_BODY,
   assertEntitlementMutationAllowedForAccountDeletion,
 } from "@/lib/account-deletion/deletion-guards";
+import {
+  isRetryableMembershipSourceOrClerkFailure,
+  isSmsReplicaFailureAfterClerkSuccess,
+  membershipProjectionClerkSucceeded,
+  recomputeMembershipFromAuthoritativeStripeSubscription,
+} from "@/lib/summitt-membership-entitlement.server";
 
 export const runtime = "nodejs";
 
@@ -78,28 +82,40 @@ export async function POST(req: Request) {
   // ======================================================
   // ✅ 2. PAUSE STRIPE SUBSCRIPTION (No billing)
   // ======================================================
-  await stripe.subscriptions.update(subscriptionId, {
+  const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
     pause_collection: {
       behavior: "mark_uncollectible",
     },
   });
 
   // ======================================================
-  // ✅ 3. IMMEDIATE CLERK LOCK (Paused State)
+  // ✅ 3. PROJECT MEMBERSHIP FROM THIS PAUSED SUBSCRIPTION
   // ======================================================
-  await updateClerkPublicMetadata(userId, {
-    summittSubscribed: false,
-    summittPlan: "paused",
-  });
-
-  await syncSmsAudience({
+  const projection = await recomputeMembershipFromAuthoritativeStripeSubscription(
     userId,
-    phoneNumber: metadata?.phoneNumber ?? null,
-    smsEnabled: metadata?.smsEnabled ?? null,
-    timezone: metadata?.timezone ?? null,
-    smsTimePreference: metadata?.smsTimePreference ?? null,
-    summittSubscribed: false,
-  });
+    updatedSubscription
+  );
+  if (isRetryableMembershipSourceOrClerkFailure(projection)) {
+    console.error(
+      "[pause-membership] membership projection retryable failure",
+      projection.reason
+    );
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+  if (!membershipProjectionClerkSucceeded(projection)) {
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+  if (isSmsReplicaFailureAfterClerkSuccess(projection)) {
+    console.error(
+      "[pause-membership] SMS replica failed after Clerk projection"
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }
