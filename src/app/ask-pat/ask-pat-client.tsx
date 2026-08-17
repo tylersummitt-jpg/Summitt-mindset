@@ -16,9 +16,12 @@ import {
   utPrimaryBtn,
 } from "@/components/utility-page-visual";
 
+import type { SummittMindsetPlatform } from "@/lib/native-app/platform";
+
 type Props = {
   isSubscribed: boolean;
   isNativeSummittMindsetApp?: boolean;
+  nativePlatform?: SummittMindsetPlatform;
   firstName: string;
 };
 
@@ -37,6 +40,7 @@ type AskPatResponse =
 export default function AskPatClient({
   isSubscribed,
   isNativeSummittMindsetApp = false,
+  nativePlatform = "none",
 }: Props) {
   const router = useRouter();
 
@@ -65,8 +69,10 @@ export default function AskPatClient({
               <h1 className={`${utHeroTitle} mb-4`}>Ask Pat</h1>
               <p className={`${utBody} mb-6`}>
                 Ask Pat is available to members with an active Summitt Mindset
-                membership. Memberships are managed on the Summitt Mindset
-                website.
+                membership.
+                {nativePlatform === "ios"
+                  ? ""
+                  : " Memberships are managed on the Summitt Mindset website."}
               </p>
               <button
                 type="button"

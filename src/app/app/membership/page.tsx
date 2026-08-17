@@ -9,8 +9,12 @@ import {
   ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY,
   ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
 } from "@/lib/legal/account-deletion-public-availability";
+import IosAppleMembershipPanel from "@/components/ios-apple-membership-panel";
 import { APP_SIGN_IN_PATH } from "@/lib/app-sign-in/app-sign-in-constants";
-import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
+import {
+  detectSummittMindsetPlatformRequest,
+  isNativeSummittMindsetAppRequest,
+} from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import { isPausedFromPublicMetadata } from "@/lib/summitt-subscription-membership";
 
@@ -39,8 +43,9 @@ function isSubscribedFromMetadata(md: Record<string, unknown>): boolean {
 }
 
 /**
- * Neutral native-app membership surface — no pricing, trial, or purchase CTAs.
- * Reuses AccountDeletionDangerZone when production initiation access is granted.
+ * Native membership surface.
+ * iOS shell: Apple IAP (StoreKit price, restore, no website checkout).
+ * Android / browser: existing non-purchase copy. Stripe checkout stays on /subscribe.
  */
 export default async function AppMembershipPage() {
   const { userId } = await auth();
@@ -56,13 +61,15 @@ export default async function AppMembershipPage() {
     redirect(MEMBER_APP_HOME_PATH);
   }
 
+  const platform = await detectSummittMindsetPlatformRequest();
   const isPaused = isPausedFromPublicMetadata(md);
+  const showIosApplePurchase = platform === "ios" && !isPaused;
   const showDangerZone = shouldShowAccountDeletionDangerZone(userId);
 
   return (
     <main
       className="mx-auto w-full max-w-md overflow-x-hidden px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]"
-      data-app-membership="neutral"
+      data-app-membership={showIosApplePurchase ? "apple-iap" : "neutral"}
     >
       <header className="space-y-3 text-center">
         <p className="text-sm font-medium text-[var(--muted)]">
@@ -94,6 +101,8 @@ export default async function AppMembershipPage() {
               .
             </p>
           </>
+        ) : showIosApplePurchase ? (
+          <IosAppleMembershipPanel />
         ) : (
           <>
             <p>

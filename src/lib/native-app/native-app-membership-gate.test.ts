@@ -94,10 +94,12 @@ describe("native membership gate surfaces", () => {
     expect(page).toContain("redirect(APP_MEMBERSHIP_PATH)");
   });
 
-  it("/app/membership is neutral with no purchase solicitation", () => {
+  it("/app/membership keeps Android/browser website copy and iOS Apple purchase", () => {
     const page = readSrc("src/app/app/membership/page.tsx");
     expect(page).toContain("Membership required");
     expect(page).toContain("Memberships are managed on the Summitt Mindset website");
+    expect(page).toContain("IosAppleMembershipPanel");
+    expect(page).toContain('platform === "ios"');
     expect(page).toContain("Sign out");
     expect(page).toContain("/privacy");
     expect(page).toContain("/terms");
@@ -105,10 +107,23 @@ describe("native membership gate surfaces", () => {
     expect(page).toContain("ResumeMembershipButton");
     expect(page).not.toMatch(/\$29|\$249/);
     expect(page).not.toMatch(/free trial/i);
-    expect(page).not.toMatch(/\bSubscribe\b/);
-    expect(page).not.toMatch(/\bStart Membership\b|\bUpgrade\b|\bBuy\b|\bCheckout\b/i);
     expect(page).not.toContain('href="/subscribe"');
-    expect(page).not.toMatch(/App Store|\bIAP\b|WebView|Stripe policy/i);
+    expect(page).not.toContain("create-checkout-session");
+    const panel = readSrc("src/components/ios-apple-membership-panel.tsx");
+    expect(panel).toContain("Subscribe with Apple");
+    expect(panel).toContain("Restore Purchases");
+    expect(panel).toContain("displayPrice");
+    expect(panel).not.toMatch(/\$29/);
+    expect(panel).not.toMatch(/managed on the Summitt Mindset website/i);
+    expect(panel).not.toContain("/subscribe");
+    expect(panel).not.toContain("Stripe");
+    expect(panel).toContain("/privacy");
+    expect(panel).toContain("/terms");
+    expect(panel).toContain("user?.reload");
+    expect(panel).toContain("router.refresh");
+    expect(panel).toContain("/post-sign-in");
+    expect(panel).toContain("backendVerified");
+    expect(panel).not.toContain("summittSubscribed");
   });
 
   it("/app/membership reuses AccountDeletionDangerZone behind server initiation access", () => {

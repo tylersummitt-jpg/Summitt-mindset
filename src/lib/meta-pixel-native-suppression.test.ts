@@ -19,7 +19,7 @@ function readSrc(rel: string): string {
 describe("native Meta Pixel suppression (layout wiring)", () => {
   it("RootLayout gates MetaPixelRoot on the canonical native-app boolean", () => {
     const layout = readSrc("src/app/layout.tsx");
-    expect(layout).toContain("isNativeSummittMindsetAppRequest");
+    expect(layout).toContain("detectSummittMindsetPlatformRequest");
     expect(layout).toContain(
       "isNativeSummittMindsetApp={isNativeSummittMindsetApp}"
     );

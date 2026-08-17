@@ -76,6 +76,7 @@ const isPublicRoute = createRouteMatcher([
   // Webhooks must be public
   "/api/webhooks(.*)",
   "/api/stripe/webhook(.*)",
+  "/api/apple/webhook",
 
   // Challenge signup (anonymous email capture)
   "/api/challenge/signup",

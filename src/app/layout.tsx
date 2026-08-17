@@ -6,7 +6,7 @@ import { Inter } from "next/font/google";
 import { MetaPixelRoot } from "@/components/MetaPixelRoot";
 import { Navbar } from "@/components/Navbar";
 import { NativeAppProvider } from "@/components/native-app/NativeAppProvider";
-import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
+import { detectSummittMindsetPlatformRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import "./globals.css";
 
 const inter = Inter({
@@ -48,7 +48,8 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const isNativeSummittMindsetApp = await isNativeSummittMindsetAppRequest();
+  const platform = await detectSummittMindsetPlatformRequest();
+  const isNativeSummittMindsetApp = platform !== "none";
 
   return (
     <html lang="en">
@@ -60,6 +61,7 @@ export default async function RootLayout({
         >
           <NativeAppProvider
             isNativeSummittMindsetApp={isNativeSummittMindsetApp}
+            platform={platform}
           >
             {/* Meta Pixel: browser/marketing only. Native app UA never mounts fbq / fbevents.js. */}
             {!isNativeSummittMindsetApp ? <MetaPixelRoot /> : null}

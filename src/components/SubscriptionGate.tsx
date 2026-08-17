@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, Suspense, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useIsNativeSummittMindsetApp } from "@/components/native-app/NativeAppProvider";
+import { useIsNativeSummittMindsetApp, useNativeSummittMindsetPlatform } from "@/components/native-app/NativeAppProvider";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import {
   APP_MEMBERSHIP_PATH,
@@ -23,6 +23,7 @@ function SubscriptionGateInner({
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNativeApp = useIsNativeSummittMindsetApp();
+  const nativePlatform = useNativeSummittMindsetPlatform();
 
   const fromParam = searchParams?.get("from");
 
@@ -110,8 +111,9 @@ function SubscriptionGateInner({
           <div className="max-w-lg w-full space-y-6 text-center">
             <h1 className="text-3xl font-semibold">Membership required</h1>
             <p className="text-sm text-gray-600">
-              Your account does not currently have an active Summitt Mindset
-              membership. Memberships are managed on the Summitt Mindset website.
+              {nativePlatform === "ios"
+                ? "Your account does not currently have an active Summitt Mindset membership."
+                : "Your account does not currently have an active Summitt Mindset membership. Memberships are managed on the Summitt Mindset website."}
             </p>
             <button
               type="button"
