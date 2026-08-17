@@ -9,7 +9,8 @@ import {
   type JWSTransactionDecodedPayload,
   type ResponseBodyV2DecodedPayload,
 } from "@apple/app-store-server-library";
-import { APPLE_IAP_BUNDLE_ID, readAppleIapVerifierConfig } from "./config";
+import { APPLE_IAP_BUNDLE_ID } from "./config";
+import type { OfficialAppleIapEnvironment } from "./environment";
 import { isAppleIapError } from "./errors";
 import { isPostgresUniqueViolation } from "./bindings";
 import { isAllowedAppleIapProductId, APPLE_IAP_MONTHLY_PRODUCT_ID } from "./products";
@@ -68,7 +69,6 @@ export type AppleNotificationHandlerDeps = {
   verifyNotification?: typeof verifySignedNotification;
   verifyTransaction?: typeof verifySignedTransaction;
   verifyRenewal?: typeof verifySignedRenewalInfo;
-  readConfig?: typeof readAppleIapVerifierConfig;
   events?: AppleNotificationEventStore;
   subscriptions?: AppleSubscriptionLifecycleStore;
   recompute?: typeof recomputeMembershipFromDurableSources;
@@ -290,7 +290,6 @@ export async function handleAppleServerNotification(
   const verifyNotification = deps.verifyNotification ?? verifySignedNotification;
   const verifyTransaction = deps.verifyTransaction ?? verifySignedTransaction;
   const verifyRenewal = deps.verifyRenewal ?? verifySignedRenewalInfo;
-  const readConfig = deps.readConfig ?? readAppleIapVerifierConfig;
   const events = deps.events ?? createSupabaseAppleNotificationEventStore();
   const subscriptions =
     deps.subscriptions ?? createSupabaseAppleSubscriptionLifecycleStore();
@@ -299,8 +298,11 @@ export async function handleAppleServerNotification(
   const now = deps.now ?? new Date();
 
   let decoded: ResponseBodyV2DecodedPayload;
+  let verifiedEnvironment: OfficialAppleIapEnvironment;
   try {
-    decoded = await verifyNotification(signedPayload);
+    const verified = await verifyNotification(signedPayload);
+    decoded = verified.payload;
+    verifiedEnvironment = verified.verifiedEnvironment;
   } catch (error) {
     if (isAppleIapError(error) && error.code === "apple_iap_not_configured") {
       logWebhook("not_configured");
@@ -328,16 +330,9 @@ export async function handleAppleServerNotification(
   }
   const subtype = asTypeString(decoded.subtype) || null;
 
-  let expectedEnv: "sandbox" | "production";
-  try {
-    const mapped = mapAppleEnvironmentToDb(readConfig().environment);
-    if (!mapped) {
-      throw new Error("apple_iap_not_configured");
-    }
-    expectedEnv = mapped;
-  } catch {
-    logWebhook("not_configured");
-    return { ok: false, http: 500, error: "Internal Server Error" };
+  const expectedEnv = mapAppleEnvironmentToDb(verifiedEnvironment);
+  if (!expectedEnv) {
+    return { ok: false, http: 400, error: "apple_invalid_environment" };
   }
 
   const data = decoded.data;
@@ -356,8 +351,15 @@ export async function handleAppleServerNotification(
   const signedTransactionInfo = asTypeString(data?.signedTransactionInfo);
   if (signedTransactionInfo) {
     try {
-      transaction = await verifyTransaction(signedTransactionInfo);
+      const nestedTx = await verifyTransaction(signedTransactionInfo, {
+        environment: verifiedEnvironment,
+      });
+      transaction = nestedTx.payload;
     } catch (error) {
+      if (isAppleIapError(error) && error.code === "apple_iap_not_configured") {
+        logWebhook("nested_transaction_not_configured");
+        return { ok: false, http: 500, error: "Internal Server Error" };
+      }
       if (isRetryableAppleVerificationFailure(error)) {
         logWebhook("nested_transaction_retryable");
         return { ok: false, http: 500, error: "Internal Server Error" };
@@ -375,8 +377,15 @@ export async function handleAppleServerNotification(
   const signedRenewalInfo = asTypeString(data?.signedRenewalInfo);
   if (signedRenewalInfo) {
     try {
-      renewal = await verifyRenewal(signedRenewalInfo);
+      const nestedRenewal = await verifyRenewal(signedRenewalInfo, {
+        environment: verifiedEnvironment,
+      });
+      renewal = nestedRenewal.payload;
     } catch (error) {
+      if (isAppleIapError(error) && error.code === "apple_iap_not_configured") {
+        logWebhook("nested_renewal_not_configured");
+        return { ok: false, http: 500, error: "Internal Server Error" };
+      }
       if (isRetryableAppleVerificationFailure(error)) {
         logWebhook("nested_renewal_retryable");
         return { ok: false, http: 500, error: "Internal Server Error" };

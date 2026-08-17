@@ -1,14 +1,16 @@
 import "server-only";
 
 import { Environment } from "@apple/app-store-server-library";
-import {
-  isAppleIapProductionEnvironment,
-  normalizeAppleIapEnvironment,
-} from "./environment";
 import { AppleIapError } from "./errors";
 
-/** Locked iOS bundle ID. */
+/** Locked iOS bundle ID. Public, not an env var. */
 export const APPLE_IAP_BUNDLE_ID = "com.summittmindset.ios";
+
+/**
+ * Numeric App Store Connect Apple ID for this iOS app
+ * (App Information → Apple ID). Public configuration, not a secret.
+ */
+export const APPLE_IAP_APP_APPLE_ID = 6795223891;
 
 export type EnvReader = Record<string, string | undefined>;
 
@@ -29,9 +31,11 @@ export type AppleIapApiClientConfig = {
 
 function readTrimmed(env: EnvReader, key: string): string | undefined {
   const raw = env[key];
-  if (typeof raw !== "string") return undefined;
-  const trimmed = raw.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  return undefined;
 }
 
 /**
@@ -46,68 +50,61 @@ export function normalizeAppleIapPrivateKey(raw: string): string {
   return trimmed;
 }
 
-function parseAppAppleId(raw: string | undefined): number | undefined {
-  if (raw === undefined) return undefined;
-  if (!/^[0-9]+$/.test(raw)) {
-    throw new AppleIapError(
-      "apple_iap_not_configured",
-      "APPLE_IAP_APP_APPLE_ID must be a positive integer"
-    );
-  }
-  const value = Number.parseInt(raw, 10);
-  if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new AppleIapError(
-      "apple_iap_not_configured",
-      "APPLE_IAP_APP_APPLE_ID must be a positive integer"
-    );
-  }
-  return value;
+export function isConfiguredAppleIapAppAppleId(
+  value: number | null
+): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value > 1
+  );
+}
+
+export function appleIapSandboxVerifierConfig(): AppleIapVerifierConfig {
+  return {
+    bundleId: APPLE_IAP_BUNDLE_ID,
+    environment: Environment.SANDBOX,
+  };
 }
 
 /**
- * Config for local JWS verification (SignedDataVerifier).
- * Does not require App Store Server API issuer/key/private-key secrets.
+ * Production verifier config. Fails closed if APPLE_IAP_APP_APPLE_ID is not
+ * a real positive App Store Connect numeric Apple ID.
  */
-export function readAppleIapVerifierConfig(
-  env: EnvReader = process.env
-): AppleIapVerifierConfig {
-  const bundleId = readTrimmed(env, "APPLE_IAP_BUNDLE_ID");
-  if (!bundleId) {
+export function appleIapProductionVerifierConfig(): AppleIapVerifierConfig {
+  if (!isConfiguredAppleIapAppAppleId(APPLE_IAP_APP_APPLE_ID)) {
     throw new AppleIapError(
       "apple_iap_not_configured",
-      "APPLE_IAP_BUNDLE_ID is required for Apple signed-data verification"
+      "Production Apple verification requires the numeric App Store Connect Apple ID in APPLE_IAP_APP_APPLE_ID"
     );
   }
-
-  const environmentRaw = readTrimmed(env, "APPLE_IAP_ENVIRONMENT");
-  if (!environmentRaw) {
-    throw new AppleIapError(
-      "apple_iap_not_configured",
-      "APPLE_IAP_ENVIRONMENT is required for Apple signed-data verification"
-    );
-  }
-  const environment = normalizeAppleIapEnvironment(environmentRaw);
-
-  const appAppleId = parseAppAppleId(readTrimmed(env, "APPLE_IAP_APP_APPLE_ID"));
-  if (isAppleIapProductionEnvironment(environment) && appAppleId === undefined) {
-    throw new AppleIapError(
-      "apple_iap_not_configured",
-      "APPLE_IAP_APP_APPLE_ID is required when APPLE_IAP_ENVIRONMENT is production"
-    );
-  }
-
-  return { bundleId, environment, appAppleId };
+  return {
+    bundleId: APPLE_IAP_BUNDLE_ID,
+    environment: Environment.PRODUCTION,
+    appAppleId: APPLE_IAP_APP_APPLE_ID,
+  };
 }
 
 /**
  * Config for App Store Server API client construction.
  * Call only when a route actually needs the API. Missing secrets fail here,
- * not at verifier import or JWS verification config.
+ * not at verifier import or JWS verification.
+ *
+ * Environment is a caller argument (Sandbox vs Production API host), not an env var.
  */
 export function readAppleIapApiClientConfig(
+  environment: Environment,
   env: EnvReader = process.env
 ): AppleIapApiClientConfig {
-  const verifier = readAppleIapVerifierConfig(env);
+  if (
+    environment !== Environment.SANDBOX &&
+    environment !== Environment.PRODUCTION
+  ) {
+    throw new AppleIapError(
+      "apple_iap_invalid_environment",
+      "App Store Server API client environment must be Sandbox or Production"
+    );
+  }
 
   const issuerId = readTrimmed(env, "APPLE_IAP_ISSUER_ID");
   if (!issuerId) {
@@ -137,7 +134,7 @@ export function readAppleIapApiClientConfig(
     issuerId,
     keyId,
     privateKey: normalizeAppleIapPrivateKey(privateKeyRaw),
-    bundleId: verifier.bundleId,
-    environment: verifier.environment,
+    bundleId: APPLE_IAP_BUNDLE_ID,
+    environment,
   };
 }

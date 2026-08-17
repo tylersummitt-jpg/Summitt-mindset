@@ -8,7 +8,6 @@ import {
   assertEntitlementMutationAllowedForAccountDeletion,
 } from "@/lib/account-deletion/deletion-guards";
 import { getLiveAppleAccountToken } from "@/lib/apple-iap/bindings";
-import { readAppleIapVerifierConfig } from "@/lib/apple-iap/config";
 import { isAppleIapError } from "@/lib/apple-iap/errors";
 import {
   appleAccountTokensEqual,
@@ -99,8 +98,11 @@ export async function POST(request: Request) {
   }
 
   let decoded;
+  let verifiedEnvironment;
   try {
-    decoded = await verifySignedTransaction(signedTransactionInfo);
+    const verified = await verifySignedTransaction(signedTransactionInfo);
+    decoded = verified.payload;
+    verifiedEnvironment = verified.verifiedEnvironment;
   } catch (error) {
     if (isAppleIapError(error) && error.code === "apple_iap_not_configured") {
       logVerify("not_configured");
@@ -114,16 +116,8 @@ export async function POST(request: Request) {
     return json({ error: "apple_iap_verification_failed" }, 400);
   }
 
-  let verifierEnv;
-  try {
-    verifierEnv = readAppleIapVerifierConfig().environment;
-  } catch {
-    logVerify("not_configured");
-    return json({ error: "Internal Server Error" }, 500);
-  }
-
   const validated = validateDecodedAppleTransaction(decoded, {
-    environment: verifierEnv,
+    environment: verifiedEnvironment,
   });
   if (!validated.ok) {
     logVerify("field_validation", {

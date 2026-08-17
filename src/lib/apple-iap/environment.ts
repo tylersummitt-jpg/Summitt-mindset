@@ -1,24 +1,31 @@
 import "server-only";
 
 import { Environment } from "@apple/app-store-server-library";
-import { AppleIapError } from "./errors";
 
 export type AppleIapEnvironmentName = "sandbox" | "production";
 
-/**
- * Map our env string to Apple's Environment enum.
- * Unknown values fail closed — no silent sandbox or production fallback.
- */
-export function normalizeAppleIapEnvironment(raw: string): Environment {
-  const value = raw.trim().toLowerCase();
-  if (value === "sandbox") return Environment.SANDBOX;
-  if (value === "production") return Environment.PRODUCTION;
-  throw new AppleIapError(
-    "apple_iap_invalid_environment",
-    "APPLE_IAP_ENVIRONMENT must be sandbox or production"
-  );
+export type OfficialAppleIapEnvironment =
+  | Environment.SANDBOX
+  | Environment.PRODUCTION;
+
+export function isAppleIapProductionEnvironment(
+  environment: Environment
+): boolean {
+  return environment === Environment.PRODUCTION;
 }
 
-export function isAppleIapProductionEnvironment(environment: Environment): boolean {
-  return environment === Environment.PRODUCTION;
+export function isAppleIapSandboxEnvironment(
+  environment: Environment
+): boolean {
+  return environment === Environment.SANDBOX;
+}
+
+/** Official Sandbox/Production only. Xcode and LocalTesting are rejected. */
+export function isOfficialAppleIapEnvironment(
+  environment: Environment | string | undefined
+): environment is Environment.SANDBOX | Environment.PRODUCTION {
+  return (
+    environment === Environment.SANDBOX ||
+    environment === Environment.PRODUCTION
+  );
 }

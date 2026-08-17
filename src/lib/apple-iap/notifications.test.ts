@@ -111,6 +111,30 @@ function notification(
   };
 }
 
+function verified<T>(
+  payload: T,
+  verifiedEnvironment:
+    | Environment.SANDBOX
+    | Environment.PRODUCTION = Environment.SANDBOX
+) {
+  return { payload, verifiedEnvironment };
+}
+
+function asVerifiedResult<T>(value: unknown) {
+  if (
+    value &&
+    typeof value === "object" &&
+    "payload" in value &&
+    "verifiedEnvironment" in value
+  ) {
+    return value as {
+      payload: T;
+      verifiedEnvironment: Environment.SANDBOX | Environment.PRODUCTION;
+    };
+  }
+  return verified(value as T);
+}
+
 function boundRow(
   overrides: Partial<AppleLifecycleRow> = {}
 ): AppleLifecycleRow {
@@ -286,14 +310,12 @@ describe("handleAppleServerNotification", () => {
 
   function deps(): AppleNotificationHandlerDeps {
     return {
-      verifyNotification,
-      verifyTransaction,
-      verifyRenewal,
-      readConfig: () =>
-        ({
-          bundleId: "com.summittmindset.ios",
-          environment: Environment.SANDBOX,
-        }) as ReturnType<typeof import("./config").readAppleIapVerifierConfig>,
+      verifyNotification: async (signedPayload, options) =>
+        asVerifiedResult(await verifyNotification(signedPayload, options)),
+      verifyTransaction: async (signedTransaction, options) =>
+        asVerifiedResult(await verifyTransaction(signedTransaction, options)),
+      verifyRenewal: async (signedRenewal, options) =>
+        asVerifiedResult(await verifyRenewal(signedRenewal, options)),
       events,
       subscriptions,
       recompute,
@@ -305,9 +327,9 @@ describe("handleAppleServerNotification", () => {
     vi.clearAllMocks();
     events = memoryEvents();
     subscriptions = memorySubs(boundRow());
-    verifyNotification.mockResolvedValue(notification());
-    verifyTransaction.mockResolvedValue(tx());
-    verifyRenewal.mockResolvedValue(renewal());
+    verifyNotification.mockResolvedValue(verified(notification()));
+    verifyTransaction.mockResolvedValue(verified(tx()));
+    verifyRenewal.mockResolvedValue(verified(renewal()));
     recompute.mockResolvedValue({
       ok: true,
       summittSubscribed: true,
@@ -527,9 +549,67 @@ describe("handleAppleServerNotification", () => {
 
   it("nested transaction and renewal JWS are verified", async () => {
     await handleAppleServerNotification(JWS, deps());
-    expect(verifyNotification).toHaveBeenCalledWith(JWS);
-    expect(verifyTransaction).toHaveBeenCalledWith(NESTED_TX);
-    expect(verifyRenewal).toHaveBeenCalledWith(NESTED_RENEWAL);
+    expect(verifyNotification).toHaveBeenCalledWith(JWS, undefined);
+    expect(verifyTransaction).toHaveBeenCalledWith(NESTED_TX, {
+      environment: Environment.SANDBOX,
+    });
+    expect(verifyRenewal).toHaveBeenCalledWith(NESTED_RENEWAL, {
+      environment: Environment.SANDBOX,
+    });
+  });
+
+  it("nested webhook transaction uses verified outer environment consistently", async () => {
+    verifyNotification.mockResolvedValue(
+      verified(
+        notification({
+          data: {
+            ...notification().data,
+            environment: Environment.PRODUCTION,
+          },
+        }),
+        Environment.PRODUCTION
+      )
+    );
+    verifyTransaction.mockResolvedValue(
+      verified(tx({ environment: Environment.PRODUCTION }), Environment.PRODUCTION)
+    );
+    verifyRenewal.mockResolvedValue(
+      verified(
+        renewal({ environment: Environment.PRODUCTION }),
+        Environment.PRODUCTION
+      )
+    );
+    await handleAppleServerNotification(JWS, deps());
+    expect(verifyTransaction).toHaveBeenCalledWith(NESTED_TX, {
+      environment: Environment.PRODUCTION,
+    });
+  });
+
+  it("nested renewal uses verified outer environment consistently", async () => {
+    verifyNotification.mockResolvedValue(
+      verified(
+        notification({
+          data: {
+            ...notification().data,
+            environment: Environment.PRODUCTION,
+          },
+        }),
+        Environment.PRODUCTION
+      )
+    );
+    verifyTransaction.mockResolvedValue(
+      verified(tx({ environment: Environment.PRODUCTION }), Environment.PRODUCTION)
+    );
+    verifyRenewal.mockResolvedValue(
+      verified(
+        renewal({ environment: Environment.PRODUCTION }),
+        Environment.PRODUCTION
+      )
+    );
+    await handleAppleServerNotification(JWS, deps());
+    expect(verifyRenewal).toHaveBeenCalledWith(NESTED_RENEWAL, {
+      environment: Environment.PRODUCTION,
+    });
   });
 
   it("newer renewal applies; older out-of-order does not overwrite", async () => {

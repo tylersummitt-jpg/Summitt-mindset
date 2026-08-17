@@ -30,19 +30,22 @@ vi.mock("@/lib/account-deletion/deletion-guards", () => ({
 
 const verifyMock = vi.fn();
 vi.mock("@/lib/apple-iap/verifier", () => ({
-  verifySignedTransaction: (...args: unknown[]) => verifyMock(...args),
+  verifySignedTransaction: async (...args: unknown[]) => {
+    const result = await verifyMock(...args);
+    if (
+      result &&
+      typeof result === "object" &&
+      "payload" in result &&
+      "verifiedEnvironment" in result
+    ) {
+      return result;
+    }
+    return {
+      payload: result,
+      verifiedEnvironment: Environment.SANDBOX,
+    };
+  },
 }));
-
-const readConfigMock = vi.fn();
-vi.mock("@/lib/apple-iap/config", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/apple-iap/config")>(
-    "@/lib/apple-iap/config"
-  );
-  return {
-    ...actual,
-    readAppleIapVerifierConfig: (...args: unknown[]) => readConfigMock(...args),
-  };
-});
 
 const getLiveTokenMock = vi.fn();
 vi.mock("@/lib/apple-iap/bindings", () => ({
@@ -127,10 +130,6 @@ describe("POST /api/apple/verify", () => {
     delete process.env.APPLE_IAP_PRIVATE_KEY;
     authMock.mockResolvedValue({ userId: "user_1" });
     assertDeletionMock.mockResolvedValue({ ok: true });
-    readConfigMock.mockReturnValue({
-      bundleId: "com.summittmindset.ios",
-      environment: Environment.SANDBOX,
-    });
     verifyMock.mockResolvedValue(decodedTx());
     getLiveTokenMock.mockResolvedValue({
       ok: true,
@@ -229,6 +228,17 @@ describe("POST /api/apple/verify", () => {
     const res = await POST(verifyRequest());
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "apple_invalid_environment" });
+  });
+
+  it("production verified transaction is accepted when verifiedEnvironment is Production", async () => {
+    verifyMock.mockResolvedValue({
+      payload: decodedTx({ environment: Environment.PRODUCTION }),
+      verifiedEnvironment: Environment.PRODUCTION,
+    });
+    const { POST } = await import("./route");
+    const res = await POST(verifyRequest());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
   });
 
   it("wrong IAP type => 400", async () => {
@@ -474,6 +484,10 @@ describe("POST /api/apple/verify", () => {
     expect(src).not.toContain("APPLE_IAP_ISSUER_ID");
     expect(src).not.toContain("APPLE_IAP_KEY_ID");
     expect(src).not.toContain("APPLE_IAP_PRIVATE_KEY");
+    expect(src).not.toContain("APPLE_IAP_ENVIRONMENT");
+    expect(src).not.toContain("APPLE_IAP_BUNDLE_ID");
+    expect(src).not.toContain("APPLE_IAP_APP_APPLE_ID");
+    expect(src).not.toContain("readAppleIapVerifierConfig");
     expect(src).toContain("verifySignedTransaction");
   });
 

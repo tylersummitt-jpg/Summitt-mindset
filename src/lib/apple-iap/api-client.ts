@@ -1,12 +1,13 @@
 import "server-only";
 
-import { AppStoreServerAPIClient } from "@apple/app-store-server-library";
+import { AppStoreServerAPIClient, type Environment } from "@apple/app-store-server-library";
 import {
   readAppleIapApiClientConfig,
   type AppleIapApiClientConfig,
 } from "./config";
 
 export type CreateAppStoreServerApiClientOptions = {
+  environment: Environment;
   config?: AppleIapApiClientConfig;
 };
 
@@ -24,11 +25,13 @@ export type CreateAppStoreServerApiClientOptions = {
  *
  * Must not be called at module import time. Missing API secrets fail only
  * when this factory (or readAppleIapApiClientConfig) is invoked.
+ * Verifier/JWS paths must never call this.
  */
 export function createAppStoreServerApiClient(
-  options: CreateAppStoreServerApiClientOptions = {}
+  options: CreateAppStoreServerApiClientOptions
 ): AppStoreServerAPIClient {
-  const config = options.config ?? readAppleIapApiClientConfig();
+  const config =
+    options.config ?? readAppleIapApiClientConfig(options.environment);
   return new AppStoreServerAPIClient(
     config.privateKey,
     config.keyId,

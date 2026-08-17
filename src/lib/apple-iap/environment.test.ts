@@ -1,38 +1,30 @@
 import { Environment } from "@apple/app-store-server-library";
 import { describe, expect, it } from "vitest";
-import { AppleIapError } from "./errors";
-import { normalizeAppleIapEnvironment } from "./environment";
+import {
+  isAppleIapProductionEnvironment,
+  isAppleIapSandboxEnvironment,
+  isOfficialAppleIapEnvironment,
+} from "./environment";
 
-describe("Apple IAP environment normalization", () => {
-  it("maps sandbox to Environment.SANDBOX", () => {
-    expect(normalizeAppleIapEnvironment("sandbox")).toBe(Environment.SANDBOX);
-    expect(normalizeAppleIapEnvironment(" Sandbox ")).toBe(Environment.SANDBOX);
+describe("Apple IAP official environment helpers", () => {
+  it("accepts only Sandbox and Production", () => {
+    expect(isOfficialAppleIapEnvironment(Environment.SANDBOX)).toBe(true);
+    expect(isOfficialAppleIapEnvironment(Environment.PRODUCTION)).toBe(true);
+    expect(isOfficialAppleIapEnvironment(Environment.XCODE)).toBe(false);
+    expect(isOfficialAppleIapEnvironment(Environment.LOCAL_TESTING)).toBe(
+      false
+    );
+    expect(isOfficialAppleIapEnvironment("Sandbox")).toBe(true);
+    expect(isOfficialAppleIapEnvironment("Production")).toBe(true);
+    expect(isOfficialAppleIapEnvironment("Xcode")).toBe(false);
+    expect(isOfficialAppleIapEnvironment("LocalTesting")).toBe(false);
+    expect(isOfficialAppleIapEnvironment(undefined)).toBe(false);
   });
 
-  it("maps production to Environment.PRODUCTION", () => {
-    expect(normalizeAppleIapEnvironment("production")).toBe(
-      Environment.PRODUCTION
-    );
-    expect(normalizeAppleIapEnvironment("PRODUCTION")).toBe(
-      Environment.PRODUCTION
-    );
-  });
-
-  it("fails closed on unknown environment values", () => {
-    expect(() => normalizeAppleIapEnvironment("prod")).toThrow(AppleIapError);
-    expect(() => normalizeAppleIapEnvironment("Xcode")).toThrow(AppleIapError);
-    expect(() => normalizeAppleIapEnvironment("LocalTesting")).toThrow(
-      AppleIapError
-    );
-    expect(() => normalizeAppleIapEnvironment("")).toThrow(AppleIapError);
-    try {
-      normalizeAppleIapEnvironment("staging");
-      throw new Error("expected throw");
-    } catch (error) {
-      expect(error).toBeInstanceOf(AppleIapError);
-      expect((error as AppleIapError).code).toBe(
-        "apple_iap_invalid_environment"
-      );
-    }
+  it("distinguishes sandbox vs production", () => {
+    expect(isAppleIapSandboxEnvironment(Environment.SANDBOX)).toBe(true);
+    expect(isAppleIapProductionEnvironment(Environment.PRODUCTION)).toBe(true);
+    expect(isAppleIapSandboxEnvironment(Environment.PRODUCTION)).toBe(false);
+    expect(isAppleIapProductionEnvironment(Environment.SANDBOX)).toBe(false);
   });
 });
