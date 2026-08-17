@@ -26,11 +26,11 @@ export const ACCOUNT_DELETION_CONSEQUENCES_INTRO =
   "This permanently deletes your Summitt Mindset account. It is not the same as canceling membership." as const;
 
 export const ACCOUNT_DELETION_CONSEQUENCES_MEMBERSHIP_NOTE =
-  "Canceling membership stops billing and keeps your account. Deleting your account will:" as const;
+  "Deleting your account removes Summitt Mindset access. A membership billed directly by Summitt is canceled as part of deletion. If you purchased through Apple, deleting your Summitt account does not cancel the App Store subscription — manage or cancel that subscription through Apple. Deleting your account will:" as const;
 
 export const ACCOUNT_DELETION_CONSEQUENCE_BULLETS = [
   "Stop Summitt Mindset text messages",
-  "Cancel any active or paused membership",
+  "Remove Summitt Mindset membership access",
   "Permanently delete your app data, including journals, progress, and related records",
   "Delete your sign-in identity",
 ] as const;

@@ -222,6 +222,9 @@ describe("APP-041C2 purge RPC migration (static) — production-schema alignment
     expect(sql).not.toContain("DELETE FROM public.sms_daily_stats");
     expect(sql).not.toContain("DELETE FROM public.v2_rollout_flag");
     expect(sql).not.toContain("DELETE FROM public.pat_quotes");
+    expect(sql).not.toContain("DELETE FROM public.apple_account_bindings");
+    expect(sql).not.toContain("DELETE FROM public.apple_subscriptions");
+    expect(sql).not.toContain("DELETE FROM public.apple_notification_events");
   });
 
   it("is service_role-only; no fabricated STOP VALUES", () => {

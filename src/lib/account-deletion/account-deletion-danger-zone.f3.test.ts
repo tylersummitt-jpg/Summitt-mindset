@@ -256,6 +256,25 @@ describe("APP-041F3 placement / reachability source proofs", () => {
     );
     expect(zone).not.toMatch(/checkbox|type=\"checkbox\"/);
   });
+
+  it("does not claim deleting the account cancels Apple or App Store billing", () => {
+    const helpers = readFileSync(HELPERS, "utf8");
+    const joined = [
+      ACCOUNT_DELETION_CONSEQUENCES_INTRO,
+      ACCOUNT_DELETION_CONSEQUENCES_MEMBERSHIP_NOTE,
+      ...ACCOUNT_DELETION_CONSEQUENCE_BULLETS,
+    ].join(" ");
+    expect(joined).toContain("does not cancel the App Store subscription");
+    expect(joined).toContain("through Apple");
+    expect(joined).toContain("billed directly by Summitt");
+    expect(joined).not.toMatch(/Cancel any active or paused membership/);
+    expect(joined).not.toMatch(/Canceling membership stops billing/);
+    expect(joined).not.toMatch(/stops App Store billing/i);
+    expect(joined).not.toMatch(/Summitt controls Apple/i);
+    expect(helpers).not.toContain("Stripe");
+    expect(helpers).not.toContain("webhook");
+    expect(helpers).not.toContain("entitlement");
+  });
 });
 
 describe("APP-041F3 confirmation + flow helpers", () => {

@@ -45,15 +45,20 @@ export default function TermsPage() {
           2. Membership cancellation and account deletion
         </h2>
         <p className="text-base leading-7 text-[var(--muted)]">
-          Canceling membership stops future billing and ends paid access for that
-          membership, but it does not delete your account, journals, progress, or
-          sign-in. Account deletion is a separate, permanent action.
+          Canceling a membership billed directly by Summitt stops that future
+          billing and ends paid access for that membership, but it does not
+          delete your account, journals, progress, or sign-in. Account deletion
+          is a separate, permanent action. If you purchased through Apple,
+          deleting your Summitt account does not cancel the App Store
+          subscription. Manage or cancel that subscription through Apple.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
-          When an account is deleted, an active or paused Summitt Mindset
-          membership on that account is canceled as part of deletion. Deletion
-          also stops Summitt Mindset text messages for that account and removes
-          app data as described in our{" "}
+          When an account is deleted, Summitt Mindset membership access on that
+          account is removed. A membership billed directly by Summitt is
+          canceled as part of deletion. An App Store subscription is not
+          canceled by deleting your Summitt account and must be managed or
+          canceled through Apple. Deletion also stops Summitt Mindset text
+          messages for that account and removes app data as described in our{" "}
           <Link href="/privacy" className="underline underline-offset-4">
             Privacy Policy
           </Link>{" "}

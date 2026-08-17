@@ -338,17 +338,23 @@ export default function PrivacyPage() {
         <h2 className="text-xl font-semibold">8. Account deletion</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           You may request permanent deletion of your Summitt Mindset account.
-          Deletion is separate from canceling membership. Canceling membership
-          stops future billing and paid access but keeps your account and app
-          data unless you also delete the account.
+          Deletion is separate from canceling membership. Canceling a membership
+          billed directly by Summitt stops that future billing and paid access
+          but keeps your account and app data unless you also delete the
+          account. If you purchased through Apple, deleting your Summitt account
+          does not cancel the App Store subscription. Manage or cancel that
+          subscription through Apple.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
           When an account deletion is completed, we stop Summitt Mindset text
-          messages for that account, cancel an active or paused membership,
+          messages for that account, remove Summitt Mindset membership access,
           delete journals, progress, coaching history, preferences, Leadership
           Kit shipping addresses stored in our application database, and related
           app data owned by the account, and delete the sign-in identity used to
-          access the service.
+          access the service. A membership billed directly by Summitt is
+          canceled as part of deletion. An App Store subscription is not
+          canceled by deleting your Summitt account and must be managed or
+          canceled through Apple.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
           Signed-in members can open Account, select Delete account in the

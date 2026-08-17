@@ -116,7 +116,10 @@ describe("store-facing account deletion disclosures", () => {
     expect(page).toContain("Cancellation is not deletion");
     expect(page).toContain("permanent");
     expect(page).toContain("Stops Summitt Mindset text messages");
-    expect(page).toContain("Cancels an active or paused");
+    expect(page).toContain("Removes Summitt Mindset membership access");
+    expect(page).toContain("does not cancel the App Store subscription");
+    expect(page).toContain("through Apple");
+    expect(page).not.toContain("Cancels an active or paused");
     expect(page).toContain("journals, progress, coaching history");
     expect(page).toMatch(
       /Leadership Kit shipping addresses stored in our application\s+database/i
@@ -138,6 +141,18 @@ describe("store-facing account deletion disclosures", () => {
     expect(ACCOUNT_DELETION_SUPPORT_EMAIL_HREF).toBe(
       "mailto:support@summittmindset.com"
     );
+  });
+
+  it("legal deletion copy does not claim Apple billing is canceled", () => {
+    const privacy = readSrc("src/app/privacy/page.tsx");
+    const terms = readSrc("src/app/terms/page.tsx");
+    const dataDeletion = readSrc("src/app/data-deletion/page.tsx");
+    for (const src of [privacy, terms, dataDeletion]) {
+      expect(src).toMatch(/does not cancel the App Store\s+subscription/);
+      expect(src).toContain("through Apple");
+      expect(src).toContain("billed directly by Summitt");
+      expect(src).not.toMatch(/stops App Store billing/i);
+    }
   });
 
   it("keeps Privacy and Data Deletion retained-record categories aligned", () => {
@@ -201,8 +216,8 @@ describe("store-facing account deletion disclosures", () => {
     const terms = readSrc("src/app/terms/page.tsx");
 
     expect(terms).toContain("Membership cancellation and account deletion");
-    expect(terms).toContain("does not delete your account");
-    expect(terms).toContain("active or paused");
+    expect(terms).toMatch(/does not\s+delete your account/);
+    expect(terms).toMatch(/does not cancel the App Store\s+subscription/);
     expect(terms).toContain("do not create a new refund promise");
     expect(terms).toContain('href="/data-deletion"');
     expect(terms).toContain("TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE");

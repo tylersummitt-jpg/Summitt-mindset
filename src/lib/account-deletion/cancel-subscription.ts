@@ -16,7 +16,13 @@
  *
  * Missing stripeCustomerId:
  * - Recover via stripeSubscriptionId (retrieve → derive customer → ownership gate → list).
- * - skipped only when no customer handle, no subscription handle, and no credible membership evidence.
+ * - skipped only when no Stripe customer handle and no Stripe subscription handle.
+ * - Generic Summitt entitlement (summittSubscribed / summittPlan) is NOT Stripe proof.
+ *
+ * Apple IAP:
+ * - After Stripe cancel/skip succeeds, tombstone live Apple binding and detach
+ *   apple_subscriptions before advancing to subscription_canceled.
+ * - Does not call App Store Server API. Does not require .p8 credentials.
  *
  * Postgres and Stripe are NOT one atomic transaction. Safe ordering:
  * - Mark canceling_subscription + stripe_result=pending before any Stripe cancel.
@@ -39,6 +45,7 @@ import {
 } from "@/lib/summitt-subscription-membership";
 
 import { sanitizeAccountDeletionErrorDetail } from "./sanitize";
+import { detachAppleIapForDeletion } from "./detach-apple-iap";
 import {
   DEFAULT_ACCOUNT_DELETION_LEASE_MS,
   acquireAccountDeletionLease,
@@ -86,6 +93,8 @@ export type CancelStripeSubscriptionsForDeletionInput = {
   getPublicMetadata?: (
     clerkUserId: string
   ) => Promise<Record<string, unknown> | null | undefined>;
+  /** Test injection; production detaches Apple IAP ownership. */
+  detachAppleIap?: typeof detachAppleIapForDeletion;
   /** Test injection for recognized price ids. */
   recognizedPriceIds?: Set<string>;
 };
@@ -305,7 +314,9 @@ function resolveSubscriptionId(
 
 /**
  * Credible Summitt membership evidence in Clerk public metadata.
- * Used only to refuse false `skipped` when discovery handles are missing.
+ * Used only when a Stripe customer/subscription handle existed but is gone.
+ * Not proof that Stripe billing exists. Apple-only members can be subscribed
+ * without cus_/sub_ handles.
  */
 export function hasCredibleSummittMembershipEvidence(
   metadata: Record<string, unknown> | null | undefined
@@ -554,13 +565,6 @@ async function resolveOwnedCustomerId(input: {
     return { kind: "customer", customerId: derived };
   }
 
-  if (membershipEvidence) {
-    throw new DeletionDiscoveryError(
-      "stripe_discovery_incomplete",
-      "Clerk membership evidence present without Stripe customer or subscription handle"
-    );
-  }
-
   return { kind: "no_handles" };
 }
 
@@ -750,6 +754,54 @@ export async function cancelStripeSubscriptionsForDeletion(
             canceledCount = pass.canceledCount;
             alreadyTerminalCount = pass.alreadyTerminalCount;
             consideredCount = pass.consideredCount;
+          }
+
+          if (
+            !earlyFailure &&
+            !finalRow &&
+            stripeResult &&
+            stripeResult !== "failed"
+          ) {
+            const detachApple =
+              input.detachAppleIap ?? detachAppleIapForDeletion;
+            let appleDetach: Awaited<ReturnType<typeof detachAppleIapForDeletion>>;
+            try {
+              appleDetach = await detachApple(clerkUserId);
+            } catch {
+              appleDetach = {
+                ok: false,
+                reason: "binding_tombstone_failed",
+                binding: "failed",
+                subscriptions: "failed",
+              };
+            }
+            if (!appleDetach.ok) {
+              const failed = await recordAccountDeletionFailure({
+                requestId: input.requestId,
+                fromStatus: "canceling_subscription",
+                terminal: false,
+                errorCode:
+                  appleDetach.reason === "binding_tombstone_failed"
+                    ? "apple_iap_binding_tombstone_failed"
+                    : "apple_iap_subscription_detach_failed",
+                errorDetail: null,
+                lockOwner,
+                leaseMs,
+                now,
+                expectedOrchestrationVersion,
+                stripeResult,
+                stepDetail: `apple_binding:${appleDetach.binding};apple_subscriptions:${appleDetach.subscriptions}`,
+              });
+              leaseAlreadyReleased = failed.ok;
+              earlyFailure = failed.ok
+                ? {
+                    ok: false,
+                    code: "internal_error",
+                    message:
+                      "Apple detach step failed; request is failed_retryable",
+                  }
+                : failed;
+            }
           }
 
           if (

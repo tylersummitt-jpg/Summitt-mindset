@@ -49,9 +49,12 @@ export default function DataDeletionPage() {
             Cancellation is not deletion
           </h2>
           <p className="text-base leading-7 text-[var(--muted)]">
-            Canceling membership stops future billing and ends paid access, but
-            it does not delete your account, journals, progress, or sign-in.
-            Account deletion is a separate, permanent action.
+            Canceling a membership billed directly by Summitt stops that future
+            billing and ends paid access, but it does not delete your account,
+            journals, progress, or sign-in. Account deletion is a separate,
+            permanent action. If you purchased through Apple, deleting your
+            Summitt account does not cancel the App Store subscription. Manage
+            or cancel that subscription through Apple.
           </p>
         </section>
 
@@ -65,7 +68,12 @@ export default function DataDeletionPage() {
           </p>
           <ul className="list-disc space-y-2 pl-5 text-base leading-7 text-[var(--muted)]">
             <li>Stops Summitt Mindset text messages for that account</li>
-            <li>Cancels an active or paused Summitt Mindset membership</li>
+            <li>
+              Removes Summitt Mindset membership access. A membership billed
+              directly by Summitt is canceled as part of deletion. An App Store
+              subscription is not canceled by deleting your Summitt account and
+              must be managed or canceled through Apple.
+            </li>
             <li>
               Deletes journals, progress, coaching history, preferences,
               Leadership Kit shipping addresses stored in our application

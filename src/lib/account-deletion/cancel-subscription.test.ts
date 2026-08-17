@@ -14,6 +14,13 @@ vi.mock("@/lib/clerk-rest", () => ({
   getClerkPublicMetadata: vi.fn(async () => ({})),
 }));
 
+const { detachAppleMock } = vi.hoisted(() => ({
+  detachAppleMock: vi.fn(),
+}));
+vi.mock("./detach-apple-iap", () => ({
+  detachAppleIapForDeletion: (...args: unknown[]) => detachAppleMock(...args),
+}));
+
 import {
   createAccountDeletionRequest,
   acquireAccountDeletionLease,
@@ -340,6 +347,12 @@ describe("hasCredibleSummittMembershipEvidence", () => {
 describe("cancelStripeSubscriptionsForDeletion (mocks only — no real Stripe)", () => {
   beforeEach(() => {
     useInMemoryAccountDeletionStoreForTests();
+    detachAppleMock.mockReset();
+    detachAppleMock.mockResolvedValue({
+      ok: true,
+      binding: "already_unbound",
+      subscriptions: "none",
+    });
   });
 
   it("1. no handles + no membership evidence → skipped", async () => {
@@ -791,7 +804,11 @@ describe("cancelStripeSubscriptionsForDeletion (mocks only — no real Stripe)",
       /from\s+["']@\/app\/api\/cancel-membership/
     );
     expect(orchestrator).not.toContain("syncSmsAudience");
+    expect(orchestrator).not.toContain("AppStoreServerAPIClient");
+    expect(orchestrator).not.toContain("createAppStoreServerApiClient");
+    expect(orchestrator).not.toContain("APPLE_IAP_ISSUER_ID");
     expect(orchestrator).toMatch(/plan-only metadata is NOT sufficient/i);
+    expect(orchestrator).toContain("detachAppleIapForDeletion");
   });
 
   it("C1. wrong customer metadata userId → no list/cancel, failed", async () => {
@@ -1021,9 +1038,14 @@ describe("cancelStripeSubscriptionsForDeletion (mocks only — no real Stripe)",
     expect(row?.last_error_code).toBe("stripe_subscription_lookup_failed");
   });
 
-  it("C10. no handles + summittSubscribed → incomplete discovery, not skipped", async () => {
+  it("C10. no handles + summittSubscribed → Stripe skipped, Apple detach, stage advances", async () => {
     const id = await seedSmsSuppressed("user_ev", "k-ev");
     const fake = createFakeStripe([]);
+    detachAppleMock.mockResolvedValue({
+      ok: true,
+      binding: "tombstoned",
+      subscriptions: "detached",
+    });
     const result = await cancelStripeSubscriptionsForDeletion({
       requestId: id,
       clerkUserId: "user_ev",
@@ -1032,12 +1054,13 @@ describe("cancelStripeSubscriptionsForDeletion (mocks only — no real Stripe)",
       recognizedPriceIds: RECOGNIZED,
       getPublicMetadata: async () => ({ summittSubscribed: true }),
     });
-    expect(result.ok).toBe(false);
-    const row = await getAccountDeletionRequestById(id);
-    expect(row?.status).toBe("failed_retryable");
-    expect(row?.stripe_result).toBe("failed");
-    expect(row?.last_error_code).toBe("stripe_discovery_incomplete");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.stripeResult).toBe("skipped");
+    expect(result.value.row.status).toBe("subscription_canceled");
     expect(fake.listCalls).toBe(0);
+    expect(fake.cancelCalls).toEqual([]);
+    expect(detachAppleMock).toHaveBeenCalledWith("user_ev");
   });
 
   it("C11. foreign subscription recovery handle → fail closed", async () => {
@@ -1066,5 +1089,119 @@ describe("cancelStripeSubscriptionsForDeletion (mocks only — no real Stripe)",
     expect(row?.last_error_code).toBe("stripe_subscription_owner_mismatch");
     expect(row?.last_error_detail).not.toMatch(/sub_f|user_other|cus_/);
     expect(fake.cancelCalls).toEqual([]);
+  });
+
+  it("Stripe + Apple: cancels Stripe immediately and detaches Apple without App Store cancel", async () => {
+    const id = await seedSmsSuppressed("user_both", "k-both");
+    const fake = createFakeStripe([
+      fakeSub({ id: "sub_live", priceId: CURRENT_PRICE }),
+    ]);
+    detachAppleMock.mockResolvedValue({
+      ok: true,
+      binding: "tombstoned",
+      subscriptions: "detached",
+    });
+    const result = await cancelStripeSubscriptionsForDeletion({
+      requestId: id,
+      clerkUserId: "user_both",
+      lockOwner: "w1",
+      stripe: fake.client,
+      recognizedPriceIds: RECOGNIZED,
+      getPublicMetadata: async () => ({
+        stripeCustomerId: "cus_test123",
+        summittSubscribed: true,
+      }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(fake.cancelCalls).toEqual(["sub_live"]);
+    expect(result.value.stripeResult).toBe("ok");
+    expect(result.value.row.status).toBe("subscription_canceled");
+    expect(detachAppleMock).toHaveBeenCalledWith("user_both");
+  });
+
+  it("Apple detach failure after Stripe skip stays retryable then completes", async () => {
+    const id = await seedSmsSuppressed("user_retry_apple", "k-retry-apple");
+    const fake = createFakeStripe([]);
+    detachAppleMock.mockResolvedValueOnce({
+      ok: false,
+      reason: "subscription_detach_failed",
+      binding: "tombstoned",
+      subscriptions: "failed",
+    });
+    const first = await cancelStripeSubscriptionsForDeletion({
+      requestId: id,
+      clerkUserId: "user_retry_apple",
+      lockOwner: "w1",
+      stripe: fake.client,
+      recognizedPriceIds: RECOGNIZED,
+      getPublicMetadata: async () => ({ summittSubscribed: true }),
+    });
+    expect(first.ok).toBe(false);
+    const failedRow = await getAccountDeletionRequestById(id);
+    expect(failedRow?.status).toBe("failed_retryable");
+    expect(failedRow?.last_error_code).toBe(
+      "apple_iap_subscription_detach_failed"
+    );
+    expect(failedRow?.status).not.toBe("subscription_canceled");
+
+    detachAppleMock.mockResolvedValueOnce({
+      ok: true,
+      binding: "already_unbound",
+      subscriptions: "detached",
+    });
+    const second = await cancelStripeSubscriptionsForDeletion({
+      requestId: id,
+      clerkUserId: "user_retry_apple",
+      lockOwner: "w1",
+      stripe: fake.client,
+      recognizedPriceIds: RECOGNIZED,
+      getPublicMetadata: async () => ({ summittSubscribed: true }),
+    });
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.value.row.status).toBe("subscription_canceled");
+    expect(fake.cancelCalls).toEqual([]);
+  });
+
+  it("binding tombstone failure stays retryable then completes", async () => {
+    const id = await seedSmsSuppressed("user_retry_bind", "k-retry-bind");
+    const fake = createFakeStripe([]);
+    detachAppleMock.mockResolvedValueOnce({
+      ok: false,
+      reason: "binding_tombstone_failed",
+      binding: "failed",
+      subscriptions: "detached",
+    });
+    const first = await cancelStripeSubscriptionsForDeletion({
+      requestId: id,
+      clerkUserId: "user_retry_bind",
+      lockOwner: "w1",
+      stripe: fake.client,
+      recognizedPriceIds: RECOGNIZED,
+      getPublicMetadata: async () => ({}),
+    });
+    expect(first.ok).toBe(false);
+    const failedRow = await getAccountDeletionRequestById(id);
+    expect(failedRow?.last_error_code).toBe(
+      "apple_iap_binding_tombstone_failed"
+    );
+
+    detachAppleMock.mockResolvedValueOnce({
+      ok: true,
+      binding: "tombstoned",
+      subscriptions: "none",
+    });
+    const second = await cancelStripeSubscriptionsForDeletion({
+      requestId: id,
+      clerkUserId: "user_retry_bind",
+      lockOwner: "w1",
+      stripe: fake.client,
+      recognizedPriceIds: RECOGNIZED,
+      getPublicMetadata: async () => ({}),
+    });
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.value.row.status).toBe("subscription_canceled");
   });
 });
