@@ -1,0 +1,340 @@
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+
+import {
+  INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT,
+  INBOUND_SOL_INTERPRETER_MODEL,
+  INBOUND_SOL_INTERPRETER_REASONING_EFFORT,
+} from "@/lib/inbound-sol-brief-interpreter";
+import {
+  INBOUND_SOL_WRITER_SYSTEM_PROMPT,
+  INBOUND_SOL_WRITER_MODEL,
+  INBOUND_SOL_WRITER_REASONING_EFFORT,
+  buildInboundSolWriterMessages,
+} from "@/lib/inbound-sol-writer";
+import { parseInboundCoachingBriefV1 } from "@/lib/inbound-sol-coaching-brief";
+import { MORNING_COACHING_BRIEF_VERSION } from "@/lib/morning-tto-coaching-brief-v1";
+import type { InboundRelationshipPacket } from "@/lib/inbound-relationship-packet";
+import { evaluateInboundSolBlockOnlyReply } from "@/lib/inbound-sol-reply-validate";
+import { exactThreadExcludingCurrentTurnSids } from "@/lib/inbound-relationship-packet";
+
+function packet(latest: string, threadBodies: string[]): InboundRelationshipPacket {
+  return {
+    version: "inbound_relationship_v1",
+    message_for: {
+      timezone: "America/Chicago",
+      local_date: "2026-08-18",
+      local_weekday: "Tuesday",
+      daypart: "inbound",
+    },
+    preferred_name: "Robin",
+    current_goal: { text: "Lift 30 minutes" },
+    current_identity: { text: null },
+    personal_context: [],
+    hard_state: { pending_goal_change: null, open_coach_question: null },
+    latest_inbound_text: latest,
+    latest_inbound_message_sid: "SMx",
+    exact_thread: {
+      window_days: 21,
+      max_messages: 30,
+      omitted_older_turn_count: 0,
+      messages: threadBodies.map((body, i) => ({
+        sender: i % 2 === 0 ? "coach" : "user",
+        sent_at_utc: new Date(Date.UTC(2026, 7, 10 + i, 12)).toISOString(),
+        sent_at_local: "2026-08-10 07:00",
+        local_day_key: "2026-08-10",
+        local_weekday: "Monday",
+        day_relation_to_message: "8 days before",
+        body,
+      })),
+    },
+  };
+}
+
+function briefWithInbound(inbound: Record<string, unknown>) {
+  return parseInboundCoachingBriefV1({
+    version: MORNING_COACHING_BRIEF_VERSION,
+    confidence: "high",
+    human_situation: {
+      most_alive: "Newest inbound",
+      direct_question_or_need: null,
+      relevant_life_event: null,
+      context_use: "relevant",
+      identity_use: "background",
+      person_use: "do_not_force",
+      selected_person: null,
+      selected_person_reason: null,
+    },
+    truth_and_evidence: {
+      latest_user_truth: "newest",
+      outcome: "unknown",
+      evidence_note: "unknown",
+      evidence_strength: "none",
+      consistency_supported: false,
+      proof_claims_allowed: {
+        completion: false,
+        miss: false,
+        partial: false,
+        proof: false,
+      },
+    },
+    conversation_continuity: {
+      already_acknowledged: [],
+      answered_question: null,
+      open_loop: null,
+      stale_or_exhausted_topics: ["stale team-win"],
+      do_not_repeat: ["paraphrase the vehicle search"],
+    },
+    goal_role_today: {
+      canonical_goal: "Lift 30 minutes",
+      pending_goal: null,
+      goal_alignment: "aligned",
+      role: "background",
+      note: "unknown",
+    },
+    coaching_direction: {
+      primary_move: "answer",
+      question_policy: "none",
+      action_guidance: "none",
+      pressure: "normal",
+    },
+    boundaries: {
+      claims_to_avoid: ["Do not claim live search"],
+      topics_not_to_force: ["Current Goal"],
+      unsupported_capabilities: ["No live vehicle search"],
+      goal_authority_boundaries: [],
+      identity_people_boundaries: [],
+      coach_history_is_not_style: "History is not style.",
+    },
+    inbound,
+  });
+}
+
+describe("inbound Sol contracts", () => {
+  it("uses gpt-5.6-sol with reasoning_effort low and no temperature", () => {
+    expect(INBOUND_SOL_INTERPRETER_MODEL).toBe("gpt-5.6-sol");
+    expect(INBOUND_SOL_WRITER_MODEL).toBe("gpt-5.6-sol");
+    expect(INBOUND_SOL_INTERPRETER_REASONING_EFFORT).toBe("low");
+    expect(INBOUND_SOL_WRITER_REASONING_EFFORT).toBe("low");
+  });
+
+  it("interpreter prompt owns newest text, questions first, human moments, no English isolation", () => {
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Newest real inbound text");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("answer_priority = first");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Never in isolation");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toMatch(/family, faith, grief/i);
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("user_is_correcting_coach");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Attempt is NOT automatically partial");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("hard_state.open_coach_question");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Do not force a stale pending question");
+  });
+
+  it("writer prompt is relationship-first and does not clip", () => {
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "You are replying to the user's newest real text in one ongoing Coach Pat relationship."
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Do not clip to a character budget");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("300");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("320");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("accept the correction");
+  });
+});
+
+describe("named inbound quality regressions (prompt + brief contract)", () => {
+  it("ANGEL VEHICLE SEARCH: do not paraphrase, ask how to help, force goal, or claim live search", () => {
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Do not repeatedly paraphrase");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "Do not ask how to help after help was already requested"
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("No unsupported live search claims");
+    const brief = briefWithInbound({
+      answer_priority: "first",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "unrelated",
+        outcome: "not_applicable",
+        confidence: "high",
+        evidence: "Need an affordable 5 passenger SUV under $9000",
+      },
+      meaningful_win: null,
+    });
+    expect(brief?.inbound.answer_priority).toBe("first");
+    expect(brief?.inbound.accountability_interpretation.outcome).toBe("not_applicable");
+  });
+
+  it("ROBIN TEMPORAL SCRAMBLE: newest watch/workout text, not stale team-win", () => {
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Do not answer a stale earlier topic");
+    const p = packet(
+      "My watch shows that I am walking up to 3 miles during school day. I still need to do some sort of other workout.",
+      ["Congrats on the team win!", "Thanks!", "How was the game?"]
+    );
+    const brief = briefWithInbound({
+      answer_priority: "normal",
+      coaching_after_answer: "yes",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "related",
+        outcome: "partial",
+        confidence: "medium",
+        evidence: "walking up to 3 miles during school day",
+      },
+      meaningful_win: null,
+    });
+    const msgs = buildInboundSolWriterMessages(p, brief!);
+    const user = String(msgs[1]?.content ?? "");
+    expect(user).toContain("My watch shows that I am walking up to 3 miles");
+    expect(brief?.conversation_continuity.stale_or_exhausted_topics).toEqual(
+      expect.arrayContaining(["stale team-win"])
+    );
+  });
+
+  it("BROOKE: hold me accountable is a coaching instruction", () => {
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toMatch(/coaching feedback/i);
+    const brief = briefWithInbound({
+      answer_priority: "normal",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "related",
+        outcome: "not_applicable",
+        confidence: "high",
+        evidence: "Please hold me accountable.",
+      },
+      meaningful_win: null,
+    });
+    expect(brief?.inbound.accountability_interpretation.outcome).toBe("not_applicable");
+  });
+
+  it("RB PRODUCT QUESTION: answer first, goal not central", () => {
+    const brief = briefWithInbound({
+      answer_priority: "first",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "unrelated",
+        outcome: "not_applicable",
+        confidence: "high",
+        evidence: "Have you developed an App yet?",
+      },
+      meaningful_win: null,
+    });
+    expect(brief?.inbound.answer_priority).toBe("first");
+    expect(brief?.coaching_direction.primary_move).toBe("answer");
+  });
+
+  it("TYLER FAMILY/FAITH: church with kids is not a lift pivot", () => {
+    const brief = briefWithInbound({
+      answer_priority: "normal",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "unrelated",
+        outcome: "not_applicable",
+        confidence: "high",
+        evidence: "Awesome. The kids love church!",
+      },
+      meaningful_win: null,
+    });
+    expect(brief?.inbound.accountability_interpretation.relevance).toBe("unrelated");
+  });
+
+  it("DARA: still struggling stays grounded", () => {
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("No invented facts, emotions, proof");
+    const brief = briefWithInbound({
+      answer_priority: "normal",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "related",
+        outcome: "unclear",
+        confidence: "medium",
+        evidence: "Still struggling.",
+      },
+      meaningful_win: null,
+    });
+    expect(brief?.inbound.accountability_interpretation.outcome).toBe("unclear");
+  });
+
+  it("RB CORRECTION: accept correction", () => {
+    const brief = briefWithInbound({
+      answer_priority: "normal",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: true,
+      accountability_interpretation: {
+        relevance: "central",
+        outcome: "completed",
+        confidence: "high",
+        evidence: "I completed all four, just out of order.",
+      },
+      meaningful_win: null,
+    });
+    expect(brief?.inbound.user_is_correcting_coach).toBe(true);
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Do not defend a stale interpretation");
+  });
+});
+
+describe("block-only validation", () => {
+  it("empty body blocks", () => {
+    expect(evaluateInboundSolBlockOnlyReply({ body: "  ", persistedUserYes: false }).ok).toBe(
+      false
+    );
+  });
+
+  it("internal labels block", () => {
+    const r = evaluateInboundSolBlockOnlyReply({
+      body: "That's a user_yes today.",
+      persistedUserYes: true,
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("victory saved without persist blocks", () => {
+    const r = evaluateInboundSolBlockOnlyReply({
+      body: "Saved this to your Victory Room.",
+      persistedUserYes: false,
+    });
+    expect(r.ok).toBe(false);
+  });
+
+  it("natural coaching body passes", () => {
+    const r = evaluateInboundSolBlockOnlyReply({
+      body: "Proud you finished the lift before lunch.",
+      persistedUserYes: true,
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it("does not block natural logged-win language without Victory Room", () => {
+    const r = evaluateInboundSolBlockOnlyReply({
+      body: "Glad you logged that win.",
+      persistedUserYes: false,
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it("still blocks Victory Room saved/logged without persist", () => {
+    const r = evaluateInboundSolBlockOnlyReply({
+      body: "I saved it in Victory Room.",
+      persistedUserYes: false,
+    });
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("coalesced inbound U appears once in thread", () => {
+  it("drops current SIDs and keeps historical identical body from another SID", () => {
+    const kept = exactThreadExcludingCurrentTurnSids(
+      [
+        { sender: "user", message_sid: "SMold", body: "Need a 5 passenger SUV under 9000" },
+        { sender: "user", message_sid: "SMnow", body: "Need a 5 passenger SUV under 9000" },
+      ],
+      ["SMnow"]
+    );
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.message_sid).toBe("SMold");
+  });
+});

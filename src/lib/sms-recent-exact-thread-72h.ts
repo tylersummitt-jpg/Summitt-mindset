@@ -1813,6 +1813,29 @@ export function capMorningExactThreadMessages(
   };
 }
 
+/**
+ * Shared 21-day exact-thread builder for Hallway / Notebook packets.
+ * Morning/Evening keep calling `buildMorningExactThreadForPacket` (unchanged wrapper).
+ */
+export async function buildRelationshipExactThreadForPacket(args: {
+  clerkUserId: string;
+  commitmentId?: string | null;
+  timezone: string;
+  /** Calendar day the packet is for (Morning draft_for_day_key or inbound receive day). */
+  messageForLocalDate: string;
+  now?: Date;
+  options?: MorningExactThreadOptions;
+}): Promise<{
+  window_days: 21;
+  max_messages: 30;
+  messages: MorningExactThreadMessage[];
+  omitted_older_turn_count: number;
+  message_count: number;
+  char_count: number;
+}> {
+  return buildMorningExactThreadForPacket(args);
+}
+
 /** 21d exact thread + Morning writer projection for MorningRelationshipPacket.exact_thread. */
 export async function buildMorningExactThreadForPacket(args: {
   clerkUserId: string;

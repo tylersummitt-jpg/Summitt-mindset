@@ -320,6 +320,11 @@ import {
   type ShouldPersistInboundAccountabilityOutcomeResult,
 } from "@/lib/v2-inbound-accountability-outcome-persist";
 import {
+  isInboundSolMainCoachingBranch,
+  isLikelyInboundSolMainBeforeHandoff,
+  runInboundSolRelationshipTurn,
+} from "@/lib/inbound-sol-relationship-turn";
+import {
   loadPriorInboundMemoryRepeatNoSendContext,
   normalizeInboundTextForEscalation,
 } from "@/lib/inbound-completion-memory-repeat-escalation";
@@ -3202,7 +3207,13 @@ async function processV2NormalInboundOutcome(
 
   if (
     !isLikelySmsComplianceOrOptOutTurn(userMessage) &&
-    !isLikelyCommitmentChangeIntentTurn(userMessage)
+    !isLikelyCommitmentChangeIntentTurn(userMessage) &&
+    !isLikelyInboundSolMainBeforeHandoff({
+      relationshipExitLaneActive: relationshipExitLaneActiveEarly,
+      identityEditLaneActive: identityEditLaneActiveEarly,
+      commitmentChangeIntentLikely: false,
+      conversationBrainControlTurnActive: false,
+    })
   ) {
     const priorYesToday = recentEventsIncludeUserYesOnLocalDay(
       recentEvents,
@@ -3256,7 +3267,8 @@ async function processV2NormalInboundOutcome(
     if (
       !relationshipExitLaneActiveEarly &&
       !identityEditLaneActiveEarly &&
-      !inboundTurnUnderstandingCtx.didRun
+      !inboundTurnUnderstandingCtx.didRun &&
+      Boolean(openQForTurnUnderstanding)
     ) {
       const turnRoutePriorityEarly = buildInboundMeaningRoutePriorityFromV3BuildArgs({
         rawInbound: userMessage,
@@ -4070,7 +4082,15 @@ async function processV2NormalInboundOutcome(
     }
   }
 
-  if (brainControlGate) {
+  if (
+    brainControlGate &&
+    !isLikelyInboundSolMainBeforeHandoff({
+      relationshipExitLaneActive: relationshipExitLaneActiveEarly,
+      identityEditLaneActive: identityEditLaneActiveEarly,
+      commitmentChangeIntentLikely,
+      conversationBrainControlTurnActive: false,
+    })
+  ) {
     let subscriptionOk = true;
     let smsEligible = true;
     try {
@@ -4725,21 +4745,28 @@ async function processV2NormalInboundOutcome(
       forceBecauseInterpretation: interpretationRequested,
     });
 
+  const inboundSolMainLikelyEarly = isLikelyInboundSolMainBeforeHandoff({
+    relationshipExitLaneActive: relationshipExitLaneActiveEarly,
+    identityEditLaneActive: identityEditLaneActiveEarly,
+    commitmentChangeIntentLikely,
+    conversationBrainControlTurnActive: conversationBrainControlTurn != null,
+  });
+
   // 4) Shadow / gated interpretation + Wave 9 memory signals (parallel when both on).
   let shadowInterpretationRaw: Awaited<ReturnType<typeof interpretV2InboundAccountabilityReply>> | null =
     null;
   let memorySignalResult: Awaited<ReturnType<typeof interpretV2InboundMemorySignals>> | null = null;
 
-  if (needInterpretation && memoryInterpretAttempt) {
+  if (!inboundSolMainLikelyEarly && needInterpretation && memoryInterpretAttempt) {
     const [shadowRes, memRes] = await Promise.all([
       interpretV2InboundAccountabilityReply(shadowInterpretArgs),
       interpretV2InboundMemorySignals(memorySignalArgs),
     ]);
     shadowInterpretationRaw = shadowRes;
     memorySignalResult = memRes;
-  } else if (needInterpretation) {
+  } else if (!inboundSolMainLikelyEarly && needInterpretation) {
     shadowInterpretationRaw = await interpretV2InboundAccountabilityReply(shadowInterpretArgs);
-  } else if (memoryInterpretAttempt) {
+  } else if (!inboundSolMainLikelyEarly && memoryInterpretAttempt) {
     memorySignalResult = await interpretV2InboundMemorySignals(memorySignalArgs);
   }
 
@@ -4803,9 +4830,16 @@ async function processV2NormalInboundOutcome(
     gatedDecision = applyIdentityEditGatedOverride(identityEditDetection);
   }
 
+  const inboundSolMainLikely = isLikelyInboundSolMainBeforeHandoff({
+    relationshipExitLaneActive,
+    identityEditLaneActive,
+    commitmentChangeIntentLikely: isLikelyCommitmentChangeIntentTurn(userMessage),
+    conversationBrainControlTurnActive: conversationBrainControlTurn != null,
+  });
+
   // Shared Win recognition after exclusive route ownership + gated accountability are known.
   // Eligible specialized lanes (pivot/arc/handoff/main) reuse this bundle before drafting.
-  if (!inboundWinRecognitionBundle) {
+  if (!inboundWinRecognitionBundle && !inboundSolMainLikely) {
     inboundWinRecognitionBundle = await runInboundWinRecognitionForCoachTurn({
       inboundBody: userMessage,
       isComplianceOrStop: isLikelySmsComplianceOrOptOutTurn(userMessage),
@@ -5091,14 +5125,16 @@ async function processV2NormalInboundOutcome(
       classificationEventType: eventType,
     }) &&
       !identitySuppressesCommitmentHandoff) ||
-    (tuGoalChangePendingHandoffEval.open && !identitySuppressesCommitmentHandoff);
+    (tuGoalChangePendingHandoffEval.open &&
+      !identitySuppressesCommitmentHandoff &&
+      !inboundSolMainLikely);
 
   /** Wave-4 handoff uses its own lane entrypoint; main lane skips duplicate produce. */
   const normalInboundV3OwnershipEligible =
     !isInboundTransactionalException && !openCommitmentChangeHandoff;
 
   const centralSmsTurnShadowStored =
-    conversationBrainControlTurn != null
+    conversationBrainControlTurn != null || inboundSolMainLikely
       ? null
       : await interpretV2CentralSmsTurn({
           clerkUserId: userId,
@@ -6103,6 +6139,128 @@ async function processV2NormalInboundOutcome(
   let mainInboundMissAdjustmentPolicy: MissAdjustmentPolicyResult | null = null;
   let preWriterTelemetryMain: Record<string, unknown> = {};
   if (normalInboundV3OwnershipEligible) {
+    const commitmentChangeHeuristicContext =
+      isLikelyCommitmentChangeIntentTurn(userMessage) && !openCommitmentChangeHandoff;
+
+    if (
+      isInboundSolMainCoachingBranch({
+        normalInboundV3OwnershipEligible: true,
+        relationshipExitLaneActive,
+        identityEditLaneActive,
+        commitmentChangeHeuristicContext,
+        conversationBrainControlTurnActive: conversationBrainControlTurn != null,
+      })
+    ) {
+      const solTurn = await runInboundSolRelationshipTurn({
+        clerkUserId: userId,
+        timezone,
+        commitment,
+        latestInboundText: userMessage,
+        messageSid: job.message_sid,
+        recentEventsNewestFirst: recentEvents,
+        gatedDecision,
+        classifierEventType: eventType,
+        classifierNormalizedHint: normalizedHint ?? null,
+        exclusiveLaneOwnsTurn: false,
+        pendingConfirmationConflict: isSmsInboundPendingResolutionActionable(commitment),
+        receivedAt: job.created_at ?? null,
+        currentTurnMessageSids: [...splitSuppressedMessageSids, job.message_sid],
+      });
+
+      const solLaneMetadata: Record<string, unknown> = {
+        ...solTurn.forensics,
+        inbound_sol_main: true,
+      };
+
+      if (!solTurn.shouldSend || !solTurn.body?.trim()) {
+        await markJobFinal({
+          messageSid: job.message_sid,
+          status: "cancelled",
+          lastError: JSON.stringify({
+            tag: "inbound_sol_main_no_send",
+            no_send_reason: solTurn.noSendReason,
+            persist_status: solTurn.persistResult.status,
+            ...solLaneMetadata,
+          }).slice(0, 1900),
+          nextRetry: farFutureIso(),
+        });
+        console.warn("[sms-inbound-coach] inbound_sol_main_no_send", {
+          message_sid: job.message_sid,
+          commitment_id: commitment.id,
+          no_send_reason: solTurn.noSendReason,
+        });
+        await insertInboundTurnTelemetryBestEffort({
+          commitmentId: commitment.id,
+          clerkUserId: userId,
+          messageSid: job.message_sid,
+          rawBody: userMessage,
+          replyBody: "",
+          coachingMoveSource: "inbound_sol_relationship_turn",
+          laneMetadata: solLaneMetadata,
+          routePurpose: "normal_inbound_reply",
+          branchName: "inbound_sol_main",
+          visibleSentIntended: false,
+          branch: "main",
+        });
+        return;
+      }
+
+      const nowSol = new Date().toISOString();
+      const { data: persistedSol } = await supabaseServer
+        .from("sms_inbound_coach_jobs")
+        .update({
+          reply_body: solTurn.body,
+          status: "reply_ready",
+          next_retry_at: nowSol,
+          updated_at: nowSol,
+          last_error: null,
+        })
+        .eq("message_sid", job.message_sid)
+        .eq("status", "processing")
+        .select()
+        .maybeSingle();
+
+      const solThreadMemory: InboundCoachReplyThreadMemoryContext = {
+        commitmentId: commitment.id,
+        expectedAnswerType: null,
+        meaningShadow: null,
+      };
+
+      await insertInboundTurnTelemetryBestEffort({
+        commitmentId: commitment.id,
+        clerkUserId: userId,
+        messageSid: job.message_sid,
+        rawBody: userMessage,
+        replyBody: solTurn.body,
+        coachingMoveSource: "inbound_sol_relationship_turn",
+        laneMetadata: solLaneMetadata,
+        routePurpose: "normal_inbound_reply",
+        branchName: "inbound_sol_main",
+        visibleSentIntended: true,
+        branch: "main",
+      });
+
+      if (!persistedSol) {
+        const j2 = await loadJob(job.message_sid);
+        if (j2?.reply_body?.trim()) {
+          await commitAndSendInboundCoachReply(j2, userId, solThreadMemory);
+          await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+          return;
+        }
+        throw new Error("v2_reply_ready_persist_failed");
+      }
+
+      const freshSol = (await loadJob(job.message_sid)) ?? job;
+      await commitAndSendInboundCoachReply(freshSol, userId, solThreadMemory);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      console.info("[sms-inbound-coach] inbound_sol_main_sent", {
+        message_sid: job.message_sid,
+        commitment_id: commitment.id,
+        persist_status: solTurn.persistResult.status,
+      });
+      return;
+    }
+
     const forcedCoachSmsForFacts =
       conversationBrainControlTurn == null
         ? tryBuildForcedInboundCoachSms({
@@ -6169,8 +6327,6 @@ async function processV2NormalInboundOutcome(
       lastOutboundSmsPreview
     );
 
-    const commitmentChangeHeuristicContext =
-      isLikelyCommitmentChangeIntentTurn(userMessage) && !openCommitmentChangeHandoff;
     const commitmentChangeContextFactsForLane = commitmentChangeHeuristicContext
       ? buildCommitmentChangeContextFactsForHeuristicInbound({
           commitment,

@@ -103,7 +103,17 @@ export type InboundOutcomePersistSkipReason =
   | "goal_change_not_outcome_write"
   | "completion_mismatch_active_commitment"
   | "off_goal_completion_claim"
-  | "same_day_user_yes_already_recorded";
+  | "same_day_user_yes_already_recorded"
+  | "sol_low_confidence"
+  | "sol_attempt"
+  | "sol_plan"
+  | "sol_unrelated"
+  | "sol_not_applicable"
+  | "sol_unclear"
+  | "sol_relevance_not_related"
+  | "sol_no_active_commitment"
+  | "sol_pending_confirmation_conflict"
+  | "sol_exclusive_lane_owns_turn";
 
 export type ProofSpinePersistTelemetry = {
   completion_alignment_checked?: boolean;

@@ -19,7 +19,7 @@ describe("Slice D-lite — relationship exit integrity wire", () => {
     const src = routeSrc();
     const fnStart = src.indexOf("async function processV2NormalInboundOutcome");
     expect(fnStart).toBeGreaterThanOrEqual(0);
-    const fnBody = src.slice(fnStart, fnStart + 120_000);
+    const fnBody = src.slice(fnStart, fnStart + 180_000);
     expect(fnBody).toContain("detectSmsRelationshipExitIntent");
     expect(fnBody).toContain("applyRelationshipExitGatedOverride");
     expect(fnBody).toContain("relationship_exit_integrity");
