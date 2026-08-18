@@ -1,3 +1,7 @@
+import {
+  TWILIO_SMS_BODY_MAX_CHARS,
+  smsBodyExceedsTwilioTransportMax,
+} from "@/lib/sms-transport-max";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   deriveNotebookDisplayMode,
@@ -760,6 +764,16 @@ function parseGenerationMetadata(raw: unknown): Record<string, unknown> {
 export function normalizeTylerTextOverviewDraftBodyInput(raw: string): string | null {
   const trimmed = raw.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+export const TTO_DRAFT_BODY_EXCEEDS_TWILIO_TRANSPORT_MAX =
+  `Body exceeds Twilio SMS transport max (${TWILIO_SMS_BODY_MAX_CHARS} characters)`;
+
+function isMorningOrEveningTtoTransportGuardedSlot(slot: SmsDailySendSlot): boolean {
+  return (
+    slot === SMS_DAILY_PRODUCTION_SEND_SLOT ||
+    slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+  );
 }
 
 export function parseWriterOpenAiMessages(raw: unknown): TylerTextOverviewWriterOpenAiMessage[] {
@@ -1910,6 +1924,17 @@ export async function updateTylerTextOverviewDraftBody(args: {
 
   const generation = generationRow as GenerationDbRow;
   const normalizedBody = normalizeTylerTextOverviewDraftBodyInput(args.body);
+  if (
+    normalizedBody != null &&
+    isMorningOrEveningTtoTransportGuardedSlot(draftSendSlot) &&
+    smsBodyExceedsTwilioTransportMax(normalizedBody)
+  ) {
+    return {
+      ok: false,
+      error: TTO_DRAFT_BODY_EXCEEDS_TWILIO_TRANSPORT_MAX,
+      status: 400,
+    };
+  }
   const machineDraftBody =
     typeof generation.machine_draft_body === "string" ? generation.machine_draft_body : null;
 
@@ -2118,6 +2143,13 @@ export async function bulkSaveTtoDraftBodies(args: {
     }
     bodyToSave = normalized;
     appliedBody = normalized;
+    if (smsBodyExceedsTwilioTransportMax(bodyToSave)) {
+      return {
+        ok: false,
+        error: TTO_DRAFT_BODY_EXCEEDS_TWILIO_TRANSPORT_MAX,
+        status: 400,
+      };
+    }
   }
 
   const audience = await loadSendableTylerTextOverviewAudienceMembers(args.now ?? new Date());

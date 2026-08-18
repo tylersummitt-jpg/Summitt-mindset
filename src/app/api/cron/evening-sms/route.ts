@@ -73,6 +73,7 @@ function bumpSkip(
   stats: {
     skippedTtoNoCurrentEveningDraft: number;
     skippedTtoBlankEveningBody: number;
+    skippedTtoBodyTooLong: number;
     skippedTtoMissingGeneration: number;
     skippedTtoMachineShouldSendFalse: number;
     skippedOutsideEveningWindow: number;
@@ -96,6 +97,9 @@ function bumpSkip(
     case "tto_blank_evening_body":
     case "body_empty":
       stats.skippedTtoBlankEveningBody += 1;
+      break;
+    case "body_too_long":
+      stats.skippedTtoBodyTooLong += 1;
       break;
     case "tto_missing_generation":
     case "preview_body_missing":
@@ -171,6 +175,7 @@ export async function GET(req: Request) {
     skippedUserCompletedToday: 0,
     skippedTtoNoCurrentEveningDraft: 0,
     skippedTtoBlankEveningBody: 0,
+    skippedTtoBodyTooLong: 0,
     skippedTtoMissingGeneration: 0,
     skippedTtoMachineShouldSendFalse: 0,
     alreadyReservedOrSentToday: 0,
@@ -260,13 +265,24 @@ export async function GET(req: Request) {
       continue;
     }
 
-    const result = await sendEveningTtoAuthoritativeCronSend({
-      clerkUserId: audienceUser.clerk_user_id,
-      phoneNumber: audienceUser.phone_number.trim(),
-      timezone,
-      now,
-      dryRun,
-    });
+    let result;
+    try {
+      result = await sendEveningTtoAuthoritativeCronSend({
+        clerkUserId: audienceUser.clerk_user_id,
+        phoneNumber: audienceUser.phone_number.trim(),
+        timezone,
+        now,
+        dryRun,
+      });
+    } catch (e) {
+      console.error(
+        "[evening-sms] sendEveningTtoAuthoritativeCronSend threw",
+        audienceUser.clerk_user_id,
+        e
+      );
+      stats.skippedOther += 1;
+      continue;
+    }
 
     if (dryRun) {
       stats.dryRun += 1;

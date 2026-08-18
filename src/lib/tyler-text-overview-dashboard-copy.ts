@@ -1,4 +1,5 @@
 import { getDateKeyInTimezone } from "@/lib/timezone";
+import { TWILIO_SMS_BODY_MAX_CHARS } from "@/lib/sms-transport-max";
 import { resolveTylerTextOverviewWeeklyPeriod } from "@/lib/tyler-text-overview-weekly-period";
 import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
@@ -83,6 +84,35 @@ export const EVENING_TTO_NON_TODAY_WARNING =
 
 export const EVENING_TTO_SAVE_ONLY_COPY =
   "Save updates the draft only. It does not send.";
+
+/** Soft coaching-style warning only. Not a send or save cap. */
+export const TTO_COACH_PAT_STYLE_SOFT_WARN_CHARS = 300;
+
+export const TTO_BODY_SOFT_LENGTH_WARNING =
+  "Longer than the usual Coach Pat text, but it can still send.";
+
+export function formatTtoBodyCharCount(length: number): string {
+  return `${length} / ${TWILIO_SMS_BODY_MAX_CHARS} characters`;
+}
+
+export function formatTtoBodyOverTransportMaxCopy(length: number): string {
+  return `This text is ${length} characters. Twilio cannot send more than ${TWILIO_SMS_BODY_MAX_CHARS}. Shorten it to ${TWILIO_SMS_BODY_MAX_CHARS} or fewer before saving.`;
+}
+
+export function ttoDraftBodyTransportLength(body: string): number {
+  return body.length;
+}
+
+export function ttoDraftBodyExceedsTransportMax(body: string): boolean {
+  return ttoDraftBodyTransportLength(body) > TWILIO_SMS_BODY_MAX_CHARS;
+}
+
+export function ttoDraftBodyShouldSoftWarnLength(body: string): boolean {
+  const length = ttoDraftBodyTransportLength(body);
+  return length > TTO_COACH_PAT_STYLE_SOFT_WARN_CHARS && length <= TWILIO_SMS_BODY_MAX_CHARS;
+}
+
+export { TWILIO_SMS_BODY_MAX_CHARS };
 
 export const EVENING_TTO_SAVE_BEFORE_SEND_COPY = "Save changes before sending.";
 

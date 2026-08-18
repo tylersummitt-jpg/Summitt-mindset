@@ -15,6 +15,14 @@ import {
   EVENING_TTO_REGENERATE_OVERWRITE_COPY,
   EVENING_TTO_SAVE_BEFORE_SEND_COPY,
   EVENING_TTO_SAVE_ONLY_COPY,
+  TTO_BODY_SOFT_LENGTH_WARNING,
+  TTO_COACH_PAT_STYLE_SOFT_WARN_CHARS,
+  TWILIO_SMS_BODY_MAX_CHARS,
+  formatTtoBodyCharCount,
+  formatTtoBodyOverTransportMaxCopy,
+  ttoDraftBodyExceedsTransportMax,
+  ttoDraftBodyShouldSoftWarnLength,
+  ttoDraftBodyTransportLength,
   formatEveningEmptyBodyPanelCopy,
   formatEveningPreviewGenerateSuccessToast,
   getTylerTextOverviewAdminLocalDayKey,
@@ -551,6 +559,35 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(EVENING_TTO_REGENERATE_OVERWRITE_COPY).toContain("keeps your saved edit/blank");
     expect(EVENING_TTO_REGENERATE_OVERWRITE_COPY).not.toContain("replace saved edits");
     expect(dashboard).not.toContain("showReadOnlyBody =\n              isEveningPage ||");
+  });
+
+  it("Morning/Evening TTO live character count: 300/320 is not a hard cap; >1600 is blocked; no maxLength truncation", () => {
+    expect(TWILIO_SMS_BODY_MAX_CHARS).toBe(1600);
+    expect(TTO_COACH_PAT_STYLE_SOFT_WARN_CHARS).toBe(300);
+    expect(ttoDraftBodyTransportLength("x".repeat(320))).toBe(320);
+    expect(ttoDraftBodyExceedsTransportMax("x".repeat(300))).toBe(false);
+    expect(ttoDraftBodyExceedsTransportMax("x".repeat(320))).toBe(false);
+    expect(ttoDraftBodyExceedsTransportMax("x".repeat(1600))).toBe(false);
+    expect(ttoDraftBodyExceedsTransportMax("x".repeat(1601))).toBe(true);
+    expect(ttoDraftBodyShouldSoftWarnLength("x".repeat(300))).toBe(false);
+    expect(ttoDraftBodyShouldSoftWarnLength("x".repeat(301))).toBe(true);
+    expect(ttoDraftBodyShouldSoftWarnLength("x".repeat(320))).toBe(true);
+    expect(ttoDraftBodyShouldSoftWarnLength("x".repeat(1600))).toBe(true);
+    expect(ttoDraftBodyShouldSoftWarnLength("x".repeat(1601))).toBe(false);
+    expect(formatTtoBodyCharCount(435)).toContain("435");
+    expect(formatTtoBodyCharCount(435)).toContain("1600");
+    expect(TTO_BODY_SOFT_LENGTH_WARNING).toMatch(/still send/i);
+    expect(formatTtoBodyOverTransportMaxCopy(1601)).toContain("1600");
+    expect(dashboard).toContain("formatTtoBodyCharCount");
+    expect(dashboard).toContain("TTO_BODY_SOFT_LENGTH_WARNING");
+    expect(dashboard).toContain("formatTtoBodyOverTransportMaxCopy");
+    expect(dashboard).toContain("ttoDraftBodyExceedsTransportMax");
+    expect(dashboard).toContain("editorOverTransportMax");
+    expect(dashboard).toContain("bulkApplyOverTransportMax");
+    expect(dashboard).not.toMatch(/maxLength=\{?1600/);
+    expect(dashboard).not.toMatch(/maxLength=\{TWILIO_SMS_BODY_MAX_CHARS\}/);
+    expect(dashboard).toContain("submittedTransportBody");
+    expect(MORNING_TTO_BLANK_BODY_COPY).toMatch(/no text/i);
   });
 
   it("evening Send busy state never treats null draftId as sending", () => {

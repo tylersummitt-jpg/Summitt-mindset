@@ -174,6 +174,7 @@ import {
   sendEveningTtoAuthoritativeCronSend,
   sendTylerTextOverviewEveningDraft,
 } from "@/lib/tyler-text-overview-evening-send";
+import { TWILIO_SMS_BODY_MAX_CHARS } from "@/lib/sms-transport-max";
 import { EVENING_PROACTIVE_SEND_DISABLED_UI_COPY } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
   EVENING_LANE_WINDOW_END_MINUTE_EXCLUSIVE,
@@ -584,6 +585,9 @@ describe("Evening cron wiring", () => {
     expect(src).toContain("validateCronSecret");
     expect(src).toContain("sendEveningTtoAuthoritativeCronSend");
     expect(src).toContain("evaluateEveningLaneTiming");
+    expect(src).toContain("skippedTtoBodyTooLong");
+    expect(src).toContain("body_too_long");
+    expect(src).toMatch(/try \{[\s\S]*sendEveningTtoAuthoritativeCronSend/);
     expect(src).not.toContain("openai");
     expect(src).not.toContain("generateEvening");
     expect(src).not.toContain("reply_rate");
@@ -602,5 +606,204 @@ describe("Evening cron wiring", () => {
   it("admin copy describes auto-send window", () => {
     expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toContain("7–9 PM");
     expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toContain("local time");
+  });
+});
+
+describe("Evening TTO Twilio transport length", () => {
+  const inWindow = new Date("2026-06-27T23:05:00.000Z");
+
+  async function sendAuthoritativeEvening(
+    body: string,
+    extra: Record<string, unknown> = {},
+    generationExtra: Record<string, unknown> = {}
+  ) {
+    seedEveningDraft({
+      draft_for_day_key: "2026-06-27",
+      current_body_to_send: body,
+      ...extra,
+    });
+    Object.assign(db.generations[0], generationExtra);
+    return sendEveningTtoAuthoritativeCronSend({
+      clerkUserId: "user_e5",
+      phoneNumber: "+15551234567",
+      timezone: "America/New_York",
+      now: inWindow,
+    });
+  }
+
+  function expectExactSend(body: string) {
+    expect(sendSMS).toHaveBeenCalledTimes(1);
+    expect(sendSMS.mock.calls[0]?.[0]?.body).toBe(body);
+    expect(db.sendEvents).toHaveLength(1);
+    expect(db.sendEvents[0]?.sms_body).toBe(body);
+    expect(db.drafts[0]?.final_body_sent).toBe(body);
+    expect(sendSMS.mock.calls[0]?.[0]?.body).not.toMatch(/\u2026|\.\.\.$/);
+  }
+
+  beforeEach(() => {
+    sendSMS.mockClear();
+    isTwilioReady.mockReturnValue(true);
+    seedEveningDraft();
+  });
+
+  it("does not use the legacy EVENING_CHECKIN_SMS_MAX_LEN = 300 send cap", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-evening-send.ts"),
+      "utf8"
+    );
+    expect(src).not.toContain("EVENING_CHECKIN_SMS_MAX_LEN");
+    expect(src).toContain("TWILIO_SMS_BODY_MAX_CHARS");
+    expect(src).not.toMatch(/body\.length\s*>\s*300/);
+  });
+
+  it.each([299, 300, 301, 376, 416, 435, 1599, 1600])(
+    "%s-character Tyler body sends exact saved text",
+    async (length) => {
+      const body = "x".repeat(length);
+      const result = await sendAuthoritativeEvening(body, {
+        current_body_source: "tyler_edit",
+        edited_by_tyler: true,
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.finalBodySent).toBe(body);
+      expectExactSend(body);
+    }
+  );
+
+  it("1601 refuses with body_too_long before reservation or Twilio", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const body = "x".repeat(1601);
+    const result = await sendAuthoritativeEvening(body, {
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("body_too_long");
+    expect(sendSMS).not.toHaveBeenCalled();
+    expect(db.sendEvents).toHaveLength(0);
+    expect(db.drafts[0]?.status).toBe("current");
+    expect(db.drafts[0]?.current_body_to_send).toBe(body);
+    expect(db.drafts[0]?.final_body_sent).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      "[evening-sms] body_too_long",
+      expect.objectContaining({
+        clerk_user_id: "user_e5",
+        draft_for_day_key: "2026-06-27",
+        body_length: 1601,
+        transport_max: TWILIO_SMS_BODY_MAX_CHARS,
+        refusal_code: "body_too_long",
+      })
+    );
+    warn.mockRestore();
+  });
+
+  it("preserves Unicode, smart quotes, and emoji exactly with no slice or ellipsis", async () => {
+    const body = "Angela — you’re “in”. Keep going 🔥";
+    expect(body.length).toBeLessThanOrEqual(TWILIO_SMS_BODY_MAX_CHARS);
+    const result = await sendAuthoritativeEvening(body, {
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.finalBodySent).toBe(body);
+    expectExactSend(body);
+    expect(sendSMS.mock.calls[0]?.[0]?.body).toBe(body);
+  });
+
+  it("blank Tyler body remains NO SEND", async () => {
+    const result = await sendAuthoritativeEvening("   ", {
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("tto_blank_evening_body");
+    expect(sendSMS).not.toHaveBeenCalled();
+    expect(db.sendEvents).toHaveLength(0);
+  });
+
+  it("MSS=false + Tyler nonblank 435 still sends exact Tyler body", async () => {
+    const body = "x".repeat(435);
+    const result = await sendAuthoritativeEvening(
+      body,
+      {
+        current_body_source: "tyler_edit",
+        edited_by_tyler: true,
+      },
+      {
+        machine_should_send: false,
+        machine_draft_body: "Machine A should never send",
+      }
+    );
+    expect(result.ok).toBe(true);
+    expectExactSend(body);
+    expect(sendSMS.mock.calls[0]?.[0]?.body).not.toBe("Machine A should never send");
+  });
+
+  it("machine A cannot trump Tyler B: Twilio, send-event, and final_body_sent equal saved Tyler body", async () => {
+    const tylerB = "x".repeat(435);
+    const result = await sendAuthoritativeEvening(
+      tylerB,
+      {
+        current_body_source: "tyler_edit",
+        edited_by_tyler: true,
+      },
+      {
+        machine_should_send: true,
+        machine_draft_body: "Machine A",
+      }
+    );
+    expect(result.ok).toBe(true);
+    expectExactSend(tylerB);
+  });
+
+  it("first user over-limit does not prevent a later valid user from sending", async () => {
+    const over = "x".repeat(1601);
+    const valid = "x".repeat(435);
+    seedEveningDraft({
+      id: "draft-over",
+      clerk_user_id: "user_over",
+      draft_for_day_key: "2026-06-27",
+      current_body_to_send: over,
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+    });
+    db.drafts.push({
+      id: "draft-ok",
+      clerk_user_id: "user_ok",
+      draft_for_day_key: "2026-06-27",
+      send_slot: "evening_checkin",
+      current_generation_id: "gen-e",
+      current_body_to_send: valid,
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+      status: "current",
+      updated_at: "2026-06-27T12:00:00.000Z",
+    });
+
+    const first = await sendEveningTtoAuthoritativeCronSend({
+      clerkUserId: "user_over",
+      phoneNumber: "+15551234567",
+      timezone: "America/New_York",
+      now: inWindow,
+    });
+    expect(first.ok).toBe(false);
+    if (!first.ok) expect(first.refusalCode).toBe("body_too_long");
+    expect(sendSMS).not.toHaveBeenCalled();
+    expect(db.sendEvents).toHaveLength(0);
+
+    const second = await sendEveningTtoAuthoritativeCronSend({
+      clerkUserId: "user_ok",
+      phoneNumber: "+15551234567",
+      timezone: "America/New_York",
+      now: inWindow,
+    });
+    expect(second.ok).toBe(true);
+    expect(sendSMS).toHaveBeenCalledTimes(1);
+    expect(sendSMS.mock.calls[0]?.[0]?.body).toBe(valid);
+    expect(db.sendEvents).toHaveLength(1);
+    expect(db.sendEvents[0]?.sms_body).toBe(valid);
+    expect(db.drafts.find((d) => d.id === "draft-ok")?.final_body_sent).toBe(valid);
+    expect(db.drafts.find((d) => d.id === "draft-over")?.status).toBe("current");
+    expect(db.drafts.find((d) => d.id === "draft-over")?.current_body_to_send).toBe(over);
   });
 });

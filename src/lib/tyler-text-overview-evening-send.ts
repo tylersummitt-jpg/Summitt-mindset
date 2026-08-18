@@ -20,6 +20,10 @@ import {
 } from "@/lib/daily-sms-scheduling";
 import { recentEventsIncludeUserYesOnLocalDay } from "@/lib/north-star-sms-context-packet";
 import { supabaseServer } from "@/lib/supabase-server";
+import {
+  TWILIO_SMS_BODY_MAX_CHARS,
+  smsBodyExceedsTwilioTransportMax,
+} from "@/lib/sms-transport-max";
 import { isTwilioReady, sendSMS } from "@/lib/twilio";
 import { isTylerEditTtoDraftOverride } from "@/lib/tyler-text-overview-send";
 import { loadTylerTextOverviewAudienceRow } from "@/lib/tyler-text-overview-generate";
@@ -37,8 +41,6 @@ import {
   isPauseActive,
 } from "@/lib/v2-sms-comms-preferences";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
-
-export const EVENING_CHECKIN_SMS_MAX_LEN = 300;
 
 /** @deprecated E5: 4h stale rule removed from auto-send eligibility. Kept only for legacy imports. */
 export const EVENING_PREVIEW_STALE_MS = 4 * 60 * 60 * 1000;
@@ -250,12 +252,19 @@ export async function assertEveningTtoDraftAuthoritativeForCronSend(args: {
       }),
     };
   }
-  if (body.length > EVENING_CHECKIN_SMS_MAX_LEN) {
+  if (smsBodyExceedsTwilioTransportMax(body)) {
+    console.warn("[evening-sms] body_too_long", {
+      clerk_user_id: clerkUserId,
+      draft_for_day_key: draftForDayKey,
+      body_length: body.length,
+      transport_max: TWILIO_SMS_BODY_MAX_CHARS,
+      refusal_code: "body_too_long",
+    });
     return {
       ok: false,
       result: refuse(
         "body_too_long",
-        `Evening body exceeds ${EVENING_CHECKIN_SMS_MAX_LEN} characters`,
+        `Evening body exceeds ${TWILIO_SMS_BODY_MAX_CHARS} characters`,
         { ...base, draftId: draft.id }
       ),
     };

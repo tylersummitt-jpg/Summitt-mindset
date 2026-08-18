@@ -1,4 +1,8 @@
 import type { DailySmsBuilt } from "@/lib/daily-sms-build";
+import {
+  TWILIO_SMS_BODY_MAX_CHARS,
+  smsBodyExceedsTwilioTransportMax,
+} from "@/lib/sms-transport-max";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   isTylerTextOverviewEnabled,
@@ -34,6 +38,7 @@ const PREVIEW_ONLY_DRAFT_SEND_REFUSED = "preview_only_draft_not_sendable" as con
 export type MorningTtoAuthoritativeSkipReason =
   | "tto_no_current_morning_draft"
   | "tto_blank_morning_body"
+  | "tto_body_too_long"
   | "tto_missing_generation"
   | "tto_generation_send_slot_mismatch"
   | "tto_machine_should_send_false"
@@ -123,6 +128,18 @@ export async function assertMorningTtoDraftAuthoritativeForSend(args: {
       ok: false,
       reason: "tto_blank_morning_body",
       metadata: { draft_id: draft.id },
+    };
+  }
+
+  if (smsBodyExceedsTwilioTransportMax(body)) {
+    return {
+      ok: false,
+      reason: "tto_body_too_long",
+      metadata: {
+        draft_id: draft.id,
+        body_length: body.length,
+        transport_max: TWILIO_SMS_BODY_MAX_CHARS,
+      },
     };
   }
 

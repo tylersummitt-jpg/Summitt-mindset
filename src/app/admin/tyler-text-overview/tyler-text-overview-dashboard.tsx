@@ -17,7 +17,12 @@ import {
   EVENING_TTO_REGENERATE_OVERWRITE_COPY,
   EVENING_TTO_SAVE_BEFORE_SEND_COPY,
   EVENING_TTO_SAVE_ONLY_COPY,
+  TTO_BODY_SOFT_LENGTH_WARNING,
   formatEveningEmptyBodyPanelCopy,
+  formatTtoBodyCharCount,
+  formatTtoBodyOverTransportMaxCopy,
+  ttoDraftBodyExceedsTransportMax,
+  ttoDraftBodyShouldSoftWarnLength,
   formatEveningPreviewGenerateSuccessToast,
   formatTtoBulkApplyConfirm,
   formatTtoBulkBlankConfirm,
@@ -1320,7 +1325,9 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   const sendableAudienceCount = counts?.sendableUsers ?? rows.length;
 
   const bulkApplyNormalized = bulkApplyText.trim();
-  const bulkApplyEnabled = bulkApplyNormalized.length > 0;
+  const bulkApplyHasText = bulkApplyNormalized.length > 0;
+  const bulkApplyOverTransportMax = ttoDraftBodyExceedsTransportMax(bulkApplyNormalized);
+  const bulkApplyEnabled = bulkApplyHasText && !bulkApplyOverTransportMax;
 
   async function runGenerateAll() {
     const dayKey = selectedDayKey.trim();
@@ -1542,6 +1549,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     if (pageBatchBusy) return;
     const draftId = row.draftId;
     const submittedBody = editsRef.current[draftId] ?? "";
+    const submittedTransportBody = submittedBody.trim();
+    if (ttoDraftBodyExceedsTransportMax(submittedTransportBody)) {
+      const msg = formatTtoBodyOverTransportMaxCopy(submittedTransportBody.length);
+      setSaveFailures((prev) => ({ ...prev, [draftId]: msg }));
+      showToast(msg);
+      return;
+    }
     const attempt = (saveAttemptRef.current[draftId] ?? 0) + 1;
     saveAttemptRef.current[draftId] = attempt;
     setSavingDraftId(draftId);
@@ -2034,7 +2048,20 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   placeholder={`Exact text to save for every current ${bulkSlotLabel} draft`}
                 />
               </label>
-              {!bulkApplyEnabled ? (
+              {bulkApplyHasText ? (
+                <p className="text-xs text-gray-600">
+                  {formatTtoBodyCharCount(bulkApplyNormalized.length)}
+                </p>
+              ) : null}
+              {ttoDraftBodyShouldSoftWarnLength(bulkApplyNormalized) ? (
+                <p className="text-xs text-amber-800">{TTO_BODY_SOFT_LENGTH_WARNING}</p>
+              ) : null}
+              {bulkApplyOverTransportMax ? (
+                <p className="text-xs text-red-800">
+                  {formatTtoBodyOverTransportMaxCopy(bulkApplyNormalized.length)}
+                </p>
+              ) : null}
+              {!bulkApplyHasText ? (
                 <p className="text-xs text-gray-600">{ttoBulkApplyEmptyHint(bulkUiSlot)}</p>
               ) : null}
               <button
@@ -2112,6 +2139,10 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             const eveningDirty = eveningEditable && isEveningDraftDirty(row, edits);
             const morningDirty = morningEditable && isMorningDraftDirty(row, edits);
             const isDirty = eveningDirty || morningDirty;
+            const editorBody = canEditBody ? (edits[row.draftId as string] ?? "") : "";
+            const editorTransportBody = editorBody.trim();
+            const editorOverTransportMax =
+              ttoDraftBodyExceedsTransportMax(editorTransportBody);
             const saveFailedMsg =
               row.draftId && saveFailures[row.draftId] ? saveFailures[row.draftId] : null;
             const isSavingThis = Boolean(row.draftId) && savingDraftId === row.draftId;
@@ -2383,6 +2414,19 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                             }))
                           }
                         />
+                        <p className="mt-1 text-xs text-gray-600">
+                          {formatTtoBodyCharCount(editorTransportBody.length)}
+                        </p>
+                        {ttoDraftBodyShouldSoftWarnLength(editorTransportBody) ? (
+                          <p className="mt-1 text-xs text-amber-800">
+                            {TTO_BODY_SOFT_LENGTH_WARNING}
+                          </p>
+                        ) : null}
+                        {editorOverTransportMax ? (
+                          <p className="mt-1 text-xs text-red-800">
+                            {formatTtoBodyOverTransportMaxCopy(editorTransportBody.length)}
+                          </p>
+                        ) : null}
                         {morningDualBody &&
                         !(edits[row.draftId as string]?.trim() ?? row.currentBodyToSend?.trim() ?? "") ? (
                           <p className="mt-1 text-xs text-amber-800">{currentBodyBlank}</p>
@@ -2398,7 +2442,12 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                         <button
                           type="button"
                           className="mt-2 rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                          disabled={isSavingThis || pageBatchBusy || (!isDirty && !saveFailedMsg)}
+                          disabled={
+                            isSavingThis ||
+                            pageBatchBusy ||
+                            editorOverTransportMax ||
+                            (!isDirty && !saveFailedMsg)
+                          }
                           onClick={() => saveDraft(row)}
                         >
                           {isSavingThis

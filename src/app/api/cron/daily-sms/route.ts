@@ -84,6 +84,7 @@ function incrementMorningTtoAuthoritativeSkipStat(
   stats: {
     skippedTtoNoCurrentMorningDraft: number;
     skippedTtoBlankMorningBody: number;
+    skippedTtoBodyTooLong: number;
     skippedTtoMissingGeneration: number;
     skippedTtoMachineShouldSendFalse: number;
     skippedTtoRouteNotEligibleV1: number;
@@ -97,6 +98,9 @@ function incrementMorningTtoAuthoritativeSkipStat(
       break;
     case "tto_blank_morning_body":
       stats.skippedTtoBlankMorningBody += 1;
+      break;
+    case "tto_body_too_long":
+      stats.skippedTtoBodyTooLong += 1;
       break;
     case "tto_missing_generation":
       stats.skippedTtoMissingGeneration += 1;
@@ -858,6 +862,7 @@ export async function GET(req: Request) {
     skippedSundayWeeklyPause: 0,
     skippedTtoNoCurrentMorningDraft: 0,
     skippedTtoBlankMorningBody: 0,
+    skippedTtoBodyTooLong: 0,
     skippedTtoMissingGeneration: 0,
     skippedTtoMachineShouldSendFalse: 0,
     skippedTtoRouteNotEligibleV1: 0,

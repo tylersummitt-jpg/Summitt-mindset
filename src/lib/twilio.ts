@@ -23,8 +23,18 @@ import {
 /**
  * Conservative SMS chunk size. Favor reliability over squeezing more text.
  * GSM-7 single segment = 160; we use 280 to stay under 2 segments with buffer.
+ * Inbound / sendSMSChunked only — do not use as a TTO send ceiling.
  */
 export const SMS_CHUNK_MAX_LENGTH = 280;
+
+/**
+ * Hard Twilio SMS Body transport ceiling used by Morning/Evening TTO callers.
+ * sendSMS remains pass-through and does not truncate, clip, or rewrite.
+ */
+export {
+  TWILIO_SMS_BODY_MAX_CHARS,
+  smsBodyExceedsTwilioTransportMax,
+} from "@/lib/sms-transport-max";
 
 /**
  * Splits long SMS body into chunks. Prefers breaks at:

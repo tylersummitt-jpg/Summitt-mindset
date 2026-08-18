@@ -29,6 +29,7 @@ import {
   bulkSaveMorningTtoDraftBodies,
   bulkSaveEveningTtoDraftBodies,
   isTylerTextOverviewSaveApproval,
+  TTO_DRAFT_BODY_EXCEEDS_TWILIO_TRANSPORT_MAX,
 } from "@/lib/tyler-text-overview-admin";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import { SMS_DAILY_EVENING_PREVIEW_SEND_SLOT } from "@/lib/tyler-text-overview-types";
@@ -1329,6 +1330,62 @@ describe("tyler-text-overview-admin save model", () => {
     expect(db.drafts[0].current_body_source).toBe("tyler_edit");
   });
 
+  it("Morning 1600-character save succeeds", async () => {
+    const body = "x".repeat(1600);
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body,
+      now,
+    });
+    expect(result.ok).toBe(true);
+    expect(db.drafts[0].current_body_to_send).toBe(body);
+  });
+
+  it("Morning 1601-character save fails and does not mutate draft", async () => {
+    const original = db.drafts[0].current_body_to_send;
+    const body = "x".repeat(1601);
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body,
+      now,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(400);
+      expect(result.error).toBe(TTO_DRAFT_BODY_EXCEEDS_TWILIO_TRANSPORT_MAX);
+    }
+    expect(db.drafts[0].current_body_to_send).toBe(original);
+  });
+
+  it("Evening 1600-character save succeeds", async () => {
+    db.drafts[0].send_slot = "evening_checkin";
+    const body = "x".repeat(1600);
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body,
+      now,
+    });
+    expect(result.ok).toBe(true);
+    expect(db.drafts[0].current_body_to_send).toBe(body);
+  });
+
+  it("Evening 1601-character save fails and does not mutate draft", async () => {
+    db.drafts[0].send_slot = "evening_checkin";
+    const original = db.drafts[0].current_body_to_send;
+    const body = "x".repeat(1601);
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body,
+      now,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(400);
+      expect(result.error).toBe(TTO_DRAFT_BODY_EXCEEDS_TWILIO_TRANSPORT_MAX);
+    }
+    expect(db.drafts[0].current_body_to_send).toBe(original);
+  });
+
   it("save non-empty body after intentional blank replaces blank and keeps Tyler provenance", async () => {
     await updateTylerTextOverviewDraftBody({
       draftId: "draft-1",
@@ -1407,6 +1464,19 @@ describe("tyler-text-overview-admin save model", () => {
     expect(db.drafts[0].current_generation_id).toBe("gen-1");
     expect(result.row.sendSlot).toBe("weekly_review");
     expect(result.row.weekKey).toBe("2026-W28");
+  });
+
+  it("Weekly save still persists bodies over 1600 in this slice", async () => {
+    db.drafts[0].send_slot = "weekly_review";
+    db.generations[0].send_slot = "weekly_review";
+    const body = "x".repeat(1601);
+    const result = await updateTylerTextOverviewDraftBody({
+      draftId: "draft-1",
+      body,
+      now,
+    });
+    expect(result.ok).toBe(true);
+    expect(db.drafts[0].current_body_to_send).toBe(body);
   });
 
   it("save rejects sent evening_checkin draft", async () => {
@@ -1660,6 +1730,25 @@ describe("tyler-text-overview-admin morning bulk save", () => {
     expect(db.drafts.find((d) => d.id === "draft-a")!.current_body_to_send).toBe("Machine A");
   });
 
+  it("apply_all over 1600 does not persist invalid body", async () => {
+    const originalA = db.drafts.find((d) => d.id === "draft-a")!.current_body_to_send;
+    const originalB = db.drafts.find((d) => d.id === "draft-b")!.current_body_to_send;
+    const body = "x".repeat(1601);
+    const result = await bulkSaveMorningTtoDraftBodies({
+      draftForDayKey: DAY,
+      operation: "apply_all",
+      body,
+      now,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok && "status" in result) {
+      expect(result.status).toBe(400);
+      expect(result.error).toBe(TTO_DRAFT_BODY_EXCEEDS_TWILIO_TRANSPORT_MAX);
+    }
+    expect(db.drafts.find((d) => d.id === "draft-a")!.current_body_to_send).toBe(originalA);
+    expect(db.drafts.find((d) => d.id === "draft-b")!.current_body_to_send).toBe(originalB);
+  });
+
   it("rejects invalid day key", async () => {
     const result = await bulkSaveMorningTtoDraftBodies({
       draftForDayKey: "not-a-day",
@@ -1889,6 +1978,25 @@ describe("tyler-text-overview-admin evening bulk save", () => {
       expect(result.error).toMatch(/blank_all/i);
     }
     expect(db.drafts.find((d) => d.id === "draft-ea")!.current_body_to_send).toBe("Machine A");
+  });
+
+  it("apply_all over 1600 does not persist invalid evening body", async () => {
+    const originalA = db.drafts.find((d) => d.id === "draft-ea")!.current_body_to_send;
+    const originalB = db.drafts.find((d) => d.id === "draft-eb")!.current_body_to_send;
+    const body = "x".repeat(1601);
+    const result = await bulkSaveEveningTtoDraftBodies({
+      draftForDayKey: DAY,
+      operation: "apply_all",
+      body,
+      now,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok && "status" in result) {
+      expect(result.status).toBe(400);
+      expect(result.error).toBe(TTO_DRAFT_BODY_EXCEEDS_TWILIO_TRANSPORT_MAX);
+    }
+    expect(db.drafts.find((d) => d.id === "draft-ea")!.current_body_to_send).toBe(originalA);
+    expect(db.drafts.find((d) => d.id === "draft-eb")!.current_body_to_send).toBe(originalB);
   });
 
   it("does not create drafts for missing audience members", async () => {

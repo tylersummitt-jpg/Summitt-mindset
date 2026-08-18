@@ -404,6 +404,59 @@ describe("assertMorningTtoDraftAuthoritativeForSend", () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.bodyToSend).toBe(TYLER_BODY);
   });
+
+  it("435-character Tyler body remains authoritative and valid", async () => {
+    const body = "x".repeat(435);
+    seedDraft({
+      body,
+      source: "tyler_edit",
+      edited: true,
+    });
+    const r = await assertMorningTtoDraftAuthoritativeForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.bodyToSend).toBe(body);
+      expect(r.tylerEdited).toBe(true);
+    }
+  });
+
+  it("1600-character body is valid and preserved exactly", async () => {
+    const body = "x".repeat(1600);
+    seedDraft({
+      body,
+      source: "tyler_edit",
+      edited: true,
+    });
+    const r = await assertMorningTtoDraftAuthoritativeForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.bodyToSend).toBe(body);
+  });
+
+  it("1601-character body is tto_body_too_long before send reservation", async () => {
+    const body = "x".repeat(1601);
+    seedDraft({
+      body,
+      source: "tyler_edit",
+      edited: true,
+    });
+    const r = await assertMorningTtoDraftAuthoritativeForSend({
+      clerkUserId: "user_send",
+      draftForDayKey: "2026-07-03",
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toBe("tto_body_too_long");
+      expect(r.metadata?.draft_id).toBe("draft-1");
+      expect(r.metadata?.body_length).toBe(1601);
+      expect(r.metadata?.transport_max).toBe(1600);
+    }
+  });
 });
 
 describe("isLiveFallbackTtoSendSource", () => {
@@ -557,6 +610,8 @@ describe("daily-sms route authoritative wiring", () => {
     expect(route).toContain("tto_no_current_morning_draft");
     expect(route).not.toMatch(/status:\s*"skipped_tto_no_current_morning_draft"/);
     expect(route).not.toMatch(/status:\s*"skipped_tto_blank_morning_body"/);
+    expect(route).toContain("skippedTtoBodyTooLong");
+    expect(route).toContain("tto_body_too_long");
   });
 
   it("post-reserve gate failures use send_failed not terminal skipped status", () => {
