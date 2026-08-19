@@ -124,10 +124,13 @@ export const EVENING_TTO_NO_BODY_GENERATED_COPY = "No evening text body generate
 export const EVENING_TTO_NOT_SENDABLE_LABEL = "Not sendable";
 
 export const WEEKLY_TTO_AUTHORITY_BANNER =
-  "Weekly cron (/api/cron/weekly-sms) is draft-authoritative: it only sends current Weekly TTO drafts. No draft, blank body, or machine_should_send=false means no weekly text.";
+  "Weekly cron (/api/cron/weekly-sms) is draft-authoritative: it only sends current Weekly TTO drafts. No draft or blank body means no weekly text. A Tyler-saved nonempty edit can send even if machine_should_send=false. Machine no-send with no Tyler edit still blocks.";
 
 export const WEEKLY_TTO_NEXT_CUTOVER_COPY =
   "Generate Missing Weekly Drafts creates drafts only and does not send texts. Manual one-row send still uses the saved draft body.";
+
+export const WEEKLY_TTO_STALE_DRAFT_GUIDANCE =
+  "Recommended generation time: Sunday morning before the noon local send window. Weekly uses the real conversation available at generation time. If a draft was generated earlier and meaningful new conversation happened afterward, regenerate or review before Sunday send.";
 
 export const WEEKLY_TTO_SAVE_ONLY_COPY =
   "Save updates the draft only. It does not send.";
@@ -135,13 +138,13 @@ export const WEEKLY_TTO_SAVE_ONLY_COPY =
 export const WEEKLY_TTO_SAVE_BEFORE_SEND_COPY = "Save changes before sending.";
 
 export const WEEKLY_TTO_MANUAL_SEND_NOTE =
-  "Manual send sends this saved Weekly TTO draft now. Weekly cron is also draft-authoritative: no draft, blank body, or machine_should_send=false means no cron weekly text. Manual send and cron both use sms_weekly_send_events for duplicate protection — if this user/week already has a weekly event, cron will not send another one.";
+  "Manual send sends this saved Weekly TTO draft now. Weekly cron is also draft-authoritative: no draft or blank body means no cron weekly text. A Tyler-saved nonempty edit can send even if machine_should_send=false. Manual send and cron both use sms_weekly_send_events for duplicate protection — if this user/week already has a weekly event, cron will not send another one.";
 
 export const WEEKLY_TTO_FOOTER_AT_SEND_COPY =
   "STOP/HELP footer will be added at send-time.";
 
 export const WEEKLY_TTO_REGENERATE_OVERWRITE_COPY =
-  "Regenerate may replace saved edits.";
+  "Tyler edits and intentional blanks are kept. Regenerate replaces machine drafts only.";
 
 export const WEEKLY_TTO_NO_BODY_GENERATED_COPY = "No weekly text body generated.";
 
@@ -153,18 +156,23 @@ export const WEEKLY_TTO_GENERATE_MISSING_BUTTON_BUSY_LABEL =
   "Generating Missing Weekly Drafts…";
 
 export const WEEKLY_TTO_GENERATE_MISSING_HELP_COPY =
-  "Generates missing weekly drafts for sendable users. It does not send texts, does not overwrite existing drafts or Tyler edits, and skips users already sent this week.";
+  "Generates missing or incomplete weekly drafts for sendable users in resumable chunks. It does not send texts, does not overwrite Tyler edits or blanks, skips successful current drafts, and skips users already sent this week.";
 
 export const WEEKLY_TTO_GENERATE_MISSING_CONFIRM_TITLE = "Generate missing weekly drafts?";
 
 export const WEEKLY_TTO_GENERATE_MISSING_CONFIRM_COPY =
-  "This generates weekly drafts only for sendable users who are missing a draft for their current week. It does not send texts, does not overwrite existing drafts or Tyler edits, and skips users already sent this week. Generation may take several minutes.";
+  "This generates weekly drafts for sendable users who are missing a draft or whose last generation failed. It does not send texts, does not overwrite Tyler edits or blanks, and skips successful current drafts and users already sent this week. Keep this page open to continue chunks.";
 
-export function weeklyGenerateMissingButtonLabel(isGenerating: boolean): string {
-  return isGenerating
-    ? WEEKLY_TTO_GENERATE_MISSING_BUTTON_BUSY_LABEL
-    : WEEKLY_TTO_GENERATE_MISSING_BUTTON_LABEL;
+export function weeklyGenerateMissingButtonLabel(
+  isGenerating: boolean,
+  resumeAvailable?: boolean
+): string {
+  if (isGenerating) return WEEKLY_TTO_GENERATE_MISSING_BUTTON_BUSY_LABEL;
+  if (resumeAvailable) return "Resume Weekly Generation";
+  return WEEKLY_TTO_GENERATE_MISSING_BUTTON_LABEL;
 }
+
+export const WEEKLY_TTO_GENERATE_ALL_SESSION_KEY = "tto-generate-all:weekly_review:current-week";
 
 export function formatWeeklyGenerateMissingSummaryToast(args: {
   generated: number;
@@ -240,13 +248,17 @@ export function isWeeklyManualSendEligible(args: {
   machineShouldSend: boolean | null | undefined;
   dirty: boolean;
   sending: boolean;
+  editedByTyler?: boolean | null;
+  currentBodySource?: string | null;
 }): boolean {
   if (args.rowState !== "draft_current") return false;
   if (args.draftStatus !== "current") return false;
   if (args.sendSlot !== SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT) return false;
   if (!args.draftId?.trim()) return false;
   if (!(args.currentBodyToSend?.trim() ?? "")) return false;
-  if (args.machineShouldSend !== true) return false;
+  const tylerOverride =
+    args.editedByTyler === true || args.currentBodySource === "tyler_edit";
+  if (args.machineShouldSend !== true && !tylerOverride) return false;
   if (args.dirty) return false;
   if (args.sending) return false;
   return true;
@@ -299,10 +311,17 @@ export function formatWeeklyGenerateSuccessToast(args: {
   machineDraftBody: string | null | undefined;
   machineNoSendReason?: string | null;
   weekKey?: string | null;
+  currentDraftProtected?: boolean | null;
 }): string {
   const body = args.machineDraftBody?.trim() ?? "";
   const reason = args.machineNoSendReason?.trim() ?? "";
   const week = args.weekKey?.trim() ?? "";
+
+  if (args.currentDraftProtected === true) {
+    return week
+      ? `Existing Tyler weekly draft kept for ${week}. Did not overwrite.`
+      : "Existing Tyler weekly draft kept. Did not overwrite.";
+  }
 
   if (args.machineShouldSend === false) {
     const parts = ["Weekly draft saved as not sendable."];

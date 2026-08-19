@@ -4,10 +4,10 @@
  */
 
 import { getDateKeyInTimezone } from "@/lib/timezone";
-import { getWeekKey } from "@/lib/weekly-sms-week-key";
+import { getWeekKeyForLocalDateKey } from "@/lib/weekly-sms-week-key";
 
 export const WEEKLY_TTO_WEEK_ANCHOR_RULE = "user_local_sunday_week_end" as const;
-export const WEEKLY_TTO_WRITER_PROMPT_PATH = "v3_weekly_relationship_lane" as const;
+export const WEEKLY_TTO_WRITER_PROMPT_PATH = "weekly_brief_writer_v1" as const;
 /** Draft body excludes compliance footer; future send may append it like weekly-sms. */
 export const WEEKLY_TTO_DRAFT_EXCLUDES_COMPLIANCE_FOOTER = true as const;
 
@@ -54,20 +54,20 @@ function weekdayMon0Sun6InTimezone(date: Date, timezone: string): number {
 }
 
 /**
- * Weekly TTO period: same week_key as /api/cron/weekly-sms (getWeekKey on user-local now).
+ * Weekly TTO period: week_key is getWeekKey applied to the target Sunday (week_end),
+ * not generate-now weekday. Friday/Saturday/Sunday generate and Sunday cron share one key.
  * draft_for_day_key = week_end Sunday date (Mon–Sun window matching weekly proof pack).
  * No morning rollover. No evening-only helper.
  */
 export function resolveTylerTextOverviewWeeklyPeriod(
   args: ResolveTylerTextOverviewWeeklyPeriodArgs
 ): TylerTextOverviewWeeklyPeriod {
-  const localNow = new Date(args.now.toLocaleString("en-US", { timeZone: args.timezone }));
   const todayKey = getDateKeyInTimezone(args.now, args.timezone);
   const dow = weekdayMon0Sun6InTimezone(args.now, args.timezone);
   const weekStart = addCalendarDays(todayKey, -dow);
   const weekEnd = addCalendarDays(weekStart, 6);
   return {
-    weekKey: getWeekKey(localNow),
+    weekKey: getWeekKeyForLocalDateKey(weekEnd),
     weekStart,
     weekEnd,
     draftForDayKey: weekEnd,

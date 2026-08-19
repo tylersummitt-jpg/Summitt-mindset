@@ -17,6 +17,15 @@ import {
   SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
 } from "@/lib/tyler-text-overview-types";
 import { WEEKLY_TTO_DRAFT_EXCLUDES_COMPLIANCE_FOOTER } from "@/lib/tyler-text-overview-weekly-period";
+import { isTylerEditTtoDraftOverride } from "@/lib/tyler-text-overview-send";
+import {
+  WEEKLY_TTO_COMPLIANCE_FOOTER,
+  WEEKLY_TTO_DRAFT_BODY_EXCEEDS_EDITABLE_MAX,
+  WEEKLY_TTO_FINAL_BODY_EXCEEDS_TWILIO_MAX,
+  buildWeeklyTtoFinalBodyWithFooter,
+  weeklyEditableBodyExceedsMax,
+  weeklyFinalBodyExceedsTwilioMax,
+} from "@/lib/weekly-tto-length";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { upsertCommitmentSmsThreadMemoryFromOutbound } from "@/lib/v2-commitment-sms-thread-memory";
@@ -24,11 +33,11 @@ import {
   fetchV2UserSmsCommsPreferences,
   isPauseActive,
 } from "@/lib/v2-sms-comms-preferences";
-import { appendPreservedSmsSuffix } from "@/lib/v3-sms-voice-ownership";
 
-/** Same footer string as historical weekly-sms (duplicated intentionally). */
-export const WEEKLY_TTO_COMPLIANCE_FOOTER =
-  "Reply STOP to opt out. Reply HELP for help.";
+export {
+  WEEKLY_TTO_COMPLIANCE_FOOTER,
+  buildWeeklyTtoFinalBodyWithFooter,
+};
 
 export const WEEKLY_TTO_MANUAL_SEND_SOURCE = "weekly_tto_manual" as const;
 export const WEEKLY_TTO_CRON_SEND_SOURCE = "weekly_tto_cron" as const;
@@ -45,6 +54,7 @@ export type WeeklyTtoManualSendRefusalCode =
   | "week_key_mismatch"
   | "blank_body"
   | "machine_should_send_false"
+  | "body_too_long"
   | "ambiguous_weekly_draft"
   | "duplicate_weekly_send"
   | "no_phone"
@@ -134,10 +144,6 @@ function isUniqueViolation(error: { code?: string; message?: string } | null): b
   return (error.message ?? "").toLowerCase().includes("duplicate");
 }
 
-export function buildWeeklyTtoFinalBodyWithFooter(bodyWithoutFooter: string): string {
-  return appendPreservedSmsSuffix(bodyWithoutFooter.trim(), WEEKLY_TTO_COMPLIANCE_FOOTER);
-}
-
 export function mapWeeklyTtoRefusalToCronSkipReason(
   code: WeeklyTtoManualSendRefusalCode
 ): WeeklyTtoCronAuthoritySkipReason | "skipped_duplicate_weekly_send" | "skipped_missing_twilio" | "failed" | null {
@@ -151,6 +157,8 @@ export function mapWeeklyTtoRefusalToCronSkipReason(
       return "skipped_tto_missing_generation";
     case "machine_should_send_false":
       return "skipped_tto_machine_should_send_false";
+    case "body_too_long":
+      return "failed";
     case "week_key_mismatch":
       return "skipped_tto_week_key_mismatch";
     case "ambiguous_weekly_draft":
@@ -248,16 +256,45 @@ async function materializeAuthoritativeDraftFromRows(args: {
   }
 
   if (generationRow.machine_should_send !== true) {
+    const tylerOverride = isTylerEditTtoDraftOverride({
+      edited_by_tyler: draftRow.edited_by_tyler === true,
+      current_body_source:
+        typeof draftRow.current_body_source === "string"
+          ? draftRow.current_body_source
+          : "",
+    });
+    if (!tylerOverride) {
+      return {
+        ok: false,
+        result: refuse(
+          "machine_should_send_false",
+          typeof generationRow.machine_no_send_reason === "string" &&
+            generationRow.machine_no_send_reason.trim()
+            ? `machine_should_send is false: ${generationRow.machine_no_send_reason.trim()}`
+            : "machine_should_send is false",
+          { ...base, weekKey }
+        ),
+      };
+    }
+  }
+
+  if (weeklyEditableBodyExceedsMax(bodyWithoutFooter)) {
     return {
       ok: false,
-      result: refuse(
-        "machine_should_send_false",
-        typeof generationRow.machine_no_send_reason === "string" &&
-          generationRow.machine_no_send_reason.trim()
-          ? `machine_should_send is false: ${generationRow.machine_no_send_reason.trim()}`
-          : "machine_should_send is false",
-        { ...base, weekKey }
-      ),
+      result: refuse("body_too_long", WEEKLY_TTO_DRAFT_BODY_EXCEEDS_EDITABLE_MAX, {
+        ...base,
+        weekKey,
+      }),
+    };
+  }
+  const previewFinal = buildWeeklyTtoFinalBodyWithFooter(bodyWithoutFooter);
+  if (weeklyFinalBodyExceedsTwilioMax(previewFinal)) {
+    return {
+      ok: false,
+      result: refuse("body_too_long", WEEKLY_TTO_FINAL_BODY_EXCEEDS_TWILIO_MAX, {
+        ...base,
+        weekKey,
+      }),
     };
   }
 
@@ -306,7 +343,7 @@ export async function assertWeeklyTtoDraftAuthoritativeForManualSend(args: {
   const { data: draftRow, error: draftError } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
     .select(
-      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status"
+      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, current_body_source, edited_by_tyler, status"
     )
     .eq("id", draftId)
     .maybeSingle();
@@ -394,7 +431,7 @@ export async function assertWeeklyTtoDraftAuthoritativeForCronSend(args: {
   const { data: draftRows, error: draftError } = await supabaseServer
     .from(SMS_DAILY_DRAFTS_TABLE)
     .select(
-      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, status"
+      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, current_body_source, edited_by_tyler, status"
     )
     .eq("clerk_user_id", clerkUserId)
     .eq("send_slot", SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT)
@@ -774,6 +811,23 @@ export async function sendWeeklyTtoDraftAuthoritative(args: {
     });
   }
 
+  const bodyWithoutFooter = draft.bodyWithoutFooter;
+  if (weeklyEditableBodyExceedsMax(bodyWithoutFooter)) {
+    return refuse("body_too_long", WEEKLY_TTO_DRAFT_BODY_EXCEEDS_EDITABLE_MAX, {
+      draftId: draft.draftId,
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+    });
+  }
+  const finalBody = buildWeeklyTtoFinalBodyWithFooter(bodyWithoutFooter);
+  if (weeklyFinalBodyExceedsTwilioMax(finalBody)) {
+    return refuse("body_too_long", WEEKLY_TTO_FINAL_BODY_EXCEEDS_TWILIO_MAX, {
+      draftId: draft.draftId,
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+    });
+  }
+
   const reservation = await reserveWeeklySmsSendEvent({
     clerkUserId: draft.clerkUserId,
     weekKey: draft.weekKey,
@@ -786,9 +840,6 @@ export async function sendWeeklyTtoDraftAuthoritative(args: {
     sendSource: args.sendSource,
   });
   if (!reservation.ok) return reservation.result;
-
-  const bodyWithoutFooter = draft.bodyWithoutFooter;
-  const finalBody = buildWeeklyTtoFinalBodyWithFooter(bodyWithoutFooter);
 
   let twilioMessageSid: string;
   let twilioStatus: string;

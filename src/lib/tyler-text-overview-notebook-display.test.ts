@@ -100,6 +100,22 @@ describe("deriveNotebookFamily", () => {
     );
   });
 
+  it("weekly_brief_writer_v1 maps to Weekly relationship packet, not Morning", () => {
+    expect(
+      deriveNotebookFamily({
+        messageCount: 2,
+        writerPromptPath: "weekly_brief_writer_v1",
+        messages: [
+          SYSTEM,
+          { role: "user", content: "WEEKLY_RELATIONSHIP_PACKET_V1\n{}" },
+        ],
+      })
+    ).toBe("weekly_relationship_v1");
+    expect(notebookFamilyLabel("weekly_relationship_v1")).toBe("Weekly relationship packet");
+    expect(notebookFamilyLabel("weekly_relationship_v1")).not.toMatch(/Morning/i);
+    expect(notebookFamilyLabel("weekly_relationship_v1")).not.toMatch(/unknown/i);
+  });
+
   it("0 messages => writer_skipped", () => {
     expect(
       deriveNotebookFamily({

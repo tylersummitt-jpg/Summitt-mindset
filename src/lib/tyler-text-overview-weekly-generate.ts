@@ -1,40 +1,20 @@
 /**
  * Weekly TTO draft generation — persist only. Never sends SMS.
- * Reuses weekly proof pack + V3 relationship lane builders for draft body.
- * Compliance footer is NOT included in the draft (future send appends it).
+ * W1: Hallway packet → GPT-5.6 Sol interpreter → six-section Brief → GPT-5.6 Sol writer.
+ * Compliance footer is NOT included in the draft (send appends it).
  */
 
 import type { DailySmsBuilt } from "@/lib/daily-sms-build";
 import { getClerkUser } from "@/lib/clerk-rest";
-import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
-import {
-  buildV2SmsConversationContextPack,
-  type V2SmsConversationContextPack,
-} from "@/lib/v2-sms-conversation-context";
 import {
   fetchV2UserSmsCommsPreferences,
   shouldSkipWeeklyForCommsPrefs,
 } from "@/lib/v2-sms-comms-preferences";
-import {
-  buildDeterministicWeeklyProofBody,
-  buildV2WeeklyProofPack,
-  generateV2WeeklyProofSmsBody,
-} from "@/lib/v2-weekly-proof-sms";
-import {
-  buildSmsRelationshipMemoryPacket,
-  slimMemoryPacketForFacts,
-} from "@/lib/sms-relationship-memory-packet";
-import { loadRecentPlannedInterruptionSignalForCommitment } from "@/lib/sms-planned-interruption";
-import {
-  loadSmsVictoryBackgroundContext,
-  mapSmsVictoryBackgroundToFacts,
-} from "@/lib/sms-victory-background-context";
 import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
 import { resolveSmsUserTimezone } from "@/lib/timezone";
-import { buildWeeklyV3OutboundFactsForV2WeeklyProof } from "@/lib/weekly-sms-v2-weekly-lane-facts";
-import { produceWeeklyV3RelationshipSms } from "@/lib/v3-weekly-outbound-relationship-lane";
+import type { WeeklyV3RelationshipLaneResult } from "@/lib/v3-weekly-outbound-relationship-lane";
 import { resolveTylerTextOverviewWeeklyPeriod } from "@/lib/tyler-text-overview-weekly-period";
 import {
   WEEKLY_TTO_DRAFT_EXCLUDES_COMPLIANCE_FOOTER,
@@ -44,12 +24,24 @@ import {
 import {
   formatSendPrefSnapshot,
   loadTylerTextOverviewAudienceRow,
-  persistTylerTextOverviewDraftFromBuilt,
+  persistMorningTtoGeneration,
 } from "@/lib/tyler-text-overview-generate";
+import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-overview-writer-capture";
 import {
   isTylerTextOverviewEnabled,
   SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
 } from "@/lib/tyler-text-overview-types";
+import {
+  WEEKLY_BRIEF_WRITER_RAN_VERDICT_REASON,
+  WEEKLY_RELATIONSHIP_ROUTE_KIND,
+  loadWeeklyRelationshipPacket,
+} from "@/lib/weekly-tto-relationship-packet";
+import {
+  buildWeeklyBriefInterpreterMetadataV1,
+  runWeeklyBriefInterpreterV1,
+} from "@/lib/weekly-tto-brief-interpreter";
+import { writeWeeklyTtoBody } from "@/lib/weekly-tto-writer";
+import { evaluateWeeklySolBlockOnlyBody } from "@/lib/weekly-tto-body-validate";
 
 export {
   WEEKLY_TTO_DRAFT_EXCLUDES_COMPLIANCE_FOOTER,
@@ -69,6 +61,7 @@ export type TylerTextOverviewWeeklyGenerateResult =
       machineShouldSend: boolean;
       machineDraftBody: string | null;
       machineNoSendReason: string | null;
+      currentDraftProtected?: boolean;
       sendSlot: typeof SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT;
     }
   | {
@@ -85,9 +78,9 @@ export type TylerTextOverviewWeeklyGenerateResult =
       error?: string;
     };
 
-/** Persist exact weekly writer OpenAI input from the lane capture (system+user). */
+/** Legacy mapper kept for existing capture tests. Live generate no longer uses the V3 lane. */
 export function builtFromWeeklyLane(args: {
-  lane: Awaited<ReturnType<typeof produceWeeklyV3RelationshipSms>>;
+  lane: WeeklyV3RelationshipLaneResult;
   commitmentId: string;
 }): DailySmsBuilt {
   const capture = args.lane.writerOpenAiCapture ?? null;
@@ -112,6 +105,30 @@ export function builtFromWeeklyLane(args: {
       route_purpose: "weekly_proof_v2",
       ...args.lane.metadata,
     },
+  };
+}
+
+function mapOpenAiMessagesToWriterCapture(
+  messages: Array<{ role: string; content?: unknown }>
+): TylerTextOverviewWriterOpenAiMessage[] {
+  return messages
+    .filter(
+      (m): m is { role: "system" | "user" | "assistant"; content: string } =>
+        (m.role === "system" || m.role === "user" || m.role === "assistant") &&
+        typeof m.content === "string"
+    )
+    .map((m) => ({ role: m.role, content: m.content }));
+}
+
+function weeklyPersistForensics(capturePresent: boolean): {
+  routeKind: typeof WEEKLY_RELATIONSHIP_ROUTE_KIND;
+  notebookVerdictReason: string;
+} {
+  return {
+    routeKind: WEEKLY_RELATIONSHIP_ROUTE_KIND,
+    notebookVerdictReason: capturePresent
+      ? WEEKLY_BRIEF_WRITER_RAN_VERDICT_REASON
+      : "writer_not_invoked",
   };
 }
 
@@ -142,7 +159,6 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
     audienceTimezone: audienceUser.timezone,
   });
   const timezone = tzResolved.timezone;
-  const localNow = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
 
   const period = resolveTylerTextOverviewWeeklyPeriod({ now, timezone });
 
@@ -161,157 +177,270 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
     return { ok: false, reason: "no_commitment" };
   }
 
-  const pack = await buildV2WeeklyProofPack({
-    clerkUserId,
-    commitment,
-    localNow,
-    timezone,
-  });
-
-  let weeklySmsThreadAppend: string | null = null;
-  let convForNorthStar: V2SmsConversationContextPack | null = null;
-  try {
-    const conv = await buildV2SmsConversationContextPack({
-      clerkUserId,
-      commitmentId: commitment.id,
-      commitment,
-      timezone,
-    });
-    convForNorthStar = conv;
-    weeklySmsThreadAppend = conv.recentTranscriptLines.slice(-5).join(" | ").slice(0, 700);
-  } catch (e) {
-    console.warn("[tyler-text-overview-weekly] sms_conversation_context_pack_failed", {
-      commitment_id: commitment.id,
-      message: e instanceof Error ? e.message : String(e),
-    });
-  }
-
-  const { body: oldProofPreviewBody, aiUsed } = await generateV2WeeklyProofSmsBody(pack, {
-    recentSmsThreadAppend: weeklySmsThreadAppend,
-  });
-  const deterministicPreviewBody = buildDeterministicWeeklyProofBody(pack);
-
-  let relationshipMemoryPacket = null;
-  try {
-    const memoryPacket = await buildSmsRelationshipMemoryPacket({
-      clerkUserId,
-      commitmentId: commitment.id,
-      now: localNow,
-      exactThreadPath: "weekly",
-    });
-    relationshipMemoryPacket = slimMemoryPacketForFacts(memoryPacket);
-  } catch (e) {
-    console.warn("[tyler-text-overview-weekly] relationship_memory_packet_failed", {
-      commitment_id: commitment.id,
-      message: e instanceof Error ? e.message : String(e),
-    });
-  }
-
-  let victoryBackgroundFacts = null;
-  try {
-    victoryBackgroundFacts = mapSmsVictoryBackgroundToFacts(
-      await loadSmsVictoryBackgroundContext({
-        clerkUserId,
-        commitmentId: commitment.id,
-        timezone,
-      })
-    );
-  } catch {
-    victoryBackgroundFacts = null;
-  }
-
-  let plannedInterruptionRow = null;
-  try {
-    plannedInterruptionRow = await loadRecentPlannedInterruptionSignalForCommitment({
-      commitmentId: commitment.id,
-      clerkUserId,
-      now: localNow,
-    });
-  } catch {
-    plannedInterruptionRow = null;
-  }
-
-  const weeklyFacts = buildWeeklyV3OutboundFactsForV2WeeklyProof({
-    clerkUserId,
-    commitment,
-    effectiveAsk: getEffectiveCoachingAsk(commitment, Date.now()),
-    pack,
-    timezone,
-    localNow,
-    conv: convForNorthStar,
-    weeklySmsThreadAppend,
-    oldWeeklyProofBodyPreview: oldProofPreviewBody,
-    deterministicWeeklyBodyPreview: deterministicPreviewBody,
-    relationshipMemoryPacket,
-    victoryBackground: victoryBackgroundFacts,
-    plannedInterruption: plannedInterruptionRow,
-  });
-
-  const lane = await produceWeeklyV3RelationshipSms({
-    facts: weeklyFacts,
-    commitmentRow: commitment,
-    telemetry_fact_sources: [
-      "v2_weekly_proof_pack",
-      aiUsed ? "v2_weekly_proof_openai_preview" : "v2_weekly_proof_preview_no_openai",
-      "v2_weekly_proof_deterministic_preview",
-      "tyler_text_overview_weekly_generate",
-    ],
-  });
-
-  const built = builtFromWeeklyLane({ lane, commitmentId: commitment.id });
   const clerkSmsTimePreference = smsTimePreferenceFromClerkMetadata(md);
   const sendPrefSnapshot = formatSendPrefSnapshot(clerkSmsTimePreference, weeklyCommsPrefs);
 
-  const generationMetadataExtra = {
+  const weeklyMetaBase = {
     send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
     week_key: period.weekKey,
-    week_start: pack.week_start,
-    week_end: pack.week_end,
+    week_start: period.weekStart,
+    week_end: period.weekEnd,
     week_anchor_rule: WEEKLY_TTO_WEEK_ANCHOR_RULE,
     timezone,
     draft_excludes_compliance_footer: WEEKLY_TTO_DRAFT_EXCLUDES_COMPLIANCE_FOOTER,
-    weekly_lane_no_send_reason: lane.noSendReason,
-    weekly_v3_lane_used: true,
-    route_purpose: "weekly_proof_v2",
-    v3_lane_reply_source: "v3_weekly_relationship_lane",
-    openai_ok: lane.openAiOk,
+    coaching_stack: "shared_sol_v1",
+    weekly_v3_lane_used: false,
+    packet_version: "weekly_relationship_v1",
   };
 
-  const persisted = await persistTylerTextOverviewDraftFromBuilt({
+  const packetResult = await loadWeeklyRelationshipPacket({
+    clerkUserId,
+    timezone,
+    weekStartLocalDate: period.weekStart,
+    weekEndLocalDate: period.weekEnd,
+    now,
+    commitmentId: commitment.id,
+  });
+
+  if (!packetResult.ok) {
+    const persisted = await persistMorningTtoGeneration({
+      clerkUserId,
+      draftForDayKey: period.draftForDayKey,
+      generationReason: "manual_regenerate",
+      commitmentId: commitment.id,
+      timezone,
+      sendPrefSnapshot,
+      now,
+      sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      failure: { error: packetResult.error },
+      generationMetadataExtra: weeklyMetaBase,
+      respectProtectedMorningDraft: true,
+      protectTylerProvenanceOnly: true,
+      ...weeklyPersistForensics(false),
+    });
+
+    if (!persisted.ok) {
+      return { ok: false, reason: persisted.reason, error: persisted.error };
+    }
+
+    return {
+      ok: true,
+      draftForDayKey: period.draftForDayKey,
+      weekKey: period.weekKey,
+      weekStart: period.weekStart,
+      weekEnd: period.weekEnd,
+      timezone,
+      generationId: persisted.generationId,
+      machineShouldSend: false,
+      machineDraftBody: null,
+      machineNoSendReason: packetResult.error,
+      currentDraftProtected: persisted.currentDraftProtected === true,
+      sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+    };
+  }
+
+  const { packet, commitmentId } = packetResult;
+  const packetMetadata = {
+    thread_message_count: packet.exact_thread.messages.length,
+    days_since_last_user_response: packet.last_user_response.days_since,
+    never_replied: packet.last_user_response.never_replied,
+    has_pending_goal_change: packet.hard_state.pending_goal_change != null,
+  };
+
+  const interpreterResult = await runWeeklyBriefInterpreterV1({
+    packet,
+    clerkUserId,
+    commitmentId,
+  });
+  const weeklyCoachingBrief = interpreterResult.brief;
+  const interpreterMeta = buildWeeklyBriefInterpreterMetadataV1(interpreterResult.capture);
+  if (!interpreterResult.ok) {
+    interpreterMeta.fallback_brief_used = true;
+  }
+
+  const writerResult = await writeWeeklyTtoBody({
+    packet,
+    weeklyCoachingBrief,
+  });
+  const writerMessages = writerResult.messages
+    ? mapOpenAiMessagesToWriterCapture(writerResult.messages)
+    : undefined;
+  const retryMessages = mapOpenAiMessagesToWriterCapture(writerResult.retryMessages ?? []);
+  const retryOccurred = writerResult.retryOccurred === true;
+  const writerModel = typeof writerResult.model === "string" ? writerResult.model : null;
+  const writerCapture = writerResult.capture
+    ? {
+        capture_version: writerResult.capture.capture_version,
+        model: writerResult.capture.model,
+        temperature: writerResult.capture.temperature,
+        reasoning_effort: writerResult.capture.reasoning_effort,
+        max_completion_tokens: writerResult.capture.max_completion_tokens,
+        prompt_path: writerResult.capture.prompt_path,
+        request_started_at: writerResult.capture.request_started_at,
+        request_completed_at: writerResult.capture.request_completed_at,
+        latency_ms: writerResult.capture.latency_ms,
+        raw_response: writerResult.capture.raw_response,
+        raw_retry_response: writerResult.capture.raw_retry_response,
+        error: writerResult.capture.error,
+        openai_error: writerResult.capture.openai_error ?? null,
+        retry_occurred: writerResult.capture.retry_occurred,
+        retry_succeeded: writerResult.capture.retry_succeeded,
+      }
+    : undefined;
+  const writerPromptPathForPersist = writerMessages?.length
+    ? WEEKLY_TTO_WRITER_PROMPT_PATH
+    : null;
+
+  const generationMetadataExtra = {
+    ...weeklyMetaBase,
+    weekly_brief_interpreter_v1: interpreterMeta,
+    morning_coaching_brief_v1: weeklyCoachingBrief,
+    message_for: packet.message_for,
+    weekly_relationship_packet_v1: packet,
+  };
+
+  if (!writerResult.ok) {
+    const persisted = await persistMorningTtoGeneration({
+      clerkUserId,
+      draftForDayKey: period.draftForDayKey,
+      generationReason: "manual_regenerate",
+      commitmentId,
+      timezone,
+      sendPrefSnapshot,
+      now,
+      sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      failure: {
+        error: writerResult.error,
+        messages: writerMessages,
+        writerPromptPath: writerPromptPathForPersist,
+        model: writerModel,
+        retryMessages,
+        retryOccurred,
+        retrySucceeded: retryOccurred ? false : undefined,
+        writerCapture,
+      },
+      packetMetadata,
+      generationMetadataExtra,
+      respectProtectedMorningDraft: true,
+      protectTylerProvenanceOnly: true,
+      ...weeklyPersistForensics(Boolean(writerMessages?.length)),
+    });
+
+    if (!persisted.ok) {
+      return { ok: false, reason: persisted.reason, error: persisted.error };
+    }
+
+    return {
+      ok: true,
+      draftForDayKey: period.draftForDayKey,
+      weekKey: period.weekKey,
+      weekStart: period.weekStart,
+      weekEnd: period.weekEnd,
+      timezone,
+      generationId: persisted.generationId,
+      machineShouldSend: false,
+      machineDraftBody: null,
+      machineNoSendReason: writerResult.error,
+      currentDraftProtected: persisted.currentDraftProtected === true,
+      sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+    };
+  }
+
+  const blocked = evaluateWeeklySolBlockOnlyBody(writerResult.body);
+  if (!blocked.ok) {
+    const persisted = await persistMorningTtoGeneration({
+      clerkUserId,
+      draftForDayKey: period.draftForDayKey,
+      generationReason: "manual_regenerate",
+      commitmentId,
+      timezone,
+      sendPrefSnapshot,
+      now,
+      sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      failure: {
+        error: blocked.reason,
+        messages: writerMessages,
+        writerPromptPath: writerPromptPathForPersist,
+        model: writerModel,
+        retryMessages,
+        retryOccurred,
+        retrySucceeded: retryOccurred ? writerResult.ok : undefined,
+        writerCapture,
+      },
+      packetMetadata,
+      generationMetadataExtra: {
+        ...generationMetadataExtra,
+        weekly_block_only_reason: blocked.reason,
+        weekly_blocked_body_preview: writerResult.body.slice(0, 220),
+      },
+      respectProtectedMorningDraft: true,
+      protectTylerProvenanceOnly: true,
+      ...weeklyPersistForensics(Boolean(writerMessages?.length)),
+    });
+
+    if (!persisted.ok) {
+      return { ok: false, reason: persisted.reason, error: persisted.error };
+    }
+
+    return {
+      ok: true,
+      draftForDayKey: period.draftForDayKey,
+      weekKey: period.weekKey,
+      weekStart: period.weekStart,
+      weekEnd: period.weekEnd,
+      timezone,
+      generationId: persisted.generationId,
+      machineShouldSend: false,
+      machineDraftBody: null,
+      machineNoSendReason: blocked.reason,
+      currentDraftProtected: persisted.currentDraftProtected === true,
+      sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+    };
+  }
+
+  const persisted = await persistMorningTtoGeneration({
     clerkUserId,
     draftForDayKey: period.draftForDayKey,
     generationReason: "manual_regenerate",
-    built,
-    commitmentId: commitment.id,
+    commitmentId,
     timezone,
     sendPrefSnapshot,
     now,
     sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+    success: {
+      body: writerResult.body,
+      messages: mapOpenAiMessagesToWriterCapture(writerResult.messages),
+      writerPromptPath: WEEKLY_TTO_WRITER_PROMPT_PATH,
+      model: writerModel ?? undefined,
+      retryMessages,
+      retryOccurred,
+      retrySucceeded: retryOccurred ? true : undefined,
+      writerCapture,
+    },
+    packetMetadata,
     generationMetadataExtra,
-    respectProtectedMorningDraft: false,
+    respectProtectedMorningDraft: true,
+    protectTylerProvenanceOnly: true,
+    ...weeklyPersistForensics(true),
   });
 
   if (!persisted.ok) {
     return { ok: false, reason: persisted.reason, error: persisted.error };
   }
 
-  const machineShouldSend = built.ok === true;
-  const machineDraftBody = built.ok ? built.smsBody : null;
-  const machineNoSendReason = built.ok
-    ? null
-    : built.error || lane.noSendReason || "weekly_lane_no_send";
-
+  const currentDraftProtected = persisted.currentDraftProtected === true;
   return {
     ok: true,
     draftForDayKey: period.draftForDayKey,
     weekKey: period.weekKey,
-    weekStart: pack.week_start,
-    weekEnd: pack.week_end,
+    weekStart: period.weekStart,
+    weekEnd: period.weekEnd,
     timezone,
     generationId: persisted.generationId,
-    machineShouldSend,
-    machineDraftBody,
-    machineNoSendReason,
+    machineShouldSend: currentDraftProtected ? false : true,
+    machineDraftBody: currentDraftProtected ? null : writerResult.body,
+    machineNoSendReason: currentDraftProtected ? "current_draft_protected" : null,
+    currentDraftProtected,
     sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
   };
 }

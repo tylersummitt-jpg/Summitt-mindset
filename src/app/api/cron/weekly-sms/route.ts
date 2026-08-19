@@ -5,8 +5,10 @@
  * This route must not live-build weekly SMS bodies.
  *
  * No current weekly_review draft = no weekly text.
- * Blank body / missing generation / machine_should_send !== true = no weekly text.
+ * Blank body / missing generation / machine no-send without a Tyler edit = no weekly text.
+ * A Tyler-saved nonempty edit can send even if machine_should_send=false.
  * Already reserved/sent in sms_weekly_send_events = no weekly text.
+ * week_key is derived from the target Sunday (same helper as Weekly generate).
  * force=1 bypasses the Sunday noon window only — never TTO authority.
  * dryRun is side-effect free: no reserve, no Twilio, no draft finalize, no thread memory, no live-build.
  */
@@ -16,7 +18,7 @@ import { NextResponse } from "next/server";
 import { listClerkUsers } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveUserTimezone } from "@/lib/timezone";
-import { getWeekKey } from "@/lib/weekly-sms-week-key";
+import { resolveTylerTextOverviewWeeklyPeriod } from "@/lib/tyler-text-overview-weekly-period";
 import { isTwilioReady } from "@/lib/twilio";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 import { getActiveCommitment } from "@/lib/v2-commitment";
@@ -252,7 +254,10 @@ export async function GET(req: Request) {
       }
 
       stats.eligible += 1;
-      const weekKey = getWeekKey(localNow);
+      const weekKey = resolveTylerTextOverviewWeeklyPeriod({
+        now,
+        timezone,
+      }).weekKey;
 
       // dryRun: authority only — no reserve, Twilio, draft finalize, thread memory, or live-build.
       if (dryRun) {

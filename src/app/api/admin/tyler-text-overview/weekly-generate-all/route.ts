@@ -2,14 +2,13 @@ import { NextResponse } from "next/server";
 
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
 import {
-  generateMissingWeeklyDraftsForAllSendableUsers,
-  WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY,
-  type WeeklyTtoGenerateAllMode,
+  generateWeeklyTtoDraftBatch,
+  parseWeeklyGenerateAllRequestBody,
 } from "@/lib/tyler-text-overview-weekly-generate-all";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-/** Batch OpenAI generation for ~40 users; allow longer than default serverless limit. */
+/** Chunked Sol generation; hard ceiling. Soft budget stops work earlier. */
 export const maxDuration = 300;
 
 function adminErrorResponse(err: unknown) {
@@ -23,20 +22,6 @@ function adminErrorResponse(err: unknown) {
 
   const message = err instanceof Error ? err.message : "unknown_error";
   return NextResponse.json({ ok: false, error: message }, { status });
-}
-
-function parseMode(body: unknown): WeeklyTtoGenerateAllMode | { error: string } {
-  if (body == null || typeof body !== "object") {
-    return WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY;
-  }
-  if (!("mode" in body) || (body as { mode?: unknown }).mode == null) {
-    return WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY;
-  }
-  const mode = (body as { mode: unknown }).mode;
-  if (mode === WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY) {
-    return WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY;
-  }
-  return { error: `unsupported_mode:${String(mode)}` };
 }
 
 export async function POST(req: Request) {
@@ -62,24 +47,26 @@ export async function POST(req: Request) {
       }
     }
 
-    const modeOrError = parseMode(body);
-    if (typeof modeOrError === "object" && "error" in modeOrError) {
-      return NextResponse.json({ ok: false, error: modeOrError.error }, { status: 400 });
+    const parsed = parseWeeklyGenerateAllRequestBody(body);
+    if ("error" in parsed) {
+      return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
 
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      mode: modeOrError,
+    const result = await generateWeeklyTtoDraftBatch({
+      audienceClerkUserIds: parsed.audienceClerkUserIds,
+      excludeClerkUserIds: parsed.excludeClerkUserIds,
     });
 
-    return NextResponse.json(result);
+    if ("status" in result) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
+    }
+
+    return NextResponse.json({ ok: true, result });
   } catch (err) {
     console.error("[admin/tyler-text-overview/weekly-generate-all] POST failed", err);
     const message = err instanceof Error ? err.message : "unknown_error";
     if (message === "tyler_text_overview_disabled") {
       return NextResponse.json({ ok: false, error: message }, { status: 503 });
-    }
-    if (message.startsWith("unsupported_mode:")) {
-      return NextResponse.json({ ok: false, error: message }, { status: 400 });
     }
     return adminErrorResponse(err);
   }

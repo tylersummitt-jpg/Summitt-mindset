@@ -98,6 +98,7 @@ export const TTO_PERSISTED_EXACT_THREAD_UNAVAILABLE =
 export function isSharedSolCoachingRow(row: TylerTextOverviewAdminDraftRow): boolean {
   if (row.coachingStack === "shared_sol_v1") return true;
   if (row.writerPromptPath === "morning_brief_writer_v1") return true;
+  if (row.writerPromptPath === "weekly_brief_writer_v1") return true;
   if (row.morningCoachingBriefV1 != null) return true;
   if (row.morningBriefInterpreterV1 != null) return true;
   if (row.morningWriterCaptureV1 != null) return true;
@@ -154,7 +155,12 @@ export function formatPersistedMessageForLine(
   messageFor: TylerTextOverviewAdminDraftRow["messageFor"]
 ): string | null {
   if (!messageFor) return null;
-  const daypartLabel = messageFor.daypart === "evening" ? "Evening" : "Morning";
+  const daypartLabel =
+    messageFor.daypart === "evening"
+      ? "Evening"
+      : messageFor.daypart === "weekly"
+        ? "Weekly"
+        : "Morning";
   return `${messageFor.local_weekday}, ${messageFor.local_date} · ${daypartLabel} · ${messageFor.timezone}`;
 }
 

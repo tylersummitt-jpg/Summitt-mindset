@@ -178,6 +178,7 @@ describe("SMS Voice Ownership — sms-inbound-coach route", () => {
 describe("SMS Voice Ownership — weekly-sms route", () => {
   const weekly = readSrc("src/app/api/cron/weekly-sms/route.ts");
   const weeklySend = readSrc("src/lib/tyler-text-overview-weekly-send.ts");
+  const weeklyLength = readSrc("src/lib/weekly-tto-length.ts");
 
   it("is Weekly TTO draft-authoritative (no live V3 lane / FVG in cron)", () => {
     expect(weekly).toContain("weekly-sms is Weekly TTO draft-authoritative");
@@ -197,7 +198,8 @@ describe("SMS Voice Ownership — weekly-sms route", () => {
 
   it("footer + thread memory stay in shared send core (pre-footer memory)", () => {
     expect(weeklySend).toContain("WEEKLY_TTO_COMPLIANCE_FOOTER");
-    expect(weeklySend).toContain("appendPreservedSmsSuffix");
+    expect(weeklySend).toContain("buildWeeklyTtoFinalBodyWithFooter");
+    expect(weeklyLength).toContain("appendPreservedSmsSuffix");
     expect(weeklySend).toContain('source: "weekly_sms"');
     expect(weeklySend).toContain("sentBody: bodyWithoutFooter");
     expect(weeklySend).toContain("stripped_compliance_footer: true");
@@ -222,14 +224,14 @@ describe("SMS Voice Ownership — legacy template libraries (must not become sen
     expect(daily).not.toContain("tryGenerateV2OutboundMessage");
   });
 
-  it("v2-weekly-proof-sms deterministic builder remains generation-only (not in weekly cron)", () => {
+  it("v2-weekly-proof-sms deterministic builder remains unused by weekly cron and live generate", () => {
     const lib = readSrc("src/lib/v2-weekly-proof-sms.ts");
     expect(lib).toContain("buildDeterministicWeeklyProofBody");
     const weekly = readSrc("src/app/api/cron/weekly-sms/route.ts");
     expect(weekly).not.toContain("buildDeterministicWeeklyProofBody");
     expect(weekly).not.toContain("deterministicWeeklyBodyPreview");
     const gen = readSrc("src/lib/tyler-text-overview-weekly-generate.ts");
-    expect(gen).toContain("buildDeterministicWeeklyProofBody");
+    expect(gen).not.toContain("buildDeterministicWeeklyProofBody");
   });
 
   it("v2-proof-moment uses V3 hint builder — no deterministic append helper", () => {

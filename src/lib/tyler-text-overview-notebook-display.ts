@@ -4,6 +4,7 @@ export type TylerTextOverviewNotebookFamily =
   | "daily_sms_writing_brief_v1"
   | "legacy_relationship_packet_v1"
   | "morning_relationship_v1"
+  | "weekly_relationship_v1"
   | "writer_skipped"
   | "unknown";
 
@@ -74,6 +75,12 @@ export function deriveNotebookFamily(args: {
     return "morning_relationship_v1";
   }
   if (
+    args.writerPromptPath === "weekly_brief_writer_v1" ||
+    messagesContainMarker(args.messages, "WEEKLY_RELATIONSHIP_PACKET_V1")
+  ) {
+    return "weekly_relationship_v1";
+  }
+  if (
     args.writerPromptPath === "legacy_packet_v1" ||
     messagesContainMarker(args.messages, LEGACY_PACKET_MARKER)
   ) {
@@ -110,6 +117,8 @@ export function notebookFamilyLabel(family: TylerTextOverviewNotebookFamily): st
       return "Legacy relationship packet v1";
     case "morning_relationship_v1":
       return "Morning relationship packet v1";
+    case "weekly_relationship_v1":
+      return "Weekly relationship packet";
     case "writer_skipped":
       return "Writer skipped (no notebook)";
     default:

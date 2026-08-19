@@ -1010,6 +1010,16 @@ describe("tyler-text-overview-admin read model", () => {
         message_for: { ...messageFor, daypart: "afternoon" },
       })
     ).toBeNull();
+    expect(
+      mapMessageForFromMetadata({
+        message_for: { ...messageFor, daypart: "weekly" },
+      })
+    ).toEqual({ ...messageFor, daypart: "weekly" });
+    expect(
+      mapMorningRelationshipPacketFromMetadata({
+        weekly_relationship_packet_v1: { version: "weekly_relationship_v1" },
+      })
+    ).toEqual({ version: "weekly_relationship_v1" });
     expect(mapMorningRelationshipPacketFromMetadata({ morning_relationship_packet_v1: packet })).toEqual(
       packet
     );
@@ -1466,17 +1476,21 @@ describe("tyler-text-overview-admin save model", () => {
     expect(result.row.weekKey).toBe("2026-W28");
   });
 
-  it("Weekly save still persists bodies over 1600 in this slice", async () => {
+  it("Weekly save rejects bodies over the footer-aware 1555 editable max", async () => {
     db.drafts[0].send_slot = "weekly_review";
     db.generations[0].send_slot = "weekly_review";
-    const body = "x".repeat(1601);
+    const body = "x".repeat(1556);
     const result = await updateTylerTextOverviewDraftBody({
       draftId: "draft-1",
       body,
       now,
     });
-    expect(result.ok).toBe(true);
-    expect(db.drafts[0].current_body_to_send).toBe(body);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(400);
+      expect(result.error).toMatch(/1555/);
+    }
+    expect(db.drafts[0].current_body_to_send).not.toBe(body);
   });
 
   it("save rejects sent evening_checkin draft", async () => {

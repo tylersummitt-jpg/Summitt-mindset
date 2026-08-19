@@ -2840,3 +2840,113 @@ describe("Evening TTO exact-thread gap (metadata.final_body_sent)", () => {
     expect(morning.messages.some((m) => m.body === ARON_BODY)).toBe(true);
   });
 });
+
+describe("Weekly W1 exact-thread continuity (shared 21-day Morning builder)", () => {
+  const TZ = "America/New_York";
+  const SUNDAY = new Date("2026-07-12T16:00:00.000Z");
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getRecentV2EventsForAi.mockResolvedValue([]);
+  });
+
+  it("21d Sunday-anchored thread includes delivered M/E/inbound/Weekly and strips Weekly footer", async () => {
+    setupSupabaseTables({
+      sendRows: [
+        {
+          send_slot: "morning",
+          status: "sent",
+          message_sid: "SM_MORNING",
+          sms_body: "Morning: protect the walk tonight.",
+          created_at: "2026-07-07T12:00:00.000Z",
+          sent_at: "2026-07-07T12:00:00.000Z",
+        },
+        {
+          send_slot: "evening_checkin",
+          status: "sent",
+          message_sid: "SM_EVENING",
+          created_at: "2026-07-08T23:05:00.000Z",
+          metadata: {
+            final_body_sent: "Evening: how'd the walk go?",
+            sent_at: "2026-07-08T23:05:00.000Z",
+          },
+        },
+        {
+          send_slot: "morning",
+          status: "reserved",
+          sms_body: "UNSENT_TTO_DRAFT_MUST_NOT_APPEAR",
+          created_at: "2026-07-11T12:00:00.000Z",
+        },
+        {
+          send_slot: "morning",
+          status: "failed",
+          sms_body: "FAILED_SEND_MUST_NOT_APPEAR",
+          created_at: "2026-07-11T13:00:00.000Z",
+        },
+      ],
+      weeklyRows: [
+        {
+          status: "sent",
+          message_sid: "SM_WEEKLY",
+          sent_at: "2026-07-05T16:00:00.000Z",
+          created_at: "2026-07-05T16:00:00.000Z",
+          sms_body:
+            "Last Sunday perspective.\n\nReply STOP to opt out. Reply HELP for help.",
+        },
+        {
+          status: "reserved",
+          sms_body: "RESERVED_WEEKLY_MUST_NOT_APPEAR",
+          created_at: "2026-07-12T15:00:00.000Z",
+        },
+      ],
+      inboundMsgRows: [
+        {
+          raw_body: "Broke my ankle Friday.",
+          received_at: "2026-07-10T16:00:00.000Z",
+          message_sid: "SM_IN_USER",
+        },
+      ],
+      jobRows: [
+        {
+          raw_body: "Broke my ankle Friday.",
+          reply_body: "Got it — rest comes first.",
+          status: "sent",
+          sent_at: "2026-07-10T16:05:00.000Z",
+          created_at: "2026-07-10T16:04:00.000Z",
+          message_sid: "SM_IN_USER",
+          outbound_message_sid: "SM_IN_COACH",
+        },
+      ],
+    });
+
+    const morning = await buildMorningExactThreadForPacket({
+      clerkUserId: "user_weekly_w1",
+      timezone: TZ,
+      now: SUNDAY,
+      messageForLocalDate: "2026-07-12",
+    });
+
+    expect(morning.window_days).toBe(21);
+    expect(morning.messages.length).toBeLessThanOrEqual(30);
+    expect(morning.messages.some((m) => m.body.includes("protect the walk"))).toBe(true);
+    expect(morning.messages.some((m) => m.body.includes("how'd the walk go"))).toBe(true);
+    expect(morning.messages.some((m) => m.body.includes("Broke my ankle Friday"))).toBe(true);
+    expect(morning.messages.some((m) => m.body.includes("rest comes first"))).toBe(true);
+    expect(morning.messages.some((m) => m.body.includes("Last Sunday perspective"))).toBe(true);
+    expect(morning.messages.some((m) => /Reply STOP to opt out/i.test(m.body))).toBe(false);
+    expect(morning.messages.some((m) => /Reply HELP for help/i.test(m.body))).toBe(false);
+    expect(morning.messages.some((m) => m.body.includes("UNSENT_TTO_DRAFT_MUST_NOT_APPEAR"))).toBe(
+      false
+    );
+    expect(morning.messages.some((m) => m.body.includes("FAILED_SEND_MUST_NOT_APPEAR"))).toBe(false);
+    expect(morning.messages.some((m) => m.body.includes("RESERVED_WEEKLY_MUST_NOT_APPEAR"))).toBe(
+      false
+    );
+  });
+
+  it("does not read unsent TTO drafts from sms_daily_drafts", () => {
+    const src = readFileSync(join(process.cwd(), "src/lib/sms-recent-exact-thread-72h.ts"), "utf8");
+    expect(src).not.toContain("sms_daily_drafts");
+    expect(src).not.toContain("sms_daily_draft_generations");
+  });
+});

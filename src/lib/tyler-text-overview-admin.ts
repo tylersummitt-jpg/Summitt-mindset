@@ -31,6 +31,10 @@ import {
 } from "@/lib/tyler-text-overview-types";
 import { requireTylerTextOverviewDraftDayKey } from "@/lib/tyler-text-overview-draft-day-key";
 import { isPauseActive, type V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
+import {
+  WEEKLY_TTO_DRAFT_BODY_EXCEEDS_EDITABLE_MAX,
+  weeklyEditableBodyExceedsMax,
+} from "@/lib/weekly-tto-length";
 
 export const PREVIEW_ONLY_DRAFT_NOT_EDITABLE = "preview_only_draft_not_editable" as const;
 
@@ -1016,7 +1020,17 @@ function mapOpenAiErrorPanel(raw: unknown): TylerTextOverviewOpenAiErrorPanel | 
 export function mapMorningBriefInterpreterPanel(
   metadata: Record<string, unknown>
 ): TylerTextOverviewMorningBriefInterpreterPanel | null {
-  const raw = metadata.morning_brief_interpreter_v1;
+  const raw =
+    (metadata.weekly_brief_interpreter_v1 &&
+    typeof metadata.weekly_brief_interpreter_v1 === "object" &&
+    !Array.isArray(metadata.weekly_brief_interpreter_v1)
+      ? metadata.weekly_brief_interpreter_v1
+      : null) ??
+    (metadata.morning_brief_interpreter_v1 &&
+    typeof metadata.morning_brief_interpreter_v1 === "object" &&
+    !Array.isArray(metadata.morning_brief_interpreter_v1)
+      ? metadata.morning_brief_interpreter_v1
+      : null);
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const c = raw as Record<string, unknown>;
   const exactInput =
@@ -1069,7 +1083,10 @@ export function mapMessageForFromMetadata(
   const timezone = typeof m.timezone === "string" ? m.timezone.trim() : "";
   const local_date = typeof m.local_date === "string" ? m.local_date.trim() : "";
   const local_weekday = typeof m.local_weekday === "string" ? m.local_weekday.trim() : "";
-  const daypart = m.daypart === "evening" || m.daypart === "morning" ? m.daypart : null;
+  const daypart =
+    m.daypart === "evening" || m.daypart === "morning" || m.daypart === "weekly"
+      ? m.daypart
+      : null;
   if (!timezone || !local_date || !local_weekday || !daypart) return null;
   return { timezone, local_date, local_weekday, daypart };
 }
@@ -1078,6 +1095,10 @@ export function mapMessageForFromMetadata(
 export function mapMorningRelationshipPacketFromMetadata(
   metadata: Record<string, unknown>
 ): Record<string, unknown> | null {
+  const weekly = metadata.weekly_relationship_packet_v1;
+  if (weekly && typeof weekly === "object" && !Array.isArray(weekly)) {
+    return weekly as Record<string, unknown>;
+  }
   const raw = metadata.morning_relationship_packet_v1;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   return raw as Record<string, unknown>;
@@ -1932,6 +1953,17 @@ export async function updateTylerTextOverviewDraftBody(args: {
     return {
       ok: false,
       error: TTO_DRAFT_BODY_EXCEEDS_TWILIO_TRANSPORT_MAX,
+      status: 400,
+    };
+  }
+  if (
+    normalizedBody != null &&
+    draftSendSlot === "weekly_review" &&
+    weeklyEditableBodyExceedsMax(normalizedBody)
+  ) {
+    return {
+      ok: false,
+      error: WEEKLY_TTO_DRAFT_BODY_EXCEEDS_EDITABLE_MAX,
       status: 400,
     };
   }

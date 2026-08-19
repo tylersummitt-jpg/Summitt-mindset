@@ -65,6 +65,7 @@ export async function POST(req: Request) {
       machine_should_send: result.machineShouldSend,
       machine_draft_body: result.machineDraftBody,
       machine_no_send_reason: result.machineNoSendReason,
+      current_draft_protected: result.currentDraftProtected === true,
     });
   } catch (err) {
     console.error("[admin/tyler-text-overview/weekly-generate] POST failed", err);

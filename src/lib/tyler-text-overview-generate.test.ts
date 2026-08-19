@@ -15,10 +15,12 @@ import {
   generateTylerTextOverviewDraftForUser,
   generateTylerTextOverviewEveningPreviewForUser,
   loadTylerTextOverviewAudienceRows,
+  persistMorningTtoGeneration,
 } from "@/lib/tyler-text-overview-generate";
 import type { DailySmsBuilt } from "@/lib/daily-sms-build";
 import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+  SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
   TYLER_TEXT_OVERVIEW_ENABLED_ENV,
 } from "@/lib/tyler-text-overview-types";
 
@@ -2129,7 +2131,8 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
       join(process.cwd(), "src/lib/tyler-text-overview-weekly-generate.ts"),
       "utf8"
     );
-    expect(weeklySrc).toContain("respectProtectedMorningDraft: false");
+    expect(weeklySrc).toContain("respectProtectedMorningDraft: true");
+    expect(weeklySrc).toContain("protectTylerProvenanceOnly: true");
 
     const writerSrc = readFileSync(join(process.cwd(), "src/lib/morning-tto-writer.ts"), "utf8");
     expect(writerSrc).toContain("message_for day and daypart");
@@ -2142,5 +2145,181 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     );
     expect(interpreterSrc).toContain("message_for");
     expect(interpreterSrc).not.toContain("EveningCoachingBriefV1");
+  });
+});
+
+describe("Weekly persist explicit regenerate authority", () => {
+  beforeEach(() => {
+    process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
+    db.audience = [AUDIENCE_USER];
+    db.generations = [];
+    db.drafts = [];
+    db.nextGenId = 1;
+  });
+
+  async function persistWeeklyMachineBody(body: string) {
+    return persistMorningTtoGeneration({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-12",
+      generationReason: "manual_regenerate",
+      commitmentId: "cmt-weekly",
+      timezone: "America/New_York",
+      sendPrefSnapshot: "clerk:morning",
+      now: new Date("2026-07-10T16:00:00.000Z"),
+      sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      success: {
+        body,
+        messages: [
+          { role: "system", content: "weekly system" },
+          { role: "user", content: "weekly user" },
+        ],
+        writerPromptPath: "weekly_brief_writer_v1",
+      },
+      respectProtectedMorningDraft: true,
+      protectTylerProvenanceOnly: true,
+    });
+  }
+
+  it("MACHINE A → explicit Regenerate → MACHINE B becomes current", async () => {
+    db.generations.push({
+      id: "gen-A",
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-12",
+      send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      generation_number: 1,
+      machine_draft_body: "Machine body A",
+      superseded_at: null,
+    });
+    db.drafts.push({
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-12",
+      send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      status: "current",
+      current_generation_id: "gen-A",
+      current_body_to_send: "Machine body A",
+      current_body_source: "machine",
+      edited_by_tyler: false,
+    });
+    db.nextGenId = 2;
+
+    const result = await persistWeeklyMachineBody("Machine body B");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.currentDraftProtected).not.toBe(true);
+    expect(result.generationId).not.toBe("gen-A");
+    expect(db.drafts).toHaveLength(1);
+    expect(db.drafts[0]?.current_generation_id).toBe(result.generationId);
+    expect(db.drafts[0]?.current_body_to_send).toBe("Machine body B");
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+
+    const genA = db.generations.find((g) => g.id === "gen-A");
+    const genB = db.generations.find((g) => g.id === result.generationId);
+    expect(genA?.superseded_at).toBeTruthy();
+    expect(genA?.superseded_by_generation_id).toBe(result.generationId);
+    expect(genB?.machine_draft_body).toBe("Machine body B");
+    expect(genB?.superseded_at == null).toBe(true);
+  });
+
+  it("TYLER EDIT A → Regenerate keeps A and reports protected", async () => {
+    db.generations.push({
+      id: "gen-A",
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-12",
+      send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      generation_number: 1,
+      machine_draft_body: "Machine body A",
+      superseded_at: null,
+    });
+    db.drafts.push({
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-12",
+      send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      status: "current",
+      current_generation_id: "gen-A",
+      current_body_to_send: "Tyler edit A",
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+    });
+    db.nextGenId = 2;
+
+    const result = await persistWeeklyMachineBody("Machine body B");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.currentDraftProtected).toBe(true);
+    expect(db.drafts[0]?.current_generation_id).toBe("gen-A");
+    expect(db.drafts[0]?.current_body_to_send).toBe("Tyler edit A");
+    expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    const genA = db.generations.find((g) => g.id === "gen-A");
+    expect(genA?.superseded_at == null).toBe(true);
+    const discarded = db.generations.find((g) => g.id === result.generationId);
+    expect(discarded?.id).not.toBe("gen-A");
+    expect(discarded?.superseded_by_generation_id).toBe("gen-A");
+  });
+
+  it("TYLER BLANK → Regenerate keeps blank and does not resurrect machine copy", async () => {
+    db.generations.push({
+      id: "gen-A",
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-12",
+      send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      generation_number: 1,
+      machine_draft_body: "Machine body A",
+      superseded_at: null,
+    });
+    db.drafts.push({
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-12",
+      send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      status: "current",
+      current_generation_id: "gen-A",
+      current_body_to_send: null,
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+    });
+    db.nextGenId = 2;
+
+    const result = await persistWeeklyMachineBody("Machine body B");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.currentDraftProtected).toBe(true);
+    expect(db.drafts[0]?.current_generation_id).toBe("gen-A");
+    expect(db.drafts[0]?.current_body_to_send).toBeNull();
+    expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+  });
+
+  it("FAILED MACHINE → successful regenerate becomes current", async () => {
+    db.generations.push({
+      id: "gen-fail",
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-12",
+      send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      generation_number: 1,
+      machine_draft_body: null,
+      machine_should_send: false,
+      superseded_at: null,
+    });
+    db.drafts.push({
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-12",
+      send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      status: "current",
+      current_generation_id: "gen-fail",
+      current_body_to_send: null,
+      current_body_source: "machine",
+      edited_by_tyler: false,
+    });
+    db.nextGenId = 2;
+
+    const result = await persistWeeklyMachineBody("Recovered machine body");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.currentDraftProtected).not.toBe(true);
+    expect(db.drafts[0]?.current_generation_id).toBe(result.generationId);
+    expect(db.drafts[0]?.current_body_to_send).toBe("Recovered machine body");
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const ROUTE = path.join(process.cwd(), "src/app/api/cron/weekly-sms/route.ts");
 const SEND = path.join(process.cwd(), "src/lib/tyler-text-overview-weekly-send.ts");
+const LENGTH = path.join(process.cwd(), "src/lib/weekly-tto-length.ts");
 
 describe("weekly-sms — comms preferences wire (TTO cutover)", () => {
   const src = fs.readFileSync(ROUTE, "utf8");
@@ -23,9 +24,10 @@ describe("weekly-sms — comms preferences wire (TTO cutover)", () => {
   });
 
   it("live builders are gone from cron; footer lives in shared send core", () => {
+    const length = fs.readFileSync(LENGTH, "utf8");
     expect(src).not.toContain("buildV2WeeklyProofPack");
     expect(src).not.toContain("buildWeeklyV3OutboundFactsForV2WeeklyProof");
     expect(send).toContain("WEEKLY_TTO_COMPLIANCE_FOOTER");
-    expect(send).toContain("Reply STOP to opt out");
+    expect(length).toContain("Reply STOP to opt out. Reply HELP for help.");
   });
 });

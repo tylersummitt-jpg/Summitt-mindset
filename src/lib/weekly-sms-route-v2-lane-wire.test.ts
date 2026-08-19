@@ -44,7 +44,7 @@ describe("weekly-sms is Weekly TTO draft-authoritative (static)", () => {
     expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
     expect(src).toContain("sendWeeklyTtoDraftAuthoritative");
     expect(src).toContain("WEEKLY_TTO_CRON_SEND_SOURCE");
-    expect(src).toContain("getWeekKey");
+    expect(src).toContain("resolveTylerTextOverviewWeeklyPeriod");
   });
 
   it("force only bypasses Sunday noon window", () => {
@@ -104,11 +104,18 @@ describe("weekly-sms send core still draft-authoritative", () => {
   });
 });
 
-describe("weekly TTO generation may still use live builders (generation-only)", () => {
-  it("weekly generate still imports proof pack / lane for draft creation", () => {
+describe("weekly TTO generation uses Sol relationship brain (generation-only)", () => {
+  it("weekly generate uses packet → interpreter → writer and does not call old proof/V3 brains", () => {
     const gen = fs.readFileSync(WEEKLY_GENERATE, "utf8");
-    expect(gen).toContain("buildV2WeeklyProofPack");
-    expect(gen).toContain("produceWeeklyV3RelationshipSms");
+    const live = gen.slice(gen.indexOf("export async function generateTylerTextOverviewWeeklyDraftForUser"));
+    expect(live).toContain("loadWeeklyRelationshipPacket");
+    expect(live).toContain("runWeeklyBriefInterpreterV1");
+    expect(live).toContain("writeWeeklyTtoBody");
+    expect(live).toContain("persistMorningTtoGeneration");
+    expect(live).not.toContain("buildV2WeeklyProofPack");
+    expect(live).not.toContain("produceWeeklyV3RelationshipSms");
+    expect(live).not.toContain("generateV2WeeklyProofSmsBody");
+    expect(live).not.toContain("buildDeterministicWeeklyProofBody");
     expect(gen).toContain("Never sends SMS");
   });
 });

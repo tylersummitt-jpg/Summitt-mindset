@@ -3,10 +3,11 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { resolveTylerTextOverviewWeeklyPeriod } from "@/lib/tyler-text-overview-weekly-period";
-import { getWeekKey } from "@/lib/weekly-sms-week-key";
+import { getWeekKeyForLocalDateKey } from "@/lib/weekly-sms-week-key";
 import {
   WEEKLY_TTO_AUTHORITY_BANNER,
   WEEKLY_TTO_NEXT_CUTOVER_COPY,
+  WEEKLY_TTO_STALE_DRAFT_GUIDANCE,
   formatWeeklyGenerateSuccessToast,
   weeklyGenerateButtonLabel,
   weeklySendButtonLabel,
@@ -47,14 +48,13 @@ describe("weekly_review send_slot types", () => {
 });
 
 describe("weekly period / week_key", () => {
-  it("uses getWeekKey and Sunday week_end as draft_for_day_key", () => {
+  it("uses getWeekKey on target Sunday week_end, not generate-now weekday", () => {
     const now = new Date("2026-07-12T19:00:00.000Z");
     const period = resolveTylerTextOverviewWeeklyPeriod({
       now,
       timezone: "America/New_York",
     });
-    const localNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-    expect(period.weekKey).toBe(getWeekKey(localNow));
+    expect(period.weekKey).toBe(getWeekKeyForLocalDateKey(period.weekEnd));
     expect(period.draftForDayKey).toBe(period.weekEnd);
     expect(period.weekAnchorRule).toBe("user_local_sunday_week_end");
     expect(period.weekStart).toBe("2026-07-06");
@@ -99,6 +99,9 @@ describe("weekly generate isolation (static)", () => {
       expect(src).not.toContain("check_sent");
       expect(src).not.toContain("v2_commitment_event");
       expect(src).not.toContain("onV2StandardCheckSent");
+      expect(src).not.toContain("v2_win");
+      expect(src).not.toContain("from(\"v2_season\")");
+      expect(src).not.toContain("identity_anchor");
     }
   });
 
@@ -108,7 +111,12 @@ describe("weekly generate isolation (static)", () => {
   });
 
   it("stores weekly writer prompt path constant", () => {
-    expect(WEEKLY_TTO_WRITER_PROMPT_PATH).toBe("v3_weekly_relationship_lane");
+    expect(WEEKLY_TTO_WRITER_PROMPT_PATH).toBe("weekly_brief_writer_v1");
+  });
+
+  it("per-user generate reports current_draft_protected instead of advertising discarded copy", () => {
+    expect(weeklyRoute).toContain("current_draft_protected");
+    expect(weeklyDash).toContain("currentDraftProtected");
   });
 });
 
@@ -131,6 +139,7 @@ describe("weekly page / copy", () => {
     );
     expect(dash).toContain("WEEKLY_TTO_AUTHORITY_BANNER");
     expect(dash).toContain("WEEKLY_TTO_NEXT_CUTOVER_COPY");
+    expect(dash).toContain("WEEKLY_TTO_STALE_DRAFT_GUIDANCE");
   });
 
   it("has Send Weekly Text for manual one-row send", () => {
@@ -143,6 +152,7 @@ describe("weekly page / copy", () => {
     expect(dash).toContain("isWeeklyManualSendEligible");
     expect(dash).toContain("weekly-generate-all");
     expect(dash).toContain("weeklyGenerateMissingButtonLabel");
+    expect(dash).toContain("current_draft_protected");
     expect(dash).not.toContain("Send all");
     expect(weeklySendButtonLabel(false)).toBe("Send Weekly Text");
   });
@@ -161,6 +171,14 @@ describe("weekly page / copy", () => {
         weekKey: "2026-W28",
       })
     ).toContain("2026-W28");
+    expect(
+      formatWeeklyGenerateSuccessToast({
+        machineShouldSend: true,
+        machineDraftBody: "discarded machine B",
+        weekKey: "2026-W28",
+        currentDraftProtected: true,
+      })
+    ).toBe("Existing Tyler weekly draft kept for 2026-W28. Did not overwrite.");
   });
 
   it("row labels for weekly_review", () => {
@@ -176,6 +194,12 @@ describe("weekly page / copy", () => {
     expect(
       resolveTylerTextOverviewRootRedirectPath({ send_slot: "weekly_review" })
     ).toBe("/admin/tyler-text-overview/weekly");
+  });
+
+  it("stale-draft copy recommends Sunday morning generation without auto-invalidating drafts", () => {
+    expect(WEEKLY_TTO_STALE_DRAFT_GUIDANCE).toContain("Sunday morning");
+    expect(WEEKLY_TTO_STALE_DRAFT_GUIDANCE).toContain("noon local send window");
+    expect(WEEKLY_TTO_STALE_DRAFT_GUIDANCE).toContain("regenerate or review before Sunday send");
   });
 });
 

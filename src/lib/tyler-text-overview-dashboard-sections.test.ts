@@ -484,9 +484,9 @@ describe("weekly raw notebook / provenance", () => {
     expect(
       formatPersistedMessageForLine({
         ...messageFor,
-        daypart: "morning",
+        daypart: "weekly",
       })
-    ).toBe("Thursday, 2026-08-06 · Morning · America/New_York");
+    ).toBe("Thursday, 2026-08-06 · Weekly · America/New_York");
     expect(formatPersistedMessageForLine(null)).toBeNull();
 
     const packet = {

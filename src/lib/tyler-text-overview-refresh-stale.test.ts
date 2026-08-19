@@ -13,6 +13,7 @@ import {
 import {
   isProtectedFromMorningDraftOverwrite,
   isProtectedTtoCurrentDraftBody,
+  isProtectedTylerProvenanceDraft,
   TYLER_TEXT_OVERVIEW_ENABLED_ENV,
 } from "@/lib/tyler-text-overview-types";
 
@@ -619,6 +620,35 @@ describe("isProtectedFromMorningDraftOverwrite", () => {
         current_body_source: null,
       })
     ).toBe(false);
+  });
+});
+
+describe("isProtectedTylerProvenanceDraft", () => {
+  it("pins Tyler edit and Tyler blank, not untouched machine copy", () => {
+    expect(
+      isProtectedTylerProvenanceDraft({
+        edited_by_tyler: false,
+        current_body_source: "machine",
+      })
+    ).toBe(false);
+    expect(
+      isProtectedTylerProvenanceDraft({
+        edited_by_tyler: true,
+        current_body_source: "tyler_edit",
+      })
+    ).toBe(true);
+    expect(
+      isProtectedTylerProvenanceDraft({
+        edited_by_tyler: true,
+        current_body_source: "machine",
+      })
+    ).toBe(true);
+    expect(
+      isProtectedTylerProvenanceDraft({
+        edited_by_tyler: false,
+        current_body_source: "tyler_edit",
+      })
+    ).toBe(true);
   });
 });
 

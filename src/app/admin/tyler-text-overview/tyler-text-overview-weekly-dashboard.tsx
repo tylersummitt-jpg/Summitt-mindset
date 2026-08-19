@@ -7,7 +7,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   adminCountLabel,
   formatWeeklyEmptyBodyPanelCopy,
-  formatWeeklyGenerateMissingSummaryToast,
   formatWeeklyGenerateSuccessToast,
   isWeeklyManualSendEligible,
   isWeeklySendBusy,
@@ -19,6 +18,7 @@ import {
   weeklySendButtonLabel,
   WEEKLY_TTO_AUTHORITY_BANNER,
   WEEKLY_TTO_FOOTER_AT_SEND_COPY,
+  WEEKLY_TTO_GENERATE_ALL_SESSION_KEY,
   WEEKLY_TTO_GENERATE_MISSING_CONFIRM_COPY,
   WEEKLY_TTO_GENERATE_MISSING_CONFIRM_TITLE,
   WEEKLY_TTO_GENERATE_MISSING_HELP_COPY,
@@ -27,10 +27,13 @@ import {
   WEEKLY_TTO_REGENERATE_OVERWRITE_COPY,
   WEEKLY_TTO_SAVE_BEFORE_SEND_COPY,
   WEEKLY_TTO_SAVE_ONLY_COPY,
+  WEEKLY_TTO_STALE_DRAFT_GUIDANCE,
+  formatTtoGenerateAllProgressLine,
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
   ADMIN_INTERPRETATION_LINE,
   buildWeeklyProvenanceExplanationBlocks,
+  formatPersistedMessageForLine,
   getWeeklyRawNotebookSectionCopy,
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import { notebookFamilyLabel } from "@/lib/tyler-text-overview-notebook-display";
@@ -100,12 +103,47 @@ export default function TylerTextOverviewWeeklyDashboard() {
   const [savingDraftId, setSavingDraftId] = useState<string | null>(null);
   const [generatingUserId, setGeneratingUserId] = useState<string | null>(null);
   const [generatingMissingAll, setGeneratingMissingAll] = useState(false);
+  const [generateAllResumeAvailable, setGenerateAllResumeAvailable] = useState(false);
   const [confirmGenerateMissing, setConfirmGenerateMissing] = useState(false);
   const [sendingDraftId, setSendingDraftId] = useState<string | null>(null);
   const [confirmSendRow, setConfirmSendRow] = useState<TylerTextOverviewAdminDraftRow | null>(
     null
   );
   const [toast, setToast] = useState<string | null>(null);
+
+  type WeeklyGenerateAllSnapshot = {
+    audienceClerkUserIds: string[];
+  };
+
+  function readWeeklyGenerateAllSnapshot(): WeeklyGenerateAllSnapshot | null {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem(WEEKLY_TTO_GENERATE_ALL_SESSION_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as WeeklyGenerateAllSnapshot;
+      if (!parsed || !Array.isArray(parsed.audienceClerkUserIds) || parsed.audienceClerkUserIds.length === 0) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeWeeklyGenerateAllSnapshot(snapshot: WeeklyGenerateAllSnapshot) {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem(WEEKLY_TTO_GENERATE_ALL_SESSION_KEY, JSON.stringify(snapshot));
+  }
+
+  function clearWeeklyGenerateAllSnapshot() {
+    if (typeof window === "undefined") return;
+    sessionStorage.removeItem(WEEKLY_TTO_GENERATE_ALL_SESSION_KEY);
+  }
+
+  useEffect(() => {
+    setGenerateAllResumeAvailable(Boolean(readWeeklyGenerateAllSnapshot()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function showToast(message: string) {
     setToast(message);
@@ -218,6 +256,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
           machineDraftBody: json.machine_draft_body,
           machineNoSendReason: json.machine_no_send_reason,
           weekKey: json.week_key,
+          currentDraftProtected: json.current_draft_protected === true,
         })
       );
       await load(selectedDayKey, searchQuery);
@@ -232,29 +271,64 @@ export default function TylerTextOverviewWeeklyDashboard() {
   async function generateMissingWeeklyDrafts() {
     setConfirmGenerateMissing(false);
     setGeneratingMissingAll(true);
+    const existingSnapshot = readWeeklyGenerateAllSnapshot();
+    const excludeClerkUserIds: string[] = [];
+    let audienceClerkUserIds = existingSnapshot?.audienceClerkUserIds ?? null;
     try {
-      const res = await fetch("/api/admin/tyler-text-overview/weekly-generate-all", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "missing_only" }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        showToast(json.error || "Generate missing weekly drafts failed.");
-        return;
-      }
-      showToast(
-        formatWeeklyGenerateMissingSummaryToast({
-          generated: Number(json.generated) || 0,
-          skippedExistingCurrent: Number(json.skipped_existing_current) || 0,
-          skippedSent: Number(json.skipped_sent) || 0,
-          skippedAlreadyWeeklyEvent: Number(json.skipped_already_weekly_event) || 0,
-          failed: Number(json.failed) || 0,
-        })
-      );
-      const errorsPreview = Array.isArray(json.errors_preview) ? json.errors_preview : [];
-      if (errorsPreview.length > 0) {
-        console.warn("[Weekly TTO] generate-missing errors_preview", errorsPreview);
+      for (;;) {
+        const res = await fetch("/api/admin/tyler-text-overview/weekly-generate-all", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...(audienceClerkUserIds
+              ? { audience_clerk_user_ids: audienceClerkUserIds }
+              : {}),
+            ...(excludeClerkUserIds.length > 0
+              ? { exclude_clerk_user_ids: excludeClerkUserIds }
+              : {}),
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.result) {
+          showToast(json.error || "Generate missing weekly drafts failed.");
+          break;
+        }
+        const result = json.result as {
+          targeted: number;
+          generated_complete: number;
+          protected_complete: number;
+          already_sent: number;
+          failed: number;
+          remaining: number;
+          processed_this_chunk: number;
+          is_complete: boolean;
+          audience_clerk_user_ids: string[];
+          failures: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
+        };
+        audienceClerkUserIds = result.audience_clerk_user_ids;
+        writeWeeklyGenerateAllSnapshot({ audienceClerkUserIds });
+        setGenerateAllResumeAvailable(true);
+        for (const f of result.failures ?? []) {
+          if (!excludeClerkUserIds.includes(f.clerkUserId)) {
+            excludeClerkUserIds.push(f.clerkUserId);
+          }
+        }
+        showToast(
+          formatTtoGenerateAllProgressLine({
+            generatedComplete: result.generated_complete,
+            targeted: result.targeted,
+            failed: result.failed,
+            remaining: result.remaining,
+          })
+        );
+        if (result.is_complete) {
+          clearWeeklyGenerateAllSnapshot();
+          setGenerateAllResumeAvailable(false);
+          break;
+        }
+        if (result.processed_this_chunk === 0) {
+          break;
+        }
       }
       await load(selectedDayKey, searchQuery);
     } catch (err) {
@@ -335,7 +409,10 @@ export default function TylerTextOverviewWeeklyDashboard() {
                 disabled={generatingMissingAll}
                 onClick={() => generateMissingWeeklyDrafts()}
               >
-                {weeklyGenerateMissingButtonLabel(generatingMissingAll)}
+                {weeklyGenerateMissingButtonLabel(
+              generatingMissingAll,
+              generateAllResumeAvailable
+            )}
               </button>
             </div>
           </div>
@@ -410,6 +487,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
       >
         <p>{WEEKLY_TTO_AUTHORITY_BANNER}</p>
         <p className="font-medium">{WEEKLY_TTO_NEXT_CUTOVER_COPY}</p>
+        <p>{WEEKLY_TTO_STALE_DRAFT_GUIDANCE}</p>
       </div>
 
       <nav className="flex flex-wrap gap-3 text-sm">
@@ -428,7 +506,10 @@ export default function TylerTextOverviewWeeklyDashboard() {
             disabled={generatingMissingAll || Boolean(generatingUserId) || loading}
             onClick={() => setConfirmGenerateMissing(true)}
           >
-            {weeklyGenerateMissingButtonLabel(generatingMissingAll)}
+            {weeklyGenerateMissingButtonLabel(
+              generatingMissingAll,
+              generateAllResumeAvailable
+            )}
           </button>
         </div>
         <p className="text-sm text-gray-700">{WEEKLY_TTO_GENERATE_MISSING_HELP_COPY}</p>
@@ -500,6 +581,8 @@ export default function TylerTextOverviewWeeklyDashboard() {
               machineShouldSend: row.machineShouldSend,
               dirty,
               sending: isSending,
+              editedByTyler: row.editedByTyler,
+              currentBodySource: row.currentBodySource,
             });
             const hasDraft = row.rowState !== "no_draft_yet";
             const readOnlyBody =
@@ -576,6 +659,76 @@ export default function TylerTextOverviewWeeklyDashboard() {
                       <dd className="font-mono">
                         {row.machineShouldSend == null ? "—" : String(row.machineShouldSend)}
                       </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">message_for</dt>
+                      <dd className="font-mono">
+                        {formatPersistedMessageForLine(row.messageFor) ?? "—"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">interpreter_path</dt>
+                      <dd className="font-mono break-all">
+                        {formatOptional(
+                          row.morningBriefInterpreterV1
+                            ? "weekly_brief_interpreter_v1"
+                            : row.coachingStack === "shared_sol_v1"
+                              ? "weekly_brief_interpreter_v1"
+                              : null
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">interpreter model</dt>
+                      <dd className="font-mono">
+                        {formatOptional(row.morningBriefInterpreterV1?.model)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">interpreter reasoning</dt>
+                      <dd className="font-mono">
+                        {formatOptional(row.morningBriefInterpreterV1?.reasoningEffort)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">writer model</dt>
+                      <dd className="font-mono">
+                        {formatOptional(
+                          row.morningWriterCaptureV1?.model ?? row.authoritativeWriterModel
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">writer reasoning</dt>
+                      <dd className="font-mono">
+                        {formatOptional(row.morningWriterCaptureV1?.reasoningEffort)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">notebook_hash</dt>
+                      <dd className="font-mono break-all">
+                        {formatOptional(row.notebookHash)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">current_body_source</dt>
+                      <dd className="font-mono">
+                        {formatOptional(row.currentBodySource)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">Tyler edited</dt>
+                      <dd className="font-mono">{row.editedByTyler ? "true" : "false"}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">blank</dt>
+                      <dd className="font-mono">
+                        {row.currentBodyToSend?.trim() ? "false" : "true"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-gray-500">send status</dt>
+                      <dd className="font-mono">{formatOptional(row.draftStatus)}</dd>
                     </div>
                   </dl>
 

@@ -269,6 +269,14 @@ export function isProtectedTtoCurrentDraftBody(raw: string | null | undefined): 
   return raw.trim().length > 0;
 }
 
+/** Tyler-saved draft, including intentional blank. Does not pin untouched machine copy. */
+export function isProtectedTylerProvenanceDraft(draft: {
+  edited_by_tyler?: boolean | null;
+  current_body_source?: string | null;
+}): boolean {
+  return draft.edited_by_tyler === true || draft.current_body_source === "tyler_edit";
+}
+
 /**
  * Morning generation/stale-refresh overwrite protection.
  * Keeps body-only pin semantics separate: non-empty bodies stay protected as before,
@@ -281,7 +289,7 @@ export function isProtectedFromMorningDraftOverwrite(draft: {
   current_body_source?: string | null;
 }): boolean {
   if (isProtectedTtoCurrentDraftBody(draft.current_body_to_send)) return true;
-  return draft.edited_by_tyler === true || draft.current_body_source === "tyler_edit";
+  return isProtectedTylerProvenanceDraft(draft);
 }
 
 /** Compact sms_send_events.metadata.tyler_text_overview block (Phase 5). */
@@ -421,7 +429,7 @@ export type TylerTextOverviewAdminDraftRow = {
     timezone: string;
     local_date: string;
     local_weekday: string;
-    daypart: "morning" | "evening";
+    daypart: "morning" | "evening" | "weekly";
   } | null;
   /** Persisted generation-time relationship packet (Evening Sol stores full packet). */
   morningRelationshipPacketV1: Record<string, unknown> | null;

@@ -12,7 +12,6 @@ vi.mock("@/lib/clerk-rest", () => ({
 
 import { mapBuiltToTylerTextOverviewGenerationRow } from "@/lib/tyler-text-overview-generate";
 import { builtFromWeeklyLane } from "@/lib/tyler-text-overview-weekly-generate";
-import { WEEKLY_TTO_WRITER_PROMPT_PATH } from "@/lib/tyler-text-overview-weekly-period";
 import {
   buildWriterOpenAiCapture,
   hashWriterOpenAiMessages,
@@ -31,7 +30,7 @@ const EXACT_CAPTURE = buildWriterOpenAiCapture({
     },
   ],
   model: "gpt-4o-mini",
-  writer_prompt_path: WEEKLY_TTO_WRITER_PROMPT_PATH,
+  writer_prompt_path: "v3_weekly_relationship_lane",
 });
 
 function laneResult(
@@ -83,7 +82,7 @@ describe("builtFromWeeklyLane / weekly writer capture persistence", () => {
     });
 
     expect(row.writer_openai_messages).toEqual(EXACT_CAPTURE.messages);
-    expect(row.writer_prompt_path).toBe(WEEKLY_TTO_WRITER_PROMPT_PATH);
+    expect(row.writer_prompt_path).toBe("v3_weekly_relationship_lane");
     expect(row.notebook_hash).toBe(hashWriterOpenAiMessages(EXACT_CAPTURE.messages));
     expect(row.machine_should_send).toBe(true);
     expect(row.machine_draft_body).toBe(built.smsBody);
@@ -159,7 +158,7 @@ describe("weekly generate source contracts", () => {
     expect(src).not.toContain("weeklyLaneCapture");
     expect(src).not.toContain('role: "assistant"');
     expect(src).toContain("lane.writerOpenAiCapture");
-    expect(src).toContain("persistTylerTextOverviewDraftFromBuilt");
+    expect(src).toContain("persistMorningTtoGeneration");
   });
 
   it("generate-all reuses one-row generation (inherits exact capture)", () => {

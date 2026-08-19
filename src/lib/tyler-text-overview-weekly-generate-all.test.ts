@@ -42,8 +42,12 @@ import {
   WEEKLY_TTO_GENERATE_MISSING_HELP_COPY,
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
+  classifyWeeklyGenerateAllMember,
   generateMissingWeeklyDraftsForAllSendableUsers,
+  WEEKLY_TTO_GENERATE_ALL_CHUNK_USER_CAP,
+  WEEKLY_TTO_GENERATE_ALL_CONCURRENCY,
   WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY,
+  WEEKLY_TTO_GENERATE_ALL_TIME_BUDGET_MS,
 } from "@/lib/tyler-text-overview-weekly-generate-all";
 
 const REPO = process.cwd();
@@ -90,7 +94,7 @@ describe("weekly-generate-all missing_only service", () => {
             public_metadata: { timezone: "America/New_York" },
           }) as never,
         hasWeeklySendEvent: async () => false,
-        findDraftStatuses: async () => ({ hasCurrent: false, hasSent: false }),
+        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
         generateForUser,
       },
     });
@@ -126,7 +130,18 @@ describe("weekly-generate-all missing_only service", () => {
             public_metadata: { timezone: "America/New_York" },
           }) as never,
         hasWeeklySendEvent: async () => false,
-        findDraftStatuses: async () => ({ hasCurrent: true, hasSent: false }),
+        findDraftForWeek: async () => ({
+          draft: {
+            clerk_user_id: "user_current",
+            status: "current",
+            current_generation_id: "gen-current",
+            edited_by_tyler: false,
+            current_body_source: "machine",
+            current_body_to_send: "Existing weekly body",
+          },
+          machineDraftBody: "Existing weekly body",
+          hasSent: false,
+        }),
         generateForUser,
       },
     });
@@ -157,8 +172,18 @@ describe("weekly-generate-all missing_only service", () => {
             public_metadata: { timezone: "America/New_York" },
           }) as never,
         hasWeeklySendEvent: async () => false,
-        // Tyler-edited rows remain status=current
-        findDraftStatuses: async () => ({ hasCurrent: true, hasSent: false }),
+        findDraftForWeek: async () => ({
+          draft: {
+            clerk_user_id: "user_tyler_edited",
+            status: "current",
+            current_generation_id: "gen-tyler",
+            edited_by_tyler: true,
+            current_body_source: "tyler_edit",
+            current_body_to_send: "Tyler weekly edit",
+          },
+          machineDraftBody: "machine leftover",
+          hasSent: false,
+        }),
         generateForUser,
       },
     });
@@ -188,12 +213,158 @@ describe("weekly-generate-all missing_only service", () => {
             public_metadata: { timezone: "America/New_York" },
           }) as never,
         hasWeeklySendEvent: async () => false,
-        findDraftStatuses: async () => ({ hasCurrent: false, hasSent: true }),
+        findDraftForWeek: async () => ({
+          draft: {
+            clerk_user_id: "user_sent",
+            status: "sent",
+            current_generation_id: "gen-sent",
+            edited_by_tyler: false,
+            current_body_source: "machine",
+            current_body_to_send: "Sent body",
+          },
+          machineDraftBody: "Sent body",
+          hasSent: true,
+        }),
         generateForUser,
       },
     });
 
     expect(result.skipped_sent).toBe(1);
+    expect(generateForUser).not.toHaveBeenCalled();
+  });
+
+  it("retries current drafts whose machine body is empty (OpenAI failure)", async () => {
+    const generateForUser = vi.fn().mockResolvedValue({
+      ok: true,
+      draftForDayKey: "2026-07-12",
+      weekKey: "2026-W29",
+      weekStart: "2026-07-06",
+      weekEnd: "2026-07-12",
+      timezone: "America/New_York",
+      generationId: "gen-retry",
+      machineShouldSend: true,
+      machineDraftBody: "Recovered weekly body",
+      machineNoSendReason: null,
+      sendSlot: "weekly_review",
+    });
+    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
+      now,
+      deps: {
+        loadAudienceRows: async () => [
+          {
+            clerk_user_id: "user_retry",
+            phone_number: "+15551234567",
+            sms_enabled: true,
+            stopped_at: null,
+            timezone: "America/New_York",
+            summitt_subscribed: true,
+          },
+        ],
+        getClerkUserFn: async () =>
+          ({
+            id: "user_retry",
+            public_metadata: { timezone: "America/New_York" },
+          }) as never,
+        hasWeeklySendEvent: async () => false,
+        findDraftForWeek: async () => ({
+          draft: {
+            clerk_user_id: "user_retry",
+            status: "current",
+            current_generation_id: "gen-fail",
+            edited_by_tyler: false,
+            current_body_source: "machine",
+            current_body_to_send: null,
+          },
+          machineDraftBody: null,
+          hasSent: false,
+        }),
+        generateForUser,
+      },
+    });
+    expect(generateForUser).toHaveBeenCalledTimes(1);
+    expect(result.generated).toBe(1);
+    expect(result.skipped_existing_current).toBe(0);
+  });
+
+  it("counts technical no-send (empty machine body) as failed, not generated", async () => {
+    const generateForUser = vi.fn().mockResolvedValue({
+      ok: true,
+      draftForDayKey: "2026-07-12",
+      weekKey: "2026-W29",
+      weekStart: "2026-07-06",
+      weekEnd: "2026-07-12",
+      timezone: "America/New_York",
+      generationId: "gen-empty",
+      machineShouldSend: false,
+      machineDraftBody: null,
+      machineNoSendReason: "openai_429",
+      sendSlot: "weekly_review",
+    });
+    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
+      now,
+      deps: {
+        loadAudienceRows: async () => [
+          {
+            clerk_user_id: "user_429",
+            phone_number: "+15551234567",
+            sms_enabled: true,
+            stopped_at: null,
+            timezone: "America/New_York",
+            summitt_subscribed: true,
+          },
+        ],
+        getClerkUserFn: async () =>
+          ({
+            id: "user_429",
+            public_metadata: { timezone: "America/New_York" },
+          }) as never,
+        hasWeeklySendEvent: async () => false,
+        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
+        generateForUser,
+      },
+    });
+    expect(result.generated).toBe(0);
+    expect(result.failed).toBe(1);
+    expect(result.errors_preview[0]?.error).toBe("openai_429");
+  });
+
+  it("protects Tyler blank current drafts", async () => {
+    const generateForUser = vi.fn();
+    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
+      now,
+      deps: {
+        loadAudienceRows: async () => [
+          {
+            clerk_user_id: "user_blank",
+            phone_number: "+15551234567",
+            sms_enabled: true,
+            stopped_at: null,
+            timezone: "America/New_York",
+            summitt_subscribed: true,
+          },
+        ],
+        getClerkUserFn: async () =>
+          ({
+            id: "user_blank",
+            public_metadata: { timezone: "America/New_York" },
+          }) as never,
+        hasWeeklySendEvent: async () => false,
+        findDraftForWeek: async () => ({
+          draft: {
+            clerk_user_id: "user_blank",
+            status: "current",
+            current_generation_id: "gen-blank",
+            edited_by_tyler: true,
+            current_body_source: "tyler_edit",
+            current_body_to_send: null,
+          },
+          machineDraftBody: null,
+          hasSent: false,
+        }),
+        generateForUser,
+      },
+    });
+    expect(result.skipped_existing_current).toBe(1);
     expect(generateForUser).not.toHaveBeenCalled();
   });
 
@@ -219,7 +390,7 @@ describe("weekly-generate-all missing_only service", () => {
             public_metadata: { timezone: "America/New_York" },
           }) as never,
         hasWeeklySendEvent,
-        findDraftStatuses: async () => ({ hasCurrent: false, hasSent: false }),
+        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
         generateForUser,
       },
     });
@@ -282,7 +453,7 @@ describe("weekly-generate-all missing_only service", () => {
             public_metadata: { timezone: "America/New_York" },
           }) as never,
         hasWeeklySendEvent: async () => false,
-        findDraftStatuses: async () => ({ hasCurrent: false, hasSent: false }),
+        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
         generateForUser,
       },
     });
@@ -291,7 +462,7 @@ describe("weekly-generate-all missing_only service", () => {
     expect(result.failed).toBe(0);
   });
 
-  it("persists no-send drafts when generate returns machine_should_send false", async () => {
+  it("counts machine_should_send false with empty body as failed Generate All work", async () => {
     const generateForUser = vi.fn().mockResolvedValue({
       ok: true,
       draftForDayKey: "2026-07-12",
@@ -325,12 +496,13 @@ describe("weekly-generate-all missing_only service", () => {
             public_metadata: { timezone: "America/New_York" },
           }) as never,
         hasWeeklySendEvent: async () => false,
-        findDraftStatuses: async () => ({ hasCurrent: false, hasSent: false }),
+        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
         generateForUser,
       },
     });
 
-    expect(result.generated).toBe(1);
+    expect(result.generated).toBe(0);
+    expect(result.failed).toBe(1);
     expect(generateForUser).toHaveBeenCalled();
   });
 
@@ -383,7 +555,7 @@ describe("weekly-generate-all missing_only service", () => {
             public_metadata: { timezone: "America/New_York" },
           }) as never,
         hasWeeklySendEvent: async () => false,
-        findDraftStatuses: async () => ({ hasCurrent: false, hasSent: false }),
+        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
         generateForUser,
       },
     });
@@ -401,10 +573,21 @@ describe("weekly-generate-all missing_only service", () => {
 
   it("rerun missing_only skips users who now have current drafts", async () => {
     const generateForUser = vi.fn();
-    const findDraftStatuses = vi
+    const findDraftForWeek = vi
       .fn()
-      .mockResolvedValueOnce({ hasCurrent: false, hasSent: false })
-      .mockResolvedValueOnce({ hasCurrent: true, hasSent: false });
+      .mockResolvedValueOnce({ draft: null, machineDraftBody: null, hasSent: false })
+      .mockResolvedValueOnce({
+        draft: {
+          clerk_user_id: "user_rerun",
+          status: "current",
+          current_generation_id: "gen-1",
+          edited_by_tyler: false,
+          current_body_source: "machine",
+          current_body_to_send: "body",
+        },
+        machineDraftBody: "body",
+        hasSent: false,
+      });
 
     generateForUser.mockResolvedValue({
       ok: true,
@@ -441,7 +624,7 @@ describe("weekly-generate-all missing_only service", () => {
             public_metadata: { timezone: "America/New_York" },
           }) as never,
         hasWeeklySendEvent: async () => false,
-        findDraftStatuses,
+        findDraftForWeek,
         generateForUser,
       },
     });
@@ -457,7 +640,7 @@ describe("weekly-generate-all missing_only service", () => {
             public_metadata: { timezone: "America/New_York" },
           }) as never,
         hasWeeklySendEvent: async () => false,
-        findDraftStatuses,
+        findDraftForWeek,
         generateForUser,
       },
     });
@@ -472,6 +655,120 @@ describe("weekly-generate-all missing_only service", () => {
         mode: "regenerate_all" as never,
       })
     ).rejects.toThrow(/unsupported_mode/);
+  });
+});
+
+describe("weekly generate-all classification", () => {
+  it("Generate Missing All + valid machine A is generated_complete (skip)", () => {
+    expect(
+      classifyWeeklyGenerateAllMember({
+        draft: {
+          clerk_user_id: "u",
+          status: "current",
+          current_generation_id: "g",
+          edited_by_tyler: false,
+          current_body_source: "machine",
+          current_body_to_send: "ok",
+        },
+        machineDraftBody: "ok",
+      })
+    ).toBe("generated_complete");
+  });
+
+  it("Generate Missing All + Tyler edit is protected_complete", () => {
+    expect(
+      classifyWeeklyGenerateAllMember({
+        draft: {
+          clerk_user_id: "u",
+          status: "current",
+          current_generation_id: "g",
+          edited_by_tyler: true,
+          current_body_source: "tyler_edit",
+          current_body_to_send: "Tyler kept this",
+        },
+        machineDraftBody: "ignored machine",
+      })
+    ).toBe("protected_complete");
+  });
+
+  it("Generate Missing All + Tyler blank is protected_complete", () => {
+    expect(
+      classifyWeeklyGenerateAllMember({
+        draft: {
+          clerk_user_id: "u",
+          status: "current",
+          current_generation_id: "g",
+          edited_by_tyler: true,
+          current_body_source: "tyler_edit",
+          current_body_to_send: null,
+        },
+        machineDraftBody: null,
+      })
+    ).toBe("protected_complete");
+  });
+
+  it("Generate Missing All + failed machine is retryable", () => {
+    expect(
+      classifyWeeklyGenerateAllMember({
+        draft: {
+          clerk_user_id: "u",
+          status: "current",
+          current_generation_id: "g",
+          edited_by_tyler: false,
+          current_body_source: "machine",
+          current_body_to_send: null,
+        },
+        machineDraftBody: null,
+      })
+    ).toBe("failed_or_incomplete");
+  });
+
+  it("treats nonempty machine current as complete and empty machine current as retryable", () => {
+    expect(
+      classifyWeeklyGenerateAllMember({
+        draft: {
+          clerk_user_id: "u",
+          status: "current",
+          current_generation_id: "g",
+          edited_by_tyler: false,
+          current_body_source: "machine",
+          current_body_to_send: "ok",
+        },
+        machineDraftBody: "ok",
+      })
+    ).toBe("generated_complete");
+    expect(
+      classifyWeeklyGenerateAllMember({
+        draft: {
+          clerk_user_id: "u",
+          status: "current",
+          current_generation_id: "g",
+          edited_by_tyler: false,
+          current_body_source: "machine",
+          current_body_to_send: null,
+        },
+        machineDraftBody: null,
+      })
+    ).toBe("failed_or_incomplete");
+    expect(
+      classifyWeeklyGenerateAllMember({
+        draft: {
+          clerk_user_id: "u",
+          status: "current",
+          current_generation_id: "g",
+          edited_by_tyler: true,
+          current_body_source: "tyler_edit",
+          current_body_to_send: null,
+        },
+        machineDraftBody: null,
+      })
+    ).toBe("protected_complete");
+  });
+
+  it("reuses Morning chunk size, concurrency, and budget", () => {
+    expect(WEEKLY_TTO_GENERATE_ALL_CHUNK_USER_CAP).toBe(8);
+    expect(WEEKLY_TTO_GENERATE_ALL_CONCURRENCY).toBe(2);
+    expect(WEEKLY_TTO_GENERATE_ALL_TIME_BUDGET_MS).toBe(180_000);
   });
 });
 
@@ -505,8 +802,36 @@ describe("weekly-generate-all route", () => {
     expect(json.ok).toBe(false);
   });
 
-  it("rejects unsupported mode", async () => {
+  it("ignores extra mode fields and still runs a generate-all chunk", async () => {
     requireTylerAdminMock.mockResolvedValue(undefined);
+    vi.resetModules();
+    vi.doMock("@/lib/tyler-text-overview-weekly-generate-all", () => ({
+      parseWeeklyGenerateAllRequestBody: () => ({
+        audienceClerkUserIds: null,
+        excludeClerkUserIds: null,
+      }),
+      generateWeeklyTtoDraftBatch: vi.fn().mockResolvedValue({
+        ok: true,
+        sendSlot: "weekly_review",
+        targeted: 2,
+        generated_complete: 1,
+        protected_complete: 0,
+        already_sent: 0,
+        noncurrent: 0,
+        failed: 0,
+        pending: 1,
+        remaining: 1,
+        processed_this_chunk: 1,
+        is_complete: false,
+        audience_clerk_user_ids: ["user_a", "user_b"],
+        failures: [],
+        generated_this_chunk: 1,
+        generated: 1,
+        protectedTylerAuthority: 0,
+        skippedAlreadySent: 0,
+        skippedNonCurrent: 0,
+      }),
+    }));
     const { POST } = await import(
       "@/app/api/admin/tyler-text-overview/weekly-generate-all/route"
     );
@@ -517,31 +842,41 @@ describe("weekly-generate-all route", () => {
         body: JSON.stringify({ mode: "regenerate_all" }),
       })
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.ok).toBe(false);
-    expect(json.error).toContain("unsupported_mode");
+    expect(json.ok).toBe(true);
+    expect(json.result.generated_complete).toBe(1);
+    vi.doUnmock("@/lib/tyler-text-overview-weekly-generate-all");
   });
 
-  it("accepts missing_only mode", async () => {
+  it("returns a chunk result for Generate All", async () => {
     requireTylerAdminMock.mockResolvedValue(undefined);
     vi.resetModules();
     vi.doMock("@/lib/tyler-text-overview-weekly-generate-all", () => ({
-      WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY: "missing_only",
-      generateMissingWeeklyDraftsForAllSendableUsers: vi.fn().mockResolvedValue({
+      parseWeeklyGenerateAllRequestBody: () => ({
+        audienceClerkUserIds: null,
+        excludeClerkUserIds: null,
+      }),
+      generateWeeklyTtoDraftBatch: vi.fn().mockResolvedValue({
         ok: true,
-        mode: "missing_only",
-        scanned: 2,
-        eligible: 2,
-        generated: 1,
-        skipped_existing_current: 1,
-        skipped_sent: 0,
-        skipped_already_weekly_event: 0,
-        skipped_not_eligible: 0,
+        sendSlot: "weekly_review",
+        targeted: 2,
+        generated_complete: 1,
+        protected_complete: 1,
+        already_sent: 0,
+        noncurrent: 0,
         failed: 0,
-        week_keys_seen: ["2026-W29"],
-        draft_for_day_keys_seen: ["2026-07-12"],
-        errors_preview: [],
+        pending: 0,
+        remaining: 0,
+        processed_this_chunk: 1,
+        is_complete: true,
+        audience_clerk_user_ids: ["user_a", "user_b"],
+        failures: [],
+        generated_this_chunk: 1,
+        generated: 1,
+        protectedTylerAuthority: 1,
+        skippedAlreadySent: 0,
+        skippedNonCurrent: 0,
       }),
     }));
     const { POST } = await import(
@@ -551,15 +886,14 @@ describe("weekly-generate-all route", () => {
       new Request("http://localhost/api/admin/tyler-text-overview/weekly-generate-all", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "missing_only" }),
+        body: JSON.stringify({}),
       })
     );
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.ok).toBe(true);
-    expect(json.mode).toBe("missing_only");
-    expect(json.generated).toBe(1);
-    expect(json.skipped_existing_current).toBe(1);
+    expect(json.result.is_complete).toBe(true);
+    expect(json.result.generated_complete).toBe(1);
     vi.doUnmock("@/lib/tyler-text-overview-weekly-generate-all");
   });
 });
@@ -612,10 +946,12 @@ describe("weekly-generate-all no-send static guards", () => {
     expect(vercelSrc).not.toContain("weekly-generate-all");
   });
 
-  it("uses sequential missing_only generation via one-row generate", () => {
+  it("uses chunked resumable generation via one-row generate", () => {
     expect(serviceSrc).toContain("generateTylerTextOverviewWeeklyDraftForUser");
-    expect(serviceSrc).toContain("missing_only");
-    expect(serviceSrc).toContain("for (const row of audience)");
+    expect(serviceSrc).toContain("runPoolWithBudget");
+    expect(serviceSrc).toContain("WEEKLY_TTO_GENERATE_ALL_CHUNK_USER_CAP");
+    expect(serviceSrc).toContain("WEEKLY_TTO_GENERATE_ALL_CONCURRENCY");
+    expect(routeSrc).toContain("generateWeeklyTtoDraftBatch");
     expect(routeSrc).toContain("maxDuration");
   });
 });
@@ -649,7 +985,7 @@ describe("weekly-generate-all UI / copy", () => {
     expect(dash).toContain("weekly-generate-all");
     expect(dash).toContain("weeklyGenerateMissingButtonLabel");
     expect(dash).toContain("WEEKLY_TTO_GENERATE_MISSING_CONFIRM_COPY");
-    expect(dash).toContain("missing_only");
+    expect(dash).toContain("audience_clerk_user_ids");
     expect(dash).not.toMatch(/Send All/i);
     expect(dash).not.toMatch(/Regenerate All/i);
     expect(dash).not.toMatch(/Queue All/i);

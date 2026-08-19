@@ -356,6 +356,33 @@ describe("assertWeeklyTtoDraftAuthoritativeForManualSend", () => {
     if (result.ok) return;
     expect(result.result.refusalCode).toBe("machine_should_send_false");
   });
+
+  it("allows a nonempty Tyler edit when machine_should_send=false", async () => {
+    seedWeeklyDraft({
+      draft: {
+        edited_by_tyler: true,
+        current_body_source: "tyler_edit",
+        current_body_to_send: WEEKLY_BODY,
+      },
+      generation: { machine_should_send: false, machine_no_send_reason: "openai_429" },
+    });
+    const result = await assertWeeklyTtoDraftAuthoritativeForManualSend({
+      draftId: "draft-weekly-1",
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects editable body over 1555 before send", async () => {
+    seedWeeklyDraft({
+      draft: { current_body_to_send: "x".repeat(1556) },
+    });
+    const result = await assertWeeklyTtoDraftAuthoritativeForManualSend({
+      draftId: "draft-weekly-1",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.result.refusalCode).toBe("body_too_long");
+  });
 });
 
 describe("sendWeeklyTtoDraftManually", () => {
@@ -808,6 +835,14 @@ describe("weekly send route / UI static contracts", () => {
     expect(isWeeklyManualSendEligible(base)).toBe(true);
     expect(isWeeklyManualSendEligible({ ...base, dirty: true })).toBe(false);
     expect(isWeeklyManualSendEligible({ ...base, machineShouldSend: false })).toBe(false);
+    expect(
+      isWeeklyManualSendEligible({
+        ...base,
+        machineShouldSend: false,
+        editedByTyler: true,
+        currentBodySource: "tyler_edit",
+      })
+    ).toBe(true);
     expect(isWeeklyManualSendEligible({ ...base, currentBodyToSend: "  " })).toBe(false);
     expect(isWeeklyManualSendEligible({ ...base, rowState: "draft_sent" })).toBe(false);
     expect(isWeeklyManualSendEligible({ ...base, sendSlot: "morning" })).toBe(false);
