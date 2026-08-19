@@ -301,7 +301,22 @@ describe("weekly-tto-brief-interpreter", () => {
 
   it("system prompt encodes Weekly interpreter product laws", () => {
     const p = WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT;
-    expect(p).toContain('daypart=weekly');
+    expect(p).toContain("daypart=weekly");
+    expect(p).toContain("Sunday around noon");
+    expect(p).toContain("Sunday is still in progress");
+    expect(p).toContain("Monday has not begun");
+    expect(p).toContain("The wider week is a lens, not an assignment");
+    expect(p).toContain("Prefer synthesis over summary");
+    expect(p).toContain("nothing useful needs to be extracted");
+    expect(p).toContain("Do not create a next-week plan merely because it is Sunday");
+    expect(p).toContain("Identity is never proof");
+    expect(p).toContain("Identity may be connected to concrete evidence");
+    expect(p).toContain("Direct unresolved user needs are high-priority");
+    expect(p).toContain("generally outrank manufacturing Weekly perspective");
+    expect(p).toContain("weekly_accountability_events");
+    expect(p).toContain("It is facts, not a score");
+    expect(p).toContain("Never mutate state");
+    expect(p).toContain("should_send");
     expect(p).toContain("Current Goal is context");
     expect(p).toContain("Do not automatically ask whether they hit their Current Goal");
     expect(p).toContain("One completion is not consistency");
@@ -310,24 +325,12 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(p).toContain("An attempt is not completion");
     expect(p).toContain("Coach praise is not user evidence");
     expect(p).toContain("Silence is not avoidance");
-    expect(p).toContain("already_acknowledged");
-    expect(p).toContain("stale_or_exhausted_topics");
-    expect(p).toContain("do_not_repeat");
-    expect(p).toContain("Generation time may be Friday/Saturday");
-    expect(p).toContain("Do not claim next week has begun");
+    expect(p).toContain("Friday/Saturday generation");
     expect(p).toContain("Never include keys: body, sms_body");
-    expect(p).toContain("should_send");
     expect(p).toContain(MORNING_COACHING_BRIEF_VERSION);
-    const humanCases = [
-      "injury",
-      "grief",
-      "vacation",
-      "leadership",
-      "coaching feedback",
-    ];
-    for (const c of humanCases) {
-      expect(p.toLowerCase()).toContain(c.toLowerCase());
-    }
+    expect(p).not.toContain("strong_week");
+    expect(p).not.toMatch(/Honor already_acknowledged, answered_question/);
+    expect((p.match(/message_for \(local_date/g) ?? []).length).toBe(1);
   });
 
   it("goal role enum remains shared: central / background / unresolved / do_not_mention / unknown", () => {

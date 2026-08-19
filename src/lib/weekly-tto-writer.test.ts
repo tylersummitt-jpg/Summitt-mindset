@@ -163,20 +163,31 @@ describe("weekly-tto-writer", () => {
     expect(JSON.stringify(brief)).toBe(beforeBrief);
   });
 
-  it("system prompt is Weekly writer, not a report/scorecard/Pat quote dump", () => {
+  it("system prompt is Brief-following Sunday writer, not a second Weekly brain", () => {
     const p = WEEKLY_TTO_SYSTEM_PROMPT;
-    expect(p).toMatch(/Coach Pat writing the Sunday weekly perspective/);
-    expect(p).toMatch(/not a weekly report, newsletter, survey, scorecard/);
-    expect(p).toMatch(/Current Goal is context/);
-    expect(p).toMatch(/goal_role_today/);
-    expect(p).toMatch(/human_situation/);
-    expect(p).toMatch(/At most one useful question/);
-    expect(p).toMatch(/Do not write a compliance footer/);
-    expect(p).toMatch(/Do not use Pat Pause openers/);
-    expect(p).toMatch(/fake Pat quotes/);
-    expect(p).toMatch(/No should_send/);
-    expect(p).toMatch(/One completion is not consistency/);
+    expect(p).toContain("The Brief controls coaching meaning. You control natural language only.");
+    expect(p).toContain("Do not rediscover the relationship");
+    expect(p).toContain("Do not re-interpret");
+    expect(p).toContain("Sunday around noon");
+    expect(p).toContain("Do not invent weekly perspective if the Brief does not contain it");
+    expect(p).toContain("Write as much as this moment needs and no more");
+    expect(p).toContain("little more room than a Morning or Evening text");
+    expect(p).toContain("still a text message, not an essay");
+    expect(p).toContain("Do not write a compliance footer");
+    expect(p).toContain("Do not use Pat Pause openers");
+    expect(p).toContain("fake Pat quotes");
+    expect(p).toContain("No should_send");
+    expect(p).toContain('{"body":"<sms text>"}');
     expect(p).not.toMatch(/320/);
+    expect(p).not.toContain("Keep it naturally concise");
+    expect(p).not.toContain("Do not pad");
+    expect(p).not.toContain("Do not aim for length");
+    expect(p).not.toContain("Current Goal is context");
+    expect(p).not.toContain("At most one useful question");
+    expect(p).not.toContain("One completion is not consistency");
+    expect(p).not.toContain("goal_role_today");
+    expect(p).not.toContain("human_situation");
+    expect(p).not.toMatch(/family, faith, grief/);
   });
 
   it("Sol request shape: gpt-5.6-sol, low reasoning, json_object, no temperature, body only", async () => {
