@@ -62,11 +62,19 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import {
   claimInboundMediaJobForDownload,
+  claimInboundMediaJobForNormalize,
+  claimInboundMediaJobForNormalizeAfterSuccessfulB1,
   INBOUND_MEDIA_B1_MAX_ATTEMPTS,
   INBOUND_MEDIA_B1_STALE_NORMALIZING_MS,
+  INBOUND_MEDIA_B2_LEASE_MS,
+  INBOUND_MEDIA_B2_MAX_ATTEMPTS,
   isInboundMediaJobActionableForB1Download,
+  isInboundMediaJobActionableForB2,
+  isInboundMediaJobB2Ready,
+  isInboundMediaJobExpiresAtPast,
   isInboundMediaJobTombstonedOrRemoved,
   pickActionableInboundMediaJobIds,
+  pickActionableInboundMediaJobIdsForB2,
   type InboundMediaJobActionableLite,
 } from "@/lib/victory-media/claim-inbound-media-job";
 
@@ -164,6 +172,28 @@ describe("pickActionableInboundMediaJobIds / actionable predicate", () => {
     expect(isInboundMediaJobActionableForB1Download(atCap, NOW)).toBe(false);
     expect(pickActionableInboundMediaJobIds([due, future, terminal, atCap], 5, NOW)).toEqual([
       JOB_ID,
+    ]);
+  });
+
+  it("failed + temp is never B1-actionable (B2 retry phase)", () => {
+    const failedTemp = lite({
+      id: JOB_ID,
+      status: "failed",
+      attempt_count: 2,
+      next_retry_at: "2026-08-13T11:59:00.000Z",
+      temp_storage_path: `${USER}/mms-temp/${JOB_ID}.bin`,
+    });
+    const failedNull = lite({
+      id: JOB_B,
+      status: "failed",
+      attempt_count: 2,
+      next_retry_at: "2026-08-13T11:59:00.000Z",
+      temp_storage_path: null,
+    });
+    expect(isInboundMediaJobActionableForB1Download(failedTemp, NOW)).toBe(false);
+    expect(isInboundMediaJobActionableForB1Download(failedNull, NOW)).toBe(true);
+    expect(pickActionableInboundMediaJobIds([failedTemp, failedNull], 5, NOW)).toEqual([
+      JOB_B,
     ]);
   });
 
@@ -339,6 +369,18 @@ describe("claimInboundMediaJobForDownload", () => {
     expect(await claimInboundMediaJobForDownload(JOB_ID, { now: NOW })).toBeNull();
   });
 
+  it("does not claim failed + temp (B2 retry, not B1)", async () => {
+    seed({
+      status: "failed",
+      attempt_count: 2,
+      next_retry_at: "2026-08-13T11:00:00.000Z",
+      temp_storage_path: `${USER}/mms-temp/${JOB_ID}.bin`,
+    });
+    expect(await claimInboundMediaJobForDownload(JOB_ID, { now: NOW })).toBeNull();
+    expect(jobs.get(JOB_ID)!.attempt_count).toBe(2);
+    expect(jobs.get(JOB_ID)!.status).toBe("failed");
+  });
+
   it("ignores tombstoned / removed / expired", async () => {
     seed({ status: "tombstoned", tombstoned_at: NOW.toISOString() });
     expect(await claimInboundMediaJobForDownload(JOB_ID, { now: NOW })).toBeNull();
@@ -369,5 +411,214 @@ describe("isInboundMediaJobTombstonedOrRemoved", () => {
         tombstoned_at: null,
       })
     ).toBe(true);
+  });
+});
+
+describe("B2 ready / lease / claim", () => {
+  const TEMP = `${USER}/mms-temp/${JOB_ID}.bin`;
+  const staleUpdated = new Date(
+    NOW.getTime() - INBOUND_MEDIA_B2_LEASE_MS - 1000
+  ).toISOString();
+  const freshUpdated = new Date(NOW.getTime() - 30_000).toISOString();
+
+  function b2Lite(
+    partial: Partial<InboundMediaJobActionableLite>
+  ): InboundMediaJobActionableLite {
+    return lite({
+      status: "normalizing",
+      attempt_count: 1,
+      temp_storage_path: TEMP,
+      normalized_storage_path: null,
+      attached_win_id: null,
+      resolution: null,
+      tombstoned_at: null,
+      updated_at: staleUpdated,
+      ...partial,
+    });
+  }
+
+  it("normalizing + temp is B2-ready; normalizing + null temp is not", () => {
+    expect(isInboundMediaJobB2Ready(b2Lite({}))).toBe(true);
+    expect(
+      isInboundMediaJobB2Ready(b2Lite({ temp_storage_path: null }))
+    ).toBe(false);
+    expect(
+      isInboundMediaJobB2Ready(
+        b2Lite({ normalized_storage_path: `${USER}/mms-norm/${JOB_ID}/master.jpg` })
+      )
+    ).toBe(false);
+  });
+
+  it("lease blocks fresh B2-ready and allows stale B2-ready", () => {
+    const stale = b2Lite({ id: JOB_ID, updated_at: staleUpdated });
+    const fresh = b2Lite({ id: JOB_B, updated_at: freshUpdated });
+    expect(isInboundMediaJobActionableForB2(stale, NOW)).toBe(true);
+    expect(isInboundMediaJobActionableForB2(fresh, NOW)).toBe(false);
+    expect(pickActionableInboundMediaJobIdsForB2([stale, fresh], 5, NOW)).toEqual([
+      JOB_ID,
+    ]);
+  });
+
+  it("failed + temp is B2-actionable; failed + null temp is not", () => {
+    const b2Fail = b2Lite({
+      id: JOB_ID,
+      status: "failed",
+      attempt_count: 6,
+      next_retry_at: "2026-08-13T11:59:00.000Z",
+    });
+    const b1Fail = lite({
+      id: JOB_B,
+      status: "failed",
+      attempt_count: 2,
+      next_retry_at: "2026-08-13T11:59:00.000Z",
+      temp_storage_path: null,
+    });
+    expect(isInboundMediaJobActionableForB2(b2Fail, NOW)).toBe(true);
+    expect(isInboundMediaJobActionableForB2(b1Fail, NOW)).toBe(false);
+    expect(isInboundMediaJobActionableForB1Download(b2Fail, NOW)).toBe(false);
+  });
+
+  it("B2 cap is 10, not B1's 5", () => {
+    const atB1Cap = b2Lite({
+      attempt_count: INBOUND_MEDIA_B1_MAX_ATTEMPTS,
+      updated_at: staleUpdated,
+    });
+    const atB2Cap = b2Lite({
+      attempt_count: INBOUND_MEDIA_B2_MAX_ATTEMPTS,
+      updated_at: staleUpdated,
+    });
+    expect(isInboundMediaJobActionableForB2(atB1Cap, NOW)).toBe(true);
+    expect(isInboundMediaJobActionableForB2(atB2Cap, NOW)).toBe(false);
+  });
+
+  it("due failed+temp older than leased normalizing+temp wins oldest-actionable order", () => {
+    const leasedReady = b2Lite({
+      id: JOB_ID,
+      status: "normalizing",
+      updated_at: "2026-08-13T11:00:00.000Z",
+    });
+    const dueFailed = b2Lite({
+      id: JOB_B,
+      status: "failed",
+      attempt_count: 6,
+      next_retry_at: "2026-08-13T10:00:00.000Z",
+      updated_at: "2026-08-13T11:30:00.000Z",
+    });
+    expect(pickActionableInboundMediaJobIdsForB2([leasedReady, dueFailed], 5, NOW)).toEqual([
+      JOB_B,
+      JOB_ID,
+    ]);
+  });
+
+  it("leased normalizing+temp older than a later due failed+temp wins oldest-actionable order", () => {
+    const leasedReady = b2Lite({
+      id: JOB_ID,
+      status: "normalizing",
+      updated_at: "2026-08-13T09:00:00.000Z",
+    });
+    const dueFailed = b2Lite({
+      id: JOB_B,
+      status: "failed",
+      attempt_count: 6,
+      next_retry_at: "2026-08-13T11:00:00.000Z",
+      updated_at: "2026-08-13T08:00:00.000Z",
+    });
+    expect(pickActionableInboundMediaJobIdsForB2([dueFailed, leasedReady], 5, NOW)).toEqual([
+      JOB_ID,
+      JOB_B,
+    ]);
+  });
+
+  it("past expires_at is not B2-actionable; null and future remain eligible", () => {
+    const past = b2Lite({
+      id: JOB_C,
+      expires_at: "2026-08-13T11:00:00.000Z",
+    });
+    const unset = b2Lite({ id: JOB_ID, expires_at: null });
+    const future = b2Lite({
+      id: JOB_B,
+      expires_at: "2026-08-20T00:00:00.000Z",
+    });
+    expect(isInboundMediaJobExpiresAtPast(past, NOW)).toBe(true);
+    expect(isInboundMediaJobActionableForB2(past, NOW)).toBe(false);
+    expect(isInboundMediaJobActionableForB2(unset, NOW)).toBe(true);
+    expect(isInboundMediaJobActionableForB2(future, NOW)).toBe(true);
+    expect(pickActionableInboundMediaJobIdsForB2([past, unset, future], 5, NOW)).toEqual([
+      JOB_ID,
+      JOB_B,
+    ]);
+  });
+});
+
+describe("claimInboundMediaJobForNormalize", () => {
+  const TEMP = `${USER}/mms-temp/${JOB_ID}.bin`;
+  const staleUpdated = new Date(
+    NOW.getTime() - INBOUND_MEDIA_B2_LEASE_MS - 5000
+  ).toISOString();
+
+  beforeEach(() => {
+    jobs.clear();
+  });
+
+  it("CAS: first worker wins, second loses, attempt increments once", async () => {
+    seed({
+      status: "normalizing",
+      attempt_count: 1,
+      temp_storage_path: TEMP,
+      updated_at: staleUpdated,
+    });
+    const a = await claimInboundMediaJobForNormalize(JOB_ID, { now: NOW });
+    expect(a).not.toBeNull();
+    expect(a!.attempt_count).toBe(2);
+    expect(a!.status).toBe("normalizing");
+    const b = await claimInboundMediaJobForNormalize(JOB_ID, { now: NOW });
+    expect(b).toBeNull();
+    expect(jobs.get(JOB_ID)!.attempt_count).toBe(2);
+  });
+
+  it("lease blocks fresh B2-ready; AfterSuccessfulB1 bypasses lease via CAS", async () => {
+    seed({
+      status: "normalizing",
+      attempt_count: 1,
+      temp_storage_path: TEMP,
+      updated_at: NOW.toISOString(),
+    });
+    expect(await claimInboundMediaJobForNormalize(JOB_ID, { now: NOW })).toBeNull();
+    expect(jobs.get(JOB_ID)!.attempt_count).toBe(1);
+
+    const forced = await claimInboundMediaJobForNormalizeAfterSuccessfulB1(JOB_ID, {
+      now: NOW,
+    });
+    expect(forced).not.toBeNull();
+    expect(forced!.attempt_count).toBe(2);
+    expect(forced!.status).toBe("normalizing");
+  });
+
+  it("refuses already-past expires_at without claiming", async () => {
+    seed({
+      status: "normalizing",
+      attempt_count: 1,
+      temp_storage_path: TEMP,
+      updated_at: staleUpdated,
+      expires_at: "2026-08-13T11:00:00.000Z",
+    });
+    expect(await claimInboundMediaJobForNormalize(JOB_ID, { now: NOW })).toBeNull();
+    expect(jobs.get(JOB_ID)!.attempt_count).toBe(1);
+    expect(jobs.get(JOB_ID)!.status).toBe("normalizing");
+  });
+
+  it("claims due failed+temp as B2 retry into normalizing", async () => {
+    seed({
+      status: "failed",
+      attempt_count: 6,
+      next_retry_at: "2026-08-13T11:00:00.000Z",
+      temp_storage_path: TEMP,
+      updated_at: staleUpdated,
+    });
+    const claimed = await claimInboundMediaJobForNormalize(JOB_ID, { now: NOW });
+    expect(claimed).not.toBeNull();
+    expect(claimed!.status).toBe("normalizing");
+    expect(claimed!.attempt_count).toBe(7);
+    expect(claimed!.temp_storage_path).toBe(TEMP);
   });
 });

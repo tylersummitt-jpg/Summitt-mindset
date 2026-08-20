@@ -11,30 +11,33 @@ const DL = path.join(
   process.cwd(),
   "src/lib/victory-media/download-twilio-mms-media.ts"
 );
-const KICK = path.join(process.cwd(), "src/lib/victory-media/kick-inbound-media-b1.ts");
+const PIPE = path.join(
+  process.cwd(),
+  "src/lib/victory-media/kick-inbound-media-pipeline.ts"
+);
 
 describe("twilio inbound — MMS B1 wire", () => {
   const src = fs.readFileSync(ROUTE, "utf8");
   const proc = fs.readFileSync(PROC, "utf8");
   const dl = fs.readFileSync(DL, "utf8");
-  const kick = fs.readFileSync(KICK, "utf8");
+  const pipe = fs.readFileSync(PIPE, "utf8");
 
-  it("after() kick schedules B1 without new cron/env", () => {
-    expect(src).toContain("scheduleInboundMediaB1Kick");
-    expect(src).toContain("kickInboundMediaB1Downloads");
+  it("after() kick schedules pipeline without new cron/env", () => {
+    expect(src).toContain("scheduleInboundMediaPipelineKick");
+    expect(src).toContain("kickInboundMediaPipeline");
     expect(src).toContain("after(async () =>");
     expect(src).not.toContain("VICTORY_MEDIA_MMS_DOWNLOAD_ENABLED");
     expect(src).not.toContain("VICTORY_MEDIA_MMS_WORKER_ENABLED");
     expect(src).not.toMatch(/crons:[\s\S]*mms/i);
   });
 
-  it("after() awaits B1 kick (no detached void promise)", () => {
-    const fn = src.slice(src.indexOf("function scheduleInboundMediaB1Kick"));
+  it("after() awaits pipeline kick (no detached void promise)", () => {
+    const fn = src.slice(src.indexOf("function scheduleInboundMediaPipelineKick"));
     const body = fn.slice(0, fn.indexOf("/** HELP"));
     expect(body).toContain("after(async () =>");
-    expect(body).toContain("await kickInboundMediaB1Downloads()");
-    expect(body).not.toMatch(/void\s+kickInboundMediaB1Downloads/);
-    expect(body).not.toMatch(/kickInboundMediaB1Downloads\(\)\s*\n?\s*\.then/);
+    expect(body).toContain("await kickInboundMediaPipeline()");
+    expect(body).not.toMatch(/void\s+kickInboundMediaPipeline/);
+    expect(body).not.toMatch(/kickInboundMediaPipeline\(\)\s*\n?\s*\.then/);
   });
 
   it("kick is after enqueue insert and cannot block TwiML", () => {
@@ -43,12 +46,11 @@ describe("twilio inbound — MMS B1 wire", () => {
       post.indexOf("No fabricated Body, no sms_inbound_messages, no coach job"),
       post.indexOf('from("sms_inbound_messages")')
     );
-    expect(imageBlock).toContain("scheduleInboundMediaB1Kick");
-    expect(imageBlock.indexOf("scheduleInboundMediaB1Kick")).toBeLessThan(
+    expect(imageBlock).toContain("scheduleInboundMediaPipelineKick");
+    expect(imageBlock.indexOf("scheduleInboundMediaPipelineKick")).toBeLessThan(
       imageBlock.indexOf("return fastAckTwiml()")
     );
-    // Kick is scheduled via after(), not awaited in the webhook path.
-    expect(imageBlock).not.toContain("await kickInboundMediaB1Downloads");
+    expect(imageBlock).not.toContain("await kickInboundMediaPipeline");
   });
 
   it("download abort classification distinguishes timer timeout vs request_aborted", () => {
@@ -88,13 +90,13 @@ describe("twilio inbound — MMS B1 wire", () => {
     expect(dl).toContain("Intentionally NO Authorization");
   });
 
-  it("batch limit is tiny (2) and kick documents opportunistic recovery", () => {
-    expect(kick).toContain("INBOUND_MEDIA_B1_BATCH_LIMIT = 2");
-    expect(kick).toContain("due failed");
-    expect(kick).toContain("stale normalizing");
+  it("pipeline kick is serial and documents opportunistic recovery", () => {
+    expect(pipe).toContain("INBOUND_MEDIA_PIPELINE_B1_LIMIT = 1");
+    expect(pipe).toContain("due B2");
+    expect(pipe).toContain("leased B2-ready");
   });
 
-  it("claim module never treats normalizing+temp as actionable and uses 15m stale", () => {
+  it("claim module never treats normalizing+temp as B1-actionable and uses 15m stale", () => {
     const claimPath = path.join(
       process.cwd(),
       "src/lib/victory-media/claim-inbound-media-job.ts"
@@ -107,7 +109,7 @@ describe("twilio inbound — MMS B1 wire", () => {
 
   it("no new MMS download/worker feature flags in B1 modules", () => {
     expect(proc).not.toContain("VICTORY_MEDIA_MMS_DOWNLOAD_ENABLED");
-    expect(kick).not.toContain("VICTORY_MEDIA_MMS_DOWNLOAD_ENABLED");
+    expect(pipe).not.toContain("VICTORY_MEDIA_MMS_DOWNLOAD_ENABLED");
     expect(dl).not.toContain("VICTORY_MEDIA_MMS_DOWNLOAD_ENABLED");
   });
 });

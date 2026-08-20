@@ -118,3 +118,23 @@ export function victoryMediaMmsTempPath(
   const ext = normalizeExtension(extension);
   return `${user}/mms-temp/${job}.${ext}`;
 }
+
+/** Temporary B2 normalized master — not the canonical `{clerk}/{mediaId}/master.jpg`. */
+export function victoryMediaMmsNormMasterPath(
+  clerkUserId: string,
+  jobId: string
+): string {
+  const user = requireClerkUserId(clerkUserId);
+  const job = requireUuid(jobId, "invalid_job_id");
+  return `${user}/mms-norm/${job}/master.jpg`;
+}
+
+/** Deterministic sibling of {@link victoryMediaMmsNormMasterPath}. */
+export function victoryMediaMmsNormCardPath(
+  clerkUserId: string,
+  jobId: string
+): string {
+  const user = requireClerkUserId(clerkUserId);
+  const job = requireUuid(jobId, "invalid_job_id");
+  return `${user}/mms-norm/${job}/card.jpg`;
+}

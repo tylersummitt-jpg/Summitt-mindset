@@ -4,6 +4,8 @@ import {
   VictoryMediaPathError,
   victoryMediaCardPath,
   victoryMediaMasterPath,
+  victoryMediaMmsNormCardPath,
+  victoryMediaMmsNormMasterPath,
   victoryMediaMmsTempPath,
   victoryMediaTempUploadPath,
   victoryMediaUserStoragePrefix,
@@ -35,6 +37,24 @@ describe("victory-media storage paths", () => {
     );
     expect(victoryMediaMmsTempPath(USER, JOB, "jpg")).toBe(
       `${USER}/mms-temp/${JOB}.jpg`
+    );
+  });
+
+  it("builds deterministic mms-norm master/card siblings, not canonical media paths", () => {
+    expect(victoryMediaMmsNormMasterPath(USER, JOB)).toBe(
+      `${USER}/mms-norm/${JOB}/master.jpg`
+    );
+    expect(victoryMediaMmsNormCardPath(USER, JOB)).toBe(
+      `${USER}/mms-norm/${JOB}/card.jpg`
+    );
+    expect(victoryMediaMmsNormMasterPath(USER, JOB)).not.toBe(
+      victoryMediaMasterPath(USER, MEDIA)
+    );
+    expect(victoryMediaMmsNormCardPath(USER, JOB)).not.toBe(
+      victoryMediaCardPath(USER, MEDIA)
+    );
+    expect(() => victoryMediaMmsNormMasterPath(USER, "bad")).toThrow(
+      VictoryMediaPathError
     );
   });
 

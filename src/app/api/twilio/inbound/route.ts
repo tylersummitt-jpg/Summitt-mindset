@@ -21,7 +21,7 @@ import {
 import { maybeEnqueueInboundMediaJobsFromTwilioParams } from "@/lib/victory-media/enqueue-inbound-media-jobs";
 import { canEnqueueInboundMedia } from "@/lib/victory-media/mms-ingest-eligibility";
 import { isInboundMediaEnqueueAllowedByAccountDeletion } from "@/lib/victory-media/mms-ingest-deletion-gate";
-import { kickInboundMediaB1Downloads } from "@/lib/victory-media/kick-inbound-media-b1";
+import { kickInboundMediaPipeline } from "@/lib/victory-media/kick-inbound-media-pipeline";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -172,18 +172,18 @@ function scheduleSmsInboundCoachWorkerKick(req: Request): void {
 }
 
 /**
- * Non-blocking B1 MMS download kick after successful media job insert.
+ * Non-blocking MMS pipeline kick after successful media job insert.
  * Failure must never affect Twilio TwiML. No new cron / env.
- * after() MUST await the kick so Vercel waitUntil holds the B1 promise.
+ * after() MUST await the kick so Vercel waitUntil holds the pipeline promise.
  */
-function scheduleInboundMediaB1Kick(insertedCount: number): void {
+function scheduleInboundMediaPipelineKick(insertedCount: number): void {
   if (!Number.isFinite(insertedCount) || insertedCount <= 0) return;
   after(async () => {
     try {
-      const result = await kickInboundMediaB1Downloads();
-      console.info("[twilio/inbound] mms-b1 kick done", result);
+      const result = await kickInboundMediaPipeline();
+      console.info("[twilio/inbound] mms-pipeline kick done", result);
     } catch (err) {
-      console.error("[twilio/inbound] mms-b1 kick error", {
+      console.error("[twilio/inbound] mms-pipeline kick error", {
         message: err instanceof Error ? err.message : String(err),
       });
     }
@@ -356,7 +356,7 @@ export async function POST(req: Request) {
             params,
             numMedia,
           });
-          scheduleInboundMediaB1Kick(enqueueResult?.inserted ?? 0);
+          scheduleInboundMediaPipelineKick(enqueueResult?.inserted ?? 0);
         }
       }
       return fastAckTwiml();
@@ -428,7 +428,7 @@ export async function POST(req: Request) {
             params,
             numMedia,
           });
-          scheduleInboundMediaB1Kick(enqueueResult?.inserted ?? 0);
+          scheduleInboundMediaPipelineKick(enqueueResult?.inserted ?? 0);
         }
 
         await ensureCoachJobPresent({
@@ -502,7 +502,7 @@ export async function POST(req: Request) {
         params,
         numMedia,
       });
-      scheduleInboundMediaB1Kick(enqueueResult?.inserted ?? 0);
+      scheduleInboundMediaPipelineKick(enqueueResult?.inserted ?? 0);
     }
 
     await ensureCoachJobPresent({
