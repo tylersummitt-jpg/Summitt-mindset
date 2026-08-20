@@ -5,6 +5,7 @@
  * One invocation:
  * - at most one B1 job
  * - at most one B2 normalization
+ * - at most one lightweight C1 correlation (reads/state only)
  *
  * Fairness: oldest actionable B2 work wins the one normalize slot
  * (leased B2-ready / due B2 failed+temp outrank a just-completed B1 job).
@@ -19,6 +20,11 @@ import {
   listInboundMediaJobsForB2,
   listInboundMediaJobsForDownloadClaim,
 } from "@/lib/victory-media/claim-inbound-media-job";
+import {
+  INBOUND_MEDIA_PIPELINE_C1_LIMIT,
+  listInboundMediaJobsForC1,
+  tryCorrelateInboundMmsC1Job,
+} from "@/lib/victory-media/correlate-inbound-mms-c1";
 import { processInboundMediaJobB1 } from "@/lib/victory-media/process-inbound-media-b1";
 import {
   processInboundMediaJobB2,
@@ -34,6 +40,7 @@ export type KickInboundMediaPipelineResult = {
   b2Attempted: number;
   b2Succeeded: number;
   normalized: number;
+  c1Attempted: number;
 };
 
 export type InboundMediaPipelineB2Target = {
@@ -45,9 +52,11 @@ export type InboundMediaPipelineB2Target = {
 export type KickInboundMediaPipelineDeps = {
   listB1?: (limit: number) => Promise<string[]>;
   listB2?: (limit: number) => Promise<string[]>;
+  listC1?: (limit: number) => Promise<string[]>;
   processB1?: typeof processInboundMediaJobB1;
   processB2?: typeof processInboundMediaJobB2;
   processB2AfterSuccessfulB1?: typeof processInboundMediaJobB2AfterSuccessfulB1;
+  correlateC1?: (jobId: string) => Promise<unknown>;
 };
 
 /**
@@ -81,14 +90,17 @@ export async function kickInboundMediaPipeline(
     b2Attempted: 0,
     b2Succeeded: 0,
     normalized: 0,
+    c1Attempted: 0,
   };
 
   const listB1 = deps.listB1 ?? ((n: number) => listInboundMediaJobsForDownloadClaim(n));
   const listB2 = deps.listB2 ?? ((n: number) => listInboundMediaJobsForB2(n));
+  const listC1 = deps.listC1 ?? ((n: number) => listInboundMediaJobsForC1(n));
   const processB1 = deps.processB1 ?? processInboundMediaJobB1;
   const processB2 = deps.processB2 ?? processInboundMediaJobB2;
   const processB2AfterSuccessfulB1 =
     deps.processB2AfterSuccessfulB1 ?? processInboundMediaJobB2AfterSuccessfulB1;
+  const correlateC1 = deps.correlateC1 ?? tryCorrelateInboundMmsC1Job;
 
   let freshlyCompletedB1JobId: string | null = null;
 
@@ -122,18 +134,31 @@ export async function kickInboundMediaPipeline(
       oldestListedB2Id: b2Ids[0] ?? null,
       freshlyCompletedB1JobId,
     });
-    if (!target) return result;
-
-    result.b2Attempted = 1;
-    const r = target.afterSuccessfulB1
-      ? await processB2AfterSuccessfulB1(target.jobId)
-      : await processB2(target.jobId);
-    if (r.ok) {
-      result.b2Succeeded = 1;
-      result.normalized = 1;
+    if (target) {
+      result.b2Attempted = 1;
+      const r = target.afterSuccessfulB1
+        ? await processB2AfterSuccessfulB1(target.jobId)
+        : await processB2(target.jobId);
+      if (r.ok) {
+        result.b2Succeeded = 1;
+        result.normalized = 1;
+      }
     }
   } catch (e) {
     console.error("[victory-media/mms-pipeline] b2_threw", {
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  try {
+    const c1Ids = await listC1(INBOUND_MEDIA_PIPELINE_C1_LIMIT);
+    const c1Id = c1Ids[0];
+    if (c1Id) {
+      result.c1Attempted = 1;
+      await correlateC1(c1Id);
+    }
+  } catch (e) {
+    console.error("[victory-media/mms-pipeline] c1_threw", {
       message: e instanceof Error ? e.message : String(e),
     });
   }

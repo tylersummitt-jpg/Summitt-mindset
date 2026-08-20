@@ -4,6 +4,10 @@ vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {},
 }));
 
+vi.mock("@/lib/victory-media/correlate-inbound-mms-c1", () => ({
+  scheduleC1IfWinsDurable: vi.fn(),
+}));
+
 import { validateV2AiInboundMessage } from "@/lib/v2-ai-inbound";
 import { validateV2AiBlockerAckMessage } from "@/lib/v2-ai-blocker-ack";
 import {

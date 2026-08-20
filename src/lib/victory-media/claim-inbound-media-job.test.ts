@@ -197,6 +197,23 @@ describe("pickActionableInboundMediaJobIds / actionable predicate", () => {
     ]);
   });
 
+  it("C1 awaiting_attach retry is never B1 or B2 actionable", () => {
+    const c1Wait = lite({
+      id: JOB_ID,
+      status: "awaiting_attach",
+      attempt_count: 2,
+      next_retry_at: "2026-08-13T11:59:00.000Z",
+      temp_storage_path: null,
+      normalized_storage_path: `${USER}/mms-norm/${JOB_ID}/master.jpg`,
+      resolution: null,
+      attached_win_id: null,
+    });
+    expect(isInboundMediaJobActionableForB1Download(c1Wait, NOW)).toBe(false);
+    expect(isInboundMediaJobActionableForB2(c1Wait, NOW)).toBe(false);
+    expect(pickActionableInboundMediaJobIds([c1Wait], 5, NOW)).toEqual([]);
+    expect(pickActionableInboundMediaJobIdsForB2([c1Wait], 5, NOW)).toEqual([]);
+  });
+
   it("selects stale normalizing + null temp; not fresh; never B1-complete with temp", () => {
     const staleUpdated = new Date(
       NOW.getTime() - INBOUND_MEDIA_B1_STALE_NORMALIZING_MS - 1000

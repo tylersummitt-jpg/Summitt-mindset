@@ -48,19 +48,18 @@ describe("twilio inbound — MMS B2 wire", () => {
     expect(claim).not.toMatch(/opts\?: \{ now\?: Date; bypassLease/);
   });
 
-  it("B2 processor never contacts Twilio, OpenAI, wins, or finalizer", () => {
+  it("B2 processor never contacts Twilio, OpenAI, or the canonical finalizer; C1 correlation is DB-only", () => {
     expect(proc).toContain('kind: "supabase_object"');
     expect(proc).toContain("normalizeVictoryImage");
     expect(proc).not.toContain("downloadTwilioMmsMediaBytes");
     expect(proc).not.toContain("finalizeVictoryWinMedia");
     expect(proc).not.toMatch(/\bopenai\b/i);
-    expect(proc).not.toContain("v2_win_media");
-    expect(proc).not.toContain("from(\"v2_win\")");
     expect(proc).not.toContain("splitIntoChunks");
     expect(proc).not.toContain("buildTwimlResponse");
     expect(proc).toContain("victoryMediaMmsNormMasterPath");
     expect(proc).toContain("victoryMediaMmsNormCardPath");
     expect(proc).not.toContain("victoryMediaMasterPath");
+    expect(proc).toContain("tryCorrelateInboundMmsC1Job");
   });
 
   it("Body mode lookup selects id only (no raw_body)", () => {

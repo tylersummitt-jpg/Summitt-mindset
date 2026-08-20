@@ -140,6 +140,18 @@ describe("static anti-regression — no keyword Win classifier", () => {
     expect(persist).toContain("hideStaleRecognitionCompletionWinForAccountability");
   });
 
+  it("C1 correlation is scheduled after successful persist, not before", () => {
+    expect(wire).toContain("scheduleC1IfWinsDurable");
+    const persistFn = wire.slice(
+      wire.indexOf("export async function persistInboundRecognizedWinsBeforeSend")
+    );
+    const firstPersist = persistFn.indexOf("await persistInboundWinsWithAccountability");
+    const firstHook = persistFn.indexOf("scheduleC1IfWinsDurable");
+    expect(firstPersist).toBeGreaterThan(0);
+    expect(firstHook).toBeGreaterThan(firstPersist);
+    expect(persistFn).not.toContain("await tryCorrelateAwaitingInboundMmsForMessageSid");
+  });
+
   it("confirmedUserYes helper only accepts inserted/duplicate user_yes", () => {
     expect(wire).toContain('args.eventType !== "user_yes"');
     expect(wire).toContain('args.persistStatus !== "inserted" && args.persistStatus !== "duplicate"');

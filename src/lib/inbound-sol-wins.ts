@@ -16,6 +16,7 @@ import {
   persistRecognizedWins,
   type PersistRecognizedWinsResult,
 } from "@/lib/v2-win-persist";
+import { scheduleC1IfWinsDurable } from "@/lib/victory-media/correlate-inbound-mms-c1";
 
 export type SolInboundWinPlanInput = {
   recognition: WinRecognitionResultV1 | null;
@@ -106,7 +107,7 @@ export async function persistSolInboundWins(args: {
   });
 
   if (persistedUserYes(args.persistResult)) {
-    return persistInboundWinsWithAccountability({
+    const result = await persistInboundWinsWithAccountability({
       clerkUserId: args.clerkUserId,
       messageSid: args.messageSid,
       sourceMessageId: null,
@@ -120,6 +121,13 @@ export async function persistSolInboundWins(args: {
       inboundMessage: args.inboundText,
       equivalenceByOrdinal: winPlan.equivalenceByOrdinal,
     });
+    scheduleC1IfWinsDurable({
+      persisted: result.persisted,
+      conflicts: result.conflicts,
+      clerkUserId: args.clerkUserId,
+      messageSid: args.messageSid,
+    });
+    return result;
   }
 
   if (args.inbound.meaningful_win?.relationship !== "life") {
@@ -129,7 +137,7 @@ export async function persistSolInboundWins(args: {
     return null;
   }
 
-  return persistRecognizedWins({
+  const recognized = await persistRecognizedWins({
     clerkUserId: args.clerkUserId,
     sourceType: "sms_inbound",
     sourceMessageSid: args.messageSid,
@@ -140,4 +148,11 @@ export async function persistSolInboundWins(args: {
     occurredAtIso: args.occurredAtIso,
     recognition: winPlan.recognition,
   });
+  scheduleC1IfWinsDurable({
+    persisted: recognized.persisted,
+    conflicts: recognized.conflicts,
+    clerkUserId: args.clerkUserId,
+    messageSid: args.messageSid,
+  });
+  return recognized;
 }

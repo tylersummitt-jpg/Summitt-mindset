@@ -6,6 +6,10 @@ vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: { from: vi.fn() },
 }));
 
+vi.mock("@/lib/victory-media/correlate-inbound-mms-c1", () => ({
+  scheduleC1IfWinsDurable: vi.fn(),
+}));
+
 import {
   isInboundSolMainCoachingBranch,
   isLikelyInboundSolMainBeforeHandoff,
@@ -65,6 +69,7 @@ describe("inbound Sol main-branch wire", () => {
     expect(turn).not.toContain("recognizeWinsFromInboundV1");
     expect(wins).toContain("persistInboundWinsWithAccountability");
     expect(wins).toContain("persistRecognizedWins(");
+    expect(wins).toContain("scheduleC1IfWinsDurable");
   });
 
   it("does not add env flags, shadow mode, or a second writer", () => {

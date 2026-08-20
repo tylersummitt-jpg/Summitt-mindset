@@ -20,6 +20,7 @@ import {
   resolveSmsInboundWinSource,
   type PersistRecognizedWinsResult,
 } from "@/lib/v2-win-persist";
+import { scheduleC1IfWinsDurable } from "@/lib/victory-media/correlate-inbound-mms-c1";
 
 export type InboundWinRecognitionBundle = {
   result: WinRecognitionResultV1;
@@ -146,7 +147,7 @@ export async function persistInboundRecognizedWinsBeforeSend(args: {
   });
 
   if (args.confirmedUserYes?.commitmentId) {
-    return persistInboundWinsWithAccountability({
+    const result = await persistInboundWinsWithAccountability({
       clerkUserId: args.clerkUserId,
       messageSid: args.messageSid,
       sourceMessageId: source.sourceMessageId,
@@ -158,6 +159,13 @@ export async function persistInboundRecognizedWinsBeforeSend(args: {
       inboundMessage: args.confirmedUserYes.inboundMessage ?? null,
       recognition: args.recognition,
     });
+    scheduleC1IfWinsDurable({
+      persisted: result.persisted,
+      conflicts: result.conflicts,
+      clerkUserId: args.clerkUserId,
+      messageSid: args.messageSid,
+    });
+    return result;
   }
 
   if (!args.recognition.has_win || args.recognition.wins.length === 0) {
@@ -171,7 +179,7 @@ export async function persistInboundRecognizedWinsBeforeSend(args: {
     };
   }
 
-  return persistRecognizedWins({
+  const recognized = await persistRecognizedWins({
     clerkUserId: args.clerkUserId,
     sourceType: "sms_inbound",
     sourceMessageSid: args.messageSid,
@@ -182,6 +190,13 @@ export async function persistInboundRecognizedWinsBeforeSend(args: {
     occurredAtIso: source.occurredAtIso,
     recognition: args.recognition,
   });
+  scheduleC1IfWinsDurable({
+    persisted: recognized.persisted,
+    conflicts: recognized.conflicts,
+    clerkUserId: args.clerkUserId,
+    messageSid: args.messageSid,
+  });
+  return recognized;
 }
 
 /** Best-effort Win persist for any eligible lane. Never throws; never silences the reply. */

@@ -12,6 +12,7 @@ import type { InboundCoachingBriefV1 } from "@/lib/inbound-sol-coaching-brief";
 const persistInboundAccountabilityOutcomeEvent = vi.hoisted(() => vi.fn());
 const persistInboundWinsWithAccountability = vi.hoisted(() => vi.fn());
 const persistRecognizedWins = vi.hoisted(() => vi.fn());
+const scheduleC1IfWinsDurable = vi.hoisted(() => vi.fn());
 const loadInboundRelationshipPacket = vi.hoisted(() => vi.fn());
 const runInboundSolBriefInterpreter = vi.hoisted(() => vi.fn());
 const writeInboundSolBody = vi.hoisted(() => vi.fn());
@@ -37,6 +38,10 @@ vi.mock("@/lib/v2-win-persist", async (importOriginal) => {
     persistRecognizedWins,
   };
 });
+
+vi.mock("@/lib/victory-media/correlate-inbound-mms-c1", () => ({
+  scheduleC1IfWinsDurable,
+}));
 
 vi.mock("@/lib/v2-coaching-memory", () => ({
   recomputeV2CoachingMemory,
@@ -172,6 +177,7 @@ function brief(overrides: Partial<InboundCoachingBriefV1["inbound"]> = {}): Inbo
 describe("runInboundSolRelationshipTurn", () => {
   beforeEach(() => {
     persistInboundAccountabilityOutcomeEvent.mockReset();
+    scheduleC1IfWinsDurable.mockReset();
     persistInboundWinsWithAccountability.mockReset();
     persistRecognizedWins.mockReset();
     loadInboundRelationshipPacket.mockReset();
@@ -281,6 +287,41 @@ describe("runInboundSolRelationshipTurn", () => {
       reasonCode: "inbound_user_outcome",
     });
     expect(setBlockerCapturePending).not.toHaveBeenCalled();
+    expect(scheduleC1IfWinsDurable).toHaveBeenCalledWith({
+      persisted: 1,
+      conflicts: 0,
+      clerkUserId: "user_1",
+      messageSid: "SMfin",
+    });
+  });
+
+  it("C1 persist hook throw cannot block Sol Coach send", async () => {
+    scheduleC1IfWinsDurable.mockImplementation(() => {
+      throw new Error("c1 boom");
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Got the whole thing finished before lunch.",
+      messageSid: "SMfin",
+      recentEventsNewestFirst: [],
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      classifierEventType: "user_no",
+      classifierNormalizedHint: null,
+      exclusiveLaneOwnsTurn: false,
+      pendingConfirmationConflict: false,
+    });
+
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe("Proud you finished before lunch.");
+    expect(persistInboundWinsWithAccountability).toHaveBeenCalledTimes(1);
   });
 
   it("classifier user_yes + Sol plan → no proof row and still writes", async () => {

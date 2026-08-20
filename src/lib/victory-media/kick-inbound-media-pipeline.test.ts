@@ -14,6 +14,12 @@ vi.mock("@/lib/victory-media/process-inbound-media-b2", () => ({
   processInboundMediaJobB2AfterSuccessfulB1: vi.fn(),
 }));
 
+vi.mock("@/lib/victory-media/correlate-inbound-mms-c1", () => ({
+  INBOUND_MEDIA_PIPELINE_C1_LIMIT: 1,
+  listInboundMediaJobsForC1: vi.fn(async () => []),
+  tryCorrelateInboundMmsC1Job: vi.fn(async () => null),
+}));
+
 import {
   kickInboundMediaPipeline,
   selectInboundMediaPipelineB2Target,
@@ -99,6 +105,7 @@ describe("kickInboundMediaPipeline", () => {
       b2Attempted: 1,
       b2Succeeded: 1,
       normalized: 1,
+      c1Attempted: 0,
     });
   });
 
@@ -197,5 +204,29 @@ describe("kickInboundMediaPipeline", () => {
     );
     expect(processB2AfterSuccessfulB1).toHaveBeenCalledWith(B1);
     expect(processB2AfterSuccessfulB1.mock.calls[0]?.[1]).toBeUndefined();
+  });
+
+  it("runs at most one opportunistic C1 after B1/B2; oldest due listed", async () => {
+    const C1_OLD = "55555555-5555-4555-8555-555555555555";
+    const C1_NEW = "66666666-6666-4666-8666-666666666666";
+    const correlateC1 = vi.fn(async () => ({ kind: "waiting_for_win" }));
+    const listC1 = vi.fn(async () => [C1_OLD, C1_NEW]);
+
+    const r = await kickInboundMediaPipeline({
+      listB1: async () => [],
+      listB2: async () => [],
+      listC1,
+      processB1: processInboundMediaJobB1,
+      processB2: vi.fn(),
+      processB2AfterSuccessfulB1: vi.fn(),
+      correlateC1,
+    });
+
+    expect(listC1).toHaveBeenCalledWith(1);
+    expect(correlateC1).toHaveBeenCalledTimes(1);
+    expect(correlateC1).toHaveBeenCalledWith(C1_OLD);
+    expect(r.c1Attempted).toBe(1);
+    expect(r.b1Attempted).toBe(0);
+    expect(r.normalized).toBe(0);
   });
 });

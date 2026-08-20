@@ -5,6 +5,13 @@ const bodyLookupState = vi.hoisted(() => ({
   error: null as { message: string } | null,
 }));
 
+const correlateAwaitingAttach = vi.hoisted(() => vi.fn(async () => []));
+
+vi.mock("@/lib/victory-media/correlate-inbound-mms-c1", () => ({
+  tryCorrelateInboundMmsC1Job: correlateAwaitingAttach,
+  INBOUND_MEDIA_C1_WAIT_RETRY_MS: 60_000,
+}));
+
 const JOB_ID = "aaaaaaaa-1111-4111-8111-111111111111";
 const USER = "user_b2_proc";
 const SM = "SMbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -316,6 +323,7 @@ describe("processInboundMediaJobB2", () => {
     bodyLookupState.error = null;
     storageUploads.length = 0;
     removeCalls.length = 0;
+    correlateAwaitingAttach.mockClear();
   });
 
   it("image-only → pending_semantics; resolution/attach stay null; temp deleted after DB", async () => {
@@ -351,12 +359,14 @@ describe("processInboundMediaJobB2", () => {
     expect(job.attached_win_id).toBeNull();
     expect(job.normalized_storage_path).toBe(MASTER);
     expect(job.temp_storage_path).toBeNull();
+    expect(job.next_retry_at).toBeNull();
     expect(job.expires_at).toBe(
       new Date(NOW.getTime() + INBOUND_MEDIA_B2_EXPIRES_MS).toISOString()
     );
     expect(order.indexOf("normalize")).toBeLessThan(order.indexOf("upload"));
     expect(order.filter((x) => x.startsWith("remove"))[0]).toBe(`remove:${TEMP}`);
     expect(removeCalls.some((p) => p.includes(TEMP))).toBe(true);
+    expect(correlateAwaitingAttach).not.toHaveBeenCalled();
   });
 
   it("matching Body row → awaiting_attach; preserves existing expires_at", async () => {
@@ -374,6 +384,30 @@ describe("processInboundMediaJobB2", () => {
     expect(store.get(JOB_ID)!.resolution).toBeNull();
     expect(store.get(JOB_ID)!.attached_win_id).toBeNull();
     expect(store.get(JOB_ID)!.expires_at).toBe("2026-09-01T00:00:00.000Z");
+    expect(store.get(JOB_ID)!.next_retry_at).toBe(
+      new Date(NOW.getTime() + 60_000).toISOString()
+    );
+    expect(correlateAwaitingAttach).toHaveBeenCalledTimes(1);
+    expect(correlateAwaitingAttach).toHaveBeenCalledWith(JOB_ID);
+  });
+
+  it("immediate C1 throw still leaves B2 success and armed next_retry_at", async () => {
+    seed({ expires_at: "2026-09-01T00:00:00.000Z" });
+    bodyRows.add(`${SM}::${USER}`);
+    correlateAwaitingAttach.mockRejectedValueOnce(new Error("c1 boom"));
+    const r = await processInboundMediaJobB2(JOB_ID, {
+      now: NOW,
+      hasUnresolvedDeletion: async () => false,
+      normalize: async () => fakeNormalized(),
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.status).toBe("awaiting_attach");
+    expect(store.get(JOB_ID)!.status).toBe("awaiting_attach");
+    expect(store.get(JOB_ID)!.next_retry_at).toBe(
+      new Date(NOW.getTime() + 60_000).toISOString()
+    );
+    expect(store.get(JOB_ID)!.attached_win_id).toBeNull();
   });
 
   it("no Body row uses default lookup → pending_semantics", async () => {
@@ -386,6 +420,7 @@ describe("processInboundMediaJobB2", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.status).toBe("pending_semantics");
+    expect(correlateAwaitingAttach).not.toHaveBeenCalled();
   });
 
   it("uploads mms-norm JPEG with upsert:true; not canonical media path", async () => {

@@ -27,6 +27,10 @@ import type {
 } from "@/lib/victory-media/image-types";
 import { normalizeVictoryImage } from "@/lib/victory-media/normalize-victory-image";
 import {
+  INBOUND_MEDIA_C1_WAIT_RETRY_MS,
+  tryCorrelateInboundMmsC1Job,
+} from "@/lib/victory-media/correlate-inbound-mms-c1";
+import {
   victoryMediaMmsNormCardPath,
   victoryMediaMmsNormMasterPath,
   victoryMediaMmsTempPath,
@@ -496,6 +500,10 @@ async function runInboundMediaJobB2(
   const expiresAt =
     beforeTransition.expires_at ??
     new Date(now.getTime() + INBOUND_MEDIA_B2_EXPIRES_MS).toISOString();
+  const c1RetryAt =
+    nextStatus === "awaiting_attach"
+      ? new Date(now.getTime() + INBOUND_MEDIA_C1_WAIT_RETRY_MS).toISOString()
+      : null;
 
   console.info("[victory-media/mms-b2] db_transition", {
     ...base,
@@ -520,7 +528,7 @@ async function runInboundMediaJobB2(
       normalized_storage_path: masterPath,
       temp_storage_path: null,
       last_error_code: null,
-      next_retry_at: null,
+      next_retry_at: c1RetryAt,
       expires_at: expiresAt,
       updated_at: nowIso,
     })
@@ -578,6 +586,18 @@ async function runInboundMediaJobB2(
     master_byte_size: normalized.master.byteSize,
     card_byte_size: normalized.card.byteSize,
   });
+
+  if (nextStatus === "awaiting_attach") {
+    try {
+      // C1 uses its own evaluation clock — do not pass B2 start `now`.
+      await tryCorrelateInboundMmsC1Job(job.id);
+    } catch (e) {
+      console.error("[victory-media/mms-b2] c1_correlate_failed", {
+        ...base,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
 
   return {
     ok: true,

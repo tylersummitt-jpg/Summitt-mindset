@@ -4,6 +4,10 @@ vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: { from: vi.fn() },
 }));
 
+vi.mock("@/lib/victory-media/correlate-inbound-mms-c1", () => ({
+  scheduleC1IfWinsDurable: vi.fn(),
+}));
+
 import { mergeInboundWinsForPersistence } from "@/lib/v2-win-accountability-merge";
 import { buildSolInboundWinPlanInput } from "@/lib/inbound-sol-wins";
 import type { InboundSolBriefExtras } from "@/lib/inbound-sol-coaching-brief";
