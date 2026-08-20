@@ -723,12 +723,16 @@ describe("APP-041E4c production builder + no-scope", () => {
 });
 
 describe("APP-041E4d disabled Vercel cron schedule", () => {
-  const PRESERVED_CRONS = [
+  /** Exact vercel.json inventory. Future cron additions must update this list. */
+  const EXPECTED_CRONS = [
     { path: "/api/cron/daily-sms", schedule: "*/5 * * * *" },
+    { path: "/api/cron/evening-sms", schedule: "*/5 * * * *" },
     { path: "/api/cron/weekly-sms", schedule: "*/5 * * * *" },
     { path: "/api/cron/challenge", schedule: "0 * * * *" },
     { path: "/api/cron/sms-inbound-coach", schedule: "* * * * *" },
     { path: "/api/cron/quotes-book-fulfillment", schedule: "0 15 * * *" },
+    { path: "/api/cron/account-deletions", schedule: "*/5 * * * *" },
+    { path: "/api/cron/victory-media", schedule: "* * * * *" },
   ] as const;
 
   function loadCrons(): Array<{ path: string; schedule: string }> {
@@ -739,7 +743,17 @@ describe("APP-041E4d disabled Vercel cron schedule", () => {
     return parsed.crons;
   }
 
-  it("1–5. exactly one account-deletions cron; */5; existing entries preserved", () => {
+  function sortedCronInventory(
+    crons: ReadonlyArray<{ path: string; schedule: string }>
+  ): Array<{ path: string; schedule: string }> {
+    return [...crons].sort((a, b) =>
+      a.path === b.path
+        ? a.schedule.localeCompare(b.schedule)
+        : a.path.localeCompare(b.path)
+    );
+  }
+
+  it("1–5. exactly one account-deletions cron; */5; exact scheduled inventory", () => {
     const crons = loadCrons();
     const deletion = crons.filter(
       (c) => c.path === "/api/cron/account-deletions"
@@ -750,10 +764,10 @@ describe("APP-041E4d disabled Vercel cron schedule", () => {
       schedule: "*/5 * * * *",
     });
 
-    for (const expected of PRESERVED_CRONS) {
-      expect(crons).toContainEqual(expected);
-    }
-    expect(crons).toHaveLength(PRESERVED_CRONS.length + 1);
+    expect(new Set(crons.map((c) => c.path)).size).toBe(crons.length);
+    expect(sortedCronInventory(crons)).toEqual(
+      sortedCronInventory(EXPECTED_CRONS)
+    );
 
     const vercelRaw = readFileSync(VERCEL, "utf8");
     expect(vercelRaw).not.toMatch(
