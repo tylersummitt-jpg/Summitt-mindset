@@ -17,6 +17,10 @@ import {
   loadInboundMediaJobById,
   type InboundMediaJobRow,
 } from "@/lib/victory-media/claim-inbound-media-job";
+import {
+  isSemanticTargetWinTechnicallyEligible,
+  type SemanticTargetWinLite,
+} from "@/lib/victory-media/claim-inbound-mms-semantic-target";
 import { VICTORY_MEDIA_BUCKET } from "@/lib/victory-media/constants";
 import {
   applyInboundMmsC1Decision,
@@ -27,8 +31,11 @@ import {
   INBOUND_MEDIA_C2_OWNED_LAST_ERROR_CODES,
   isInboundMediaJobC1ExpiresAtMalformed,
   isInboundMediaJobC1Ready,
+  isInboundMediaSemanticTargetLineageErrorCode,
   loadInboundMmsCorrelationFacts,
+  sameSidMediaJobCardinalityIsMulti,
   snapshotFromJob,
+  type InboundMediaC2SemanticRetryErrorCode,
   type InboundMmsC1Decision,
   type InboundMmsC1MediaLite,
 } from "@/lib/victory-media/correlate-inbound-mms-c1";
@@ -57,6 +64,12 @@ export const INBOUND_MEDIA_C2_RETRY_ERROR_CODES = [
 export type InboundMediaC2RetryErrorCode =
   (typeof INBOUND_MEDIA_C2_RETRY_ERROR_CODES)[number];
 
+export type { InboundMediaC2SemanticRetryErrorCode };
+
+export type InboundMediaC2RetryWriteCode =
+  | InboundMediaC2RetryErrorCode
+  | InboundMediaC2SemanticRetryErrorCode;
+
 export type InboundMmsC2Result =
   | {
       ok: true;
@@ -80,6 +93,11 @@ export type AttachInboundMmsC2Deps = {
   applyDecision?: typeof applyInboundMmsC1Decision;
   confirmTerminal?: typeof confirmInboundMmsTerminalKindImmediatelyBeforeCas;
   casJob?: typeof casAwaitingAttachJob;
+  loadTargetWin?: (winId: string) => Promise<SemanticTargetWinLite | null>;
+  loadMediaForWin?: (args: {
+    winId: string;
+    clerkUserId: string;
+  }) => Promise<InboundMmsC1MediaLite | null>;
 };
 
 function hasNonEmptyText(value: string | null | undefined): boolean {
@@ -95,6 +113,58 @@ export function isInboundMediaC2ListErrorCode(
       lastErrorCode
     )
   );
+}
+
+function semanticTargetWinIdOf(job: InboundMediaJobRow): string | null {
+  const id = job.semantic_target_win_id?.trim() ?? "";
+  return id ? id : null;
+}
+
+/**
+ * Durable D semantic-target lineage. UUID and/or semantic last_error_code.
+ * Survives FK SET NULL of semantic_target_win_id. Never Mode A.
+ */
+export function isInboundMediaJobSemanticTargetOwned(job: {
+  semantic_target_win_id?: string | null;
+  last_error_code: string | null;
+}): boolean {
+  if (hasNonEmptyText(job.semantic_target_win_id)) return true;
+  return isInboundMediaSemanticTargetLineageErrorCode(job.last_error_code);
+}
+
+/** Mode B: semantic-target lineage, including SET NULL leftover. */
+export function isInboundMediaJobSemanticTargetMode(job: {
+  semantic_target_win_id?: string | null;
+  last_error_code: string | null;
+}): boolean {
+  return isInboundMediaJobSemanticTargetOwned(job);
+}
+
+function toSemanticRetryCode(
+  errorCode: InboundMediaC2RetryWriteCode
+): InboundMediaC2SemanticRetryErrorCode {
+  if (
+    errorCode === "c2_storage_read_failed" ||
+    errorCode === "c2_semantic_storage_read_failed"
+  ) {
+    return "c2_semantic_storage_read_failed";
+  }
+  if (
+    errorCode === "c2_metadata_failed" ||
+    errorCode === "c2_semantic_metadata_failed"
+  ) {
+    return "c2_semantic_metadata_failed";
+  }
+  if (
+    errorCode === "c2_finalize_failed" ||
+    errorCode === "c2_semantic_finalize_failed"
+  ) {
+    return "c2_semantic_finalize_failed";
+  }
+  if (errorCode === "c2_semantic_target_missing") {
+    return "c2_semantic_target_missing";
+  }
+  return "c2_semantic_stale_ownership";
 }
 
 /**
@@ -185,6 +255,51 @@ async function defaultReadJpegMetadata(
   }
 }
 
+async function defaultLoadTargetWin(
+  winId: string
+): Promise<SemanticTargetWinLite | null> {
+  const { data, error } = await supabaseServer
+    .from("v2_win")
+    .select("id, clerk_user_id, status, hidden_at")
+    .eq("id", winId)
+    .maybeSingle();
+  if (error || !data?.id) return null;
+  return {
+    id: String(data.id),
+    clerk_user_id: String(data.clerk_user_id ?? ""),
+    status: String(data.status ?? ""),
+    hidden_at: typeof data.hidden_at === "string" ? data.hidden_at : null,
+  };
+}
+
+async function defaultLoadMediaForWin(args: {
+  winId: string;
+  clerkUserId: string;
+}): Promise<InboundMmsC1MediaLite | null> {
+  const { data, error } = await supabaseServer
+    .from("v2_win_media")
+    .select(
+      "id,win_id,clerk_user_id,source_type,source_message_sid,source_media_ordinal"
+    )
+    .eq("win_id", args.winId)
+    .eq("clerk_user_id", args.clerkUserId)
+    .maybeSingle();
+  if (error) {
+    throw new Error("media_lookup_failed");
+  }
+  if (!data) return null;
+  return {
+    id: String(data.id ?? ""),
+    win_id: String(data.win_id ?? ""),
+    clerk_user_id: String(data.clerk_user_id ?? ""),
+    source_type: String(data.source_type ?? ""),
+    source_message_sid:
+      typeof data.source_message_sid === "string" ? data.source_message_sid : null,
+    source_media_ordinal:
+      data.source_media_ordinal == null ? null : Number(data.source_media_ordinal),
+  };
+}
+
 function isExactSameMmsCanonical(
   media: InboundMmsC1MediaLite | null,
   job: InboundMediaJobRow
@@ -272,16 +387,20 @@ async function maybeCleanupNorm(args: {
 async function retryC2(
   job: InboundMediaJobRow,
   now: Date,
-  errorCode: InboundMediaC2RetryErrorCode,
+  errorCode: InboundMediaC2RetryWriteCode,
   applyDecision: typeof applyInboundMmsC1Decision
 ): Promise<InboundMmsC2Result> {
+  const written: InboundMediaC2RetryWriteCode =
+    isInboundMediaJobSemanticTargetOwned(job)
+      ? toSemanticRetryCode(errorCode)
+      : errorCode;
   await applyC1(
     job,
-    { kind: "error_retry", jobId: job.id, errorCode },
+    { kind: "error_retry", jobId: job.id, errorCode: written },
     now,
     applyDecision
   );
-  return failResult(job.id, errorCode, false);
+  return failResult(job.id, written, false);
 }
 
 async function casJobAttached(args: {
@@ -376,7 +495,10 @@ async function resolveAfterFinalizeConflict(args: {
   confirmTerminal: typeof confirmInboundMmsTerminalKindImmediatelyBeforeCas;
   casJob: typeof casAwaitingAttachJob;
   removeObjects: NonNullable<AttachInboundMmsC2Deps["removeObjects"]>;
+  semanticTargetWinId?: string | null;
+  loadMediaForWin?: NonNullable<AttachInboundMmsC2Deps["loadMediaForWin"]>;
 }): Promise<InboundMmsC2Result> {
+  const requiredWinId = args.semanticTargetWinId?.trim() || null;
   let facts: Awaited<ReturnType<typeof loadInboundMmsCorrelationFacts>>;
   try {
     facts = await args.loadFacts(args.job);
@@ -385,6 +507,9 @@ async function resolveAfterFinalizeConflict(args: {
   }
 
   if (isExactSameMmsCanonical(facts.provenanceMedia, args.job)) {
+    if (requiredWinId && facts.provenanceMedia!.win_id !== requiredWinId) {
+      return retryC2(args.job, args.now, "c2_stale_ownership", args.applyDecision);
+    }
     return replayExistingCanonical({
       job: args.job,
       media: facts.provenanceMedia!,
@@ -395,6 +520,9 @@ async function resolveAfterFinalizeConflict(args: {
     });
   }
   if (isSameMmsProvenanceWrongId(facts.provenanceMedia, args.job)) {
+    if (requiredWinId) {
+      return retryC2(args.job, args.now, "c2_stale_ownership", args.applyDecision);
+    }
     const applied = await applyC1(
       args.job,
       {
@@ -408,12 +536,25 @@ async function resolveAfterFinalizeConflict(args: {
     return failResult(args.job.id, applied.kind, false);
   }
 
-  const occupying = facts.mediaByWinId.get(args.winId) ?? null;
+  let occupying = facts.mediaByWinId.get(args.winId) ?? null;
+  if (requiredWinId && args.loadMediaForWin) {
+    try {
+      occupying = await args.loadMediaForWin({
+        winId: requiredWinId,
+        clerkUserId: args.job.clerk_user_id,
+      });
+    } catch {
+      return retryC2(args.job, args.now, "c2_finalize_failed", args.applyDecision);
+    }
+  }
   if (!occupying) {
     return retryC2(args.job, args.now, "c2_finalize_failed", args.applyDecision);
   }
   let decision = classifyOccupancyMedia(occupying, args.job);
   if (decision.kind === "same_mms_replay") {
+    if (requiredWinId && occupying.win_id !== requiredWinId) {
+      return retryC2(args.job, args.now, "c2_stale_ownership", args.applyDecision);
+    }
     return replayExistingCanonical({
       job: args.job,
       media: occupying,
@@ -509,6 +650,446 @@ export async function listInboundMediaJobsForC2(
   return ids;
 }
 
+type CanonicalAttachCtx = {
+  job: InboundMediaJobRow;
+  winId: string;
+  now: Date;
+  deletionCheck: (id: string) => Promise<boolean>;
+  loadFacts: typeof loadInboundMmsCorrelationFacts;
+  finalizeFn: typeof finalizeVictoryWinMedia;
+  downloadObject: NonNullable<AttachInboundMmsC2Deps["downloadObject"]>;
+  removeObjects: NonNullable<AttachInboundMmsC2Deps["removeObjects"]>;
+  readJpegMetadata: NonNullable<AttachInboundMmsC2Deps["readJpegMetadata"]>;
+  applyDecision: typeof applyInboundMmsC1Decision;
+  confirmTerminal: typeof confirmInboundMmsTerminalKindImmediatelyBeforeCas;
+  casJob: typeof casAwaitingAttachJob;
+  semanticTargetWinId: string | null;
+  loadMediaForWin: NonNullable<AttachInboundMmsC2Deps["loadMediaForWin"]>;
+};
+
+async function runCanonicalAttach(ctx: CanonicalAttachCtx): Promise<InboundMmsC2Result> {
+  const {
+    job,
+    winId,
+    now,
+    deletionCheck,
+    loadFacts,
+    finalizeFn,
+    downloadObject,
+    removeObjects,
+    readJpegMetadata,
+    applyDecision,
+    confirmTerminal,
+    casJob,
+    semanticTargetWinId,
+    loadMediaForWin,
+  } = ctx;
+  const semanticMode = !!semanticTargetWinId;
+
+  let expectedMaster: string;
+  let expectedCard: string;
+  try {
+    expectedMaster = victoryMediaMmsNormMasterPath(job.clerk_user_id, job.id);
+    expectedCard = victoryMediaMmsNormCardPath(job.clerk_user_id, job.id);
+  } catch {
+    return retryC2(job, now, "c2_storage_read_failed", applyDecision);
+  }
+  if (job.normalized_storage_path!.trim() !== expectedMaster) {
+    return retryC2(job, now, "c2_storage_read_failed", applyDecision);
+  }
+
+  const deletionBeforeRead = await lookupDeletion(job.clerk_user_id, deletionCheck);
+  if (deletionBeforeRead !== "clear") {
+    const applied = await applyC1(
+      job,
+      {
+        kind: "deletion_blocked",
+        jobId: job.id,
+        errorCode:
+          deletionBeforeRead === "unresolved"
+            ? "account_deletion_unresolved"
+            : "account_deletion_lookup_failed",
+      },
+      now,
+      applyDecision
+    );
+    if (applied.kind === "deletion_blocked") {
+      await maybeCleanupNorm({ job, removeObjects });
+    }
+    return failResult(job.id, applied.kind, applied.kind === "deletion_blocked");
+  }
+  if (isInboundMediaJobExpiresAtPast(job, now)) {
+    const applied = await applyC1(
+      job,
+      { kind: "expired", jobId: job.id },
+      now,
+      applyDecision
+    );
+    if (applied.kind === "expired") {
+      await maybeCleanupNorm({ job, removeObjects });
+    }
+    return failResult(job.id, applied.kind, applied.kind === "expired");
+  }
+
+  let masterBytes: Buffer;
+  let cardBytes: Buffer;
+  try {
+    masterBytes = await downloadObject({
+      bucket: VICTORY_MEDIA_BUCKET,
+      path: expectedMaster,
+    });
+  } catch {
+    return retryC2(job, now, "c2_storage_read_failed", applyDecision);
+  }
+  try {
+    cardBytes = await downloadObject({
+      bucket: VICTORY_MEDIA_BUCKET,
+      path: expectedCard,
+    });
+  } catch {
+    return retryC2(job, now, "c2_storage_read_failed", applyDecision);
+  }
+
+  const masterMeta = await readJpegMetadata(masterBytes);
+  const cardMeta = await readJpegMetadata(cardBytes);
+  if (!masterMeta || !cardMeta) {
+    return retryC2(job, now, "c2_metadata_failed", applyDecision);
+  }
+
+  const deletionBeforePersist = await lookupDeletion(job.clerk_user_id, deletionCheck);
+  if (deletionBeforePersist !== "clear") {
+    const applied = await applyC1(
+      job,
+      {
+        kind: "deletion_blocked",
+        jobId: job.id,
+        errorCode:
+          deletionBeforePersist === "unresolved"
+            ? "account_deletion_unresolved"
+            : "account_deletion_lookup_failed",
+      },
+      now,
+      applyDecision
+    );
+    if (applied.kind === "deletion_blocked") {
+      await maybeCleanupNorm({ job, removeObjects });
+    }
+    return failResult(job.id, applied.kind, applied.kind === "deletion_blocked");
+  }
+  if (isInboundMediaJobExpiresAtPast(job, now)) {
+    const applied = await applyC1(
+      job,
+      { kind: "expired", jobId: job.id },
+      now,
+      applyDecision
+    );
+    if (applied.kind === "expired") {
+      await maybeCleanupNorm({ job, removeObjects });
+    }
+    return failResult(job.id, applied.kind, applied.kind === "expired");
+  }
+
+  let finalized: FinalizeVictoryWinMediaResult;
+  try {
+    finalized = await finalizeFn({
+      mediaId: job.id,
+      winId,
+      clerkUserId: job.clerk_user_id,
+      bucket: VICTORY_MEDIA_BUCKET,
+      master: {
+        bytes: masterBytes,
+        width: masterMeta.width,
+        height: masterMeta.height,
+        byteSize: masterBytes.length,
+      },
+      card: {
+        bytes: cardBytes,
+        width: cardMeta.width,
+        height: cardMeta.height,
+        byteSize: cardBytes.length,
+      },
+      sourceType: "inbound_mms",
+      sourceMessageSid: job.message_sid,
+      sourceMediaOrdinal: job.media_ordinal,
+      twilioMediaSid: job.twilio_media_sid,
+      userSelected: false,
+    });
+  } catch {
+    return retryC2(job, now, "c2_finalize_failed", applyDecision);
+  }
+
+  if (!finalized.ok) {
+    if (
+      finalized.code === "media_exists" ||
+      finalized.code === "mms_provenance_conflict"
+    ) {
+      return resolveAfterFinalizeConflict({
+        job,
+        winId,
+        now,
+        loadFacts,
+        applyDecision,
+        confirmTerminal,
+        casJob,
+        removeObjects,
+        semanticTargetWinId,
+        loadMediaForWin,
+      });
+    }
+    if (finalized.code === "win_not_attachable" || finalized.code === "win_not_found") {
+      if (semanticMode) {
+        try {
+          const masterPath = victoryMediaMasterPath(job.clerk_user_id, job.id);
+          const cardPath = victoryMediaCardPath(job.clerk_user_id, job.id);
+          await removeObjects({
+            bucket: VICTORY_MEDIA_BUCKET,
+            paths: [masterPath, cardPath],
+          });
+        } catch {
+          /* finalizer already attempted cleanup */
+        }
+        return retryC2(job, now, "c2_stale_ownership", applyDecision);
+      }
+      const applied = await applyC1(
+        job,
+        { kind: "waiting_for_win", jobId: job.id },
+        now,
+        applyDecision
+      );
+      try {
+        const masterPath = victoryMediaMasterPath(job.clerk_user_id, job.id);
+        const cardPath = victoryMediaCardPath(job.clerk_user_id, job.id);
+        await removeObjects({
+          bucket: VICTORY_MEDIA_BUCKET,
+          paths: [masterPath, cardPath],
+        });
+      } catch {
+        /* finalizer already attempted cleanup */
+      }
+      return failResult(job.id, applied.kind, false);
+    }
+    const retryCode: InboundMediaC2RetryErrorCode =
+      finalized.code === "storage_upload_failed"
+        ? "c2_finalize_failed"
+        : finalized.code === "invalid_normalized_media"
+          ? "c2_metadata_failed"
+          : "c2_finalize_failed";
+    return retryC2(job, now, retryCode, applyDecision);
+  }
+
+  if (finalized.media.id !== job.id.toLowerCase()) {
+    if (semanticMode) {
+      return retryC2(job, now, "c2_stale_ownership", applyDecision);
+    }
+    const applied = await applyC1(
+      job,
+      {
+        kind: "error_retry",
+        jobId: job.id,
+        errorCode: "same_mms_media_id_mismatch",
+      },
+      now,
+      applyDecision
+    );
+    return failResult(job.id, applied.kind, false);
+  }
+
+  if (semanticMode && finalized.media.winId !== semanticTargetWinId) {
+    return retryC2(job, now, "c2_stale_ownership", applyDecision);
+  }
+
+  const deletionBeforeCas = await lookupDeletion(job.clerk_user_id, deletionCheck);
+  if (deletionBeforeCas !== "clear") {
+    return retryC2(job, now, "c2_stale_ownership", applyDecision);
+  }
+
+  const won = await casJobAttached({
+    job,
+    winId: finalized.media.winId,
+    now,
+    casJob,
+  });
+  if (!won) {
+    return retryC2(job, now, "c2_stale_ownership", applyDecision);
+  }
+
+  await maybeCleanupNorm({ job, removeObjects });
+  return okAttached(
+    job.id,
+    finalized.media.winId,
+    finalized.status === "existing" ? "existing" : "attached"
+  );
+}
+
+async function attachSemanticTargetC2(
+  job: InboundMediaJobRow,
+  ctx: {
+    now: Date;
+    deletionCheck: (id: string) => Promise<boolean>;
+    loadFacts: typeof loadInboundMmsCorrelationFacts;
+    finalizeFn: typeof finalizeVictoryWinMedia;
+    downloadObject: NonNullable<AttachInboundMmsC2Deps["downloadObject"]>;
+    removeObjects: NonNullable<AttachInboundMmsC2Deps["removeObjects"]>;
+    readJpegMetadata: NonNullable<AttachInboundMmsC2Deps["readJpegMetadata"]>;
+    applyDecision: typeof applyInboundMmsC1Decision;
+    confirmTerminal: typeof confirmInboundMmsTerminalKindImmediatelyBeforeCas;
+    casJob: typeof casAwaitingAttachJob;
+    loadTargetWin: NonNullable<AttachInboundMmsC2Deps["loadTargetWin"]>;
+    loadMediaForWin: NonNullable<AttachInboundMmsC2Deps["loadMediaForWin"]>;
+  }
+): Promise<InboundMmsC2Result> {
+  const targetWinId = semanticTargetWinIdOf(job);
+  if (!targetWinId) {
+    return retryC2(job, ctx.now, "c2_semantic_target_missing", ctx.applyDecision);
+  }
+
+  let facts: Awaited<ReturnType<typeof loadInboundMmsCorrelationFacts>>;
+  try {
+    facts = await ctx.loadFacts(job);
+  } catch {
+    return retryC2(job, ctx.now, "c2_finalize_failed", ctx.applyDecision);
+  }
+
+  if (isExactSameMmsCanonical(facts.provenanceMedia, job)) {
+    if (facts.provenanceMedia!.win_id !== targetWinId) {
+      return retryC2(job, ctx.now, "c2_stale_ownership", ctx.applyDecision);
+    }
+    return replayExistingCanonical({
+      job,
+      media: facts.provenanceMedia!,
+      now: ctx.now,
+      applyDecision: ctx.applyDecision,
+      casJob: ctx.casJob,
+      removeObjects: ctx.removeObjects,
+    });
+  }
+  if (isSameMmsProvenanceWrongId(facts.provenanceMedia, job)) {
+    return retryC2(job, ctx.now, "c2_stale_ownership", ctx.applyDecision);
+  }
+
+  const deletion = await lookupDeletion(job.clerk_user_id, ctx.deletionCheck);
+  if (deletion !== "clear") {
+    const applied = await applyC1(
+      job,
+      {
+        kind: "deletion_blocked",
+        jobId: job.id,
+        errorCode:
+          deletion === "unresolved"
+            ? "account_deletion_unresolved"
+            : "account_deletion_lookup_failed",
+      },
+      ctx.now,
+      ctx.applyDecision
+    );
+    if (applied.kind === "deletion_blocked") {
+      await maybeCleanupNorm({ job, removeObjects: ctx.removeObjects });
+    }
+    return failResult(job.id, applied.kind, applied.kind === "deletion_blocked");
+  }
+
+  if (isInboundMediaJobC1ExpiresAtMalformed(job)) {
+    return retryC2(job, ctx.now, "c2_stale_ownership", ctx.applyDecision);
+  }
+  if (isInboundMediaJobExpiresAtPast(job, ctx.now)) {
+    const applied = await applyC1(
+      job,
+      { kind: "expired", jobId: job.id },
+      ctx.now,
+      ctx.applyDecision
+    );
+    if (applied.kind === "expired") {
+      await maybeCleanupNorm({ job, removeObjects: ctx.removeObjects });
+    }
+    return failResult(job.id, applied.kind, applied.kind === "expired");
+  }
+
+  if (!isInboundMediaJobC1Ready(job, ctx.now)) {
+    return failResult(job.id, "not_c2_ready", false);
+  }
+
+  if (sameSidMediaJobCardinalityIsMulti(facts.siblings, job.id)) {
+    let decision: InboundMmsC1Decision = { kind: "ambiguous_media", jobId: job.id };
+    try {
+      decision = await ctx.confirmTerminal(job, decision);
+    } catch {
+      return retryC2(job, ctx.now, "c2_stale_ownership", ctx.applyDecision);
+    }
+    const applied = await applyC1(job, decision, ctx.now, ctx.applyDecision);
+    if (TERMINAL_KINDS.has(applied.kind)) {
+      await maybeCleanupNorm({ job, removeObjects: ctx.removeObjects });
+      return failResult(job.id, applied.kind, true);
+    }
+    return failResult(job.id, applied.kind, false);
+  }
+
+  const targetWin = await ctx.loadTargetWin(targetWinId);
+  if (!isSemanticTargetWinTechnicallyEligible(targetWin, job.clerk_user_id)) {
+    return retryC2(job, ctx.now, "c2_stale_ownership", ctx.applyDecision);
+  }
+
+  let occupying: InboundMmsC1MediaLite | null;
+  try {
+    occupying = await ctx.loadMediaForWin({
+      winId: targetWinId,
+      clerkUserId: job.clerk_user_id,
+    });
+  } catch {
+    return retryC2(job, ctx.now, "c2_finalize_failed", ctx.applyDecision);
+  }
+
+  if (occupying) {
+    let decision = classifyOccupancyMedia(occupying, job);
+    if (decision.kind === "same_mms_replay") {
+      if (occupying.win_id !== targetWinId) {
+        return retryC2(job, ctx.now, "c2_stale_ownership", ctx.applyDecision);
+      }
+      return replayExistingCanonical({
+        job,
+        media: occupying,
+        now: ctx.now,
+        applyDecision: ctx.applyDecision,
+        casJob: ctx.casJob,
+        removeObjects: ctx.removeObjects,
+      });
+    }
+    if (
+      decision.kind === "web_priority_blocked" ||
+      decision.kind === "other_mms_occupied"
+    ) {
+      try {
+        decision = await ctx.confirmTerminal(job, decision);
+      } catch {
+        return retryC2(job, ctx.now, "c2_stale_ownership", ctx.applyDecision);
+      }
+      const applied = await applyC1(job, decision, ctx.now, ctx.applyDecision);
+      if (TERMINAL_KINDS.has(applied.kind)) {
+        await maybeCleanupNorm({ job, removeObjects: ctx.removeObjects });
+        return failResult(job.id, applied.kind, true);
+      }
+      return failResult(job.id, applied.kind, false);
+    }
+    return retryC2(job, ctx.now, "c2_stale_ownership", ctx.applyDecision);
+  }
+
+  return runCanonicalAttach({
+    job,
+    winId: targetWinId,
+    now: ctx.now,
+    deletionCheck: ctx.deletionCheck,
+    loadFacts: ctx.loadFacts,
+    finalizeFn: ctx.finalizeFn,
+    downloadObject: ctx.downloadObject,
+    removeObjects: ctx.removeObjects,
+    readJpegMetadata: ctx.readJpegMetadata,
+    applyDecision: ctx.applyDecision,
+    confirmTerminal: ctx.confirmTerminal,
+    casJob: ctx.casJob,
+    semanticTargetWinId: targetWinId,
+    loadMediaForWin: ctx.loadMediaForWin,
+  });
+}
+
 export async function tryAttachInboundMmsC2Job(
   jobId: string,
   deps: AttachInboundMmsC2Deps = {}
@@ -537,6 +1118,8 @@ export async function evaluateAndAttachInboundMmsC2Job(
   const confirmTerminal =
     deps.confirmTerminal ?? confirmInboundMmsTerminalKindImmediatelyBeforeCas;
   const casJob = deps.casJob ?? casAwaitingAttachJob;
+  const loadTargetWin = deps.loadTargetWin ?? defaultLoadTargetWin;
+  const loadMediaForWin = deps.loadMediaForWin ?? defaultLoadMediaForWin;
 
   if (isInboundMediaJobTombstonedOrRemoved(job)) {
     return failResult(job.id, "tombstoned", true);
@@ -551,6 +1134,23 @@ export async function evaluateAndAttachInboundMmsC2Job(
 
   if (!awaitingShape) {
     return failResult(job.id, "not_c2_ready", false);
+  }
+
+  if (isInboundMediaJobSemanticTargetMode(job)) {
+    return attachSemanticTargetC2(job, {
+      now,
+      deletionCheck,
+      loadFacts,
+      finalizeFn,
+      downloadObject,
+      removeObjects,
+      readJpegMetadata,
+      applyDecision,
+      confirmTerminal,
+      casJob,
+      loadTargetWin,
+      loadMediaForWin,
+    });
   }
 
   let facts: Awaited<ReturnType<typeof loadInboundMmsCorrelationFacts>>;
@@ -674,226 +1274,20 @@ export async function evaluateAndAttachInboundMmsC2Job(
     return failResult(job.id, applied.kind, false);
   }
 
-  const winId = decision.winId;
-  let expectedMaster: string;
-  let expectedCard: string;
-  try {
-    expectedMaster = victoryMediaMmsNormMasterPath(job.clerk_user_id, job.id);
-    expectedCard = victoryMediaMmsNormCardPath(job.clerk_user_id, job.id);
-  } catch {
-    return retryC2(job, now, "c2_storage_read_failed", applyDecision);
-  }
-  if (job.normalized_storage_path!.trim() !== expectedMaster) {
-    return retryC2(job, now, "c2_storage_read_failed", applyDecision);
-  }
-
-  const deletionBeforeRead = await lookupDeletion(
-    job.clerk_user_id,
-    deletionCheck
-  );
-  if (deletionBeforeRead !== "clear") {
-    const applied = await applyC1(
-      job,
-      {
-        kind: "deletion_blocked",
-        jobId: job.id,
-        errorCode:
-          deletionBeforeRead === "unresolved"
-            ? "account_deletion_unresolved"
-            : "account_deletion_lookup_failed",
-      },
-      now,
-      applyDecision
-    );
-    if (applied.kind === "deletion_blocked") {
-      await maybeCleanupNorm({ job, removeObjects });
-    }
-    return failResult(job.id, applied.kind, applied.kind === "deletion_blocked");
-  }
-  if (isInboundMediaJobExpiresAtPast(job, now)) {
-    const applied = await applyC1(
-      job,
-      { kind: "expired", jobId: job.id },
-      now,
-      applyDecision
-    );
-    if (applied.kind === "expired") {
-      await maybeCleanupNorm({ job, removeObjects });
-    }
-    return failResult(job.id, applied.kind, applied.kind === "expired");
-  }
-
-  let masterBytes: Buffer;
-  let cardBytes: Buffer;
-  try {
-    masterBytes = await downloadObject({
-      bucket: VICTORY_MEDIA_BUCKET,
-      path: expectedMaster,
-    });
-  } catch {
-    return retryC2(job, now, "c2_storage_read_failed", applyDecision);
-  }
-  try {
-    cardBytes = await downloadObject({
-      bucket: VICTORY_MEDIA_BUCKET,
-      path: expectedCard,
-    });
-  } catch {
-    return retryC2(job, now, "c2_storage_read_failed", applyDecision);
-  }
-
-  const masterMeta = await readJpegMetadata(masterBytes);
-  const cardMeta = await readJpegMetadata(cardBytes);
-  if (!masterMeta || !cardMeta) {
-    return retryC2(job, now, "c2_metadata_failed", applyDecision);
-  }
-
-  const deletionBeforePersist = await lookupDeletion(
-    job.clerk_user_id,
-    deletionCheck
-  );
-  if (deletionBeforePersist !== "clear") {
-    const applied = await applyC1(
-      job,
-      {
-        kind: "deletion_blocked",
-        jobId: job.id,
-        errorCode:
-          deletionBeforePersist === "unresolved"
-            ? "account_deletion_unresolved"
-            : "account_deletion_lookup_failed",
-      },
-      now,
-      applyDecision
-    );
-    if (applied.kind === "deletion_blocked") {
-      await maybeCleanupNorm({ job, removeObjects });
-    }
-    return failResult(job.id, applied.kind, applied.kind === "deletion_blocked");
-  }
-  if (isInboundMediaJobExpiresAtPast(job, now)) {
-    const applied = await applyC1(
-      job,
-      { kind: "expired", jobId: job.id },
-      now,
-      applyDecision
-    );
-    if (applied.kind === "expired") {
-      await maybeCleanupNorm({ job, removeObjects });
-    }
-    return failResult(job.id, applied.kind, applied.kind === "expired");
-  }
-
-  let finalized: FinalizeVictoryWinMediaResult;
-  try {
-    finalized = await finalizeFn({
-      mediaId: job.id,
-      winId,
-      clerkUserId: job.clerk_user_id,
-      bucket: VICTORY_MEDIA_BUCKET,
-      master: {
-        bytes: masterBytes,
-        width: masterMeta.width,
-        height: masterMeta.height,
-        byteSize: masterBytes.length,
-      },
-      card: {
-        bytes: cardBytes,
-        width: cardMeta.width,
-        height: cardMeta.height,
-        byteSize: cardBytes.length,
-      },
-      sourceType: "inbound_mms",
-      sourceMessageSid: job.message_sid,
-      sourceMediaOrdinal: job.media_ordinal,
-      twilioMediaSid: job.twilio_media_sid,
-      userSelected: false,
-    });
-  } catch {
-    return retryC2(job, now, "c2_finalize_failed", applyDecision);
-  }
-
-  if (!finalized.ok) {
-    if (
-      finalized.code === "media_exists" ||
-      finalized.code === "mms_provenance_conflict"
-    ) {
-      return resolveAfterFinalizeConflict({
-        job,
-        winId,
-        now,
-        loadFacts,
-        applyDecision,
-        confirmTerminal,
-        casJob,
-        removeObjects,
-      });
-    }
-    if (finalized.code === "win_not_attachable" || finalized.code === "win_not_found") {
-      const applied = await applyC1(
-        job,
-        { kind: "waiting_for_win", jobId: job.id },
-        now,
-        applyDecision
-      );
-      try {
-        const masterPath = victoryMediaMasterPath(job.clerk_user_id, job.id);
-        const cardPath = victoryMediaCardPath(job.clerk_user_id, job.id);
-        await removeObjects({
-          bucket: VICTORY_MEDIA_BUCKET,
-          paths: [masterPath, cardPath],
-        });
-      } catch {
-        /* finalizer already attempted cleanup */
-      }
-      return failResult(job.id, applied.kind, false);
-    }
-    const retryCode: InboundMediaC2RetryErrorCode =
-      finalized.code === "storage_upload_failed"
-        ? "c2_finalize_failed"
-        : finalized.code === "invalid_normalized_media"
-          ? "c2_metadata_failed"
-          : "c2_finalize_failed";
-    return retryC2(job, now, retryCode, applyDecision);
-  }
-
-  if (finalized.media.id !== job.id.toLowerCase()) {
-    const applied = await applyC1(
-      job,
-      {
-        kind: "error_retry",
-        jobId: job.id,
-        errorCode: "same_mms_media_id_mismatch",
-      },
-      now,
-      applyDecision
-    );
-    return failResult(job.id, applied.kind, false);
-  }
-
-  const deletionBeforeCas = await lookupDeletion(
-    job.clerk_user_id,
-    deletionCheck
-  );
-  if (deletionBeforeCas !== "clear") {
-    // Canonical row is durable. Do not destroy it. Re-arm for replay CAS.
-    return retryC2(job, now, "c2_stale_ownership", applyDecision);
-  }
-
-  const won = await casJobAttached({
+  return runCanonicalAttach({
     job,
-    winId: finalized.media.winId,
+    winId: decision.winId,
     now,
+    deletionCheck,
+    loadFacts,
+    finalizeFn,
+    downloadObject,
+    removeObjects,
+    readJpegMetadata,
+    applyDecision,
+    confirmTerminal,
     casJob,
+    semanticTargetWinId: null,
+    loadMediaForWin,
   });
-  if (!won) {
-    return retryC2(job, now, "c2_stale_ownership", applyDecision);
-  }
-
-  await maybeCleanupNorm({ job, removeObjects });
-  return okAttached(
-    job.id,
-    finalized.media.winId,
-    finalized.status === "existing" ? "existing" : "attached"
-  );
 }

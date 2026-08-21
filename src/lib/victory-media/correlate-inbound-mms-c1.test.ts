@@ -305,6 +305,7 @@ function c1Job(partial: Partial<InboundMediaJobRow> = {}): InboundMediaJobRow {
     temp_storage_path: null,
     normalized_storage_path: NORM,
     attached_win_id: null,
+    semantic_target_win_id: null,
     resolution: null,
     classifier_target: null,
     followup_idempotency_key: null,
@@ -1463,6 +1464,39 @@ describe("opportunistic C1 list", () => {
     jobs.set(JOB_ID, {
       ...c1Job({
         last_error_code: "c2_finalize_failed",
+        next_retry_at: "2026-08-20T11:00:00.000Z",
+      }),
+    });
+    const listed = await listInboundMediaJobsForC1(1, { now: NOW });
+    expect(listed).toEqual([]);
+  });
+
+  it("semantic_target last_error_code is excluded from opportunistic C1 list", async () => {
+    jobs.set(JOB_ID, {
+      ...c1Job({
+        last_error_code: "semantic_target",
+        semantic_target_win_id: WIN_A,
+        next_retry_at: "2026-08-20T11:00:00.000Z",
+      }),
+    });
+    const waitingId = "99999999-9999-4999-8999-999999999999";
+    jobs.set(waitingId, {
+      ...c1Job({
+        id: waitingId,
+        last_error_code: "waiting_for_win",
+        next_retry_at: "2026-08-20T11:30:00.000Z",
+      }),
+    });
+    const listed = await listInboundMediaJobsForC1(1, { now: NOW });
+    expect(listed).toEqual([waitingId]);
+    expect(listed).not.toContain(JOB_ID);
+  });
+
+  it("semantic-specific C2 retry codes are excluded from opportunistic C1 list", async () => {
+    jobs.set(JOB_ID, {
+      ...c1Job({
+        last_error_code: "c2_semantic_target_missing",
+        semantic_target_win_id: null,
         next_retry_at: "2026-08-20T11:00:00.000Z",
       }),
     });

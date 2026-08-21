@@ -53,6 +53,8 @@ export type InboundMediaJobRow = {
   temp_storage_path: string | null;
   normalized_storage_path: string | null;
   attached_win_id: string | null;
+  /** Semantic intended Win. Distinct from attached_win_id (canonical success). */
+  semantic_target_win_id: string | null;
   resolution: string | null;
   classifier_target: string | null;
   followup_idempotency_key: string | null;
@@ -335,6 +337,8 @@ function mapJobRow(raw: Record<string, unknown>): InboundMediaJobRow {
     normalized_storage_path:
       typeof raw.normalized_storage_path === "string" ? raw.normalized_storage_path : null,
     attached_win_id: typeof raw.attached_win_id === "string" ? raw.attached_win_id : null,
+    semantic_target_win_id:
+      typeof raw.semantic_target_win_id === "string" ? raw.semantic_target_win_id : null,
     resolution: typeof raw.resolution === "string" ? raw.resolution : null,
     classifier_target:
       typeof raw.classifier_target === "string" ? raw.classifier_target : null,

@@ -34,6 +34,24 @@ import {
 
 export const INBOUND_MEDIA_C1_WAIT_RETRY_MS = 60_000;
 export const INBOUND_MEDIA_PIPELINE_C1_LIMIT = 1;
+/**
+ * Semantic-target C2 retry codes. Durable lineage after D claim.
+ * Survives FK ON DELETE SET NULL of semantic_target_win_id.
+ */
+export const INBOUND_MEDIA_C2_SEMANTIC_RETRY_ERROR_CODES = [
+  "c2_semantic_storage_read_failed",
+  "c2_semantic_metadata_failed",
+  "c2_semantic_finalize_failed",
+  "c2_semantic_stale_ownership",
+  "c2_semantic_target_missing",
+] as const;
+
+/** last_error_code values that mark D semantic-target ownership. */
+export const INBOUND_MEDIA_SEMANTIC_TARGET_LINEAGE_ERROR_CODES = [
+  "semantic_target",
+  ...INBOUND_MEDIA_C2_SEMANTIC_RETRY_ERROR_CODES,
+] as const;
+
 /** C2-owned last_error_code values. C1 due-list excludes these; NULL remains eligible. */
 export const INBOUND_MEDIA_C2_OWNED_LAST_ERROR_CODES = [
   "attach_eligible",
@@ -41,7 +59,23 @@ export const INBOUND_MEDIA_C2_OWNED_LAST_ERROR_CODES = [
   "c2_metadata_failed",
   "c2_finalize_failed",
   "c2_stale_ownership",
+  ...INBOUND_MEDIA_SEMANTIC_TARGET_LINEAGE_ERROR_CODES,
 ] as const;
+
+export function isInboundMediaSemanticTargetLineageErrorCode(
+  lastErrorCode: string | null
+): boolean {
+  return (
+    typeof lastErrorCode === "string" &&
+    (INBOUND_MEDIA_SEMANTIC_TARGET_LINEAGE_ERROR_CODES as readonly string[]).includes(
+      lastErrorCode
+    )
+  );
+}
+
+export type InboundMediaC2SemanticRetryErrorCode =
+  (typeof INBOUND_MEDIA_C2_SEMANTIC_RETRY_ERROR_CODES)[number];
+
 /** Cardinality probe: 1 vs 2+. A2 allows up to 10; we never need more than 2. */
 export const INBOUND_MEDIA_C1_SID_CARDINALITY_LIMIT = 2;
 /** Persist/B2 SID trigger evaluates at most one job. */
@@ -1151,7 +1185,7 @@ export async function listInboundMediaJobsForC1(
     .not("next_retry_at", "is", null)
     .lte("next_retry_at", nowIso)
     .or(
-      "last_error_code.is.null,last_error_code.not.in.(attach_eligible,c2_storage_read_failed,c2_metadata_failed,c2_finalize_failed,c2_stale_ownership)"
+      `last_error_code.is.null,last_error_code.not.in.(${INBOUND_MEDIA_C2_OWNED_LAST_ERROR_CODES.join(",")})`
     )
     .order("next_retry_at", { ascending: true })
     .limit(n);

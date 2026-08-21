@@ -73,19 +73,26 @@ describe("twilio inbound — MMS C2 wire", () => {
     const list = c1.slice(c1.indexOf("export async function listInboundMediaJobsForC1"));
     expect(list).toContain(".or(");
     expect(list).toContain("last_error_code.is.null");
-    expect(list).toContain(
-      "last_error_code.not.in.(attach_eligible,c2_storage_read_failed,c2_metadata_failed,c2_finalize_failed,c2_stale_ownership)"
-    );
+    expect(list).toContain("INBOUND_MEDIA_C2_OWNED_LAST_ERROR_CODES.join");
+    expect(c1).toContain("c2_semantic_target_missing");
+    expect(c1).toContain("c2_semantic_stale_ownership");
+    expect(c1).toContain("c2_semantic_storage_read_failed");
+    expect(c1).toContain("c2_semantic_metadata_failed");
+    expect(c1).toContain("c2_semantic_finalize_failed");
     expect(list).not.toContain("fetchN");
     expect(list).not.toContain("Math.min(25");
   });
 
-  it("C2 due list SQL-filters attach_eligible/c2_* and does not over-fetch", () => {
+  it("C2 due list SQL-filters attach_eligible/c2_*/semantic_target and does not over-fetch", () => {
     const list = c2.slice(c2.indexOf("export async function listInboundMediaJobsForC2"));
     expect(list).toContain('.in("last_error_code"');
     expect(list).toContain("attach_eligible");
     expect(list).toContain("c2_storage_read_failed");
     expect(list).toContain("c2_stale_ownership");
+    expect(list).toContain("INBOUND_MEDIA_C2_OWNED_LAST_ERROR_CODES");
+    expect(c1).toContain('"semantic_target"');
+    expect(c2).toContain("c2_semantic_target_missing");
+    expect(c2).toContain("isInboundMediaJobSemanticTargetOwned");
     expect(list).not.toContain("Math.min(25, n * 10)");
   });
 
@@ -95,6 +102,7 @@ describe("twilio inbound — MMS C2 wire", () => {
     expect(c2).not.toContain("buildTwimlResponse");
     expect(c2).not.toContain("persistRecognizedWins");
     expect(c2).not.toContain('.eq("status", "pending_semantics")');
+    expect(c2).not.toContain("claimInboundMediaJobSemanticTarget");
     expect(c2).not.toContain("inboundJobId");
   });
 
@@ -109,5 +117,17 @@ describe("twilio inbound — MMS C2 wire", () => {
     expect(enrich).toContain("PUBLIC_WIN_MEDIA_SELECT_COLUMNS");
     expect(enrich).not.toContain("source_type");
     expect(enrich).not.toContain("inbound_mms");
+  });
+
+  it("D0 claim helper is not wired into production pipeline/Twilio/B2/C1/cron", () => {
+    const claim = "claimInboundMediaJobSemanticTarget";
+    expect(pipe).not.toContain(claim);
+    expect(b2).not.toContain(claim);
+    expect(c1).not.toContain(claim);
+    expect(twilio).not.toContain(claim);
+    expect(cron).not.toContain(claim);
+    expect(c2).not.toContain(claim);
+    expect(b2).toContain("pending_semantics");
+    expect(pipe).not.toContain("pending_semantics");
   });
 });
