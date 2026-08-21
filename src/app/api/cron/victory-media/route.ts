@@ -25,6 +25,9 @@ export async function GET(req: Request) {
       b2Succeeded: result.b2Succeeded,
       normalized: result.normalized,
       c1Attempted: result.c1Attempted,
+      c2Attempted: result.c2Attempted,
+      c2Succeeded: result.c2Succeeded,
+      attached: result.attached,
     };
     console.info("[victory-media/cron] kick done", summary);
     return NextResponse.json({ ok: true, ...summary });

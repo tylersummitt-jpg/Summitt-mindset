@@ -20,8 +20,8 @@ const MEDIA2 = "550e8400-e29b-41d4-a716-446655440021";
 const JOB = "550e8400-e29b-41d4-a716-446655440030";
 const BUCKET = "victory-media";
 
-function jpegish(n = 32): Buffer {
-  const buf = Buffer.alloc(n, 1);
+function jpegish(n = 32, fill = 1): Buffer {
+  const buf = Buffer.alloc(n, fill);
   buf[0] = 0xff;
   buf[1] = 0xd8;
   buf[2] = 0xff;
@@ -83,7 +83,12 @@ function mediaRow(overrides: Partial<VictoryWinMediaRow> = {}): VictoryWinMediaR
 }
 
 function mockDb(args?: {
-  win?: { id: string; clerk_user_id: string; status: string } | null;
+  win?: {
+    id: string;
+    clerk_user_id: string;
+    status: string;
+    hidden_at?: string | null;
+  } | null;
   byId?: VictoryWinMediaRow | null;
   byWin?: VictoryWinMediaRow | null;
   insert?: VictoryMediaFinalizeDb["insertMedia"];
@@ -91,8 +96,13 @@ function mockDb(args?: {
   return {
     getWin: vi.fn(async () =>
       args && "win" in args
-        ? args.win!
-        : { id: WIN, clerk_user_id: USER, status: "active" }
+        ? args.win == null
+          ? null
+          : {
+              hidden_at: null,
+              ...args.win,
+            }
+        : { id: WIN, clerk_user_id: USER, status: "active", hidden_at: null }
     ),
     getMediaById: vi.fn(async () => args?.byId ?? null),
     getMediaByWinId: vi.fn(async () => args?.byWin ?? null),
@@ -173,6 +183,251 @@ describe("finalizeVictoryWinMedia", () => {
       objects: mockObjects(),
     });
     expect(result).toEqual({ ok: false, code: "win_not_attachable" });
+  });
+
+  it("active status with hidden_at set → not attachable before Storage", async () => {
+    const db = mockDb({
+      win: {
+        id: WIN,
+        clerk_user_id: USER,
+        status: "active",
+        hidden_at: "2026-08-20T12:00:00.000Z",
+      },
+    });
+    const objects = mockObjects();
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result).toEqual({ ok: false, code: "win_not_attachable" });
+    expect(objects.upload).not.toHaveBeenCalled();
+    expect(db.insertMedia).not.toHaveBeenCalled();
+  });
+
+  it("Win hidden after Storage and before insert → cleanup, no insert", async () => {
+    let reads = 0;
+    const db = mockDb();
+    vi.mocked(db.getWin).mockImplementation(async () => {
+      reads += 1;
+      if (reads === 1) {
+        return { id: WIN, clerk_user_id: USER, status: "active", hidden_at: null };
+      }
+      return {
+        id: WIN,
+        clerk_user_id: USER,
+        status: "hidden",
+        hidden_at: "2026-08-20T12:01:00.000Z",
+      };
+    });
+    const objects = mockObjects();
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("win_not_attachable");
+    expect(db.insertMedia).not.toHaveBeenCalled();
+    expect(objects.upload).toHaveBeenCalledTimes(2);
+    expect(objects.remove).toHaveBeenCalledWith({
+      bucket: BUCKET,
+      paths: [
+        victoryMediaMasterPath(USER, MEDIA),
+        victoryMediaCardPath(USER, MEDIA),
+      ],
+    });
+  });
+
+  it("upsert:false master already exists without DB row → repair, then insert", async () => {
+    const db = mockDb();
+    const objects = mockObjects({
+      failOnPath: victoryMediaMasterPath(USER, MEDIA),
+    });
+    objects.exists = vi.fn(async ({ path }) => path === victoryMediaMasterPath(USER, MEDIA));
+    objects.download = vi.fn(async () => jpegish(40));
+
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("attached");
+    expect(db.insertMedia).toHaveBeenCalledOnce();
+    expect(objects.remove).not.toHaveBeenCalled();
+  });
+
+  it("upsert:false card already exists without DB row → repair, then insert", async () => {
+    const db = mockDb();
+    const objects = mockObjects({
+      failOnPath: victoryMediaCardPath(USER, MEDIA),
+    });
+    objects.exists = vi.fn(async ({ path }) => path === victoryMediaCardPath(USER, MEDIA));
+    objects.download = vi.fn(async () => jpegish(20));
+
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("attached");
+    expect(db.insertMedia).toHaveBeenCalledOnce();
+    expect(objects.remove).not.toHaveBeenCalled();
+  });
+
+  it("identical leftover master and card both exist → repair both, then insert", async () => {
+    const db = mockDb();
+    const objects = mockObjects();
+    objects.upload = vi.fn(async () => {
+      throw new Error("storage_upload_failed");
+    });
+    objects.exists = vi.fn(async () => true);
+    objects.download = vi.fn(async ({ path }) => {
+      if (path === victoryMediaMasterPath(USER, MEDIA)) return jpegish(40);
+      return jpegish(20);
+    });
+
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("attached");
+    expect(db.insertMedia).toHaveBeenCalledOnce();
+    expect(objects.remove).not.toHaveBeenCalled();
+  });
+
+  it("different valid JPEG at master path → fail closed, no insert, no overwrite", async () => {
+    const db = mockDb();
+    const objects = mockObjects({
+      failOnPath: victoryMediaMasterPath(USER, MEDIA),
+    });
+    objects.exists = vi.fn(async () => true);
+    objects.download = vi.fn(async () => jpegish(40, 9));
+
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result).toEqual({ ok: false, code: "storage_upload_failed" });
+    expect(db.insertMedia).not.toHaveBeenCalled();
+    expect(db.markInboundJobAttached).not.toHaveBeenCalled();
+    expect(objects.upload).toHaveBeenCalledTimes(1);
+    expect(objects.remove).not.toHaveBeenCalled();
+  });
+
+  it("different valid JPEG at card path → fail closed, no insert, does not delete pre-existing card", async () => {
+    const db = mockDb();
+    const objects = mockObjects({
+      failOnPath: victoryMediaCardPath(USER, MEDIA),
+    });
+    objects.exists = vi.fn(async ({ path }) => path === victoryMediaCardPath(USER, MEDIA));
+    objects.download = vi.fn(async () => jpegish(20, 9));
+
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("storage_upload_failed");
+    expect(db.insertMedia).not.toHaveBeenCalled();
+    expect(db.markInboundJobAttached).not.toHaveBeenCalled();
+    expect(objects.remove).toHaveBeenCalledWith({
+      bucket: BUCKET,
+      paths: [victoryMediaMasterPath(USER, MEDIA)],
+    });
+    expect(objects.remove).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        paths: expect.arrayContaining([victoryMediaCardPath(USER, MEDIA)]),
+      })
+    );
+  });
+
+  it("wrong leftover master + leftover card → no insert, does not delete either object", async () => {
+    const db = mockDb();
+    const objects = mockObjects();
+    objects.upload = vi.fn(async () => {
+      throw new Error("storage_upload_failed");
+    });
+    objects.exists = vi.fn(async () => true);
+    objects.download = vi.fn(async ({ path }) => {
+      if (path === victoryMediaMasterPath(USER, MEDIA)) return jpegish(40, 9);
+      return jpegish(20, 9);
+    });
+
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result).toEqual({ ok: false, code: "storage_upload_failed" });
+    expect(db.insertMedia).not.toHaveBeenCalled();
+    expect(objects.remove).not.toHaveBeenCalled();
+  });
+
+  it("correct leftover master + different leftover card → no insert, does not delete pre-existing objects", async () => {
+    const db = mockDb();
+    const objects = mockObjects();
+    objects.upload = vi.fn(async () => {
+      throw new Error("storage_upload_failed");
+    });
+    objects.exists = vi.fn(async () => true);
+    objects.download = vi.fn(async ({ path }) => {
+      if (path === victoryMediaMasterPath(USER, MEDIA)) return jpegish(40);
+      return jpegish(20, 9);
+    });
+
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("storage_upload_failed");
+    expect(db.insertMedia).not.toHaveBeenCalled();
+    const removedPaths = vi
+      .mocked(objects.remove)
+      .mock.calls.flatMap((c) => c[0]?.paths ?? []);
+    expect(removedPaths).not.toContain(victoryMediaMasterPath(USER, MEDIA));
+    expect(removedPaths).not.toContain(victoryMediaCardPath(USER, MEDIA));
+  });
+
+  it("inbound_mms different valid JPEG at master is also fail-closed", async () => {
+    const db = mockDb();
+    const objects = mockObjects({
+      failOnPath: victoryMediaMasterPath(USER, MEDIA),
+    });
+    objects.exists = vi.fn(async () => true);
+    objects.download = vi.fn(async () => jpegish(40, 7));
+
+    const result = await finalizeVictoryWinMedia(
+      baseInput({
+        sourceType: "inbound_mms",
+        sourceMessageSid: "SMabc",
+        sourceMediaOrdinal: 0,
+        userSelected: false,
+        inboundJobId: JOB,
+      }),
+      { db, objects }
+    );
+    expect(result).toEqual({ ok: false, code: "storage_upload_failed" });
+    expect(db.insertMedia).not.toHaveBeenCalled();
+    expect(db.markInboundJobAttached).not.toHaveBeenCalled();
+  });
+
+  it("exists but download fails → fail closed", async () => {
+    const db = mockDb();
+    const objects = mockObjects({
+      failOnPath: victoryMediaMasterPath(USER, MEDIA),
+    });
+    objects.exists = vi.fn(async () => true);
+    objects.download = vi.fn(async () => {
+      throw new Error("storage_download_failed");
+    });
+
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result).toEqual({ ok: false, code: "storage_upload_failed" });
+    expect(db.insertMedia).not.toHaveBeenCalled();
+    expect(objects.remove).not.toHaveBeenCalled();
+  });
+
+  it("exists without download capability → fail closed", async () => {
+    const db = mockDb();
+    const objects = mockObjects({
+      failOnPath: victoryMediaMasterPath(USER, MEDIA),
+    });
+    objects.exists = vi.fn(async () => true);
+
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result).toEqual({ ok: false, code: "storage_upload_failed" });
+    expect(db.insertMedia).not.toHaveBeenCalled();
+  });
+
+  it("storage failure without existing object is not repaired into success", async () => {
+    const db = mockDb();
+    const objects = mockObjects({
+      failOnPath: victoryMediaMasterPath(USER, MEDIA),
+    });
+    objects.exists = vi.fn(async () => false);
+
+    const result = await finalizeVictoryWinMedia(baseInput(), { db, objects });
+    expect(result).toEqual({ ok: false, code: "storage_upload_failed" });
+    expect(db.insertMedia).not.toHaveBeenCalled();
   });
 
   it("existing media → one-photo conflict", async () => {

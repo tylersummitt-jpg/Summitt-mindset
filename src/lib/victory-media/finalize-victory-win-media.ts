@@ -86,12 +86,30 @@ export type FinalizeVictoryWinMediaResult =
       cleanupError?: boolean;
     };
 
+function hasNonEmptyText(value: string | null | undefined): boolean {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+export type VictoryWinAttachableRow = {
+  id: string;
+  clerk_user_id: string;
+  status: string;
+  hidden_at: string | null;
+};
+
+export function isVictoryWinNewlyAttachable(
+  win: VictoryWinAttachableRow,
+  clerkUserId: string
+): boolean {
+  return (
+    win.clerk_user_id === clerkUserId &&
+    win.status === "active" &&
+    !hasNonEmptyText(win.hidden_at)
+  );
+}
+
 export type VictoryMediaFinalizeDb = {
-  getWin(winId: string): Promise<{
-    id: string;
-    clerk_user_id: string;
-    status: string;
-  } | null>;
+  getWin(winId: string): Promise<VictoryWinAttachableRow | null>;
   getMediaById(mediaId: string): Promise<VictoryWinMediaRow | null>;
   getMediaByWinId(winId: string): Promise<VictoryWinMediaRow | null>;
   insertMedia(
@@ -121,6 +139,13 @@ export type VictoryMediaObjectStore = {
     bucket: string;
     paths: string[];
   }): Promise<{ ok: boolean }>;
+  /**
+   * Optional. Used only to repair upsert:false conflict on the exact
+   * caller-derived canonical path when no durable DB row exists.
+   * Repair requires both exists and download; missing either fails closed.
+   */
+  exists?(args: { bucket: string; path: string }): Promise<boolean>;
+  download?(args: { bucket: string; path: string }): Promise<Buffer>;
 };
 
 export type FinalizeVictoryWinMediaDeps = {
@@ -233,7 +258,7 @@ function createDefaultDb(): VictoryMediaFinalizeDb {
       const { supabaseServer } = await import("@/lib/supabase-server");
       const { data, error } = await supabaseServer
         .from("v2_win")
-        .select("id, clerk_user_id, status")
+        .select("id, clerk_user_id, status, hidden_at")
         .eq("id", winId)
         .maybeSingle();
       if (error || !data?.id) return null;
@@ -241,6 +266,10 @@ function createDefaultDb(): VictoryMediaFinalizeDb {
         id: String(data.id),
         clerk_user_id: String(data.clerk_user_id),
         status: String(data.status),
+        hidden_at:
+          typeof (data as { hidden_at?: unknown }).hidden_at === "string"
+            ? (data as { hidden_at: string }).hidden_at
+            : null,
       };
     },
     async getMediaById(mediaId) {
@@ -324,6 +353,31 @@ function createDefaultObjectStore(): VictoryMediaObjectStore {
       const { error } = await supabaseServer.storage.from(bucket).remove(paths);
       return { ok: !error };
     },
+    async exists({ bucket, path }) {
+      const { supabaseServer } = await import("@/lib/supabase-server");
+      const { data, error } = await supabaseServer.storage
+        .from(bucket)
+        .exists(path);
+      if (error) return false;
+      return data === true;
+    },
+    async download({ bucket, path }) {
+      const { supabaseServer } = await import("@/lib/supabase-server");
+      const { data, error } = await supabaseServer.storage
+        .from(bucket)
+        .download(path);
+      if (error || !data) {
+        throw new Error("storage_download_failed");
+      }
+      if (Buffer.isBuffer(data)) return data;
+      if (data instanceof Uint8Array) return Buffer.from(data);
+      if (typeof (data as { arrayBuffer?: () => Promise<ArrayBuffer> }).arrayBuffer === "function") {
+        return Buffer.from(
+          await (data as Blob).arrayBuffer()
+        );
+      }
+      throw new Error("storage_download_failed");
+    },
   };
 }
 
@@ -382,6 +436,36 @@ async function resolveAfterPossibleStorageRace(args: {
   }
 
   return null;
+}
+
+/**
+ * Repair upsert:false conflict only for the exact caller-derived path.
+ * Reuse is allowed only when existing bytes are identical to the caller buffer.
+ * Never overwrites. Never treats a missing/undownloadable object as success.
+ */
+async function acceptExistingCanonicalObject(args: {
+  objects: VictoryMediaObjectStore;
+  bucket: string;
+  path: string;
+  expected: Buffer;
+}): Promise<boolean> {
+  if (!args.objects.exists || !args.objects.download) return false;
+  if (!Buffer.isBuffer(args.expected) || args.expected.length === 0) return false;
+  const present = await args.objects.exists({
+    bucket: args.bucket,
+    path: args.path,
+  });
+  if (!present) return false;
+  try {
+    const bytes = await args.objects.download({
+      bucket: args.bucket,
+      path: args.path,
+    });
+    if (!Buffer.isBuffer(bytes) || bytes.length === 0) return false;
+    return bytes.equals(args.expected);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -456,7 +540,9 @@ export async function finalizeVictoryWinMedia(
   const win = await db.getWin(winIdNorm);
   if (!win) return fail("win_not_found");
   if (win.clerk_user_id !== clerkUserId) return fail("win_forbidden");
-  if (win.status !== "active") return fail("win_not_attachable");
+  if (!isVictoryWinNewlyAttachable(win, clerkUserId)) {
+    return fail("win_not_attachable");
+  }
 
   const existingById = await db.getMediaById(mediaIdNorm);
   if (existingById) {
@@ -501,8 +587,8 @@ export async function finalizeVictoryWinMedia(
     });
     uploaded.push(masterPath);
   } catch {
-    // upsert:false conflict may mean a concurrent same-mediaId request won.
-    // Immediate DB re-read only — no sleep / no overwrite.
+    // upsert:false conflict may mean a concurrent same-mediaId request won
+    // or a prior crash left the exact canonical object without a DB row.
     const raced = await resolveAfterPossibleStorageRace({
       db,
       mediaId: mediaIdNorm,
@@ -512,7 +598,15 @@ export async function finalizeVictoryWinMedia(
       cardPath,
     });
     if (raced) return raced;
-    return fail("storage_upload_failed");
+    const repaired = await acceptExistingCanonicalObject({
+      objects,
+      bucket,
+      path: masterPath,
+      expected: input.master.bytes,
+    });
+    // Pre-existing object was not created by this invocation — do not bookkeep
+    // it for later cleanup. Fail closed leaves unknown objects untouched.
+    if (!repaired) return fail("storage_upload_failed");
   }
 
   try {
@@ -534,8 +628,31 @@ export async function finalizeVictoryWinMedia(
     });
     // Never clean paths if another request already made them durable.
     if (raced) return raced;
+    const repaired = await acceptExistingCanonicalObject({
+      objects,
+      bucket,
+      path: cardPath,
+      expected: input.card.bytes,
+    });
+    if (!repaired) {
+      const cleanup = await objects.remove({ bucket, paths: uploaded });
+      return fail("storage_upload_failed", !cleanup.ok);
+    }
+    // Identical leftover card is not this invocation's upload.
+  }
+
+  const winAgain = await db.getWin(winIdNorm);
+  if (
+    !winAgain ||
+    winAgain.id.toLowerCase() !== winIdNorm ||
+    !isVictoryWinNewlyAttachable(winAgain, clerkUserId)
+  ) {
     const cleanup = await objects.remove({ bucket, paths: uploaded });
-    return fail("storage_upload_failed", !cleanup.ok);
+    if (!winAgain) return fail("win_not_found", !cleanup.ok);
+    if (winAgain.clerk_user_id !== clerkUserId) {
+      return fail("win_forbidden", !cleanup.ok);
+    }
+    return fail("win_not_attachable", !cleanup.ok);
   }
 
   const userSelectedAt =

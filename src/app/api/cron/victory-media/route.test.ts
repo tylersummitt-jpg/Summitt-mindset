@@ -22,6 +22,9 @@ const ZERO_RESULT = {
   b2Succeeded: 0,
   normalized: 0,
   c1Attempted: 0,
+  c2Attempted: 0,
+  c2Succeeded: 0,
+  attached: 0,
 };
 
 const WORK_RESULT = {
@@ -31,6 +34,9 @@ const WORK_RESULT = {
   b2Succeeded: 1,
   normalized: 1,
   c1Attempted: 0,
+  c2Attempted: 1,
+  c2Succeeded: 1,
+  attached: 1,
 };
 
 function cronRequest(): Request {
@@ -79,6 +85,9 @@ describe("GET /api/cron/victory-media", () => {
         "b2Attempted",
         "b2Succeeded",
         "c1Attempted",
+        "c2Attempted",
+        "c2Succeeded",
+        "attached",
         "normalized",
         "ok",
         "wake_source",
@@ -142,6 +151,7 @@ describe("victory-media cron wire", () => {
     expect(routeSrc).not.toContain("processInboundMediaJobB1");
     expect(routeSrc).not.toContain("processInboundMediaJobB2");
     expect(routeSrc).not.toContain("tryCorrelateInboundMmsC1Job");
+    expect(routeSrc).not.toContain("tryAttachInboundMmsC2Job");
     expect(routeSrc).not.toMatch(/\bwhile\s*\(/);
     expect(routeSrc).not.toContain("maxDuration");
   });

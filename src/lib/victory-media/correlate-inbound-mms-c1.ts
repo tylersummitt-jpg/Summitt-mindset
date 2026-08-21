@@ -34,6 +34,14 @@ import {
 
 export const INBOUND_MEDIA_C1_WAIT_RETRY_MS = 60_000;
 export const INBOUND_MEDIA_PIPELINE_C1_LIMIT = 1;
+/** C2-owned last_error_code values. C1 due-list excludes these; NULL remains eligible. */
+export const INBOUND_MEDIA_C2_OWNED_LAST_ERROR_CODES = [
+  "attach_eligible",
+  "c2_storage_read_failed",
+  "c2_metadata_failed",
+  "c2_finalize_failed",
+  "c2_stale_ownership",
+] as const;
 /** Cardinality probe: 1 vs 2+. A2 allows up to 10; we never need more than 2. */
 export const INBOUND_MEDIA_C1_SID_CARDINALITY_LIMIT = 2;
 /** Persist/B2 SID trigger evaluates at most one job. */
@@ -408,7 +416,7 @@ export function evaluateAwaitingInboundMmsAttachment(args: {
   });
 }
 
-type AwaitingAttachSnapshot = {
+export type AwaitingAttachSnapshot = {
   id: string;
   clerk_user_id: string;
   status: string;
@@ -416,7 +424,7 @@ type AwaitingAttachSnapshot = {
   updated_at: string;
 };
 
-async function casAwaitingAttachJob(args: {
+export async function casAwaitingAttachJob(args: {
   snapshot: AwaitingAttachSnapshot;
   patch: Record<string, unknown>;
 }): Promise<boolean> {
@@ -437,7 +445,7 @@ async function casAwaitingAttachJob(args: {
   return !error && !!data;
 }
 
-function snapshotFromJob(job: InboundMediaJobRow): AwaitingAttachSnapshot | null {
+export function snapshotFromJob(job: InboundMediaJobRow): AwaitingAttachSnapshot | null {
   const norm = job.normalized_storage_path?.trim() ?? "";
   if (!norm) return null;
   return {
@@ -1132,7 +1140,7 @@ export async function listInboundMediaJobsForC1(
   const { data, error } = await supabaseServer
     .from("v2_inbound_media_job")
     .select(
-      "id,status,attempt_count,next_retry_at,temp_storage_path,normalized_storage_path,resolution,attached_win_id,tombstoned_at,expires_at,created_at,updated_at"
+      "id,status,attempt_count,next_retry_at,temp_storage_path,normalized_storage_path,resolution,attached_win_id,tombstoned_at,expires_at,created_at,updated_at,last_error_code"
     )
     .eq("status", "awaiting_attach")
     .is("temp_storage_path", null)
@@ -1142,6 +1150,9 @@ export async function listInboundMediaJobsForC1(
     .not("normalized_storage_path", "is", null)
     .not("next_retry_at", "is", null)
     .lte("next_retry_at", nowIso)
+    .or(
+      "last_error_code.is.null,last_error_code.not.in.(attach_eligible,c2_storage_read_failed,c2_metadata_failed,c2_finalize_failed,c2_stale_ownership)"
+    )
     .order("next_retry_at", { ascending: true })
     .limit(n);
   if (error || !data) return [];
@@ -1162,6 +1173,8 @@ export async function listInboundMediaJobsForC1(
       tombstoned_at:
         typeof raw.tombstoned_at === "string" ? raw.tombstoned_at : null,
       next_retry_at: typeof raw.next_retry_at === "string" ? raw.next_retry_at : null,
+      last_error_code:
+        typeof raw.last_error_code === "string" ? raw.last_error_code : null,
     };
     if (!row.id || !isInboundMediaJobC1OpportunisticCandidate(row, now)) continue;
     ids.push(row.id);
@@ -1211,4 +1224,23 @@ export function scheduleC1IfWinsDurable(args: {
     clerkUserId: args.clerkUserId,
     messageSid: args.messageSid,
   });
+}
+
+/** Pure fact loader for C1 and C2. Does not mutate jobs or write canonical media. */
+export async function loadInboundMmsCorrelationFacts(
+  job: InboundMediaJobRow
+): Promise<{
+  wins: InboundMmsC1WinLite[];
+  siblings: InboundMmsC1SiblingLite[];
+  provenanceMedia: InboundMmsC1MediaLite | null;
+  mediaByWinId: Map<string, InboundMmsC1MediaLite | null>;
+}> {
+  return loadC1ExternalFacts(job);
+}
+
+export async function confirmInboundMmsTerminalKindImmediatelyBeforeCas(
+  job: InboundMediaJobRow,
+  decision: InboundMmsC1Decision
+): Promise<InboundMmsC1Decision> {
+  return confirmTerminalKindImmediatelyBeforeCas(job, decision);
 }

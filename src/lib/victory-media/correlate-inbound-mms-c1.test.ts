@@ -37,6 +37,20 @@ const c1Hooks = vi.hoisted(() => ({
   },
 }));
 
+function matchesOrExpr(row: Record<string, unknown>, expr: string): boolean {
+  const parts = String(expr).split(/,(?![^()]*\))/);
+  return parts.some((part) => {
+    const p = part.trim();
+    if (p === "last_error_code.is.null") return row.last_error_code == null;
+    const m = p.match(/^last_error_code\.not\.in\.\((.+)\)$/);
+    if (!m) return false;
+    const excluded = m[1].split(",").map((s) => s.trim());
+    const cur = row.last_error_code;
+    if (cur == null) return false;
+    return !excluded.includes(String(cur));
+  });
+}
+
 function matchesFilters(
   row: Record<string, unknown>,
   filters: Array<[string, string, unknown]>
@@ -56,6 +70,7 @@ function matchesFilters(
     if (op === "in") {
       if (!Array.isArray(val) || !val.includes(cur)) return false;
     }
+    if (op === "or" && !matchesOrExpr(row, String(val))) return false;
   }
   return true;
 }
@@ -71,6 +86,9 @@ vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {
     from: (table: string) => {
       const filters: Array<[string, string, unknown]> = [];
+      let limitN: number | null = null;
+      let orderCol: string | null = null;
+      let orderAsc = true;
       const api: {
         select: () => typeof api;
         eq: (c: string, v: unknown) => typeof api;
@@ -78,8 +96,9 @@ vi.mock("@/lib/supabase-server", () => ({
         not: (c: string, op: string, v: unknown) => typeof api;
         lte: (c: string, v: unknown) => typeof api;
         in: (c: string, v: unknown) => typeof api;
-        order: () => typeof api;
-        limit: () => typeof api;
+        or: (expr: string) => typeof api;
+        order: (c: string, opts?: { ascending?: boolean }) => typeof api;
+        limit: (n: number) => typeof api;
         maybeSingle: () => Promise<{ data: unknown; error: unknown }>;
         then: (
           resolve: (v: { data: unknown[] | null; error: { message: string } | null }) => void
@@ -108,10 +127,17 @@ vi.mock("@/lib/supabase-server", () => ({
           filters.push(["in", c, v]);
           return api;
         },
-        order() {
+        or(expr) {
+          filters.push(["or", "", expr]);
           return api;
         },
-        limit() {
+        order(c, opts) {
+          orderCol = c;
+          orderAsc = opts?.ascending !== false;
+          return api;
+        },
+        limit(n) {
+          limitN = n;
           return api;
         },
         async maybeSingle() {
@@ -174,6 +200,15 @@ vi.mock("@/lib/supabase-server", () => ({
               match = match.filter((row) => row.id !== "dddddddd-4444-4444-8444-444444444444");
             }
           }
+          if (orderCol) {
+            const col = orderCol;
+            match = [...match].sort((a, b) => {
+              const av = String(a[col] ?? "");
+              const bv = String(b[col] ?? "");
+              return orderAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+            });
+          }
+          if (limitN != null) match = match.slice(0, limitN);
           resolve({ data: match.map((r) => ({ ...r })), error: null });
         },
       };
@@ -1402,6 +1437,71 @@ describe("opportunistic C1 list", () => {
     }
     const later = await listInboundMediaJobsForC1(1, { now: NOW });
     expect(later).toEqual([JOB_ID]);
+  });
+
+  it("due attach_eligible rows are excluded from opportunistic C1 list", async () => {
+    jobs.set(JOB_ID, {
+      ...c1Job({
+        last_error_code: "attach_eligible",
+        next_retry_at: "2026-08-20T11:00:00.000Z",
+      }),
+    });
+    const waitingId = "99999999-9999-4999-8999-999999999999";
+    jobs.set(waitingId, {
+      ...c1Job({
+        id: waitingId,
+        last_error_code: "waiting_for_win",
+        next_retry_at: "2026-08-20T11:30:00.000Z",
+      }),
+    });
+    const listed = await listInboundMediaJobsForC1(1, { now: NOW });
+    expect(listed).toEqual([waitingId]);
+    expect(listed).not.toContain(JOB_ID);
+  });
+
+  it("C2 retry last_error_code is excluded from opportunistic C1 list", async () => {
+    jobs.set(JOB_ID, {
+      ...c1Job({
+        last_error_code: "c2_finalize_failed",
+        next_retry_at: "2026-08-20T11:00:00.000Z",
+      }),
+    });
+    const listed = await listInboundMediaJobsForC1(1, { now: NOW });
+    expect(listed).toEqual([]);
+  });
+
+  it("null last_error_code remains C1-list eligible", async () => {
+    jobs.set(JOB_ID, {
+      ...c1Job({
+        last_error_code: null,
+        next_retry_at: "2026-08-20T11:00:00.000Z",
+      }),
+    });
+    const listed = await listInboundMediaJobsForC1(1, { now: NOW });
+    expect(listed).toEqual([JOB_ID]);
+  });
+
+  it("C2-owned rows preceding a waiting C1 row cannot hide it at limit 1", async () => {
+    for (let i = 0; i < 25; i++) {
+      const id = `aaaaaaaa-1111-4111-8111-${String(i).padStart(12, "0")}`;
+      jobs.set(id, {
+        ...c1Job({
+          id,
+          last_error_code: i % 2 === 0 ? "attach_eligible" : "c2_stale_ownership",
+          next_retry_at: `2026-08-20T11:00:${String(i).padStart(2, "0")}.000Z`,
+        }),
+      });
+    }
+    const waitingId = "99999999-9999-4999-8999-999999999999";
+    jobs.set(waitingId, {
+      ...c1Job({
+        id: waitingId,
+        last_error_code: "waiting_for_win",
+        next_retry_at: "2026-08-20T11:59:00.000Z",
+      }),
+    });
+    const listed = await listInboundMediaJobsForC1(1, { now: NOW });
+    expect(listed).toEqual([waitingId]);
   });
 });
 
