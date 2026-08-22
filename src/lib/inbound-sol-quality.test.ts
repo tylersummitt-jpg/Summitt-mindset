@@ -144,6 +144,24 @@ describe("inbound Sol contracts", () => {
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).not.toContain("within 24");
   });
 
+  it("D1 pending-photo law: captions may pair without photo nouns; time alone is not authority", () => {
+    const prompt = INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT;
+    expect(prompt).toContain(
+      "Awesome family day today! Loved spending time with Brooke and the kids."
+    );
+    expect(prompt).toContain("current_turn_win");
+    expect(prompt).toMatch(/explicit photo\/picture\/image nouns are NOT required/i);
+    expect(prompt).toContain("Conversational sequencing is legitimate semantic evidence");
+    expect(prompt).toContain("Elapsed time by itself is never enough to pair");
+    expect(prompt).toContain("What time is my check-in tomorrow?");
+    expect(prompt).toContain("Breck hit his first home run today!");
+    expect(prompt).toContain("a human genuinely could not tell");
+    expect(prompt).toContain("candidate_count=2 → none");
+    expect(prompt).not.toContain("Age in seconds is not evidence they belong together");
+    expect(prompt).not.toMatch(/must say .{0,20}(this photo|this picture|that image)/i);
+    expect(prompt).not.toMatch(/if age[_ ]?(seconds)?\s*</i);
+  });
+
   it("writer prompt is relationship-first and does not clip", () => {
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
       "You are replying to the user's newest real text in one ongoing Coach Pat relationship."

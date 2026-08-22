@@ -67,10 +67,12 @@ describe("inbound Sol D1 schema extras", () => {
     });
   });
 
-  it("prompt appendix forbids inventing UUIDs and recency-as-proof", () => {
+  it("prompt appendix forbids inventing UUIDs and treats time as a clue not authority", () => {
     const appendix = buildInboundSolBriefExactContractPromptAppendix();
     expect(appendix).toContain("Never invent a UUID");
-    expect(appendix).toContain("Age in seconds is a fact, not evidence of relatedness");
+    expect(appendix).toContain("Elapsed time alone never pairs");
+    expect(appendix).toContain("Explicit photo/picture/image nouns are not required");
     expect(appendix).not.toContain("within 24");
+    expect(appendix).not.toContain("Age in seconds is a fact, not evidence of relatedness");
   });
 });

@@ -91,6 +91,12 @@ describe("inbound MMS D1 wire", () => {
     expect(claim).toContain("listInboundMmsD1EligiblePendingJobs");
     expect(claim).toContain("inboundMmsD1OriginalJobStillSoleEligible");
     expect(claim).not.toMatch(/latest photo/i);
+    expect(claim).not.toMatch(/if\s*\(.*age_seconds/);
+    expect(pending).toContain("INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS = 24 * 60 * 60 * 1000");
+    expect(interpreter).toContain("Elapsed time by itself is never enough to pair");
+    expect(interpreter).toContain(
+      "Awesome family day today! Loved spending time with Brooke and the kids."
+    );
   });
 
   it("does not implement text→photo or a D semantic worker/cron", () => {

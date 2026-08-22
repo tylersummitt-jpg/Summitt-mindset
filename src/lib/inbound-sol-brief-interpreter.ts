@@ -71,14 +71,23 @@ MEANINGFUL WIN (inbound.meaningful_win):
 
 PENDING PHOTO (inbound.pending_photo_relation):
 - pending_media_context is CODE-supplied fact about a parked inbound photo, if any. It is not a photo. You never receive image bytes, URLs, or Storage paths.
-- If candidate_count is 0 or 2: relation MUST be none and target_win_id MUST be null. Do not pair.
-- If candidate_count is 1: decide whether the newest inbound TEXT refers to that pending photo.
+- If candidate_count is 0 or 2: relation MUST be none and target_win_id MUST be null. Do not pair. Never pick among photos.
+- If candidate_count is 1: decide from the whole conversational sequence whether the newest inbound TEXT is about that pending photo.
+- Humans routinely send one photo and then a caption, explanation, reflection, or description of that moment WITHOUT saying "this photo", "this picture", "that image", or "here's what it was". Explicit photo/picture/image nouns are NOT required for current_turn_win.
+- Conversational sequencing is legitimate semantic evidence. Elapsed time by itself is never enough to pair. Recency/sequence may be one contextual clue, combined with text meaning, continuity, and whether intervening turns conflict. Do not pair when context conflicts. Code does not auto-pair by age.
 - relation=none: unrelated, or no single pending photo.
-- relation=uncertain: you cannot tell. Do not ask a clarification question about the photo.
-- relation=current_turn_win: this text is about the pending photo AND the Win created from THIS turn. target_win_id MUST be null (the Win UUID does not exist yet).
+- relation=uncertain: a human genuinely could not tell whether the later text is explaining the pending photo. Do not use uncertain merely because photo nouns are missing. Do not ask a clarification question about the photo.
+- relation=current_turn_win: the later text naturally reads as a caption/explanation/reflection/description of the moment represented by the one pending photo, AND the Win created from THIS turn. target_win_id MUST be null (the Win UUID does not exist yet).
 - relation=existing_win: this text refers to the pending photo AND an already-listed recent Win. Copy target_win_id exactly from recent_wins[].id. Never invent a UUID.
-- Age in seconds is not evidence they belong together. Conversation decides.
 - Do not mention saving or attaching a photo.
+
+PENDING PHOTO EXAMPLES (candidate_count=1 unless noted):
+- [one photo], ~5 minutes later: "Awesome family day today! Loved spending time with Brooke and the kids." → current_turn_win (same life moment; no photo noun required).
+- [one photo], then: "Breck hit his first home run today!" → current_turn_win if no conflicting context.
+- [one photo], then: "What time is my check-in tomorrow?" → none.
+- [one photo], then a substantially changed unrelated topic → none or uncertain.
+- Vague later text where a human genuinely could not tell → uncertain, not current_turn_win.
+- candidate_count=2 → none. Never pick among photos.
 
 TEMPORAL:
 - Newest inbound is "now" for this receive. Older relative-time words belong to those turns' timestamps and day_relation_to_message.

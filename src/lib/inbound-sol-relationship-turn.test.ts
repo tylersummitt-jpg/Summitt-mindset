@@ -917,4 +917,149 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(result.shouldSend).toBe(true);
     expect(result.body).toBe("Proud you took the kids hiking. I saved that Win.");
   });
+
+  it("D1 production caption: family-day text with one ~5min photo claims current_turn_win", async () => {
+    const familyText =
+      "Awesome family day today! Loved spending time with Brooke and the kids";
+    const familyWinId = "ffffffff-6666-4666-8666-666666666666";
+    loadInboundRelationshipPacket.mockImplementation(async () => ({
+      ok: true,
+      receivedAt: new Date("2026-08-22T00:15:00.000Z"),
+      packet: {
+        version: "inbound_relationship_v1",
+        message_for: {
+          timezone: "America/New_York",
+          local_date: "2026-08-21",
+          local_weekday: "Friday",
+          daypart: "inbound",
+        },
+        preferred_name: "Tyler",
+        current_goal: { text: "Lift 30 minutes" },
+        current_identity: { text: null },
+        personal_context: [],
+        hard_state: { pending_goal_change: null, open_coach_question: null },
+        latest_inbound_text: familyText,
+        latest_inbound_message_sid: "SMfamily",
+        pending_media_context: {
+          candidate_count: 1,
+          candidate: {
+            job_id: PHOTO_JOB,
+            age_seconds: 300,
+            message_sid: "MM0c95783f12557186ce311ef3e03c1801",
+            normalized_ready: true,
+          },
+          recent_wins: [],
+        },
+        exact_thread: {
+          window_days: 21,
+          max_messages: 30,
+          messages: [],
+          omitted_older_turn_count: 0,
+        },
+      },
+    }));
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: familyWinId, status: "inserted", idempotency_key: "kfam" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: familyText,
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Spent an enjoyable family day with Brooke and the kids.",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Sounds like a really good day with Brooke and the kids.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMfamily", familyText));
+    expect(result.shouldSend).toBe(true);
+    expect(scheduleInboundMmsD1SemanticClaim).toHaveBeenCalledOnce();
+    const arg = scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0];
+    expect(arg.context.candidate_count).toBe(1);
+    expect(arg.context.candidate.job_id).toBe(PHOTO_JOB);
+    expect(arg.context.candidate.age_seconds).toBe(300);
+    expect(arg.relation).toEqual({ relation: "current_turn_win", target_win_id: null });
+    expect(arg.winResult?.wins).toEqual([
+      expect.objectContaining({ id: familyWinId, status: "inserted" }),
+    ]);
+    expect(runInboundSolBriefInterpreter).toHaveBeenCalledTimes(1);
+  });
+
+  it("D1 unrelated later text does not claim the pending photo", async () => {
+    packetWithPending();
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "What time is my check-in tomorrow?",
+        },
+        meaningful_win: null,
+        pending_photo_relation: { relation: "none", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Check-in is in the morning text.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMchk", "What time is my check-in tomorrow?")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(scheduleInboundMmsD1SemanticClaim).toHaveBeenCalledOnce();
+    const arg = scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0];
+    expect(arg.relation.relation).toBe("none");
+  });
+
+  it("D1 genuine uncertainty does not claim", async () => {
+    packetWithPending();
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "low",
+          evidence: "ok",
+        },
+        meaningful_win: null,
+        pending_photo_relation: { relation: "uncertain", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Got you.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMok", "ok"));
+    expect(result.shouldSend).toBe(true);
+    const arg = scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0];
+    expect(arg.relation.relation).toBe("uncertain");
+  });
 });
