@@ -27,11 +27,16 @@ vi.mock("@/lib/twilio", () => ({
 
 import { supabaseServer } from "@/lib/supabase-server";
 import type { InboundMediaJobRow } from "@/lib/victory-media/claim-inbound-media-job";
-import { INBOUND_MEDIA_D2A_SEMANTIC_GRACE } from "@/lib/victory-media/inbound-mms-d2a-codes";
+import {
+  INBOUND_MEDIA_D2A_SEMANTIC_GRACE,
+  inboundMmsD2aParkRetryIso,
+} from "@/lib/victory-media/inbound-mms-d2a-codes";
 import type { InboundMmsD2aSemanticFacts } from "@/lib/victory-media/inbound-mms-d2a-semantics";
 import {
   INBOUND_MEDIA_D2B_CLARIFICATION_DUE,
+  INBOUND_MEDIA_D2B_CLARIFICATION_MODEL_FAILED,
   INBOUND_MEDIA_D2B_CLARIFICATION_SEND_FAILED,
+  INBOUND_MEDIA_D2B_MODEL_RETRY_MS,
   INBOUND_MEDIA_D2B_OWNED_LAST_ERROR_CODES,
   INBOUND_MEDIA_D2B_SEND_RETRY_MS,
   inboundMmsD2bClarificationIdempotencyKey,
@@ -178,8 +183,9 @@ function processDeps(
 }
 
 describe("D2b due candidate and list", () => {
-  it("owns clarification_due/send_failed/model_failed plus grace wake", () => {
+  it("owns semantic_grace plus clarification_due/send_failed/model_failed", () => {
     expect([...INBOUND_MEDIA_D2B_OWNED_LAST_ERROR_CODES]).toEqual([
+      "semantic_grace",
       "clarification_due",
       "clarification_send_failed",
       "clarification_model_failed",
@@ -279,8 +285,59 @@ describe("processInboundMmsD2bJob", () => {
     expect(row.clarification_body).toBe(QUESTION);
     expect(row.next_retry_at).toBeNull();
     expect(row.semantic_target_win_id).toBeNull();
+    expect(row.next_retry_at).not.toBe(row.expires_at);
     expect(casPark.mock.calls[0]![0].patch.resolution).toBeUndefined();
     expect(casPark.mock.calls[0]![0].patch.followup_idempotency_key).toBe(KEY);
+  });
+
+  it("sparse/no-context does not park semantic_grace to expires_at", async () => {
+    let row = dueJob();
+    const r = await processInboundMmsD2bJob(
+      JOB_ID,
+      processDeps({
+        loadJob: async () => row,
+        loadFacts: async () => facts({ recent_thread: [], candidate_wins: [] }),
+        casPark: async ({ patch }) => {
+          row = { ...row, ...patch } as InboundMediaJobRow;
+          return true;
+        },
+      })
+    );
+    expect(r).toEqual({ ok: true, jobId: JOB_ID, action: "sent" });
+    expect(row.resolution).toBe("pending_user");
+    expect(row.clarification_body).toBe(QUESTION);
+    expect(row.next_retry_at).toBeNull();
+    expect(row.next_retry_at).not.toBe(
+      inboundMmsD2aParkRetryIso({ expiresAt: dueJob().expires_at, now: NOW })
+    );
+  });
+
+  it("legacy/invalid no_action is model failure, not expiry park", async () => {
+    let row = dueJob();
+    const sendSms = vi.fn();
+    const casPark = vi.fn(async ({ patch }: { patch: Record<string, unknown> }) => {
+      row = { ...row, ...patch } as InboundMediaJobRow;
+      return true;
+    });
+    const r = await processInboundMmsD2bJob(
+      JOB_ID,
+      processDeps({
+        loadJob: async () => row,
+        runSemantics: async () => ({ ok: false, reason: "invalid_decision" }),
+        sendSms,
+        casPark,
+      })
+    );
+    expect(r).toEqual({ ok: true, jobId: JOB_ID, action: "parked" });
+    expect(sendSms).not.toHaveBeenCalled();
+    expect(row.resolution).toBeNull();
+    expect(row.followup_idempotency_key).toBeNull();
+    expect(row.clarification_body).toBeNull();
+    expect(row.last_error_code).toBe(INBOUND_MEDIA_D2B_CLARIFICATION_MODEL_FAILED);
+    expect(row.next_retry_at).toBe(
+      new Date(NOW.getTime() + INBOUND_MEDIA_D2B_MODEL_RETRY_MS).toISOString()
+    );
+    expect(row.next_retry_at).not.toBe(row.expires_at);
   });
 
   it("cron replay after pending_user does not send again", async () => {
@@ -596,7 +653,7 @@ describe("processInboundMmsD2bJob", () => {
     expect(sendSms).not.toHaveBeenCalled();
   });
 
-  it("dispatcher routes grace to D2b and semantic_due to D2a", async () => {
+  it("dispatcher routes grace/clarification_* to D2b and semantic_due/model_failed to D2a", async () => {
     const d2b = await processInboundMmsD2Job(
       JOB_ID,
       processDeps({
@@ -617,5 +674,18 @@ describe("processInboundMmsD2bJob", () => {
       }),
     });
     expect(d2a.phase).toBe("d2a");
+
+    const failed = await processInboundMmsD2Job(JOB_ID, {
+      ...processDeps({
+        loadJob: async () =>
+          dueJob({ last_error_code: "semantic_model_failed" }),
+        runSemantics: async () => ({
+          ok: true as const,
+          decision: "no_attach" as const,
+          target_win_id: null,
+        }),
+      }),
+    });
+    expect(failed.phase).toBe("d2a");
   });
 });

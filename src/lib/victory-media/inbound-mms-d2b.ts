@@ -770,18 +770,7 @@ export async function processInboundMmsD2bJob(
     semantic.decision !== "ask_clarification" ||
     !semantic.clarification_body
   ) {
-    const won = await casPark({
-      job,
-      patch: {
-        last_error_code: INBOUND_MEDIA_D2A_SEMANTIC_GRACE,
-        next_retry_at: inboundMmsD2aParkRetryIso({
-          expiresAt: job.expires_at,
-          now,
-        }),
-        updated_at: now.toISOString(),
-      },
-    });
-    return { ok: true, jobId: job.id, action: won ? "parked" : "noop" };
+    return armModelFailed();
   }
 
   const body = semantic.clarification_body;

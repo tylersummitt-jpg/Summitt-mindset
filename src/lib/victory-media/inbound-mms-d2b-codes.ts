@@ -1,6 +1,6 @@
 /**
  * D2b ownership codes, idempotency, body validation, send retry.
- * semantic_grace remains a D2a-armed code; D2b owns the due wake.
+ * semantic_grace is armed by D2a; D2b owns the due wake.
  */
 
 import { INBOUND_MEDIA_D2A_SEMANTIC_GRACE } from "@/lib/victory-media/inbound-mms-d2a-codes";
@@ -12,6 +12,7 @@ export const INBOUND_MEDIA_D2B_CLARIFICATION_MODEL_FAILED =
   "clarification_model_failed" as const;
 
 export const INBOUND_MEDIA_D2B_OWNED_LAST_ERROR_CODES = [
+  INBOUND_MEDIA_D2A_SEMANTIC_GRACE,
   INBOUND_MEDIA_D2B_CLARIFICATION_DUE,
   INBOUND_MEDIA_D2B_CLARIFICATION_SEND_FAILED,
   INBOUND_MEDIA_D2B_CLARIFICATION_MODEL_FAILED,
@@ -35,10 +36,7 @@ export function isInboundMediaD2bOwnedLastErrorCode(
 export function isInboundMediaD2bWakeLastErrorCode(
   value: string | null | undefined
 ): boolean {
-  return (
-    value === INBOUND_MEDIA_D2A_SEMANTIC_GRACE ||
-    isInboundMediaD2bOwnedLastErrorCode(value)
-  );
+  return isInboundMediaD2bOwnedLastErrorCode(value);
 }
 
 export function inboundMmsD2bClarificationIdempotencyKey(jobId: string): string {

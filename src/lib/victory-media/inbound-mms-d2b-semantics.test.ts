@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { isValidInboundMmsD2bClarificationBody } from "@/lib/victory-media/inbound-mms-d2b-codes";
 import {
+  INBOUND_MMS_D2B_SEMANTIC_RESPONSE_FORMAT,
+  INBOUND_MMS_D2B_SEMANTIC_SYSTEM_PROMPT,
   parseInboundMmsD2bSemanticOutput,
   runInboundMmsD2bSemantics,
   type InboundMmsD2bSemanticFacts,
@@ -36,6 +38,22 @@ function facts(
     ...partial,
   };
 }
+
+describe("D2b semantic contract", () => {
+  it("schema allows only attach_existing_win | ask_clarification", () => {
+    const decision =
+      INBOUND_MMS_D2B_SEMANTIC_RESPONSE_FORMAT.json_schema.schema.properties
+        .decision;
+    expect(decision.enum).toEqual(["attach_existing_win", "ask_clarification"]);
+    expect(decision.enum).not.toContain("no_action");
+    expect(INBOUND_MMS_D2B_SEMANTIC_SYSTEM_PROMPT).not.toMatch(
+      /no_action: still unclear/
+    );
+    expect(INBOUND_MMS_D2B_SEMANTIC_SYSTEM_PROMPT).toContain(
+      "Sparse or empty thread is exactly when a question is useful"
+    );
+  });
+});
 
 describe("isValidInboundMmsD2bClarificationBody", () => {
   it("accepts one short natural question", () => {
@@ -135,6 +153,37 @@ describe("parseInboundMmsD2bSemanticOutput", () => {
         allowed
       )
     ).toEqual({ ok: false, reason: "invalid_clarification_body" });
+  });
+
+  it("treats legacy no_action as invalid model output, not a product decision", () => {
+    expect(
+      parseInboundMmsD2bSemanticOutput(
+        {
+          decision: "no_action",
+          target_win_id: null,
+          clarification_body: null,
+        },
+        allowed
+      )
+    ).toEqual({ ok: false, reason: "invalid_decision" });
+  });
+
+  it("sparse/empty thread still accepts ask_clarification", () => {
+    expect(
+      parseInboundMmsD2bSemanticOutput(
+        {
+          decision: "ask_clarification",
+          target_win_id: null,
+          clarification_body: QUESTION,
+        },
+        new Set()
+      )
+    ).toEqual({
+      ok: true,
+      decision: "ask_clarification",
+      target_win_id: null,
+      clarification_body: QUESTION,
+    });
   });
 });
 

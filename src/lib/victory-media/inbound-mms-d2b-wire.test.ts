@@ -109,4 +109,15 @@ describe("inbound MMS D2b wire", () => {
     expect(codes).not.toContain('from "@/lib/twilio"');
     expect(codes).toContain("INBOUND_MEDIA_D2B_CLARIFICATION_MAX_LENGTH = 280");
   });
+
+  it("schema/prompt do not treat no_action as a product decision; grace is D2b-owned", () => {
+    expect(sem).toContain('enum: ["attach_existing_win", "ask_clarification"]');
+    expect(sem).not.toContain(
+      'enum: ["attach_existing_win", "ask_clarification", "no_action"]'
+    );
+    expect(sem).toContain('decision === "no_action"');
+    expect(d2b).toContain("return armModelFailed()");
+    expect(codes).toContain("INBOUND_MEDIA_D2A_SEMANTIC_GRACE");
+    expect(codes).toContain("INBOUND_MEDIA_D2B_OWNED_LAST_ERROR_CODES = [");
+  });
 });

@@ -12,12 +12,11 @@ import { isValidInboundMmsD2bClarificationBody } from "@/lib/victory-media/inbou
 export const INBOUND_MMS_D2B_SEMANTIC_MODEL = "gpt-5.6-sol" as const;
 export const INBOUND_MMS_D2B_SEMANTIC_REASONING_EFFORT = "low" as const;
 export const INBOUND_MMS_D2B_SEMANTIC_MAX_COMPLETION_TOKENS = 400 as const;
-export const INBOUND_MMS_D2B_SEMANTIC_PROMPT_PATH = "inbound_mms_d2b_v1" as const;
+export const INBOUND_MMS_D2B_SEMANTIC_PROMPT_PATH = "inbound_mms_d2b_v2" as const;
 
 export type InboundMmsD2bSemanticDecision =
   | "attach_existing_win"
-  | "ask_clarification"
-  | "no_action";
+  | "ask_clarification";
 
 export type InboundMmsD2bSemanticResult =
   | {
@@ -32,43 +31,37 @@ export type InboundMmsD2bSemanticResult =
       target_win_id: null;
       clarification_body: string;
     }
-  | {
-      ok: true;
-      decision: "no_action";
-      target_win_id: null;
-      clarification_body: null;
-    }
   | { ok: false; reason: string };
 
 export type InboundMmsD2bSemanticFacts = InboundMmsD2aSemanticFacts;
 
-export const INBOUND_MMS_D2B_SEMANTIC_SYSTEM_PROMPT = `You decide what to do with a parked inbound photo-only MMS after a 10-minute grace. The photo itself is not shown. You never receive image bytes, URLs, or Storage paths.
+export const INBOUND_MMS_D2B_SEMANTIC_SYSTEM_PROMPT = `You decide what to do with a parked inbound photo-only MMS after a 10-minute grace. The system already waited. The photo itself is not shown. You never receive image bytes, URLs, or Storage paths.
 
-You may:
+You must choose exactly one:
 - attach_existing_win: the conversation now makes it obvious this photo belongs to one EXISTING Win in candidate_wins.
 - ask_clarification: send exactly one short natural Coach question so the user can say what the photo is.
-- no_action: still unclear and a question would be wrong (unrelated thread, two equally plausible Wins, or you must not ask).
 
 Hard rules:
 - CODE does not understand English. You are the only semantic brain for this wake.
 - You may ONLY select a target_win_id copied exactly from candidate_wins[].id. Never invent a UUID.
 - Elapsed time alone is never enough. Do not pick the latest Win because it is latest.
-- If two Wins could reasonably fit: no_action, not a guess attach.
+- If two Wins could reasonably fit: ask_clarification, not a guess attach.
+- Sparse or empty thread is exactly when a question is useful. Do NOT choose silence.
 - ask_clarification must be ONE short natural question, like: "What made this one a win for you?"
+- You may tailor the question to available factual context. Still one question.
 - Do NOT ask category/type/Overall vs Current Goal. No menus, options, or A/B/C.
 - Do NOT say the photo was saved, attached, added, or is in the Victory Room. It is still pending.
 - Do not write SMS besides clarification_body. Do not create a new Win. Output JSON only.
 
 Output:
-{"decision":"attach_existing_win"|"ask_clarification"|"no_action","target_win_id":"<uuid>"|null,"clarification_body":"<question>"|null}
+{"decision":"attach_existing_win"|"ask_clarification","target_win_id":"<uuid>"|null,"clarification_body":"<question>"|null}
 attach_existing_win requires target_win_id from candidate_wins and clarification_body null.
-ask_clarification requires target_win_id null and one natural question.
-no_action requires both null.`;
+ask_clarification requires target_win_id null and one natural question.`;
 
 export const INBOUND_MMS_D2B_SEMANTIC_RESPONSE_FORMAT = {
   type: "json_schema" as const,
   json_schema: {
-    name: "inbound_mms_d2b_semantics_v1",
+    name: "inbound_mms_d2b_semantics_v2",
     strict: true as const,
     schema: {
       type: "object",
@@ -77,7 +70,7 @@ export const INBOUND_MMS_D2B_SEMANTIC_RESPONSE_FORMAT = {
       properties: {
         decision: {
           type: "string",
-          enum: ["attach_existing_win", "ask_clarification", "no_action"],
+          enum: ["attach_existing_win", "ask_clarification"],
         },
         target_win_id: { anyOf: [{ type: "string" }, { type: "null" }] },
         clarification_body: { anyOf: [{ type: "string" }, { type: "null" }] },
@@ -108,13 +101,9 @@ export function parseInboundMmsD2bSemanticOutput(
   }
   const rec = raw as Record<string, unknown>;
   const decision = rec.decision;
+  // Legacy no_action is not a product decision. Fail closed as model failure.
   if (decision === "no_action") {
-    return {
-      ok: true,
-      decision: "no_action",
-      target_win_id: null,
-      clarification_body: null,
-    };
+    return { ok: false, reason: "invalid_decision" };
   }
   if (decision === "ask_clarification") {
     const body =

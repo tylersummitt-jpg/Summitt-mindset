@@ -169,13 +169,15 @@ function processDeps(
 }
 
 describe("D2a codes and grace timing", () => {
-  it("owns only semantic_due/grace/model_failed", () => {
+  it("owns only semantic_due/model_failed; D2b owns semantic_grace", () => {
     expect(INBOUND_MEDIA_D2A_GRACE_MS).toBe(10 * 60 * 1000);
     expect([...INBOUND_MEDIA_D2A_OWNED_LAST_ERROR_CODES]).toEqual([
       "semantic_due",
-      "semantic_grace",
       "semantic_model_failed",
     ]);
+    expect(INBOUND_MEDIA_D2A_OWNED_LAST_ERROR_CODES).not.toContain(
+      "semantic_grace"
+    );
   });
 
   it("arms grace at created_at+10m, or now+60s if already past", () => {
@@ -208,6 +210,15 @@ describe("isInboundMediaJobD2aDueListCandidate", () => {
     expect(
       isInboundMediaJobD2aDueListCandidate(
         dueJob({ next_retry_at: null, last_error_code: null }),
+        NOW
+      )
+    ).toBe(false);
+  });
+
+  it("rejects due semantic_grace so D2b owns that wake", () => {
+    expect(
+      isInboundMediaJobD2aDueListCandidate(
+        dueJob({ last_error_code: INBOUND_MEDIA_D2A_SEMANTIC_GRACE }),
         NOW
       )
     ).toBe(false);

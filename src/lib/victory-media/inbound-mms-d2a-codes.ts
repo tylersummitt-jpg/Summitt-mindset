@@ -1,6 +1,7 @@
 /**
  * D2a ownership codes and timing. Not C1/C2 ownership.
  * semantic_due is armed by B2 image-only success for NEW jobs only.
+ * semantic_grace is armed here but listed/processed by D2b.
  */
 
 export const INBOUND_MEDIA_D2A_SEMANTIC_DUE = "semantic_due" as const;
@@ -10,7 +11,6 @@ export const INBOUND_MEDIA_D2A_SEMANTIC_MODEL_FAILED =
 
 export const INBOUND_MEDIA_D2A_OWNED_LAST_ERROR_CODES = [
   INBOUND_MEDIA_D2A_SEMANTIC_DUE,
-  INBOUND_MEDIA_D2A_SEMANTIC_GRACE,
   INBOUND_MEDIA_D2A_SEMANTIC_MODEL_FAILED,
 ] as const;
 
