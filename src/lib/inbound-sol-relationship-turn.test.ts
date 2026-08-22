@@ -1004,6 +1004,99 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(runInboundSolBriefInterpreter).toHaveBeenCalledTimes(1);
   });
 
+  it("D1 production vacation: 17m photo claims current_turn_win; 10h photo is not the candidate", async () => {
+    const vacationText =
+      "So proud that we took our kids on a family vacation. It was the best yet.";
+    const freshJobId = "2cf694ea-ba64-4323-a56f-bdb9a4075136";
+    const oldJobId = "dba40005-52c2-43bd-a4c1-edadc3ebff7e";
+    const vacationWinId = "cecc9398-ca3b-46a6-9393-87c9be246665";
+    loadInboundRelationshipPacket.mockImplementation(async () => ({
+      ok: true,
+      receivedAt: new Date("2026-08-22T11:15:00.000Z"),
+      packet: {
+        version: "inbound_relationship_v1",
+        message_for: {
+          timezone: "America/New_York",
+          local_date: "2026-08-22",
+          local_weekday: "Saturday",
+          daypart: "inbound",
+        },
+        preferred_name: "Tyler",
+        current_goal: { text: "Lift 30 minutes" },
+        current_identity: { text: null },
+        personal_context: [],
+        hard_state: { pending_goal_change: null, open_coach_question: null },
+        latest_inbound_text: vacationText,
+        latest_inbound_message_sid: "SMvacation",
+        pending_media_context: {
+          candidate_count: 1,
+          candidate: {
+            job_id: freshJobId,
+            age_seconds: 17 * 60,
+            message_sid: "MM2cf694eaba644323a56fbdb9a4075136",
+            normalized_ready: true,
+          },
+          recent_wins: [],
+        },
+        exact_thread: {
+          window_days: 21,
+          max_messages: 30,
+          messages: [],
+          omitted_older_turn_count: 0,
+        },
+      },
+    }));
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: vacationWinId, status: "inserted", idempotency_key: "kvac" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: vacationText,
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action:
+            "Tyler and Brooke took their kids on a family vacation that he describes as their best yet.",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "That sounds like a trip worth keeping.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMvacation", vacationText)
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(scheduleInboundMmsD1SemanticClaim).toHaveBeenCalledOnce();
+    const arg = scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0];
+    expect(arg.context.candidate_count).toBe(1);
+    expect(arg.context.candidate.job_id).toBe(freshJobId);
+    expect(arg.context.candidate.job_id).not.toBe(oldJobId);
+    expect(JSON.stringify(arg.context)).not.toContain(oldJobId);
+    expect(arg.context.candidate.age_seconds).toBe(17 * 60);
+    expect(arg.relation).toEqual({ relation: "current_turn_win", target_win_id: null });
+    expect(arg.winResult?.wins).toEqual([
+      expect.objectContaining({ id: vacationWinId, status: "inserted" }),
+    ]);
+    expect(runInboundSolBriefInterpreter).toHaveBeenCalledTimes(1);
+  });
+
   it("D1 unrelated later text does not claim the pending photo", async () => {
     packetWithPending();
     runInboundSolBriefInterpreter.mockResolvedValue({

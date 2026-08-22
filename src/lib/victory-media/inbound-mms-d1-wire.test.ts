@@ -39,6 +39,10 @@ const SAFETY = path.join(
   process.cwd(),
   "src/app/api/cron/sms-inbound-coach/route.ts"
 );
+const CLAIM_JOB = path.join(
+  process.cwd(),
+  "src/lib/victory-media/claim-inbound-media-job.ts"
+);
 
 describe("inbound MMS D1 wire", () => {
   const pending = fs.readFileSync(D1_PENDING, "utf8");
@@ -92,7 +96,14 @@ describe("inbound MMS D1 wire", () => {
     expect(claim).toContain("inboundMmsD1OriginalJobStillSoleEligible");
     expect(claim).not.toMatch(/latest photo/i);
     expect(claim).not.toMatch(/if\s*\(.*age_seconds/);
-    expect(pending).toContain("INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS = 24 * 60 * 60 * 1000");
+    expect(pending).toContain("INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS = 30 * 60 * 1000");
+    expect(pending).not.toContain("24 * 60 * 60 * 1000");
+    expect(pending).not.toMatch(/if\s*\(.*age_seconds/);
+    expect(pending).not.toContain(".update(");
+    expect(claim).not.toContain(".update(");
+    expect(fs.readFileSync(CLAIM_JOB, "utf8")).toContain(
+      "INBOUND_MEDIA_B2_EXPIRES_MS = 72 * 60 * 60 * 1000"
+    );
     expect(interpreter).toContain("Elapsed time by itself is never enough to pair");
     expect(interpreter).toContain(
       "Awesome family day today! Loved spending time with Brooke and the kids."

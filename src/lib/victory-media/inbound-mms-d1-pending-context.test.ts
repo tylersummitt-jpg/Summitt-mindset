@@ -22,16 +22,24 @@ import {
 const NOW = new Date("2026-08-21T12:00:00.000Z");
 const JOB_ID = "aaaaaaaa-1111-4111-8111-111111111111";
 const JOB_2 = "bbbbbbbb-2222-4222-8222-222222222222";
+const FRESH_PROD_JOB = "2cf694ea-ba64-4323-a56f-bdb9a4075136";
+const OLD_PROD_JOB = "dba40005-52c2-43bd-a4c1-edadc3ebff7e";
 const WIN_A = "cccccccc-3333-4333-8333-333333333333";
 const USER = "user_d1";
 const PHOTO_SID = "SMdddddddddddddddddddddddddddddddd";
+const PHOTO_SID_B = "SMffffffffffffffffffffffffffffffff";
 const BODY_SID = "SMeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+const MIN_MS = 60 * 1000;
+
+function isoAgo(ms: number): string {
+  return new Date(NOW.getTime() - ms).toISOString();
+}
 
 function job(partial: Partial<InboundMmsD1JobLite> = {}): InboundMmsD1JobLite {
   return {
     id: JOB_ID,
     message_sid: PHOTO_SID,
-    created_at: "2026-08-21T11:00:00.000Z",
+    created_at: isoAgo(10 * MIN_MS),
     status: "pending_semantics",
     resolution: null,
     tombstoned_at: null,
@@ -102,6 +110,24 @@ describe("isInboundMediaJobD1PendingShape", () => {
       isInboundMediaJobD1PendingShape(job({ status: "awaiting_attach" }), shapeArgs)
     ).toBe(false);
   });
+
+  it("29-minute photo is inside the D1 conversational window", () => {
+    expect(
+      isInboundMediaJobD1PendingShape(
+        job({ created_at: isoAgo(29 * MIN_MS) }),
+        shapeArgs
+      )
+    ).toBe(true);
+  });
+
+  it("31-minute photo is outside the D1 conversational window", () => {
+    expect(
+      isInboundMediaJobD1PendingShape(
+        job({ created_at: isoAgo(31 * MIN_MS) }),
+        shapeArgs
+      )
+    ).toBe(false);
+  });
 });
 
 describe("loadInboundMmsD1PendingContext", () => {
@@ -124,6 +150,7 @@ describe("loadInboundMmsD1PendingContext", () => {
           listedJobs.push(job());
           expect(args.currentMessageSid).toBe(BODY_SID);
           expect(args.clerkUserId).toBe(USER);
+          expect(args.createdAfterIso).toBe(isoAgo(INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS));
           return [job()];
         },
         listBodySids: async () => new Set(),
@@ -134,7 +161,7 @@ describe("loadInboundMmsD1PendingContext", () => {
     expect(ctx.candidate_count).toBe(1);
     expect(ctx.candidate).toEqual({
       job_id: JOB_ID,
-      age_seconds: 3600,
+      age_seconds: 600,
       message_sid: PHOTO_SID,
       normalized_ready: true,
     });
@@ -251,7 +278,7 @@ describe("loadInboundMmsD1PendingContext", () => {
   it("fetch cap is 2 and recent wins cap is 7", () => {
     expect(INBOUND_MEDIA_D1_PENDING_FETCH_CAP).toBe(2);
     expect(INBOUND_MEDIA_D1_RECENT_WINS_CAP).toBe(7);
-    expect(INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS).toBe(24 * 60 * 60 * 1000);
+    expect(INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS).toBe(30 * 60 * 1000);
   });
 
   it("candidate fact never includes storage paths", () => {
@@ -312,7 +339,7 @@ describe("listInboundMmsD1EligiblePendingJobs", () => {
         }
       )
     ).resolves.toBe("error");
-    await expect(
+    await     expect(
       listInboundMmsD1EligiblePendingJobs(
         { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
         {
@@ -324,3 +351,119 @@ describe("listInboundMmsD1EligiblePendingJobs", () => {
     ).resolves.toBe("error");
   });
 });
+
+const windowDeps = (jobs: InboundMmsD1JobLite[]) => ({
+  hasUnresolvedDeletion: async () => false,
+  listPendingJobs: async () => jobs,
+  listBodySids: async () => new Set<string>(),
+  listRecentWins: async () => [] as InboundMmsD1WinLite[],
+});
+
+describe("D1 30-minute conversational candidate window", () => {
+  it("production repro: 17m fresh + 10h old yields only the fresh photo", async () => {
+    const fresh = job({
+      id: FRESH_PROD_JOB,
+      message_sid: "MM2cf694eaba644323a56fbdb9a4075136",
+      created_at: isoAgo(17 * MIN_MS),
+    });
+    const old = job({
+      id: OLD_PROD_JOB,
+      message_sid: "MMdba4000552c243bda4c1edadc3ebff7e",
+      created_at: isoAgo(10 * 60 * MIN_MS),
+    });
+    const listed = await listInboundMmsD1EligiblePendingJobs(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      windowDeps([old, fresh])
+    );
+    expect(listed).not.toBe("error");
+    if (listed === "error") return;
+    expect(listed.map((j) => j.id)).toEqual([FRESH_PROD_JOB]);
+
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      windowDeps([old, fresh])
+    );
+    expect(ctx.candidate_count).toBe(1);
+    expect(ctx.candidate?.job_id).toBe(FRESH_PROD_JOB);
+    expect(ctx.candidate?.age_seconds).toBe(17 * 60);
+  });
+
+  it("29-minute photo remains a D1 candidate", async () => {
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      windowDeps([job({ created_at: isoAgo(29 * MIN_MS) })])
+    );
+    expect(ctx.candidate_count).toBe(1);
+    expect(ctx.candidate?.job_id).toBe(JOB_ID);
+    expect(ctx.candidate?.age_seconds).toBe(29 * 60);
+  });
+
+  it("31-minute photo is not a D1 candidate and is not mutated", async () => {
+    const aged = job({ created_at: isoAgo(31 * MIN_MS) });
+    const snapshot = structuredClone(aged);
+    const listed = await listInboundMmsD1EligiblePendingJobs(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      windowDeps([aged])
+    );
+    expect(listed).toEqual([]);
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      windowDeps([aged])
+    );
+    expect(ctx).toEqual(EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT);
+    expect(aged).toEqual(snapshot);
+    expect(aged.status).toBe("pending_semantics");
+    expect(aged.tombstoned_at).toBeNull();
+    expect(aged.expires_at).toBe(snapshot.expires_at);
+    expect(aged.resolution).toBeNull();
+  });
+
+  it("two fresh photos inside 30 minutes fail closed", async () => {
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      windowDeps([
+        job({ created_at: isoAgo(10 * MIN_MS) }),
+        job({
+          id: JOB_2,
+          message_sid: PHOTO_SID_B,
+          created_at: isoAgo(17 * MIN_MS),
+        }),
+      ])
+    );
+    expect(ctx.candidate_count).toBe(2);
+    expect(ctx.candidate).toBeNull();
+    expect(ctx.recent_wins).toEqual([]);
+  });
+
+  it("fresh 10m + old 2h yields only the fresh photo", async () => {
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      windowDeps([
+        job({
+          id: JOB_2,
+          message_sid: PHOTO_SID_B,
+          created_at: isoAgo(2 * 60 * MIN_MS),
+        }),
+        job({ created_at: isoAgo(10 * MIN_MS) }),
+      ])
+    );
+    expect(ctx.candidate_count).toBe(1);
+    expect(ctx.candidate?.job_id).toBe(JOB_ID);
+    expect(ctx.candidate?.age_seconds).toBe(10 * 60);
+  });
+
+  it("old-only 2h photo is not a D1 candidate and is not mutated", async () => {
+    const old = job({ created_at: isoAgo(2 * 60 * MIN_MS) });
+    const snapshot = structuredClone(old);
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      windowDeps([old])
+    );
+    expect(ctx.candidate_count).toBe(0);
+    expect(ctx).toEqual(EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT);
+    expect(old).toEqual(snapshot);
+    expect(old.status).toBe("pending_semantics");
+    expect(old.tombstoned_at).toBeNull();
+  });
+});
+

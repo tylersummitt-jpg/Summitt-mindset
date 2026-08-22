@@ -1,7 +1,8 @@
 /**
  * Slice D1 — bounded pending image-only photo facts for Sol interpreter.
- * Search ceiling only. The interpreter decides whether later text refers to the photo.
- * Does not claim, attach, send SMS, or call a model.
+ * Conversational candidate window only (not media TTL, not semantic evidence).
+ * The interpreter decides whether later text refers to the photo.
+ * Does not claim, attach, send SMS, expire jobs, or call a model.
  */
 
 import "server-only";
@@ -10,8 +11,11 @@ import { hasUnresolvedAccountDeletionRequest } from "@/lib/account-deletion/dele
 import { supabaseServer } from "@/lib/supabase-server";
 import { isInboundMediaJobTombstonedOrRemoved } from "@/lib/victory-media/claim-inbound-media-job";
 
-/** Lookup bound only — not semantic evidence. */
-export const INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+/**
+ * D1 conversational candidate window only.
+ * Not semantic evidence and not media expiry (B2 TTL remains 72h).
+ */
+export const INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS = 30 * 60 * 1000;
 export const INBOUND_MEDIA_D1_PENDING_FETCH_CAP = 2;
 export const INBOUND_MEDIA_D1_RECENT_WINS_CAP = 7;
 

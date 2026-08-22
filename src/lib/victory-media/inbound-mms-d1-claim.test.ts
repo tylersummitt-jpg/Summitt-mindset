@@ -19,6 +19,8 @@ import {
 } from "@/lib/victory-media/inbound-mms-d1-claim";
 import {
   EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT,
+  INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS,
+  listInboundMmsD1EligiblePendingJobs,
   type InboundMmsD1JobLite,
   type InboundMmsD1PendingContext,
 } from "@/lib/victory-media/inbound-mms-d1-pending-context";
@@ -26,20 +28,33 @@ import { EMPTY_INBOUND_SOL_PENDING_PHOTO_RELATION } from "@/lib/inbound-sol-coac
 
 const JOB_ID = "aaaaaaaa-1111-4111-8111-111111111111";
 const JOB_B = "bbbbbbbb-2222-4222-8222-222222222222";
+const FRESH_PROD_JOB = "2cf694ea-ba64-4323-a56f-bdb9a4075136";
+const OLD_PROD_JOB = "dba40005-52c2-43bd-a4c1-edadc3ebff7e";
 const WIN_A = "cccccccc-3333-4333-8333-333333333333";
 const WIN_B = "dddddddd-4444-4444-8444-444444444444";
+const VACATION_WIN = "cecc9398-ca3b-46a6-9393-87c9be246665";
 const UNKNOWN = "eeeeeeee-5555-4555-8555-555555555555";
 const USER = "user_d1";
 const BODY_SID = "SMeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 const PHOTO_SID = "SMdddddddddddddddddddddddddddddddd";
 const PHOTO_SID_B = "SMffffffffffffffffffffffffffffffff";
+const NOW = new Date("2026-08-21T12:00:00.000Z");
+const MIN_MS = 60 * 1000;
 
-function onePhoto(recentIds: string[] = [WIN_A]): InboundMmsD1PendingContext {
+function isoAgo(ms: number): string {
+  return new Date(NOW.getTime() - ms).toISOString();
+}
+
+function onePhoto(
+  recentIds: string[] = [WIN_A],
+  jobId: string = JOB_ID,
+  ageSeconds = 120
+): InboundMmsD1PendingContext {
   return {
     candidate_count: 1,
     candidate: {
-      job_id: JOB_ID,
-      age_seconds: 120,
+      job_id: jobId,
+      age_seconds: ageSeconds,
       message_sid: PHOTO_SID,
       normalized_ready: true,
     },
@@ -58,7 +73,7 @@ function jobLite(partial: Partial<InboundMmsD1JobLite> = {}): InboundMmsD1JobLit
   return {
     id: JOB_ID,
     message_sid: PHOTO_SID,
-    created_at: "2026-08-21T11:00:00.000Z",
+    created_at: isoAgo(10 * MIN_MS),
     status: "pending_semantics",
     resolution: null,
     tombstoned_at: null,
@@ -372,4 +387,124 @@ describe("scheduleInboundMmsD1SemanticClaim", () => {
     await expect(run()).resolves.toBeUndefined();
     expect(claim).not.toHaveBeenCalled();
   });
+
+  it("claim-time revalidation uses the same 30-minute helper window", async () => {
+    expect(INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS).toBe(30 * 60 * 1000);
+    const { afterFn, run } = captureAfter();
+    const claim = vi.fn(async () => ({ ok: true as const }));
+    const fresh = jobLite({
+      id: FRESH_PROD_JOB,
+      message_sid: "MM2cf694eaba644323a56fbdb9a4075136",
+      created_at: isoAgo(17 * MIN_MS),
+    });
+    const old = jobLite({
+      id: OLD_PROD_JOB,
+      message_sid: "MMdba4000552c243bda4c1edadc3ebff7e",
+      created_at: isoAgo(10 * 60 * MIN_MS),
+    });
+    const scheduled = scheduleInboundMmsD1SemanticClaim(
+      {
+        ...baseArgs,
+        context: onePhoto([], FRESH_PROD_JOB, 17 * 60),
+        winResult: persist([{ id: VACATION_WIN, status: "inserted" }]),
+      },
+      {
+        afterFn,
+        claim,
+        listEligiblePending: (args) =>
+          listInboundMmsD1EligiblePendingJobs(
+            { ...args, now: NOW },
+            {
+              hasUnresolvedDeletion: async () => false,
+              listPendingJobs: async () => [old, fresh],
+              listBodySids: async () => new Set(),
+            }
+          ),
+      }
+    );
+    expect(scheduled).toEqual({ jobId: FRESH_PROD_JOB, targetWinId: VACATION_WIN });
+    await run();
+    expect(claim).toHaveBeenCalledOnce();
+    expect(claim).toHaveBeenCalledWith({
+      jobId: FRESH_PROD_JOB,
+      clerkUserId: USER,
+      targetWinId: VACATION_WIN,
+    });
+  });
+
+  it("claim-time 29-minute photo remains eligible", async () => {
+    const { afterFn, run } = captureAfter();
+    const claim = vi.fn(async () => ({ ok: true as const }));
+    const scheduled = scheduleInboundMmsD1SemanticClaim(baseArgs, {
+      afterFn,
+      claim,
+      listEligiblePending: (args) =>
+        listInboundMmsD1EligiblePendingJobs(
+          { ...args, now: NOW },
+          {
+            hasUnresolvedDeletion: async () => false,
+            listPendingJobs: async () => [
+              jobLite({ created_at: isoAgo(29 * MIN_MS) }),
+            ],
+            listBodySids: async () => new Set(),
+          }
+        ),
+    });
+    expect(scheduled).toEqual({ jobId: JOB_ID, targetWinId: WIN_A });
+    await run();
+    expect(claim).toHaveBeenCalledOnce();
+  });
+
+  it("claim-time 31-minute photo is no longer eligible and is not claimed", async () => {
+    const { afterFn, run } = captureAfter();
+    const claim = vi.fn();
+    const aged = jobLite({ created_at: isoAgo(31 * MIN_MS) });
+    const snapshot = structuredClone(aged);
+    const scheduled = scheduleInboundMmsD1SemanticClaim(baseArgs, {
+      afterFn,
+      claim,
+      listEligiblePending: (args) =>
+        listInboundMmsD1EligiblePendingJobs(
+          { ...args, now: NOW },
+          {
+            hasUnresolvedDeletion: async () => false,
+            listPendingJobs: async () => [aged],
+            listBodySids: async () => new Set(),
+          }
+        ),
+    });
+    expect(scheduled).toEqual({ jobId: JOB_ID, targetWinId: WIN_A });
+    await run();
+    expect(claim).not.toHaveBeenCalled();
+    expect(aged).toEqual(snapshot);
+  });
+
+  it("claim-time two fresh photos inside 30 minutes do not claim", async () => {
+    const { afterFn, run } = captureAfter();
+    const claim = vi.fn();
+    const scheduled = scheduleInboundMmsD1SemanticClaim(baseArgs, {
+      afterFn,
+      claim,
+      listEligiblePending: (args) =>
+        listInboundMmsD1EligiblePendingJobs(
+          { ...args, now: NOW },
+          {
+            hasUnresolvedDeletion: async () => false,
+            listPendingJobs: async () => [
+              jobLite({ created_at: isoAgo(10 * MIN_MS) }),
+              jobLite({
+                id: JOB_B,
+                message_sid: PHOTO_SID_B,
+                created_at: isoAgo(17 * MIN_MS),
+              }),
+            ],
+            listBodySids: async () => new Set(),
+          }
+        ),
+    });
+    expect(scheduled).toEqual({ jobId: JOB_ID, targetWinId: WIN_A });
+    await run();
+    expect(claim).not.toHaveBeenCalled();
+  });
 });
+
