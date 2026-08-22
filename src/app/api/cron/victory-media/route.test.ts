@@ -27,6 +27,9 @@ const ZERO_RESULT = {
   attached: 0,
   d2aAttempted: 0,
   d2aClaimed: 0,
+  d2bAttempted: 0,
+  d2bSent: 0,
+  d2bClaimed: 0,
 };
 
 const WORK_RESULT = {
@@ -41,6 +44,9 @@ const WORK_RESULT = {
   attached: 1,
   d2aAttempted: 1,
   d2aClaimed: 1,
+  d2bAttempted: 0,
+  d2bSent: 0,
+  d2bClaimed: 0,
 };
 
 function cronRequest(): Request {
@@ -94,6 +100,9 @@ describe("GET /api/cron/victory-media", () => {
         "attached",
         "d2aAttempted",
         "d2aClaimed",
+        "d2bAttempted",
+        "d2bSent",
+        "d2bClaimed",
         "normalized",
         "ok",
         "wake_source",

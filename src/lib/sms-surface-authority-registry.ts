@@ -554,6 +554,21 @@ const INTENTIONAL_EXCEPTION_SURFACES: readonly SmsSurfaceAuthorityEntry[] = [
     send_caller_files: ["src/lib/v2-adaptive-contract.ts"],
   },
   {
+    id: "mms_d2b_photo_clarification",
+    surface_label: "Inbound MMS D2b photo-only clarification",
+    route_identifiers: ["mms_d2b_photo_clarification"],
+    classification: "app_driven_constrained_exception",
+    final_guard_mode: "not_visible",
+    visible_sms: true,
+    writer_path: "src/lib/victory-media/inbound-mms-d2b.ts",
+    owner: "app_flow",
+    disposition: "intentional_exception",
+    reason:
+      "Exactly one post-grace photo clarification via sendSMSChunked; not a Strategy Card surface.",
+    action: "keep D2b bounded; do not card-wire",
+    send_caller_files: ["src/lib/victory-media/inbound-mms-d2b.ts"],
+  },
+  {
     id: "weekly_legacy_deprecated",
     surface_label: "Weekly legacy reflection / fallback summary",
     route_identifiers: ["weekly_legacy_reflection", "weekly_legacy_fallback_summary"],

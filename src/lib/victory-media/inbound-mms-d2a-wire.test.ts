@@ -53,10 +53,10 @@ describe("inbound MMS D2a wire", () => {
   });
 
   it("D2a is last in the existing pipeline with limit 1 and no new cron", () => {
-    expect(pipe).toContain("listInboundMediaJobsForD2a");
-    expect(pipe).toContain("processInboundMmsD2aJob");
-    expect(pipe.indexOf("listD2a(")).toBeGreaterThan(pipe.indexOf("listC2("));
-    expect(pipe).toContain("INBOUND_MEDIA_PIPELINE_D2A_LIMIT");
+    expect(pipe).toContain("listInboundMediaJobsForD2");
+    expect(pipe).toContain("processInboundMmsD2Job");
+    expect(pipe.indexOf("listD2(")).toBeGreaterThan(pipe.indexOf("listC2("));
+    expect(pipe).toContain("INBOUND_MEDIA_PIPELINE_D2_LIMIT");
     expect(cron).toContain("await kickInboundMediaPipeline()");
     expect((cron.match(/kickInboundMediaPipeline\(/g) ?? []).length).toBe(1);
     expect(vercel).toContain('"/api/cron/victory-media"');

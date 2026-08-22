@@ -33,6 +33,7 @@ type Job = {
   resolution: string | null;
   classifier_target: string | null;
   followup_idempotency_key: string | null;
+  clarification_body: string | null;
   expires_at: string | null;
   tombstoned_at: string | null;
   created_at: string;
@@ -306,6 +307,7 @@ function seed(partial: Partial<Job> = {}): Job {
     resolution: null,
     classifier_target: null,
     followup_idempotency_key: null,
+    clarification_body: null,
     expires_at: null,
     tombstoned_at: null,
     created_at: "2026-08-12T00:00:00.000Z",

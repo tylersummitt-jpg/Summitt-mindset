@@ -31,6 +31,7 @@ export const PRODUCTION_SMS_SEND_CALLER_ALLOWLIST = new Set<string>([
   "src/lib/tyler-text-overview-evening-send.ts",
   "src/app/api/onboarding/sms/route.ts",
   "src/lib/v2-adaptive-contract.ts",
+  "src/lib/victory-media/inbound-mms-d2b.ts",
 ]);
 
 const SEND_SMS_CALL = /\bsendSMS\s*\(/;
@@ -236,7 +237,10 @@ describe("Phase 4.0 — production SMS send surface allowlist (4G)", () => {
       chunked.push(...findSendHits(rel, content).filter((h) => h.kind === "sendSMSChunked"));
     }
     const unexpected = chunked.filter(
-      (h) => h.file !== "src/lib/twilio.ts" && h.file !== "src/app/api/cron/sms-inbound-coach/route.ts"
+      (h) =>
+        h.file !== "src/lib/twilio.ts" &&
+        h.file !== "src/app/api/cron/sms-inbound-coach/route.ts" &&
+        h.file !== "src/lib/victory-media/inbound-mms-d2b.ts"
     );
     expect(unexpected).toEqual([]);
   });

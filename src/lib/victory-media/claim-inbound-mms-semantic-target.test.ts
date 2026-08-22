@@ -54,6 +54,7 @@ function pendingJob(partial: Partial<InboundMediaJobRow> = {}): InboundMediaJobR
     resolution: null,
     classifier_target: null,
     followup_idempotency_key: null,
+    clarification_body: null,
     expires_at: "2026-08-24T12:00:00.000Z",
     tombstoned_at: null,
     created_at: "2026-08-19T00:00:00.000Z",

@@ -77,6 +77,7 @@ export async function enqueueInboundMediaJobs(
       resolution: null,
       classifier_target: null,
       followup_idempotency_key: null,
+      clarification_body: null,
       tombstoned_at: null,
     };
 

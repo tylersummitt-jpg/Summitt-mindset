@@ -29,8 +29,8 @@ export function isInboundMediaD2aOwnedLastErrorCode(
 }
 
 /** Grace before D2b may later ask. Not semantic attach authority. */
-export const INBOUND_MEDIA_D2A_GRACE_MS = 5 * 60 * 1000;
-/** If first eval is already past created_at+5m, arm a short future retry (still no SMS). */
+export const INBOUND_MEDIA_D2A_GRACE_MS = 10 * 60 * 1000;
+/** If first eval is already past created_at+10m, arm a short future retry (still no SMS). */
 export const INBOUND_MEDIA_D2A_GRACE_FLOOR_MS = 60 * 1000;
 /** One bounded OpenAI retry after semantic_model_failed. */
 export const INBOUND_MEDIA_D2A_MODEL_RETRY_MS = 60 * 1000;

@@ -60,6 +60,7 @@ describe("enqueueInboundMediaJobs", () => {
       resolution: null,
       classifier_target: null,
       followup_idempotency_key: null,
+      clarification_body: null,
     });
     expect(row).not.toHaveProperty("media_url");
     expect(JSON.stringify(row)).not.toContain("MediaUrl");

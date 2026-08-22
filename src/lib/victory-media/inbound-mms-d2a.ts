@@ -35,7 +35,6 @@ import {
   INBOUND_MEDIA_D2A_WIN_LOOKBACK_MS,
   INBOUND_MEDIA_PIPELINE_D2A_LIMIT,
   inboundMmsD2aGraceRetryIso,
-  inboundMmsD2aParkRetryIso,
   isInboundMediaD2aOwnedLastErrorCode,
 } from "@/lib/victory-media/inbound-mms-d2a-codes";
 import {
@@ -471,18 +470,7 @@ export async function processInboundMmsD2aJob(
   }
 
   if (job.last_error_code === INBOUND_MEDIA_D2A_SEMANTIC_GRACE) {
-    const won = await casPark({
-      job,
-      patch: {
-        last_error_code: INBOUND_MEDIA_D2A_SEMANTIC_GRACE,
-        next_retry_at: inboundMmsD2aParkRetryIso({
-          expiresAt: job.expires_at,
-          now,
-        }),
-        updated_at: now.toISOString(),
-      },
-    });
-    return { ok: true, jobId: job.id, action: won ? "parked" : "noop" };
+    return { ok: true, jobId: job.id, action: "noop" };
   }
 
   const armGrace = async (): Promise<ProcessInboundMmsD2aResult> => {
@@ -506,8 +494,8 @@ export async function processInboundMmsD2aJob(
         job,
         patch: {
           last_error_code: INBOUND_MEDIA_D2A_SEMANTIC_GRACE,
-          next_retry_at: inboundMmsD2aParkRetryIso({
-            expiresAt: job.expires_at,
+          next_retry_at: inboundMmsD2aGraceRetryIso({
+            createdAt: job.created_at,
             now,
           }),
           updated_at: now.toISOString(),

@@ -105,6 +105,7 @@ function seed(partial: Partial<JobRow> = {}, id = JOB_ID): JobRow {
     resolution: null,
     classifier_target: null,
     followup_idempotency_key: null,
+    clarification_body: null,
     expires_at: null,
     tombstoned_at: null,
     created_at: "2026-08-12T00:00:00.000Z",

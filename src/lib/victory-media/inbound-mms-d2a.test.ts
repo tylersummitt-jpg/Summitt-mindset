@@ -67,6 +67,7 @@ function dueJob(partial: Partial<InboundMediaJobRow> = {}): InboundMediaJobRow {
     resolution: null,
     classifier_target: null,
     followup_idempotency_key: null,
+    clarification_body: null,
     expires_at: "2026-08-25T12:00:00.000Z",
     tombstoned_at: null,
     created_at: "2026-08-22T11:58:00.000Z",
@@ -169,6 +170,7 @@ function processDeps(
 
 describe("D2a codes and grace timing", () => {
   it("owns only semantic_due/grace/model_failed", () => {
+    expect(INBOUND_MEDIA_D2A_GRACE_MS).toBe(10 * 60 * 1000);
     expect([...INBOUND_MEDIA_D2A_OWNED_LAST_ERROR_CODES]).toEqual([
       "semantic_due",
       "semantic_grace",
@@ -176,12 +178,12 @@ describe("D2a codes and grace timing", () => {
     ]);
   });
 
-  it("arms grace at created_at+5m, or now+60s if already past", () => {
+  it("arms grace at created_at+10m, or now+60s if already past", () => {
     const created = new Date(NOW.getTime() - 60_000).toISOString();
     expect(
       inboundMmsD2aGraceRetryIso({ createdAt: created, now: NOW })
     ).toBe(new Date(new Date(created).getTime() + INBOUND_MEDIA_D2A_GRACE_MS).toISOString());
-    const late = new Date(NOW.getTime() - 10 * 60_000).toISOString();
+    const late = new Date(NOW.getTime() - 15 * 60_000).toISOString();
     expect(
       inboundMmsD2aGraceRetryIso({ createdAt: late, now: NOW })
     ).toBe(new Date(NOW.getTime() + INBOUND_MEDIA_D2A_GRACE_FLOOR_MS).toISOString());
@@ -527,14 +529,14 @@ describe("processInboundMmsD2aJob", () => {
       INBOUND_MEDIA_D2A_SEMANTIC_GRACE
     );
     expect(casPark2.mock.calls[0]![0].patch.next_retry_at).toBe(
-      inboundMmsD2aParkRetryIso({
-        expiresAt: dueJob().expires_at,
+      inboundMmsD2aGraceRetryIso({
+        createdAt: dueJob().created_at,
         now: NOW,
       })
     );
   });
 
-  it("due semantic_grace parks without a second model call", async () => {
+  it("due semantic_grace is a D2a noop so D2b owns the wake", async () => {
     const runSemantics = vi.fn();
     const casPark = vi.fn(async () => true);
     const r = await processInboundMmsD2aJob(
@@ -546,11 +548,9 @@ describe("processInboundMmsD2aJob", () => {
         casPark,
       })
     );
-    expect(r).toEqual({ ok: true, jobId: JOB_ID, action: "parked" });
+    expect(r).toEqual({ ok: true, jobId: JOB_ID, action: "noop" });
     expect(runSemantics).not.toHaveBeenCalled();
-    expect(casPark.mock.calls[0]![0].patch.last_error_code).toBe(
-      INBOUND_MEDIA_D2A_SEMANTIC_GRACE
-    );
+    expect(casPark).not.toHaveBeenCalled();
   });
 
   it("D0 stale_ownership (D1 won) is a noop", async () => {

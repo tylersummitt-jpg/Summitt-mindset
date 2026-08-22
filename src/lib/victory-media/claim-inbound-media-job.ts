@@ -58,6 +58,8 @@ export type InboundMediaJobRow = {
   resolution: string | null;
   classifier_target: string | null;
   followup_idempotency_key: string | null;
+  /** Exact D2b clarification SMS body. Null until reserved. */
+  clarification_body: string | null;
   expires_at: string | null;
   tombstoned_at: string | null;
   created_at: string;
@@ -346,6 +348,8 @@ function mapJobRow(raw: Record<string, unknown>): InboundMediaJobRow {
       typeof raw.followup_idempotency_key === "string"
         ? raw.followup_idempotency_key
         : null,
+    clarification_body:
+      typeof raw.clarification_body === "string" ? raw.clarification_body : null,
     expires_at: typeof raw.expires_at === "string" ? raw.expires_at : null,
     tombstoned_at: typeof raw.tombstoned_at === "string" ? raw.tombstoned_at : null,
     created_at: String(raw.created_at ?? ""),

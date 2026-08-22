@@ -287,6 +287,16 @@ describe("Phase 4.9b — send caller authority coverage", () => {
     expect(entry?.send_caller_files).toContain("src/lib/v2-adaptive-contract.ts");
   });
 
+  it("D2b photo clarification send caller is app_driven_constrained_exception", () => {
+    const entry = SMS_SURFACE_AUTHORITY_REGISTRY.find(
+      (e) => e.id === "mms_d2b_photo_clarification"
+    );
+    expect(entry?.classification).toBe("app_driven_constrained_exception");
+    expect(entry?.send_caller_files).toContain(
+      "src/lib/victory-media/inbound-mms-d2b.ts"
+    );
+  });
+
   it("deprecated cron send paths are deprecated_no_visible_sms or absent from allowlist", () => {
     const deprecated = SMS_SURFACE_AUTHORITY_REGISTRY.filter(
       (e) => e.classification === "deprecated_no_visible_sms"

@@ -30,6 +30,9 @@ export async function GET(req: Request) {
       attached: result.attached,
       d2aAttempted: result.d2aAttempted,
       d2aClaimed: result.d2aClaimed,
+      d2bAttempted: result.d2bAttempted,
+      d2bSent: result.d2bSent,
+      d2bClaimed: result.d2bClaimed,
     };
     console.info("[victory-media/cron] kick done", summary);
     return NextResponse.json({ ok: true, ...summary });
