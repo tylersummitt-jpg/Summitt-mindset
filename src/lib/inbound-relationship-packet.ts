@@ -26,6 +26,11 @@ import {
 } from "@/lib/v2-guided-resolution";
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor-validation";
 import { loadV2CommitmentSmsThreadMemory } from "@/lib/v2-commitment-sms-thread-memory";
+import {
+  EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT,
+  loadInboundMmsD1PendingContext,
+  type InboundMmsD1PendingContext,
+} from "@/lib/victory-media/inbound-mms-d1-pending-context";
 
 export const INBOUND_RELATIONSHIP_PACKET_VERSION = "inbound_relationship_v1" as const;
 
@@ -62,6 +67,11 @@ export type InboundRelationshipPacket = {
   };
   latest_inbound_text: string;
   latest_inbound_message_sid: string;
+  /**
+   * D1: CODE-supplied pending image-only photo facts.
+   * Search-bounded. OpenAI decides relation. Never image bytes or Storage paths.
+   */
+  pending_media_context: InboundMmsD1PendingContext;
   exact_thread: {
     window_days: 21;
     max_messages: 30;
@@ -350,6 +360,18 @@ export async function loadInboundRelationshipPacket(args: {
     options: { messageForLocalDate: local_date },
   });
 
+  let pending_media_context: InboundMmsD1PendingContext =
+    EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT;
+  try {
+    pending_media_context = await loadInboundMmsD1PendingContext({
+      clerkUserId: args.clerkUserId,
+      currentMessageSid: latestInboundMessageSid,
+      now: receivedAt,
+    });
+  } catch {
+    pending_media_context = EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT;
+  }
+
   const packet: InboundRelationshipPacket = {
     version: INBOUND_RELATIONSHIP_PACKET_VERSION,
     message_for: {
@@ -371,6 +393,7 @@ export async function loadInboundRelationshipPacket(args: {
     },
     latest_inbound_text: latestInboundText,
     latest_inbound_message_sid: latestInboundMessageSid,
+    pending_media_context,
     exact_thread: {
       window_days: MORNING_TTO_THREAD_WINDOW_DAYS,
       max_messages: MORNING_TTO_THREAD_MAX_MESSAGES,

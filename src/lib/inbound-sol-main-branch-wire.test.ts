@@ -6,6 +6,12 @@ vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: { from: vi.fn() },
 }));
 
+vi.mock("server-only", () => ({}));
+
+vi.mock("next/server", () => ({
+  after: vi.fn(),
+}));
+
 vi.mock("@/lib/victory-media/correlate-inbound-mms-c1", () => ({
   scheduleC1IfWinsDurable: vi.fn(),
 }));

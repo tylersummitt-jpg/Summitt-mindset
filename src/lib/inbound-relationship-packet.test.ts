@@ -3,8 +3,17 @@ import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
 import { exactThreadExcludingCurrentTurnSids } from "@/lib/inbound-relationship-packet";
 
+vi.mock("server-only", () => ({}));
+
 const supabaseFrom = vi.hoisted(() => vi.fn());
 const buildRecentExactThread72h = vi.hoisted(() => vi.fn());
+const loadInboundMmsD1PendingContext = vi.hoisted(() =>
+  vi.fn(async () => ({
+    candidate_count: 0,
+    candidate: null,
+    recent_wins: [],
+  }))
+);
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: { from: supabaseFrom },
@@ -15,6 +24,15 @@ vi.mock("@/lib/sms-recent-exact-thread-72h", async (importOriginal) => {
   return {
     ...actual,
     buildRecentExactThread72h,
+  };
+});
+
+vi.mock("@/lib/victory-media/inbound-mms-d1-pending-context", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/victory-media/inbound-mms-d1-pending-context")>();
+  return {
+    ...actual,
+    loadInboundMmsD1PendingContext,
   };
 });
 
@@ -45,6 +63,12 @@ function threadMsg(
 describe("inbound relationship packet", () => {
   beforeEach(() => {
     supabaseFrom.mockReset();
+    loadInboundMmsD1PendingContext.mockReset();
+    loadInboundMmsD1PendingContext.mockResolvedValue({
+      candidate_count: 0,
+      candidate: null,
+      recent_wins: [],
+    });
     supabaseFrom.mockImplementation((table: string) => {
       if (table === "user_profiles") {
         return {
@@ -122,6 +146,16 @@ describe("inbound relationship packet", () => {
     expect(loaded.packet.preferred_name).toBe("Angel");
     expect(loaded.packet.exact_thread.window_days).toBe(21);
     expect(loaded.packet.hard_state.open_coach_question).toBeNull();
+    expect(loaded.packet.pending_media_context).toEqual({
+      candidate_count: 0,
+      candidate: null,
+      recent_wins: [],
+    });
+    expect(loadInboundMmsD1PendingContext).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      currentMessageSid: "SMangel",
+      now: new Date("2026-08-18T16:30:00.000Z"),
+    });
     expect(buildRecentExactThread72h).toHaveBeenCalled();
   });
 

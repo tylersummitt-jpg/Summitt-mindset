@@ -23,6 +23,7 @@ const completed: InboundSolBriefExtras = {
     evidence: "I completed my lift.",
   },
   meaningful_win: null,
+  pending_photo_relation: { relation: "none", target_win_id: null },
 };
 
 describe("Sol inbound Win / Victory Room mapping", () => {

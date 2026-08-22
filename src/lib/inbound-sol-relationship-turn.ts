@@ -38,6 +38,7 @@ import { shouldPersistSolInboundAccountabilityOutcome } from "@/lib/inbound-sol-
 import { persistSolInboundWins } from "@/lib/inbound-sol-wins";
 import { applySolInboundOutcomeSideEffects } from "@/lib/inbound-sol-outcome-side-effects";
 import { evaluateInboundSolBlockOnlyReply } from "@/lib/inbound-sol-reply-validate";
+import { scheduleInboundMmsD1SemanticClaim } from "@/lib/victory-media/inbound-mms-d1-claim";
 
 export function isInboundSolMainCoachingBranch(args: {
   normalInboundV3OwnershipEligible: boolean;
@@ -261,6 +262,19 @@ export async function runInboundSolRelationshipTurn(args: {
     baseForensics.inbound_sol_win_persisted = 0;
   }
 
+  try {
+    const d1Target = scheduleInboundMmsD1SemanticClaim({
+      clerkUserId: args.clerkUserId,
+      currentMessageSid: args.messageSid,
+      context: packet.pending_media_context,
+      relation: brief.inbound.pending_photo_relation,
+      winResult,
+    });
+    baseForensics.inbound_sol_d1_claim_scheduled = d1Target != null;
+  } catch {
+    baseForensics.inbound_sol_d1_claim_scheduled = false;
+  }
+
   const written = await writeInboundSolBody({ packet, brief });
   baseForensics.inbound_sol_retry_writer = written.capture.retry_occurred;
   baseForensics.writer_model = INBOUND_SOL_WRITER_MODEL;
@@ -277,6 +291,8 @@ export async function runInboundSolRelationshipTurn(args: {
   const blocked = evaluateInboundSolBlockOnlyReply({
     body: written.body,
     persistedUserYes,
+    pendingPhotoNotCanonicallyAttached:
+      packet.pending_media_context.candidate_count > 0,
   });
   if (!blocked.ok) {
     return noSend(`blocked_${blocked.reason}`, {

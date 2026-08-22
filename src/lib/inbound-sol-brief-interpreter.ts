@@ -69,6 +69,17 @@ MEANINGFUL WIN (inbound.meaningful_win):
 - relationship=life means a DISTINCT whole-life win besides the Current Goal.
 - relationship=unclear → treat as no extra win (set null unless you must mark present).
 
+PENDING PHOTO (inbound.pending_photo_relation):
+- pending_media_context is CODE-supplied fact about a parked inbound photo, if any. It is not a photo. You never receive image bytes, URLs, or Storage paths.
+- If candidate_count is 0 or 2: relation MUST be none and target_win_id MUST be null. Do not pair.
+- If candidate_count is 1: decide whether the newest inbound TEXT refers to that pending photo.
+- relation=none: unrelated, or no single pending photo.
+- relation=uncertain: you cannot tell. Do not ask a clarification question about the photo.
+- relation=current_turn_win: this text is about the pending photo AND the Win created from THIS turn. target_win_id MUST be null (the Win UUID does not exist yet).
+- relation=existing_win: this text refers to the pending photo AND an already-listed recent Win. Copy target_win_id exactly from recent_wins[].id. Never invent a UUID.
+- Age in seconds is not evidence they belong together. Conversation decides.
+- Do not mention saving or attaching a photo.
+
 TEMPORAL:
 - Newest inbound is "now" for this receive. Older relative-time words belong to those turns' timestamps and day_relation_to_message.
 - Do not answer stale thread topics instead of the newest text.
@@ -206,7 +217,7 @@ export async function runInboundSolBriefInterpreter(args: {
     };
 
     const first = await solCreate(messages);
-    let raw = first.choices[0]?.message?.content?.trim() ?? "";
+    const raw = first.choices[0]?.message?.content?.trim() ?? "";
     let parsed = raw ? parseRaw(raw) : null;
 
     let rawRetry: string | null = null;

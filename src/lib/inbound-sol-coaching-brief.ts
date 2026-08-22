@@ -57,6 +57,25 @@ export type InboundSolMeaningfulWin = {
   relationship: InboundSolWinRelationship;
 };
 
+export const INBOUND_SOL_PENDING_PHOTO_RELATION = [
+  "none",
+  "uncertain",
+  "current_turn_win",
+  "existing_win",
+] as const;
+export type InboundSolPendingPhotoRelationKind =
+  (typeof INBOUND_SOL_PENDING_PHOTO_RELATION)[number];
+
+export type InboundSolPendingPhotoRelation = {
+  relation: InboundSolPendingPhotoRelationKind;
+  target_win_id: string | null;
+};
+
+export const EMPTY_INBOUND_SOL_PENDING_PHOTO_RELATION: InboundSolPendingPhotoRelation = {
+  relation: "none",
+  target_win_id: null,
+};
+
 export type InboundSolBriefExtras = {
   answer_priority: InboundSolAnswerPriority;
   coaching_after_answer: InboundSolCoachingAfterAnswer;
@@ -68,6 +87,7 @@ export type InboundSolBriefExtras = {
     evidence: string;
   };
   meaningful_win: InboundSolMeaningfulWin | null;
+  pending_photo_relation: InboundSolPendingPhotoRelation;
 };
 
 export type InboundCoachingBriefV1 = MorningCoachingBriefV1 & {
@@ -127,7 +147,26 @@ export function parseInboundSolBriefExtras(raw: unknown): InboundSolBriefExtras 
       evidence,
     },
     meaningful_win,
+    pending_photo_relation: parsePendingPhotoRelation(o.pending_photo_relation),
   };
+}
+
+function parsePendingPhotoRelation(raw: unknown): InboundSolPendingPhotoRelation {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return EMPTY_INBOUND_SOL_PENDING_PHOTO_RELATION;
+  }
+  const o = raw as Record<string, unknown>;
+  if (!isInSet(o.relation, INBOUND_SOL_PENDING_PHOTO_RELATION)) {
+    return EMPTY_INBOUND_SOL_PENDING_PHOTO_RELATION;
+  }
+  let target_win_id: string | null = null;
+  if (typeof o.target_win_id === "string" && o.target_win_id.trim()) {
+    target_win_id = o.target_win_id.trim();
+  }
+  if (o.relation !== "existing_win") {
+    return { relation: o.relation, target_win_id: null };
+  }
+  return { relation: "existing_win", target_win_id };
 }
 
 export function parseInboundCoachingBriefV1(raw: unknown): InboundCoachingBriefV1 | null {
@@ -154,6 +193,7 @@ export function compactInboundSolBriefForTelemetry(
     inbound_sol_accountability_confidence: brief.inbound.accountability_interpretation.confidence,
     inbound_sol_meaningful_win_relationship:
       brief.inbound.meaningful_win?.relationship ?? null,
+    inbound_sol_pending_photo_relation: brief.inbound.pending_photo_relation.relation,
     inbound_sol_most_alive_preview:
       typeof brief.human_situation.most_alive === "string"
         ? brief.human_situation.most_alive.slice(0, 160)

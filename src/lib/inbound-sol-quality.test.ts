@@ -14,6 +14,8 @@ import {
   INBOUND_SOL_WRITER_MODEL,
   INBOUND_SOL_WRITER_REASONING_EFFORT,
   buildInboundSolWriterMessages,
+  toWriterFacingInboundCoachingBrief,
+  toWriterFacingInboundRelationshipPacket,
 } from "@/lib/inbound-sol-writer";
 import { parseInboundCoachingBriefV1 } from "@/lib/inbound-sol-coaching-brief";
 import { MORNING_COACHING_BRIEF_VERSION } from "@/lib/morning-tto-coaching-brief-v1";
@@ -37,6 +39,11 @@ function packet(latest: string, threadBodies: string[]): InboundRelationshipPack
     hard_state: { pending_goal_change: null, open_coach_question: null },
     latest_inbound_text: latest,
     latest_inbound_message_sid: "SMx",
+    pending_media_context: {
+      candidate_count: 0,
+      candidate: null,
+      recent_wins: [],
+    },
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -130,6 +137,11 @@ describe("inbound Sol contracts", () => {
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Attempt is NOT automatically partial");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("hard_state.open_coach_question");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Do not force a stale pending question");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("pending_photo_relation");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "You never receive image bytes, URLs, or Storage paths"
+    );
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).not.toContain("within 24");
   });
 
   it("writer prompt is relationship-first and does not clip", () => {
@@ -140,6 +152,9 @@ describe("inbound Sol contracts", () => {
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("300");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("320");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("accept the correction");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "Do not claim a photo or picture was saved, attached, added, or stored."
+    );
   });
 });
 
@@ -322,6 +337,112 @@ describe("block-only validation", () => {
       persistedUserYes: false,
     });
     expect(r.ok).toBe(false);
+  });
+
+  it("blocks photo-saved claims when D1 pending photo is not canonically attached", () => {
+    const blocked = [
+      "I saved your photo.",
+      "I saved that picture.",
+      "I added your photo.",
+      "I attached your picture.",
+      "I put that photo in your Victory Room.",
+    ];
+    for (const body of blocked) {
+      const r = evaluateInboundSolBlockOnlyReply({
+        body,
+        persistedUserYes: true,
+        pendingPhotoNotCanonicallyAttached: true,
+      });
+      expect(r).toEqual({ ok: false, reason: "photo_saved_before_canonical_attach" });
+    }
+  });
+
+  it("still allows Win-saved language when a pending photo is not attached", () => {
+    const r = evaluateInboundSolBlockOnlyReply({
+      body: "I saved that Win.",
+      persistedUserYes: true,
+      pendingPhotoNotCanonicallyAttached: true,
+    });
+    expect(r.ok).toBe(true);
+    const logged = evaluateInboundSolBlockOnlyReply({
+      body: "Glad you logged that win.",
+      persistedUserYes: false,
+      pendingPhotoNotCanonicallyAttached: true,
+    });
+    expect(logged.ok).toBe(true);
+  });
+});
+
+describe("writer D1 pending-photo data minimization", () => {
+  it("does not give the writer pending_media_context or pending_photo_relation", () => {
+    const p = packet("This was me finally taking the kids hiking.", []);
+    p.pending_media_context = {
+      candidate_count: 1,
+      candidate: {
+        job_id: "aaaaaaaa-1111-4111-8111-111111111111",
+        age_seconds: 120,
+        message_sid: "SMdddddddddddddddddddddddddddddddd",
+        normalized_ready: true,
+      },
+      recent_wins: [
+        {
+          id: "cccccccc-3333-4333-8333-333333333333",
+          text: "Kids hiking",
+          occurred_at: "2026-08-20T12:00:00.000Z",
+          relationship_type: "whole_life",
+          commitment_id: null,
+          has_media: false,
+        },
+      ],
+    };
+    const brief = briefWithInbound({
+      answer_priority: "normal",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "unrelated",
+        outcome: "not_applicable",
+        confidence: "high",
+        evidence: "This was me finally taking the kids hiking.",
+      },
+      meaningful_win: {
+        present: true,
+        grounded_action: "Took the kids hiking",
+        relationship: "life",
+      },
+      pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+    });
+    expect(brief?.inbound.pending_photo_relation.relation).toBe("current_turn_win");
+    const writerPacket = toWriterFacingInboundRelationshipPacket(p);
+    const writerBrief = toWriterFacingInboundCoachingBrief(brief!);
+    expect(writerPacket).not.toHaveProperty("pending_media_context");
+    expect(writerBrief.inbound).not.toHaveProperty("pending_photo_relation");
+    const msgs = buildInboundSolWriterMessages(p, brief!);
+    const user = String(msgs[1]?.content ?? "");
+    expect(user).not.toContain("pending_media_context");
+    expect(user).not.toContain("pending_photo_relation");
+    expect(user).not.toContain("current_turn_win");
+    expect(user).toContain("This was me finally taking the kids hiking.");
+    expect(p.pending_media_context.candidate_count).toBe(1);
+    expect(brief?.inbound.pending_photo_relation.relation).toBe("current_turn_win");
+  });
+
+  it("does not authorize photo-saved claims when a Win persisted and D0 is only queued", () => {
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "Do not claim a photo or picture was saved, attached, added, or stored."
+    );
+    const queued = evaluateInboundSolBlockOnlyReply({
+      body: "I saved your photo to the Victory Room.",
+      persistedUserYes: true,
+      pendingPhotoNotCanonicallyAttached: true,
+    });
+    expect(queued.ok).toBe(false);
+    const winOnly = evaluateInboundSolBlockOnlyReply({
+      body: "Proud you took the kids hiking — I saved that Win.",
+      persistedUserYes: true,
+      pendingPhotoNotCanonicallyAttached: true,
+    });
+    expect(winOnly.ok).toBe(true);
   });
 });
 

@@ -1,0 +1,326 @@
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+
+import {
+  EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT,
+  INBOUND_MEDIA_D1_PENDING_FETCH_CAP,
+  INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS,
+  INBOUND_MEDIA_D1_RECENT_WINS_CAP,
+  buildInboundMmsD1CandidateFact,
+  isInboundMediaJobD1PendingShape,
+  listInboundMmsD1EligiblePendingJobs,
+  loadInboundMmsD1PendingContext,
+  type InboundMmsD1JobLite,
+  type InboundMmsD1WinLite,
+} from "@/lib/victory-media/inbound-mms-d1-pending-context";
+
+const NOW = new Date("2026-08-21T12:00:00.000Z");
+const JOB_ID = "aaaaaaaa-1111-4111-8111-111111111111";
+const JOB_2 = "bbbbbbbb-2222-4222-8222-222222222222";
+const WIN_A = "cccccccc-3333-4333-8333-333333333333";
+const USER = "user_d1";
+const PHOTO_SID = "SMdddddddddddddddddddddddddddddddd";
+const BODY_SID = "SMeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+
+function job(partial: Partial<InboundMmsD1JobLite> = {}): InboundMmsD1JobLite {
+  return {
+    id: JOB_ID,
+    message_sid: PHOTO_SID,
+    created_at: "2026-08-21T11:00:00.000Z",
+    status: "pending_semantics",
+    resolution: null,
+    tombstoned_at: null,
+    attached_win_id: null,
+    semantic_target_win_id: null,
+    temp_storage_path: null,
+    normalized_storage_path: `mms-norm/${USER}/${JOB_ID}/master.jpg`,
+    expires_at: "2026-08-24T12:00:00.000Z",
+    ...partial,
+  };
+}
+
+const shapeArgs = {
+  now: NOW,
+  currentMessageSid: BODY_SID,
+  createdAfterMs: NOW.getTime() - INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS,
+};
+
+describe("isInboundMediaJobD1PendingShape", () => {
+  it("accepts a pending image-only shape with different SID", () => {
+    expect(isInboundMediaJobD1PendingShape(job(), shapeArgs)).toBe(true);
+  });
+
+  it("rejects same-message SID as current Body", () => {
+    expect(
+      isInboundMediaJobD1PendingShape(job({ message_sid: BODY_SID }), shapeArgs)
+    ).toBe(false);
+  });
+
+  it("rejects expired, tombstoned, attached, semantic-targeted, and Body leftovers by shape", () => {
+    expect(
+      isInboundMediaJobD1PendingShape(
+        job({ expires_at: "2026-08-21T11:00:00.000Z" }),
+        shapeArgs
+      )
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD1PendingShape(
+        job({ tombstoned_at: NOW.toISOString() }),
+        shapeArgs
+      )
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD1PendingShape(job({ attached_win_id: WIN_A }), shapeArgs)
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD1PendingShape(
+        job({ semantic_target_win_id: WIN_A }),
+        shapeArgs
+      )
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD1PendingShape(job({ resolution: "attached" }), shapeArgs)
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD1PendingShape(
+        job({ created_at: "2026-08-19T11:00:00.000Z" }),
+        shapeArgs
+      )
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD1PendingShape(
+        job({ normalized_storage_path: null }),
+        shapeArgs
+      )
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD1PendingShape(job({ status: "awaiting_attach" }), shapeArgs)
+    ).toBe(false);
+  });
+});
+
+describe("loadInboundMmsD1PendingContext", () => {
+  const win: InboundMmsD1WinLite = {
+    id: WIN_A,
+    occurred_at: "2026-08-20T12:00:00.000Z",
+    display_title: "Kids hiking",
+    display_body: "Took the kids hiking",
+    relationship_type: "whole_life",
+    commitment_id: null,
+  };
+
+  it("returns one candidate plus recent wins when exactly one image-only job", async () => {
+    const listedJobs: InboundMmsD1JobLite[] = [];
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => false,
+        listPendingJobs: async (args) => {
+          listedJobs.push(job());
+          expect(args.currentMessageSid).toBe(BODY_SID);
+          expect(args.clerkUserId).toBe(USER);
+          return [job()];
+        },
+        listBodySids: async () => new Set(),
+        listRecentWins: async () => [win],
+        listWinIdsWithMedia: async () => new Set(),
+      }
+    );
+    expect(ctx.candidate_count).toBe(1);
+    expect(ctx.candidate).toEqual({
+      job_id: JOB_ID,
+      age_seconds: 3600,
+      message_sid: PHOTO_SID,
+      normalized_ready: true,
+    });
+    expect(ctx.recent_wins).toEqual([
+      {
+        id: WIN_A,
+        text: "Kids hiking",
+        occurred_at: "2026-08-20T12:00:00.000Z",
+        relationship_type: "whole_life",
+        commitment_id: null,
+        has_media: false,
+      },
+    ]);
+    expect(JSON.stringify(ctx)).not.toMatch(/storage|signed|http|thumbnail|data:image/i);
+    expect(listedJobs).toHaveLength(1);
+  });
+
+  it("sets has_media true when a Win already has media", async () => {
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => false,
+        listPendingJobs: async () => [job()],
+        listBodySids: async () => new Set(),
+        listRecentWins: async () => [win],
+        listWinIdsWithMedia: async () => new Set([WIN_A]),
+      }
+    );
+    expect(ctx.recent_wins[0]?.has_media).toBe(true);
+  });
+
+  it("candidate_count 0 when no jobs", async () => {
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => false,
+        listPendingJobs: async () => [],
+        listBodySids: async () => new Set(),
+        listRecentWins: async () => [win],
+      }
+    );
+    expect(ctx).toEqual(EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT);
+  });
+
+  it("candidate_count 2 with null candidate and no silent pick", async () => {
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => false,
+        listPendingJobs: async () => [
+          job(),
+          job({ id: JOB_2, message_sid: "SMffffffffffffffffffffffffffffffff" }),
+        ],
+        listBodySids: async () => new Set(),
+        listRecentWins: async () => [win],
+      }
+    );
+    expect(ctx.candidate_count).toBe(2);
+    expect(ctx.candidate).toBeNull();
+    expect(ctx.recent_wins).toEqual([]);
+  });
+
+  it("ignores a pending job that has a Body row", async () => {
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => false,
+        listPendingJobs: async () => [job()],
+        listBodySids: async () => new Set([PHOTO_SID]),
+        listRecentWins: async () => [win],
+      }
+    );
+    expect(ctx).toEqual(EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT);
+  });
+
+  it("ignores same-message SID even if listed", async () => {
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => false,
+        listPendingJobs: async () => [job({ message_sid: BODY_SID })],
+        listBodySids: async () => new Set(),
+      }
+    );
+    expect(ctx.candidate_count).toBe(0);
+  });
+
+  it("fails closed on unresolved deletion", async () => {
+    const listPendingJobs = vi.fn(async () => [job()]);
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => true,
+        listPendingJobs,
+      }
+    );
+    expect(ctx).toEqual(EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT);
+    expect(listPendingJobs).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on deletion lookup throw", async () => {
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => {
+          throw new Error("db");
+        },
+        listPendingJobs: async () => [job()],
+      }
+    );
+    expect(ctx).toEqual(EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT);
+  });
+
+  it("fetch cap is 2 and recent wins cap is 7", () => {
+    expect(INBOUND_MEDIA_D1_PENDING_FETCH_CAP).toBe(2);
+    expect(INBOUND_MEDIA_D1_RECENT_WINS_CAP).toBe(7);
+    expect(INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS).toBe(24 * 60 * 60 * 1000);
+  });
+
+  it("candidate fact never includes storage paths", () => {
+    const fact = buildInboundMmsD1CandidateFact(job(), NOW);
+    expect(fact).not.toHaveProperty("normalized_storage_path");
+    expect(JSON.stringify(fact)).not.toContain("mms-norm");
+  });
+
+  it("fails closed on pending-job lookup error", async () => {
+    const ctx = await loadInboundMmsD1PendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => false,
+        listPendingJobs: async () => "error",
+      }
+    );
+    expect(ctx).toEqual(EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT);
+  });
+});
+
+describe("listInboundMmsD1EligiblePendingJobs", () => {
+  it("returns the same image-only eligibility set the loader uses", async () => {
+    const listed = await listInboundMmsD1EligiblePendingJobs(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => false,
+        listPendingJobs: async () => [
+          job(),
+          job({ id: JOB_2, message_sid: BODY_SID }),
+        ],
+        listBodySids: async () => new Set(),
+      }
+    );
+    expect(listed).not.toBe("error");
+    if (listed === "error") return;
+    expect(listed.map((j) => j.id)).toEqual([JOB_ID]);
+  });
+
+  it("excludes a Body+photo leftover via sms_inbound_messages proof", async () => {
+    const listed = await listInboundMmsD1EligiblePendingJobs(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => false,
+        listPendingJobs: async () => [job()],
+        listBodySids: async () => new Set([PHOTO_SID]),
+      }
+    );
+    expect(listed).toEqual([]);
+  });
+
+  it("returns error on lookup failure", async () => {
+    await expect(
+      listInboundMmsD1EligiblePendingJobs(
+        { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+        {
+          hasUnresolvedDeletion: async () => false,
+          listPendingJobs: async () => "error",
+        }
+      )
+    ).resolves.toBe("error");
+    await expect(
+      listInboundMmsD1EligiblePendingJobs(
+        { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+        {
+          hasUnresolvedDeletion: async () => false,
+          listPendingJobs: async () => [job()],
+          listBodySids: async () => "error",
+        }
+      )
+    ).resolves.toBe("error");
+  });
+});

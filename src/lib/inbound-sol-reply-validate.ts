@@ -14,6 +14,18 @@ function claimsVictorySavedOrLogged(body: string): boolean {
   return /\bvictory\s*room\b/.test(t) && /\b(saved|logged)\b/.test(t);
 }
 
+const PHOTO_NOUN_RE = /\b(?:photos?|pictures?|images?|pics?)\b/i;
+const PHOTO_SAVE_VERB_RE = /\b(?:saved|attached|added|stored|logged|put|placed)\b/i;
+const PHOTO_SAVED_NEAR_RE =
+  /\b(?:saved|attached|added|stored|logged)\b[\s\S]{0,48}\b(?:photos?|pictures?|images?|pics?)\b|\b(?:photos?|pictures?|images?|pics?)\b[\s\S]{0,48}\b(?:saved|attached|added|stored|logged|put|placed)\b/i;
+
+function claimsPendingPhotoSavedOrAttached(body: string): boolean {
+  const t = body.toLowerCase();
+  if (!PHOTO_NOUN_RE.test(t)) return false;
+  if (PHOTO_SAVED_NEAR_RE.test(t)) return true;
+  return /\bvictory\s*room\b/.test(t) && PHOTO_SAVE_VERB_RE.test(t);
+}
+
 export type InboundSolBlockOnlyResult =
   | { ok: true }
   | { ok: false; reason: string };
@@ -21,6 +33,7 @@ export type InboundSolBlockOnlyResult =
 export function evaluateInboundSolBlockOnlyReply(args: {
   body: string;
   persistedUserYes: boolean;
+  pendingPhotoNotCanonicallyAttached?: boolean;
 }): InboundSolBlockOnlyResult {
   const body = args.body.trim();
   if (!body) {
@@ -42,6 +55,13 @@ export function evaluateInboundSolBlockOnlyReply(args: {
 
   if (!args.persistedUserYes && claimsVictorySavedOrLogged(body)) {
     return { ok: false, reason: "victory_saved_logged_without_persist" };
+  }
+
+  if (
+    args.pendingPhotoNotCanonicallyAttached === true &&
+    claimsPendingPhotoSavedOrAttached(body)
+  ) {
+    return { ok: false, reason: "photo_saved_before_canonical_attach" };
   }
 
   return { ok: true };

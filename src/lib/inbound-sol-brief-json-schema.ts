@@ -17,6 +17,7 @@ const INBOUND_EXTRAS_SCHEMA = {
     "user_is_correcting_coach",
     "accountability_interpretation",
     "meaningful_win",
+    "pending_photo_relation",
   ],
   properties: {
     answer_priority: { type: "string", enum: ["first", "normal", "unknown"] },
@@ -67,6 +68,18 @@ const INBOUND_EXTRAS_SCHEMA = {
         { type: "null" },
       ],
     },
+    pending_photo_relation: {
+      type: "object",
+      additionalProperties: false,
+      required: ["relation", "target_win_id"],
+      properties: {
+        relation: {
+          type: "string",
+          enum: ["none", "uncertain", "current_turn_win", "existing_win"],
+        },
+        target_win_id: { anyOf: [{ type: "string" }, { type: "null" }] },
+      },
+    },
   },
 } as const;
 
@@ -107,6 +120,14 @@ export function buildInboundSolBriefExactContractPromptAppendix(): string {
     "accountability_interpretation.evidence: short grounded quote or paraphrase of user evidence (not a guess)",
     "meaningful_win: null OR { present: true, grounded_action, relationship: goal | mixed | life | unclear }",
     "For a normal Current Goal completion only, prefer meaningful_win = null.",
+    "pending_photo_relation: required { relation, target_win_id }",
+    "relation: none | uncertain | current_turn_win | existing_win",
+    "If pending_media_context.candidate_count is 0 or 2: relation MUST be none and target_win_id MUST be null.",
+    "none / uncertain / current_turn_win: target_win_id MUST be null.",
+    "existing_win: target_win_id MUST be copied from pending_media_context.recent_wins[].id. Never invent a UUID.",
+    "current_turn_win means this inbound text is about the pending photo AND the Win created from THIS turn (UUID not known yet).",
+    "Age in seconds is a fact, not evidence of relatedness. Do not treat recency as proof they belong together.",
+    "Do not ask a photo-clarification question. Do not claim a photo was saved.",
     "Do not emit Morning-only keys as substitutes for inbound extras.",
     `Morning schema name remains ${MORNING_BRIEF_INTERPRETER_JSON_SCHEMA_NAME} for the six sections; inbound extras are additive.`,
   ].join("\n");

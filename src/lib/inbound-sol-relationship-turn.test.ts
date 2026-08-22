@@ -13,6 +13,7 @@ const persistInboundAccountabilityOutcomeEvent = vi.hoisted(() => vi.fn());
 const persistInboundWinsWithAccountability = vi.hoisted(() => vi.fn());
 const persistRecognizedWins = vi.hoisted(() => vi.fn());
 const scheduleC1IfWinsDurable = vi.hoisted(() => vi.fn());
+const scheduleInboundMmsD1SemanticClaim = vi.hoisted(() => vi.fn(() => null));
 const loadInboundRelationshipPacket = vi.hoisted(() => vi.fn());
 const runInboundSolBriefInterpreter = vi.hoisted(() => vi.fn());
 const writeInboundSolBody = vi.hoisted(() => vi.fn());
@@ -41,6 +42,10 @@ vi.mock("@/lib/v2-win-persist", async (importOriginal) => {
 
 vi.mock("@/lib/victory-media/correlate-inbound-mms-c1", () => ({
   scheduleC1IfWinsDurable,
+}));
+
+vi.mock("@/lib/victory-media/inbound-mms-d1-claim", () => ({
+  scheduleInboundMmsD1SemanticClaim,
 }));
 
 vi.mock("@/lib/v2-coaching-memory", () => ({
@@ -169,6 +174,7 @@ function brief(overrides: Partial<InboundCoachingBriefV1["inbound"]> = {}): Inbo
         evidence: "Got the whole thing finished before lunch.",
       },
       meaningful_win: null,
+      pending_photo_relation: { relation: "none", target_win_id: null },
       ...overrides,
     },
   };
@@ -178,6 +184,8 @@ describe("runInboundSolRelationshipTurn", () => {
   beforeEach(() => {
     persistInboundAccountabilityOutcomeEvent.mockReset();
     scheduleC1IfWinsDurable.mockReset();
+    scheduleInboundMmsD1SemanticClaim.mockReset();
+    scheduleInboundMmsD1SemanticClaim.mockReturnValue(null);
     persistInboundWinsWithAccountability.mockReset();
     persistRecognizedWins.mockReset();
     loadInboundRelationshipPacket.mockReset();
@@ -213,6 +221,11 @@ describe("runInboundSolRelationshipTurn", () => {
         hard_state: { pending_goal_change: null, open_coach_question: null },
         latest_inbound_text: "Got the whole thing finished before lunch.",
         latest_inbound_message_sid: "SMfin",
+        pending_media_context: {
+          candidate_count: 0,
+          candidate: null,
+          recent_wins: [],
+        },
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -672,5 +685,236 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(persistInboundWinsWithAccountability.mock.calls[0]?.[0]?.occurredAtIso).toBe(
       "2026-08-19T04:59:00.000Z"
     );
+  });
+
+  const PHOTO_JOB = "aaaaaaaa-1111-4111-8111-111111111111";
+  const WIN_HIKING = "cccccccc-3333-4333-8333-333333333333";
+  const onePending = {
+    candidate_count: 1 as const,
+    candidate: {
+      job_id: PHOTO_JOB,
+      age_seconds: 120,
+      message_sid: "SMdddddddddddddddddddddddddddddddd",
+      normalized_ready: true as const,
+    },
+    recent_wins: [
+      {
+        id: WIN_HIKING,
+        text: "Kids hiking",
+        occurred_at: "2026-08-20T12:00:00.000Z",
+        relationship_type: "whole_life",
+        commitment_id: null,
+        has_media: false,
+      },
+    ],
+  };
+
+  function packetWithPending() {
+    loadInboundRelationshipPacket.mockImplementation(async (args: { receivedAt?: Date | string | null }) => ({
+      ok: true,
+      receivedAt:
+        args.receivedAt instanceof Date
+          ? args.receivedAt
+          : new Date("2026-08-18T16:00:00.000Z"),
+      packet: {
+        version: "inbound_relationship_v1",
+        message_for: {
+          timezone: "America/Chicago",
+          local_date: "2026-08-18",
+          local_weekday: "Tuesday",
+          daypart: "inbound",
+        },
+        preferred_name: "Tyler",
+        current_goal: { text: "Lift 30 minutes" },
+        current_identity: { text: null },
+        personal_context: [],
+        hard_state: { pending_goal_change: null, open_coach_question: null },
+        latest_inbound_text: "This was me finally taking the kids hiking.",
+        latest_inbound_message_sid: "SMhike",
+        pending_media_context: onePending,
+        exact_thread: {
+          window_days: 21,
+          max_messages: 30,
+          messages: [],
+          omitted_older_turn_count: 0,
+        },
+      },
+    }));
+  }
+
+  it("D1 current_turn_win schedules claim after one durable Win", async () => {
+    packetWithPending();
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: "wlife", status: "inserted", idempotency_key: "k" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "This was me finally taking the kids hiking.",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Took the kids hiking",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Proud you took the kids hiking.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMhike", "This was me finally taking the kids hiking.")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(scheduleInboundMmsD1SemanticClaim).toHaveBeenCalledOnce();
+    const arg = scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0];
+    expect(arg.context.candidate_count).toBe(1);
+    expect(arg.currentMessageSid).toBe("SMhike");
+    expect(arg.relation.relation).toBe("current_turn_win");
+    expect(arg.winResult?.wins).toEqual([
+      expect.objectContaining({ id: "wlife", status: "inserted" }),
+    ]);
+    expect(runInboundSolBriefInterpreter).toHaveBeenCalledTimes(1);
+  });
+
+  it("D1 claim scheduler throw cannot block Coach send", async () => {
+    packetWithPending();
+    scheduleInboundMmsD1SemanticClaim.mockImplementation(() => {
+      throw new Error("d1 boom");
+    });
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: "wlife", status: "inserted", idempotency_key: "k" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "hiking",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Took the kids hiking",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Proud you took the kids hiking.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMhike", "This was me finally taking the kids hiking.")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe("Proud you took the kids hiking.");
+  });
+
+  it("D1 blocks photo-saved Coach copy before canonical attach", async () => {
+    packetWithPending();
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: "wlife", status: "inserted", idempotency_key: "k" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "hiking",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Took the kids hiking",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "I saved your photo.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMhike", "This was me finally taking the kids hiking.")
+    );
+    expect(result.shouldSend).toBe(false);
+    expect(result.noSendReason).toBe("blocked_photo_saved_before_canonical_attach");
+    expect(runInboundSolBriefInterpreter).toHaveBeenCalledTimes(1);
+  });
+
+  it("D1 still allows Win-saved language when a photo claim is only queued", async () => {
+    packetWithPending();
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: "wlife", status: "inserted", idempotency_key: "k" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "hiking",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Took the kids hiking",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Proud you took the kids hiking. I saved that Win.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMhike", "This was me finally taking the kids hiking.")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe("Proud you took the kids hiking. I saved that Win.");
   });
 });

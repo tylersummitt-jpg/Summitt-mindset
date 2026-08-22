@@ -49,6 +49,7 @@ Forbidden:
 - No robot Reply YES/NO instructions.
 - No app-menu instructions.
 - No unsupported live search claims.
+- Do not claim a photo or picture was saved, attached, added, or stored.
 - Do not repeatedly paraphrase an already-understood request.
 - Do not ask how to help after help was already requested.
 - Prior Coach messages are factual conversation history, NOT style examples.
@@ -85,6 +86,32 @@ export type InboundSolWriterFailure = {
 
 export type InboundSolWriterResult = InboundSolWriterSuccess | InboundSolWriterFailure;
 
+/**
+ * Writer-facing packet: drop D1 pending-photo facts.
+ * Interpreter and the claim scheduler keep the full packet.
+ */
+export function toWriterFacingInboundRelationshipPacket(
+  packet: InboundRelationshipPacket
+): Omit<InboundRelationshipPacket, "pending_media_context"> {
+  const { pending_media_context, ...rest } = packet;
+  void pending_media_context;
+  return rest;
+}
+
+/**
+ * Writer-facing brief: drop D1 pending_photo_relation.
+ * Interpreter and the claim scheduler keep the full brief.
+ */
+export function toWriterFacingInboundCoachingBrief(
+  brief: InboundCoachingBriefV1
+): Omit<InboundCoachingBriefV1, "inbound"> & {
+  inbound: Omit<InboundCoachingBriefV1["inbound"], "pending_photo_relation">;
+} {
+  const { pending_photo_relation, ...inbound } = brief.inbound;
+  void pending_photo_relation;
+  return { ...brief, inbound };
+}
+
 export function buildInboundSolWriterMessages(
   packet: InboundRelationshipPacket,
   brief: InboundCoachingBriefV1
@@ -95,10 +122,10 @@ export function buildInboundSolWriterMessages(
       role: "user",
       content: [
         "INBOUND_COACHING_BRIEF_V1",
-        JSON.stringify(brief),
+        JSON.stringify(toWriterFacingInboundCoachingBrief(brief)),
         "",
         "INBOUND_RELATIONSHIP_PACKET_V1",
-        JSON.stringify(packet),
+        JSON.stringify(toWriterFacingInboundRelationshipPacket(packet)),
         "",
         INBOUND_SOL_WRITER_JSON_REMINDER,
       ].join("\n"),
@@ -205,7 +232,7 @@ export async function writeInboundSolBody(args: {
 
   try {
     const first = await solCreate(messages);
-    let raw = first.choices[0]?.message?.content?.trim() ?? "";
+    const raw = first.choices[0]?.message?.content?.trim() ?? "";
     let parsed = raw ? parseWriterJson(raw) : null;
     let rawRetry: string | null = null;
     let retryOccurred = false;
