@@ -28,6 +28,8 @@ export async function GET(req: Request) {
       c2Attempted: result.c2Attempted,
       c2Succeeded: result.c2Succeeded,
       attached: result.attached,
+      d2aAttempted: result.d2aAttempted,
+      d2aClaimed: result.d2aClaimed,
     };
     console.info("[victory-media/cron] kick done", summary);
     return NextResponse.json({ ok: true, ...summary });

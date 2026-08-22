@@ -1,5 +1,5 @@
 /**
- * MMS pipeline kick (B1 download + B2 normalize + C1 correlate + C2 attach).
+ * MMS pipeline kick (B1 download + B2 normalize + C1 correlate + C2 attach + D2a).
  * Concurrency 1. Safe to call from after().
  *
  * One invocation:
@@ -7,6 +7,7 @@
  * - at most one B2 normalization
  * - at most one lightweight C1 correlation (reads/state only)
  * - at most one C2 canonical attach (Storage + v2_win_media)
+ * - at most one D2a photo-only semantic evaluation (last; never starves transport)
  *
  * Fairness: oldest actionable B2 work wins the one normalize slot
  * (leased B2-ready / due B2 failed+temp outrank a just-completed B1 job).
@@ -32,6 +33,11 @@ import {
   listInboundMediaJobsForC2,
   tryAttachInboundMmsC2Job,
 } from "@/lib/victory-media/attach-inbound-mms-c2";
+import {
+  INBOUND_MEDIA_PIPELINE_D2A_LIMIT,
+  listInboundMediaJobsForD2a,
+  processInboundMmsD2aJob,
+} from "@/lib/victory-media/inbound-mms-d2a";
 import { processInboundMediaJobB1 } from "@/lib/victory-media/process-inbound-media-b1";
 import {
   processInboundMediaJobB2,
@@ -51,6 +57,8 @@ export type KickInboundMediaPipelineResult = {
   c2Attempted: number;
   c2Succeeded: number;
   attached: number;
+  d2aAttempted: number;
+  d2aClaimed: number;
 };
 
 export type InboundMediaPipelineB2Target = {
@@ -69,6 +77,8 @@ export type KickInboundMediaPipelineDeps = {
   processB2AfterSuccessfulB1?: typeof processInboundMediaJobB2AfterSuccessfulB1;
   correlateC1?: (jobId: string) => Promise<unknown>;
   attachC2?: (jobId: string) => Promise<unknown>;
+  listD2a?: (limit: number) => Promise<string[]>;
+  processD2a?: (jobId: string) => Promise<unknown>;
 };
 
 /**
@@ -106,6 +116,8 @@ export async function kickInboundMediaPipeline(
     c2Attempted: 0,
     c2Succeeded: 0,
     attached: 0,
+    d2aAttempted: 0,
+    d2aClaimed: 0,
   };
 
   const listB1 = deps.listB1 ?? ((n: number) => listInboundMediaJobsForDownloadClaim(n));
@@ -118,6 +130,8 @@ export async function kickInboundMediaPipeline(
     deps.processB2AfterSuccessfulB1 ?? processInboundMediaJobB2AfterSuccessfulB1;
   const correlateC1 = deps.correlateC1 ?? tryCorrelateInboundMmsC1Job;
   const attachC2 = deps.attachC2 ?? tryAttachInboundMmsC2Job;
+  const listD2a = deps.listD2a ?? ((n: number) => listInboundMediaJobsForD2a(n));
+  const processD2a = deps.processD2a ?? processInboundMmsD2aJob;
 
   let freshlyCompletedB1JobId: string | null = null;
 
@@ -193,6 +207,29 @@ export async function kickInboundMediaPipeline(
     }
   } catch (e) {
     console.error("[victory-media/mms-pipeline] c2_threw", {
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  try {
+    const d2aIds = await listD2a(INBOUND_MEDIA_PIPELINE_D2A_LIMIT);
+    const d2aId = d2aIds[0];
+    if (d2aId) {
+      result.d2aAttempted = 1;
+      const r = await processD2a(d2aId);
+      if (
+        r &&
+        typeof r === "object" &&
+        "ok" in r &&
+        r.ok === true &&
+        "action" in r &&
+        r.action === "claimed"
+      ) {
+        result.d2aClaimed = 1;
+      }
+    }
+  } catch (e) {
+    console.error("[victory-media/mms-pipeline] d2a_threw", {
       message: e instanceof Error ? e.message : String(e),
     });
   }

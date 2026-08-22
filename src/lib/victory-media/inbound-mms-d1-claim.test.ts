@@ -360,6 +360,24 @@ describe("scheduleInboundMmsD1SemanticClaim", () => {
     });
   });
 
+  it("D1 still claims a sole eligible job after D2a armed semantic_grace (no last_error lockout)", async () => {
+    const { afterFn, run } = captureAfter();
+    const claim = vi.fn(async () => ({ ok: true as const }));
+    const scheduled = scheduleInboundMmsD1SemanticClaim(baseArgs, {
+      afterFn,
+      claim,
+      listEligiblePending: async () => [jobLite()],
+    });
+    expect(scheduled).toEqual({ jobId: JOB_ID, targetWinId: WIN_A });
+    await run();
+    expect(claim).toHaveBeenCalledWith({
+      jobId: JOB_ID,
+      clerkUserId: USER,
+      targetWinId: WIN_A,
+    });
+    expect(claim.mock.calls[0]![0]).not.toHaveProperty("expectedResolution");
+  });
+
   it("claim-time lookup failure fails closed without calling D0", async () => {
     const { afterFn, run } = captureAfter();
     const claim = vi.fn();

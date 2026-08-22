@@ -359,7 +359,8 @@ describe("processInboundMediaJobB2", () => {
     expect(job.attached_win_id).toBeNull();
     expect(job.normalized_storage_path).toBe(MASTER);
     expect(job.temp_storage_path).toBeNull();
-    expect(job.next_retry_at).toBeNull();
+    expect(job.next_retry_at).toBe(NOW.toISOString());
+    expect(job.last_error_code).toBe("semantic_due");
     expect(job.expires_at).toBe(
       new Date(NOW.getTime() + INBOUND_MEDIA_B2_EXPIRES_MS).toISOString()
     );
@@ -387,6 +388,7 @@ describe("processInboundMediaJobB2", () => {
     expect(store.get(JOB_ID)!.next_retry_at).toBe(
       new Date(NOW.getTime() + 60_000).toISOString()
     );
+    expect(store.get(JOB_ID)!.last_error_code).toBeNull();
     expect(correlateAwaitingAttach).toHaveBeenCalledTimes(1);
     expect(correlateAwaitingAttach).toHaveBeenCalledWith(JOB_ID);
   });
@@ -420,6 +422,8 @@ describe("processInboundMediaJobB2", () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     expect(r.status).toBe("pending_semantics");
+    expect(store.get(JOB_ID)!.last_error_code).toBe("semantic_due");
+    expect(store.get(JOB_ID)!.next_retry_at).toBe(NOW.toISOString());
     expect(correlateAwaitingAttach).not.toHaveBeenCalled();
   });
 

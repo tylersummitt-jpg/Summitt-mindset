@@ -84,12 +84,21 @@ function okDeps(overrides: Parameters<typeof claimInboundMediaJobSemanticTarget>
 }
 
 describe("isInboundMediaJobSemanticTargetClaimable", () => {
-  it("accepts pending_semantics with null resolution and empty target", () => {
+  it("accepts pending_semantics with D2a last_error_code (D1 rescue of grace)", () => {
     expect(
-      isInboundMediaJobSemanticTargetClaimable(pendingJob(), {
-        clerkUserId: USER,
-        now: NOW,
-      })
+      isInboundMediaJobSemanticTargetClaimable(
+        pendingJob({
+          last_error_code: "semantic_grace",
+          next_retry_at: NOW.toISOString(),
+        }),
+        { clerkUserId: USER, now: NOW }
+      )
+    ).toBe(true);
+    expect(
+      isInboundMediaJobSemanticTargetClaimable(
+        pendingJob({ last_error_code: "semantic_due" }),
+        { clerkUserId: USER, now: NOW }
+      )
     ).toBe(true);
   });
 

@@ -35,17 +35,20 @@ describe("twilio inbound — MMS C2 wire", () => {
   const cron = fs.readFileSync(CRON, "utf8");
   const enrich = fs.readFileSync(ENRICH, "utf8");
 
-  it("pipeline order is B1 → B2 → C1 → C2 with limit 1", () => {
+  it("pipeline order is B1 → B2 → C1 → C2 → D2a with limit 1", () => {
     expect(pipe).toContain("INBOUND_MEDIA_PIPELINE_C2_LIMIT");
+    expect(pipe).toContain("INBOUND_MEDIA_PIPELINE_D2A_LIMIT");
     expect(c2).toContain("INBOUND_MEDIA_PIPELINE_C2_LIMIT = 1");
     const b1 = pipe.indexOf("listB1(");
     const b2i = pipe.indexOf("listB2(");
     const c1i = pipe.indexOf("listC1(");
     const c2i = pipe.indexOf("listC2(");
+    const d2ai = pipe.indexOf("listD2a(");
     expect(b1).toBeGreaterThan(0);
     expect(b2i).toBeGreaterThan(b1);
     expect(c1i).toBeGreaterThan(b2i);
     expect(c2i).toBeGreaterThan(c1i);
+    expect(d2ai).toBeGreaterThan(c2i);
   });
 
   it("B2 and C1 apply do not call C2; persist hook does not call C2", () => {
@@ -67,6 +70,8 @@ describe("twilio inbound — MMS C2 wire", () => {
     expect(cron).toContain("await kickInboundMediaPipeline()");
     expect(cron).not.toContain("tryAttachInboundMmsC2Job");
     expect(cron).toContain("c2Attempted");
+    expect(cron).toContain("d2aAttempted");
+    expect(cron).toContain("d2aClaimed");
   });
 
   it("C1 due list excludes C2-owned last_error_code in SQL", () => {

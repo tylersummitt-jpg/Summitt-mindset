@@ -110,13 +110,12 @@ describe("inbound MMS D1 wire", () => {
     );
   });
 
-  it("does not implement text→photo or a D semantic worker/cron", () => {
+  it("does not implement D1 loaders on the media pipeline or cron", () => {
     expect(pipe).not.toContain("loadInboundMmsD1PendingContext");
     expect(pipe).not.toContain("scheduleInboundMmsD1SemanticClaim");
     expect(cron).not.toContain("scheduleInboundMmsD1SemanticClaim");
     expect(b2).not.toContain("pending_photo_relation");
     expect(b2).toContain("pending_semantics");
-    expect(pipe).not.toContain("pending_semantics");
   });
 
   it("does not change C1/C2/B2/Twilio runtime", () => {

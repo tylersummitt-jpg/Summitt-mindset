@@ -187,6 +187,8 @@ async function defaultListPendingJobs(args: {
     )
     .eq("clerk_user_id", args.clerkUserId)
     .eq("status", "pending_semantics")
+    // D2a last_error_code (semantic_due/grace/model_failed) is intentionally
+    // unfiltered so later D1 text can still rescue a grace-parked photo.
     .is("resolution", null)
     .is("tombstoned_at", null)
     .is("attached_win_id", null)

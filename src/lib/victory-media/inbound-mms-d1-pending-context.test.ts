@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 
 vi.mock("server-only", () => ({}));
 
@@ -464,6 +466,20 @@ describe("D1 30-minute conversational candidate window", () => {
     expect(old).toEqual(snapshot);
     expect(old.status).toBe("pending_semantics");
     expect(old.tombstoned_at).toBeNull();
+  });
+});
+
+describe("D1 vs D2a last_error_code compatibility", () => {
+  it("D1 SQL and shape ignore last_error_code so semantic_grace remains eligible", () => {
+    const src = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/victory-media/inbound-mms-d1-pending-context.ts"),
+      "utf8"
+    );
+    const list = src.slice(src.indexOf("async function defaultListPendingJobs"));
+    expect(list).not.toContain('.eq("last_error_code"');
+    expect(list).not.toContain('.in("last_error_code"');
+    expect(list).not.toContain('.neq("last_error_code"');
+    expect(isInboundMediaJobD1PendingShape(job(), shapeArgs)).toBe(true);
   });
 });
 

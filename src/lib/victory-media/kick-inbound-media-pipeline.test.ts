@@ -26,6 +26,12 @@ vi.mock("@/lib/victory-media/attach-inbound-mms-c2", () => ({
   tryAttachInboundMmsC2Job: vi.fn(async () => null),
 }));
 
+vi.mock("@/lib/victory-media/inbound-mms-d2a", () => ({
+  INBOUND_MEDIA_PIPELINE_D2A_LIMIT: 1,
+  listInboundMediaJobsForD2a: vi.fn(async () => []),
+  processInboundMmsD2aJob: vi.fn(async () => null),
+}));
+
 import {
   kickInboundMediaPipeline,
   selectInboundMediaPipelineB2Target,
@@ -42,6 +48,8 @@ function emptyCounters() {
     c2Attempted: 0,
     c2Succeeded: 0,
     attached: 0,
+    d2aAttempted: 0,
+    d2aClaimed: 0,
   };
 }
 
@@ -244,6 +252,7 @@ describe("kickInboundMediaPipeline", () => {
     expect(r.b1Attempted).toBe(0);
     expect(r.normalized).toBe(0);
     expect(r.c2Attempted).toBe(0);
+    expect(r.d2aAttempted).toBe(0);
   });
 
   it("runs at most one C2 after C1; oldest due listed; C2 throw does not undo prior phases", async () => {
@@ -277,6 +286,7 @@ describe("kickInboundMediaPipeline", () => {
     expect(r.c2Attempted).toBe(1);
     expect(r.c2Succeeded).toBe(1);
     expect(r.attached).toBe(1);
+    expect(r.d2aAttempted).toBe(0);
   });
 
   it("C2 does not run in the same kick against a newly armed not-due job", async () => {
@@ -316,6 +326,70 @@ describe("kickInboundMediaPipeline", () => {
     expect(r.c2Attempted).toBe(1);
     expect(r.c2Succeeded).toBe(0);
     expect(r.attached).toBe(0);
+    error.mockRestore();
+  });
+
+  it("runs at most one D2a after C2; oldest due listed; D2a throw does not undo prior phases", async () => {
+    const D2A_OLD = "99999999-9999-4999-8999-999999999999";
+    const D2A_NEW = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const processD2a = vi.fn(async () => ({
+      ok: true as const,
+      jobId: D2A_OLD,
+      action: "claimed" as const,
+    }));
+    const listD2a = vi.fn(async () => [D2A_OLD, D2A_NEW]);
+    const attachC2 = vi.fn(async () => ({
+      ok: true as const,
+      status: "attached" as const,
+      jobId: "77777777-7777-4777-8777-777777777777",
+      winId: "win",
+    }));
+
+    const r = await kickInboundMediaPipeline({
+      listB1: async () => [],
+      listB2: async () => [],
+      listC1: async () => ["55555555-5555-4555-8555-555555555555"],
+      listC2: async () => ["77777777-7777-4777-8777-777777777777"],
+      listD2a,
+      processB1: processInboundMediaJobB1,
+      processB2: vi.fn(),
+      processB2AfterSuccessfulB1: vi.fn(),
+      correlateC1: vi.fn(async () => ({ kind: "waiting_for_win" })),
+      attachC2,
+      processD2a,
+    });
+
+    expect(listD2a).toHaveBeenCalledWith(1);
+    expect(processD2a).toHaveBeenCalledTimes(1);
+    expect(processD2a).toHaveBeenCalledWith(D2A_OLD);
+    expect(r.c2Attempted).toBe(1);
+    expect(r.d2aAttempted).toBe(1);
+    expect(r.d2aClaimed).toBe(1);
+  });
+
+  it("D2a throw is caught and prior C2 attempt is preserved", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const r = await kickInboundMediaPipeline({
+      listB1: async () => [],
+      listB2: async () => [],
+      listC1: async () => [],
+      listC2: async () => ["77777777-7777-4777-8777-777777777777"],
+      listD2a: async () => ["99999999-9999-4999-8999-999999999999"],
+      processB1: processInboundMediaJobB1,
+      processB2: vi.fn(),
+      processB2AfterSuccessfulB1: vi.fn(),
+      attachC2: vi.fn(async () => ({
+        ok: true as const,
+        status: "attached" as const,
+      })),
+      processD2a: vi.fn(async () => {
+        throw new Error("d2a boom");
+      }),
+    });
+    expect(r.c2Attempted).toBe(1);
+    expect(r.c2Succeeded).toBe(1);
+    expect(r.d2aAttempted).toBe(1);
+    expect(r.d2aClaimed).toBe(0);
     error.mockRestore();
   });
 });

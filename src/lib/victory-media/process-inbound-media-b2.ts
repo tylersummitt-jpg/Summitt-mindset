@@ -30,6 +30,7 @@ import {
   INBOUND_MEDIA_C1_WAIT_RETRY_MS,
   tryCorrelateInboundMmsC1Job,
 } from "@/lib/victory-media/correlate-inbound-mms-c1";
+import { INBOUND_MEDIA_D2A_SEMANTIC_DUE } from "@/lib/victory-media/inbound-mms-d2a-codes";
 import {
   victoryMediaMmsNormCardPath,
   victoryMediaMmsNormMasterPath,
@@ -500,10 +501,12 @@ async function runInboundMediaJobB2(
   const expiresAt =
     beforeTransition.expires_at ??
     new Date(now.getTime() + INBOUND_MEDIA_B2_EXPIRES_MS).toISOString();
-  const c1RetryAt =
+  const nextRetryAt =
     nextStatus === "awaiting_attach"
       ? new Date(now.getTime() + INBOUND_MEDIA_C1_WAIT_RETRY_MS).toISOString()
-      : null;
+      : nowIso;
+  const lastErrorCode =
+    nextStatus === "pending_semantics" ? INBOUND_MEDIA_D2A_SEMANTIC_DUE : null;
 
   console.info("[victory-media/mms-b2] db_transition", {
     ...base,
@@ -527,8 +530,8 @@ async function runInboundMediaJobB2(
       resolution: null,
       normalized_storage_path: masterPath,
       temp_storage_path: null,
-      last_error_code: null,
-      next_retry_at: c1RetryAt,
+      last_error_code: lastErrorCode,
+      next_retry_at: nextRetryAt,
       expires_at: expiresAt,
       updated_at: nowIso,
     })
