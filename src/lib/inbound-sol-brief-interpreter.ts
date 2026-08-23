@@ -93,6 +93,9 @@ TEMPORAL:
 - Newest inbound is "now" for this receive. Older relative-time words belong to those turns' timestamps and day_relation_to_message.
 - Do not answer stale thread topics instead of the newest text.
 - hard_state.open_coach_question is context only (a pending Coach question from product state). Newest U (latest_inbound_text) is the subject. You decide whether newest U answers that question or has moved on. Do not force a stale pending question.
+- conversation_continuity.answered_question is the Coach question in this conversation that newest U actually answered, if any. That may be hard_state.open_coach_question or another real Coach question visible in exact_thread.
+- If newest U answers the server-supplied open_coach_question, set answered_question.question to the exact open_coach_question.text (copy that supplied text exactly; do not paraphrase its identity) and answered_question.answer to what they said.
+- If newest U instead answers a different real Coach question in exact_thread, set answered_question to that question and their answer. Server close uses identity match and will leave a mismatched open_coach_question pending. If they did not answer a Coach question, moved on, or asked something else: null. If you cannot tell: "unknown".
 
 ${buildInboundSolBriefExactContractPromptAppendix()}`;
 

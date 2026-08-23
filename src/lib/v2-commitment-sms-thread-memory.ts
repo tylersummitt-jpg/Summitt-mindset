@@ -70,6 +70,11 @@ export type V2CommitmentSmsThreadMemoryFrustrationCorrection = {
 
 const BINDING_EXPECTED_ANSWER_TYPES = new Set(["proposal_yes_no", "contract_yes_no"]);
 
+/** V3 exclusive lane after TU has actually resolved the open question. */
+export const V3_EXCLUSIVE_OPEN_QUESTION_ANSWER_ROUTE = "open_question_answer" as const;
+
+export const SOL_ANSWERED_OPEN_QUESTION_SOURCE = "sol_answered_question" as const;
+
 const BINDING_CONSENT_SAFE_ROUTE_PURPOSES = new Set([
   "open_question_answer",
   "adaptive_proposal_consent_accept",
@@ -82,6 +87,21 @@ const BINDING_CONSENT_SAFE_CLASSIFICATIONS = new Set(["user_yes", "user_no", "us
 
 function normKey(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Conservative identity match for server-owned open-question text. Not semantic relatedness. */
+export function normalizeOpenCoachQuestionText(text: string): string {
+  return normKey(text);
+}
+
+export function openCoachQuestionTextsMatch(a: string, b: string): boolean {
+  const left = normalizeOpenCoachQuestionText(a);
+  const right = normalizeOpenCoachQuestionText(b);
+  return Boolean(left) && left === right;
+}
+
+function isBindingExpectedAnswerType(expected: string | null | undefined): boolean {
+  return BINDING_EXPECTED_ANSWER_TYPES.has(expected?.trim().toLowerCase() ?? "");
 }
 
 function stripComplianceFooter(text: string): string {
@@ -427,6 +447,68 @@ export async function loadV2CommitmentSmsThreadMemory(args: {
   return rowToMemory(data as Record<string, unknown>);
 }
 
+export const OUTBOUND_THREAD_MEMORY_STATEMENT_UPDATE_KEYS = [
+  "last_outbound_full_body",
+  "last_outbound_sent_at",
+  "last_outbound_source",
+  "last_outbound_message_sid",
+  "updated_at",
+] as const;
+
+export const OUTBOUND_THREAD_MEMORY_NEW_QUESTION_UPDATE_KEYS = [
+  ...OUTBOUND_THREAD_MEMORY_STATEMENT_UPDATE_KEYS,
+  "last_5_coach_questions",
+  "do_not_repeat_phrases",
+  "open_question_text",
+  "open_question_pending",
+  "open_question_asked_at",
+  "open_question_source_message_sid",
+  "open_question_expected_answer_type",
+  "open_question_answer_text",
+  "open_question_answered_at",
+] as const;
+
+export const OUTBOUND_THREAD_MEMORY_CLEAR_UPDATE_KEYS = [
+  "open_question_text",
+  "open_question_pending",
+  "open_question_asked_at",
+  "open_question_source_message_sid",
+  "open_question_expected_answer_type",
+  "open_question_answer_text",
+  "open_question_answered_at",
+] as const;
+
+function snapshotEligibleForOpenQuestionClear(existing: V2CommitmentSmsThreadMemory): boolean {
+  const priorExpected = existing.open_question_expected_answer_type?.trim().toLowerCase() ?? "";
+  return BINDING_EXPECTED_ANSWER_TYPES.has(priorExpected) || existing.open_question_pending === true;
+}
+
+async function updateV2CommitmentSmsThreadMemory(
+  commitmentId: string,
+  payload: Record<string, unknown>,
+  generation?: { text: string; askedAt: string }
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  let query = supabaseServer
+    .from("v2_commitment_sms_thread_memory")
+    .update(payload)
+    .eq("commitment_id", commitmentId);
+  if (generation) {
+    query = query
+      .eq("open_question_pending", true)
+      .eq("open_question_text", generation.text)
+      .eq("open_question_asked_at", generation.askedAt);
+  }
+  const { error } = await query;
+  if (error) {
+    console.error("[v2-commitment-sms-thread-memory] outbound upsert update failed", {
+      commitment_id: commitmentId,
+      message: error.message,
+    });
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
 export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
   commitmentId: string;
   clerkUserId: string;
@@ -471,87 +553,88 @@ export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
     newQuestion: extractedQuestion,
   });
 
-  let openQuestionText: string | null = existing?.open_question_text ?? null;
-  let openQuestionAskedAt: string | null = existing?.open_question_asked_at ?? null;
-  let openQuestionExpectedType: string | null = existing?.open_question_expected_answer_type ?? null;
-  let openQuestionSourceSid: string | null = existing?.open_question_source_message_sid ?? null;
-  let openQuestionAnswerText: string | null = existing?.open_question_answer_text ?? null;
-  let openQuestionAnsweredAt: string | null = existing?.open_question_answered_at ?? null;
-  let openQuestionPending = existing?.open_question_pending ?? false;
-
-  if (args.clearBindingOpenQuestion) {
-    const priorExpected = openQuestionExpectedType?.trim().toLowerCase() ?? "";
-    if (BINDING_EXPECTED_ANSWER_TYPES.has(priorExpected) || openQuestionPending) {
-      openQuestionText = null;
-      openQuestionAskedAt = null;
-      openQuestionExpectedType = null;
-      openQuestionSourceSid = null;
-      openQuestionAnswerText = null;
-      openQuestionAnsweredAt = null;
-      openQuestionPending = false;
-    }
-  }
-
-  if (extractedQuestion) {
-    openQuestionText = extractedQuestion;
-    openQuestionAskedAt = sentAtIso;
-    openQuestionExpectedType = args.expectedAnswerType?.trim() || null;
-    openQuestionSourceSid = messageSid;
-    openQuestionPending = true;
-    openQuestionAnswerText = null;
-    openQuestionAnsweredAt = null;
-  }
-
-  const row: Record<string, unknown> = {
-    commitment_id: commitmentId,
-    clerk_user_id: clerkUserId,
-    projection_version: V2_SMS_THREAD_MEMORY_PROJECTION_VERSION,
+  const statementPatch: Record<string, unknown> = {
     last_outbound_full_body: sentBody.slice(0, 4000),
     last_outbound_sent_at: sentAtIso,
     last_outbound_source: args.source,
     last_outbound_message_sid: messageSid,
-    last_5_coach_questions: last5,
-    do_not_repeat_phrases: dnr,
     updated_at: sentAtIso,
-    last_inbound_full_body: existing?.last_inbound_full_body ?? null,
-    last_inbound_at: existing?.last_inbound_at ?? null,
-    last_inbound_message_sid: existing?.last_inbound_message_sid ?? null,
-    last_5_user_answers: existing?.last_5_user_answers ?? [],
-    recent_frustration_corrections: existing?.recent_frustration_corrections ?? [],
-    open_question_text: openQuestionText,
-    open_question_asked_at: openQuestionAskedAt,
-    open_question_expected_answer_type: openQuestionExpectedType,
-    open_question_source_message_sid: openQuestionSourceSid,
-    open_question_answer_text: openQuestionAnswerText,
-    open_question_answered_at: openQuestionAnsweredAt,
-    open_question_pending: openQuestionPending,
-    current_live_thread_summary: existing?.current_live_thread_summary ?? null,
-    last_recomputed_from_spine_at: existing?.last_recomputed_from_spine_at ?? null,
+  };
+
+  const clearedOpenQuestionPatch: Record<string, unknown> = {
+    open_question_text: null,
+    open_question_pending: false,
+    open_question_asked_at: null,
+    open_question_source_message_sid: null,
+    open_question_expected_answer_type: null,
+    open_question_answer_text: null,
+    open_question_answered_at: null,
   };
 
   if (existing) {
-    const { error } = await supabaseServer
-      .from("v2_commitment_sms_thread_memory")
-      .update(row)
-      .eq("commitment_id", commitmentId);
-
-    if (error) {
-      console.error("[v2-commitment-sms-thread-memory] outbound upsert update failed", {
-        commitment_id: commitmentId,
-        message: error.message,
+    if (extractedQuestion) {
+      return updateV2CommitmentSmsThreadMemory(commitmentId, {
+        ...statementPatch,
+        last_5_coach_questions: last5,
+        do_not_repeat_phrases: dnr,
+        open_question_text: extractedQuestion,
+        open_question_pending: true,
+        open_question_asked_at: sentAtIso,
+        open_question_source_message_sid: messageSid,
+        open_question_expected_answer_type: args.expectedAnswerType?.trim() || null,
+        open_question_answer_text: null,
+        open_question_answered_at: null,
       });
-      return { ok: false, error: error.message };
     }
+
+    const statementWrite = await updateV2CommitmentSmsThreadMemory(commitmentId, statementPatch);
+    if (!statementWrite.ok) return statementWrite;
+
+    const wantsClear =
+      args.clearBindingOpenQuestion === true && snapshotEligibleForOpenQuestionClear(existing);
+    if (!wantsClear) return { ok: true };
+
+    const snapshotText = existing.open_question_text?.trim() ?? "";
+    const snapshotAskedAt = existing.open_question_asked_at?.trim() ?? "";
+    if (!snapshotText || !snapshotAskedAt || existing.open_question_pending !== true) {
+      return { ok: true };
+    }
+
+    const clearWrite = await updateV2CommitmentSmsThreadMemory(
+      commitmentId,
+      clearedOpenQuestionPatch,
+      { text: existing.open_question_text!, askedAt: existing.open_question_asked_at! }
+    );
+    if (!clearWrite.ok) return clearWrite;
     return { ok: true };
   }
 
-  const insertRow = {
-    ...row,
+  const insertRow: Record<string, unknown> = {
+    commitment_id: commitmentId,
+    clerk_user_id: clerkUserId,
+    projection_version: V2_SMS_THREAD_MEMORY_PROJECTION_VERSION,
+    ...statementPatch,
+    last_inbound_full_body: null,
+    last_inbound_at: null,
+    last_inbound_message_sid: null,
+    last_5_coach_questions: last5,
     last_5_user_answers: [],
-    do_not_repeat_phrases: dnr,
     recent_frustration_corrections: [],
-    open_question_pending: openQuestionPending,
+    do_not_repeat_phrases: extractedQuestion ? dnr : [],
+    current_live_thread_summary: null,
+    last_recomputed_from_spine_at: null,
     created_at: sentAtIso,
+    ...(extractedQuestion
+      ? {
+          open_question_text: extractedQuestion,
+          open_question_pending: true,
+          open_question_asked_at: sentAtIso,
+          open_question_source_message_sid: messageSid,
+          open_question_expected_answer_type: args.expectedAnswerType?.trim() || null,
+          open_question_answer_text: null,
+          open_question_answered_at: null,
+        }
+      : clearedOpenQuestionPatch),
   };
 
   const { error } = await supabaseServer.from("v2_commitment_sms_thread_memory").insert(insertRow);
@@ -602,10 +685,10 @@ export async function upsertCommitmentSmsThreadMemoryFromInbound(args: {
   let last5Answers = existing?.last_5_user_answers ?? [];
   let frustrationCorrections = parseFrustrationCorrections(existing?.recent_frustration_corrections ?? []);
 
-  let openQuestionText = existing?.open_question_text ?? null;
-  let openQuestionAskedAt = existing?.open_question_asked_at ?? null;
-  let openQuestionExpectedType = existing?.open_question_expected_answer_type ?? null;
-  let openQuestionSourceSid = existing?.open_question_source_message_sid ?? null;
+  const openQuestionText = existing?.open_question_text ?? null;
+  const openQuestionAskedAt = existing?.open_question_asked_at ?? null;
+  const openQuestionExpectedType = existing?.open_question_expected_answer_type ?? null;
+  const openQuestionSourceSid = existing?.open_question_source_message_sid ?? null;
   let openQuestionAnswerText = existing?.open_question_answer_text ?? null;
   let openQuestionAnsweredAt = existing?.open_question_answered_at ?? null;
   let openQuestionPending = existing?.open_question_pending ?? false;
@@ -628,18 +711,23 @@ export async function upsertCommitmentSmsThreadMemoryFromInbound(args: {
     routePurpose: args.routePurpose,
   });
 
+  const v3ExclusiveResolvedAnswer =
+    args.routePurpose?.trim() === V3_EXCLUSIVE_OPEN_QUESTION_ANSWER_ROUTE;
+
   const shortAnswerClearsOpen =
     shortContextual &&
     !frustration &&
     openQuestionPending &&
     !bindingPending &&
-    bindingAnswerAllowed;
+    bindingAnswerAllowed &&
+    v3ExclusiveResolvedAnswer;
 
   const mayRecordOpenAnswer =
     !frustration &&
     openQuestionPending &&
     bindingAnswerAllowed &&
-    (substantive || shortAnswerClearsOpen);
+    (substantive || shortAnswerClearsOpen) &&
+    (bindingPending || v3ExclusiveResolvedAnswer);
 
   if (mayRecordOpenAnswer) {
     openQuestionAnswerText = inboundBody;
@@ -722,4 +810,155 @@ export async function upsertCommitmentSmsThreadMemoryFromInbound(args: {
   }
 
   return { ok: true };
+}
+
+export type SolAnsweredOpenCoachQuestion =
+  | { question: string; answer: string }
+  | null
+  | "unknown";
+
+export type ServerOwnedOpenCoachQuestionSnapshot = {
+  text: string;
+  pending: boolean;
+  expected_answer_type?: string | null;
+  /** Packet snapshot asked_at. CAS identity only; never written by this helper. */
+  asked_at?: string | null;
+};
+
+export type ApplySolAnsweredOpenCoachQuestionResult =
+  | { ok: true; applied: true }
+  | { ok: true; applied: false; reason: string }
+  | { ok: false; error: string };
+
+/**
+ * Server-owned post-Sol close of a NON-BINDING open Coach question.
+ * Sol authorizes that the human turn answered the server-owned question.
+ * Durable answer text is the canonical coalesced human turn, not Sol's paraphrase.
+ */
+export async function applySolAnsweredOpenCoachQuestion(args: {
+  commitmentId: string;
+  clerkUserId: string;
+  messageSid: string;
+  expectedOpenQuestion: ServerOwnedOpenCoachQuestionSnapshot | null | undefined;
+  answeredQuestion: SolAnsweredOpenCoachQuestion;
+  canonicalHumanTurnText: string;
+  answeredAt?: Date;
+}): Promise<ApplySolAnsweredOpenCoachQuestionResult> {
+  const commitmentId = args.commitmentId.trim();
+  const clerkUserId = args.clerkUserId.trim();
+  const messageSid = args.messageSid.trim();
+  if (!commitmentId || !clerkUserId || !messageSid) {
+    return { ok: false, error: "missing_required_fields" };
+  }
+
+  if (args.answeredQuestion == null) {
+    return { ok: true, applied: false, reason: "no_answered_question" };
+  }
+  if (args.answeredQuestion === "unknown") {
+    return { ok: true, applied: false, reason: "unknown" };
+  }
+
+  const reportedQuestion = args.answeredQuestion.question.trim();
+  const reportedAnswer = args.answeredQuestion.answer.trim();
+  const durableHumanText = args.canonicalHumanTurnText.trim().slice(0, MAX_INBOUND_BODY_CHARS);
+  if (!reportedQuestion || !reportedAnswer) {
+    return { ok: true, applied: false, reason: "empty_answered_question" };
+  }
+  if (!durableHumanText) {
+    return { ok: true, applied: false, reason: "empty_human_turn" };
+  }
+
+  const expected = args.expectedOpenQuestion;
+  if (!expected?.pending || !expected.text.trim()) {
+    return { ok: true, applied: false, reason: "no_packet_pending" };
+  }
+
+  if (isBindingExpectedAnswerType(expected.expected_answer_type)) {
+    return { ok: true, applied: false, reason: "binding" };
+  }
+
+  if (!openCoachQuestionTextsMatch(expected.text, reportedQuestion)) {
+    return { ok: true, applied: false, reason: "question_mismatch" };
+  }
+
+  const expectedAskedAt = typeof expected.asked_at === "string" ? expected.asked_at : "";
+  if (!expectedAskedAt.trim()) {
+    return { ok: true, applied: false, reason: "missing_question_generation" };
+  }
+
+  const existing = await loadV2CommitmentSmsThreadMemory({ commitmentId });
+  if (!existing) {
+    return { ok: true, applied: false, reason: "not_found" };
+  }
+  if (existing.clerk_user_id !== clerkUserId) {
+    return { ok: true, applied: false, reason: "clerk_mismatch" };
+  }
+
+  const alreadyThisTurn = (existing.last_5_user_answers ?? []).some(
+    (a) =>
+      a.message_sid === messageSid && a.source === SOL_ANSWERED_OPEN_QUESTION_SOURCE
+  );
+  if (alreadyThisTurn) {
+    return { ok: true, applied: false, reason: "already_applied_this_turn" };
+  }
+
+  if (existing.open_question_pending !== true) {
+    return { ok: true, applied: false, reason: "not_pending" };
+  }
+  if (!existing.open_question_text?.trim()) {
+    return { ok: true, applied: false, reason: "not_pending" };
+  }
+  if (isBindingExpectedAnswerType(existing.open_question_expected_answer_type)) {
+    return { ok: true, applied: false, reason: "binding" };
+  }
+  if (!openCoachQuestionTextsMatch(existing.open_question_text, expected.text)) {
+    return { ok: true, applied: false, reason: "snapshot_mismatch" };
+  }
+  if (!openCoachQuestionTextsMatch(existing.open_question_text, reportedQuestion)) {
+    return { ok: true, applied: false, reason: "question_mismatch" };
+  }
+  if (existing.open_question_asked_at !== expectedAskedAt) {
+    return { ok: true, applied: false, reason: "generation_mismatch" };
+  }
+
+  const answeredAtIso = (args.answeredAt ?? new Date()).toISOString();
+  const storedQuestionText = existing.open_question_text;
+  const last5Answers = appendUserAnswer(existing.last_5_user_answers ?? [], {
+    text: durableHumanText,
+    answered_at: answeredAtIso,
+    source: SOL_ANSWERED_OPEN_QUESTION_SOURCE,
+    message_sid: messageSid,
+  });
+
+  const row: Record<string, unknown> = {
+    open_question_pending: false,
+    open_question_answer_text: durableHumanText,
+    open_question_answered_at: answeredAtIso,
+    last_5_user_answers: last5Answers,
+    updated_at: answeredAtIso,
+  };
+
+  const { data, error } = await supabaseServer
+    .from("v2_commitment_sms_thread_memory")
+    .update(row)
+    .eq("commitment_id", commitmentId)
+    .eq("clerk_user_id", clerkUserId)
+    .eq("open_question_pending", true)
+    .eq("open_question_text", storedQuestionText)
+    .eq("open_question_asked_at", expectedAskedAt)
+    .select("commitment_id");
+
+  if (error) {
+    console.error("[v2-commitment-sms-thread-memory] sol answered-question apply failed", {
+      commitment_id: commitmentId,
+      message: error.message,
+    });
+    return { ok: false, error: error.message };
+  }
+
+  if (!Array.isArray(data) || data.length === 0) {
+    return { ok: true, applied: false, reason: "cas_miss" };
+  }
+
+  return { ok: true, applied: true };
 }

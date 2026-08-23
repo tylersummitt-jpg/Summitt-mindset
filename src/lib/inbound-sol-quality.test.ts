@@ -137,6 +137,19 @@ describe("inbound Sol contracts", () => {
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Attempt is NOT automatically partial");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("hard_state.open_coach_question");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Do not force a stale pending question");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "conversation_continuity.answered_question is the Coach question in this conversation that newest U actually answered"
+    );
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "That may be hard_state.open_coach_question or another real Coach question visible in exact_thread"
+    );
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "set answered_question.question to the exact open_coach_question.text"
+    );
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("copy that supplied text exactly");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).not.toContain(
+      "conversation_continuity.answered_question refers ONLY to hard_state.open_coach_question"
+    );
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("pending_photo_relation");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
       "You never receive image bytes, URLs, or Storage paths"

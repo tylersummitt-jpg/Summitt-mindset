@@ -38,6 +38,7 @@ import { shouldPersistSolInboundAccountabilityOutcome } from "@/lib/inbound-sol-
 import { persistSolInboundWins } from "@/lib/inbound-sol-wins";
 import { applySolInboundOutcomeSideEffects } from "@/lib/inbound-sol-outcome-side-effects";
 import { evaluateInboundSolBlockOnlyReply } from "@/lib/inbound-sol-reply-validate";
+import { applySolAnsweredOpenCoachQuestion } from "@/lib/v2-commitment-sms-thread-memory";
 import { scheduleInboundMmsD1SemanticClaim } from "@/lib/victory-media/inbound-mms-d1-claim";
 
 export function isInboundSolMainCoachingBranch(args: {
@@ -163,6 +164,30 @@ export async function runInboundSolRelationshipTurn(args: {
 
   const brief = interpreted.brief;
   Object.assign(baseForensics, compactInboundSolBriefForTelemetry(brief));
+
+  try {
+    const openQuestionApply = await applySolAnsweredOpenCoachQuestion({
+      commitmentId: args.commitment.id,
+      clerkUserId: args.clerkUserId,
+      messageSid: args.messageSid,
+      expectedOpenQuestion: packet.hard_state.open_coach_question,
+      answeredQuestion: brief.conversation_continuity.answered_question,
+      canonicalHumanTurnText: packet.latest_inbound_text,
+    });
+    if (openQuestionApply.ok && openQuestionApply.applied) {
+      baseForensics.inbound_sol_open_question_apply = "applied";
+    } else if (openQuestionApply.ok) {
+      baseForensics.inbound_sol_open_question_apply = openQuestionApply.reason;
+    } else {
+      baseForensics.inbound_sol_open_question_apply = `error:${openQuestionApply.error}`;
+    }
+  } catch (err) {
+    console.warn("[inbound-sol-open-question-apply-failed]", {
+      message_sid: args.messageSid,
+      error: err instanceof Error ? err.message.slice(0, 120) : "unknown",
+    });
+    baseForensics.inbound_sol_open_question_apply = "error";
+  }
 
   const advice = shouldPersistSolInboundAccountabilityOutcome({
     inbound: brief.inbound,

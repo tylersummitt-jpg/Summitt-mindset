@@ -25,12 +25,14 @@ const ROUTE = path.join(process.cwd(), "src/app/api/cron/sms-inbound-coach/route
 const SOL_TURN = path.join(process.cwd(), "src/lib/inbound-sol-relationship-turn.ts");
 const PERSIST_ADVICE = path.join(process.cwd(), "src/lib/inbound-sol-persist-advice.ts");
 const WINS = path.join(process.cwd(), "src/lib/inbound-sol-wins.ts");
+const THREAD_MEMORY = path.join(process.cwd(), "src/lib/v2-commitment-sms-thread-memory.ts");
 
 describe("inbound Sol main-branch wire", () => {
   const src = fs.readFileSync(ROUTE, "utf8");
   const turn = fs.readFileSync(SOL_TURN, "utf8");
   const advice = fs.readFileSync(PERSIST_ADVICE, "utf8");
   const wins = fs.readFileSync(WINS, "utf8");
+  const threadMemory = fs.readFileSync(THREAD_MEMORY, "utf8");
 
   it("wires Sol only after V3-ownership eligibility, then returns before V3 writer", () => {
     expect(src).toContain("runInboundSolRelationshipTurn");
@@ -120,6 +122,10 @@ describe("inbound Sol main-branch wire", () => {
     expect(fnStart).toBeGreaterThan(0);
     expect(solCall).toBeGreaterThan(fnStart);
     const beforeSol = src.slice(fnStart, solCall);
+    expect(beforeSol).toContain("persistInboundSmsThreadMemoryProjectionBestEffort");
+    const memIdx = beforeSol.indexOf("persistInboundSmsThreadMemoryProjectionBestEffort");
+    expect(memIdx).toBeGreaterThan(0);
+    expect(solCall - fnStart).toBeGreaterThan(memIdx);
     expect(beforeSol).toContain("!isLikelyInboundSolMainBeforeHandoff({");
     const oqIf = beforeSol.indexOf("!isLikelyInboundSolMainBeforeHandoff({");
     const tryResolve = beforeSol.indexOf("tryResolveAnswerToOpenQuestionTurn");
@@ -188,6 +194,54 @@ describe("inbound Sol main-branch wire", () => {
     expect(writerIdx).toBeGreaterThan(sideIdx);
     expect(turn).not.toContain("v3LearningNotebookAppend");
     expect(turn).not.toContain("gatedDecision.should_open_blocker_capture");
+  });
+
+  it("applies Sol answered_question after interpreter and before persist/writer", () => {
+    expect(turn).toContain("applySolAnsweredOpenCoachQuestion");
+    const interpIdx = turn.indexOf("await runInboundSolBriefInterpreter");
+    const applyIdx = turn.indexOf("await applySolAnsweredOpenCoachQuestion");
+    const persistIdx = turn.indexOf("await persistInboundAccountabilityOutcomeEvent");
+    const writerIdx = turn.indexOf("await writeInboundSolBody");
+    expect(interpIdx).toBeGreaterThan(0);
+    expect(applyIdx).toBeGreaterThan(interpIdx);
+    expect(persistIdx).toBeGreaterThan(applyIdx);
+    expect(writerIdx).toBeGreaterThan(persistIdx);
+    expect(turn).not.toContain("sms_last_outbound_context");
+  });
+
+  it("safety returns before thread-memory projection and Sol", () => {
+    const handleStart = src.indexOf("async function handleV2SmsInboundCoachJob");
+    const safetyCall = src.indexOf("await processInboundSmsSafetyShortCircuit", handleStart);
+    const firstNormal = src.indexOf("await processV2NormalInboundOutcome", handleStart);
+    expect(safetyCall).toBeGreaterThan(handleStart);
+    expect(firstNormal).toBeGreaterThan(safetyCall);
+    const safetyFn = src.slice(
+      src.indexOf("async function processInboundSmsSafetyShortCircuit"),
+      src.indexOf("async function handleV2SmsInboundCoachJob")
+    );
+    expect(safetyFn).not.toContain("persistInboundSmsThreadMemoryProjectionBestEffort");
+    expect(safetyFn).not.toContain("applySolAnsweredOpenCoachQuestion");
+    expect(safetyFn).not.toContain("runInboundSolRelationshipTurn");
+  });
+
+  it("last-ask apply does not write Hallway or Notebook and uses identity match only", () => {
+    expect(threadMemory).toContain("applySolAnsweredOpenCoachQuestion");
+    expect(threadMemory).toContain("openCoachQuestionTextsMatch");
+    expect(threadMemory).not.toContain("v2_hallway");
+    expect(threadMemory).not.toContain("v3LearningNotebookAppend");
+    expect(threadMemory).not.toContain("from(\"v2_coaching_notebook\")");
+    const applyStart = threadMemory.indexOf("export async function applySolAnsweredOpenCoachQuestion");
+    const applyFn = threadMemory.slice(applyStart);
+    expect(applyFn).toContain('.eq("open_question_text", storedQuestionText)');
+    expect(applyFn).toContain('.eq("open_question_asked_at", expectedAskedAt)');
+    expect(applyFn).toContain('.select("commitment_id")');
+    expect(applyFn).toContain('reason: "cas_miss"');
+    expect(applyFn).toContain("canonicalHumanTurnText");
+    expect(applyFn).toContain("durableHumanText");
+    expect(applyFn).not.toContain("open_question_answer_text: reportedAnswer");
+    expect(applyFn).not.toMatch(/new RegExp/);
+    expect(applyFn).not.toContain(".test(");
+    expect(applyFn).not.toContain("isSubstantiveInboundForThreadMemory");
   });
 
   it("passes receive-time and current-turn SIDs into Sol", () => {
