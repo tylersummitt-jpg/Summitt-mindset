@@ -243,6 +243,16 @@ export default function IosAppleMembershipPanel({
             Apple subscription settings.
           </p>
         )}
+        <div>
+          <p className="text-sm font-medium text-[var(--text)]">
+            Membership includes:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-[var(--muted)]">
+            <li>Victory Room for your identity, Current Goal, and Wins</li>
+            <li>Ask Pat coaching inspired by Pat Summitt’s standards</li>
+            <li>Film Room leadership lessons</li>
+          </ul>
+        </div>
         <button
           type="button"
           onClick={() => void onPurchase()}

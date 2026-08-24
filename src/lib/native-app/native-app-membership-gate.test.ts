@@ -109,10 +109,20 @@ describe("native membership gate surfaces", () => {
     expect(page).not.toMatch(/free trial/i);
     expect(page).not.toContain('href="/subscribe"');
     expect(page).not.toContain("create-checkout-session");
+    expect(page).toContain('showIosApplePurchase = platform === "ios" && !isPaused');
+    expect(page).toContain("Sign in on the website to review your membership options.");
+    expect(page).not.toContain("Membership includes:");
     const panel = readSrc("src/components/ios-apple-membership-panel.tsx");
     expect(panel).toContain("Subscribe with Apple");
     expect(panel).toContain("Restore Purchases");
     expect(panel).toContain("displayPrice");
+    expect(panel).toContain("Membership includes:");
+    expect(panel).toContain("Victory Room for your identity, Current Goal, and Wins");
+    expect(panel).toContain("Ask Pat coaching inspired by Pat Summitt’s standards");
+    expect(panel).toContain("Film Room leadership lessons");
+    expect(panel.indexOf("Membership includes:")).toBeLessThan(
+      panel.indexOf("Subscribe with Apple")
+    );
     expect(panel).not.toMatch(/\$29/);
     expect(panel).not.toMatch(/managed on the Summitt Mindset website/i);
     expect(panel).not.toContain("/subscribe");

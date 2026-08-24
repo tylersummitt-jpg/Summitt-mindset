@@ -87,6 +87,38 @@ describe("IosAppleMembershipPanel", () => {
     expect(screen.getByText("Terms of Use")).toBeTruthy();
   });
 
+  it("lists paid membership benefits before Subscribe with Apple", async () => {
+    const bridge = createMockBridge();
+    render(<IosAppleMembershipPanel bridge={bridge} />);
+    bridge.emit({ type: "bridgeReady" });
+    bridge.emit({
+      type: "products",
+      productId: APPLE_IAP_MONTHLY_PRODUCT_ID,
+      displayName: "Summitt Mindset",
+      displayPrice: "US$4.99",
+    });
+    expect(await screen.findByText("US$4.99")).toBeTruthy();
+    expect(screen.getByText("Membership includes:")).toBeTruthy();
+    expect(
+      screen.getByText("Victory Room for your identity, Current Goal, and Wins")
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Ask Pat coaching inspired by Pat Summitt’s standards")
+    ).toBeTruthy();
+    expect(screen.getByText("Film Room leadership lessons")).toBeTruthy();
+    expect(screen.getByText("Restore Purchases")).toBeTruthy();
+    expect(screen.getByText("Privacy Policy")).toBeTruthy();
+    expect(screen.getByText("Terms of Use")).toBeTruthy();
+
+    const body = document.body.textContent ?? "";
+    expect(body.indexOf("Membership includes:")).toBeGreaterThan(-1);
+    expect(body.indexOf("Membership includes:")).toBeLessThan(
+      body.indexOf("Subscribe with Apple")
+    );
+    expect(body).not.toMatch(/\$29/);
+    expect(body).not.toContain("/subscribe");
+  });
+
   it("passes the account-token UUID to native purchase and verifies JWS", async () => {
     const bridge = createMockBridge();
     const fetchAccountToken = vi.fn(async () => ({
