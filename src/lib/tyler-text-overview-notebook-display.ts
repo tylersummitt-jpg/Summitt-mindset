@@ -146,7 +146,7 @@ export function notebookDisplaySubtext(mode: TylerTextOverviewNotebookDisplayMod
     case "writer_ran_send_blocked":
       return "OpenAI received the notebook below, but the generated SMS was not marked sendable.";
     case "writer_skipped_intentional":
-      return "No notebook exists because this draft was an intentional no-send, usually silence cadence space.";
+      return "OpenAI writer was intentionally skipped (INTENTIONAL SPACE). This is not a silence-cadence stage and not an OpenAI failure.";
     default:
       return "No writer input was stored. Check machine_no_send_reason and generation metadata.";
   }

@@ -57,6 +57,7 @@ function validBrief(overrides: Record<string, unknown> = {}): Record<string, unk
       question_policy: "none",
       action_guidance: "none",
       pressure: "normal",
+      proactive_decision: "send",
     },
     boundaries: {
       claims_to_avoid: ["Do not invent proof"],
@@ -153,6 +154,7 @@ describe("morning-tto-coaching-brief-v1 contract", () => {
           question_policy: "unknown",
           action_guidance: "unknown",
           pressure: "unknown",
+          proactive_decision: "send",
         },
       })
     );

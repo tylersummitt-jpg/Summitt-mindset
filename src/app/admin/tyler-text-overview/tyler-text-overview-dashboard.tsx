@@ -448,7 +448,19 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
         </div>
         <div>
           <dt className="font-medium text-gray-500">intentional_space</dt>
-          <dd>{formatOptional(row.intentionalSpace)}</dd>
+          <dd>
+            {row.intentionalSpace === true
+              ? "INTENTIONAL SPACE"
+              : formatOptional(row.intentionalSpace)}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">required_touch</dt>
+          <dd>
+            {row.messageRequiredToday === true
+              ? "REQUIRED TOUCH"
+              : formatOptional(row.messageRequiredToday)}
+          </dd>
         </div>
         <div>
           <dt className="font-medium text-gray-500">lane_stage</dt>

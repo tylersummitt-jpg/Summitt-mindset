@@ -432,6 +432,12 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(eveningPage).toContain("requireTylerAdmin");
   });
 
+  it("labels INTENTIONAL SPACE and REQUIRED TOUCH without silence-cadence copy", () => {
+    expect(dashboard).toContain("INTENTIONAL SPACE");
+    expect(dashboard).toContain("REQUIRED TOUCH");
+    expect(dashboard).toContain("required_touch");
+  });
+
   it("dashboard uses fixed sendSlot prop not URL send_slot", () => {
     expect(dashboard).toContain("sendSlot }: TylerTextOverviewDashboardProps");
     expect(dashboard).not.toContain('searchParams.get("send_slot")');

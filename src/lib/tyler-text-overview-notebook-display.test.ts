@@ -128,17 +128,20 @@ describe("deriveNotebookFamily", () => {
 });
 
 describe("deriveNotebookDisplayMode", () => {
-  it("0 messages + intentional_space true => writer_skipped_intentional", () => {
+  it("0 messages + machine_no_send_reason intentional_space => writer_skipped_intentional", () => {
     expect(
       deriveNotebookDisplayMode({
         messageCount: 0,
         machineShouldSend: false,
-        machineNoSendReason: "silence_cadence_space_day9",
+        machineNoSendReason: "intentional_space",
         capturePresent: false,
         intentionalSpace: true,
-        skipSource: "silence_cadence_no_send",
+        skipSource: null,
       })
     ).toBe("writer_skipped_intentional");
+    expect(notebookDisplaySubtext("writer_skipped_intentional")).toMatch(
+      /not a silence-cadence stage and not an OpenAI failure/
+    );
   });
 
   it("0 messages + silence_cadence_space_day9 => writer_skipped_intentional", () => {
@@ -198,7 +201,7 @@ describe("notebook labels", () => {
   it("exposes readable family and display labels", () => {
     expect(notebookFamilyLabel("daily_sms_writing_brief_v1")).toContain("Brief");
     expect(notebookDisplayHeadline("exact_primary_input")).toContain("Exact primary");
-    expect(notebookDisplaySubtext("writer_skipped_intentional")).toContain("intentional no-send");
+    expect(notebookDisplaySubtext("writer_skipped_intentional")).toContain("INTENTIONAL SPACE");
   });
 });
 

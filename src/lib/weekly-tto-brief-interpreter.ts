@@ -97,7 +97,8 @@ WEEKLY PERSPECTIVE DECISION
 
 OUTPUT CONTRACT
 - Never include keys: body, sms_body, message, final_message, reply, should_send.
-- You do not change goals, identity, people, proof, outcomes, timing, or send decisions.
+- You do not change goals, identity, people, proof, outcomes, or timing.
+- coaching_direction.proactive_decision must be send. Weekly does not use intentional_space.
 
 ${buildMorningBriefExactContractPromptAppendix()}`;
 
@@ -149,6 +150,11 @@ function weeklyInputAsMorningMergeView(
       local_weekday: input.message_for.local_weekday,
       daypart: "morning",
     },
+    mechanical: {
+      ...input.mechanical,
+      quiet_relationship_eligible: false,
+      message_required_today: false,
+    },
   };
 }
 
@@ -170,6 +176,8 @@ export function assembleWeeklyBriefInterpreterInputFromPacket(args: {
   const assembled = assembleMorningBriefInterpreterInputFromPacket({
     packet: weeklyPacketAsMorningAssemblerView(args.packet),
     extras: args.extras,
+    messageRequiredToday: false,
+    quietRelationshipEligible: false,
   });
   if ("ok" in assembled) return assembled;
   return {
@@ -297,6 +305,8 @@ export async function runWeeklyBriefInterpreterV1(args: {
           days_since_last_user_response: args.packet.last_user_response.days_since,
           never_replied: args.packet.last_user_response.never_replied,
           recent_unanswered_outbound_count: 0,
+          message_required_today: false,
+          quiet_relationship_eligible: false,
         },
         canonical_goal: { text: args.packet.current_goal.text },
         pending_goal_change: args.packet.hard_state.pending_goal_change,
@@ -342,6 +352,8 @@ export async function runWeeklyBriefInterpreterV1(args: {
             days_since_last_user_response: args.packet.last_user_response.days_since,
             never_replied: args.packet.last_user_response.never_replied,
             recent_unanswered_outbound_count: 0,
+            message_required_today: false,
+            quiet_relationship_eligible: false,
           },
           canonical_goal: { text: args.packet.current_goal.text },
           pending_goal_change: args.packet.hard_state.pending_goal_change,
@@ -398,6 +410,8 @@ export async function runWeeklyBriefInterpreterV1(args: {
         days_since_last_user_response: args.packet.last_user_response.days_since,
         never_replied: args.packet.last_user_response.never_replied,
         recent_unanswered_outbound_count: 0,
+        message_required_today: false,
+        quiet_relationship_eligible: false,
       },
       canonical_goal: { text: args.packet.current_goal.text },
       pending_goal_change: args.packet.hard_state.pending_goal_change,

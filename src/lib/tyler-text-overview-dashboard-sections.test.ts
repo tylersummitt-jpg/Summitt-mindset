@@ -29,6 +29,7 @@ import {
   MORNING_BODY_COMPARISON_TYLER_SAVE_MATCHES,
   MORNING_BODY_COMPARISON_GENERATION_FAILED,
   MORNING_BODY_COMPARISON_GENERATION_MISSING,
+  MORNING_BODY_COMPARISON_INTENTIONAL_SPACE,
   MORNING_BRIEF_OBSERVATION_STATUS,
   TTO_INTERPRETER_OPENAI_ERROR_HEADING,
   TTO_WRITER_OPENAI_ERROR_HEADING,
@@ -80,6 +81,7 @@ function baseRow(
     silenceCadenceRoute: "no_send_space_day9",
     silenceDay: 9,
     intentionalSpace: true,
+    messageRequiredToday: null,
     laneStage: "silence_cadence_no_send",
     slotCoachingContext: null,
     morningBriefInterpreterV1: null,
@@ -373,6 +375,25 @@ describe("weekly raw notebook / provenance", () => {
     expect(shouldShowMorningDualBodyPanels(failed, false)).toBe(true);
     expect(getMorningBodyComparisonStatus(failed)).toBe(MORNING_BODY_COMPARISON_GENERATION_FAILED);
     expect(getMorningMachineDraftUnavailableReason(failed)).toContain("invalid_json");
+
+    const space = baseRow({
+      currentBodyToSend: null,
+      authoritativeMachineDraftBody: null,
+      authoritativeMachineDraftStatus: "intentional_space",
+      machineNoSendReason: "intentional_space",
+      intentionalSpace: true,
+      messageRequiredToday: false,
+    });
+    expect(getMorningBodyComparisonStatus(space)).toBe(MORNING_BODY_COMPARISON_INTENTIONAL_SPACE);
+    expect(getMorningMachineDraftUnavailableReason(space)).toBe(
+      MORNING_BODY_COMPARISON_INTENTIONAL_SPACE
+    );
+    expect(MORNING_BODY_COMPARISON_INTENTIONAL_SPACE).toMatch(/writer skipped/i);
+    expect(MORNING_BODY_COMPARISON_INTENTIONAL_SPACE).not.toMatch(/silence.cadence/i);
+
+    const required = baseRow({ messageRequiredToday: true });
+    const blocks = buildProvenanceExplanationBlocks(required);
+    expect(JSON.stringify(blocks)).toContain("REQUIRED TOUCH");
 
     const missingGen = baseRow({
       authoritativeMachineDraftBody: null,

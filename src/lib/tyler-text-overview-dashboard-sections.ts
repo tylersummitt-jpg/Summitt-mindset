@@ -37,6 +37,8 @@ export const MORNING_BODY_COMPARISON_DIFFERS =
   "Current body differs from the original machine draft.";
 export const MORNING_BODY_COMPARISON_GENERATION_FAILED =
   "No machine draft was produced because this generation failed.";
+export const MORNING_BODY_COMPARISON_INTENTIONAL_SPACE =
+  "INTENTIONAL SPACE — writer skipped; no machine body by design.";
 export const MORNING_BODY_COMPARISON_HISTORICAL_UNAVAILABLE =
   "The linked historical machine draft is unavailable.";
 export const MORNING_BODY_COMPARISON_GENERATION_MISSING =
@@ -197,6 +199,8 @@ export function getMorningMachineDraftUnavailableReason(
   row: TylerTextOverviewAdminDraftRow
 ): string {
   switch (row.authoritativeMachineDraftStatus) {
+    case "intentional_space":
+      return MORNING_BODY_COMPARISON_INTENTIONAL_SPACE;
     case "generation_failed": {
       const reason = row.machineNoSendReason?.trim();
       return reason
@@ -253,6 +257,7 @@ export function getMorningBodyComparisonStatus(
   row: TylerTextOverviewAdminDraftRow
 ): string {
   const status = row.authoritativeMachineDraftStatus;
+  if (status === "intentional_space") return MORNING_BODY_COMPARISON_INTENTIONAL_SPACE;
   if (status === "generation_failed") return MORNING_BODY_COMPARISON_GENERATION_FAILED;
   if (status === "generation_missing") return MORNING_BODY_COMPARISON_GENERATION_MISSING;
   if (status === "historical_unavailable" || status == null) {
@@ -388,7 +393,15 @@ export function buildProvenanceExplanationBlocks(
       },
       {
         kind: "detail",
-        text: `Intentional space: ${formatOptional(row.intentionalSpace)}`,
+        text: `Intentional space: ${formatOptional(row.intentionalSpace)}${
+          row.intentionalSpace === true ? " (INTENTIONAL SPACE — writer skipped)" : ""
+        }`,
+      },
+      {
+        kind: "detail",
+        text: `Required touch: ${formatOptional(row.messageRequiredToday)}${
+          row.messageRequiredToday === true ? " (REQUIRED TOUCH — SPACE unavailable)" : ""
+        }`,
       }
     );
   }

@@ -49,6 +49,9 @@ const db = vi.hoisted(() => ({
   smsSendEventsWrites: 0,
   v2EventWrites: 0,
   nextGenId: 1,
+  smsSendEvents: [] as Array<Record<string, unknown>>,
+  smsWeeklySendEvents: [] as Array<Record<string, unknown>>,
+  smsSendEventsSelectError: null as string | null,
 }));
 
 function makeChain(handlers: {
@@ -179,9 +182,19 @@ function makeChain(handlers: {
 
     if (table === "sms_send_events") {
       if (action === "select") {
-        return { data: null, error: null };
+        if (db.smsSendEventsSelectError) {
+          return { data: null, error: { message: db.smsSendEventsSelectError } };
+        }
+        return { data: db.smsSendEvents, error: null };
       }
       db.smsSendEventsWrites += 1;
+      return { data: null, error: null };
+    }
+
+    if (table === "sms_weekly_send_events") {
+      if (action === "select") {
+        return { data: db.smsWeeklySendEvents, error: null };
+      }
       return { data: null, error: null };
     }
 
@@ -485,6 +498,9 @@ function setupHappyPath() {
   db.smsSendEventsWrites = 0;
   db.v2EventWrites = 0;
   db.nextGenId = 1;
+  db.smsSendEvents = [];
+  db.smsWeeklySendEvents = [];
+  db.smsSendEventsSelectError = null;
 
   getClerkUserMock.mockResolvedValue({
     public_metadata: { timezone: "America/New_York", smsTimePreference: "morning" },
@@ -578,6 +594,7 @@ function setupHappyPath() {
         question_policy: "none",
         action_guidance: "none",
         pressure: "normal",
+        proactive_decision: "send",
       },
       boundaries: {
         claims_to_avoid: [],
@@ -645,6 +662,7 @@ function setupHappyPath() {
           question_policy: "none",
           action_guidance: "none",
           pressure: "normal",
+          proactive_decision: "send",
         },
         boundaries: {
           claims_to_avoid: [],
@@ -921,6 +939,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
         question_policy: "none" as const,
         action_guidance: "none" as const,
         pressure: "normal" as const,
+        proactive_decision: "send" as const,
       },
       boundaries: {
         claims_to_avoid: ["no fake consistency"],
@@ -1235,6 +1254,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
           question_policy: "none",
           action_guidance: "none",
           pressure: "unknown",
+          proactive_decision: "send",
         },
         boundaries: {
           claims_to_avoid: [],
@@ -1679,6 +1699,346 @@ describe("canonical batch persists one day across US timezones", () => {
     expect(stats.ok).toBe(false);
     expect(stats.errors_preview[0]).toMatch(/invalid_draft_for_day_key/);
     expect(supabaseServer.from).not.toHaveBeenCalled();
+  });
+
+  async function setInterpreterProactiveDecision(decision: "send" | "intentional_space") {
+    const current = await runInterpreterMock();
+    runInterpreterMock.mockResolvedValue({
+      ...current,
+      brief: {
+        ...current.brief,
+        coaching_direction: {
+          ...current.brief.coaching_direction,
+          proactive_decision: decision,
+        },
+      },
+    });
+  }
+
+  function quietPacket(daysSince: number) {
+    return {
+      ...MORNING_PACKET,
+      last_user_response: {
+        ...MORNING_PACKET.last_user_response,
+        days_since: daysSince,
+        never_replied: false,
+      },
+    };
+  }
+
+  function seedStrongDaily(dayKey: string, slot = "morning") {
+    db.smsSendEvents.push({
+      status: "sent",
+      message_sid: `SM-${dayKey}`,
+      send_slot: slot,
+      sent_at: `${dayKey}T12:00:00.000Z`,
+      created_at: `${dayKey}T12:00:00.000Z`,
+      processed_at: `${dayKey}T12:00:00.000Z`,
+      day_key: dayKey,
+    });
+  }
+
+  function seedStrongWeekly(dayKey: string) {
+    db.smsWeeklySendEvents.push({
+      status: "delivered",
+      message_sid: `SMW-${dayKey}`,
+      sent_at: `${dayKey}T16:00:00.000Z`,
+      created_at: `${dayKey}T16:00:00.000Z`,
+      processed_at: `${dayKey}T16:00:00.000Z`,
+      day_key: dayKey,
+    });
+  }
+
+  it("active-user 0/1/3/7/9-day reply: SPACE from interpreter is clamped; writer still runs", async () => {
+    for (const days of [0, 1, 3, 7, 9]) {
+      setupHappyPath();
+      loadMorningPacketMock.mockResolvedValue({
+        ok: true,
+        packet: quietPacket(days),
+        commitmentId: "cmt-phase3",
+      });
+      await setInterpreterProactiveDecision("intentional_space");
+      writeMorningTtoBodyMock.mockClear();
+      const result = await generateTylerTextOverviewDraftForUser({
+        audienceUser: AUDIENCE_USER,
+        now: new Date("2026-07-02T16:00:00.000Z"),
+        draftForDayKey: "2026-07-03",
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(writeMorningTtoBodyMock).toHaveBeenCalledTimes(1);
+      expect(result.machineShouldSend).toBe(true);
+      expect(result.body).toBe(MORNING_SUCCESS_BODY);
+      expect(db.generations.at(-1)?.machine_no_send_reason).not.toBe("intentional_space");
+      expect(db.generations.at(-1)?.generation_metadata).toMatchObject({
+        quiet_relationship_eligible: false,
+        message_required_today: false,
+        proactive_decision: "send",
+        intentional_space: false,
+      });
+    }
+  });
+
+  it("10-day quiet: SPACE skips writer; not an OpenAI failure", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: quietPacket(10),
+      commitmentId: "cmt-phase3",
+    });
+    seedStrongDaily("2026-07-01");
+    await setInterpreterProactiveDecision("intentional_space");
+    writeMorningTtoBodyMock.mockClear();
+    const result = await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(writeMorningTtoBodyMock).not.toHaveBeenCalled();
+    expect(runInterpreterMock).toHaveBeenCalled();
+    expect(result.body).toBeNull();
+    expect(result.machineShouldSend).toBe(false);
+    expect(db.generations[0]?.machine_should_send).toBe(false);
+    expect(db.generations[0]?.machine_draft_body).toBeNull();
+    expect(db.generations[0]?.machine_no_send_reason).toBe("intentional_space");
+    expect(db.generations[0]?.writer_openai_messages).toEqual([]);
+    expect(db.generations[0]?.generation_metadata).toMatchObject({
+      quiet_relationship_eligible: true,
+      intentional_space: true,
+      proactive_decision: "intentional_space",
+      message_required_today: false,
+    });
+    expect(db.generations[0]?.generation_metadata).not.toMatchObject({
+      error: "openai_request_failed",
+    });
+  });
+
+  it("10-day quiet SEND reentry still runs writer (not forced to SPACE)", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: quietPacket(14),
+      commitmentId: "cmt-phase3",
+    });
+    seedStrongDaily("2026-07-01");
+    await setInterpreterProactiveDecision("send");
+    const result = await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.machineShouldSend).toBe(true);
+    expect(db.generations[0]?.generation_metadata).toMatchObject({
+      quiet_relationship_eligible: true,
+      proactive_decision: "send",
+      intentional_space: false,
+    });
+  });
+
+  it("quiet >=10d + clock lookup failure + model SPACE clamps to SEND and runs writer (not required-touch)", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: quietPacket(14),
+      commitmentId: "cmt-phase3",
+    });
+    db.smsSendEventsSelectError = "db down";
+    await setInterpreterProactiveDecision("intentional_space");
+    writeMorningTtoBodyMock.mockClear();
+    const result = await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.machineShouldSend).toBe(true);
+    expect(result.body).toBe(MORNING_SUCCESS_BODY);
+    expect(result.body).not.toMatch(/Just checking in/i);
+    expect(db.generations[0]?.generation_metadata).toMatchObject({
+      quiet_relationship_eligible: true,
+      clock_lookup_failed: true,
+      message_required_today: false,
+      proactive_decision: "send",
+      intentional_space: false,
+      days_since_last_successful_proactive_send: null,
+    });
+  });
+
+  it("active <10d + clock lookup failure + model SPACE still clamps SEND and runs writer", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: quietPacket(3),
+      commitmentId: "cmt-phase3",
+    });
+    db.smsSendEventsSelectError = "db down";
+    await setInterpreterProactiveDecision("intentional_space");
+    writeMorningTtoBodyMock.mockClear();
+    const result = await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.machineShouldSend).toBe(true);
+    expect(db.generations[0]?.generation_metadata).toMatchObject({
+      quiet_relationship_eligible: false,
+      clock_lookup_failed: true,
+      message_required_today: false,
+      proactive_decision: "send",
+      intentional_space: false,
+    });
+  });
+
+  it("required touch clamps SPACE to SEND and still runs writer (no canned copy)", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: quietPacket(14),
+      commitmentId: "cmt-phase3",
+    });
+    seedStrongDaily("2026-06-20");
+    await setInterpreterProactiveDecision("intentional_space");
+    writeMorningTtoBodyMock.mockClear();
+    const result = await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.machineShouldSend).toBe(true);
+    expect(result.body).toBe(MORNING_SUCCESS_BODY);
+    expect(result.body).not.toMatch(/Just checking in/i);
+    expect(db.generations[0]?.generation_metadata).toMatchObject({
+      quiet_relationship_eligible: true,
+      message_required_today: true,
+      proactive_decision: "send",
+      intentional_space: false,
+    });
+  });
+
+  it("Weekly success yesterday resets anti-ghost clock so SPACE remains available", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: quietPacket(40),
+      commitmentId: "cmt-phase3",
+    });
+    seedStrongDaily("2026-06-01");
+    seedStrongWeekly("2026-07-02");
+    await setInterpreterProactiveDecision("intentional_space");
+    writeMorningTtoBodyMock.mockClear();
+    await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(writeMorningTtoBodyMock).not.toHaveBeenCalled();
+    expect(db.generations[0]?.generation_metadata).toMatchObject({
+      message_required_today: false,
+      intentional_space: true,
+      days_since_last_successful_proactive_send: 1,
+    });
+  });
+
+  it("failed Weekly does not reset clock; required touch still clamps SPACE", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: quietPacket(40),
+      commitmentId: "cmt-phase3",
+    });
+    seedStrongDaily("2026-06-01");
+    db.smsWeeklySendEvents.push({
+      status: "failed",
+      created_at: "2026-07-02T16:00:00.000Z",
+      day_key: "2026-07-02",
+    });
+    await setInterpreterProactiveDecision("intentional_space");
+    writeMorningTtoBodyMock.mockClear();
+    await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledTimes(1);
+    expect(db.generations[0]?.generation_metadata).toMatchObject({
+      message_required_today: true,
+      proactive_decision: "send",
+    });
+  });
+
+  it("comms pause still wins over required-touch quiet users", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: quietPacket(40),
+      commitmentId: "cmt-phase3",
+    });
+    seedStrongDaily("2026-06-01");
+    shouldSkipCommsMock.mockReturnValue({ skip: true, reason: "user_pause" });
+    await setInterpreterProactiveDecision("intentional_space");
+    runInterpreterMock.mockClear();
+    writeMorningTtoBodyMock.mockClear();
+    const result = await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(result).toEqual({ ok: false, reason: "comms_prefs" });
+    expect(writeMorningTtoBodyMock).not.toHaveBeenCalled();
+    expect(runInterpreterMock).not.toHaveBeenCalled();
+  });
+
+  it("Morning SPACE does not bind Evening; Evening generates independently", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: quietPacket(14),
+      commitmentId: "cmt-phase3",
+    });
+    seedStrongDaily("2026-07-01");
+    await setInterpreterProactiveDecision("intentional_space");
+    await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(writeMorningTtoBodyMock).not.toHaveBeenCalled();
+    expect(db.generations[0]?.send_slot ?? "morning").not.toBe("evening_checkin");
+
+    await setInterpreterProactiveDecision("send");
+    writeMorningTtoBodyMock.mockClear();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: {
+        ...quietPacket(14),
+        message_for: { ...MORNING_PACKET.message_for, daypart: "evening" as const },
+      },
+      commitmentId: "cmt-phase3",
+    });
+    const evening = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+    expect(evening.ok).toBe(true);
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledTimes(1);
+    if (!evening.ok) return;
+    expect(evening.machineShouldSend).toBe(true);
+    expect(db.generations.some((g) => g.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
+      true
+    );
   });
 });
 

@@ -110,6 +110,7 @@ export type TylerTextOverviewCurrentBodySource =
 export type AuthoritativeMachineDraftStatus =
   | "available"
   | "generation_failed"
+  | "intentional_space"
   | "generation_missing"
   | "historical_unavailable";
 
@@ -413,6 +414,7 @@ export type TylerTextOverviewAdminDraftRow = {
   silenceCadenceRoute: string | null;
   silenceDay: number | null;
   intentionalSpace: boolean | null;
+  messageRequiredToday: boolean | null;
   laneStage: string | null;
   slotCoachingContext: TylerTextOverviewSlotCoachingContextPanel | null;
   /** Phase 2C — stored generation-time interpreter capture (observation only). */

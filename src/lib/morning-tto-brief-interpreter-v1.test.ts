@@ -1,6 +1,10 @@
 import { readFileSync } from "fs";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
 import {
   assembleMorningBriefInterpreterInputV1,
   type AssembleMorningBriefInterpreterInputArgs,
@@ -132,6 +136,7 @@ function semanticBriefDraft(
       question_policy: "none",
       action_guidance: "none",
       pressure: "normal",
+      proactive_decision: "send",
     },
     boundaries: {
       claims_to_avoid: ["interpreter claim"],
@@ -521,6 +526,7 @@ describe("morning-tto-brief-interpreter-v1", () => {
       client: { chat: { completions: { create } } } as never,
     });
     expect(result.ok).toBe(false);
+    if (result.ok) return;
     expect(result.error).toBe("openai_request_failed");
     expect(result.capture.error).toBe("openai_request_failed");
     expect(result.capture.openai_error).toEqual({
@@ -619,6 +625,7 @@ describe("morning brief interpreter product scenarios", () => {
             question_policy: "none",
             action_guidance: "none",
             pressure: "normal",
+            proactive_decision: "send",
           },
         })
       ),
@@ -676,6 +683,7 @@ describe("morning brief interpreter product scenarios", () => {
             question_policy: "none",
             action_guidance: "none",
             pressure: "normal",
+            proactive_decision: "send",
           },
         })
       ),
@@ -718,6 +726,7 @@ describe("morning brief interpreter product scenarios", () => {
             question_policy: "none",
             action_guidance: "none",
             pressure: "low",
+            proactive_decision: "send",
           },
         })
       ),
@@ -758,6 +767,7 @@ describe("morning brief interpreter product scenarios", () => {
             question_policy: "none",
             action_guidance: "none",
             pressure: "normal",
+            proactive_decision: "send",
           },
         })
       ),
@@ -866,6 +876,7 @@ describe("morning brief interpreter product scenarios", () => {
             question_policy: "unknown",
             action_guidance: "unknown",
             pressure: "unknown",
+            proactive_decision: "send",
           },
           goal_role_today: {
             role: "unknown",
@@ -890,6 +901,7 @@ describe("morning brief interpreter schema-contract fixtures", () => {
             question_policy: "none",
             action_guidance: "none",
             pressure: "low",
+            proactive_decision: "send",
           },
         })
       )
@@ -902,6 +914,7 @@ describe("morning brief interpreter schema-contract fixtures", () => {
             question_policy: "none",
             action_guidance: "none",
             pressure: "low",
+            proactive_decision: "send",
           },
         })
       )
@@ -975,6 +988,7 @@ describe("morning brief interpreter schema-contract fixtures", () => {
             question_policy: "none",
             action_guidance: "none",
             pressure: "low",
+            proactive_decision: "send",
           },
         })
       ),
@@ -1063,6 +1077,7 @@ describe("morning brief interpreter schema-contract fixtures", () => {
             question_policy: "none",
             action_guidance: "none",
             pressure: "low",
+            proactive_decision: "send",
           },
           truth_and_evidence: {
             outcome: "no_recent_evidence",
@@ -1128,6 +1143,7 @@ describe("morning brief interpreter schema-contract fixtures", () => {
             question_policy: "one_useful_question",
             action_guidance: "none",
             pressure: "normal",
+            proactive_decision: "send",
           },
           goal_role_today: {
             role: "background",
@@ -1172,6 +1188,7 @@ describe("morning brief interpreter schema-contract fixtures", () => {
             question_policy: "none",
             action_guidance: "none",
             pressure: "low",
+            proactive_decision: "send",
           },
           truth_and_evidence: {
             outcome: "no_recent_evidence",
@@ -1222,6 +1239,7 @@ describe("morning brief interpreter schema-contract fixtures", () => {
             question_policy: "one_useful_question",
             action_guidance: "one_specific_next_step",
             pressure: "normal",
+            proactive_decision: "send",
           },
           truth_and_evidence: {
             outcome: "no_recent_evidence",

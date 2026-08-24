@@ -119,6 +119,7 @@ function sampleBrief(overrides: Partial<MorningCoachingBriefV1> = {}): MorningCo
       question_policy: "none",
       action_guidance: "none",
       pressure: "low",
+      proactive_decision: "send",
     },
     boundaries: {
       claims_to_avoid: ["Do not invent consistency", "Do not praise a fake week of proof"],

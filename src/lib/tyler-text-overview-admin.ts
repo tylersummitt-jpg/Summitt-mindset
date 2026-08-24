@@ -127,6 +127,7 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   | "silenceCadenceRoute"
   | "silenceDay"
   | "intentionalSpace"
+  | "messageRequiredToday"
   | "laneStage"
   | "slotCoachingContext"
   | "morningBriefInterpreterV1"
@@ -160,6 +161,7 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   silenceCadenceRoute: null,
   silenceDay: null,
   intentionalSpace: null,
+  messageRequiredToday: null,
   laneStage: null,
   slotCoachingContext: null,
   morningBriefInterpreterV1: null,
@@ -864,6 +866,10 @@ export function deriveAuthoritativeMachineDraftStatus(args: {
     return "available";
   }
 
+  if (args.generation.machine_no_send_reason === "intentional_space") {
+    return "intentional_space";
+  }
+
   if (
     args.generation.machine_should_send === false ||
     (typeof args.generation.machine_no_send_reason === "string" &&
@@ -1166,6 +1172,7 @@ function mapGenerationToNotebookFields(
   | "silenceCadenceRoute"
   | "silenceDay"
   | "intentionalSpace"
+  | "messageRequiredToday"
   | "laneStage"
   | "slotCoachingContext"
   | "morningBriefInterpreterV1"
@@ -1187,6 +1194,7 @@ function mapGenerationToNotebookFields(
       : null;
   const capturePresent = readMetadataBoolean(metadata, "capture_present");
   const intentionalSpace = readMetadataBoolean(metadata, "intentional_space");
+  const messageRequiredToday = readMetadataBoolean(metadata, "message_required_today");
   const skipSource = readMetadataString(metadata, "skip_source");
   const linkedGenerationId =
     typeof draftCurrentGenerationId === "string" && draftCurrentGenerationId.trim()
@@ -1237,6 +1245,7 @@ function mapGenerationToNotebookFields(
     silenceCadenceRoute: readMetadataString(metadata, "silence_cadence_route"),
     silenceDay: readMetadataNumber(metadata, "silence_day"),
     intentionalSpace,
+    messageRequiredToday,
     laneStage: readMetadataString(metadata, "lane_stage"),
     slotCoachingContext: mapSlotCoachingContextPanel(metadata),
     morningBriefInterpreterV1: mapMorningBriefInterpreterPanel(metadata),

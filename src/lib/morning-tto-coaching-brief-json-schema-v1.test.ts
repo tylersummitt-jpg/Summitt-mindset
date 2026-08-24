@@ -61,6 +61,7 @@ function validBrief(): MorningCoachingBriefV1 {
       question_policy: "none",
       action_guidance: "none",
       pressure: "normal",
+      proactive_decision: "send",
     },
     boundaries: {
       claims_to_avoid: ["Do not invent proof"],
@@ -141,6 +142,18 @@ describe("morning coaching brief OpenAI JSON schema v1", () => {
 
   it("exact-schema object is accepted by parseMorningCoachingBriefV1", () => {
     expect(parseMorningCoachingBriefV1(validBrief())).not.toBeNull();
+  });
+
+  it("coaching_direction requires send|intentional_space only (no reentry/value enums)", () => {
+    const coaching = MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1.properties.coaching_direction;
+    expect(coaching.required).toContain("proactive_decision");
+    expect(coaching.properties.proactive_decision.enum).toEqual(["send", "intentional_space"]);
+    expect(JSON.stringify(MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1)).not.toContain(
+      "send_reentry"
+    );
+    expect(JSON.stringify(MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1)).not.toContain(
+      "standalone_value_angle"
+    );
   });
 
   it("writer module still uses json_object (untouched)", () => {

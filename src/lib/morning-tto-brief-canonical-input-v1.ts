@@ -47,6 +47,13 @@ export type MorningBriefInterpreterInputV1 = {
     days_since_last_user_response: number | null;
     never_replied: boolean;
     recent_unanswered_outbound_count: number;
+    /** Server-owned. Sol does not decide this. */
+    message_required_today: boolean;
+    /**
+     * Server-owned 10-day / never-replied gate. When false, SPACE is unavailable.
+     * Default false (active-user fail-safe).
+     */
+    quiet_relationship_eligible: boolean;
   };
   canonical_goal: {
     text: string;
@@ -222,6 +229,8 @@ export type AssembleMorningBriefInterpreterInputArgs = {
   } | null;
   exactThreadMessages: MorningBriefExactThreadMessage[];
   omittedOlderTurnCount?: number;
+  messageRequiredToday?: boolean;
+  quietRelationshipEligible?: boolean;
 };
 
 /**
@@ -354,6 +363,8 @@ export function assembleMorningBriefInterpreterInputV1(
           : Math.floor(args.daysSinceLastUserResponse),
       never_replied: args.neverReplied === true,
       recent_unanswered_outbound_count: unanswered,
+      message_required_today: args.messageRequiredToday === true,
+      quiet_relationship_eligible: args.quietRelationshipEligible === true,
     },
     canonical_goal: { text: capValue(goalText, 400) },
     pending_goal_change,

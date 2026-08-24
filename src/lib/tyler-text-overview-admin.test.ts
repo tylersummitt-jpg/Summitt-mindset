@@ -800,10 +800,10 @@ describe("tyler-text-overview-admin read model", () => {
           writer_openai_messages: [],
           machine_draft_body: null,
           machine_should_send: false,
-          machine_no_send_reason: "empty_body",
+          machine_no_send_reason: "intentional_space",
         },
       })
-    ).toBe("generation_failed");
+    ).toBe("intentional_space");
     expect(
       deriveAuthoritativeMachineDraftStatus({
         draftCurrentGenerationId: "g1",

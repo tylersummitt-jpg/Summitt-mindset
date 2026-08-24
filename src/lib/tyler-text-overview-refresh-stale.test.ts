@@ -163,6 +163,9 @@ function makeChain(handlers: {
     }
 
     if (table === "sms_send_events") {
+      if (action === "select") {
+        return { data: [], error: null };
+      }
       db.smsSendEventsWrites += 1;
       return { data: null, error: null };
     }
@@ -333,6 +336,7 @@ const runInterpreterMock = vi.hoisted(() =>
         question_policy: "unknown",
         action_guidance: "unknown",
         pressure: "unknown",
+        proactive_decision: "send",
       },
       boundaries: {
         claims_to_avoid: [],

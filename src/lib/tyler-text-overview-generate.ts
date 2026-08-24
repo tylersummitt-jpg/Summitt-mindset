@@ -3,6 +3,7 @@ import { loadMorningRelationshipPacket } from "@/lib/morning-tto-relationship-pa
 import { writeMorningTtoBody } from "@/lib/morning-tto-writer";
 import {
   assembleMorningBriefInterpreterInputFromPacket,
+  countRecentUnansweredOutboundFromExactThread,
   loadMorningBriefCanonicalExtrasV1,
 } from "@/lib/morning-tto-brief-canonical-load-v1";
 import {
@@ -41,6 +42,12 @@ import {
   shouldSkipDailyForCommsPrefs,
 } from "@/lib/v2-sms-comms-preferences";
 import { hashWriterOpenAiMessages } from "@/lib/tyler-text-overview-writer-capture";
+import {
+  MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
+  clampProactiveDecision,
+  isIntentionalSpaceDecision,
+  resolveQuietRelationshipMechanicalFacts,
+} from "@/lib/sms-proactive-relationship-touch";
 
 export const MORNING_RELATIONSHIP_ROUTE_KIND = "morning_relationship" as const;
 
@@ -1054,6 +1061,90 @@ export type TylerTextOverviewMorningDraftResult =
       error?: string;
     };
 
+type QuietRelationshipMechanicalFacts = Awaited<
+  ReturnType<typeof resolveQuietRelationshipMechanicalFacts>
+>;
+
+function quietMetadataFields(quiet: QuietRelationshipMechanicalFacts): Record<string, unknown> {
+  return {
+    quiet_relationship_eligible: quiet.quiet_relationship_eligible,
+    message_required_today: quiet.message_required_today,
+    clock_lookup_failed: quiet.clock_lookup_failed,
+    days_since_last_successful_proactive_send: quiet.days_since_last_successful_proactive_send,
+    days_since_first_successful_proactive_send: quiet.days_since_first_successful_proactive_send,
+  };
+}
+
+/** Operational clamp at the writer-skip seam. Interpreter merge also clamps. */
+function withClampedProactiveDecision(
+  brief: MorningCoachingBriefV1,
+  quiet: QuietRelationshipMechanicalFacts
+): MorningCoachingBriefV1 {
+  const proactive_decision = clampProactiveDecision({
+    decision: brief.coaching_direction.proactive_decision,
+    quietRelationshipEligible: quiet.quiet_relationship_eligible,
+    messageRequiredToday: quiet.message_required_today,
+    clockLookupFailed: quiet.clock_lookup_failed === true,
+  });
+  if (proactive_decision === brief.coaching_direction.proactive_decision) return brief;
+  return {
+    ...brief,
+    coaching_direction: {
+      ...brief.coaching_direction,
+      proactive_decision,
+    },
+  };
+}
+
+function failSoftInterpreterInputFromPacket(
+  packet: MorningRelationshipPacket,
+  quiet: QuietRelationshipMechanicalFacts
+) {
+  return {
+    version: "morning_brief_interpreter_input_v1" as const,
+    message_for: {
+      timezone: packet.message_for.timezone,
+      local_date: packet.message_for.local_date,
+      local_weekday: packet.message_for.local_weekday,
+      daypart: packet.message_for.daypart,
+    },
+    mechanical: {
+      days_since_last_user_response: packet.last_user_response.days_since,
+      never_replied: packet.last_user_response.never_replied,
+      recent_unanswered_outbound_count: 0,
+      message_required_today: quiet.message_required_today,
+      quiet_relationship_eligible: quiet.quiet_relationship_eligible,
+    },
+    canonical_goal: { text: packet.current_goal.text },
+    pending_goal_change: packet.hard_state.pending_goal_change,
+    available_identity: packet.current_identity.text
+      ? { text: packet.current_identity.text }
+      : null,
+    available_important_people: [] as Array<{ name: string; relationship: string }>,
+    available_life_context: [] as Array<{ type: string; value: string }>,
+    truth_spine: {
+      latest_outcome: null,
+      latest_outcome_at: null,
+      latest_outcome_message: null,
+      evidence_strength: "none" as const,
+      consistency_supported: false,
+      proof_claims_allowed: {
+        completion: false,
+        miss: false,
+        partial: false,
+        proof: false,
+      },
+    },
+    thread_memory_hint: null,
+    exact_thread: {
+      window_days: 21 as const,
+      max_messages: 30 as const,
+      messages: packet.exact_thread.messages,
+      omitted_older_turn_count: packet.exact_thread.omitted_older_turn_count,
+    },
+  };
+}
+
 /**
  * Morning Brief interpreter orchestration. Never mutates packet. Never throws to caller.
  * Always returns a post-merge (or fail-soft) Brief for the final writer.
@@ -1062,10 +1153,21 @@ export async function runObservationalMorningBriefInterpreter(args: {
   packet: MorningRelationshipPacket;
   clerkUserId: string;
   commitmentId: string;
+  quietFacts?: QuietRelationshipMechanicalFacts;
 }): Promise<{
   morning_brief_interpreter_v1: Record<string, unknown>;
   morning_coaching_brief_v1: MorningCoachingBriefV1;
 }> {
+  const quiet =
+    args.quietFacts ??
+    ({
+      quiet_relationship_eligible: false,
+      message_required_today: false,
+      clock_lookup_failed: false,
+      days_since_last_successful_proactive_send: null,
+      days_since_first_successful_proactive_send: null,
+    } satisfies QuietRelationshipMechanicalFacts);
+
   try {
     const extras = await loadMorningBriefCanonicalExtrasV1({
       clerkUserId: args.clerkUserId,
@@ -1074,6 +1176,8 @@ export async function runObservationalMorningBriefInterpreter(args: {
     const assembled = assembleMorningBriefInterpreterInputFromPacket({
       packet: args.packet,
       extras,
+      messageRequiredToday: quiet.message_required_today,
+      quietRelationshipEligible: quiet.quiet_relationship_eligible,
     });
     if ("ok" in assembled) {
       return {
@@ -1085,47 +1189,9 @@ export async function runObservationalMorningBriefInterpreter(args: {
           raw_response: null,
         },
         // Assemble failure is rare (packet already has goal/day); empty fail-soft without spine input.
-        morning_coaching_brief_v1: buildLowConfidenceUnknownBriefFromCanonical({
-          version: "morning_brief_interpreter_input_v1",
-          message_for: {
-            timezone: args.packet.message_for.timezone,
-            local_date: args.packet.message_for.local_date,
-            local_weekday: args.packet.message_for.local_weekday,
-            daypart: args.packet.message_for.daypart,
-          },
-          mechanical: {
-            days_since_last_user_response: args.packet.last_user_response.days_since,
-            never_replied: args.packet.last_user_response.never_replied,
-            recent_unanswered_outbound_count: 0,
-          },
-          canonical_goal: { text: args.packet.current_goal.text },
-          pending_goal_change: args.packet.hard_state.pending_goal_change,
-          available_identity: args.packet.current_identity.text
-            ? { text: args.packet.current_identity.text }
-            : null,
-          available_important_people: [],
-          available_life_context: [],
-          truth_spine: {
-            latest_outcome: null,
-            latest_outcome_at: null,
-            latest_outcome_message: null,
-            evidence_strength: "none",
-            consistency_supported: false,
-            proof_claims_allowed: {
-              completion: false,
-              miss: false,
-              partial: false,
-              proof: false,
-            },
-          },
-          thread_memory_hint: null,
-          exact_thread: {
-            window_days: 21,
-            max_messages: 30,
-            messages: args.packet.exact_thread.messages,
-            omitted_older_turn_count: args.packet.exact_thread.omitted_older_turn_count,
-          },
-        }),
+        morning_coaching_brief_v1: buildLowConfidenceUnknownBriefFromCanonical(
+          failSoftInterpreterInputFromPacket(args.packet, quiet)
+        ),
       };
     }
 
@@ -1147,47 +1213,9 @@ export async function runObservationalMorningBriefInterpreter(args: {
         parsed_brief: null,
         raw_response: null,
       },
-      morning_coaching_brief_v1: buildLowConfidenceUnknownBriefFromCanonical({
-        version: "morning_brief_interpreter_input_v1",
-        message_for: {
-          timezone: args.packet.message_for.timezone,
-          local_date: args.packet.message_for.local_date,
-          local_weekday: args.packet.message_for.local_weekday,
-          daypart: args.packet.message_for.daypart,
-        },
-        mechanical: {
-          days_since_last_user_response: args.packet.last_user_response.days_since,
-          never_replied: args.packet.last_user_response.never_replied,
-          recent_unanswered_outbound_count: 0,
-        },
-        canonical_goal: { text: args.packet.current_goal.text },
-        pending_goal_change: args.packet.hard_state.pending_goal_change,
-        available_identity: args.packet.current_identity.text
-          ? { text: args.packet.current_identity.text }
-          : null,
-        available_important_people: [],
-        available_life_context: [],
-        truth_spine: {
-          latest_outcome: null,
-          latest_outcome_at: null,
-          latest_outcome_message: null,
-          evidence_strength: "none",
-          consistency_supported: false,
-          proof_claims_allowed: {
-            completion: false,
-            miss: false,
-            partial: false,
-            proof: false,
-          },
-        },
-        thread_memory_hint: null,
-        exact_thread: {
-          window_days: 21,
-          max_messages: 30,
-          messages: args.packet.exact_thread.messages,
-          omitted_older_turn_count: args.packet.exact_thread.omitted_older_turn_count,
-        },
-      }),
+      morning_coaching_brief_v1: buildLowConfidenceUnknownBriefFromCanonical(
+        failSoftInterpreterInputFromPacket(args.packet, quiet)
+      ),
     };
   }
 }
@@ -1268,13 +1296,69 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     has_pending_goal_change: packet.hard_state.pending_goal_change != null,
   };
 
+  const quietFacts = await resolveQuietRelationshipMechanicalFacts({
+    clerkUserId,
+    timezone,
+    localDate: draftForDayKey,
+    daysSinceLastUserResponse: packet.last_user_response.days_since,
+    neverReplied: packet.last_user_response.never_replied,
+    recentUnansweredOutboundCount: countRecentUnansweredOutboundFromExactThread(
+      packet.exact_thread.messages
+    ),
+  });
+
   // Phase 2D: Brief → Sol final writer. Packet unmutated; Brief is separate input.
   const briefMetadataExtra = await runObservationalMorningBriefInterpreter({
     packet,
     clerkUserId,
     commitmentId,
+    quietFacts,
   });
-  const morningCoachingBrief = briefMetadataExtra.morning_coaching_brief_v1;
+  const morningCoachingBrief = withClampedProactiveDecision(
+    briefMetadataExtra.morning_coaching_brief_v1,
+    quietFacts
+  );
+  const quietMeta = {
+    ...quietMetadataFields(quietFacts),
+    proactive_decision: morningCoachingBrief.coaching_direction.proactive_decision,
+  };
+
+  if (isIntentionalSpaceDecision(morningCoachingBrief.coaching_direction.proactive_decision)) {
+    const persisted = await persistMorningTtoGeneration({
+      clerkUserId,
+      draftForDayKey,
+      generationReason: args.generationReason ?? "noon_batch",
+      commitmentId,
+      timezone,
+      sendPrefSnapshot,
+      now: args.now,
+      failure: { error: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE },
+      packetMetadata,
+      generationMetadataExtra: {
+        ...briefMetadataExtra,
+        morning_coaching_brief_v1: morningCoachingBrief,
+        ...quietMeta,
+        intentional_space: true,
+        error: null,
+      },
+      notebookVerdictReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
+    });
+
+    if (!persisted.ok) {
+      return { ok: false, reason: persisted.reason, error: persisted.error };
+    }
+
+    return {
+      ok: true,
+      draftForDayKey,
+      generationId: persisted.generationId,
+      body: null,
+      machineShouldSend: false,
+      writerPromptPath: null,
+      supersedeFailed: persisted.supersedeFailed,
+      currentDraftProtected: persisted.currentDraftProtected,
+    };
+  }
 
   const writerResult = await writeMorningTtoBody({
     packet,
@@ -1332,7 +1416,12 @@ export async function generateTylerTextOverviewDraftForUser(args: {
         writerCapture,
       },
       packetMetadata,
-      generationMetadataExtra: briefMetadataExtra,
+      generationMetadataExtra: {
+        ...briefMetadataExtra,
+        morning_coaching_brief_v1: morningCoachingBrief,
+        ...quietMeta,
+        intentional_space: false,
+      },
     });
 
     if (!persisted.ok) {
@@ -1370,7 +1459,12 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       writerCapture,
     },
     packetMetadata,
-    generationMetadataExtra: briefMetadataExtra,
+    generationMetadataExtra: {
+      ...briefMetadataExtra,
+      morning_coaching_brief_v1: morningCoachingBrief,
+      ...quietMeta,
+      intentional_space: false,
+    },
   });
 
   if (!persisted.ok) {
@@ -1628,12 +1722,75 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     has_pending_goal_change: packet.hard_state.pending_goal_change != null,
   };
 
+  const quietFacts = await resolveQuietRelationshipMechanicalFacts({
+    clerkUserId,
+    timezone,
+    localDate: draftForDayKey,
+    daysSinceLastUserResponse: packet.last_user_response.days_since,
+    neverReplied: packet.last_user_response.never_replied,
+    recentUnansweredOutboundCount: countRecentUnansweredOutboundFromExactThread(
+      packet.exact_thread.messages
+    ),
+  });
+
   const briefMetadataExtra = await runObservationalMorningBriefInterpreter({
     packet,
     clerkUserId,
     commitmentId,
+    quietFacts,
   });
-  const morningCoachingBrief = briefMetadataExtra.morning_coaching_brief_v1;
+  const morningCoachingBrief = withClampedProactiveDecision(
+    briefMetadataExtra.morning_coaching_brief_v1,
+    quietFacts
+  );
+  const quietMeta = {
+    ...quietMetadataFields(quietFacts),
+    proactive_decision: morningCoachingBrief.coaching_direction.proactive_decision,
+  };
+
+  if (isIntentionalSpaceDecision(morningCoachingBrief.coaching_direction.proactive_decision)) {
+    const persisted = await persistMorningTtoGeneration({
+      clerkUserId,
+      draftForDayKey,
+      generationReason: "manual_regenerate",
+      commitmentId,
+      timezone,
+      sendPrefSnapshot,
+      now,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      failure: { error: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE },
+      packetMetadata,
+      generationMetadataExtra: {
+        ...eveningMetaBase,
+        ...briefMetadataExtra,
+        morning_coaching_brief_v1: morningCoachingBrief,
+        ...quietMeta,
+        intentional_space: true,
+        error: null,
+        message_for: packet.message_for,
+        morning_relationship_packet_v1: packet,
+      },
+      notebookVerdictReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
+      respectProtectedMorningDraft: true,
+    });
+
+    if (!persisted.ok) {
+      return { ok: false, reason: persisted.reason, error: persisted.error };
+    }
+
+    return {
+      ok: true,
+      draftForDayKey,
+      generationId: persisted.generationId,
+      body: null,
+      machineShouldSend: false,
+      machineNoSendReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
+      writerPromptPath: null,
+      messageFor: packet.message_for,
+      supersedeFailed: persisted.supersedeFailed,
+      currentDraftProtected: persisted.currentDraftProtected,
+    };
+  }
 
   const writerResult = await writeMorningTtoBody({
     packet,
@@ -1674,6 +1831,9 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   const generationMetadataExtra = {
     ...eveningMetaBase,
     ...briefMetadataExtra,
+    morning_coaching_brief_v1: morningCoachingBrief,
+    ...quietMeta,
+    intentional_space: false,
     message_for: packet.message_for,
     morning_relationship_packet_v1: packet,
   };

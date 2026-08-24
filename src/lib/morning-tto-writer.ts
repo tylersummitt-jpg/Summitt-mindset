@@ -44,6 +44,16 @@ HUMAN COACHING LAWS
 - At most one useful question. No question is often correct.
 - Do not manufacture coaching energy merely because a proactive text exists for this message_for target.
 
+SEND CONTRACT
+- The interpreter already chose SEND. Do not re-decide whether this text should exist. Do not output empty copy.
+- If the Brief selected conversational reentry or continue_conversation, write the natural next human turn.
+- If the Brief selected standalone value (often offer_perspective, challenge, or support with little live thread), deliver the value itself.
+- Follow question_policy. If it is one_useful_question, you may ask that one question. If it is none, do not ask.
+- Do not explain why Coach is texting. Do not mention silence, cadence, checking in, no pressure, or I'm here whenever as mechanical filler.
+- Do not manufacture current events, feelings, problems, or behavior from identity or roles. Identity is a domain for wisdom, not evidence of today.
+- Do not fabricate quotes, studies, statistics, or attributed sayings.
+- Do not promise, announce, or imply future messaging cadence or future system silence unless that future behavior is actually represented in authoritative system state. Do not say or imply you will step back from checking in, give this thread space, stop texting for a while, leave them alone, check back next week, message on a stated future day, or pick this up on a stated future day unless the system truly guarantees that behavior. Write only this Coach turn. You cannot claim future system messaging behavior the system does not actually control.
+
 TRUTH / PROOF LAWS
 - Canonical packet facts bind. Do not invent actions, outcomes, wins, misses, plans, emotions, proof, consistency, relationships, personal details, or goal changes.
 - One completion is not consistency. A plan is not proof. Identity is not proof. Silence is not progress. Prior coach claims are not user evidence.
@@ -112,7 +122,8 @@ export type MorningWriterFailureReason =
   | "openai_unavailable"
   | "openai_request_failed"
   | "invalid_json"
-  | "empty_body";
+  | "empty_body"
+  | "intentional_space";
 
 export type MorningWriterFailure = {
   ok: false;
@@ -229,6 +240,9 @@ export async function writeMorningTtoBody(
   args: WriteMorningTtoBodyArgs
 ): Promise<MorningWriterResult> {
   const { packet, morningCoachingBrief } = args;
+  if (morningCoachingBrief.coaching_direction.proactive_decision === "intentional_space") {
+    return { ok: false, error: "intentional_space" };
+  }
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
     return { ok: false, error: "openai_unavailable" };

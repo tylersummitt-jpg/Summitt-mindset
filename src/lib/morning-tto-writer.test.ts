@@ -118,6 +118,7 @@ function sampleBrief(
       question_policy: "none",
       action_guidance: "none",
       pressure: "normal",
+      proactive_decision: "send",
     },
     boundaries: {
       claims_to_avoid: ["Do not invent consistency"],

@@ -158,6 +158,7 @@ function validBrief(): MorningCoachingBriefV1 {
       question_policy: "none",
       action_guidance: "none",
       pressure: "normal",
+      proactive_decision: "send",
     },
     boundaries: {
       claims_to_avoid: ["Do not invent consistency"],
@@ -405,5 +406,18 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(user).toContain("WEEKLY_BRIEF_INTERPRETER_INPUT_V1");
     expect(user).toContain(JSON.stringify(assembled));
     expect(user).toContain("No SMS body. No should_send.");
+  });
+
+  it("Weekly assemble clamps quiet flags off so SPACE cannot survive merge", () => {
+    const assembled = assembleWeeklyBriefInterpreterInputFromPacket({
+      packet: samplePacket(),
+      extras: extras(1),
+    });
+    if ("ok" in assembled) throw new Error("assemble failed");
+    expect(assembled.mechanical.quiet_relationship_eligible).toBe(false);
+    expect(assembled.mechanical.message_required_today).toBe(false);
+    expect(WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "coaching_direction.proactive_decision must be send"
+    );
   });
 });

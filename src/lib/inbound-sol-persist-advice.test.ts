@@ -305,6 +305,7 @@ describe("parseInboundCoachingBriefV1 inbound extras", () => {
         question_policy: "none",
         action_guidance: "none",
         pressure: "low",
+        proactive_decision: "send",
       },
       boundaries: {
         claims_to_avoid: ["Do not invent proof"],

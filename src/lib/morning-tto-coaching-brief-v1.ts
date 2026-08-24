@@ -66,6 +66,8 @@ export type MorningBriefActionGuidance = "none" | "one_specific_next_step" | "un
 
 export type MorningBriefPressure = "low" | "normal" | "firm" | "unknown";
 
+export type MorningBriefProactiveDecision = "send" | "intentional_space";
+
 export type MorningBriefConfidence = "low" | "medium" | "high";
 
 export type MorningBriefSelectedPerson = {
@@ -135,6 +137,11 @@ export type MorningCoachingBriefV1 = {
     question_policy: MorningBriefQuestionPolicy;
     action_guidance: MorningBriefActionGuidance;
     pressure: MorningBriefPressure;
+    /**
+     * SEND vs INTENTIONAL SPACE. "send" includes normal reentry AND standalone value.
+     * Missing/unknown parse as send (never invent SPACE).
+     */
+    proactive_decision: MorningBriefProactiveDecision;
   };
 
   boundaries: {
@@ -210,6 +217,7 @@ const PRIMARY_MOVE = new Set<string>([
 const QUESTION_POLICY = new Set<string>(["none", "one_useful_question", "unknown"]);
 const ACTION_GUIDANCE = new Set<string>(["none", "one_specific_next_step", "unknown"]);
 const PRESSURE = new Set<string>(["low", "normal", "firm", "unknown"]);
+const PROACTIVE_DECISION = new Set<string>(["send", "intentional_space"]);
 const CONFIDENCE = new Set<string>(["low", "medium", "high"]);
 
 const FORBIDDEN_JARGON = [
@@ -564,6 +572,11 @@ export function parseMorningCoachingBriefV1(
   const pressure = parseEnum<MorningBriefPressure>(coaching.pressure, PRESSURE);
   if (!primary_move || !question_policy || !action_guidance || !pressure) return null;
 
+  // Missing/invalid → send. SPACE is never inferred from a parse gap.
+  const proactive_decision: MorningBriefProactiveDecision =
+    parseEnum<MorningBriefProactiveDecision>(coaching.proactive_decision, PROACTIVE_DECISION) ??
+    "send";
+
   const claims_to_avoid = parseStringArray(
     boundaries.claims_to_avoid,
     MAX_BOUNDARY,
@@ -646,6 +659,7 @@ export function parseMorningCoachingBriefV1(
       question_policy,
       action_guidance,
       pressure,
+      proactive_decision,
     },
     boundaries: {
       claims_to_avoid,
@@ -742,6 +756,7 @@ export function renderMorningCoachingBriefPlainLanguage(
     `Question policy: ${cd.question_policy}`,
     `Action guidance: ${cd.action_guidance}`,
     `Pressure: ${cd.pressure}`,
+    `Proactive decision: ${cd.proactive_decision}`,
     "",
     "BOUNDARIES",
     `Claims to avoid:\n${formatStringList(bd.claims_to_avoid)}`,

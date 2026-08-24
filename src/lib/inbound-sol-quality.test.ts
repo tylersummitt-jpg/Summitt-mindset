@@ -107,6 +107,7 @@ function briefWithInbound(inbound: Record<string, unknown>) {
       question_policy: "none",
       action_guidance: "none",
       pressure: "normal",
+      proactive_decision: "send",
     },
     boundaries: {
       claims_to_avoid: ["Do not claim live search"],

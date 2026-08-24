@@ -53,6 +53,7 @@ const PRIMARY_MOVE = [
 const QUESTION_POLICY = ["none", "one_useful_question", "unknown"] as const;
 const ACTION_GUIDANCE = ["none", "one_specific_next_step", "unknown"] as const;
 const PRESSURE = ["low", "normal", "firm", "unknown"] as const;
+const PROACTIVE_DECISION = ["send", "intentional_space"] as const;
 const CONFIDENCE = ["low", "medium", "high"] as const;
 
 /** Exported for prompt contract + tests — exact parser tokens. */
@@ -67,6 +68,7 @@ export const MORNING_BRIEF_SCHEMA_ENUMS = {
   question_policy: QUESTION_POLICY,
   action_guidance: ACTION_GUIDANCE,
   pressure: PRESSURE,
+  proactive_decision: PROACTIVE_DECISION,
   confidence: CONFIDENCE,
 } as const;
 
@@ -236,12 +238,19 @@ export const MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1 = {
     coaching_direction: {
       type: "object",
       additionalProperties: false,
-      required: ["primary_move", "question_policy", "action_guidance", "pressure"],
+      required: [
+        "primary_move",
+        "question_policy",
+        "action_guidance",
+        "pressure",
+        "proactive_decision",
+      ],
       properties: {
         primary_move: { type: "string", enum: [...PRIMARY_MOVE] },
         question_policy: { type: "string", enum: [...QUESTION_POLICY] },
         action_guidance: { type: "string", enum: [...ACTION_GUIDANCE] },
         pressure: { type: "string", enum: [...PRESSURE] },
+        proactive_decision: { type: "string", enum: [...PROACTIVE_DECISION] },
       },
     },
     boundaries: {
@@ -297,11 +306,12 @@ export function buildMorningBriefExactContractPromptAppendix(): string {
     "goal_role_today: canonical_goal, pending_goal, goal_alignment, role, note",
     `goal_alignment: ${GOAL_ALIGNMENT.join(" | ")}`,
     `role: ${GOAL_ROLE.join(" | ")}`,
-    "coaching_direction: primary_move, question_policy, action_guidance, pressure",
+    "coaching_direction: primary_move, question_policy, action_guidance, pressure, proactive_decision",
     `primary_move: ${PRIMARY_MOVE.join(" | ")}`,
     `question_policy: ${QUESTION_POLICY.join(" | ")}`,
     `action_guidance: ${ACTION_GUIDANCE.join(" | ")}`,
     `pressure: ${PRESSURE.join(" | ")}`,
+    `proactive_decision: ${PROACTIVE_DECISION.join(" | ")}`,
     "boundaries: claims_to_avoid, topics_not_to_force, unsupported_capabilities, goal_authority_boundaries, identity_people_boundaries, coach_history_is_not_style",
     "Meaning → exact tokens (examples, not exhaustive):",
     "- low-pressure reconnection → primary_move=reconnect AND pressure=low (never low_pressure_reconnection)",

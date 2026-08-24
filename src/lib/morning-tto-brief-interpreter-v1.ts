@@ -24,6 +24,7 @@ import {
   scrubOpenAiRequestErrorForCapture,
   type ScrubbedOpenAiRequestError,
 } from "@/lib/openai-request-error-scrub";
+import { clampProactiveDecision } from "@/lib/sms-proactive-relationship-touch";
 
 /**
  * Phase 2C locked interpreter model — quality-first.
@@ -71,7 +72,9 @@ Hard rules:
 - Output JSON only matching the Coaching Brief schema (version "${MORNING_COACHING_BRIEF_VERSION}").
 - Never output user-visible SMS copy.
 - Never include keys: body, sms_body, message, final_message, reply.
-- Never mutate state. You do not change goals, identity, people, proof, outcomes, timing, or send decisions.
+- Never mutate state. You do not change goals, identity, people, proof, outcomes, or timing.
+- coaching_direction.proactive_decision is send or intentional_space. It is the only send/space judgment. send includes both normal conversational coaching and standalone value.
+- When mechanical.quiet_relationship_eligible is not true, proactive_decision must be send.
 - selected_person must be null or exactly one person from available_important_people (same name and relationship).
 - Do not invent outcomes, proof, or pending confirmation.
 - version must be "${MORNING_COACHING_BRIEF_VERSION}".
@@ -84,6 +87,29 @@ TEMPORAL POSTURE (message_for.daypart — shared Morning and Evening):
 - Late opportunity: evening alone must not imply every goal/action opportunity has already happened. If timing/context points to a later-night action, do not invent a miss or demand completion evidence merely because it is evening — use actual timing, context, and evidence.
 - Relative time: words like today / tonight / tomorrow / yesterday / this morning / this afternoon / this evening / last night in older turns belong to that turn's local timestamp and day_relation_to_message — do not blindly re-anchor them to the new message_for target.
 - Evidence: daypart alone never creates evidence of completion, miss, attempt, consistency, failure, or success.
+
+QUIET RELATIONSHIP VALUE
+When mechanical.quiet_relationship_eligible is true (member has not replied for at least 10 days, or has never replied despite meaningful outbound history), additional proactive options become available. Quiet eligibility expands the available coaching moves. It does not force a passive posture.
+
+Do not treat elapsed silence alone as evidence that conversation should stop, that the member is disengaged, struggling, avoiding, failing, preferring no questions, or that Current Goal missed.
+
+Consider the full relationship: prior engagement, whether they historically replied, whether they welcomed accountability, meaningful recent life events, known temporary context such as travel/vacation, unresolved real threads, open loops, recent explicit plans, what Coach has already asked, and whether a natural reentry question would actually add value.
+
+If the member was previously engaged, there is a meaningful recent life event, a real unresolved conversational thread, or a grounded reason to reopen conversation, normal conversational coaching or one useful reentry question may be the best move. A previously engaged member on a known trip is not the same as someone who has never replied.
+
+If the relationship has become genuinely one-way and repeated questions/check-ins add little value, broaden how Coach serves the person using grounded identity, responsibilities, important relationships, life context, and prior conversation. Known roles/identity are domains for useful wisdom, not evidence of current circumstances, feelings, problems, or behavior.
+
+North Star: would this person be glad this text appeared on their phone even if they had absolutely no intention of replying?
+
+Standalone value may include principles, perspectives, advice, small challenges, and standards. Do not fabricate quotes, studies, statistics, or attributed sayings. Prefer giving over asking WHEN conversation has become genuinely one-way — but do not suppress a genuinely useful conversational question merely because 10 days elapsed. Do not turn prefer-giving into never-ask.
+
+Avoid repeated just-checking-in, how-are-you, thinking-of-you, I'm-here-whenever, no-pressure, generic well-wishes, and generic door-open language. Do not force stale Current Goal discussion.
+
+If there is no genuinely useful grounded message worth adding today: proactive_decision = intentional_space.
+
+When mechanical.message_required_today is true: intentional_space is unavailable. Choose send and find the best grounded value or conversational move available. Do not mention silence length, cadence, anti-ghost logic, required touch, or internal system decisions.
+
+When mechanical.quiet_relationship_eligible is not true: existing live-relationship laws remain controlling. Continue conversation, close loops, answer questions, discuss Current Goal when relevant, challenge appropriately, and ask one useful question when appropriate. Do not convert active coaching into passive inspirational copy.
 
 Return a single JSON object with sections: version, confidence, human_situation, truth_and_evidence, conversation_continuity, goal_role_today, coaching_direction, boundaries.
 
@@ -276,6 +302,7 @@ export function buildLowConfidenceUnknownBriefFromCanonical(
       question_policy: "unknown",
       action_guidance: "unknown",
       pressure: "unknown",
+      proactive_decision: "send",
     },
     boundaries: buildFixedMorningBriefBoundaries({
       pendingGoal: input.pending_goal_change,
@@ -364,6 +391,14 @@ export function mergeMorningBriefWithCanonicalTruth(args: {
           ? "unresolved"
           : parsed.goal_role_today.role
         : parsed.goal_role_today.role,
+    },
+    coaching_direction: {
+      ...parsed.coaching_direction,
+      proactive_decision: clampProactiveDecision({
+        decision: parsed.coaching_direction.proactive_decision,
+        quietRelationshipEligible: input.mechanical.quiet_relationship_eligible === true,
+        messageRequiredToday: input.mechanical.message_required_today === true,
+      }),
     },
     boundaries: buildFixedMorningBriefBoundaries({
       pendingGoal: input.pending_goal_change,

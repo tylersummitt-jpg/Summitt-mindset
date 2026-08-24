@@ -246,6 +246,8 @@ function lifeContextFromPacket(
 export function assembleMorningBriefInterpreterInputFromPacket(args: {
   packet: MorningRelationshipPacket;
   extras: MorningBriefCanonicalExtrasV1;
+  messageRequiredToday?: boolean;
+  quietRelationshipEligible?: boolean;
 }): MorningBriefInterpreterInputV1 | { ok: false; error: string } {
   const { packet, extras } = args;
   const identityText = packet.current_identity.text;
@@ -285,5 +287,7 @@ export function assembleMorningBriefInterpreterInputFromPacket(args: {
     threadMemoryHint: extras.threadMemoryHint,
     exactThreadMessages,
     omittedOlderTurnCount: packet.exact_thread.omitted_older_turn_count,
+    messageRequiredToday: args.messageRequiredToday === true,
+    quietRelationshipEligible: args.quietRelationshipEligible === true,
   });
 }

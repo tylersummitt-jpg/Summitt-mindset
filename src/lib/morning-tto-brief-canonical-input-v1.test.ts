@@ -342,6 +342,8 @@ describe("morning-tto-brief-canonical-input-v1", () => {
       days_since_last_user_response: 18,
       never_replied: false,
       recent_unanswered_outbound_count: 3,
+      message_required_today: false,
+      quiet_relationship_eligible: false,
     });
     expect(JSON.stringify(result)).not.toMatch(/primary_move|reconnect|pressure/);
   });
