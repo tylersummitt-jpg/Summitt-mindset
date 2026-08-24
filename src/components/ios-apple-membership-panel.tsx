@@ -72,8 +72,14 @@ export default function IosAppleMembershipPanel({
   const [state, setState] = useState<IosAppleMembershipUiState>("waiting_bridge");
   const [displayPrice, setDisplayPrice] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("Summitt Mindset membership");
+  const displayPriceRef = useRef<string | null>(null);
   const inFlightRef = useRef(false);
   const verifyingIdRef = useRef<string | null>(null);
+  const userInitiatedRef = useRef(false);
+
+  useEffect(() => {
+    displayPriceRef.current = displayPrice;
+  }, [displayPrice]);
 
   const busy =
     state === "purchasing" ||
@@ -96,7 +102,10 @@ export default function IosAppleMembershipPanel({
     async (transactionId: string, jws: string) => {
       if (verifyingIdRef.current === transactionId) return;
       verifyingIdRef.current = transactionId;
-      setState("verifying");
+      const userInitiated = userInitiatedRef.current;
+      if (userInitiated) {
+        setState("verifying");
+      }
       const result = await verifyTransaction(jws);
       if (shouldAckNativeTransactionFinish(result)) {
         bridgeRef.current.post({
@@ -108,15 +117,25 @@ export default function IosAppleMembershipPanel({
       }
       verifyingIdRef.current = null;
       inFlightRef.current = false;
+      userInitiatedRef.current = false;
       if (result.kind === "conflict") {
         setState("conflict");
         return;
       }
-      if (result.kind === "retryable") {
+      if (userInitiated) {
         setState("error");
         return;
       }
-      setState("error");
+      setState((current) => {
+        if (displayPriceRef.current) {
+          if (current === "conflict" || current === "success") return current;
+          return "ready";
+        }
+        if (current === "verifying" || current === "error") {
+          return "loading_product";
+        }
+        return current;
+      });
     },
     [completeMembership, verifyTransaction]
   );
@@ -157,7 +176,8 @@ export default function IosAppleMembershipPanel({
           break;
         case "purchaseCancelled":
           inFlightRef.current = false;
-          setState(displayPrice ? "ready" : "loading_product");
+          userInitiatedRef.current = false;
+          setState(displayPriceRef.current ? "ready" : "loading_product");
           break;
         case "purchasePending":
           inFlightRef.current = false;
@@ -165,27 +185,31 @@ export default function IosAppleMembershipPanel({
           break;
         case "purchaseFailed":
           inFlightRef.current = false;
+          userInitiatedRef.current = false;
           setState(
             event.code === "unavailable" ? "unavailable" : "error"
           );
           break;
         case "restoreEmpty":
           inFlightRef.current = false;
-          setState(displayPrice ? "ready" : "unavailable");
+          userInitiatedRef.current = false;
+          setState(displayPriceRef.current ? "ready" : "unavailable");
           break;
       }
     });
     port.post({ type: "ready" });
     return unsubscribe;
-  }, [displayPrice, verifyJws]);
+  }, [verifyJws]);
 
   async function onPurchase() {
     if (busy || inFlightRef.current || state !== "ready") return;
     inFlightRef.current = true;
+    userInitiatedRef.current = true;
     setState("purchasing");
     const token = await fetchAccountToken();
     if (!token.ok || !isAppleAppAccountTokenUuid(token.appAccountToken)) {
       inFlightRef.current = false;
+      userInitiatedRef.current = false;
       setState("error");
       return;
     }
@@ -195,6 +219,7 @@ export default function IosAppleMembershipPanel({
     });
     if (!posted) {
       inFlightRef.current = false;
+      userInitiatedRef.current = false;
       setState("error");
     }
   }
@@ -202,10 +227,12 @@ export default function IosAppleMembershipPanel({
   async function onRestore() {
     if (busy || inFlightRef.current) return;
     inFlightRef.current = true;
+    userInitiatedRef.current = true;
     setState("restoring");
     const posted = bridgeRef.current.post({ type: "restore" });
     if (!posted) {
       inFlightRef.current = false;
+      userInitiatedRef.current = false;
       setState("error");
     }
   }
@@ -217,6 +244,7 @@ export default function IosAppleMembershipPanel({
       className="space-y-6"
       data-app-membership="apple-iap"
       data-apple-iap-state={state}
+      data-testid="apple-iap-panel"
     >
       <p className="text-base leading-7 text-[var(--muted)]">
         Your account does not currently have an active Summitt Mindset

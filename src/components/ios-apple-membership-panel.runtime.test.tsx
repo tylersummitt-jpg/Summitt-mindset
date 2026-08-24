@@ -169,7 +169,7 @@ describe("IosAppleMembershipPanel", () => {
     expect(push).toHaveBeenCalledWith("/post-sign-in");
   });
 
-  it("does not ack finish on retryable 500", async () => {
+  it("does not ack finish on automatic retryable 500", async () => {
     const bridge = createMockBridge();
     const verifyTransaction = vi.fn(async () => ({ kind: "retryable" as const }));
     render(
@@ -190,7 +190,184 @@ describe("IosAppleMembershipPanel", () => {
       false
     );
     expect(push).not.toHaveBeenCalled();
+    expect(screen.queryByText(/couldn't complete this right now/i)).toBeNull();
+  });
+
+  it("keeps Subscribe enabled after automatic rejected replay when price is loaded", async () => {
+    const bridge = createMockBridge();
+    const verifyTransaction = vi.fn(async () => ({ kind: "rejected" as const }));
+    render(
+      <IosAppleMembershipPanel
+        bridge={bridge}
+        verifyTransaction={verifyTransaction}
+      />
+    );
+    bridge.emit({ type: "bridgeReady" });
+    bridge.emit({
+      type: "products",
+      productId: APPLE_IAP_MONTHLY_PRODUCT_ID,
+      displayName: "Summitt Mindset",
+      displayPrice: "US$4.99",
+    });
+    expect(await screen.findByText("US$4.99")).toBeTruthy();
+    bridge.emit({
+      type: "signedTransaction",
+      transactionId: "1001",
+      jws: "aaa.bbb.ccc",
+    });
+    await waitFor(() => {
+      expect(verifyTransaction).toHaveBeenCalledWith("aaa.bbb.ccc");
+    });
+    expect(bridge.posted.some((c) => c.type === "backendVerified")).toBe(
+      false
+    );
+    expect(push).not.toHaveBeenCalled();
+    expect(reload).not.toHaveBeenCalled();
+    expect(screen.queryByText(/couldn't complete this right now/i)).toBeNull();
+    expect(screen.getByTestId("apple-iap-panel").getAttribute("data-apple-iap-state")).toBe(
+      "ready"
+    );
+    expect((screen.getByTestId("apple-iap-subscribe") as HTMLButtonElement).disabled).toBe(
+      false
+    );
+    expect(screen.getByText("Membership includes:")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/\$29/);
+    expect(document.body.textContent).not.toContain("/subscribe");
+  });
+
+  it("keeps Subscribe enabled after automatic retryable replay when price is loaded", async () => {
+    const bridge = createMockBridge();
+    const verifyTransaction = vi.fn(async () => ({ kind: "retryable" as const }));
+    render(
+      <IosAppleMembershipPanel
+        bridge={bridge}
+        verifyTransaction={verifyTransaction}
+      />
+    );
+    bridge.emit({ type: "bridgeReady" });
+    bridge.emit({
+      type: "products",
+      productId: APPLE_IAP_MONTHLY_PRODUCT_ID,
+      displayName: "Summitt Mindset",
+      displayPrice: "US$4.99",
+    });
+    expect(await screen.findByText("US$4.99")).toBeTruthy();
+    bridge.emit({
+      type: "signedTransaction",
+      transactionId: "1002",
+      jws: "aaa.bbb.ddd",
+    });
+    await waitFor(() => {
+      expect(verifyTransaction).toHaveBeenCalled();
+    });
+    expect(bridge.posted.some((c) => c.type === "backendVerified")).toBe(
+      false
+    );
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.queryByText(/couldn't complete this right now/i)).toBeNull();
+    expect((screen.getByTestId("apple-iap-subscribe") as HTMLButtonElement).disabled).toBe(
+      false
+    );
+  });
+
+  it("shows fatal error on user-initiated Subscribe rejected verification", async () => {
+    const bridge = createMockBridge();
+    const fetchAccountToken = vi.fn(async () => ({
+      ok: true as const,
+      appAccountToken: "550e8400-e29b-41d4-a716-446655440000",
+    }));
+    const verifyTransaction = vi.fn(async () => ({ kind: "rejected" as const }));
+    render(
+      <IosAppleMembershipPanel
+        bridge={bridge}
+        fetchAccountToken={fetchAccountToken}
+        verifyTransaction={verifyTransaction}
+      />
+    );
+    bridge.emit({ type: "bridgeReady" });
+    bridge.emit({
+      type: "products",
+      productId: APPLE_IAP_MONTHLY_PRODUCT_ID,
+      displayName: "Membership",
+      displayPrice: "US$4.99",
+    });
+    await userEvent.click(screen.getByTestId("apple-iap-subscribe"));
+    await waitFor(() => {
+      expect(fetchAccountToken).toHaveBeenCalledTimes(1);
+    });
+    bridge.emit({
+      type: "signedTransaction",
+      transactionId: "2001",
+      jws: "aaa.bbb.eee",
+    });
     expect(await screen.findByText(/couldn't complete this right now/i)).toBeTruthy();
+    expect(bridge.posted.some((c) => c.type === "backendVerified")).toBe(
+      false
+    );
+    expect(push).not.toHaveBeenCalled();
+    expect((screen.getByTestId("apple-iap-subscribe") as HTMLButtonElement).disabled).toBe(
+      true
+    );
+  });
+
+  it("shows fatal error on user-initiated Restore rejected verification", async () => {
+    const bridge = createMockBridge();
+    const verifyTransaction = vi.fn(async () => ({ kind: "rejected" as const }));
+    render(
+      <IosAppleMembershipPanel
+        bridge={bridge}
+        verifyTransaction={verifyTransaction}
+      />
+    );
+    bridge.emit({ type: "bridgeReady" });
+    bridge.emit({
+      type: "products",
+      productId: APPLE_IAP_MONTHLY_PRODUCT_ID,
+      displayName: "Membership",
+      displayPrice: "US$4.99",
+    });
+    await userEvent.click(screen.getByTestId("apple-iap-restore"));
+    expect(bridge.posted).toContainEqual({ type: "restore" });
+    bridge.emit({
+      type: "signedTransaction",
+      transactionId: "2002",
+      jws: "aaa.bbb.fff",
+    });
+    expect(await screen.findByText(/couldn't complete this right now/i)).toBeTruthy();
+    expect(bridge.posted.some((c) => c.type === "backendVerified")).toBe(
+      false
+    );
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("still grants membership on automatic verified replay", async () => {
+    const bridge = createMockBridge();
+    const verifyTransaction = vi.fn(async () => ({ kind: "verified" as const }));
+    render(
+      <IosAppleMembershipPanel
+        bridge={bridge}
+        verifyTransaction={verifyTransaction}
+      />
+    );
+    bridge.emit({ type: "bridgeReady" });
+    bridge.emit({
+      type: "products",
+      productId: APPLE_IAP_MONTHLY_PRODUCT_ID,
+      displayName: "Membership",
+      displayPrice: "US$4.99",
+    });
+    bridge.emit({
+      type: "signedTransaction",
+      transactionId: "3001",
+      jws: "aaa.bbb.ggg",
+    });
+    await waitFor(() => {
+      expect(bridge.posted).toContainEqual({
+        type: "backendVerified",
+        transactionId: "3001",
+      });
+    });
+    expect(push).toHaveBeenCalledWith("/post-sign-in");
   });
 
   it("shows conflict on 409 and does not finish", async () => {
