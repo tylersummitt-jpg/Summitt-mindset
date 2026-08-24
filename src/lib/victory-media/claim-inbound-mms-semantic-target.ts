@@ -51,9 +51,9 @@ export type ClaimInboundMediaJobSemanticTargetInput = {
   targetWinId: string;
   now?: Date;
   /**
-   * Future D2 clarification rows may pass "pending_user".
-   * Default null matches current production pending_semantics (resolution IS NULL).
-   * Do not pass pending_user from D0 production callers — there are none.
+   * D2c pending_user rows pass "pending_user".
+   * Default null matches D1 pending_semantics (resolution IS NULL).
+   * D1 production callers must not pass pending_user.
    */
   expectedResolution?: string | null;
 };

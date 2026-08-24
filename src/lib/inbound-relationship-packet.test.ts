@@ -14,6 +14,13 @@ const loadInboundMmsD1PendingContext = vi.hoisted(() =>
     recent_wins: [],
   }))
 );
+const loadInboundMmsD2cPendingContext = vi.hoisted(() =>
+  vi.fn(async () => ({
+    candidate_count: 0,
+    candidate: null,
+    recent_wins: [],
+  }))
+);
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: { from: supabaseFrom },
@@ -33,6 +40,15 @@ vi.mock("@/lib/victory-media/inbound-mms-d1-pending-context", async (importOrigi
   return {
     ...actual,
     loadInboundMmsD1PendingContext,
+  };
+});
+
+vi.mock("@/lib/victory-media/inbound-mms-d2c-pending-context", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/victory-media/inbound-mms-d2c-pending-context")>();
+  return {
+    ...actual,
+    loadInboundMmsD2cPendingContext,
   };
 });
 
@@ -65,6 +81,12 @@ describe("inbound relationship packet", () => {
     supabaseFrom.mockReset();
     loadInboundMmsD1PendingContext.mockReset();
     loadInboundMmsD1PendingContext.mockResolvedValue({
+      candidate_count: 0,
+      candidate: null,
+      recent_wins: [],
+    });
+    loadInboundMmsD2cPendingContext.mockReset();
+    loadInboundMmsD2cPendingContext.mockResolvedValue({
       candidate_count: 0,
       candidate: null,
       recent_wins: [],
@@ -151,12 +173,172 @@ describe("inbound relationship packet", () => {
       candidate: null,
       recent_wins: [],
     });
+    expect(loadInboundMmsD2cPendingContext).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      currentMessageSid: "SMangel",
+      now: new Date("2026-08-18T16:30:00.000Z"),
+    });
     expect(loadInboundMmsD1PendingContext).toHaveBeenCalledWith({
       clerkUserId: "user_1",
       currentMessageSid: "SMangel",
       now: new Date("2026-08-18T16:30:00.000Z"),
     });
     expect(buildRecentExactThread72h).toHaveBeenCalled();
+  });
+
+  it("pending_user clarification outranks D1 unresolved photos", async () => {
+    const question = "What made this one a win for you?";
+    loadInboundMmsD2cPendingContext.mockResolvedValue({
+      candidate_count: 1,
+      candidate: {
+        job_id: "aaaaaaaa-1111-4111-8111-111111111111",
+        age_seconds: 2400,
+        message_sid: "SMdddddddddddddddddddddddddddddddd",
+        normalized_ready: true,
+        awaiting_user: true,
+        clarification_body: question,
+      },
+      recent_wins: [],
+    });
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "I took Lakelyn to her first dance class.",
+      latestInboundMessageSid: "SMlake",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.pending_media_context.candidate?.awaiting_user).toBe(true);
+    expect(loaded.packet.pending_media_context.candidate?.clarification_body).toBe(
+      question
+    );
+    expect(loadInboundMmsD1PendingContext).not.toHaveBeenCalled();
+  });
+
+  it("D2c lookup failure does not fall through to D1", async () => {
+    loadInboundMmsD2cPendingContext.mockResolvedValue("error");
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Need a 5 passenger SUV",
+      latestInboundMessageSid: "SMangel",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.pending_media_context).toEqual({
+      candidate_count: 0,
+      candidate: null,
+      recent_wins: [],
+    });
+    expect(loadInboundMmsD1PendingContext).not.toHaveBeenCalled();
+  });
+
+  it("D2c deletion-guard throw (mocked as error) does not load D1", async () => {
+    loadInboundMmsD2cPendingContext.mockRejectedValue(new Error("deletion_lookup_failed"));
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Taking Lakelyn to dance class.",
+      latestInboundMessageSid: "SMlake",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.pending_media_context).toEqual({
+      candidate_count: 0,
+      candidate: null,
+      recent_wins: [],
+    });
+    expect(loadInboundMmsD1PendingContext).not.toHaveBeenCalled();
+  });
+
+  it("two pending_user jobs do not fall through to D1", async () => {
+    loadInboundMmsD2cPendingContext.mockResolvedValue({
+      candidate_count: 2,
+      candidate: null,
+      recent_wins: [],
+    });
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Taking Lakelyn to dance class.",
+      latestInboundMessageSid: "SMlake",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.pending_media_context.candidate_count).toBe(2);
+    expect(loaded.packet.pending_media_context.candidate).toBeNull();
+    expect(loadInboundMmsD1PendingContext).not.toHaveBeenCalled();
+  });
+
+  it("reserved-unsent (successful zero D2c) may load D1; sent clarification does not", async () => {
+    loadInboundMmsD2cPendingContext.mockResolvedValue({
+      candidate_count: 0,
+      candidate: null,
+      recent_wins: [],
+    });
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Taking Lakelyn to dance class.",
+      latestInboundMessageSid: "SMlake",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loadInboundMmsD1PendingContext).toHaveBeenCalled();
+    expect(loaded.packet.pending_media_context.candidate?.awaiting_user).not.toBe(true);
+    expect(loaded.packet.pending_media_context.candidate?.clarification_body).toBeUndefined();
+  });
+
+  it("D2c pending fact does not require sms_last_outbound_context or a fake transcript row", async () => {
+    const question = "What made this one a win for you?";
+    loadInboundMmsD2cPendingContext.mockResolvedValue({
+      candidate_count: 1,
+      candidate: {
+        job_id: "aaaaaaaa-1111-4111-8111-111111111111",
+        age_seconds: 2400,
+        message_sid: "SMdddddddddddddddddddddddddddddddd",
+        normalized_ready: true,
+        awaiting_user: true,
+        clarification_body: question,
+      },
+      recent_wins: [],
+    });
+    buildRecentExactThread72h.mockResolvedValue({
+      messages: [
+        threadMsg({
+          role: "user",
+          body: "Need a 5 passenger SUV",
+          at: "2026-08-18T16:00:00.000Z",
+          message_sid: "SMangel",
+        }),
+      ],
+    });
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "I took Lakelyn to her first dance class.",
+      latestInboundMessageSid: "SMlake",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.pending_media_context.candidate?.clarification_body).toBe(
+      question
+    );
+    expect(JSON.stringify(loaded.packet.exact_thread.messages)).not.toContain(question);
+    const tables = supabaseFrom.mock.calls.map((c) => c[0]);
+    expect(tables).not.toContain("sms_last_outbound_context");
   });
 
   it("reads open_coach_question from thread memory without deciding whether newest U answers it", async () => {

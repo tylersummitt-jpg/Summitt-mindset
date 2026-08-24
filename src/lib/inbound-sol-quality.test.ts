@@ -150,6 +150,9 @@ describe("inbound Sol contracts", () => {
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).not.toContain(
       "conversation_continuity.answered_question refers ONLY to hard_state.open_coach_question"
     );
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "It does NOT refer to pending photo clarification"
+    );
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("pending_photo_relation");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
       "You never receive image bytes, URLs, or Storage paths"
@@ -456,6 +459,49 @@ describe("writer D1 pending-photo data minimization", () => {
     expect(user).toContain("This was me finally taking the kids hiking.");
     expect(p.pending_media_context.candidate_count).toBe(1);
     expect(brief?.inbound.pending_photo_relation.relation).toBe("current_turn_win");
+  });
+
+  it("D2c awaiting_user and clarification_body are stripped from writer input", () => {
+    const p = packet("I took Lakelyn to her first dance class.", []);
+    p.pending_media_context = {
+      candidate_count: 1,
+      candidate: {
+        job_id: "aaaaaaaa-1111-4111-8111-111111111111",
+        age_seconds: 2400,
+        message_sid: "SMdddddddddddddddddddddddddddddddd",
+        normalized_ready: true,
+        awaiting_user: true,
+        clarification_body: "What made this one a win for you?",
+      },
+      recent_wins: [],
+    };
+    const brief = briefWithInbound({
+      answer_priority: "normal",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "unrelated",
+        outcome: "not_applicable",
+        confidence: "high",
+        evidence: "I took Lakelyn to her first dance class.",
+      },
+      meaningful_win: {
+        present: true,
+        grounded_action: "Took Lakelyn to her first dance class",
+        relationship: "life",
+      },
+      pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+    });
+    const writerPacket = toWriterFacingInboundRelationshipPacket(p);
+    const writerBrief = toWriterFacingInboundCoachingBrief(brief!);
+    expect(writerPacket).not.toHaveProperty("pending_media_context");
+    expect(writerBrief.inbound).not.toHaveProperty("pending_photo_relation");
+    const user = String(buildInboundSolWriterMessages(p, brief!)[1]?.content ?? "");
+    expect(user).not.toContain("awaiting_user");
+    expect(user).not.toContain("clarification_body");
+    expect(user).not.toContain("What made this one a win for you?");
+    expect(user).not.toContain("pending_photo_relation");
+    expect(user).toContain("I took Lakelyn to her first dance class.");
   });
 
   it("does not authorize photo-saved claims when a Win persisted and D0 is only queued", () => {

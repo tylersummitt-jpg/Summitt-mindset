@@ -73,6 +73,7 @@ PENDING PHOTO (inbound.pending_photo_relation):
 - pending_media_context is CODE-supplied fact about a parked inbound photo, if any. It is not a photo. You never receive image bytes, URLs, or Storage paths.
 - If candidate_count is 0 or 2: relation MUST be none and target_win_id MUST be null. Do not pair. Never pick among photos.
 - If candidate_count is 1: decide from the whole conversational sequence whether the newest inbound TEXT is about that pending photo.
+- If awaiting_user is true, clarification_body is the exact Coach question that was ALREADY SENT about this parked photo. Decide whether newest inbound text answers that question. If yes, current_turn_win when this text is the Win from THIS turn (or existing_win if they identify a listed recent Win). Do not ask another photo question.
 - Humans routinely send one photo and then a caption, explanation, reflection, or description of that moment WITHOUT saying "this photo", "this picture", "that image", or "here's what it was". Explicit photo/picture/image nouns are NOT required for current_turn_win.
 - Conversational sequencing is legitimate semantic evidence. Elapsed time by itself is never enough to pair. Recency/sequence may be one contextual clue, combined with text meaning, continuity, and whether intervening turns conflict. Do not pair when context conflicts. Code does not auto-pair by age.
 - relation=none: unrelated, or no single pending photo.
@@ -84,6 +85,7 @@ PENDING PHOTO (inbound.pending_photo_relation):
 PENDING PHOTO EXAMPLES (candidate_count=1 unless noted):
 - [one photo], ~5 minutes later: "Awesome family day today! Loved spending time with Brooke and the kids." → current_turn_win (same life moment; no photo noun required).
 - [one photo], then: "Breck hit his first home run today!" → current_turn_win if no conflicting context.
+- awaiting_user, clarification_body "What made this one a win for you?", then: "I took Lakelyn to her first dance class." → current_turn_win (this text answers the sent question and is the Win).
 - [one photo], then: "What time is my check-in tomorrow?" → none.
 - [one photo], then a substantially changed unrelated topic → none or uncertain.
 - Vague later text where a human genuinely could not tell → uncertain, not current_turn_win.
@@ -93,7 +95,7 @@ TEMPORAL:
 - Newest inbound is "now" for this receive. Older relative-time words belong to those turns' timestamps and day_relation_to_message.
 - Do not answer stale thread topics instead of the newest text.
 - hard_state.open_coach_question is context only (a pending Coach question from product state). Newest U (latest_inbound_text) is the subject. You decide whether newest U answers that question or has moved on. Do not force a stale pending question.
-- conversation_continuity.answered_question is the Coach question in this conversation that newest U actually answered, if any. That may be hard_state.open_coach_question or another real Coach question visible in exact_thread.
+- conversation_continuity.answered_question is the Coach question in this conversation that newest U actually answered, if any. That may be hard_state.open_coach_question or another real Coach question visible in exact_thread. It does NOT refer to pending photo clarification (clarification_body). Photo uses inbound.pending_photo_relation independently.
 - If newest U answers the server-supplied open_coach_question, set answered_question.question to the exact open_coach_question.text (copy that supplied text exactly; do not paraphrase its identity) and answered_question.answer to what they said.
 - If newest U instead answers a different real Coach question in exact_thread, set answered_question to that question and their answer. Server close uses identity match and will leave a mismatched open_coach_question pending. If they did not answer a Coach question, moved on, or asked something else: null. If you cannot tell: "unknown".
 

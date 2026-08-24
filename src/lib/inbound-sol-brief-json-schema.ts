@@ -126,6 +126,7 @@ export function buildInboundSolBriefExactContractPromptAppendix(): string {
     "none / uncertain / current_turn_win: target_win_id MUST be null.",
     "existing_win: target_win_id MUST be copied from pending_media_context.recent_wins[].id. Never invent a UUID.",
     "current_turn_win means this inbound text is about the pending photo AND the Win created from THIS turn (UUID not known yet).",
+    "If awaiting_user is true, clarification_body is the exact Coach question already sent. Answering it is current_turn_win when this text is the Win.",
     "Explicit photo/picture/image nouns are not required. A later caption of the same moment may be current_turn_win.",
     "Elapsed time alone never pairs. Recency/sequence may be one contextual clue with conversational continuity and text meaning.",
     "Do not pair when context conflicts or a human genuinely could not tell (uncertain). candidate_count 0 or 2: none.",

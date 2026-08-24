@@ -31,6 +31,10 @@ import {
   loadInboundMmsD1PendingContext,
   type InboundMmsD1PendingContext,
 } from "@/lib/victory-media/inbound-mms-d1-pending-context";
+import {
+  inboundPendingMediaSourceFromD2c,
+  loadInboundMmsD2cPendingContext,
+} from "@/lib/victory-media/inbound-mms-d2c-pending-context";
 
 export const INBOUND_RELATIONSHIP_PACKET_VERSION = "inbound_relationship_v1" as const;
 
@@ -68,8 +72,9 @@ export type InboundRelationshipPacket = {
   latest_inbound_text: string;
   latest_inbound_message_sid: string;
   /**
-   * D1: CODE-supplied pending image-only photo facts.
-   * Search-bounded. OpenAI decides relation. Never image bytes or Storage paths.
+   * CODE-supplied pending image-only photo facts (D1 unresolved or D2c pending_user).
+   * OpenAI decides relation. Never image bytes or Storage paths.
+   * D2c includes awaiting_user + the exact clarification_body that was sent.
    */
   pending_media_context: InboundMmsD1PendingContext;
   exact_thread: {
@@ -363,11 +368,23 @@ export async function loadInboundRelationshipPacket(args: {
   let pending_media_context: InboundMmsD1PendingContext =
     EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT;
   try {
-    pending_media_context = await loadInboundMmsD1PendingContext({
+    const d2c = await loadInboundMmsD2cPendingContext({
       clerkUserId: args.clerkUserId,
       currentMessageSid: latestInboundMessageSid,
       now: receivedAt,
     });
+    const source = inboundPendingMediaSourceFromD2c(d2c);
+    if (source === "error") {
+      pending_media_context = EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT;
+    } else if (source === "clarification" && d2c !== "error") {
+      pending_media_context = d2c;
+    } else if (source === "d1") {
+      pending_media_context = await loadInboundMmsD1PendingContext({
+        clerkUserId: args.clerkUserId,
+        currentMessageSid: latestInboundMessageSid,
+        now: receivedAt,
+      });
+    }
   } catch {
     pending_media_context = EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT;
   }

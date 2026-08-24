@@ -1,8 +1,7 @@
 /**
- * Slice D1 — bounded pending image-only photo facts for Sol interpreter.
- * Conversational candidate window only (not media TTL, not semantic evidence).
- * The interpreter decides whether later text refers to the photo.
- * Does not claim, attach, send SMS, expire jobs, or call a model.
+ * Slice D2c — durable pending_user photo facts for the normal Sol interpreter.
+ * Exact sent clarification_body only. Not a second semantic brain.
+ * Does not claim, attach, send SMS, create Wins, expire jobs, or call a model.
  */
 
 import "server-only";
@@ -10,14 +9,18 @@ import "server-only";
 import { hasUnresolvedAccountDeletionRequest } from "@/lib/account-deletion/deletion-guards";
 import { supabaseServer } from "@/lib/supabase-server";
 import { isInboundMediaJobTombstonedOrRemoved } from "@/lib/victory-media/claim-inbound-media-job";
+import {
+  EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT,
+  INBOUND_MEDIA_D1_PENDING_FETCH_CAP,
+  INBOUND_MEDIA_D1_RECENT_WINS_CAP,
+  type InboundMmsD1JobLite,
+  type InboundMmsD1PendingCandidate,
+  type InboundMmsD1PendingContext,
+  type InboundMmsD1WinLite,
+} from "@/lib/victory-media/inbound-mms-d1-pending-context";
 
-/**
- * D1 conversational candidate window only.
- * Not semantic evidence and not media expiry (B2 TTL remains 72h).
- */
-export const INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS = 30 * 60 * 1000;
-export const INBOUND_MEDIA_D1_PENDING_FETCH_CAP = 2;
-export const INBOUND_MEDIA_D1_RECENT_WINS_CAP = 7;
+export const INBOUND_MEDIA_D2C_PENDING_FETCH_CAP = INBOUND_MEDIA_D1_PENDING_FETCH_CAP;
+export const INBOUND_MEDIA_D2C_RECENT_WINS_CAP = INBOUND_MEDIA_D1_RECENT_WINS_CAP;
 
 const WIN_TEXT_MAX = 160;
 
@@ -25,75 +28,24 @@ function hasNonEmptyText(value: string | null | undefined): boolean {
   return typeof value === "string" && value.trim() !== "";
 }
 
-export type InboundMmsD1PendingCandidate = {
-  job_id: string;
-  age_seconds: number;
-  message_sid: string;
-  normalized_ready: true;
-  /** D2c only: Coach already sent a clarification about this photo. */
-  awaiting_user?: boolean;
-  /** D2c only: exact clarification_body that was actually sent. */
-  clarification_body?: string | null;
+export type InboundMmsD2cJobLite = InboundMmsD1JobLite & {
+  clarification_body: string | null;
+  followup_idempotency_key: string | null;
 };
 
-export type InboundMmsD1RecentWin = {
-  id: string;
-  text: string;
-  occurred_at: string;
-  relationship_type: string | null;
-  commitment_id: string | null;
-  has_media: boolean;
-};
-
-export type InboundMmsD1PendingContext = {
-  candidate_count: 0 | 1 | 2;
-  candidate: InboundMmsD1PendingCandidate | null;
-  recent_wins: InboundMmsD1RecentWin[];
-};
-
-export const EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT: InboundMmsD1PendingContext = {
-  candidate_count: 0,
-  candidate: null,
-  recent_wins: [],
-};
-
-export type InboundMmsD1JobLite = {
-  id: string;
-  message_sid: string;
-  created_at: string;
-  status: string;
-  resolution: string | null;
-  tombstoned_at: string | null;
-  attached_win_id: string | null;
-  semantic_target_win_id: string | null;
-  temp_storage_path: string | null;
-  normalized_storage_path: string | null;
-  expires_at: string | null;
-};
-
-export type InboundMmsD1WinLite = {
-  id: string;
-  occurred_at: string;
-  display_title: string | null;
-  display_body: string | null;
-  relationship_type: string | null;
-  commitment_id: string | null;
-};
-
-export type LoadInboundMmsD1PendingContextInput = {
+export type LoadInboundMmsD2cPendingContextInput = {
   clerkUserId: string;
   currentMessageSid: string;
   now?: Date;
 };
 
-export type LoadInboundMmsD1PendingContextDeps = {
+export type LoadInboundMmsD2cPendingContextDeps = {
   hasUnresolvedDeletion?: (clerkUserId: string) => Promise<boolean>;
   listPendingJobs?: (args: {
     clerkUserId: string;
     currentMessageSid: string;
-    createdAfterIso: string;
     expiresAfterIso: string;
-  }) => Promise<InboundMmsD1JobLite[] | "error">;
+  }) => Promise<InboundMmsD2cJobLite[] | "error">;
   listBodySids?: (args: {
     clerkUserId: string;
     messageSids: string[];
@@ -106,6 +58,10 @@ export type LoadInboundMmsD1PendingContextDeps = {
     winIds: string[];
   }) => Promise<Set<string> | "error">;
 };
+
+export type InboundMmsD2cPendingContextResult =
+  | InboundMmsD1PendingContext
+  | "error";
 
 function isExpiresAtValidAndFuture(
   job: { expires_at?: string | null },
@@ -125,29 +81,42 @@ function candidateCountFromLength(n: number): 0 | 1 | 2 {
   return 2;
 }
 
-export function isInboundMediaJobD1PendingShape(
-  job: InboundMmsD1JobLite,
-  args: { now: Date; currentMessageSid: string; createdAfterMs: number }
+export function isInboundMediaJobD2cPendingShape(
+  job: InboundMmsD2cJobLite,
+  args: { now: Date; currentMessageSid: string }
 ): boolean {
   if (isInboundMediaJobTombstonedOrRemoved(job)) return false;
   if (job.status !== "pending_semantics") return false;
-  if (job.resolution != null) return false;
+  if (job.resolution !== "pending_user") return false;
   if (hasNonEmptyText(job.tombstoned_at)) return false;
   if (hasNonEmptyText(job.attached_win_id)) return false;
   if (hasNonEmptyText(job.semantic_target_win_id)) return false;
   if (hasNonEmptyText(job.temp_storage_path)) return false;
   if (!hasNonEmptyText(job.normalized_storage_path)) return false;
+  if (!hasNonEmptyText(job.clarification_body)) return false;
+  if (!hasNonEmptyText(job.followup_idempotency_key)) return false;
   if (!isExpiresAtValidAndFuture(job, args.now)) return false;
   const sid = job.message_sid.trim();
   if (!sid) return false;
   if (sid === args.currentMessageSid.trim()) return false;
   const created = new Date(job.created_at).getTime();
   if (!Number.isFinite(created)) return false;
-  if (created < args.createdAfterMs) return false;
   return true;
 }
 
-function mapJobLite(raw: Record<string, unknown>): InboundMmsD1JobLite {
+export function isInboundMmsPendingClarificationContext(
+  ctx: InboundMmsD1PendingContext
+): boolean {
+  const body = ctx.candidate?.clarification_body?.trim() ?? "";
+  return (
+    ctx.candidate_count === 1 &&
+    ctx.candidate != null &&
+    ctx.candidate.awaiting_user === true &&
+    body.length > 0
+  );
+}
+
+function mapJobLite(raw: Record<string, unknown>): InboundMmsD2cJobLite {
   return {
     id: String(raw.id ?? ""),
     message_sid: String(raw.message_sid ?? ""),
@@ -168,6 +137,12 @@ function mapJobLite(raw: Record<string, unknown>): InboundMmsD1JobLite {
         ? raw.normalized_storage_path
         : null,
     expires_at: typeof raw.expires_at === "string" ? raw.expires_at : null,
+    clarification_body:
+      typeof raw.clarification_body === "string" ? raw.clarification_body : null,
+    followup_idempotency_key:
+      typeof raw.followup_idempotency_key === "string"
+        ? raw.followup_idempotency_key
+        : null,
   };
 }
 
@@ -181,29 +156,28 @@ function conciseWinText(win: InboundMmsD1WinLite): string {
 async function defaultListPendingJobs(args: {
   clerkUserId: string;
   currentMessageSid: string;
-  createdAfterIso: string;
   expiresAfterIso: string;
-}): Promise<InboundMmsD1JobLite[] | "error"> {
+}): Promise<InboundMmsD2cJobLite[] | "error"> {
   const { data, error } = await supabaseServer
     .from("v2_inbound_media_job")
     .select(
-      "id,message_sid,created_at,status,resolution,tombstoned_at,attached_win_id,semantic_target_win_id,temp_storage_path,normalized_storage_path,expires_at"
+      "id,message_sid,created_at,status,resolution,tombstoned_at,attached_win_id,semantic_target_win_id,temp_storage_path,normalized_storage_path,expires_at,clarification_body,followup_idempotency_key"
     )
     .eq("clerk_user_id", args.clerkUserId)
     .eq("status", "pending_semantics")
-    // D2 last_error_code (semantic_due/grace/model_failed/clarification_*) is
-    // intentionally unfiltered so later D1 text can still rescue a grace-parked photo.
-    .is("resolution", null)
+    .eq("resolution", "pending_user")
+    // last_error_code is intentionally unfiltered (clarification_due after send).
     .is("tombstoned_at", null)
     .is("attached_win_id", null)
     .is("semantic_target_win_id", null)
     .is("temp_storage_path", null)
     .not("normalized_storage_path", "is", null)
+    .not("clarification_body", "is", null)
+    .not("followup_idempotency_key", "is", null)
     .gt("expires_at", args.expiresAfterIso)
-    .gte("created_at", args.createdAfterIso)
     .neq("message_sid", args.currentMessageSid)
     .order("created_at", { ascending: true })
-    .limit(INBOUND_MEDIA_D1_PENDING_FETCH_CAP);
+    .limit(INBOUND_MEDIA_D2C_PENDING_FETCH_CAP);
   if (error) return "error";
   const rows = Array.isArray(data) ? data : [];
   return rows.map((raw) => mapJobLite(raw as Record<string, unknown>)).filter((j) => j.id);
@@ -240,7 +214,7 @@ async function defaultListRecentWins(args: {
     .eq("status", "active")
     .is("hidden_at", null)
     .order("occurred_at", { ascending: false })
-    .limit(INBOUND_MEDIA_D1_RECENT_WINS_CAP);
+    .limit(INBOUND_MEDIA_D2C_RECENT_WINS_CAP);
   if (error) return "error";
   const rows = Array.isArray(data) ? data : [];
   const out: InboundMmsD1WinLite[] = [];
@@ -280,8 +254,8 @@ async function defaultListWinIdsWithMedia(args: {
   return out;
 }
 
-export function buildInboundMmsD1CandidateFact(
-  job: InboundMmsD1JobLite,
+export function buildInboundMmsD2cCandidateFact(
+  job: InboundMmsD2cJobLite,
   now: Date
 ): InboundMmsD1PendingCandidate {
   const created = new Date(job.created_at).getTime();
@@ -291,18 +265,20 @@ export function buildInboundMmsD1CandidateFact(
     age_seconds: Math.floor(ageMs / 1000),
     message_sid: job.message_sid.trim(),
     normalized_ready: true,
+    awaiting_user: true,
+    clarification_body: (job.clarification_body ?? "").trim(),
   };
 }
 
 /**
- * Current eligible D1 pending image-only jobs for this clerk.
- * Same law for interpreter context load and claim-time revalidation. Not semantic.
+ * Current eligible D2c pending_user jobs for this clerk.
+ * Sent clarification only. Same law for interpreter load and claim-time revalidation.
  * Returns "error" on lookup failure (fail closed).
  */
-export async function listInboundMmsD1EligiblePendingJobs(
-  input: LoadInboundMmsD1PendingContextInput,
-  deps: LoadInboundMmsD1PendingContextDeps = {}
-): Promise<InboundMmsD1JobLite[] | "error"> {
+export async function listInboundMmsD2cEligiblePendingJobs(
+  input: LoadInboundMmsD2cPendingContextInput,
+  deps: LoadInboundMmsD2cPendingContextDeps = {}
+): Promise<InboundMmsD2cJobLite[] | "error"> {
   const clerkUserId = input.clerkUserId.trim();
   const currentMessageSid = input.currentMessageSid.trim();
   const now = input.now ?? new Date();
@@ -317,50 +293,52 @@ export async function listInboundMmsD1EligiblePendingJobs(
       return [];
     }
   } catch {
-    return [];
+    return "error";
   }
 
-  const createdAfterMs = now.getTime() - INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS;
-  const createdAfterIso = new Date(createdAfterMs).toISOString();
   const expiresAfterIso = now.toISOString();
-
   const listPendingJobs = deps.listPendingJobs ?? defaultListPendingJobs;
   const listBodySids = deps.listBodySids ?? defaultListBodySids;
 
-  const listed = await listPendingJobs({
-    clerkUserId,
-    currentMessageSid,
-    createdAfterIso,
-    expiresAfterIso,
-  });
+  let listed: InboundMmsD2cJobLite[] | "error";
+  try {
+    listed = await listPendingJobs({
+      clerkUserId,
+      currentMessageSid,
+      expiresAfterIso,
+    });
+  } catch {
+    return "error";
+  }
   if (listed === "error") return "error";
 
   const shapeOk = listed.filter((job) =>
-    isInboundMediaJobD1PendingShape(job, {
-      now,
-      currentMessageSid,
-      createdAfterMs,
-    })
+    isInboundMediaJobD2cPendingShape(job, { now, currentMessageSid })
   );
   const sids = shapeOk.map((j) => j.message_sid.trim()).filter(Boolean);
-  const bodySids = await listBodySids({ clerkUserId, messageSids: sids });
+  let bodySids: Set<string> | "error";
+  try {
+    bodySids = await listBodySids({ clerkUserId, messageSids: sids });
+  } catch {
+    return "error";
+  }
   if (bodySids === "error") return "error";
 
   return shapeOk.filter((j) => !bodySids.has(j.message_sid.trim()));
 }
 
 /**
- * Bounded pending image-only facts for the current inbound text turn.
- * Fail closed to empty on deletion, query error, or malformed rows.
+ * Durable pending_user photo + exact sent question for the current inbound text turn.
+ * Lookup failure returns "error" so callers do not fall through to D1.
  */
-export async function loadInboundMmsD1PendingContext(
-  input: LoadInboundMmsD1PendingContextInput,
-  deps: LoadInboundMmsD1PendingContextDeps = {}
-): Promise<InboundMmsD1PendingContext> {
+export async function loadInboundMmsD2cPendingContext(
+  input: LoadInboundMmsD2cPendingContextInput,
+  deps: LoadInboundMmsD2cPendingContextDeps = {}
+): Promise<InboundMmsD2cPendingContextResult> {
   const clerkUserId = input.clerkUserId.trim();
   const now = input.now ?? new Date();
-  const imageOnly = await listInboundMmsD1EligiblePendingJobs(input, deps);
-  if (imageOnly === "error") return EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT;
+  const imageOnly = await listInboundMmsD2cEligiblePendingJobs(input, deps);
+  if (imageOnly === "error") return "error";
 
   const candidate_count = candidateCountFromLength(imageOnly.length);
   if (candidate_count !== 1) {
@@ -379,7 +357,7 @@ export async function loadInboundMmsD1PendingContext(
   if (winsListed === "error") {
     return {
       candidate_count: 1,
-      candidate: buildInboundMmsD1CandidateFact(job, now),
+      candidate: buildInboundMmsD2cCandidateFact(job, now),
       recent_wins: [],
     };
   }
@@ -388,7 +366,7 @@ export async function loadInboundMmsD1PendingContext(
   const withMedia = await listWinIdsWithMedia({ clerkUserId, winIds });
   const mediaSet = withMedia === "error" ? new Set<string>() : withMedia;
 
-  const recent_wins: InboundMmsD1RecentWin[] = winsListed.map((w) => ({
+  const recent_wins = winsListed.map((w) => ({
     id: w.id,
     text: conciseWinText(w),
     occurred_at: w.occurred_at,
@@ -399,7 +377,21 @@ export async function loadInboundMmsD1PendingContext(
 
   return {
     candidate_count: 1,
-    candidate: buildInboundMmsD1CandidateFact(job, now),
+    candidate: buildInboundMmsD2cCandidateFact(job, now),
     recent_wins,
   };
+}
+
+export { EMPTY_INBOUND_MMS_D1_PENDING_CONTEXT as EMPTY_INBOUND_MMS_D2C_PENDING_CONTEXT };
+
+/**
+ * Live pending_user clarification outranks D1 unresolved photos.
+ * Lookup failure is distinct from zero candidates and must not fall through to D1.
+ */
+export function inboundPendingMediaSourceFromD2c(
+  d2c: InboundMmsD2cPendingContextResult
+): "clarification" | "d1" | "error" {
+  if (d2c === "error") return "error";
+  if (d2c.candidate_count >= 1) return "clarification";
+  return "d1";
 }

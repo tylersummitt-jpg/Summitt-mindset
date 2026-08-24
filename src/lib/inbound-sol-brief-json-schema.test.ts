@@ -24,6 +24,9 @@ describe("inbound Sol D1 schema extras", () => {
       "current_turn_win",
       "existing_win",
     ]);
+    expect(inbound.properties.pending_photo_relation.properties.relation.enum).not.toContain(
+      "abandon"
+    );
   });
 
   it("missing pending_photo_relation defaults to none/null", () => {
@@ -72,6 +75,8 @@ describe("inbound Sol D1 schema extras", () => {
     expect(appendix).toContain("Never invent a UUID");
     expect(appendix).toContain("Elapsed time alone never pairs");
     expect(appendix).toContain("Explicit photo/picture/image nouns are not required");
+    expect(appendix).toContain("awaiting_user is true");
+    expect(appendix).toContain("exact Coach question already sent");
     expect(appendix).not.toContain("within 24");
     expect(appendix).not.toContain("Age in seconds is a fact, not evidence of relatedness");
   });

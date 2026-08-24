@@ -14,6 +14,7 @@ const persistInboundWinsWithAccountability = vi.hoisted(() => vi.fn());
 const persistRecognizedWins = vi.hoisted(() => vi.fn());
 const scheduleC1IfWinsDurable = vi.hoisted(() => vi.fn());
 const scheduleInboundMmsD1SemanticClaim = vi.hoisted(() => vi.fn(() => null));
+const scheduleInboundMmsD2cSemanticClaim = vi.hoisted(() => vi.fn(() => null));
 const loadInboundRelationshipPacket = vi.hoisted(() => vi.fn());
 const runInboundSolBriefInterpreter = vi.hoisted(() => vi.fn());
 const writeInboundSolBody = vi.hoisted(() => vi.fn());
@@ -21,6 +22,9 @@ const recognizeWinsFromInboundV1 = vi.hoisted(() => vi.fn());
 const classifyWinCandidatesEquivalenceV1 = vi.hoisted(() => vi.fn());
 const recomputeV2CoachingMemory = vi.hoisted(() => vi.fn());
 const setBlockerCapturePending = vi.hoisted(() => vi.fn());
+const applySolAnsweredOpenCoachQuestion = vi.hoisted(() =>
+  vi.fn(async () => ({ ok: true as const, applied: false as const, reason: "no_answered_question" }))
+);
 
 vi.mock("@/lib/v2-inbound-accountability-outcome-persist", async (importOriginal) => {
   const actual =
@@ -48,6 +52,10 @@ vi.mock("@/lib/victory-media/inbound-mms-d1-claim", () => ({
   scheduleInboundMmsD1SemanticClaim,
 }));
 
+vi.mock("@/lib/victory-media/inbound-mms-d2c-claim", () => ({
+  scheduleInboundMmsD2cSemanticClaim,
+}));
+
 vi.mock("@/lib/v2-coaching-memory", () => ({
   recomputeV2CoachingMemory,
 }));
@@ -57,6 +65,14 @@ vi.mock("@/lib/v2-commitment", async (importOriginal) => {
   return {
     ...actual,
     setBlockerCapturePending,
+  };
+});
+
+vi.mock("@/lib/v2-commitment-sms-thread-memory", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/v2-commitment-sms-thread-memory")>();
+  return {
+    ...actual,
+    applySolAnsweredOpenCoachQuestion,
   };
 });
 
@@ -108,7 +124,10 @@ const commitment = {
   title: "Lift",
 } as ActiveV2CommitmentRow;
 
-function brief(overrides: Partial<InboundCoachingBriefV1["inbound"]> = {}): InboundCoachingBriefV1 {
+function brief(
+  overrides: Partial<InboundCoachingBriefV1["inbound"]> = {},
+  continuityOverrides: Partial<InboundCoachingBriefV1["conversation_continuity"]> = {}
+): InboundCoachingBriefV1 {
   return {
     version: MORNING_COACHING_BRIEF_VERSION,
     confidence: "high",
@@ -141,6 +160,7 @@ function brief(overrides: Partial<InboundCoachingBriefV1["inbound"]> = {}): Inbo
       open_loop: null,
       stale_or_exhausted_topics: [],
       do_not_repeat: [],
+      ...continuityOverrides,
     },
     goal_role_today: {
       canonical_goal: "Lift 30 minutes",
@@ -186,6 +206,8 @@ describe("runInboundSolRelationshipTurn", () => {
     scheduleC1IfWinsDurable.mockReset();
     scheduleInboundMmsD1SemanticClaim.mockReset();
     scheduleInboundMmsD1SemanticClaim.mockReturnValue(null);
+    scheduleInboundMmsD2cSemanticClaim.mockReset();
+    scheduleInboundMmsD2cSemanticClaim.mockReturnValue(null);
     persistInboundWinsWithAccountability.mockReset();
     persistRecognizedWins.mockReset();
     loadInboundRelationshipPacket.mockReset();
@@ -195,8 +217,14 @@ describe("runInboundSolRelationshipTurn", () => {
     classifyWinCandidatesEquivalenceV1.mockReset();
     recomputeV2CoachingMemory.mockReset();
     setBlockerCapturePending.mockReset();
+    applySolAnsweredOpenCoachQuestion.mockReset();
     recomputeV2CoachingMemory.mockResolvedValue(undefined);
     setBlockerCapturePending.mockResolvedValue(undefined);
+    applySolAnsweredOpenCoachQuestion.mockResolvedValue({
+      ok: true,
+      applied: false,
+      reason: "no_answered_question",
+    });
 
     loadInboundRelationshipPacket.mockImplementation(async (args: { receivedAt?: Date | string | null }) => ({
       ok: true,
@@ -402,6 +430,7 @@ describe("runInboundSolRelationshipTurn", () => {
 
     expect(result.shouldSend).toBe(false);
     expect(writeInboundSolBody).not.toHaveBeenCalled();
+    expect(applySolAnsweredOpenCoachQuestion).not.toHaveBeenCalled();
     expect(result.noSendReason).toContain("interpreter_");
   });
 
@@ -781,6 +810,7 @@ describe("runInboundSolRelationshipTurn", () => {
     );
     expect(result.shouldSend).toBe(true);
     expect(scheduleInboundMmsD1SemanticClaim).toHaveBeenCalledOnce();
+    expect(scheduleInboundMmsD2cSemanticClaim).not.toHaveBeenCalled();
     const arg = scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0];
     expect(arg.context.candidate_count).toBe(1);
     expect(arg.currentMessageSid).toBe("SMhike");
@@ -993,6 +1023,7 @@ describe("runInboundSolRelationshipTurn", () => {
     const result = await runInboundSolRelationshipTurn(turnArgs("SMfamily", familyText));
     expect(result.shouldSend).toBe(true);
     expect(scheduleInboundMmsD1SemanticClaim).toHaveBeenCalledOnce();
+    expect(scheduleInboundMmsD2cSemanticClaim).not.toHaveBeenCalled();
     const arg = scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0];
     expect(arg.context.candidate_count).toBe(1);
     expect(arg.context.candidate.job_id).toBe(PHOTO_JOB);
@@ -1084,6 +1115,7 @@ describe("runInboundSolRelationshipTurn", () => {
     );
     expect(result.shouldSend).toBe(true);
     expect(scheduleInboundMmsD1SemanticClaim).toHaveBeenCalledOnce();
+    expect(scheduleInboundMmsD2cSemanticClaim).not.toHaveBeenCalled();
     const arg = scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0];
     expect(arg.context.candidate_count).toBe(1);
     expect(arg.context.candidate.job_id).toBe(freshJobId);
@@ -1124,6 +1156,7 @@ describe("runInboundSolRelationshipTurn", () => {
     );
     expect(result.shouldSend).toBe(true);
     expect(scheduleInboundMmsD1SemanticClaim).toHaveBeenCalledOnce();
+    expect(scheduleInboundMmsD2cSemanticClaim).not.toHaveBeenCalled();
     const arg = scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0];
     expect(arg.relation.relation).toBe("none");
   });
@@ -1154,5 +1187,881 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(result.shouldSend).toBe(true);
     const arg = scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0];
     expect(arg.relation.relation).toBe("uncertain");
+  });
+
+  it("D2c pending_user answer schedules D0 after the durable Win, not D1", async () => {
+    const question = "What made this one a win for you?";
+    const lakeText = "I took Lakelyn to her first dance class.";
+    const lakeWinId = "ffffffff-7777-4777-8777-777777777777";
+    loadInboundRelationshipPacket.mockImplementation(async () => ({
+      ok: true,
+      receivedAt: new Date("2026-08-22T16:10:00.000Z"),
+      packet: {
+        version: "inbound_relationship_v1",
+        message_for: {
+          timezone: "America/Chicago",
+          local_date: "2026-08-22",
+          local_weekday: "Saturday",
+          daypart: "inbound",
+        },
+        preferred_name: "Tyler",
+        current_goal: { text: "Lift 30 minutes" },
+        current_identity: { text: null },
+        personal_context: [],
+        hard_state: { pending_goal_change: null, open_coach_question: null },
+        latest_inbound_text: lakeText,
+        latest_inbound_message_sid: "SMlake",
+        pending_media_context: {
+          candidate_count: 1,
+          candidate: {
+            job_id: PHOTO_JOB,
+            age_seconds: 2400,
+            message_sid: "SMdddddddddddddddddddddddddddddddd",
+            normalized_ready: true,
+            awaiting_user: true,
+            clarification_body: question,
+          },
+          recent_wins: [],
+        },
+        exact_thread: {
+          window_days: 21,
+          max_messages: 30,
+          messages: [],
+          omitted_older_turn_count: 0,
+        },
+      },
+    }));
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: lakeWinId, status: "inserted", idempotency_key: "klake" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: lakeText,
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Took Lakelyn to her first dance class",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Love that you took Lakelyn to her first dance class.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMlake", lakeText));
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe("Love that you took Lakelyn to her first dance class.");
+    expect(scheduleInboundMmsD2cSemanticClaim).toHaveBeenCalledOnce();
+    expect(scheduleInboundMmsD1SemanticClaim).not.toHaveBeenCalled();
+    const arg = scheduleInboundMmsD2cSemanticClaim.mock.calls[0]?.[0];
+    expect(arg.context.candidate.awaiting_user).toBe(true);
+    expect(arg.context.candidate.clarification_body).toBe(question);
+    expect(arg.relation).toEqual({ relation: "current_turn_win", target_win_id: null });
+    expect(arg.winResult?.wins).toEqual([
+      expect.objectContaining({ id: lakeWinId, status: "inserted" }),
+    ]);
+    expect(runInboundSolBriefInterpreter).toHaveBeenCalledTimes(1);
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+  });
+
+  const MEETING_Q = "How did the meeting go?";
+  const PHOTO_Q = "What made this one a win for you?";
+  const d2cPending = {
+    candidate_count: 1 as const,
+    candidate: {
+      job_id: PHOTO_JOB,
+      age_seconds: 2400,
+      message_sid: "SMdddddddddddddddddddddddddddddddd",
+      normalized_ready: true as const,
+      awaiting_user: true as const,
+      clarification_body: PHOTO_Q,
+    },
+    recent_wins: [] as [],
+  };
+
+  function packetWithD2c(overrides: {
+    latestInboundText: string;
+    latestInboundMessageSid?: string;
+    openCoachQuestion?: {
+      text: string;
+      expected_answer_type: string | null;
+      pending: boolean;
+      asked_at: string | null;
+    } | null;
+    pendingMedia?: {
+      candidate_count: 0 | 1 | 2;
+      candidate: (typeof d2cPending)["candidate"] | (typeof onePending)["candidate"] | null;
+      recent_wins: unknown[];
+    };
+    exactThreadMessages?: unknown[];
+  }) {
+    loadInboundRelationshipPacket.mockImplementation(async (args: {
+      receivedAt?: Date | string | null;
+      currentTurnMessageSids?: string[];
+    }) => {
+      void args.currentTurnMessageSids;
+      return {
+      ok: true,
+      receivedAt:
+        args.receivedAt instanceof Date
+          ? args.receivedAt
+          : new Date("2026-08-22T16:10:00.000Z"),
+      packet: {
+        version: "inbound_relationship_v1",
+        message_for: {
+          timezone: "America/Chicago",
+          local_date: "2026-08-22",
+          local_weekday: "Saturday",
+          daypart: "inbound",
+        },
+        preferred_name: "Tyler",
+        current_goal: { text: "Lift 30 minutes" },
+        current_identity: { text: null },
+        personal_context: [],
+        hard_state: {
+          pending_goal_change: null,
+          open_coach_question:
+            overrides.openCoachQuestion === undefined
+              ? null
+              : overrides.openCoachQuestion,
+        },
+        latest_inbound_text: overrides.latestInboundText,
+        latest_inbound_message_sid: overrides.latestInboundMessageSid ?? "SMlake",
+        pending_media_context: overrides.pendingMedia ?? d2cPending,
+        exact_thread: {
+          window_days: 21,
+          max_messages: 30,
+          messages: overrides.exactThreadMessages ?? [],
+          omitted_older_turn_count: 0,
+        },
+      },
+    };
+    });
+  }
+
+  it("O: answering the photo does not clear an unrelated open Coach question in this turn", async () => {
+    const lakeText = "Taking Lakelyn to her first dance class.";
+    const lakeWinId = "ffffffff-7777-4777-8777-777777777777";
+    packetWithD2c({
+      latestInboundText: lakeText,
+      openCoachQuestion: {
+        text: MEETING_Q,
+        expected_answer_type: null,
+        pending: true,
+        asked_at: "2026-08-22T15:00:00.000Z",
+      },
+    });
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: lakeWinId, status: "inserted", idempotency_key: "klake" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: lakeText,
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Took Lakelyn to her first dance class",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Love that you took Lakelyn.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMlake", lakeText));
+    expect(result.shouldSend).toBe(true);
+    expect(scheduleInboundMmsD2cSemanticClaim).toHaveBeenCalledOnce();
+    expect(scheduleInboundMmsD1SemanticClaim).not.toHaveBeenCalled();
+    expect(persistRecognizedWins).toHaveBeenCalledTimes(1);
+    expect(recomputeV2CoachingMemory).not.toHaveBeenCalled();
+    expect(result.packet?.hard_state.open_coach_question?.text).toBe(MEETING_Q);
+    expect(result.packet?.hard_state.open_coach_question?.pending).toBe(true);
+    const writerPacket = writeInboundSolBody.mock.calls[0]?.[0]?.packet;
+    expect(writerPacket?.hard_state.open_coach_question?.text).toBe(MEETING_Q);
+    expect(writerPacket?.hard_state.open_coach_question?.pending).toBe(true);
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageSid: "SMlake",
+        expectedOpenQuestion: expect.objectContaining({ text: MEETING_Q, pending: true }),
+        answeredQuestion: null,
+        canonicalHumanTurnText: lakeText,
+      })
+    );
+  });
+
+  it("P: answering the other live question does not claim the pending photo", async () => {
+    const meetingText = "The meeting went well — we locked the timeline.";
+    packetWithD2c({
+      latestInboundText: meetingText,
+      latestInboundMessageSid: "SMmeet",
+      openCoachQuestion: {
+        text: MEETING_Q,
+        expected_answer_type: null,
+        pending: true,
+        asked_at: "2026-08-22T15:00:00.000Z",
+      },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(
+        {
+          answer_priority: "first",
+          accountability_interpretation: {
+            relevance: "unrelated",
+            outcome: "not_applicable",
+            confidence: "high",
+            evidence: meetingText,
+          },
+          meaningful_win: null,
+          pending_photo_relation: { relation: "none", target_win_id: null },
+        },
+        {
+          answered_question: {
+            question: MEETING_Q,
+            answer: meetingText,
+          },
+        }
+      ),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Glad the meeting locked the timeline.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMmeet", meetingText)
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(scheduleInboundMmsD2cSemanticClaim).toHaveBeenCalledOnce();
+    expect(scheduleInboundMmsD1SemanticClaim).not.toHaveBeenCalled();
+    expect(scheduleInboundMmsD2cSemanticClaim.mock.calls[0]?.[0]?.relation.relation).toBe(
+      "none"
+    );
+    expect(persistRecognizedWins).not.toHaveBeenCalled();
+    expect(result.packet?.pending_media_context.candidate?.awaiting_user).toBe(true);
+    expect(result.packet?.pending_media_context.candidate?.clarification_body).toBe(
+      PHOTO_Q
+    );
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageSid: "SMmeet",
+        expectedOpenQuestion: expect.objectContaining({ text: MEETING_Q, pending: true }),
+        answeredQuestion: { question: MEETING_Q, answer: meetingText },
+        canonicalHumanTurnText: meetingText,
+      })
+    );
+  });
+
+  it("A: Sol-authored meeting answer closes via post-Sol apply with no photo", async () => {
+    const meetingText = "The meeting went really well.";
+    packetWithD2c({
+      latestInboundText: meetingText,
+      latestInboundMessageSid: "SMmeetA",
+      openCoachQuestion: {
+        text: MEETING_Q,
+        expected_answer_type: null,
+        pending: true,
+        asked_at: "2026-08-22T15:00:00.000Z",
+      },
+      pendingMedia: { candidate_count: 0, candidate: null, recent_wins: [] },
+    });
+    applySolAnsweredOpenCoachQuestion.mockResolvedValue({ ok: true, applied: true });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(
+        {
+          accountability_interpretation: {
+            relevance: "unrelated",
+            outcome: "not_applicable",
+            confidence: "high",
+            evidence: meetingText,
+          },
+          meaningful_win: null,
+          pending_photo_relation: { relation: "none", target_win_id: null },
+        },
+        { answered_question: { question: MEETING_Q, answer: meetingText } }
+      ),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Glad the meeting went well.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMmeetA", meetingText));
+    expect(result.shouldSend).toBe(true);
+    expect(result.packet?.hard_state.open_coach_question?.pending).toBe(true);
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledTimes(1);
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        answeredQuestion: { question: MEETING_Q, answer: meetingText },
+        expectedOpenQuestion: expect.objectContaining({ pending: true, text: MEETING_Q }),
+        canonicalHumanTurnText: meetingText,
+      })
+    );
+    expect(scheduleInboundMmsD2cSemanticClaim).not.toHaveBeenCalled();
+  });
+
+  it("generic answered_question for another exact-thread Coach Q is passed through", async () => {
+    const otherQ = "What will you protect tomorrow?";
+    const humanText = "The first 30 minutes before email.";
+    packetWithD2c({
+      latestInboundText: humanText,
+      latestInboundMessageSid: "SMprotect",
+      openCoachQuestion: {
+        text: MEETING_Q,
+        expected_answer_type: null,
+        pending: true,
+        asked_at: "2026-08-22T15:00:00.000Z",
+      },
+      pendingMedia: { candidate_count: 0, candidate: null, recent_wins: [] },
+    });
+    applySolAnsweredOpenCoachQuestion.mockResolvedValue({
+      ok: true,
+      applied: false,
+      reason: "question_mismatch",
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(
+        {
+          accountability_interpretation: {
+            relevance: "unrelated",
+            outcome: "not_applicable",
+            confidence: "high",
+            evidence: humanText,
+          },
+          meaningful_win: null,
+          pending_photo_relation: { relation: "none", target_win_id: null },
+        },
+        { answered_question: { question: otherQ, answer: humanText } }
+      ),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Protect that first half hour.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMprotect", humanText));
+    expect(result.shouldSend).toBe(true);
+    expect(result.packet?.hard_state.open_coach_question?.pending).toBe(true);
+    expect(result.brief?.conversation_continuity.answered_question).toEqual({
+      question: otherQ,
+      answer: humanText,
+    });
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        answeredQuestion: { question: otherQ, answer: humanText },
+        expectedOpenQuestion: expect.objectContaining({ text: MEETING_Q, pending: true }),
+        canonicalHumanTurnText: humanText,
+      })
+    );
+  });
+
+  it("last-ask apply receives coalesced human turn text, not a raw SID fragment", async () => {
+    const coalesced = "I took Lakelyn to her first dance class.";
+    packetWithD2c({
+      latestInboundText: coalesced,
+      latestInboundMessageSid: "SMpart3",
+      openCoachQuestion: {
+        text: MEETING_Q,
+        expected_answer_type: null,
+        pending: true,
+        asked_at: "2026-08-22T15:00:00.000Z",
+      },
+      pendingMedia: { candidate_count: 0, candidate: null, recent_wins: [] },
+    });
+    applySolAnsweredOpenCoachQuestion.mockResolvedValue({ ok: true, applied: true });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(
+        {
+          accountability_interpretation: {
+            relevance: "unrelated",
+            outcome: "not_applicable",
+            confidence: "high",
+            evidence: coalesced,
+          },
+          meaningful_win: null,
+          pending_photo_relation: { relation: "none", target_win_id: null },
+        },
+        {
+          answered_question: {
+            question: MEETING_Q,
+            answer: "Lakelyn's first dance class.",
+          },
+        }
+      ),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Love that first class.",
+      capture: { retry_occurred: false },
+    });
+
+    await runInboundSolRelationshipTurn({
+      ...turnArgs("SMpart3", coalesced),
+      currentTurnMessageSids: ["SMpart1", "SMpart2", "SMpart3"],
+    });
+
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageSid: "SMpart3",
+        canonicalHumanTurnText: coalesced,
+        answeredQuestion: {
+          question: MEETING_Q,
+          answer: "Lakelyn's first dance class.",
+        },
+      })
+    );
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledTimes(1);
+  });
+
+  it("E: one turn can apply meeting close and photo current_turn_win independently", async () => {
+    const bothText =
+      "The meeting went great, and that picture was from taking Lakelyn to her first dance class.";
+    const lakeWinId = "ffffffff-7777-4777-8777-777777777777";
+    packetWithD2c({
+      latestInboundText: bothText,
+      latestInboundMessageSid: "SMboth",
+      openCoachQuestion: {
+        text: MEETING_Q,
+        expected_answer_type: null,
+        pending: true,
+        asked_at: "2026-08-22T15:00:00.000Z",
+      },
+    });
+    applySolAnsweredOpenCoachQuestion.mockResolvedValue({ ok: true, applied: true });
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: lakeWinId, status: "inserted", idempotency_key: "kboth" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(
+        {
+          accountability_interpretation: {
+            relevance: "unrelated",
+            outcome: "not_applicable",
+            confidence: "high",
+            evidence: bothText,
+          },
+          meaningful_win: {
+            present: true,
+            grounded_action: "Took Lakelyn to her first dance class",
+            relationship: "life",
+          },
+          pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+        },
+        { answered_question: { question: MEETING_Q, answer: "The meeting went great" } }
+      ),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Glad the meeting went great — and love that first class.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMboth", bothText));
+    expect(result.shouldSend).toBe(true);
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        answeredQuestion: { question: MEETING_Q, answer: "The meeting went great" },
+      })
+    );
+    expect(scheduleInboundMmsD2cSemanticClaim.mock.calls[0]?.[0]?.relation.relation).toBe(
+      "current_turn_win"
+    );
+    expect(persistRecognizedWins).toHaveBeenCalledTimes(1);
+  });
+
+  it("F: direct question leaves the old open question for apply to skip", async () => {
+    const q = "What time does Tennessee play?";
+    packetWithD2c({
+      latestInboundText: q,
+      latestInboundMessageSid: "SMtennQ",
+      openCoachQuestion: {
+        text: MEETING_Q,
+        expected_answer_type: null,
+        pending: true,
+        asked_at: "2026-08-22T15:00:00.000Z",
+      },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(
+        {
+          answer_priority: "first",
+          accountability_interpretation: {
+            relevance: "unrelated",
+            outcome: "not_applicable",
+            confidence: "high",
+            evidence: q,
+          },
+          meaningful_win: null,
+          pending_photo_relation: { relation: "none", target_win_id: null },
+        },
+        { answered_question: null }
+      ),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "I don't have live game times.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMtennQ", q));
+    expect(result.shouldSend).toBe(true);
+    expect(result.packet?.hard_state.open_coach_question?.pending).toBe(true);
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        answeredQuestion: null,
+        expectedOpenQuestion: expect.objectContaining({ pending: true, text: MEETING_Q }),
+      })
+    );
+    expect(scheduleInboundMmsD2cSemanticClaim.mock.calls[0]?.[0]?.relation.relation).toBe("none");
+  });
+
+  it("writer failure after Sol close apply still does not send and applies once", async () => {
+    const meetingText = "The meeting went really well.";
+    packetWithD2c({
+      latestInboundText: meetingText,
+      latestInboundMessageSid: "SMmeetFail",
+      openCoachQuestion: {
+        text: MEETING_Q,
+        expected_answer_type: null,
+        pending: true,
+        asked_at: "2026-08-22T15:00:00.000Z",
+      },
+      pendingMedia: { candidate_count: 0, candidate: null, recent_wins: [] },
+    });
+    applySolAnsweredOpenCoachQuestion.mockResolvedValue({ ok: true, applied: true });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(
+        {
+          accountability_interpretation: {
+            relevance: "unrelated",
+            outcome: "not_applicable",
+            confidence: "high",
+            evidence: meetingText,
+          },
+          meaningful_win: null,
+          pending_photo_relation: { relation: "none", target_win_id: null },
+        },
+        { answered_question: { question: MEETING_Q, answer: meetingText } }
+      ),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: false,
+      error: "openai_request_failed",
+      body: null,
+      capture: { retry_occurred: true },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMmeetFail", meetingText));
+    expect(result.shouldSend).toBe(false);
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledTimes(1);
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+  });
+
+  it("writer failure after D2c schedule still persists one Win and does not send", async () => {
+    const lakeText = "I took Lakelyn to her first dance class.";
+    const lakeWinId = "ffffffff-7777-4777-8777-777777777777";
+    packetWithD2c({ latestInboundText: lakeText });
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: lakeWinId, status: "inserted", idempotency_key: "klake" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: lakeText,
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Took Lakelyn to her first dance class",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: false,
+      error: "openai_request_failed",
+      body: null,
+      capture: { retry_occurred: true },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMlake", lakeText));
+    expect(result.shouldSend).toBe(false);
+    expect(result.noSendReason).toBe("writer_openai_request_failed");
+    expect(result.body).toBeNull();
+    expect(persistRecognizedWins).toHaveBeenCalledTimes(1);
+    expect(scheduleInboundMmsD2cSemanticClaim).toHaveBeenCalledOnce();
+    expect(scheduleInboundMmsD1SemanticClaim).not.toHaveBeenCalled();
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(runInboundSolBriefInterpreter).toHaveBeenCalledTimes(1);
+  });
+
+  it("D2c Tennessee-game direct question: Sol none → no D0, one writer reply", async () => {
+    const q = "What time does the Tennessee game start?";
+    packetWithD2c({ latestInboundText: q, latestInboundMessageSid: "SMtenn" });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        answer_priority: "first",
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: q,
+        },
+        meaningful_win: null,
+        pending_photo_relation: { relation: "none", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "I don't have live game times — check the kickoff listing.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMtenn", q));
+    expect(result.shouldSend).toBe(true);
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(scheduleInboundMmsD2cSemanticClaim.mock.calls[0]?.[0]?.relation.relation).toBe(
+      "none"
+    );
+    expect(persistRecognizedWins).not.toHaveBeenCalled();
+    expect(result.packet?.pending_media_context.candidate?.awaiting_user).toBe(true);
+  });
+
+  it("D2c different unrelated Win does not claim the pending photo", async () => {
+    const text = "I also crushed my presentation today.";
+    const winId = "aaaaaaaa-8888-4888-8888-888888888888";
+    packetWithD2c({ latestInboundText: text, latestInboundMessageSid: "SMpres" });
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: winId, status: "inserted", idempotency_key: "kpres" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: text,
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Crushed the presentation",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "none", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Proud you crushed that presentation.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMpres", text));
+    expect(result.shouldSend).toBe(true);
+    expect(persistRecognizedWins).toHaveBeenCalledTimes(1);
+    expect(scheduleInboundMmsD2cSemanticClaim.mock.calls[0]?.[0]?.relation.relation).toBe(
+      "none"
+    );
+    expect(result.packet?.pending_media_context.candidate?.awaiting_user).toBe(true);
+  });
+
+  it("reserved-unsent clarification is not treated as a sent D2c question", async () => {
+    const text = "I took Lakelyn to her first dance class.";
+    packetWithD2c({
+      latestInboundText: text,
+      pendingMedia: onePending,
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: text,
+        },
+        meaningful_win: null,
+        pending_photo_relation: { relation: "none", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Got you.",
+      capture: { retry_occurred: false },
+    });
+
+    await runInboundSolRelationshipTurn(turnArgs("SMlake", text));
+    expect(scheduleInboundMmsD2cSemanticClaim).not.toHaveBeenCalled();
+    expect(scheduleInboundMmsD1SemanticClaim).toHaveBeenCalledOnce();
+    expect(scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0]?.context.candidate?.awaiting_user).toBeUndefined();
+    expect(
+      scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0]?.context.candidate?.clarification_body
+    ).toBeUndefined();
+  });
+
+  it("coalesced burst is one Sol turn, one persist, one D2c claim, one writer", async () => {
+    const coalesced = "I took Lakelyn to dance class for the first time";
+    const lakeWinId = "ffffffff-7777-4777-8777-777777777777";
+    packetWithD2c({ latestInboundText: coalesced });
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: lakeWinId, status: "inserted", idempotency_key: "klake" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: coalesced,
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Took Lakelyn to dance class",
+          relationship: "life",
+        },
+        pending_photo_relation: { relation: "current_turn_win", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Love that first dance class.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn({
+      ...turnArgs("SMpart3", coalesced),
+      currentTurnMessageSids: ["SMpart1", "SMpart2", "SMpart3"],
+    });
+    expect(result.shouldSend).toBe(true);
+    expect(runInboundSolBriefInterpreter).toHaveBeenCalledTimes(1);
+    expect(applySolAnsweredOpenCoachQuestion).toHaveBeenCalledTimes(1);
+    expect(persistRecognizedWins).toHaveBeenCalledTimes(1);
+    expect(scheduleInboundMmsD2cSemanticClaim).toHaveBeenCalledTimes(1);
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(loadInboundRelationshipPacket.mock.calls[0]?.[0]?.currentTurnMessageSids).toEqual([
+      "SMpart1",
+      "SMpart2",
+      "SMpart3",
+    ]);
+    expect(loadInboundRelationshipPacket.mock.calls[0]?.[0]?.latestInboundText).toBe(
+      coalesced
+    );
+  });
+
+  it("two pending_user jobs: no D2c claim and no D1 substitute", async () => {
+    const text = "Taking Lakelyn to dance class.";
+    packetWithD2c({
+      latestInboundText: text,
+      pendingMedia: {
+        candidate_count: 2,
+        candidate: null,
+        recent_wins: [],
+      },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: text,
+        },
+        meaningful_win: null,
+        pending_photo_relation: { relation: "none", target_win_id: null },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Got you.",
+      capture: { retry_occurred: false },
+    });
+
+    await runInboundSolRelationshipTurn(turnArgs("SMlake", text));
+    expect(scheduleInboundMmsD2cSemanticClaim).not.toHaveBeenCalled();
+    expect(scheduleInboundMmsD1SemanticClaim).toHaveBeenCalledOnce();
+    expect(scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0]?.context.candidate_count).toBe(
+      2
+    );
+    expect(scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0]?.context.candidate).toBeNull();
   });
 });
