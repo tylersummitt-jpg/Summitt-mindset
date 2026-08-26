@@ -178,6 +178,8 @@ describe("weekly-tto-writer", () => {
     expect(p).toContain("Do not use Pat Pause openers");
     expect(p).toContain("fake Pat quotes");
     expect(p).toContain("No should_send");
+    expect(p).toContain("Preserve uncertainty from the Brief");
+    expect(p).toContain("do not recap that event as completed");
     expect(p).toContain('{"body":"<sms text>"}');
     expect(p).not.toMatch(/320/);
     expect(p).not.toContain("Keep it naturally concise");

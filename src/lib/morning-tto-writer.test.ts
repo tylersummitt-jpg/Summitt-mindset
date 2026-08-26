@@ -188,6 +188,10 @@ describe("morning-tto-writer Phase 2D", () => {
     expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(
       /morning does not mean today's result is already known/
     );
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/Preserve uncertainty from the Brief/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(
+      /do not collapse one possibility into an asserted premise/i
+    );
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/should_send/i);
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/post-writer|repair pass/i);
   });

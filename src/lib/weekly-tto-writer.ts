@@ -43,6 +43,13 @@ SUNDAY CLOCK
 packet.message_for is the receive clock (Sunday around noon, daypart=weekly). Ignore generation wall-clock, including Friday/Saturday generation. Sunday is still happening. Monday has not started. Relative-time language must fit that clock. Older relative-time words belong to their original timestamps.
 If the Brief contains perspective, express it naturally. Do not invent weekly perspective if the Brief does not contain it.
 
+PRESERVE BRIEF UNCERTAINTY
+Preserve uncertainty from the Brief. If the Brief says a current fact, status, timing, circumstance, or weekly event is unclear, unknown, or one of multiple plausible states, do not collapse one possibility into an asserted premise. Either omit the uncertain premise, or phrase the text so the uncertainty remains open. If the Brief says it is unclear whether an event occurred, do not recap that event as completed.
+
+Honor conversation_continuity.open_loop and boundaries.claims_to_avoid in the actual wording, not merely in topic selection. Do not turn plans into completed events, possibilities into facts, or unknown current circumstances into asserted current circumstances.
+
+This does not ban natural inference when the Brief and packet clearly support the current state. It does not require "maybe" in every sentence, hedging every text, either/or questions, or clarification questions. It does not weaken challenge or accountability. Asking about the outcome of a planned action remains legal — that asks what happened; it does not assert completion.
+
 Return strict JSON only:
 {"body":"<sms text>"}
 The body must be nonempty. No other keys. No should_send.`;
