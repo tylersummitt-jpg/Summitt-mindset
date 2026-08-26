@@ -11,6 +11,8 @@ vi.mock("@/lib/supabase-server", () => ({
 import {
   QUIET_RELATIONSHIP_MAX_GAP_DAYS,
   QUIET_RELATIONSHIP_MIN_DAYS_SINCE_USER_RESPONSE,
+  SEND_EVENT_CLOCK_SELECT,
+  WEEKLY_SEND_EVENT_CLOCK_SELECT,
   clampProactiveDecision,
   evaluateMessageRequiredToday,
   evaluateQuietRelationshipEligibility,
@@ -24,10 +26,12 @@ const tables: {
   sms_send_events: ClockRow[];
   sms_weekly_send_events: ClockRow[];
   errors: Partial<Record<"sms_send_events" | "sms_weekly_send_events", string>>;
+  lastSelect: Partial<Record<"sms_send_events" | "sms_weekly_send_events", string>>;
 } = {
   sms_send_events: [],
   sms_weekly_send_events: [],
   errors: {},
+  lastSelect: {},
 };
 
 function makeChain(table: "sms_send_events" | "sms_weekly_send_events") {
@@ -38,7 +42,10 @@ function makeChain(table: "sms_send_events" | "sms_weekly_send_events") {
     }
     return { data: tables[table], error: null };
   });
-  self.select = vi.fn(() => self);
+  self.select = vi.fn((cols: string) => {
+    tables.lastSelect[table] = cols;
+    return self;
+  });
   self.eq = vi.fn(() => self);
   self.order = vi.fn(() => self);
   self.limit = vi.fn(() => self);
@@ -55,10 +62,9 @@ function strongDaily(args: {
     status: "sent",
     message_sid: `SM-${args.dayKey}`,
     send_slot: args.slot === undefined ? "morning" : args.slot,
-    sent_at: args.sentAt,
     created_at: args.sentAt,
-    processed_at: args.sentAt,
     day_key: args.dayKey,
+    metadata: { sent_at: args.sentAt },
   };
 }
 
@@ -66,10 +72,8 @@ function strongWeekly(args: { dayKey: string; sentAt: string }): ClockRow {
   return {
     status: "delivered",
     message_sid: `SMW-${args.dayKey}`,
-    sent_at: args.sentAt,
     created_at: args.sentAt,
-    processed_at: args.sentAt,
-    day_key: args.dayKey,
+    metadata: { sent_at: args.sentAt },
   };
 }
 
@@ -78,9 +82,36 @@ describe("quiet relationship eligibility + required-touch clock", () => {
     tables.sms_send_events = [];
     tables.sms_weekly_send_events = [];
     tables.errors = {};
+    tables.lastSelect = {};
     fromMock.mockImplementation((name: string) =>
       makeChain(name as "sms_send_events" | "sms_weekly_send_events")
     );
+  });
+
+  it("clock SELECT strings omit unsupported production columns", () => {
+    expect(SEND_EVENT_CLOCK_SELECT).toBe(
+      "status, message_sid, outbound_message_sid, metadata, created_at, send_slot, day_key"
+    );
+    expect(SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bsent_at\b/);
+    expect(SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bprocessed_at\b/);
+    expect(SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bupdated_at\b/);
+    expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).toBe(
+      "status, message_sid, outbound_message_sid, metadata, created_at"
+    );
+    expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bsent_at\b/);
+    expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bprocessed_at\b/);
+    expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bupdated_at\b/);
+    expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bday_key\b/);
+  });
+
+  it("clock queries use the schema-safe SELECT strings", async () => {
+    await loadSuccessfulProactiveRelationshipTouchClock({
+      clerkUserId: "user_1",
+      timezone: "America/New_York",
+      localDate: "2026-07-12",
+    });
+    expect(tables.lastSelect.sms_send_events).toBe(SEND_EVENT_CLOCK_SELECT);
+    expect(tables.lastSelect.sms_weekly_send_events).toBe(WEEKLY_SEND_EVENT_CLOCK_SELECT);
   });
 
   it("active-user shield is exact at 9 vs 10", () => {
@@ -331,6 +362,7 @@ describe("quiet relationship eligibility + required-touch clock", () => {
       recentUnansweredOutboundCount: 4,
     });
     expect(facts.clock_lookup_failed).toBe(true);
+    expect(facts.clock_lookup_error).toBe("sms_send_events:db down");
     expect(facts.quiet_relationship_eligible).toBe(true);
     expect(facts.message_required_today).toBe(false);
     expect(facts.days_since_last_successful_proactive_send).toBeNull();
@@ -365,5 +397,67 @@ describe("quiet relationship eligibility + required-touch clock", () => {
     expect(facts.quiet_relationship_eligible).toBe(true);
     expect(facts.days_since_last_successful_proactive_send).toBe(1);
     expect(facts.message_required_today).toBe(false);
+    expect(facts.clock_lookup_failed).toBe(false);
+    expect(facts.clock_lookup_error).toBeNull();
+  });
+
+  it("daily metadata.sent_at + send_slot + day_key is accepted; created_at-only also works", async () => {
+    tables.sms_send_events = [
+      strongDaily({
+        dayKey: "2026-07-10",
+        sentAt: "2026-07-10T12:00:00.000Z",
+        slot: "evening_checkin",
+      }),
+    ];
+    const metaClock = await loadSuccessfulProactiveRelationshipTouchClock({
+      clerkUserId: "user_1",
+      timezone: "America/New_York",
+      localDate: "2026-07-12",
+    });
+    expect(metaClock.ok).toBe(true);
+    if (!metaClock.ok) return;
+    expect(metaClock.lookupFailed).toBe(false);
+    expect(metaClock.last?.localDayKey).toBe("2026-07-10");
+    expect(metaClock.daysSinceLast).toBe(2);
+
+    tables.sms_send_events = [
+      {
+        status: "sent",
+        message_sid: "SM-created-only",
+        send_slot: "morning",
+        created_at: "2026-07-09T14:00:00.000Z",
+        day_key: "2026-07-09",
+      },
+    ];
+    const createdClock = await loadSuccessfulProactiveRelationshipTouchClock({
+      clerkUserId: "user_1",
+      timezone: "America/New_York",
+      localDate: "2026-07-12",
+    });
+    expect(createdClock.ok).toBe(true);
+    if (!createdClock.ok) return;
+    expect(createdClock.last?.localDayKey).toBe("2026-07-09");
+    expect(createdClock.daysSinceLast).toBe(3);
+  });
+
+  it("weekly metadata.sent_at with no day_key derives local day from timestamp + timezone", async () => {
+    tables.sms_weekly_send_events = [
+      {
+        status: "delivered",
+        message_sid: "SMW-noday",
+        created_at: "2026-07-05T16:00:00.000Z",
+        metadata: { sent_at: "2026-07-05T16:00:00.000Z" },
+      },
+    ];
+    const clock = await loadSuccessfulProactiveRelationshipTouchClock({
+      clerkUserId: "user_1",
+      timezone: "America/New_York",
+      localDate: "2026-07-12",
+    });
+    expect(clock.ok).toBe(true);
+    if (!clock.ok) return;
+    expect(clock.last?.sourceTable).toBe("sms_weekly_send_events");
+    expect(clock.last?.localDayKey).toBe("2026-07-05");
+    expect(clock.daysSinceLast).toBe(7);
   });
 });

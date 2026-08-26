@@ -463,6 +463,36 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
           </dd>
         </div>
         <div>
+          <dt className="font-medium text-gray-500">quiet_relationship_eligible</dt>
+          <dd>{formatOptional(row.quietRelationshipEligible)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">interpreter proactive_decision</dt>
+          <dd className="font-mono break-all">
+            {formatOptional(row.interpreterProactiveDecision)}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">final proactive_decision</dt>
+          <dd className="font-mono break-all">
+            {formatOptional(row.clampedProactiveDecision)}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">clock_lookup_failed</dt>
+          <dd>{formatOptional(row.clockLookupFailed)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">clock_lookup_error</dt>
+          <dd className="font-mono break-all">{formatOptional(row.clockLookupError)}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-gray-500">
+            days_since_last_successful_proactive_send
+          </dt>
+          <dd>{formatOptional(row.daysSinceLastSuccessfulProactiveSend)}</dd>
+        </div>
+        <div>
           <dt className="font-medium text-gray-500">lane_stage</dt>
           <dd className="font-mono break-all">{formatOptional(row.laneStage)}</dd>
         </div>

@@ -1070,6 +1070,7 @@ function quietMetadataFields(quiet: QuietRelationshipMechanicalFacts): Record<st
     quiet_relationship_eligible: quiet.quiet_relationship_eligible,
     message_required_today: quiet.message_required_today,
     clock_lookup_failed: quiet.clock_lookup_failed,
+    clock_lookup_error: quiet.clock_lookup_error,
     days_since_last_successful_proactive_send: quiet.days_since_last_successful_proactive_send,
     days_since_first_successful_proactive_send: quiet.days_since_first_successful_proactive_send,
   };
@@ -1164,6 +1165,7 @@ export async function runObservationalMorningBriefInterpreter(args: {
       quiet_relationship_eligible: false,
       message_required_today: false,
       clock_lookup_failed: false,
+      clock_lookup_error: null,
       days_since_last_successful_proactive_send: null,
       days_since_first_successful_proactive_send: null,
     } satisfies QuietRelationshipMechanicalFacts);

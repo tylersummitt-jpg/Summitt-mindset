@@ -415,6 +415,12 @@ export type TylerTextOverviewAdminDraftRow = {
   silenceDay: number | null;
   intentionalSpace: boolean | null;
   messageRequiredToday: boolean | null;
+  quietRelationshipEligible?: boolean | null;
+  interpreterProactiveDecision?: string | null;
+  clampedProactiveDecision?: string | null;
+  clockLookupFailed?: boolean | null;
+  clockLookupError?: string | null;
+  daysSinceLastSuccessfulProactiveSend?: number | null;
   laneStage: string | null;
   slotCoachingContext: TylerTextOverviewSlotCoachingContextPanel | null;
   /** Phase 2C — stored generation-time interpreter capture (observation only). */

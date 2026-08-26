@@ -1174,6 +1174,68 @@ describe("tyler-text-overview-admin read model", () => {
     expect(parseWriterOpenAiMessages(undefined)).toEqual([]);
   });
 
+  it("maps quiet relationship clock observability from generation metadata", () => {
+    const dto = mapDraftRowsToAdminDto({
+      drafts: [
+        {
+          id: "draft-clock",
+          clerk_user_id: "user_admin_test",
+          draft_for_day_key: "2026-08-25",
+          send_slot: "evening_checkin",
+          status: "current",
+          current_generation_id: "gen-clock",
+          current_body_to_send: "Would-send body",
+          current_body_source: "machine_draft",
+          edited_by_tyler: false,
+          edited_at: null,
+          sent_at: null,
+          final_body_sent: null,
+          twilio_message_sid: null,
+          source_sms_send_event_id: null,
+        },
+      ],
+      generationsById: new Map([
+        [
+          "gen-clock",
+          {
+            id: "gen-clock",
+            generation_number: 1,
+            writer_openai_messages: [
+              { role: "system", content: "s" },
+              { role: "user", content: "u" },
+              { role: "assistant", content: "a" },
+            ],
+            machine_draft_body: "Would-send body",
+            machine_should_send: true,
+            machine_no_send_reason: null,
+            generation_metadata: {
+              quiet_relationship_eligible: true,
+              message_required_today: false,
+              clock_lookup_failed: true,
+              clock_lookup_error: "sms_send_events:column does not exist",
+              days_since_last_successful_proactive_send: null,
+              proactive_decision: "send",
+              intentional_space: false,
+              morning_brief_interpreter_v1: {
+                parsed_brief: {
+                  coaching_direction: { proactive_decision: "intentional_space" },
+                },
+              },
+            },
+          },
+        ],
+      ]),
+    })[0];
+    expect(dto.quietRelationshipEligible).toBe(true);
+    expect(dto.messageRequiredToday).toBe(false);
+    expect(dto.clockLookupFailed).toBe(true);
+    expect(dto.clockLookupError).toBe("sms_send_events:column does not exist");
+    expect(dto.daysSinceLastSuccessfulProactiveSend).toBeNull();
+    expect(dto.interpreterProactiveDecision).toBe("intentional_space");
+    expect(dto.clampedProactiveDecision).toBe("send");
+    expect(dto.intentionalSpace).toBe(false);
+  });
+
   it("list exposes notebook metadata and stale generation detection", async () => {
     seedCurrentDraft({
       generation: {

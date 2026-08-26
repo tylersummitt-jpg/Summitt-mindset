@@ -128,6 +128,12 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   | "silenceDay"
   | "intentionalSpace"
   | "messageRequiredToday"
+  | "quietRelationshipEligible"
+  | "interpreterProactiveDecision"
+  | "clampedProactiveDecision"
+  | "clockLookupFailed"
+  | "clockLookupError"
+  | "daysSinceLastSuccessfulProactiveSend"
   | "laneStage"
   | "slotCoachingContext"
   | "morningBriefInterpreterV1"
@@ -162,6 +168,12 @@ const EMPTY_NOTEBOOK_FIELDS: Pick<
   silenceDay: null,
   intentionalSpace: null,
   messageRequiredToday: null,
+  quietRelationshipEligible: null,
+  interpreterProactiveDecision: null,
+  clampedProactiveDecision: null,
+  clockLookupFailed: null,
+  clockLookupError: null,
+  daysSinceLastSuccessfulProactiveSend: null,
   laneStage: null,
   slotCoachingContext: null,
   morningBriefInterpreterV1: null,
@@ -762,6 +774,19 @@ function readMetadataBoolean(metadata: Record<string, unknown>, key: string): bo
   return null;
 }
 
+function readProactiveDecisionToken(raw: unknown): string | null {
+  return raw === "send" || raw === "intentional_space" ? raw : null;
+}
+
+function interpreterProactiveDecisionFromParsedBrief(
+  parsedBrief: Record<string, unknown> | null
+): string | null {
+  if (!parsedBrief) return null;
+  const coaching = parsedBrief.coaching_direction;
+  if (!coaching || typeof coaching !== "object" || Array.isArray(coaching)) return null;
+  return readProactiveDecisionToken((coaching as Record<string, unknown>).proactive_decision);
+}
+
 function parseGenerationMetadata(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   return raw as Record<string, unknown>;
@@ -1173,6 +1198,12 @@ function mapGenerationToNotebookFields(
   | "silenceDay"
   | "intentionalSpace"
   | "messageRequiredToday"
+  | "quietRelationshipEligible"
+  | "interpreterProactiveDecision"
+  | "clampedProactiveDecision"
+  | "clockLookupFailed"
+  | "clockLookupError"
+  | "daysSinceLastSuccessfulProactiveSend"
   | "laneStage"
   | "slotCoachingContext"
   | "morningBriefInterpreterV1"
@@ -1196,6 +1227,7 @@ function mapGenerationToNotebookFields(
   const intentionalSpace = readMetadataBoolean(metadata, "intentional_space");
   const messageRequiredToday = readMetadataBoolean(metadata, "message_required_today");
   const skipSource = readMetadataString(metadata, "skip_source");
+  const interpreterPanel = mapMorningBriefInterpreterPanel(metadata);
   const linkedGenerationId =
     typeof draftCurrentGenerationId === "string" && draftCurrentGenerationId.trim()
       ? draftCurrentGenerationId.trim()
@@ -1246,9 +1278,20 @@ function mapGenerationToNotebookFields(
     silenceDay: readMetadataNumber(metadata, "silence_day"),
     intentionalSpace,
     messageRequiredToday,
+    quietRelationshipEligible: readMetadataBoolean(metadata, "quiet_relationship_eligible"),
+    interpreterProactiveDecision: interpreterProactiveDecisionFromParsedBrief(
+      interpreterPanel?.parsedBrief ?? null
+    ),
+    clampedProactiveDecision: readProactiveDecisionToken(metadata.proactive_decision),
+    clockLookupFailed: readMetadataBoolean(metadata, "clock_lookup_failed"),
+    clockLookupError: readMetadataString(metadata, "clock_lookup_error"),
+    daysSinceLastSuccessfulProactiveSend: readMetadataNumber(
+      metadata,
+      "days_since_last_successful_proactive_send"
+    ),
     laneStage: readMetadataString(metadata, "lane_stage"),
     slotCoachingContext: mapSlotCoachingContextPanel(metadata),
-    morningBriefInterpreterV1: mapMorningBriefInterpreterPanel(metadata),
+    morningBriefInterpreterV1: interpreterPanel,
     morningCoachingBriefV1: mapMorningCoachingBriefFromMetadata(metadata),
     morningWriterCaptureV1: mapMorningWriterCapturePanel(metadata),
     messageFor: mapMessageForFromMetadata(metadata),

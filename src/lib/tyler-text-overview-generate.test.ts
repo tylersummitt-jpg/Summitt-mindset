@@ -1731,10 +1731,9 @@ describe("canonical batch persists one day across US timezones", () => {
       status: "sent",
       message_sid: `SM-${dayKey}`,
       send_slot: slot,
-      sent_at: `${dayKey}T12:00:00.000Z`,
       created_at: `${dayKey}T12:00:00.000Z`,
-      processed_at: `${dayKey}T12:00:00.000Z`,
       day_key: dayKey,
+      metadata: { sent_at: `${dayKey}T12:00:00.000Z` },
     });
   }
 
@@ -1742,10 +1741,8 @@ describe("canonical batch persists one day across US timezones", () => {
     db.smsWeeklySendEvents.push({
       status: "delivered",
       message_sid: `SMW-${dayKey}`,
-      sent_at: `${dayKey}T16:00:00.000Z`,
       created_at: `${dayKey}T16:00:00.000Z`,
-      processed_at: `${dayKey}T16:00:00.000Z`,
-      day_key: dayKey,
+      metadata: { sent_at: `${dayKey}T16:00:00.000Z` },
     });
   }
 
@@ -1809,6 +1806,8 @@ describe("canonical batch persists one day across US timezones", () => {
       intentional_space: true,
       proactive_decision: "intentional_space",
       message_required_today: false,
+      clock_lookup_failed: false,
+      clock_lookup_error: null,
     });
     expect(db.generations[0]?.generation_metadata).not.toMatchObject({
       error: "openai_request_failed",
@@ -1864,6 +1863,7 @@ describe("canonical batch persists one day across US timezones", () => {
     expect(db.generations[0]?.generation_metadata).toMatchObject({
       quiet_relationship_eligible: true,
       clock_lookup_failed: true,
+      clock_lookup_error: "sms_send_events:db down",
       message_required_today: false,
       proactive_decision: "send",
       intentional_space: false,
@@ -1893,6 +1893,7 @@ describe("canonical batch persists one day across US timezones", () => {
     expect(db.generations[0]?.generation_metadata).toMatchObject({
       quiet_relationship_eligible: false,
       clock_lookup_failed: true,
+      clock_lookup_error: "sms_send_events:db down",
       message_required_today: false,
       proactive_decision: "send",
       intentional_space: false,

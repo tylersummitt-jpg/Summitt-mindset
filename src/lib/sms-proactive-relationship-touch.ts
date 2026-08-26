@@ -24,11 +24,13 @@ export const MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE = "intentional_space" as c
 
 const CLOCK_ROW_LIMIT = 100 as const;
 
-const SEND_EVENT_CLOCK_SELECT =
-  "status, message_sid, outbound_message_sid, metadata, created_at, sent_at, processed_at, updated_at, send_slot, day_key";
+/** Schema-safe daily clock columns — no top-level sent_at/processed_at/updated_at. */
+export const SEND_EVENT_CLOCK_SELECT =
+  "status, message_sid, outbound_message_sid, metadata, created_at, send_slot, day_key";
 
-const WEEKLY_SEND_EVENT_CLOCK_SELECT =
-  "status, message_sid, outbound_message_sid, metadata, created_at, sent_at, processed_at, updated_at, day_key";
+/** Schema-safe weekly clock columns — no top-level sent_at/processed_at/updated_at/day_key. */
+export const WEEKLY_SEND_EVENT_CLOCK_SELECT =
+  "status, message_sid, outbound_message_sid, metadata, created_at";
 
 export type ProactiveRelationshipTouchSourceTable =
   | "sms_send_events"
@@ -330,6 +332,7 @@ export async function resolveQuietRelationshipMechanicalFacts(args: {
   quiet_relationship_eligible: boolean;
   message_required_today: boolean;
   clock_lookup_failed: boolean;
+  clock_lookup_error: string | null;
   days_since_last_successful_proactive_send: number | null;
   days_since_first_successful_proactive_send: number | null;
 }> {
@@ -354,6 +357,7 @@ export async function resolveQuietRelationshipMechanicalFacts(args: {
     quiet_relationship_eligible: eligibility.eligible,
     message_required_today,
     clock_lookup_failed: clock.lookupFailed,
+    clock_lookup_error: clock.ok ? null : clock.error,
     days_since_last_successful_proactive_send: clock.daysSinceLast,
     days_since_first_successful_proactive_send: clock.daysSinceFirst,
   };

@@ -637,4 +637,18 @@ describe("weekly raw notebook / provenance", () => {
     expect(TTO_INTERPRETER_OPENAI_ERROR_HEADING).toBe("INTERPRETER OPENAI ERROR");
     expect(TTO_WRITER_OPENAI_ERROR_HEADING).toBe("WRITER OPENAI ERROR");
   });
+
+  it("dashboard surfaces quiet relationship clock clamp fields", () => {
+    const dashboard = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
+      "utf8"
+    );
+    expect(dashboard).toContain("quiet_relationship_eligible");
+    expect(dashboard).toContain("interpreter proactive_decision");
+    expect(dashboard).toContain("final proactive_decision");
+    expect(dashboard).toContain("clock_lookup_failed");
+    expect(dashboard).toContain("clock_lookup_error");
+    expect(dashboard).toContain("days_since_last_successful_proactive_send");
+    expect(dashboard).toContain("required_touch");
+  });
 });
