@@ -319,6 +319,8 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(p).toContain("Never mutate state");
     expect(p).toContain("should_send");
     expect(p).toContain("Current Goal is context");
+    expect(p).toContain("UNRESOLVED COACHING-FOCUS CHOICE");
+    expect(p).toContain("Do not recap or coach the disputed focus as though it was reaffirmed");
     expect(p).toContain("Do not automatically ask whether they hit their Current Goal");
     expect(p).toContain("One completion is not consistency");
     expect(p).toContain("One miss is not a pattern");

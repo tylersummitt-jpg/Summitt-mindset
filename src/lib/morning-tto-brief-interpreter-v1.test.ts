@@ -219,6 +219,8 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(p).toContain("EXACT SCHEMA CONTRACT");
     expect(p).toContain("primary_move=reconnect AND pressure=low");
     expect(p).toContain("never low_pressure_reconnection");
+    expect(p).toContain("UNRESOLVED COACHING-FOCUS CHOICE");
+    expect(p).toContain("Do not assign new work on that disputed focus merely because it remains canonical");
     expect(p).not.toMatch(/Never say ['"]what'?s your plan/i);
     expect(p).not.toMatch(/Never say ['"]how did today go/i);
     expect(p).not.toMatch(/if \(.*daypart/);
