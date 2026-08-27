@@ -133,7 +133,13 @@ describe("compactInboundTurnTelemetryLaneFields", () => {
   it("whitelist covers soak SQL strategy and packet keys", () => {
     expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("strategy_card_route_kind");
     expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("relationship_packet_version");
-    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("active_pending_state_source");
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("inbound_sol_historical_evidence_count");
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
+      "inbound_sol_durable_user_evidence_returned"
+    );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
+      "inbound_sol_durable_user_evidence_persist_status"
+    );
   });
 });
 

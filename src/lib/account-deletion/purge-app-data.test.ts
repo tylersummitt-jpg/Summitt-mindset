@@ -495,3 +495,52 @@ describe("Umbrella 1 — v2_win purge extension (static)", () => {
     expect(commitmentIdx).toBeGreaterThan(winIdx);
   });
 });
+
+describe("Commit 2 — v2_durable_user_evidence purge extension (static)", () => {
+  const EVIDENCE_MIGRATION = join(
+    process.cwd(),
+    "supabase/migrations/20260827120000_v2_durable_user_evidence.sql"
+  );
+  const sql = readFileSync(EVIDENCE_MIGRATION, "utf8");
+
+  it("creates v2_durable_user_evidence with locked columns, unique SID, and RLS", () => {
+    const tableSql = sql.slice(
+      sql.indexOf("CREATE TABLE public.v2_durable_user_evidence"),
+      sql.indexOf("COMMENT ON TABLE public.v2_durable_user_evidence")
+    );
+    expect(tableSql).toContain("CREATE TABLE public.v2_durable_user_evidence");
+    expect(tableSql).toContain("CREATE UNIQUE INDEX uq_v2_durable_user_evidence_source_message_sid");
+    expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(sql).toContain("REVOKE ALL ON TABLE public.v2_durable_user_evidence FROM PUBLIC");
+    expect(sql).toContain("REVOKE ALL ON TABLE public.v2_durable_user_evidence FROM anon");
+    expect(sql).toContain("REVOKE ALL ON TABLE public.v2_durable_user_evidence FROM authenticated");
+    expect(sql).toContain(
+      "GRANT ALL PRIVILEGES\nON TABLE public.v2_durable_user_evidence\nTO service_role;"
+    );
+    expect(sql).toContain(
+      "GRANT SELECT\nON TABLE public.v2_durable_user_evidence\nTO readonly_user;"
+    );
+    expect(sql).not.toContain("CREATE POLICY");
+    expect(tableSql).not.toContain("commitment_id");
+    expect(tableSql).not.toContain("embedding");
+    expect(tableSql).not.toContain("source_message_id");
+    expect(tableSql).not.toContain("semantic");
+  });
+
+  it("documents production purge DELETE/count without replacing the live RPC", () => {
+    expect(sql).not.toContain(
+      "CREATE OR REPLACE FUNCTION public.purge_app_data_for_account_deletion("
+    );
+    expect(sql).toContain(
+      "DELETE FROM public.v2_durable_user_evidence WHERE clerk_user_id = v_clerk"
+    );
+    expect(sql).toContain("jsonb_build_object('durable_user_evidence', v_n)");
+    const evidenceIdx = sql.indexOf(
+      "DELETE FROM public.v2_durable_user_evidence WHERE clerk_user_id = v_clerk"
+    );
+    const winIdx = sql.indexOf("DELETE FROM public.v2_win WHERE clerk_user_id = v_clerk");
+    expect(evidenceIdx).toBeGreaterThan(-1);
+    expect(winIdx).toBeGreaterThan(-1);
+    expect(evidenceIdx).toBeLessThan(winIdx);
+  });
+});

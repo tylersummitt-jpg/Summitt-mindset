@@ -1614,6 +1614,12 @@ export type MorningExactThreadResult = {
    * and/or 12k total-char reduction (not window exclusion).
    */
   omitted_older_turn_count: number;
+  /**
+   * Source MessageSids that survived 21d / 30 / 12k cap.
+   * Internal membership for historical-evidence duplicate suppression.
+   * Not projected onto model-facing exact_thread messages.
+   */
+  surviving_message_sids: string[];
 };
 
 export type MorningExactThreadOptions = {
@@ -1741,6 +1747,19 @@ function projectMorningChosen(
   );
 }
 
+function survivingMessageSidsFromChosen(chosen: MorningCapItem[]): string[] {
+  const sids: string[] = [];
+  const seen = new Set<string>();
+  for (const item of chosen) {
+    const raw = item.msg.message_sid;
+    const sid = typeof raw === "string" ? raw.trim() : "";
+    if (!sid || seen.has(sid)) continue;
+    seen.add(sid);
+    sids.push(sid);
+  }
+  return sids;
+}
+
 /**
  * Cap writer-facing thread for Morning TTO.
  * Users: complete bodies. Coaches: optional per-message cap.
@@ -1810,6 +1829,7 @@ export function capMorningExactThreadMessages(
   return {
     messages: projected,
     omitted_older_turn_count: Math.max(0, windowPoolCount - projected.length),
+    surviving_message_sids: survivingMessageSidsFromChosen(chosen),
   };
 }
 
@@ -1832,6 +1852,7 @@ export async function buildRelationshipExactThreadForPacket(args: {
   omitted_older_turn_count: number;
   message_count: number;
   char_count: number;
+  surviving_message_sids: string[];
 }> {
   return buildMorningExactThreadForPacket(args);
 }
@@ -1852,6 +1873,7 @@ export async function buildMorningExactThreadForPacket(args: {
   omitted_older_turn_count: number;
   message_count: number;
   char_count: number;
+  surviving_message_sids: string[];
 }> {
   const now = args.now ?? new Date();
   const tz = resolveUserTimezone(args.timezone);
@@ -1882,5 +1904,6 @@ export async function buildMorningExactThreadForPacket(args: {
     omitted_older_turn_count: capped.omitted_older_turn_count,
     message_count: capped.messages.length,
     char_count: morningExactThreadMessageCharCount(capped.messages),
+    surviving_message_sids: capped.surviving_message_sids,
   };
 }

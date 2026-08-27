@@ -36,9 +36,12 @@ import {
   loadInboundMmsD2cPendingContext,
 } from "@/lib/victory-media/inbound-mms-d2c-pending-context";
 import {
-  EMPTY_HISTORICAL_EVIDENCE,
   type HistoricalEvidenceSlice,
 } from "@/lib/historical-evidence";
+import {
+  fetchActiveDurableUserEvidenceRows,
+  projectDurableUserEvidenceItems,
+} from "@/lib/durable-user-evidence-load";
 
 export const INBOUND_RELATIONSHIP_PACKET_VERSION = "inbound_relationship_v1" as const;
 
@@ -325,7 +328,7 @@ export async function loadInboundRelationshipPacket(args: {
       ? args.commitment.behavior_statement.trim()
       : "");
 
-  const [{ data: profile }, { data: importantPeopleRows }, threadMemory, timeline] =
+  const [{ data: profile }, { data: importantPeopleRows }, threadMemory, timeline, evidenceRows] =
     await Promise.all([
       supabaseServer
         .from("user_profiles")
@@ -347,6 +350,7 @@ export async function loadInboundRelationshipPacket(args: {
         windowHours: MORNING_TTO_THREAD_WINDOW_HOURS,
         preserveUserBodyFormatting: true,
       }),
+      fetchActiveDurableUserEvidenceRows(args.clerkUserId),
     ]);
 
   const identityRaw = trimOrNull(profile?.identity_anchor_text);
@@ -420,7 +424,11 @@ export async function loadInboundRelationshipPacket(args: {
     latest_inbound_text: latestInboundText,
     latest_inbound_message_sid: latestInboundMessageSid,
     pending_media_context,
-    historical_evidence: EMPTY_HISTORICAL_EVIDENCE,
+    historical_evidence: projectDurableUserEvidenceItems({
+      rows: evidenceRows,
+      timezone: tz,
+      survivingExactThreadMessageSids: exactThread.surviving_message_sids,
+    }),
     exact_thread: {
       window_days: MORNING_TTO_THREAD_WINDOW_DAYS,
       max_messages: MORNING_TTO_THREAD_MAX_MESSAGES,

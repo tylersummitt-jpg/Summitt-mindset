@@ -158,6 +158,35 @@ describe("weekly-tto-relationship-packet", () => {
     expect(JSON.stringify(result.packet)).not.toMatch(/weekly_summary|weekly_score|weekly_story/);
   });
 
+  it("inherits Morning historical_evidence without a weekly-specific DB read", async () => {
+    const evidence = [
+      {
+        source: "user_message" as const,
+        occurred_at: "2026-06-01",
+        evidence: "I like when you challenge me directly.",
+        user_quote: "I like when you challenge me directly.",
+      },
+    ];
+    loadMorningRelationshipPacket.mockResolvedValue({
+      ok: true,
+      packet: morningPacket({ historical_evidence: evidence }),
+      commitmentId: "cmt_weekly",
+    });
+    const src = readFileSync(join(REPO, "src/lib/weekly-tto-relationship-packet.ts"), "utf8");
+    expect(src).not.toContain("v2_durable_user_evidence");
+    expect(src).not.toContain("fetchActiveDurableUserEvidenceRows");
+    const result = await loadWeeklyRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/New_York",
+      weekStartLocalDate: "2026-07-06",
+      weekEndLocalDate: "2026-07-12",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.historical_evidence).toEqual(evidence);
+    expect(result.packet.historical_evidence).toBe(evidence);
+  });
+
   it("keeps pending goal separate from current_goal", async () => {
     loadMorningRelationshipPacket.mockResolvedValue({
       ok: true,

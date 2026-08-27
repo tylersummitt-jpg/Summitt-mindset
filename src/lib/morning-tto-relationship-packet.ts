@@ -20,9 +20,12 @@ import {
 } from "@/lib/v2-guided-resolution";
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor-validation";
 import {
-  EMPTY_HISTORICAL_EVIDENCE,
   type HistoricalEvidenceSlice,
 } from "@/lib/historical-evidence";
+import {
+  fetchActiveDurableUserEvidenceRows,
+  projectDurableUserEvidenceItems,
+} from "@/lib/durable-user-evidence-load";
 
 /** Intended SMS daypart for shared Sol coaching (Morning wrappers always pass "morning"). */
 export type TtoMessageDaypart = "morning" | "evening";
@@ -257,7 +260,7 @@ export async function loadMorningRelationshipPacket(args: {
     return { ok: false, error: "missing_current_goal" };
   }
 
-  const [{ data: profile }, { data: importantPeopleRows }, lastReplyAt, exactThread] =
+  const [{ data: profile }, { data: importantPeopleRows }, lastReplyAt, exactThread, evidenceRows] =
     await Promise.all([
       supabaseServer
         .from("user_profiles")
@@ -278,6 +281,7 @@ export async function loadMorningRelationshipPacket(args: {
         messageForLocalDate: message_for.local_date,
         now,
       }),
+      fetchActiveDurableUserEvidenceRows(args.clerkUserId),
     ]);
 
   const identityRaw = trimOrNull(profile?.identity_anchor_text);
@@ -324,7 +328,11 @@ export async function loadMorningRelationshipPacket(args: {
     hard_state: {
       pending_goal_change: pendingGoalChangeFromCommitment(commitment, nowMs),
     },
-    historical_evidence: EMPTY_HISTORICAL_EVIDENCE,
+    historical_evidence: projectDurableUserEvidenceItems({
+      rows: evidenceRows,
+      timezone: tz,
+      survivingExactThreadMessageSids: exactThread.surviving_message_sids,
+    }),
     exact_thread: {
       window_days: exactThread.window_days,
       max_messages: exactThread.max_messages,

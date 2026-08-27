@@ -24,6 +24,7 @@ const completed: InboundSolBriefExtras = {
   },
   meaningful_win: null,
   pending_photo_relation: { relation: "none", target_win_id: null },
+  durable_user_evidence: null,
 };
 
 describe("Sol inbound Win / Victory Room mapping", () => {

@@ -28,6 +28,45 @@ export const INBOUND_SOL_INTERPRETER_TEMPERATURE = null;
 export const INBOUND_SOL_INTERPRETER_MAX_COMPLETION_TOKENS = 2500 as const;
 export const INBOUND_SOL_INTERPRETER_PROMPT_PATH = "inbound_sol_interpreter_v1" as const;
 
+export const INBOUND_SOL_DURABLE_USER_EVIDENCE_CAPTURE_LAW = `DURABLE USER EVIDENCE
+
+Optionally preserve ONE exact verbatim excerpt from latest_inbound_text only when the member explicitly states a rare relationship truth likely to remain useful beyond the recent conversation window.
+
+Strong candidates include:
+- explicit lasting instructions about how Coach should coach them
+- foundational values or standards stated in the member's own words
+- durable relationship priorities
+- rare long-term human context likely to materially improve future coaching
+
+Do not preserve:
+- ordinary updates
+- temporary moods/problems
+- plans
+- transient circumstances
+- inferred traits
+- model interpretations
+- Current Goal restatements
+- facts already represented as accountability outcomes or Wins
+
+A this-turn-only request is not a lasting coaching preference.
+
+user_is_correcting_coach can also be durable relationship guidance when the correction is lasting, not only for this turn. One capture object. Do not create a separate correction-memory field.
+
+When unsure:
+return null.
+
+If returning evidence:
+exact_user_evidence MUST be a verbatim contiguous substring of latest_inbound_text.
+
+Do not select evidence from exact_thread.
+Do not select something Coach said.
+Do not paraphrase.
+Do not normalize wording.
+Do not "improve" grammar.
+
+This is semantic capture by Sol.
+No keyword rules.`;
+
 export const INBOUND_SOL_INTERPRETER_SCHEMA_RETRY_USER =
   `Your previous response did not match inbound_coaching_brief_v1. Return ONLY valid JSON for that exact schema (six Coaching Brief sections plus inbound extras). Do not change coaching meaning — fix structure only. No markdown. No SMS body.`;
 
@@ -72,6 +111,8 @@ MEANINGFUL WIN (inbound.meaningful_win):
 - relationship=goal or mixed means the win IS the accountability completion — still prefer null unless a distinct extra is clearly present.
 - relationship=life means a DISTINCT whole-life win besides the Current Goal.
 - relationship=unclear → treat as no extra win (set null unless you must mark present).
+
+${INBOUND_SOL_DURABLE_USER_EVIDENCE_CAPTURE_LAW}
 
 PENDING PHOTO (inbound.pending_photo_relation):
 - pending_media_context is CODE-supplied fact about a parked inbound photo, if any. It is not a photo. You never receive image bytes, URLs, or Storage paths.

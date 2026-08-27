@@ -57,6 +57,12 @@ export type InboundSolMeaningfulWin = {
   relationship: InboundSolWinRelationship;
 };
 
+export type InboundSolDurableUserEvidence = {
+  exact_user_evidence: string;
+};
+
+export const DURABLE_USER_EVIDENCE_PARSER_MAX_CHARS = 400 as const;
+
 export const INBOUND_SOL_PENDING_PHOTO_RELATION = [
   "none",
   "uncertain",
@@ -88,6 +94,7 @@ export type InboundSolBriefExtras = {
   };
   meaningful_win: InboundSolMeaningfulWin | null;
   pending_photo_relation: InboundSolPendingPhotoRelation;
+  durable_user_evidence: InboundSolDurableUserEvidence | null;
 };
 
 export type InboundCoachingBriefV1 = MorningCoachingBriefV1 & {
@@ -148,7 +155,19 @@ export function parseInboundSolBriefExtras(raw: unknown): InboundSolBriefExtras 
     },
     meaningful_win,
     pending_photo_relation: parsePendingPhotoRelation(o.pending_photo_relation),
+    durable_user_evidence: parseDurableUserEvidence(o.durable_user_evidence),
   };
+}
+
+function parseDurableUserEvidence(raw: unknown): InboundSolDurableUserEvidence | null {
+  if (raw == null) return null;
+  if (typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.exact_user_evidence !== "string") return null;
+  const excerpt = o.exact_user_evidence;
+  if (excerpt.length === 0) return null;
+  if (excerpt.length > DURABLE_USER_EVIDENCE_PARSER_MAX_CHARS) return null;
+  return { exact_user_evidence: excerpt };
 }
 
 function parsePendingPhotoRelation(raw: unknown): InboundSolPendingPhotoRelation {
@@ -193,6 +212,8 @@ export function compactInboundSolBriefForTelemetry(
     inbound_sol_accountability_confidence: brief.inbound.accountability_interpretation.confidence,
     inbound_sol_meaningful_win_relationship:
       brief.inbound.meaningful_win?.relationship ?? null,
+    inbound_sol_durable_user_evidence_returned:
+      brief.inbound.durable_user_evidence != null,
     inbound_sol_pending_photo_relation: brief.inbound.pending_photo_relation.relation,
     inbound_sol_most_alive_preview:
       typeof brief.human_situation.most_alive === "string"

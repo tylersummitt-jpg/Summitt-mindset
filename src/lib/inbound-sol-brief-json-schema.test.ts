@@ -12,7 +12,11 @@ describe("inbound Sol D1 schema extras", () => {
   it("requires pending_photo_relation on inbound extras", () => {
     const inbound = INBOUND_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1.properties.inbound;
     expect(inbound.required).toEqual(
-      expect.arrayContaining(["pending_photo_relation", "meaningful_win"])
+      expect.arrayContaining([
+        "pending_photo_relation",
+        "meaningful_win",
+        "durable_user_evidence",
+      ])
     );
     expect(inbound.properties.pending_photo_relation.required).toEqual([
       "relation",

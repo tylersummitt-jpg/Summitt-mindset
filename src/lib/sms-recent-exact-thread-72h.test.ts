@@ -2150,6 +2150,11 @@ describe("Morning TTO exact thread caps", () => {
     expect(capped.omitted_older_turn_count).toBe(5);
     expect(capped.messages[0]?.body).toBe("Morning cap message 5");
     expect(capped.messages.at(-1)?.body).toBe("Morning cap message 34");
+    expect(capped.surviving_message_sids).toEqual(
+      Array.from({ length: 30 }, (_, i) => `SM_${i + 5}`)
+    );
+    expect(capped.surviving_message_sids).not.toContain("SM_0");
+    expect(capped.messages[0]).not.toHaveProperty("message_sid");
   });
 
   it("truncates coach per-message body to 480 chars and total to 12000", async () => {
@@ -2563,6 +2568,8 @@ describe("Morning TTO user-body preservation and role-aware budget", () => {
     expect(capped.messages[0]?.body).toBe(newer);
     expect(capped.messages[0]?.body).not.toContain("…");
     expect(capped.omitted_older_turn_count).toBe(1);
+    expect(capped.surviving_message_sids).toEqual(["SM_NEW_U"]);
+    expect(capped.surviving_message_sids).not.toContain("SM_OLD_U");
   });
 
   it("protects newest user turn and keeps ascending chronology", async () => {

@@ -199,6 +199,24 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(JSON.stringify(assembled)).not.toMatch(/strong_week|rough_week|win_hint/);
   });
 
+  it("copies populated packet historical_evidence into interpreter input", () => {
+    const evidence = [
+      {
+        source: "user_message" as const,
+        occurred_at: "2026-06-01",
+        evidence: "Don't sugarcoat it.",
+        user_quote: "Don't sugarcoat it.",
+      },
+    ];
+    const assembled = assembleWeeklyBriefInterpreterInputFromPacket({
+      packet: samplePacket({ historical_evidence: evidence }),
+      extras: extras(1),
+    });
+    expect(assembled).not.toHaveProperty("ok");
+    if ("ok" in assembled) return;
+    expect(assembled.historical_evidence).toEqual(evidence);
+  });
+
   it("passes raw current-week events in order without converting counts into prose", () => {
     const events = [
       {

@@ -159,6 +159,7 @@ Public privacy copy must disclose lawful/operational retention accurately (see �
 | `v2_sms_meaning_interpretation_shadow` | clerk | telemetry | DELETE | — | all | Step 9 | Soft FK | C2 | — |
 | `v2_sms_pattern_correction` | clerk nullable | telemetry | DELETE user-scoped | — | user rows | Step 9 | Soft FK | C2 | Do not delete global-scope rows |
 | `v2_win` | clerk | Victory Room Wins | DELETE | — | all | Step 9 | Soft FKs to commitment/event/inbound (SET NULL) | Umbrella 1 | Whole-life Wins; purge by clerk before commitment children |
+| `v2_durable_user_evidence` | clerk | Durable exact user-stated evidence | DELETE | — | all | Step 9 | User-level content; no FKs | Commit 2 | Count key `durable_user_evidence`; production delete is immediately before `v2_win` |
 | `v2_user_sms_comms_preferences` | clerk | prefs | DELETE | — | all | Step 9 | Timing prefs | C2 | STOP remains inbound evidence |
 | `v2_user_send_time_profile` | clerk | prefs | DELETE | — | all | Step 9 | Learned prefs | C2 | — |
 | `v2_user_rollout` | clerk | rollout | DELETE | — | all | Step 9 | Enrollment | C2 | — |

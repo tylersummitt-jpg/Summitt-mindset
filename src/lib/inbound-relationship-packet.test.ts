@@ -133,6 +133,16 @@ describe("inbound relationship packet", () => {
           }),
         };
       }
+      if (table === "v2_durable_user_evidence") {
+        const result = { data: [], error: null };
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          order: () => builder,
+          then: (resolve: (v: typeof result) => void) => resolve(result),
+        };
+        return builder;
+      }
       return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
     });
     buildRecentExactThread72h.mockResolvedValue({
@@ -185,6 +195,233 @@ describe("inbound relationship packet", () => {
       now: new Date("2026-08-18T16:30:00.000Z"),
     });
     expect(buildRecentExactThread72h).toHaveBeenCalled();
+  });
+
+  it("loads durable user evidence not present in surviving exact-thread SIDs", async () => {
+    const evidenceResult = {
+      data: [
+        {
+          id: "e1",
+          occurred_at: "2026-08-01T16:00:00.000Z",
+          source_message_sid: "SMhist",
+          exact_user_evidence: "Don't sugarcoat it.",
+          created_at: "2026-08-01T16:00:01.000Z",
+        },
+        {
+          id: "e2",
+          occurred_at: "2026-08-10T16:00:00.000Z",
+          source_message_sid: "SMold",
+          exact_user_evidence: "Being present with my kids matters more.",
+          created_at: "2026-08-10T16:00:01.000Z",
+        },
+      ],
+      error: null,
+    };
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === "user_profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { preferred_name: "Angel", identity_anchor_text: null },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "important_people") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                is: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_commitment_sms_thread_memory") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "sms_inbound_messages") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_durable_user_evidence") {
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          order: () => builder,
+          then: (resolve: (v: typeof evidenceResult) => void) => resolve(evidenceResult),
+        };
+        return builder;
+      }
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+    });
+    buildRecentExactThread72h.mockClear();
+    buildRecentExactThread72h.mockResolvedValue({
+      messages: [
+        threadMsg({
+          role: "user",
+          at: "2026-08-10T16:00:00.000Z",
+          message_sid: "SMold",
+          body: "Being present with my kids matters more.",
+        }),
+        threadMsg({
+          role: "user",
+          at: "2026-08-18T16:00:00.000Z",
+          message_sid: "SMangel",
+          body: "Need a 5 passenger SUV",
+        }),
+      ],
+      window_hours: 21 * 24,
+      message_count: 2,
+      had_preview_messages: false,
+      had_system_no_send: false,
+    });
+
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Need a 5 passenger SUV",
+      latestInboundMessageSid: "SMangel",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(buildRecentExactThread72h).toHaveBeenCalledTimes(1);
+    expect(loaded.packet.historical_evidence).toEqual([
+      {
+        source: "user_message",
+        occurred_at: "2026-08-01",
+        evidence: "Don't sugarcoat it.",
+        user_quote: "Don't sugarcoat it.",
+      },
+    ]);
+    expect(loaded.packet.exact_thread.messages.some((m) => m.body.includes("Need a 5"))).toBe(
+      false
+    );
+    expect(JSON.stringify(loaded.packet.exact_thread.messages)).not.toContain("message_sid");
+  });
+
+  it("message eliminated by exact-thread cap is eligible for historical_evidence", async () => {
+    const messages: RecentExactThread72hMessage[] = [];
+    for (let i = 0; i < 31; i++) {
+      messages.push(
+        threadMsg({
+          role: "user",
+          at: new Date(Date.parse("2026-08-18T16:00:00.000Z") - (31 - i) * 60_000).toISOString(),
+          message_sid: `SM_${i}`,
+          body: `Older inbound ${i}`,
+        })
+      );
+    }
+    const evidenceResult = {
+      data: [
+        {
+          id: "dropped",
+          occurred_at: messages[0]!.at,
+          source_message_sid: "SM_0",
+          exact_user_evidence: "Older inbound 0",
+          created_at: messages[0]!.at,
+        },
+      ],
+      error: null,
+    };
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === "v2_durable_user_evidence") {
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          order: () => builder,
+          then: (resolve: (v: typeof evidenceResult) => void) => resolve(evidenceResult),
+        };
+        return builder;
+      }
+      if (table === "user_profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { preferred_name: "Angel", identity_anchor_text: null },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "important_people") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                is: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_commitment_sms_thread_memory") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "sms_inbound_messages") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+    });
+    buildRecentExactThread72h.mockResolvedValue({
+      messages,
+      window_hours: 21 * 24,
+      message_count: messages.length,
+      had_preview_messages: false,
+      had_system_no_send: false,
+    });
+
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Need a 5 passenger SUV",
+      latestInboundMessageSid: "SMangel",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.exact_thread.messages).toHaveLength(30);
+    expect(loaded.packet.exact_thread.messages[0]?.body).not.toBe("Older inbound 0");
+    expect(loaded.packet.historical_evidence).toEqual([
+      {
+        source: "user_message",
+        occurred_at: "2026-08-18",
+        evidence: "Older inbound 0",
+        user_quote: "Older inbound 0",
+      },
+    ]);
   });
 
   it("pending_user clarification outranks D1 unresolved photos", async () => {
@@ -383,6 +620,16 @@ describe("inbound relationship packet", () => {
             }),
           }),
         };
+      }
+      if (table === "v2_durable_user_evidence") {
+        const result = { data: [], error: null };
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          order: () => builder,
+          then: (resolve: (v: typeof result) => void) => resolve(result),
+        };
+        return builder;
       }
       return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
     });

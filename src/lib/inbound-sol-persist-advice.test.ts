@@ -23,6 +23,7 @@ function extras(overrides: Partial<InboundSolBriefExtras> = {}): InboundSolBrief
     },
     meaningful_win: null,
     pending_photo_relation: { relation: "none", target_win_id: null },
+    durable_user_evidence: null,
     ...rest,
   };
 }

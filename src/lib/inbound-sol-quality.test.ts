@@ -156,6 +156,10 @@ describe("inbound Sol contracts", () => {
       "It does NOT refer to pending photo clarification"
     );
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("pending_photo_relation");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("DURABLE USER EVIDENCE");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("verbatim contiguous substring");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("DURABLE USER EVIDENCE");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("I noticed");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
       "You never receive image bytes, URLs, or Storage paths"
     );

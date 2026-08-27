@@ -9,6 +9,7 @@ import { defaultGatedDecision } from "@/lib/v2-ai-inbound";
 import { MORNING_COACHING_BRIEF_VERSION } from "@/lib/morning-tto-coaching-brief-v1";
 import type { InboundCoachingBriefV1 } from "@/lib/inbound-sol-coaching-brief";
 
+const persistSolInboundUserEvidence = vi.hoisted(() => vi.fn());
 const persistInboundAccountabilityOutcomeEvent = vi.hoisted(() => vi.fn());
 const persistInboundWinsWithAccountability = vi.hoisted(() => vi.fn());
 const persistRecognizedWins = vi.hoisted(() => vi.fn());
@@ -25,6 +26,14 @@ const setBlockerCapturePending = vi.hoisted(() => vi.fn());
 const applySolAnsweredOpenCoachQuestion = vi.hoisted(() =>
   vi.fn(async () => ({ ok: true as const, applied: false as const, reason: "no_answered_question" }))
 );
+
+vi.mock("@/lib/inbound-sol-user-evidence", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/inbound-sol-user-evidence")>();
+  return {
+    ...actual,
+    persistSolInboundUserEvidence,
+  };
+});
 
 vi.mock("@/lib/v2-inbound-accountability-outcome-persist", async (importOriginal) => {
   const actual =
@@ -196,6 +205,7 @@ function brief(
       },
       meaningful_win: null,
       pending_photo_relation: { relation: "none", target_win_id: null },
+      durable_user_evidence: null,
       ...overrides,
     },
   };
@@ -203,6 +213,8 @@ function brief(
 
 describe("runInboundSolRelationshipTurn", () => {
   beforeEach(() => {
+    persistSolInboundUserEvidence.mockReset();
+    persistSolInboundUserEvidence.mockResolvedValue({ status: "none", reason: "null_capture" });
     persistInboundAccountabilityOutcomeEvent.mockReset();
     scheduleC1IfWinsDurable.mockReset();
     scheduleInboundMmsD1SemanticClaim.mockReset();
@@ -2070,5 +2082,96 @@ describe("runInboundSolRelationshipTurn", () => {
       2
     );
     expect(scheduleInboundMmsD1SemanticClaim.mock.calls[0]?.[0]?.context.candidate).toBeNull();
+  });
+
+  it("persists durable user evidence from loaded.receivedAt before writer", async () => {
+    const receivedAt = new Date("2026-08-18T16:00:00.000Z");
+    const order: string[] = [];
+    persistSolInboundUserEvidence.mockImplementation(async () => {
+      order.push("evidence");
+      return { status: "inserted", reason: null };
+    });
+    writeInboundSolBody.mockImplementation(async () => {
+      order.push("writer");
+      return { ok: true, body: "Got it.", capture: { retry_occurred: false } };
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        durable_user_evidence: {
+          exact_user_evidence: "I like when you challenge me directly.",
+        },
+      }),
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn({
+      ...turnArgs("SMpref", "I like when you challenge me directly. Don't sugarcoat it."),
+      receivedAt,
+    });
+    expect(result.shouldSend).toBe(true);
+    expect(persistSolInboundUserEvidence).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      messageSid: "SMpref",
+      latestInboundText: "Got the whole thing finished before lunch.",
+      occurredAtIso: receivedAt.toISOString(),
+      durableUserEvidence: {
+        exact_user_evidence: "I like when you challenge me directly.",
+      },
+    });
+    expect(order).toEqual(["evidence", "writer"]);
+    expect(result.forensics.inbound_sol_durable_user_evidence_persist_status).toBe("inserted");
+    expect(result.forensics.inbound_sol_durable_user_evidence_returned).toBe(true);
+    expect(result.forensics.inbound_sol_historical_evidence_count).toBe(0);
+  });
+
+  it("durable evidence persist failure or throw cannot block Sol Coach send", async () => {
+    persistSolInboundUserEvidence.mockRejectedValue(new Error("evidence boom"));
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        durable_user_evidence: { exact_user_evidence: "Don't sugarcoat it." },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Proud you finished before lunch.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMfin", "Got the whole thing finished before lunch."));
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe("Proud you finished before lunch.");
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(result.forensics.inbound_sol_durable_user_evidence_persist_status).toBe("failed");
+  });
+
+  it("durable evidence validation_rejected still sends Coach reply", async () => {
+    persistSolInboundUserEvidence.mockResolvedValue({
+      status: "validation_rejected",
+      reason: "not_latest_inbound_substring",
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        durable_user_evidence: { exact_user_evidence: "User prefers direct coaching." },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Proud you finished before lunch.",
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(result.forensics.inbound_sol_durable_user_evidence_persist_status).toBe(
+      "validation_rejected"
+    );
   });
 });

@@ -165,6 +165,22 @@ describe("weekly-tto-writer", () => {
     expect(JSON.stringify(brief)).toBe(beforeBrief);
   });
 
+  it("populated historical_evidence survives into Weekly writer packet JSON", () => {
+    const packet = samplePacket({
+      historical_evidence: [
+        {
+          source: "user_message",
+          occurred_at: "2026-06-01",
+          evidence: "Don't sugarcoat it.",
+          user_quote: "Don't sugarcoat it.",
+        },
+      ],
+    });
+    const user = String(buildWeeklyWriterMessages(packet, sampleBrief())[1]?.content);
+    expect(user).toContain("Don't sugarcoat it.");
+    expect(user).toContain('"source":"user_message"');
+  });
+
   it("system prompt is Brief-following Sunday writer, not a second Weekly brain", () => {
     const p = WEEKLY_TTO_SYSTEM_PROMPT;
     expect(p).toContain("The Brief controls coaching meaning. You control natural language only.");

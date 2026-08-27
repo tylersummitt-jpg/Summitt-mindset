@@ -18,6 +18,7 @@ const INBOUND_EXTRAS_SCHEMA = {
     "accountability_interpretation",
     "meaningful_win",
     "pending_photo_relation",
+    "durable_user_evidence",
   ],
   properties: {
     answer_priority: { type: "string", enum: ["first", "normal", "unknown"] },
@@ -80,6 +81,19 @@ const INBOUND_EXTRAS_SCHEMA = {
         target_win_id: { anyOf: [{ type: "string" }, { type: "null" }] },
       },
     },
+    durable_user_evidence: {
+      anyOf: [
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["exact_user_evidence"],
+          properties: {
+            exact_user_evidence: { type: "string" },
+          },
+        },
+        { type: "null" },
+      ],
+    },
   },
 } as const;
 
@@ -120,6 +134,8 @@ export function buildInboundSolBriefExactContractPromptAppendix(): string {
     "accountability_interpretation.evidence: short grounded quote or paraphrase of user evidence (not a guess)",
     "meaningful_win: null OR { present: true, grounded_action, relationship: goal | mixed | life | unclear }",
     "For a normal Current Goal completion only, prefer meaningful_win = null.",
+    "durable_user_evidence: null OR { exact_user_evidence } — one verbatim contiguous substring of latest_inbound_text, or null",
+    "Do not paraphrase, summarize, or select from exact_thread. When unsure, null.",
     "pending_photo_relation: required { relation, target_win_id }",
     "relation: none | uncertain | current_turn_win | existing_win",
     "If pending_media_context.candidate_count is 0 or 2: relation MUST be none and target_win_id MUST be null.",

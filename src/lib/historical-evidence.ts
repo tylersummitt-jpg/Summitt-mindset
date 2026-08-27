@@ -2,7 +2,8 @@
  * Shared model-facing historical evidence slice for Sol Hallway packets
  * and Morning-derived interpreter input.
  *
- * Commit 1: always empty. Capture, persistence, and Win loading are later.
+ * Commit 2: populated from public.v2_durable_user_evidence (source=user_message).
+ * Wins are not loaded here.
  */
 
 export const HISTORICAL_EVIDENCE_SOURCES = ["user_message", "win"] as const;

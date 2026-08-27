@@ -61,6 +61,7 @@ function setupPacketSupabase(args: {
   importantPeople?: unknown[];
   sendRows?: unknown[];
   inboundRows?: unknown[];
+  evidenceRows?: unknown[];
 }) {
   supabaseFrom.mockImplementation((table: string) => {
     switch (table) {
@@ -80,6 +81,8 @@ function setupPacketSupabase(args: {
         return chain(args.inboundRows ?? []);
       case "sms_last_outbound_context":
         return chain(null);
+      case "v2_durable_user_evidence":
+        return chain(args.evidenceRows ?? []);
       default:
         return chain([]);
     }
@@ -187,6 +190,97 @@ describe("loadMorningRelationshipPacket", () => {
       daypart: "evening",
     });
     expect(result.packet.historical_evidence).toEqual([]);
+  });
+
+  it("loads active durable user evidence omitted from surviving exact-thread SIDs", async () => {
+    setupPacketSupabase({
+      profile: { preferred_name: "Pat" },
+      sendRows: [
+        {
+          sms_body: "How did writing go?",
+          created_at: "2026-06-21T14:00:00.000Z",
+          status: "sent",
+          message_sid: "SM_COACH",
+          sent_at: "2026-06-21T14:00:00.000Z",
+        },
+      ],
+      inboundRows: [
+        {
+          raw_body: "Got an hour in before breakfast.",
+          received_at: "2026-06-21T16:00:00.000Z",
+          message_sid: "SM_USER",
+          inserted_at: "2026-06-21T16:00:00.000Z",
+        },
+      ],
+      evidenceRows: [
+        {
+          id: "e-in",
+          occurred_at: "2026-06-21T16:00:00.000Z",
+          source_message_sid: "SM_USER",
+          exact_user_evidence: "Got an hour in before breakfast.",
+          created_at: "2026-06-21T16:00:01.000Z",
+        },
+        {
+          id: "e-out",
+          occurred_at: "2026-05-01T16:00:00.000Z",
+          source_message_sid: "SM_FALLEN",
+          exact_user_evidence: "I like when you challenge me directly.",
+          created_at: "2026-05-01T16:00:01.000Z",
+        },
+      ],
+    });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: TZ,
+      now: NOW,
+      draftForDayKey: "2026-06-22",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.historical_evidence).toEqual([
+      {
+        source: "user_message",
+        occurred_at: "2026-05-01",
+        evidence: "I like when you challenge me directly.",
+        user_quote: "I like when you challenge me directly.",
+      },
+    ]);
+    expect(JSON.stringify(result.packet.exact_thread.messages)).not.toContain("message_sid");
+    expect(supabaseFrom).toHaveBeenCalledWith("v2_durable_user_evidence");
+    expect(supabaseFrom).not.toHaveBeenCalledWith("v2_win");
+  });
+
+  it("Evening inherits the same historical_evidence loader as Morning", async () => {
+    setupPacketSupabase({
+      profile: { preferred_name: "Pat" },
+      evidenceRows: [
+        {
+          id: "e-out",
+          occurred_at: "2026-05-01T16:00:00.000Z",
+          source_message_sid: "SM_FALLEN",
+          exact_user_evidence: "I like when you challenge me directly.",
+          created_at: "2026-05-01T16:00:01.000Z",
+        },
+      ],
+    });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: TZ,
+      now: NOW,
+      draftForDayKey: "2026-06-22",
+      daypart: "evening",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.message_for.daypart).toBe("evening");
+    expect(result.packet.historical_evidence).toEqual([
+      {
+        source: "user_message",
+        occurred_at: "2026-05-01",
+        evidence: "I like when you challenge me directly.",
+        user_quote: "I like when you challenge me directly.",
+      },
+    ]);
   });
 
   it("message_for uses tomorrow draft day after 11 AM, not generation Tuesday", async () => {

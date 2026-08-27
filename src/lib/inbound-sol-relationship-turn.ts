@@ -36,6 +36,7 @@ import {
 } from "@/lib/inbound-sol-writer";
 import { shouldPersistSolInboundAccountabilityOutcome } from "@/lib/inbound-sol-persist-advice";
 import { persistSolInboundWins } from "@/lib/inbound-sol-wins";
+import { persistSolInboundUserEvidence } from "@/lib/inbound-sol-user-evidence";
 import { applySolInboundOutcomeSideEffects } from "@/lib/inbound-sol-outcome-side-effects";
 import { evaluateInboundSolBlockOnlyReply } from "@/lib/inbound-sol-reply-validate";
 import { applySolAnsweredOpenCoachQuestion } from "@/lib/v2-commitment-sms-thread-memory";
@@ -153,6 +154,7 @@ export async function runInboundSolRelationshipTurn(args: {
   const packet = loaded.packet;
   const threadHash = hashInboundRelationshipThread(packet.exact_thread.messages);
   baseForensics.inbound_sol_thread_hash = threadHash;
+  baseForensics.inbound_sol_historical_evidence_count = packet.historical_evidence.length;
 
   const interpreted = await runInboundSolBriefInterpreter({ packet });
   baseForensics.inbound_sol_retry_interpreter = interpreted.capture.retry_occurred;
@@ -287,6 +289,23 @@ export async function runInboundSolRelationshipTurn(args: {
       error: err instanceof Error ? err.message.slice(0, 120) : "unknown",
     });
     baseForensics.inbound_sol_win_persisted = 0;
+  }
+
+  try {
+    const evidencePersist = await persistSolInboundUserEvidence({
+      clerkUserId: args.clerkUserId,
+      messageSid: args.messageSid,
+      latestInboundText: packet.latest_inbound_text,
+      occurredAtIso: loaded.receivedAt.toISOString(),
+      durableUserEvidence: brief.inbound.durable_user_evidence,
+    });
+    baseForensics.inbound_sol_durable_user_evidence_persist_status = evidencePersist.status;
+  } catch (err) {
+    console.warn("[inbound-sol-user-evidence-persist-failed]", {
+      message_sid: args.messageSid,
+      error: err instanceof Error ? err.message.slice(0, 120) : "unknown",
+    });
+    baseForensics.inbound_sol_durable_user_evidence_persist_status = "failed";
   }
 
   try {
