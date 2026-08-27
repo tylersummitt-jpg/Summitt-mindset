@@ -166,6 +166,7 @@ describe("inbound relationship packet", () => {
     expect(loaded.packet.latest_inbound_text).toBe("Need a 5 passenger SUV");
     expect(loaded.packet.latest_inbound_message_sid).toBe("SMangel");
     expect(loaded.packet.preferred_name).toBe("Angel");
+    expect(loaded.packet.historical_evidence).toEqual([]);
     expect(loaded.packet.exact_thread.window_days).toBe(21);
     expect(loaded.packet.hard_state.open_coach_question).toBeNull();
     expect(loaded.packet.pending_media_context).toEqual({

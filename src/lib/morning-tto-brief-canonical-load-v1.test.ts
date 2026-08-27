@@ -77,6 +77,7 @@ function samplePacket(
       { type: "important_person", value: "Brooke (spouse_partner)" },
     ],
     hard_state: { pending_goal_change: null },
+    historical_evidence: [],
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -239,6 +240,8 @@ describe("morning-tto-brief-canonical-load-v1", () => {
     expect(input).not.toHaveProperty("ok");
     if ("ok" in input) throw new Error("unexpected");
     expect(input.canonical_goal.text).toBe("Dictate one story before noon");
+    expect(input.historical_evidence).toBe(packet.historical_evidence);
+    expect(input.historical_evidence).toEqual([]);
     expect(input.available_identity?.text).toMatch(/father/);
     expect(input.available_identity).toEqual({
       text: "I am a father who keeps his word",

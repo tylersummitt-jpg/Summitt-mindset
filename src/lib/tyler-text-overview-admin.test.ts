@@ -996,6 +996,7 @@ describe("tyler-text-overview-admin read model", () => {
     const packet = {
       version: "morning_relationship_packet_v1",
       message_for: messageFor,
+      historical_evidence: [],
       exact_thread: {
         messages: [
           { sender: "coach", body: "Actually sent" },

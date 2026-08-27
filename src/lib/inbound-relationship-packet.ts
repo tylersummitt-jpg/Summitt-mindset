@@ -35,6 +35,10 @@ import {
   inboundPendingMediaSourceFromD2c,
   loadInboundMmsD2cPendingContext,
 } from "@/lib/victory-media/inbound-mms-d2c-pending-context";
+import {
+  EMPTY_HISTORICAL_EVIDENCE,
+  type HistoricalEvidenceSlice,
+} from "@/lib/historical-evidence";
 
 export const INBOUND_RELATIONSHIP_PACKET_VERSION = "inbound_relationship_v1" as const;
 
@@ -77,6 +81,11 @@ export type InboundRelationshipPacket = {
    * D2c includes awaiting_user + the exact clarification_body that was sent.
    */
   pending_media_context: InboundMmsD1PendingContext;
+  /**
+   * Dated historical evidence (then, not now). Not current state.
+   * Live conversation is exact_thread. Commit 1: always [].
+   */
+  historical_evidence: HistoricalEvidenceSlice;
   exact_thread: {
     window_days: 21;
     max_messages: 30;
@@ -411,6 +420,7 @@ export async function loadInboundRelationshipPacket(args: {
     latest_inbound_text: latestInboundText,
     latest_inbound_message_sid: latestInboundMessageSid,
     pending_media_context,
+    historical_evidence: EMPTY_HISTORICAL_EVIDENCE,
     exact_thread: {
       window_days: MORNING_TTO_THREAD_WINDOW_DAYS,
       max_messages: MORNING_TTO_THREAD_MAX_MESSAGES,

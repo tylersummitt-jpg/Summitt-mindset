@@ -289,5 +289,6 @@ export function assembleMorningBriefInterpreterInputFromPacket(args: {
     omittedOlderTurnCount: packet.exact_thread.omitted_older_turn_count,
     messageRequiredToday: args.messageRequiredToday === true,
     quietRelationshipEligible: args.quietRelationshipEligible === true,
+    historicalEvidence: packet.historical_evidence,
   });
 }

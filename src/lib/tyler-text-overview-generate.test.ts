@@ -296,6 +296,7 @@ vi.mock("@/lib/morning-tto-brief-canonical-load-v1", () => ({
       },
     },
     thread_memory_hint: null,
+    historical_evidence: packet.historical_evidence,
     exact_thread: packet.exact_thread,
   })),
   countRecentUnansweredOutboundFromExactThread: vi.fn(() => 0),
@@ -383,6 +384,7 @@ const MORNING_PACKET = {
   current_identity: { text: null },
   personal_context: [],
   hard_state: { pending_goal_change: null },
+  historical_evidence: [],
   exact_thread: {
     window_days: 21 as const,
     max_messages: 30,

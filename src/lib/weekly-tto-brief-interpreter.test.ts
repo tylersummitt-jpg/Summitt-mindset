@@ -59,6 +59,7 @@ function samplePacket(
     hard_state: { pending_goal_change: null, planned_interruption: null },
     weekly_accountability_events: [],
     coaching_memory_projection: null,
+    historical_evidence: [],
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -193,6 +194,7 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(assembled.truth_spine.consistency_supported).toBe(false);
     expect(assembled.truth_spine.latest_outcome).toBe("user_yes");
     expect(assembled.exact_thread.window_days).toBe(21);
+    expect(assembled.historical_evidence).toEqual([]);
     expect(assembled.weekly_accountability_events).toEqual([]);
     expect(JSON.stringify(assembled)).not.toMatch(/strong_week|rough_week|win_hint/);
   });
@@ -274,6 +276,7 @@ describe("weekly-tto-brief-interpreter", () => {
           days_since: null,
           never_replied: true,
         },
+        historical_evidence: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,

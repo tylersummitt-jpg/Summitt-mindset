@@ -11,6 +11,7 @@ import {
 } from "@/lib/morning-tto-brief-interpreter-v1";
 import { buildInboundSolBriefExactContractPromptAppendix } from "@/lib/inbound-sol-brief-json-schema";
 import { INBOUND_SOL_BRIEF_RESPONSE_FORMAT } from "@/lib/inbound-sol-brief-json-schema";
+import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
 import {
   parseInboundCoachingBriefV1,
   type InboundCoachingBriefV1,
@@ -53,6 +54,9 @@ Hard rules:
 - Never output user-visible SMS copy.
 - Never include keys: body, sms_body, message, final_message, reply.
 - Never mutate state.
+
+HISTORICAL EVIDENCE
+${HISTORICAL_EVIDENCE_HISTORY_LAW}
 
 INBOUND ACCOUNTABILITY INTERPRETATION (inbound.accountability_interpretation):
 - relevance: whether the newest text is about the Current Goal (central | related | unrelated | unclear).

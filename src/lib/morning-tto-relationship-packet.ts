@@ -19,6 +19,10 @@ import {
   type V2SmsPendingResolutionPayload,
 } from "@/lib/v2-guided-resolution";
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor-validation";
+import {
+  EMPTY_HISTORICAL_EVIDENCE,
+  type HistoricalEvidenceSlice,
+} from "@/lib/historical-evidence";
 
 /** Intended SMS daypart for shared Sol coaching (Morning wrappers always pass "morning"). */
 export type TtoMessageDaypart = "morning" | "evening";
@@ -55,6 +59,11 @@ export type MorningRelationshipPacket = {
       status: "awaiting_user_confirmation";
     } | null;
   };
+  /**
+   * Dated historical evidence (then, not now). Not current state.
+   * Live conversation is exact_thread. Commit 1: always [].
+   */
+  historical_evidence: HistoricalEvidenceSlice;
   exact_thread: {
     window_days: 21;
     max_messages: 30;
@@ -315,6 +324,7 @@ export async function loadMorningRelationshipPacket(args: {
     hard_state: {
       pending_goal_change: pendingGoalChangeFromCommitment(commitment, nowMs),
     },
+    historical_evidence: EMPTY_HISTORICAL_EVIDENCE,
     exact_thread: {
       window_days: exactThread.window_days,
       max_messages: exactThread.max_messages,

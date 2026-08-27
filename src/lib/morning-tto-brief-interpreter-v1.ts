@@ -25,6 +25,7 @@ import {
   type ScrubbedOpenAiRequestError,
 } from "@/lib/openai-request-error-scrub";
 import { clampProactiveDecision } from "@/lib/sms-proactive-relationship-touch";
+import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
 
 /**
  * Phase 2C locked interpreter model — quality-first.
@@ -80,6 +81,9 @@ Hard rules:
 - version must be "${MORNING_COACHING_BRIEF_VERSION}".
 - Silence or unanswered coach texts alone do not prove disengagement when the user previously asked for ongoing motivational support — read the exact thread.
 - Do not invent miss/progress/consistency from daypart or unanswered outbounds alone.
+
+HISTORICAL EVIDENCE
+${HISTORICAL_EVIDENCE_HISTORY_LAW}
 
 UNRESOLVED COACHING-FOCUS CHOICE
 If Coach has explicitly asked the member to choose whether to continue, change, pause, or redefine the current coaching focus / Current Goal, and the member has not answered that choice, preserve the unresolved choice. Read that meaning from the exact thread. Do not use a phrase list.

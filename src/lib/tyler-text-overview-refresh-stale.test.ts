@@ -277,6 +277,7 @@ vi.mock("@/lib/morning-tto-brief-canonical-load-v1", () => ({
       },
     },
     thread_memory_hint: null,
+    historical_evidence: packet.historical_evidence ?? [],
     exact_thread: packet.exact_thread ?? {
       window_days: 21,
       max_messages: 30,
@@ -536,6 +537,7 @@ function setupHappyPath() {
     ok: true,
     packet: {
       version: "morning_relationship_v1",
+      historical_evidence: [],
       exact_thread: { window_days: 21, max_messages: 30, omitted_older_turn_count: 0, messages: [] },
       last_user_response: { never_replied: false, days_since: 1, at_utc: null, at_local: null },
       hard_state: { pending_goal_change: null },

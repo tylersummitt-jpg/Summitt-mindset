@@ -6,6 +6,10 @@
 
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor-validation";
 import {
+  EMPTY_HISTORICAL_EVIDENCE,
+  type HistoricalEvidenceSlice,
+} from "@/lib/historical-evidence";
+import {
   isImportantPeopleRelationshipType,
   type ImportantPeopleRelationshipType,
 } from "@/lib/onboarding-people-summary";
@@ -88,6 +92,10 @@ export type MorningBriefInterpreterInputV1 = {
     open_question_text: string | null;
     open_question_answer_text: string | null;
   } | null;
+  /**
+   * Same slice as the Hallway packet. Then, not now. Commit 1: always [].
+   */
+  historical_evidence: HistoricalEvidenceSlice;
   exact_thread: {
     window_days: typeof MORNING_BRIEF_THREAD_WINDOW_DAYS;
     max_messages: typeof MORNING_BRIEF_THREAD_MAX_MESSAGES;
@@ -231,6 +239,8 @@ export type AssembleMorningBriefInterpreterInputArgs = {
   omittedOlderTurnCount?: number;
   messageRequiredToday?: boolean;
   quietRelationshipEligible?: boolean;
+  /** Copied from packet.historical_evidence. Do not load separately. */
+  historicalEvidence?: HistoricalEvidenceSlice;
 };
 
 /**
@@ -380,6 +390,9 @@ export function assembleMorningBriefInterpreterInputV1(
       proof_claims_allowed,
     },
     thread_memory_hint,
+    historical_evidence: Array.isArray(args.historicalEvidence)
+      ? args.historicalEvidence
+      : EMPTY_HISTORICAL_EVIDENCE,
     exact_thread: {
       window_days: MORNING_BRIEF_THREAD_WINDOW_DAYS,
       max_messages: MORNING_BRIEF_THREAD_MAX_MESSAGES,

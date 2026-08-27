@@ -142,6 +142,7 @@ describe("loadMorningRelationshipPacket", () => {
     expect(result.packet.current_goal.text).toBe("One hour of focused writing each morning");
     expect(result.packet.current_identity.text).toBe("I am a steady father.");
     expect(result.packet.personal_context.some((c) => c.type === "responsibility")).toBe(true);
+    expect(result.packet.historical_evidence).toEqual([]);
     expect(result.packet.exact_thread.window_days).toBe(21);
     expect(result.packet.exact_thread.max_messages).toBe(30);
     expect(result.commitmentId).toBe("cmt_morning");
@@ -185,6 +186,7 @@ describe("loadMorningRelationshipPacket", () => {
       local_weekday: "Friday",
       daypart: "evening",
     });
+    expect(result.packet.historical_evidence).toEqual([]);
   });
 
   it("message_for uses tomorrow draft day after 11 AM, not generation Tuesday", async () => {

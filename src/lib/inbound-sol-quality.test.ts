@@ -44,6 +44,7 @@ function packet(latest: string, threadBodies: string[]): InboundRelationshipPack
       candidate: null,
       recent_wins: [],
     },
+    historical_evidence: [],
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -451,6 +452,8 @@ describe("writer D1 pending-photo data minimization", () => {
     const writerPacket = toWriterFacingInboundRelationshipPacket(p);
     const writerBrief = toWriterFacingInboundCoachingBrief(brief!);
     expect(writerPacket).not.toHaveProperty("pending_media_context");
+    expect(writerPacket.historical_evidence).toEqual([]);
+    expect(writerPacket).toHaveProperty("historical_evidence");
     expect(writerBrief.inbound).not.toHaveProperty("pending_photo_relation");
     const msgs = buildInboundSolWriterMessages(p, brief!);
     const user = String(msgs[1]?.content ?? "");

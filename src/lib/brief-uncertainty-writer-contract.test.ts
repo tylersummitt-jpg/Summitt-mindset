@@ -130,6 +130,7 @@ function morningPacket(
     current_identity: { text: null },
     personal_context: [],
     hard_state: { pending_goal_change: null },
+    historical_evidence: [],
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -168,6 +169,7 @@ function weeklyPacket(
     hard_state: { pending_goal_change: null, planned_interruption: null },
     weekly_accountability_events: [],
     coaching_memory_projection: null,
+    historical_evidence: [],
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -224,6 +226,7 @@ describe("brief uncertainty writer contract", () => {
 
   it("Greg-shaped Brief + packet are included exactly in Morning writer input", () => {
     const packet = morningPacket({
+      historical_evidence: [],
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -322,6 +325,7 @@ describe("brief uncertainty writer contract", () => {
 
   it("Weekly writer input keeps an unclear event as unclear, not a completed recap", () => {
     const packet = weeklyPacket({
+      historical_evidence: [],
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -368,6 +372,7 @@ describe("brief uncertainty writer contract", () => {
   it("A. known current vacation remains legal to reference as away", () => {
     const packet = morningPacket({
       preferred_name: "Kerry",
+      historical_evidence: [],
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -419,6 +424,7 @@ describe("brief uncertainty writer contract", () => {
 
   it("B. explicit return may be referenced confidently", () => {
     const packet = morningPacket({
+      historical_evidence: [],
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -468,6 +474,7 @@ describe("brief uncertainty writer contract", () => {
         local_weekday: "Monday",
         daypart: "morning",
       },
+      historical_evidence: [],
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -512,6 +519,7 @@ describe("brief uncertainty writer contract", () => {
   it("D. planned action — asking how the lift went remains legal", () => {
     const packet = morningPacket({
       preferred_name: "Johnny",
+      historical_evidence: [],
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -549,6 +557,7 @@ describe("brief uncertainty writer contract", () => {
   it("E. event uncertain — asking whether it happened remains legal; asserting it happened does not", () => {
     const packet = morningPacket({
       preferred_name: "Robin",
+      historical_evidence: [],
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -595,6 +604,7 @@ describe("brief uncertainty writer contract", () => {
   it("F. explicit current state X may be stated confidently", () => {
     const packet = morningPacket({
       preferred_name: "Dara",
+      historical_evidence: [],
       exact_thread: {
         window_days: 21,
         max_messages: 30,

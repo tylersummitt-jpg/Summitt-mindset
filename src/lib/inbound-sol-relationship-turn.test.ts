@@ -255,6 +255,7 @@ describe("runInboundSolRelationshipTurn", () => {
           candidate: null,
           recent_wins: [],
         },
+        historical_evidence: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -762,6 +763,7 @@ describe("runInboundSolRelationshipTurn", () => {
         latest_inbound_text: "This was me finally taking the kids hiking.",
         latest_inbound_message_sid: "SMhike",
         pending_media_context: onePending,
+        historical_evidence: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -981,6 +983,7 @@ describe("runInboundSolRelationshipTurn", () => {
           },
           recent_wins: [],
         },
+        historical_evidence: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -1070,6 +1073,7 @@ describe("runInboundSolRelationshipTurn", () => {
           },
           recent_wins: [],
         },
+        historical_evidence: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -1224,6 +1228,7 @@ describe("runInboundSolRelationshipTurn", () => {
           },
           recent_wins: [],
         },
+        historical_evidence: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -1344,6 +1349,7 @@ describe("runInboundSolRelationshipTurn", () => {
         latest_inbound_text: overrides.latestInboundText,
         latest_inbound_message_sid: overrides.latestInboundMessageSid ?? "SMlake",
         pending_media_context: overrides.pendingMedia ?? d2cPending,
+        historical_evidence: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,

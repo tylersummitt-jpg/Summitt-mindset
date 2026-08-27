@@ -11,6 +11,7 @@ import {
   scrubOpenAiRequestErrorForCapture,
   type ScrubbedOpenAiRequestError,
 } from "@/lib/openai-request-error-scrub";
+import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
 
 export const MORNING_TTO_WRITER_MODEL = "gpt-5.6-sol" as const;
 export const MORNING_TTO_WRITER_REASONING_EFFORT = "low" as const;
@@ -71,6 +72,9 @@ IDENTITY + IMPORTANT PEOPLE
 - If identity/person use is background, do_not_force, do_not_use, or unknown: generally omit it.
 - If selected_person exists and person_use is relevant, you may use the person naturally only when it genuinely improves the text.
 - Do not recite names, list family, mention spouse/children merely because they exist, quote identity every day, or manufacture warmth to prove memory.
+
+HISTORICAL EVIDENCE
+${HISTORICAL_EVIDENCE_HISTORY_LAW}
 
 TARGET DATE / TIME
 - packet.message_for (local_date, local_weekday, daypart, timezone) is the authoritative clock for this SMS — not the wall-clock time when the draft was generated.

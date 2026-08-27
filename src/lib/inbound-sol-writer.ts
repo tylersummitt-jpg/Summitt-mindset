@@ -11,6 +11,7 @@ import {
   scrubOpenAiRequestErrorForCapture,
   type ScrubbedOpenAiRequestError,
 } from "@/lib/openai-request-error-scrub";
+import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
 
 export const INBOUND_SOL_WRITER_MODEL = "gpt-5.6-sol" as const;
 export const INBOUND_SOL_WRITER_REASONING_EFFORT = "low" as const;
@@ -53,6 +54,9 @@ Forbidden:
 - Do not repeatedly paraphrase an already-understood request.
 - Do not ask how to help after help was already requested.
 - Prior Coach messages are factual conversation history, NOT style examples.
+
+HISTORICAL EVIDENCE
+${HISTORICAL_EVIDENCE_HISTORY_LAW}
 
 Write one SMS. Return strict JSON only:
 {"body":"<sms text>"}

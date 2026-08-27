@@ -260,6 +260,7 @@ function weeklyPacket(
     hard_state: { pending_goal_change: null, planned_interruption: null },
     weekly_accountability_events: [],
     coaching_memory_projection: null,
+    historical_evidence: [],
     exact_thread: {
       window_days: 21,
       max_messages: 30,

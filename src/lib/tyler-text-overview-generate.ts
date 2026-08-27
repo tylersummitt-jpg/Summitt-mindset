@@ -1137,6 +1137,7 @@ function failSoftInterpreterInputFromPacket(
       },
     },
     thread_memory_hint: null,
+    historical_evidence: packet.historical_evidence,
     exact_thread: {
       window_days: 21 as const,
       max_messages: 30 as const,

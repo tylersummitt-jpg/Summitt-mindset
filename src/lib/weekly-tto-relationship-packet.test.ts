@@ -64,6 +64,7 @@ function morningPacket(overrides: Partial<MorningRelationshipPacket> = {}): Morn
     current_identity: { text: "I am a father who keeps his word" },
     personal_context: [{ type: "partner_name", value: "Brooke" }],
     hard_state: { pending_goal_change: null },
+    historical_evidence: [],
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -153,6 +154,7 @@ describe("weekly-tto-relationship-packet", () => {
     expect(result.packet.current_identity.text).toMatch(/father/);
     expect(result.packet.preferred_name).toBe("Sam");
     expect(result.packet.hard_state.pending_goal_change).toBeNull();
+    expect(result.packet.historical_evidence).toEqual([]);
     expect(JSON.stringify(result.packet)).not.toMatch(/weekly_summary|weekly_score|weekly_story/);
   });
 
@@ -195,6 +197,8 @@ describe("weekly-tto-relationship-packet", () => {
     expect(view.version).toBe("morning_relationship_v1");
     expect(view.message_for.daypart).toBe("morning");
     expect(view.message_for.local_date).toBe("2026-07-12");
+    expect(view.historical_evidence).toEqual([]);
+    expect(view.historical_evidence).toBe(result.packet.historical_evidence);
     expect(JSON.stringify(result.packet)).toBe(before);
     expect(result.packet.message_for.daypart).toBe("weekly");
   });

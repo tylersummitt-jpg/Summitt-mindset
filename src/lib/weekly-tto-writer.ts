@@ -11,6 +11,7 @@ import {
   type ScrubbedOpenAiRequestError,
 } from "@/lib/openai-request-error-scrub";
 import type { WeeklyRelationshipPacket } from "@/lib/weekly-tto-relationship-packet";
+import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
 
 export const WEEKLY_TTO_WRITER_MODEL = "gpt-5.6-sol" as const;
 export const WEEKLY_TTO_WRITER_REASONING_EFFORT = "low" as const;
@@ -38,6 +39,9 @@ Prior coach messages are conversation history, not style samples. Do not imitate
 Do not use Pat Pause openers, fake Pat quotes, first-person Pat memories, or invented Pat stories.
 No app directions, menu directions, or robot-style reply menus.
 Do not write a compliance footer. Do not write STOP/HELP copy.
+
+HISTORICAL EVIDENCE
+${HISTORICAL_EVIDENCE_HISTORY_LAW}
 
 SUNDAY CLOCK
 packet.message_for is the receive clock (Sunday around noon, daypart=weekly). Ignore generation wall-clock, including Friday/Saturday generation. Sunday is still happening. Monday has not started. Relative-time language must fit that clock. Older relative-time words belong to their original timestamps.

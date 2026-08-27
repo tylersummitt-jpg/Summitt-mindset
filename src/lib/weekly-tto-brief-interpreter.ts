@@ -29,6 +29,7 @@ import {
   scrubOpenAiRequestErrorForCapture,
   type ScrubbedOpenAiRequestError,
 } from "@/lib/openai-request-error-scrub";
+import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
 import {
   weeklyPacketAsMorningAssemblerView,
   type WeeklyRelationshipPacket,
@@ -78,6 +79,9 @@ TRUTH HIERARCHY
 - coaching_memory_projection is non-authoritative. Exact thread and weekly_accountability_events beat it. Memory never proves completion or miss.
 - planned_interruption is a recent stored signal when present, not guaranteed hard state. Do not infer a reason beyond the stored category.
 - Identity is never proof. Identity may be connected to concrete evidence when the week genuinely demonstrates who they said they want to be. Do not quote or name-drop identity merely because it is available.
+
+HISTORICAL EVIDENCE
+${HISTORICAL_EVIDENCE_HISTORY_LAW}
 
 RELATIONSHIP CONTINUITY
 - Do not re-ask a stale or unanswered Coach question in different words. If it is stale, mark it stale in conversation_continuity.
@@ -338,6 +342,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
           },
         },
         thread_memory_hint: null,
+        historical_evidence: args.packet.historical_evidence,
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -385,6 +390,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
             },
           },
           thread_memory_hint: null,
+          historical_evidence: args.packet.historical_evidence,
           exact_thread: {
             window_days: 21,
             max_messages: 30,
@@ -443,6 +449,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
         },
       },
       thread_memory_hint: null,
+      historical_evidence: args.packet.historical_evidence,
       exact_thread: {
         window_days: 21,
         max_messages: 30,

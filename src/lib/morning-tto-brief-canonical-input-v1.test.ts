@@ -115,6 +115,7 @@ describe("morning-tto-brief-canonical-input-v1", () => {
       true
     );
     expect(result.thread_memory_hint?.authority).toBe("non_authoritative_projection");
+    expect(result.historical_evidence).toEqual([]);
   });
 
   it("includes quotable identity and excludes non-quotable identity", () => {
