@@ -93,7 +93,8 @@ export type MorningBriefInterpreterInputV1 = {
     open_question_answer_text: string | null;
   } | null;
   /**
-   * Same slice as the Hallway packet. Then, not now. Commit 1: always [].
+   * Same slice as the Hallway packet. Then, not now.
+   * Copied from packet.historical_evidence. Do not load separately.
    */
   historical_evidence: HistoricalEvidenceSlice;
   exact_thread: {

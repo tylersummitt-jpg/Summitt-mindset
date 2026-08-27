@@ -1,11 +1,12 @@
 /**
- * Shared loader: active v2_durable_user_evidence → Commit 1 historical_evidence slice.
- * User-message rows only. Wins are Commit 3.
+ * Shared loader: active v2_durable_user_evidence → source=user_message historical evidence.
+ * Wins are loaded separately by historical-win-evidence-load.ts and merged.
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   EMPTY_HISTORICAL_EVIDENCE,
+  type HistoricalEvidenceChronologyCarrier,
   type HistoricalEvidenceItem,
   type HistoricalEvidenceSlice,
 } from "@/lib/historical-evidence";
@@ -42,29 +43,39 @@ export function survivingMessageSidSet(
   return out;
 }
 
-export function projectDurableUserEvidenceItems(args: {
+export function projectDurableUserEvidenceCarriers(args: {
   rows: DurableUserEvidenceRow[];
   timezone: string;
   survivingExactThreadMessageSids: Iterable<string>;
-}): HistoricalEvidenceSlice {
+}): HistoricalEvidenceChronologyCarrier[] {
   const inThread = survivingMessageSidSet(args.survivingExactThreadMessageSids);
   const ceilinged = applyDurableUserEvidenceSafetyCeiling(args.rows);
-  const items: HistoricalEvidenceItem[] = [];
+  const carriers: HistoricalEvidenceChronologyCarrier[] = [];
   for (const row of ceilinged) {
     const sid = row.source_message_sid.trim();
     if (!sid || inThread.has(sid)) continue;
     const excerpt = row.exact_user_evidence;
     if (typeof excerpt !== "string" || excerpt.length === 0) continue;
     const occurred = new Date(row.occurred_at);
-    if (!Number.isFinite(occurred.getTime())) continue;
-    items.push({
+    const occurredAtMs = occurred.getTime();
+    if (!Number.isFinite(occurredAtMs)) continue;
+    const item: HistoricalEvidenceItem = {
       source: "user_message",
       occurred_at: getDateKeyInTimezone(occurred, args.timezone),
       evidence: excerpt,
       user_quote: excerpt,
-    });
+    };
+    carriers.push({ occurred_at_ms: occurredAtMs, id: row.id, item });
   }
-  return items;
+  return carriers;
+}
+
+export function projectDurableUserEvidenceItems(args: {
+  rows: DurableUserEvidenceRow[];
+  timezone: string;
+  survivingExactThreadMessageSids: Iterable<string>;
+}): HistoricalEvidenceSlice {
+  return projectDurableUserEvidenceCarriers(args).map((row) => row.item);
 }
 
 export async function fetchActiveDurableUserEvidenceRows(

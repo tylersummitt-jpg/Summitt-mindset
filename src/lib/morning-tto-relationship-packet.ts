@@ -20,12 +20,17 @@ import {
 } from "@/lib/v2-guided-resolution";
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor-validation";
 import {
+  mergeHistoricalEvidenceChronologically,
   type HistoricalEvidenceSlice,
 } from "@/lib/historical-evidence";
 import {
   fetchActiveDurableUserEvidenceRows,
-  projectDurableUserEvidenceItems,
+  projectDurableUserEvidenceCarriers,
 } from "@/lib/durable-user-evidence-load";
+import {
+  fetchHistoricalWinEvidenceSource,
+  projectHistoricalWinEvidenceCarriers,
+} from "@/lib/historical-win-evidence-load";
 
 /** Intended SMS daypart for shared Sol coaching (Morning wrappers always pass "morning"). */
 export type TtoMessageDaypart = "morning" | "evening";
@@ -64,7 +69,8 @@ export type MorningRelationshipPacket = {
   };
   /**
    * Dated historical evidence (then, not now). Not current state.
-   * Live conversation is exact_thread. Commit 1: always [].
+   * Live conversation is exact_thread.
+   * User-message evidence + bounded Win candidates. One array.
    */
   historical_evidence: HistoricalEvidenceSlice;
   exact_thread: {
@@ -260,8 +266,14 @@ export async function loadMorningRelationshipPacket(args: {
     return { ok: false, error: "missing_current_goal" };
   }
 
-  const [{ data: profile }, { data: importantPeopleRows }, lastReplyAt, exactThread, evidenceRows] =
-    await Promise.all([
+  const [
+    { data: profile },
+    { data: importantPeopleRows },
+    lastReplyAt,
+    exactThread,
+    evidenceRows,
+    winSource,
+  ] = await Promise.all([
       supabaseServer
         .from("user_profiles")
         .select(PROFILE_SELECT)
@@ -282,6 +294,7 @@ export async function loadMorningRelationshipPacket(args: {
         now,
       }),
       fetchActiveDurableUserEvidenceRows(args.clerkUserId),
+      fetchHistoricalWinEvidenceSource(args.clerkUserId),
     ]);
 
   const identityRaw = trimOrNull(profile?.identity_anchor_text);
@@ -328,11 +341,23 @@ export async function loadMorningRelationshipPacket(args: {
     hard_state: {
       pending_goal_change: pendingGoalChangeFromCommitment(commitment, nowMs),
     },
-    historical_evidence: projectDurableUserEvidenceItems({
-      rows: evidenceRows,
-      timezone: tz,
-      survivingExactThreadMessageSids: exactThread.surviving_message_sids,
-    }),
+    historical_evidence: mergeHistoricalEvidenceChronologically(
+      projectDurableUserEvidenceCarriers({
+        rows: evidenceRows,
+        timezone: tz,
+        survivingExactThreadMessageSids: exactThread.surviving_message_sids,
+      }),
+      projectHistoricalWinEvidenceCarriers({
+        currentChapter: {
+          id: commitment.id,
+          behavior_statement: commitment.behavior_statement,
+        },
+        priorChapters: winSource.priors,
+        wins: winSource.wins,
+        timezone: tz,
+        survivingExactThreadMessageSids: exactThread.surviving_message_sids,
+      })
+    ),
     exact_thread: {
       window_days: exactThread.window_days,
       max_messages: exactThread.max_messages,

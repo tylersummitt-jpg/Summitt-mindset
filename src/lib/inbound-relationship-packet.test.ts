@@ -60,6 +60,23 @@ const commitment = {
   title: "Lift",
 } as ActiveV2CommitmentRow;
 
+function thenable(data: unknown, error: { message: string } | null = null) {
+  const result = { data, error };
+  const builder = {
+    select: () => builder,
+    eq: () => builder,
+    in: () => builder,
+    order: () => builder,
+    limit: () => builder,
+    maybeSingle: async () => ({
+      data: Array.isArray(data) ? data[0] ?? null : data,
+      error,
+    }),
+    then: (resolve: (v: typeof result) => void) => resolve(result),
+  };
+  return builder;
+}
+
 function threadMsg(
   overrides: Partial<RecentExactThread72hMessage> &
     Pick<RecentExactThread72hMessage, "role" | "body" | "at" | "message_sid">
@@ -142,6 +159,9 @@ describe("inbound relationship packet", () => {
           then: (resolve: (v: typeof result) => void) => resolve(result),
         };
         return builder;
+      }
+      if (table === "v2_commitment" || table === "v2_win") {
+        return thenable([]);
       }
       return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
     });
@@ -268,6 +288,7 @@ describe("inbound relationship packet", () => {
         };
         return builder;
       }
+      if (table === "v2_commitment" || table === "v2_win") return thenable([]);
       return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
     });
     buildRecentExactThread72h.mockClear();
@@ -392,6 +413,7 @@ describe("inbound relationship packet", () => {
           }),
         };
       }
+      if (table === "v2_commitment" || table === "v2_win") return thenable([]);
       return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
     });
     buildRecentExactThread72h.mockResolvedValue({
@@ -631,6 +653,7 @@ describe("inbound relationship packet", () => {
         };
         return builder;
       }
+      if (table === "v2_commitment" || table === "v2_win") return thenable([]);
       return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
     });
 
@@ -806,6 +829,387 @@ describe("inbound relationship packet", () => {
     expect(loaded.ok).toBe(true);
     if (!loaded.ok) return;
     expect(loaded.packet.message_for.local_date).toBe("2026-08-18");
+  });
+
+  it("merges Win history into historical_evidence with user evidence", async () => {
+    const evidenceResult = {
+      data: [
+        {
+          id: "e1",
+          occurred_at: "2026-08-01T16:00:00.000Z",
+          source_message_sid: "SMhist",
+          exact_user_evidence: "Don't sugarcoat it.",
+          created_at: "2026-08-01T16:00:01.000Z",
+        },
+      ],
+      error: null,
+    };
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === "v2_durable_user_evidence") {
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          order: () => builder,
+          then: (resolve: (v: typeof evidenceResult) => void) => resolve(evidenceResult),
+        };
+        return builder;
+      }
+      if (table === "v2_win") {
+        return thenable([
+          {
+            id: "w1",
+            occurred_at: "2026-07-01T16:00:00.000Z",
+            action_fact: "Completed 40 seconds",
+            supporting_quote: null,
+            relationship_type: "goal",
+            commitment_id: "c1",
+            source_message_sid: "SMwin",
+            sensitivity_caution: false,
+          },
+        ]);
+      }
+      if (table === "v2_commitment") return thenable([]);
+      if (table === "user_profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { preferred_name: "Angel", identity_anchor_text: null },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "important_people") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                is: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_commitment_sms_thread_memory") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "sms_inbound_messages") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_commitment" || table === "v2_win") return thenable([]);
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+    });
+
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Need a 5 passenger SUV",
+      latestInboundMessageSid: "SMangel",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.historical_evidence).toEqual([
+      {
+        source: "win",
+        occurred_at: "2026-07-01",
+        evidence: "Then-standard: Lift 30 minutes. Win: Completed 40 seconds",
+      },
+      {
+        source: "user_message",
+        occurred_at: "2026-08-01",
+        evidence: "Don't sugarcoat it.",
+        user_quote: "Don't sugarcoat it.",
+      },
+    ]);
+  });
+
+  it("omits a Win whose source SID is in the surviving exact thread", async () => {
+    buildRecentExactThread72h.mockResolvedValue({
+      messages: [
+        threadMsg({
+          role: "user",
+          at: "2026-08-17T16:00:00.000Z",
+          message_sid: "SM_WIN_IN",
+          body: "Got the session in",
+        }),
+        threadMsg({
+          role: "user",
+          at: "2026-08-18T16:00:00.000Z",
+          message_sid: "SMangel",
+          body: "Need a 5 passenger SUV",
+        }),
+      ],
+      window_hours: 21 * 24,
+      message_count: 2,
+      had_preview_messages: false,
+      had_system_no_send: false,
+    });
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === "v2_win") {
+        return thenable([
+          {
+            id: "w-in",
+            occurred_at: "2026-08-17T16:00:00.000Z",
+            action_fact: "Got the session in",
+            supporting_quote: null,
+            relationship_type: "goal",
+            commitment_id: "c1",
+            source_message_sid: "SM_WIN_IN",
+            sensitivity_caution: false,
+          },
+        ]);
+      }
+      if (table === "v2_commitment") return thenable([]);
+      if (table === "v2_durable_user_evidence") return thenable([]);
+      if (table === "user_profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { preferred_name: "Angel", identity_anchor_text: null },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "important_people") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                is: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_commitment_sms_thread_memory") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "sms_inbound_messages") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_commitment" || table === "v2_win") return thenable([]);
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+    });
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Need a 5 passenger SUV",
+      latestInboundMessageSid: "SMangel",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.historical_evidence).toEqual([]);
+  });
+
+  it("Win loader failure does not erase user evidence", async () => {
+    const evidenceResult = {
+      data: [
+        {
+          id: "e1",
+          occurred_at: "2026-08-01T16:00:00.000Z",
+          source_message_sid: "SMhist",
+          exact_user_evidence: "Don't sugarcoat it.",
+          created_at: "2026-08-01T16:00:01.000Z",
+        },
+      ],
+      error: null,
+    };
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === "v2_durable_user_evidence") {
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          order: () => builder,
+          then: (resolve: (v: typeof evidenceResult) => void) => resolve(evidenceResult),
+        };
+        return builder;
+      }
+      if (table === "v2_win") return thenable(null, { message: "boom" });
+      if (table === "v2_commitment") return thenable([]);
+      if (table === "user_profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { preferred_name: "Angel", identity_anchor_text: null },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "important_people") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                is: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_commitment_sms_thread_memory") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "sms_inbound_messages") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_commitment" || table === "v2_win") return thenable([]);
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+    });
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Need a 5 passenger SUV",
+      latestInboundMessageSid: "SMangel",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.historical_evidence).toEqual([
+      {
+        source: "user_message",
+        occurred_at: "2026-08-01",
+        evidence: "Don't sugarcoat it.",
+        user_quote: "Don't sugarcoat it.",
+      },
+    ]);
+  });
+
+  it("empty Wins preserves Commit 2 user-evidence output", async () => {
+    const evidenceResult = {
+      data: [
+        {
+          id: "e1",
+          occurred_at: "2026-08-01T16:00:00.000Z",
+          source_message_sid: "SMhist",
+          exact_user_evidence: "Don't sugarcoat it.",
+          created_at: "2026-08-01T16:00:01.000Z",
+        },
+      ],
+      error: null,
+    };
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === "v2_durable_user_evidence") {
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          order: () => builder,
+          then: (resolve: (v: typeof evidenceResult) => void) => resolve(evidenceResult),
+        };
+        return builder;
+      }
+      if (table === "v2_win") return thenable([]);
+      if (table === "v2_commitment") return thenable([]);
+      if (table === "user_profiles") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { preferred_name: "Angel", identity_anchor_text: null },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "important_people") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                is: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_commitment_sms_thread_memory") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "sms_inbound_messages") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === "v2_commitment" || table === "v2_win") return thenable([]);
+      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+    });
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Need a 5 passenger SUV",
+      latestInboundMessageSid: "SMangel",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.historical_evidence).toEqual([
+      {
+        source: "user_message",
+        occurred_at: "2026-08-01",
+        evidence: "Don't sugarcoat it.",
+        user_quote: "Don't sugarcoat it.",
+      },
+    ]);
   });
 });
 

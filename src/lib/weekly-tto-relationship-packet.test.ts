@@ -166,6 +166,11 @@ describe("weekly-tto-relationship-packet", () => {
         evidence: "I like when you challenge me directly.",
         user_quote: "I like when you challenge me directly.",
       },
+      {
+        source: "win" as const,
+        occurred_at: "2026-04-01",
+        evidence: "Then-standard: Walk 20 minutes after dinner. Win: Completed 40 seconds",
+      },
     ];
     loadMorningRelationshipPacket.mockResolvedValue({
       ok: true,
@@ -175,6 +180,9 @@ describe("weekly-tto-relationship-packet", () => {
     const src = readFileSync(join(REPO, "src/lib/weekly-tto-relationship-packet.ts"), "utf8");
     expect(src).not.toContain("v2_durable_user_evidence");
     expect(src).not.toContain("fetchActiveDurableUserEvidenceRows");
+    expect(src).not.toContain("v2_win");
+    expect(src).not.toContain("historical-win-evidence-load");
+    expect(src).not.toContain("fetchHistoricalWinEvidenceSource");
     const result = await loadWeeklyRelationshipPacket({
       clerkUserId: "user_1",
       timezone: "America/New_York",

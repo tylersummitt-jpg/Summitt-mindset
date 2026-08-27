@@ -28,16 +28,19 @@ import { loadMorningRelationshipPacket } from "@/lib/morning-tto-relationship-pa
 const TZ = "America/Chicago";
 const NOW = new Date("2026-06-22T15:30:00.000Z");
 
-function chain(rows: unknown[] | unknown | null) {
-  const result = { data: rows, error: null };
+function chain(rows: unknown[] | unknown | null, error: { message: string } | null = null) {
+  const result = { data: error ? null : rows, error };
   const builder = {
     select: () => builder,
     eq: () => builder,
+    in: () => builder,
     is: () => builder,
     order: () => builder,
     limit: () => builder,
     maybeSingle: () =>
-      Promise.resolve(Array.isArray(rows) ? { data: rows[0] ?? null, error: null } : result),
+      Promise.resolve(
+        Array.isArray(rows) ? { data: rows[0] ?? null, error } : { data: rows, error }
+      ),
     then: (resolve: (v: typeof result) => void) => resolve(result),
   };
   return builder;
@@ -62,6 +65,9 @@ function setupPacketSupabase(args: {
   sendRows?: unknown[];
   inboundRows?: unknown[];
   evidenceRows?: unknown[];
+  winRows?: unknown[];
+  priorCommitmentRows?: unknown[];
+  winError?: { message: string } | null;
 }) {
   supabaseFrom.mockImplementation((table: string) => {
     switch (table) {
@@ -69,8 +75,21 @@ function setupPacketSupabase(args: {
         return chain(args.profile ?? null);
       case "important_people":
         return chain(args.importantPeople ?? []);
-      case "v2_commitment":
-        return chain(activeCommitment());
+      case "v2_commitment": {
+        const priorRows = args.priorCommitmentRows ?? [];
+        const priorResult = { data: priorRows, error: null };
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          in: () => builder,
+          is: () => builder,
+          order: () => builder,
+          limit: () => builder,
+          maybeSingle: () => Promise.resolve({ data: activeCommitment(), error: null }),
+          then: (resolve: (v: typeof priorResult) => void) => resolve(priorResult),
+        };
+        return builder;
+      }
       case "sms_send_events":
         return chain(args.sendRows ?? []);
       case "sms_weekly_send_events":
@@ -83,6 +102,8 @@ function setupPacketSupabase(args: {
         return chain(null);
       case "v2_durable_user_evidence":
         return chain(args.evidenceRows ?? []);
+      case "v2_win":
+        return chain(args.winRows ?? [], args.winError ?? null);
       default:
         return chain([]);
     }
@@ -247,7 +268,7 @@ describe("loadMorningRelationshipPacket", () => {
     ]);
     expect(JSON.stringify(result.packet.exact_thread.messages)).not.toContain("message_sid");
     expect(supabaseFrom).toHaveBeenCalledWith("v2_durable_user_evidence");
-    expect(supabaseFrom).not.toHaveBeenCalledWith("v2_win");
+    expect(supabaseFrom).toHaveBeenCalledWith("v2_win");
   });
 
   it("Evening inherits the same historical_evidence loader as Morning", async () => {
@@ -766,6 +787,197 @@ describe("loadMorningRelationshipPacket", () => {
     expect(packetJson).not.toContain("coaching_posture");
     expect(packetJson).not.toContain("selected_move");
     expect(packetJson).not.toContain("open_loop");
+  });
+
+  it("merges Win history into historical_evidence with user evidence", async () => {
+    setupPacketSupabase({
+      profile: { preferred_name: "Pat" },
+      evidenceRows: [
+        {
+          id: "e-out",
+          occurred_at: "2026-05-01T16:00:00.000Z",
+          source_message_sid: "SM_FALLEN",
+          exact_user_evidence: "I like when you challenge me directly.",
+          created_at: "2026-05-01T16:00:01.000Z",
+        },
+      ],
+      winRows: [
+        {
+          id: "w1",
+          occurred_at: "2026-04-01T16:00:00.000Z",
+          action_fact: "Completed 40 seconds",
+          supporting_quote: null,
+          relationship_type: "goal",
+          commitment_id: "cmt_morning",
+          source_message_sid: "SM_WIN",
+          sensitivity_caution: false,
+        },
+      ],
+    });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: TZ,
+      now: NOW,
+      draftForDayKey: "2026-06-22",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.historical_evidence).toEqual([
+      {
+        source: "win",
+        occurred_at: "2026-04-01",
+        evidence: "Then-standard: One hour of focused writing each morning. Win: Completed 40 seconds",
+      },
+      {
+        source: "user_message",
+        occurred_at: "2026-05-01",
+        evidence: "I like when you challenge me directly.",
+        user_quote: "I like when you challenge me directly.",
+      },
+    ]);
+  });
+
+  it("omits a Win whose source SID is in the surviving exact thread", async () => {
+    setupPacketSupabase({
+      profile: { preferred_name: "Pat" },
+      sendRows: [
+        {
+          sms_body: "How did writing go?",
+          created_at: "2026-06-21T14:00:00.000Z",
+          status: "sent",
+          message_sid: "SM_COACH",
+          sent_at: "2026-06-21T14:00:00.000Z",
+        },
+      ],
+      inboundRows: [
+        {
+          raw_body: "Got an hour in before breakfast.",
+          received_at: "2026-06-21T16:00:00.000Z",
+          message_sid: "SM_USER",
+          inserted_at: "2026-06-21T16:00:00.000Z",
+        },
+      ],
+      winRows: [
+        {
+          id: "w-in",
+          occurred_at: "2026-06-21T16:00:00.000Z",
+          action_fact: "Got an hour in",
+          supporting_quote: null,
+          relationship_type: "goal",
+          commitment_id: "cmt_morning",
+          source_message_sid: "SM_USER",
+          sensitivity_caution: false,
+        },
+      ],
+    });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: TZ,
+      now: NOW,
+      draftForDayKey: "2026-06-22",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.historical_evidence).toEqual([]);
+  });
+
+  it("Win loader failure does not erase user evidence", async () => {
+    setupPacketSupabase({
+      profile: { preferred_name: "Pat" },
+      evidenceRows: [
+        {
+          id: "e-out",
+          occurred_at: "2026-05-01T16:00:00.000Z",
+          source_message_sid: "SM_FALLEN",
+          exact_user_evidence: "I like when you challenge me directly.",
+          created_at: "2026-05-01T16:00:01.000Z",
+        },
+      ],
+      winError: { message: "boom" },
+    });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: TZ,
+      now: NOW,
+      draftForDayKey: "2026-06-22",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.historical_evidence).toEqual([
+      {
+        source: "user_message",
+        occurred_at: "2026-05-01",
+        evidence: "I like when you challenge me directly.",
+        user_quote: "I like when you challenge me directly.",
+      },
+    ]);
+  });
+
+  it("empty Wins preserves Commit 2 user-evidence output", async () => {
+    setupPacketSupabase({
+      profile: { preferred_name: "Pat" },
+      evidenceRows: [
+        {
+          id: "e-out",
+          occurred_at: "2026-05-01T16:00:00.000Z",
+          source_message_sid: "SM_FALLEN",
+          exact_user_evidence: "I like when you challenge me directly.",
+          created_at: "2026-05-01T16:00:01.000Z",
+        },
+      ],
+      winRows: [],
+    });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: TZ,
+      now: NOW,
+      draftForDayKey: "2026-06-22",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.historical_evidence).toEqual([
+      {
+        source: "user_message",
+        occurred_at: "2026-05-01",
+        evidence: "I like when you challenge me directly.",
+        user_quote: "I like when you challenge me directly.",
+      },
+    ]);
+  });
+
+  it("Evening inherits Win history through the Morning loader", async () => {
+    setupPacketSupabase({
+      profile: { preferred_name: "Pat" },
+      winRows: [
+        {
+          id: "w1",
+          occurred_at: "2026-04-01T16:00:00.000Z",
+          action_fact: "Completed 40 seconds",
+          supporting_quote: null,
+          relationship_type: "goal",
+          commitment_id: "cmt_morning",
+          source_message_sid: null,
+          sensitivity_caution: false,
+        },
+      ],
+    });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: TZ,
+      now: NOW,
+      draftForDayKey: "2026-06-22",
+      daypart: "evening",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.message_for.daypart).toBe("evening");
+    expect(result.packet.historical_evidence).toEqual([
+      {
+        source: "win",
+        occurred_at: "2026-04-01",
+        evidence: "Then-standard: One hour of focused writing each morning. Win: Completed 40 seconds",
+      },
+    ]);
   });
 });
 

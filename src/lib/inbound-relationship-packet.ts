@@ -36,12 +36,17 @@ import {
   loadInboundMmsD2cPendingContext,
 } from "@/lib/victory-media/inbound-mms-d2c-pending-context";
 import {
+  mergeHistoricalEvidenceChronologically,
   type HistoricalEvidenceSlice,
 } from "@/lib/historical-evidence";
 import {
   fetchActiveDurableUserEvidenceRows,
-  projectDurableUserEvidenceItems,
+  projectDurableUserEvidenceCarriers,
 } from "@/lib/durable-user-evidence-load";
+import {
+  fetchHistoricalWinEvidenceSource,
+  projectHistoricalWinEvidenceCarriers,
+} from "@/lib/historical-win-evidence-load";
 
 export const INBOUND_RELATIONSHIP_PACKET_VERSION = "inbound_relationship_v1" as const;
 
@@ -86,7 +91,8 @@ export type InboundRelationshipPacket = {
   pending_media_context: InboundMmsD1PendingContext;
   /**
    * Dated historical evidence (then, not now). Not current state.
-   * Live conversation is exact_thread. Commit 1: always [].
+   * Live conversation is exact_thread.
+   * User-message evidence + bounded Win candidates. One array.
    */
   historical_evidence: HistoricalEvidenceSlice;
   exact_thread: {
@@ -328,8 +334,14 @@ export async function loadInboundRelationshipPacket(args: {
       ? args.commitment.behavior_statement.trim()
       : "");
 
-  const [{ data: profile }, { data: importantPeopleRows }, threadMemory, timeline, evidenceRows] =
-    await Promise.all([
+  const [
+    { data: profile },
+    { data: importantPeopleRows },
+    threadMemory,
+    timeline,
+    evidenceRows,
+    winSource,
+  ] = await Promise.all([
       supabaseServer
         .from("user_profiles")
         .select(PROFILE_SELECT)
@@ -351,6 +363,7 @@ export async function loadInboundRelationshipPacket(args: {
         preserveUserBodyFormatting: true,
       }),
       fetchActiveDurableUserEvidenceRows(args.clerkUserId),
+      fetchHistoricalWinEvidenceSource(args.clerkUserId),
     ]);
 
   const identityRaw = trimOrNull(profile?.identity_anchor_text);
@@ -424,11 +437,26 @@ export async function loadInboundRelationshipPacket(args: {
     latest_inbound_text: latestInboundText,
     latest_inbound_message_sid: latestInboundMessageSid,
     pending_media_context,
-    historical_evidence: projectDurableUserEvidenceItems({
-      rows: evidenceRows,
-      timezone: tz,
-      survivingExactThreadMessageSids: exactThread.surviving_message_sids,
-    }),
+    historical_evidence: mergeHistoricalEvidenceChronologically(
+      projectDurableUserEvidenceCarriers({
+        rows: evidenceRows,
+        timezone: tz,
+        survivingExactThreadMessageSids: exactThread.surviving_message_sids,
+      }),
+      projectHistoricalWinEvidenceCarriers({
+        currentChapter: {
+          id: args.commitment.id,
+          behavior_statement:
+            typeof args.commitment.behavior_statement === "string"
+              ? args.commitment.behavior_statement
+              : "",
+        },
+        priorChapters: winSource.priors,
+        wins: winSource.wins,
+        timezone: tz,
+        survivingExactThreadMessageSids: exactThread.surviving_message_sids,
+      })
+    ),
     exact_thread: {
       window_days: MORNING_TTO_THREAD_WINDOW_DAYS,
       max_messages: MORNING_TTO_THREAD_MAX_MESSAGES,
