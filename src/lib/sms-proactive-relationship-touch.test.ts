@@ -90,18 +90,26 @@ describe("quiet relationship eligibility + required-touch clock", () => {
 
   it("clock SELECT strings omit unsupported production columns", () => {
     expect(SEND_EVENT_CLOCK_SELECT).toBe(
-      "status, message_sid, outbound_message_sid, metadata, created_at, send_slot, day_key"
+      "status, message_sid, metadata, created_at, send_slot, day_key"
     );
+    expect(SEND_EVENT_CLOCK_SELECT).not.toMatch(/\boutbound_message_sid\b/);
     expect(SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bsent_at\b/);
     expect(SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bprocessed_at\b/);
     expect(SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bupdated_at\b/);
+    expect(SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bbody\b/);
+    expect(SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bweek_key\b/);
+    expect(SEND_EVENT_CLOCK_SELECT).not.toMatch(/\btwilio_message_sid\b/);
     expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).toBe(
-      "status, message_sid, outbound_message_sid, metadata, created_at"
+      "status, message_sid, metadata, created_at"
     );
+    expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\boutbound_message_sid\b/);
     expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bsent_at\b/);
     expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bprocessed_at\b/);
     expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bupdated_at\b/);
     expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bday_key\b/);
+    expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bsend_slot\b/);
+    expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bsms_body\b/);
+    expect(WEEKLY_SEND_EVENT_CLOCK_SELECT).not.toMatch(/\bbody\b/);
   });
 
   it("clock queries use the schema-safe SELECT strings", async () => {

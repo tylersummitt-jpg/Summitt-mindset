@@ -26,11 +26,11 @@ const CLOCK_ROW_LIMIT = 100 as const;
 
 /** Schema-safe daily clock columns — no top-level sent_at/processed_at/updated_at. */
 export const SEND_EVENT_CLOCK_SELECT =
-  "status, message_sid, outbound_message_sid, metadata, created_at, send_slot, day_key";
+  "status, message_sid, metadata, created_at, send_slot, day_key";
 
 /** Schema-safe weekly clock columns — no top-level sent_at/processed_at/updated_at/day_key. */
 export const WEEKLY_SEND_EVENT_CLOCK_SELECT =
-  "status, message_sid, outbound_message_sid, metadata, created_at";
+  "status, message_sid, metadata, created_at";
 
 export type ProactiveRelationshipTouchSourceTable =
   | "sms_send_events"
