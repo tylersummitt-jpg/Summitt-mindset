@@ -111,9 +111,10 @@ describe("Phase 2.1d-A2 adaptive clarify — route wiring", () => {
     expect(contractBlock).not.toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
   });
 
-  it("18: contract human fallback unchanged", () => {
-    expect(contractBlock).toContain('bodySource: "human_fallback"');
-    expect(contractBlock).toContain("prepareContractConsentHumanVoiceAckForSend");
+  it("18: contract ack uses isolated Sol writer, not mini fallback", () => {
+    expect(contractBlock).toContain('bodySource: "sol_writer"');
+    expect(contractBlock).toContain("writeContractConsentSolAckBody");
+    expect(contractBlock).not.toContain("prepareContractConsentHumanVoiceAckForSend");
   });
 
   it("19: refresh identity wired; adaptive recheck not on refresh", () => {

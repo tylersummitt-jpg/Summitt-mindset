@@ -1,10 +1,9 @@
 /**
- * Contract-consent human-voice ack finalizer (Phase A):
- * Routing/state are deterministic; user-visible SMS is OpenAI-generated only.
+ * Contract-consent ack intent + deterministic body validators.
+ * Server owns consent meaning/state. Isolated Sol writer owns natural-language copy.
  * Legacy template strings may appear as internal meaning anchors — never as final reply_body.
  */
 
-import OpenAI from "openai";
 import {
   buildV2ContractOverlayNoAckSms,
   buildV2ContractOverlayYesAckSms,
@@ -14,11 +13,6 @@ import {
   assertRequiredVerbatimSubstringsPresent,
   type RequiredVerbatimAssertionStage,
 } from "@/lib/v3-inbound-relationship-lane";
-import {
-  applyFinalVoiceOwnershipGate,
-  type VoiceOwnershipResult,
-} from "@/lib/v3-sms-voice-ownership";
-import type { NorthStarSmsContextPacket } from "@/lib/north-star-coach-sms";
 import type { InboundV3ContractConsentFacts } from "@/lib/v3-inbound-relationship-lane";
 
 export const FORBIDDEN_CONTRACT_CONSENT_ACK_PHRASES = [
@@ -46,7 +40,7 @@ export type ContractConsentAckIntent = {
   effective_ask: string;
   behavior_statement: string;
   required_meaning_summary: string | null;
-  /** Internal only — guides OpenAI; must not be sent verbatim as final SMS. */
+  /** Internal only — guides the writer; must not be sent verbatim as final SMS. */
   legacy_meaning_anchor_preview: string | null;
   /** Optional short binding hint for generation (not a verbatim paste requirement). */
   optional_binding_hint: string | null;
@@ -95,16 +89,6 @@ export function buildContractConsentAckIntent(
   };
 }
 
-function getOpenAIClientOrNull(): OpenAI | null {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey?.trim()) return null;
-  return new OpenAI({ apiKey });
-}
-
-function modelName(): string {
-  return process.env.V2_SMS_CONVERSATION_BRAIN_MODEL?.trim() || "gpt-4o-mini";
-}
-
 export function validateContractConsentAckForbiddenLanguage(body: string): {
   ok: true;
 } | { ok: false; reason: "forbidden_phrase"; phrase: string } {
@@ -130,7 +114,6 @@ export function validateContractConsentAckRequiredMeaning(args: {
   const body = args.body.trim();
   if (!body) return { ok: false, reason: "empty_body" };
 
-  const b = body.toLowerCase();
   const { intent } = args;
 
   if (intent.consent_parse === "user_yes") {
@@ -199,209 +182,4 @@ export function validateContractConsentAckHumanBody(args: {
   }
 
   return { ok: true };
-}
-
-export type ContractConsentAckGenerateFn = (prompt: {
-  system: string;
-  user: string;
-}) => Promise<string | null>;
-
-const CONTRACT_CONSENT_ACK_SYSTEM_PROMPT = `You write ONE outbound SMS as Coach Pat for Summitt Mindset accountability.
-The server already recorded the user's contract consent decision — do NOT re-ask YES/NO or invent new terms.
-Write a short, human, direct confirmation (max ~280 characters). One SMS. No bullets or labels.
-Do NOT sound like a system notification, menu bot, or template.
-Do NOT use: Reply YES, Reply NO, text YES, Victory Room, overlay, contract proposal, mutation, RPC, streak language, or fake proof.
-Do NOT quote Pat Summitt or invent quotes.
-Sound like a real coach continuing the relationship thread.`;
-
-function buildContractConsentAckUserPrompt(intent: ContractConsentAckIntent): string {
-  return [
-    "Write the SMS body only (no quotes, no Coach: prefix).",
-    `Consent decision JSON (facts only — do not paste field names):`,
-    JSON.stringify(
-      {
-        user_said: intent.consent_parse === "user_yes" ? "yes" : "no",
-        overlay_action: intent.overlay_action,
-        rpc_result: intent.rpc_result,
-        contract_kind: intent.contract_kind,
-        proposal_digest: intent.proposal_text_digest,
-        effective_ask: intent.effective_ask,
-        behavior_statement: intent.behavior_statement,
-        required_meaning: intent.required_meaning_summary,
-        optional_binding_hint: intent.optional_binding_hint,
-      },
-      null,
-      0
-    ),
-    intent.consent_parse === "user_yes"
-      ? "Required meaning: acknowledge their yes; confirm the standard/commitment is held for the next 7 days when overlay was activated."
-      : "Required meaning: acknowledge their no; the proposed adjustment is not applied; current written commitment remains the anchor.",
-    intent.legacy_meaning_anchor_preview
-      ? `Internal meaning anchor (NON-SPEAKABLE — do NOT copy verbatim): ${intent.legacy_meaning_anchor_preview}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
-}
-
-export async function generateContractConsentAckBodyWithOpenAI(args: {
-  intent: ContractConsentAckIntent;
-  generateBody?: ContractConsentAckGenerateFn;
-}): Promise<{ ok: true; body: string } | { ok: false; reason: string }> {
-  const user = buildContractConsentAckUserPrompt(args.intent);
-  const generate =
-    args.generateBody ??
-    (async (prompt: { system: string; user: string }) => {
-      const client = getOpenAIClientOrNull();
-      if (!client) return null;
-      try {
-        const completion = await client.chat.completions.create({
-          model: modelName(),
-          temperature: 0.35,
-          max_tokens: 180,
-          messages: [
-            { role: "system", content: prompt.system },
-            { role: "user", content: prompt.user },
-          ],
-        });
-        const raw = completion.choices[0]?.message?.content?.trim() ?? "";
-        if (!raw) return null;
-        return raw.replace(/^["']|["']$/g, "").trim();
-      } catch {
-        return null;
-      }
-    });
-
-  const generated = await generate({
-    system: CONTRACT_CONSENT_ACK_SYSTEM_PROMPT,
-    user,
-  });
-  if (!generated?.trim()) {
-    return { ok: false, reason: "openai_unavailable_or_empty" };
-  }
-  return { ok: true, body: generated.trim() };
-}
-
-export async function applyContractConsentHumanVoiceAckGate(args: {
-  body: string;
-  commitmentId: string;
-  effectiveAsk: string | null;
-  behaviorStatement: string | null;
-  latestInboundRaw: string;
-  latestOutboundBody: string | null;
-  latestOpenQuestion: string | null;
-  contextPacket: NorthStarSmsContextPacket | null;
-  todayCompleted: boolean | null;
-  finalEventType: string | null;
-  intent: ContractConsentAckIntent;
-}): Promise<VoiceOwnershipResult> {
-  return applyFinalVoiceOwnershipGate({
-    proposedBody: args.body,
-    replySource: "v2_contract_consent_human_voice_ack",
-    channel: "contract_ack",
-    activeCommitmentId: args.commitmentId,
-    effectiveAsk: args.effectiveAsk,
-    behaviorStatement: args.behaviorStatement,
-    latestInboundRaw: args.latestInboundRaw,
-    latestOutboundBody: args.latestOutboundBody,
-    latestOpenQuestion: args.latestOpenQuestion,
-    contextPacket: args.contextPacket,
-    todayCompleted: args.todayCompleted,
-    finalEventType: args.finalEventType,
-    v3BrainMetadata: {
-      contract_consent_human_voice_ack: true,
-      contract_consent_overlay_action: args.intent.overlay_action,
-    },
-    northStarMeta: null,
-    normalCoaching: true,
-  });
-}
-
-export type PrepareContractConsentHumanVoiceAckResult =
-  | {
-      ok: true;
-      body: string;
-      intent: ContractConsentAckIntent;
-      voice: VoiceOwnershipResult;
-      generation_source: "openai";
-    }
-  | { ok: false; reason: string; detail?: unknown };
-
-export type PrepareContractConsentHumanVoiceAckArgs = {
-  intent: ContractConsentAckIntent;
-  optionalBindingSubstring?: string | null;
-  generateBody?: ContractConsentAckGenerateFn;
-  voiceArgs: Omit<
-    Parameters<typeof applyContractConsentHumanVoiceAckGate>[0],
-    "body" | "intent"
-  >;
-};
-
-export async function finalizeContractConsentAckWithHumanVoice(
-  args: PrepareContractConsentHumanVoiceAckArgs
-): Promise<PrepareContractConsentHumanVoiceAckResult> {
-  const generated = await generateContractConsentAckBodyWithOpenAI({
-    intent: args.intent,
-    generateBody: args.generateBody,
-  });
-  if (!generated.ok) {
-    return { ok: false, reason: generated.reason };
-  }
-
-  const preVoice = validateContractConsentAckHumanBody({
-    body: generated.body,
-    intent: args.intent,
-    optionalBindingSubstring: args.optionalBindingSubstring,
-    stage: "post_north_star",
-  });
-  if (!preVoice.ok) {
-    return { ok: false, reason: preVoice.reason, detail: preVoice.detail };
-  }
-
-  const voice = await applyContractConsentHumanVoiceAckGate({
-    ...args.voiceArgs,
-    body: generated.body,
-    intent: args.intent,
-  });
-
-  if (!voice.shouldSend || !voice.body.trim()) {
-    return {
-      ok: false,
-      reason: "final_voice_gate_no_send",
-      detail: voice.skipReason ?? voice.metadata,
-    };
-  }
-
-  const postVoice = validateContractConsentAckHumanBody({
-    body: voice.body,
-    intent: args.intent,
-    optionalBindingSubstring: args.optionalBindingSubstring,
-    stage: "post_final_voice_gate",
-  });
-  if (!postVoice.ok) {
-    return { ok: false, reason: postVoice.reason, detail: postVoice.detail };
-  }
-
-  return {
-    ok: true,
-    body: voice.body.trim(),
-    intent: args.intent,
-    voice,
-    generation_source: "openai",
-  };
-}
-
-export async function prepareContractConsentHumanVoiceAckForSend(args: {
-  buildArgs: BuildContractConsentAckIntentArgs;
-  optionalBindingSubstring?: string | null;
-  generateBody?: ContractConsentAckGenerateFn;
-  voiceArgs: PrepareContractConsentHumanVoiceAckArgs["voiceArgs"];
-}): Promise<PrepareContractConsentHumanVoiceAckResult> {
-  const intent = buildContractConsentAckIntent(args.buildArgs);
-  return finalizeContractConsentAckWithHumanVoice({
-    intent,
-    optionalBindingSubstring: args.optionalBindingSubstring,
-    generateBody: args.generateBody,
-    voiceArgs: args.voiceArgs,
-  });
 }

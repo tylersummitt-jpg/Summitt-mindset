@@ -158,6 +158,13 @@ describe("inbound Sol main-branch wire", () => {
     expect(exclusive).toContain("processV2CoachingRefreshInbound");
     expect(exclusive).toContain("processV2BlockerCapture");
     expect(exclusive).not.toContain("runInboundSolRelationshipTurn");
+    const persistStart = src.indexOf("async function persistContractConsentInboundLaneAckAndSend");
+    const persistEnd = src.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
+    const persist = src.slice(persistStart, persistEnd);
+    expect(persist).toContain("writeContractConsentSolAckBody");
+    expect(persist).not.toContain("writeInboundSolBody");
+    expect(persist).not.toContain("runInboundSolBriefInterpreter");
+    expect(persist).not.toContain("produceInboundV3RelationshipSms");
   });
 
   it("true Sol normal turn is exactly 1 interpreter + 1 writer, no TU/mini/shadow/win models", () => {

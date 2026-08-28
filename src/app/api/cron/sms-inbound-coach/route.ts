@@ -25,7 +25,14 @@ import {
   outboundSupportsPendingAdaptiveProposalContextAsync,
   diagnoseContractConsentOutboundGateAsync,
 } from "@/lib/v2-contract-consent-routing";
-import { prepareContractConsentHumanVoiceAckForSend } from "@/lib/v2-contract-consent-ack-send";
+import {
+  buildContractConsentAckIntent,
+  validateContractConsentAckHumanBody,
+} from "@/lib/v2-contract-consent-ack-send";
+import {
+  CONTRACT_CONSENT_SOL_ACK_WRITER_MODEL,
+  writeContractConsentSolAckBody,
+} from "@/lib/contract-consent-sol-ack-writer";
 import { evaluateAdaptiveProposalAmbiguousConsentGate } from "@/lib/v2-adaptive-proposal-ambiguous-consent-gate";
 import {
   isV2SmsConversationBrainAllowedForUser,
@@ -660,8 +667,8 @@ async function northStarGatePersistBodyAsync(
 }
 
 /**
- * Phase 3F-2 — adaptive contract YES/NO/noop visible ACK via inbound V3 relationship lane.
- * Phase 2.1d-A1 — unified final guard + contract no-send truth on lane/FVG/fallback paths.
+ * Phase 3F-2 — adaptive contract YES/NO/noop visible ACK.
+ * Isolated Sol writer for copy; unified final guard + contract no-send truth remain server-owned.
  */
 async function runContractConsentNoSendTruthPolicy(args: {
   policy: ContractConsentNoSendTruthPolicyContext;
@@ -748,7 +755,7 @@ type ContractConsentUnifiedGuardPipelineResult =
     }
   | {
       ok: false;
-      noSendStage: "unified_final_guard" | "post_unified_truth_recheck" | "human_fallback_unified_guard";
+      noSendStage: "unified_final_guard" | "post_unified_truth_recheck";
       noSendReason: string;
       guardTelemetry: Record<string, unknown>;
       requiredVerbatimMissing?: string[] | null;
@@ -768,7 +775,7 @@ async function runContractConsentUnifiedFinalGuardPipeline(args: {
   optionalBindingSubstring: string | null;
   proposalStillActive: boolean;
   outcomeClaimEvidence: OutcomeClaimEvidenceBundle;
-  bodySource: "v3_lane" | "human_fallback";
+  bodySource: "sol_writer";
 }): Promise<ContractConsentUnifiedGuardPipelineResult> {
   const memoryPacketForPrior = args.contextPacket.latestOutboundBody
     ? { last_outbound_full_body: args.contextPacket.latestOutboundBody }
@@ -824,10 +831,7 @@ async function runContractConsentUnifiedFinalGuardPipeline(args: {
   if (unifiedBlocked) {
     return {
       ok: false,
-      noSendStage:
-        args.bodySource === "human_fallback"
-          ? "human_fallback_unified_guard"
-          : "unified_final_guard",
+      noSendStage: "unified_final_guard",
       noSendReason: unifiedGuard.noSendReason ?? "unified_final_product_law_guard_no_send",
       guardTelemetry,
     };
@@ -871,7 +875,7 @@ async function trySendContractConsentBodyAfterUnifiedGuard(args: {
   proposalStillActive: boolean;
   outcomeClaimEvidence: OutcomeClaimEvidenceBundle;
   contextPacket: NorthStarSmsContextPacket;
-  bodySource: "v3_lane" | "human_fallback";
+  bodySource: "sol_writer";
   winRecognition?: InboundWinRecognitionBundle | null;
 }): Promise<
   | { ok: true; sentBody: string }
@@ -1066,6 +1070,7 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
     "v2_overlay_consent_rpc",
     "legacy_contract_ack_template_preview_only",
     "buildTransactionalInboundLaneFactsPackage",
+    "writeContractConsentSolAckBody",
   ];
 
   const baseTelemetry = () => ({
@@ -1079,175 +1084,101 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
     contract_no_send_policy_branch: noSendPolicy.policyBranch,
     contract_action: noSendPolicy.contractAction,
     binding_critical: noSendPolicy.bindingCritical,
-  });
-
-  let v3FailureTag: string | null = null;
-  let v3FailureDetail: Record<string, unknown> | null = null;
-  let lastNoSendStage: ContractConsentNoSendStage = "lane";
-
-  const lane = await produceInboundV3RelationshipSms({
-    facts,
     telemetry_fact_sources,
-    commitmentRow: args.commitment,
   });
 
-  let gatedBody: string | null = null;
-  const lanePacketObs = relationshipObservabilityFromLaneMetadata(lane.metadata);
-  let v3SendTelemetry: Record<string, unknown> = {
-    inbound_v3_lane_used: true,
-    branch_migrated_to_lane: true,
-    branch_name: "contract_consent_ack",
-    v3_lane_reply_source: "v3_inbound_relationship_lane",
-    ...(Object.keys(lanePacketObs).length > 0
-      ? { relationship_packet_observability: lanePacketObs }
-      : {}),
-  };
+  let writerFailureTag: string | null = null;
+  let writerFailureDetail: Record<string, unknown> | null = null;
+  let lastNoSendStage: ContractConsentNoSendStage = "sol_writer";
 
-  if (!lane.shouldSend || !lane.body.trim()) {
-    v3FailureTag = "contract_consent_ack_lane_no_send";
-    lastNoSendStage = "lane";
-    v3FailureDetail = {
-      reason: lane.noSendReason,
-      lane_metadata: lane.metadata,
-      ...(Object.keys(lanePacketObs).length > 0
-        ? { relationship_packet_observability: lanePacketObs }
-        : {}),
-    };
-    console.warn("[sms-inbound-coach] contract_consent_ack_inbound_lane_no_send", {
-      message_sid: args.job.message_sid,
-      commitment_id: args.commitment.id,
-      reason: lane.noSendReason,
-    });
-  } else {
-    const bindingCritical = noSendPolicy.bindingCritical;
-
-    const v3BrainMetadata: Record<string, unknown> = {
-      ...lane.metadata,
-      inbound_v3_relationship_lane: true,
-      inbound_v3_lane_used: true,
-      v3_lane_turn_purpose: lane.turnPurpose,
-      route_purpose: facts.route_purpose,
-      branch_migrated_to_lane: true,
-      branch_name: "contract_consent_ack",
-      v3_lane_reply_source: "v3_inbound_relationship_lane",
-      v3_candidate_body: lane.body,
-      old_inbound_writer_used_as_voice: false,
-      old_inbound_writer_fact_sources: telemetry_fact_sources,
-      required_verbatim_substrings: args.contractConsentFacts.required_verbatim_substrings ?? null,
-      required_meaning_summary: args.contractConsentFacts.required_meaning_summary ?? null,
-      server_state_transition_summary: args.contractConsentFacts.server_state_transition_summary,
-      contract_consent_facts_summary: slimContractConsentFactsForTelemetry(args.contractConsentFacts),
-      state_mutation_completed_before_sms: args.stateMutationCompletedBeforeSms,
+  const consentParse =
+    args.contractConsentFacts.consent_parse === "user_yes" ? ("user_yes" as const) : ("user_no" as const);
+  const intent = buildContractConsentAckIntent({
+    consentParse,
+    messageSid: args.job.message_sid,
+    proposalText: args.proposalText,
+    contractKind: args.contractKind,
+    behaviorStatement: args.commitment.behavior_statement ?? "",
+    effectiveAsk: getEffectiveCoachingAsk(args.commitment, Date.now()) ?? "",
+    contractConsentFacts: {
       overlay_action: args.contractConsentFacts.overlay_action,
       rpc_result: args.contractConsentFacts.rpc_result,
-    };
+      proposal_text_digest: args.contractConsentFacts.proposal_text_digest,
+      required_meaning_summary: args.contractConsentFacts.required_meaning_summary ?? null,
+    },
+    optionalBindingHint: optionalBinding,
+  });
 
-    const nsr = await finalizeNorthStarCoachSmsAsync({
-      proposedBody: lane.body,
-      channel: "contract_ack",
-      latestInboundRaw: args.job.raw_body ?? "",
-      latestOutboundBody: contextPacket.latestOutboundBody ?? null,
-      effectiveAskText: getEffectiveCoachingAsk(args.commitment, Date.now()) ?? undefined,
-      behaviorStatement: args.commitment.behavior_statement ?? undefined,
-      finalEventType: contextPacket.finalEventType ?? undefined,
-      replySource: "v3_inbound_relationship_lane",
-      alreadyCompletedToday:
-        contextPacket.finalEventType === "user_yes" || inboundSignalsCompletion(args.job.raw_body),
-      contextPacket,
+  const solAck = await writeContractConsentSolAckBody({
+    intent,
+    inboundRaw: args.inboundRaw,
+    latestOutboundBody: contextPacket.latestOutboundBody ?? null,
+  });
+
+  const failClosed = async (tag: string, detail: Record<string, unknown> | null) => {
+    const contractTruthTelemetry = await runContractConsentNoSendTruthPolicy({
+      policy: noSendPolicy,
+      noSendStage: lastNoSendStage,
+      noSendReason: tag,
+      requiredVerbatimMissing:
+        detail && Array.isArray(detail.required_verbatim_missing)
+          ? (detail.required_verbatim_missing as string[])
+          : null,
+      contractTruthViolation:
+        detail && Array.isArray(detail.contract_truth_violations)
+          ? String(detail.contract_truth_violations[0] ?? "")
+          : null,
+      stageMetadata: detail ?? undefined,
     });
+    return cancelContractConsentAckNoSend({
+      job: args.job,
+      userId: args.userId,
+      commitmentId: args.commitment.id,
+      inboundRaw: args.inboundRaw,
+      policy: noSendPolicy,
+      noSendStage: lastNoSendStage,
+      noSendReason: tag,
+      lastErrorTag: "contract_consent_ack_sol_failed",
+      baseTelemetry: baseTelemetry(),
+      v3FailureTag: tag,
+      v3FailureDetail: detail,
+      contractTruthTelemetry,
+    });
+  };
 
-    if (bindingCritical) {
-      const postNs = assertRequiredVerbatimSubstringsPresent(
-        "post_north_star",
-        nsr.visibleBody,
-        args.contractConsentFacts.required_verbatim_substrings
-      );
-      if (!postNs.ok) {
-        v3FailureTag = "contract_required_verbatim_missing_post_north_star";
-        lastNoSendStage = "north_star";
-        v3FailureDetail = { missing: postNs.missing, body_preview: nsr.visibleBody.slice(0, 280) };
-        console.warn("[sms-inbound-coach] contract_consent_ack_verbatim_missing_post_north_star", {
-          message_sid: args.job.message_sid,
-          missing: postNs.missing,
-        });
-      }
-    }
+  if (!solAck.ok || !solAck.body?.trim()) {
+    writerFailureTag = solAck.ok
+      ? "contract_consent_sol_ack_empty"
+      : `contract_consent_sol_ack_${solAck.error}`;
+    writerFailureDetail = { sol_writer_capture: solAck.capture };
+    return failClosed(writerFailureTag, writerFailureDetail);
+  }
 
-    if (!v3FailureTag) {
-      const voice = await applyFinalVoiceOwnershipGate({
-        proposedBody: nsr.visibleBody,
-        replySource: "v3_inbound_relationship_lane",
-        channel: "contract_ack",
-        activeCommitmentId: args.commitment.id,
-        effectiveAsk: getEffectiveCoachingAsk(args.commitment, Date.now()),
-        behaviorStatement: args.commitment.behavior_statement ?? null,
-        latestInboundRaw: args.job.raw_body ?? "",
-        latestOutboundBody: contextPacket.latestOutboundBody ?? null,
-        latestOpenQuestion: contextPacket.latestOpenQuestion ?? null,
-        contextPacket,
-        todayCompleted: contextPacket.todayCompleted ?? null,
-        finalEventType: contextPacket.finalEventType ?? null,
-        v3BrainMetadata,
-        northStarMeta: nsr.meta,
-        normalCoaching: true,
-      });
+  const meaningOk = validateContractConsentAckHumanBody({
+    body: solAck.body,
+    intent,
+    optionalBindingSubstring: optionalBinding,
+    stage: "post_final_voice_gate",
+  });
+  if (!meaningOk.ok) {
+    writerFailureTag = meaningOk.reason;
+    writerFailureDetail = { validation_detail: meaningOk.detail ?? null, body_preview: solAck.body.slice(0, 280) };
+    return failClosed(writerFailureTag, writerFailureDetail);
+  }
 
-      if (!voice.shouldSend) {
-        v3FailureTag = "contract_consent_ack_final_voice_suppressed";
-        lastNoSendStage = "final_voice_gate";
-        v3FailureDetail = {
-          skip_reason: voice.skipReason,
-          final_voice_gate: voice.metadata,
-        };
-        console.warn("[sms-inbound-coach] contract_consent_ack_final_voice_suppressed", {
-          message_sid: args.job.message_sid,
-        });
-      } else if (bindingCritical) {
-        const postFvg = assertRequiredVerbatimSubstringsPresent(
-          "post_final_voice_gate",
-          voice.body,
-          args.contractConsentFacts.required_verbatim_substrings
-        );
-        if (!postFvg.ok) {
-          v3FailureTag = "contract_required_verbatim_missing_post_final_voice_gate";
-          lastNoSendStage = "final_voice_gate";
-          v3FailureDetail = { missing: postFvg.missing, body_preview: voice.body.slice(0, 280) };
-          console.warn("[sms-inbound-coach] contract_consent_ack_verbatim_missing_post_final_voice_gate", {
-            message_sid: args.job.message_sid,
-            missing: postFvg.missing,
-          });
-        } else {
-          gatedBody = voice.body;
-          v3SendTelemetry = {
-            ...v3SendTelemetry,
-            route_purpose: facts.route_purpose,
-            v3_candidate_body: gatedBody.slice(0, 500),
-            north_star_gate: {
-              original_body: nsr.meta.originalBody,
-              final_body: nsr.visibleBody,
-              north_star_gate_source: nsr.meta.source,
-              north_star_gate_reasons: nsr.meta.blockedReasons,
-              ...pickNorthStarWriterAttributionFields(nsr.meta),
-            },
-            final_voice_gate: voice.metadata,
-          };
-        }
-      } else {
-        gatedBody = voice.body;
-        v3SendTelemetry = {
-          ...v3SendTelemetry,
-          route_purpose: facts.route_purpose,
-          v3_candidate_body: gatedBody.slice(0, 500),
-          north_star_gate: {
-            original_body: nsr.meta.originalBody,
-            final_body: nsr.visibleBody,
-            north_star_gate_source: nsr.meta.source,
-            north_star_gate_reasons: nsr.meta.blockedReasons,
-            ...pickNorthStarWriterAttributionFields(nsr.meta),
-          },
-          final_voice_gate: voice.metadata,
-        };
-      }
+  if (noSendPolicy.bindingCritical) {
+    const verbatim = assertRequiredVerbatimSubstringsPresent(
+      "post_final_voice_gate",
+      solAck.body,
+      args.contractConsentFacts.required_verbatim_substrings
+    );
+    if (!verbatim.ok) {
+      writerFailureTag = "contract_required_verbatim_missing_post_sol_writer";
+      writerFailureDetail = {
+        required_verbatim_missing: verbatim.missing,
+        body_preview: solAck.body.slice(0, 280),
+      };
+      return failClosed(writerFailureTag, writerFailureDetail);
     }
   }
 
@@ -1268,124 +1199,36 @@ async function persistContractConsentInboundLaneAckAndSend(args: {
     winRecognition,
   };
 
-  if (gatedBody?.trim()) {
-    const laneSend = await trySendContractConsentBodyAfterUnifiedGuard({
-      ...sharedSendArgs,
-      gatedBody: gatedBody.trim(),
-      sendTelemetry: v3SendTelemetry,
-      bodySource: "v3_lane",
+  const laneSend = await trySendContractConsentBodyAfterUnifiedGuard({
+    ...sharedSendArgs,
+    gatedBody: solAck.body.trim(),
+    sendTelemetry: {
+      inbound_v3_lane_used: false,
+      contract_consent_sol_ack: true,
+      sol_writer_model: CONTRACT_CONSENT_SOL_ACK_WRITER_MODEL,
+      sol_writer_capture: solAck.capture,
+      route_purpose: facts.route_purpose,
+      required_verbatim_substrings: args.contractConsentFacts.required_verbatim_substrings ?? null,
+      required_meaning_summary: args.contractConsentFacts.required_meaning_summary ?? null,
+      server_state_transition_summary: args.contractConsentFacts.server_state_transition_summary,
+    },
+    bodySource: "sol_writer",
+  });
+  if (laneSend.ok) {
+    console.info("[sms-inbound-coach] contract_consent_sol_ack_sent", {
+      message_sid: args.job.message_sid,
+      commitment_id: args.commitment.id,
+      overlay_action: args.contractConsentFacts.overlay_action,
+      rpc_result: args.contractConsentFacts.rpc_result,
+      sol_writer_model: CONTRACT_CONSENT_SOL_ACK_WRITER_MODEL,
     });
-    if (laneSend.ok) {
-      return laneSend;
-    }
-    if (laneSend.guardFailed) {
-      v3FailureTag = laneSend.pipeline.noSendReason;
-      lastNoSendStage = laneSend.pipeline.noSendStage;
-      v3FailureDetail = laneSend.pipeline.guardTelemetry;
-    }
+    return laneSend;
   }
 
-  const consentParse =
-    args.contractConsentFacts.consent_parse === "user_yes" ? ("user_yes" as const) : ("user_no" as const);
-  const humanVoiceAck = await prepareContractConsentHumanVoiceAckForSend({
-    buildArgs: {
-      consentParse,
-      messageSid: args.job.message_sid,
-      proposalText: args.proposalText,
-      contractKind: args.contractKind,
-      behaviorStatement: args.commitment.behavior_statement ?? "",
-      effectiveAsk: getEffectiveCoachingAsk(args.commitment, Date.now()) ?? "",
-      contractConsentFacts: {
-        overlay_action: args.contractConsentFacts.overlay_action,
-        rpc_result: args.contractConsentFacts.rpc_result,
-        proposal_text_digest: args.contractConsentFacts.proposal_text_digest,
-        required_meaning_summary: args.contractConsentFacts.required_meaning_summary ?? null,
-      },
-      optionalBindingHint: optionalBinding,
-    },
-    optionalBindingSubstring: optionalBinding,
-    voiceArgs: {
-      commitmentId: args.commitment.id,
-      effectiveAsk: getEffectiveCoachingAsk(args.commitment, Date.now()),
-      behaviorStatement: args.commitment.behavior_statement ?? null,
-      latestInboundRaw: args.job.raw_body ?? "",
-      latestOutboundBody: contextPacket.latestOutboundBody ?? null,
-      latestOpenQuestion: contextPacket.latestOpenQuestion ?? null,
-      contextPacket,
-      todayCompleted: contextPacket.todayCompleted ?? null,
-      finalEventType: contextPacket.finalEventType ?? null,
-    },
-  });
-
-  if (humanVoiceAck.ok) {
-    const fallbackSend = await trySendContractConsentBodyAfterUnifiedGuard({
-      ...sharedSendArgs,
-      gatedBody: humanVoiceAck.body,
-      sendTelemetry: {
-        inbound_v3_lane_used: false,
-        contract_consent_human_voice_ack: true,
-        contract_consent_ack_fallback: true,
-        generation_source: humanVoiceAck.generation_source,
-        v3_failure_tag: v3FailureTag,
-        final_voice_gate: humanVoiceAck.voice.metadata,
-      },
-      bodySource: "human_fallback",
-    });
-    if (fallbackSend.ok) {
-      console.info("[sms-inbound-coach] contract_consent_human_voice_ack_sent", {
-        message_sid: args.job.message_sid,
-        commitment_id: args.commitment.id,
-        v3_failure_tag: v3FailureTag,
-        contract_consent_human_voice_ack: true,
-        generation_source: humanVoiceAck.generation_source,
-        overlay_action: args.contractConsentFacts.overlay_action,
-        rpc_result: args.contractConsentFacts.rpc_result,
-      });
-      return fallbackSend;
-    }
-    if (fallbackSend.guardFailed) {
-      v3FailureTag = fallbackSend.pipeline.noSendReason;
-      lastNoSendStage = fallbackSend.pipeline.noSendStage;
-      v3FailureDetail = fallbackSend.pipeline.guardTelemetry;
-    }
-  }
-
-  const humanVoiceFailureReason = humanVoiceAck.ok ? null : humanVoiceAck.reason;
-  const humanVoiceFailureDetail = humanVoiceAck.ok ? null : humanVoiceAck.detail;
-  const finalNoSendReason =
-    v3FailureTag ?? humanVoiceFailureReason ?? "contract_consent_ack_failed";
-
-  const contractTruthTelemetry = await runContractConsentNoSendTruthPolicy({
-    policy: noSendPolicy,
-    noSendStage: lastNoSendStage,
-    noSendReason: finalNoSendReason,
-    requiredVerbatimMissing:
-      v3FailureDetail && Array.isArray(v3FailureDetail.required_verbatim_missing)
-        ? (v3FailureDetail.required_verbatim_missing as string[])
-        : null,
-    contractTruthViolation:
-      v3FailureDetail && typeof v3FailureDetail.contract_truth_violations === "object"
-        ? String((v3FailureDetail.contract_truth_violations as string[])[0] ?? "")
-        : null,
-    stageMetadata: v3FailureDetail ?? undefined,
-  });
-
-  return cancelContractConsentAckNoSend({
-    job: args.job,
-    userId: args.userId,
-    commitmentId: args.commitment.id,
-    inboundRaw: args.inboundRaw,
-    policy: noSendPolicy,
-    noSendStage: lastNoSendStage,
-    noSendReason: finalNoSendReason,
-    lastErrorTag: "contract_consent_ack_v3_and_human_voice_failed",
-    baseTelemetry: baseTelemetry(),
-    v3FailureTag,
-    v3FailureDetail,
-    humanVoiceFailureReason,
-    humanVoiceFailureDetail,
-    contractTruthTelemetry,
-  });
+  lastNoSendStage = laneSend.pipeline.noSendStage;
+  writerFailureTag = laneSend.pipeline.noSendReason;
+  writerFailureDetail = laneSend.pipeline.guardTelemetry;
+  return failClosed(writerFailureTag, writerFailureDetail);
 }
 
 /**

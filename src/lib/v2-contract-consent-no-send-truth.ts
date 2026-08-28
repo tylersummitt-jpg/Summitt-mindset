@@ -24,6 +24,7 @@ export type ContractConsentAction =
 
 export type ContractConsentNoSendStage =
   | "lane"
+  | "sol_writer"
   | "north_star"
   | "final_voice_gate"
   | "unified_final_guard"
@@ -71,6 +72,7 @@ export type ContractConsentNoSendTruthTelemetry = {
   contract_consent_no_send_duplicate?: boolean;
   already_finalized?: boolean;
   lane_no_send_reason?: string;
+  sol_writer_no_send_reason?: string;
   north_star_no_send_reason?: string;
   final_voice_gate_skip_reason?: string;
   unified_final_guard_no_send_reason?: string;
@@ -144,6 +146,7 @@ function contractNoSendStageReasonField(
   reason: string
 ): Partial<ContractConsentNoSendTruthTelemetry> {
   if (stage === "lane") return { lane_no_send_reason: reason };
+  if (stage === "sol_writer") return { sol_writer_no_send_reason: reason };
   if (stage === "north_star") return { north_star_no_send_reason: reason };
   if (stage === "final_voice_gate") return { final_voice_gate_skip_reason: reason };
   if (stage === "post_unified_truth_recheck") return { post_unified_truth_recheck_reason: reason };

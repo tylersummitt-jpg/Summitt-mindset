@@ -51,6 +51,19 @@ describe("persistContractConsentTruthOnNoSend", () => {
     insertMock.mockResolvedValue({ error: null });
   });
 
+  it("sol_writer no-send records sol_writer_no_send_reason", async () => {
+    const policy = policyFromFacts("activated", true);
+    const r = await persistContractConsentTruthOnNoSend({
+      ...policy,
+      noSendStage: "sol_writer",
+      noSendReason: "contract_consent_sol_ack_empty_body",
+    });
+    expect(r.no_send_stage).toBe("sol_writer");
+    expect(r.sol_writer_no_send_reason).toBe("contract_consent_sol_ack_empty_body");
+    expect(r.contract_consent_applied).toBe(true);
+    expect(r.visible_sent).toBe(false);
+  });
+
   it("1: contract_mutation_applied no-send inserts visible_sent=false audit", async () => {
     const policy = policyFromFacts("activated", true);
     const r = await persistContractConsentTruthOnNoSend({

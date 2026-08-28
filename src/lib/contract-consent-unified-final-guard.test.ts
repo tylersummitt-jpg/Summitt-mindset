@@ -89,12 +89,14 @@ describe("Phase 2.1d-A1 contract consent — route wiring", () => {
     expect(contractBlock).toContain('mode: "transactional_coaching_limited"');
     expect(contractBlock).toContain('branchName: "contract_consent_ack"');
     expect(contractBlock).toContain("trySendContractConsentBodyAfterUnifiedGuard");
-    expect(contractBlock).toContain('bodySource: "v3_lane"');
+    expect(contractBlock).toContain('bodySource: "sol_writer"');
   });
 
-  it("16: contract path includes human fallback unified guard", () => {
-    expect(contractBlock).toContain('bodySource: "human_fallback"');
-    expect(contractBlock).toContain("prepareContractConsentHumanVoiceAckForSend");
+  it("16: contract path has one Sol writer and no mini fallback", () => {
+    expect(contractBlock).toContain("writeContractConsentSolAckBody");
+    expect(contractBlock).not.toContain('bodySource: "human_fallback"');
+    expect(contractBlock).not.toContain("prepareContractConsentHumanVoiceAckForSend");
+    expect(contractBlock).not.toContain("produceInboundV3RelationshipSms");
   });
 
   it("17: post-unified contract truth recheck wired", () => {

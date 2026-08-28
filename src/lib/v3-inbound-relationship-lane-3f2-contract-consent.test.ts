@@ -95,17 +95,24 @@ describe("sms-inbound-coach route — Phase 3F-2 contract consent (static)", () 
     expect(body).toContain("trySendContractConsentBodyAfterUnifiedGuard");
   });
 
-  it("persistContractConsentInboundLaneAckAndSend falls back to human-voice contract ack when V3 path fails", () => {
+  it("persistContractConsentInboundLaneAckAndSend uses isolated Sol writer, not V3 mini or fallback mini", () => {
     const start = route.indexOf("async function persistContractConsentInboundLaneAckAndSend");
     const end = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const body = route.slice(start, end);
-    expect(body).toContain("prepareContractConsentHumanVoiceAckForSend");
-    expect(body).toContain("contract_consent_human_voice_ack_sent");
-    expect(body).toContain("contract_consent_ack_v3_and_human_voice_failed");
+    expect(body).toContain("writeContractConsentSolAckBody");
+    expect(body).toContain("contract_consent_sol_ack_sent");
+    expect(body).toContain("contract_consent_ack_sol_failed");
+    expect(body).not.toContain("produceInboundV3RelationshipSms");
+    expect(body).not.toContain("prepareContractConsentHumanVoiceAckForSend");
+    expect(body).not.toContain("generateContractConsentAckBodyWithOpenAI");
     expect(body).not.toContain("prepareDeterministicContractConsentAckForSend");
     expect(body).not.toContain("buildDeterministicContractConsentAckBody");
+    expect(body).not.toContain("gpt-4o-mini");
+    expect(body).not.toContain("V2_SMS_CONVERSATION_BRAIN_MODEL");
+    expect(body).not.toContain("runInboundSolRelationshipTurn");
+    expect(body).not.toContain("writeInboundSolBody");
   });
 
   it("processV2ContractProposalConsent logs outbound gate miss without mutating state", () => {
@@ -120,28 +127,27 @@ describe("sms-inbound-coach route — Phase 3F-2 contract consent (static)", () 
     expect(rpcIdx).toBeGreaterThan(missIdx);
   });
 
-  it("persistContractConsentInboundLaneAckAndSend runs post-NS then post-FVG verbatim checks when binding-critical", () => {
+  it("persistContractConsentInboundLaneAckAndSend checks verbatim after Sol writer, without NS/FVG mini polish", () => {
     const start = route.indexOf("async function persistContractConsentInboundLaneAckAndSend");
     const end = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const body = route.slice(start, end);
-    const nsIdx = body.indexOf("await finalizeNorthStarCoachSmsAsync");
-    const postNsIdx = body.indexOf('"post_north_star"');
-    const fvgIdx = body.indexOf("await applyFinalVoiceOwnershipGate");
-    const postFvgIdx = body.indexOf('"post_final_voice_gate"');
-    expect(nsIdx).toBeGreaterThan(-1);
-    expect(postNsIdx).toBeGreaterThan(nsIdx);
-    expect(fvgIdx).toBeGreaterThan(postNsIdx);
-    expect(postFvgIdx).toBeGreaterThan(fvgIdx);
+    const solIdx = body.indexOf("await writeContractConsentSolAckBody");
+    const postSolIdx = body.indexOf("contract_required_verbatim_missing_post_sol_writer");
+    expect(solIdx).toBeGreaterThan(-1);
+    expect(postSolIdx).toBeGreaterThan(solIdx);
+    expect(body).not.toContain("await finalizeNorthStarCoachSmsAsync");
+    expect(body).not.toContain("await applyFinalVoiceOwnershipGate");
   });
 
-  it("structured last_error tags for verbatim loss after NS / FVG", () => {
+  it("structured last_error tag for verbatim loss after Sol writer", () => {
     const start = route.indexOf("async function persistContractConsentInboundLaneAckAndSend");
     const end = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
     const body = route.slice(start, end);
-    expect(body).toContain("contract_required_verbatim_missing_post_north_star");
-    expect(body).toContain("contract_required_verbatim_missing_post_final_voice_gate");
+    expect(body).toContain("contract_required_verbatim_missing_post_sol_writer");
+    expect(body).not.toContain("contract_required_verbatim_missing_post_north_star");
+    expect(body).not.toContain("contract_required_verbatim_missing_post_final_voice_gate");
   });
 
   it("documents state-first: no rollback helpers in contract consent path", () => {
@@ -149,5 +155,23 @@ describe("sms-inbound-coach route — Phase 3F-2 contract consent (static)", () 
     const end = route.indexOf("async function fetchPreferredNameForInboundLane");
     const body = route.slice(start, end);
     expect(body).not.toMatch(/rollback/i);
+  });
+
+  it("passes inbound MessageSid into overlay RPC for idempotency", () => {
+    const start = route.indexOf("async function processV2ContractProposalConsent");
+    const end = route.indexOf("async function fetchPreferredNameForInboundLane");
+    const body = route.slice(start, end);
+    expect(body).toContain("inboundMessageSid: job.message_sid");
+    expect(body.split("inboundMessageSid: job.message_sid").length - 1).toBeGreaterThanOrEqual(2);
+  });
+
+  it("one persist path: one Sol writer and one send attempt, no normal Sol relationship turn", () => {
+    const start = route.indexOf("async function persistContractConsentInboundLaneAckAndSend");
+    const end = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
+    const body = route.slice(start, end);
+    expect(body.split("await writeContractConsentSolAckBody").length - 1).toBe(1);
+    expect(body.split("trySendContractConsentBodyAfterUnifiedGuard").length - 1).toBe(1);
+    expect(body).not.toContain("runInboundSolRelationshipTurn");
+    expect(body).not.toContain("runInboundSolBriefInterpreter");
   });
 });
