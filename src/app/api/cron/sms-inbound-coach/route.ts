@@ -33,6 +33,10 @@ import {
   CONTRACT_CONSENT_SOL_ACK_WRITER_MODEL,
   writeContractConsentSolAckBody,
 } from "@/lib/contract-consent-sol-ack-writer";
+import {
+  CONTRACT_CONSENT_SOL_CLARIFY_WRITER_MODEL,
+  writeContractConsentSolClarifyBody,
+} from "@/lib/contract-consent-sol-clarify-writer";
 import { evaluateAdaptiveProposalAmbiguousConsentGate } from "@/lib/v2-adaptive-proposal-ambiguous-consent-gate";
 import {
   isV2SmsConversationBrainAllowedForUser,
@@ -1260,6 +1264,7 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
   commitment: ActiveV2CommitmentRow;
   timezone: string;
   inboundRaw: string;
+  proposalText: string;
   adaptiveConsentClarificationFacts: InboundV3AdaptiveConsentClarificationFacts;
 }): Promise<{ ok: true; sentBody: string } | { ok: false }> {
   const wave11MemoryPending = (await fetchLatestAwaitingMemoryConfirmation(args.commitment.id)) != null;
@@ -1280,13 +1285,8 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
     "latestOutboundBodyContainsAdaptiveProposalBindingNeedle",
     "evaluateAdaptiveProposalAmbiguousConsentGate",
     "buildTransactionalInboundLaneFactsPackage",
+    "writeContractConsentSolClarifyBody",
   ];
-
-  const lane = await produceInboundV3RelationshipSms({
-    facts,
-    telemetry_fact_sources,
-    commitmentRow: args.commitment,
-  });
 
   const baseTelemetry = () => ({
     route_purpose: "adaptive_proposal_consent_clarification" as const,
@@ -1297,98 +1297,88 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
     ),
     server_action_taken: "none" as const,
     state_remains_pending: true as const,
+    telemetry_fact_sources,
   });
 
-  if (!lane.shouldSend || !lane.body.trim()) {
-    const laneNoSendReason = lane.noSendReason ?? "inbound_lane_no_send";
+  const cancelClarifyNoSend = async (cancelArgs: {
+    noSendReason: string;
+    noSendStage: "lane" | "final_voice_gate" | "unified_final_guard" | "post_unified_truth_recheck";
+    lastError: string;
+    logTag: string;
+    extraLog?: Record<string, unknown>;
+  }) => {
     await markJobFinal({
       messageSid: args.job.message_sid,
       status: "cancelled",
-      lastError: formatInboundV3LaneNoSendLastError(lane, {
-        ...baseTelemetry(),
-        ...adaptiveClarifyNoSendTelemetryBase({
-          noSendReason: laneNoSendReason,
-          noSendStage: "lane",
-        }),
-      }),
+      lastError: cancelArgs.lastError,
       nextRetry: farFutureIso(),
     });
-    console.warn("[sms-inbound-coach] adaptive_proposal_consent_clarification_lane_no_send", {
+    console.warn(`[sms-inbound-coach] ${cancelArgs.logTag}`, {
       message_sid: args.job.message_sid,
       commitment_id: args.commitment.id,
-      reason: laneNoSendReason,
+      no_send_reason: cancelArgs.noSendReason,
       adaptive_clarify_no_send: true,
       adaptive_clarify_proposal_remains_pending: true,
+      ...(cancelArgs.extraLog ?? {}),
     });
-    return { ok: false };
-  }
-
-  const v3BrainMetadata: Record<string, unknown> = {
-    ...lane.metadata,
-    inbound_v3_relationship_lane: true,
-    inbound_v3_lane_used: true,
-    v3_lane_turn_purpose: lane.turnPurpose,
-    route_purpose: facts.route_purpose,
-    branch_migrated_to_lane: true,
-    branch_name: "adaptive_proposal_consent_clarification",
-    v3_lane_reply_source: "v3_inbound_relationship_lane",
-    v3_candidate_body: lane.body,
-    old_inbound_writer_used_as_voice: false,
-    old_inbound_writer_fact_sources: telemetry_fact_sources,
-    required_meaning_summary: args.adaptiveConsentClarificationFacts.required_meaning_summary,
-    server_action_taken: "none",
-    state_remains_pending: true,
-    adaptive_consent_clarification_facts_summary: slimAdaptiveConsentClarificationFactsForTelemetry(
-      args.adaptiveConsentClarificationFacts
-    ),
+    return { ok: false as const };
   };
 
-  const voicePack = await northStarGatePersistBodyAsync(lane.body, {
-    job: args.job,
-    channel: "clarification",
-    lastOutboundBody: contextPacket.latestOutboundBody ?? null,
-    effectiveAsk: getEffectiveCoachingAsk(args.commitment, Date.now()),
-    behaviorStatement: args.commitment.behavior_statement,
-    finalEventType: contextPacket.finalEventType ?? null,
-    replySource: "v3_inbound_relationship_lane",
-    contextPacket,
-    activeCommitmentId: args.commitment.id,
-    normalCoaching: true,
-    v3BrainMetadata,
+  const solClarify = await writeContractConsentSolClarifyBody({
+    input: {
+      inboundRaw: args.inboundRaw,
+      proposalText: args.proposalText,
+      currentBar: args.commitment.behavior_statement ?? "",
+      inboundParse: args.adaptiveConsentClarificationFacts.inbound_parse,
+      preferredName: facts.user.preferred_name ?? null,
+      requiredMeaning: args.adaptiveConsentClarificationFacts.required_meaning_summary,
+      latestOutboundBody: contextPacket.latestOutboundBody ?? null,
+    },
   });
 
-  if (!voicePack.voice.shouldSend) {
-    const fvgNoSendReason = voicePack.voice.skipReason ?? "final_voice_gate_no_send";
-    await markJobFinal({
-      messageSid: args.job.message_sid,
-      status: "cancelled",
-      lastError: finalVoiceSkipLastError(voicePack.voice, {
+  if (!solClarify.ok || !solClarify.body?.trim()) {
+    const noSendReason = solClarify.ok
+      ? "adaptive_clarify_sol_empty"
+      : `adaptive_clarify_sol_${solClarify.error}`;
+    return cancelClarifyNoSend({
+      noSendReason,
+      noSendStage: "lane",
+      lastError: JSON.stringify({
         ...baseTelemetry(),
         ...adaptiveClarifyNoSendTelemetryBase({
-          noSendReason: fvgNoSendReason,
-          noSendStage: "final_voice_gate",
+          noSendReason,
+          noSendStage: "lane",
         }),
-        v3_lane_reply_source: "v3_inbound_relationship_lane",
-        v3_candidate_body: lane.body.slice(0, 500),
-        lane_metadata: lane.metadata,
-        north_star_gate: {
-          original_body: voicePack.northStarMeta.originalBody,
-          final_body: voicePack.northStarVisibleBody,
-          north_star_gate_source: voicePack.northStarMeta.source,
-          north_star_gate_reasons: voicePack.northStarMeta.blockedReasons,
-          ...pickNorthStarWriterAttributionFields(voicePack.northStarMeta),
-        },
-        final_voice_gate: voicePack.voice.metadata,
-        should_send: false,
-      }),
-      nextRetry: farFutureIso(),
+        sol_writer_model: CONTRACT_CONSENT_SOL_CLARIFY_WRITER_MODEL,
+        sol_writer_capture: solClarify.capture,
+      }).slice(0, 1900),
+      logTag: "adaptive_proposal_consent_clarification_sol_no_send",
     });
-    console.warn("[sms-inbound-coach] adaptive_proposal_consent_clarification_final_voice_suppressed", {
-      message_sid: args.job.message_sid,
-      adaptive_clarify_no_send: true,
-      adaptive_clarify_proposal_remains_pending: true,
+  }
+
+  const preValidate = evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck({
+    body: solClarify.body,
+    adaptiveConsentClarificationFacts: args.adaptiveConsentClarificationFacts,
+    requiredVerbatimSubstrings: facts.constraints.required_verbatim_substrings ?? null,
+  });
+  if (preValidate.blocked) {
+    const noSendReason = preValidate.noSendReason ?? "adaptive_clarify_sol_validator_rejected";
+    return cancelClarifyNoSend({
+      noSendReason,
+      noSendStage: "lane",
+      lastError: JSON.stringify({
+        ...baseTelemetry(),
+        ...adaptiveClarifyNoSendTelemetryBase({
+          noSendReason,
+          noSendStage: "lane",
+        }),
+        adaptive_truth_violations: preValidate.adaptiveTruthViolations,
+        required_verbatim_missing: preValidate.verbatimMissing,
+        sol_writer_model: CONTRACT_CONSENT_SOL_CLARIFY_WRITER_MODEL,
+      }).slice(0, 1900),
+      logTag: "adaptive_proposal_consent_clarification_sol_validator_no_send",
+      extraLog: { adaptive_truth_violations: preValidate.adaptiveTruthViolations },
     });
-    return { ok: false };
   }
 
   const recentEvents = await getRecentV2EventsForAi(args.commitment.id);
@@ -1413,9 +1403,9 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
     surface: "inbound",
     routePurpose: "adaptive_proposal_consent_clarification",
     branchName: "adaptive_proposal_consent_clarification",
-    preGuardBodyPreview: voicePack.voice.body,
+    preGuardBodyPreview: solClarify.body,
     transactionalCoachingLimited: {
-      body: voicePack.voice.body,
+      body: solClarify.body,
       evidence: outcomeClaimEvidence,
       priorCoachBody: priorCoach.priorCoachBody,
       priorCoachSentAt: priorCoach.priorCoachSentAt,
@@ -1561,12 +1551,13 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
   console.info("[sms-inbound-coach] adaptive_proposal_consent_clarification_lane_sent", {
     message_sid: args.job.message_sid,
     commitment_id: args.commitment.id,
-    inbound_v3_lane_used: true,
+    inbound_v3_lane_used: false,
+    contract_consent_sol_clarify: true,
+    sol_writer_model: CONTRACT_CONSENT_SOL_CLARIFY_WRITER_MODEL,
+    sol_writer_capture: solClarify.capture,
     route_purpose: facts.route_purpose,
     branch_migrated_to_lane: true,
     branch_name: "adaptive_proposal_consent_clarification",
-    v3_lane_reply_source: "v3_inbound_relationship_lane",
-    v3_candidate_body: gatedBody.slice(0, 500),
     should_send: true,
     visible_sent: true,
     sent_body_equals_guard_body: true,
@@ -1576,14 +1567,6 @@ async function persistAdaptiveProposalConsentClarificationAndSend(args: {
     adaptive_consent_clarification_facts_summary: slimAdaptiveConsentClarificationFactsForTelemetry(
       args.adaptiveConsentClarificationFacts
     ),
-    north_star_gate: {
-      original_body: voicePack.northStarMeta.originalBody,
-      final_body: voicePack.northStarVisibleBody,
-      north_star_gate_source: voicePack.northStarMeta.source,
-      north_star_gate_reasons: voicePack.northStarMeta.blockedReasons,
-      ...pickNorthStarWriterAttributionFields(voicePack.northStarMeta),
-    },
-    final_voice_gate: voicePack.voice.metadata,
     ...guardTelemetry,
   });
   return { ok: true, sentBody: gatedBody };
@@ -2168,6 +2151,7 @@ async function handleAdaptiveProposalConsentAmbiguousInbound(
     commitment,
     timezone,
     inboundRaw: raw,
+    proposalText,
     adaptiveConsentClarificationFacts,
   });
   if (r.ok) {

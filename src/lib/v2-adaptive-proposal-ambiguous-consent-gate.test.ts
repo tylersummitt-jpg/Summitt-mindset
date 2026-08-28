@@ -9,6 +9,11 @@ function gate(body: string) {
   });
 }
 
+function denyReasonOf(body: string): string | null {
+  const r = gate(body);
+  return r.shouldRoute ? null : r.denyReason;
+}
+
 describe("evaluateAdaptiveProposalAmbiguousConsentGate", () => {
   it("routes maybe as ambiguous", () => {
     const r = gate("maybe");
@@ -23,45 +28,67 @@ describe("evaluateAdaptiveProposalAmbiguousConsentGate", () => {
   });
 
   it("does not route explicit YES", () => {
-    const r = gate("Yes");
-    expect(r.shouldRoute).toBe(false);
-    expect(r.denyReason).toBe("deterministic_yes_no_use_contract_path");
+    expect(gate("Yes").shouldRoute).toBe(false);
+    expect(denyReasonOf("Yes")).toBe("deterministic_yes_no_use_contract_path");
   });
 
   it("does not route explicit NO", () => {
-    const r = gate("No");
-    expect(r.shouldRoute).toBe(false);
+    expect(gate("No").shouldRoute).toBe(false);
   });
 
   it("does not route completion proof language", () => {
-    const r = gate("I already got it done");
-    expect(r.shouldRoute).toBe(false);
-    expect(
-      r.denyReason === "completion_or_proof_language" || r.denyReason === "deterministic_yes_no_use_contract_path"
-    ).toBe(true);
+    const reason = denyReasonOf("I already got it done");
+    expect(gate("I already got it done").shouldRoute).toBe(false);
+    expect(reason === "completion_or_proof_language" || reason === "deterministic_yes_no_use_contract_path").toBe(
+      true
+    );
   });
 
   it("does not route miss language", () => {
-    const r = gate("I missed today");
-    expect(r.shouldRoute).toBe(false);
-    expect(r.denyReason).toBe("miss_or_non_completion_language");
+    expect(gate("I missed today").shouldRoute).toBe(false);
+    expect(denyReasonOf("I missed today")).toBe("miss_or_non_completion_language");
   });
 
   it("does not route keyword partial accountability", () => {
-    const r = gate("I was only partially able to do it");
-    expect(r.shouldRoute).toBe(false);
-    expect(r.denyReason).toBe("keyword_partial_accountability_language");
+    expect(gate("I was only partially able to do it").shouldRoute).toBe(false);
+    expect(denyReasonOf("I was only partially able to do it")).toBe("keyword_partial_accountability_language");
   });
 
   it("does not route blocker report", () => {
-    const r = gate("my blocker was email");
-    expect(r.shouldRoute).toBe(false);
-    expect(r.denyReason).toBe("blocker_report_language");
+    expect(gate("my blocker was email").shouldRoute).toBe(false);
+    expect(denyReasonOf("my blocker was email")).toBe("blocker_report_language");
+  });
+
+  it("routes I think so as ambiguous", () => {
+    const r = gate("I think so");
+    expect(r.shouldRoute).toBe(true);
+    if (r.shouldRoute) expect(r.inboundParse).toBe("ambiguous");
+  });
+
+  it("routes maybe later as ambiguous", () => {
+    const r = gate("maybe later");
+    expect(r.shouldRoute).toBe(true);
+    if (r.shouldRoute) expect(r.inboundParse).toBe("ambiguous");
+  });
+
+  it("routes what does that mean as explanation_request", () => {
+    const r = gate("what does that mean?");
+    expect(r.shouldRoute).toBe(true);
+    if (r.shouldRoute) expect(r.inboundParse).toBe("explanation_request");
   });
 
   it("does not route unrelated chit-chat", () => {
-    const r = gate("see you tomorrow");
-    expect(r.shouldRoute).toBe(false);
-    expect(r.denyReason).toBe("no_consent_adjacent_allowlist_match");
+    expect(gate("see you tomorrow").shouldRoute).toBe(false);
+    expect(denyReasonOf("see you tomorrow")).toBe("no_consent_adjacent_allowlist_match");
+  });
+
+  it("does not route sure-but hedging that is not on the allowlist", () => {
+    expect(gate("sure but I have a meeting").shouldRoute).toBe(false);
+    expect(denyReasonOf("sure but I have a meeting")).toBe("no_consent_adjacent_allowlist_match");
+  });
+
+  it("does not route whitespace or noise", () => {
+    expect(gate("   ").shouldRoute).toBe(false);
+    expect(gate("...").shouldRoute).toBe(false);
   });
 });

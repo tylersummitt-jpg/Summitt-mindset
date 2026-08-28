@@ -34,31 +34,40 @@ describe("sms-inbound-coach route — Phase 3F-3 ambiguous consent (static)", ()
     expect(aIdx).toBeLessThan(memIdx);
   });
 
-  it("persistAdaptiveProposalConsentClarificationAndSend uses lane then NS+FVG then unified guard (Phase 2.1d-A2)", () => {
+  it("persistAdaptiveProposalConsentClarificationAndSend uses isolated Sol writer then unified guard", () => {
     const start = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
     const end = route.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const body = route.slice(start, end);
-    expect(body).toContain("produceInboundV3RelationshipSms");
-    expect(body).toContain("northStarGatePersistBodyAsync");
+    expect(body).toContain("writeContractConsentSolClarifyBody");
     expect(body).toContain("applyUnifiedSmsFinalProductLawGuard");
     expect(body).toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
     expect(body).toContain("const gatedBody = unifiedGuard.body");
+    expect(body).not.toContain("produceInboundV3RelationshipSms");
+    expect(body).not.toContain("northStarGatePersistBodyAsync");
+    expect(body).not.toContain("applyFinalVoiceOwnershipGate");
     expect(body).not.toContain("activateAdaptiveOverlayFromProposal");
     expect(body).not.toContain("declineAdaptiveProposal");
     expect(body).not.toContain("persistContractConsentTruthOnNoSend");
-    expect(body).toContain("channel: \"clarification\"");
+    expect(body).not.toContain("runInboundSolRelationshipTurn");
+    expect(body).not.toContain("writeInboundSolBody");
+    expect(body).not.toContain("gpt-4o-mini");
+    expect(body.split("await writeContractConsentSolClarifyBody").length - 1).toBe(1);
+    expect(body.split("applyUnifiedSmsFinalProductLawGuard").length - 1).toBe(1);
   });
 
-  it("handleAdaptiveProposalConsentAmbiguousInbound does not call overlay RPCs", () => {
+  it("handleAdaptiveProposalConsentAmbiguousInbound does not call overlay RPCs and returns exclusive", () => {
     const start = route.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
-    const end = route.indexOf("async function markJobFinal");
+    const end = route.indexOf("function recordInboundMeaningShadowSuppressedNoSend");
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const body = route.slice(start, end);
     expect(body).not.toContain("activateAdaptiveOverlayFromProposal");
     expect(body).not.toContain("declineAdaptiveProposal");
     expect(body).not.toContain("setBlockerCapturePending");
+    expect(body).toContain("if (!isV2PendingProposalValid(commitment)) return false");
+    expect(body).toContain('if (classification.eventType === "user_yes" || classification.eventType === "user_no") return false');
+    expect(body).toContain("return true");
   });
 });
