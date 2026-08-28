@@ -351,8 +351,11 @@ describe("manual Win Overall + Season count integration", () => {
       commitment_id: null,
       status: "active",
       updated_at: "2026-08-08T12:05:00.000Z",
+      source_type: "manual",
+      user_edited_at: null,
     });
     expect(dto.displayTitle).toBe("Done");
+    expect(dto.displayBody).toBe("Done");
     expect(dto.commitmentId).toBeNull();
     expect(dto.updatedAt).toBe("2026-08-08T12:05:00.000Z");
   });

@@ -648,4 +648,23 @@ describe("applyUserVictoryWinEdit", () => {
     const row = await loadOwnedActiveWinForEdit({ clerkUserId: "user_1", winId: "win-1" });
     expect(row).toBeNull();
   });
+
+  it("edit load keeps stored display_body for unedited sms_inbound (card hiding is public-read only)", async () => {
+    mockWinLoad(
+      baseWin({
+        source_type: "sms_inbound",
+        display_title: "Consistent Weight Lifting",
+        display_body: "Tyler, you lifted weights again today, showing your commitment.",
+        supporting_quote: "I lifted weights again today!",
+        user_edited_at: null,
+      })
+    );
+    const row = await loadOwnedActiveWinForEdit({ clerkUserId: "user_1", winId: "win-1" });
+    expect(row?.displayTitle).toBe("Consistent Weight Lifting");
+    expect(row?.displayBody).toBe(
+      "Tyler, you lifted weights again today, showing your commitment."
+    );
+    expect(row?.supportingQuote).toBe("I lifted weights again today!");
+    expect(row?.userEditedAt).toBeNull();
+  });
 });

@@ -17,7 +17,7 @@ export const PUBLIC_WINS_PAGE_LIMIT = 50;
 
 /** Columns selected from v2_win for public mapping (never returned raw to clients). */
 export const PUBLIC_WIN_SELECT_COLUMNS =
-  "id, occurred_at, display_title, display_body, supporting_quote, sensitivity_caution, celebration_appropriate, commitment_id, status, updated_at" as const;
+  "id, occurred_at, display_title, display_body, supporting_quote, sensitivity_caution, celebration_appropriate, commitment_id, status, updated_at, source_type, user_edited_at" as const;
 
 /** Optional Victory Media card presentation — never includes Storage paths. */
 export type PublicWinMediaDto = {
@@ -38,6 +38,12 @@ export type PublicWinDto = {
   commitmentId: string | null;
   /** Concurrency token for Delete (and future card mutations). Not shown in UI copy. */
   updatedAt: string;
+  /**
+   * Presentation owner metadata only — not SMS payload, action_fact, or Win truth.
+   * Card body visibility is already applied to `displayBody`; these fields are not required by UI.
+   */
+  sourceType?: string;
+  userEditedAt?: string | null;
   /** Optional signed card photo; omitted when absent or enrichment failed. */
   media?: PublicWinMediaDto;
 };
@@ -72,6 +78,8 @@ type WinRow = {
   commitment_id: string | null;
   status: string;
   updated_at: string;
+  source_type?: string | null;
+  user_edited_at?: string | null;
 };
 
 function requireClerkUserId(clerkUserId: string): string {
@@ -97,12 +105,54 @@ export function sanitizePublicWinSupportingQuote(args: {
   return q.length > 0 ? q : null;
 }
 
+function normalizeWinSourceType(raw: unknown): string {
+  return typeof raw === "string" ? raw.trim() : "";
+}
+
+function normalizeWinUserEditedAt(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Owner-mode for Victory Room card presentation.
+ * MANUAL: source_type === "manual"
+ * EDITED SYSTEM: user_edited_at is set (typically sms_inbound)
+ * UNEDITED SYSTEM: everything else, including sms_inbound with null user_edited_at
+ */
+export function isMemberOwnedWinPresentation(args: {
+  sourceType: string | null | undefined;
+  userEditedAt: string | null | undefined;
+}): boolean {
+  if (normalizeWinSourceType(args.sourceType) === "manual") return true;
+  return normalizeWinUserEditedAt(args.userEditedAt) != null;
+}
+
+/** Card `displayBody`: stored body for member-owned Wins; empty for unedited system Wins. */
+export function publicWinCardDisplayBody(args: {
+  displayBody: string;
+  sourceType: string | null | undefined;
+  userEditedAt: string | null | undefined;
+}): string {
+  const body = args.displayBody.trim();
+  if (!body) return "";
+  if (isMemberOwnedWinPresentation(args)) return body;
+  return "";
+}
+
 export function mapV2WinRowToPublicDto(row: WinRow): PublicWinDto {
+  const sourceType = normalizeWinSourceType(row.source_type);
+  const userEditedAt = normalizeWinUserEditedAt(row.user_edited_at);
   return {
     id: row.id,
     occurredAt: row.occurred_at,
     displayTitle: row.display_title.trim(),
-    displayBody: row.display_body.trim(),
+    displayBody: publicWinCardDisplayBody({
+      displayBody: row.display_body,
+      sourceType,
+      userEditedAt,
+    }),
     supportingQuote: sanitizePublicWinSupportingQuote({
       supportingQuote: row.supporting_quote,
       sensitivityCaution: Boolean(row.sensitivity_caution),
@@ -111,6 +161,8 @@ export function mapV2WinRowToPublicDto(row: WinRow): PublicWinDto {
     celebrationAppropriate: row.celebration_appropriate !== false,
     commitmentId: row.commitment_id,
     updatedAt: row.updated_at,
+    sourceType,
+    userEditedAt,
   };
 }
 

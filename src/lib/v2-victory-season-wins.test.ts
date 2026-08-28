@@ -99,6 +99,8 @@ describe("loadActiveWinsForSeasonCommitment", () => {
           display_body: "Done",
           celebration_appropriate: false,
           supporting_quote: null,
+          source_type: "manual",
+          user_edited_at: null,
         }),
         winRow({
           id: "sms-1",
@@ -107,6 +109,8 @@ describe("loadActiveWinsForSeasonCommitment", () => {
           display_body: "You kept the goal.",
           celebration_appropriate: true,
           supporting_quote: "got it done",
+          source_type: "sms_inbound",
+          user_edited_at: null,
         }),
       ],
       error: null,
@@ -132,7 +136,11 @@ describe("loadActiveWinsForSeasonCommitment", () => {
     expect(wins).toHaveLength(2);
     expect(wins[0]?.id).toBe("manual-1");
     expect(wins[0]?.displayTitle).toBe("Done");
+    expect(wins[0]?.displayBody).toBe("Done");
     expect(wins[1]?.id).toBe("sms-1");
+    expect(wins[1]?.displayTitle).toBe("Showed up");
+    expect(wins[1]?.displayBody).toBe("");
+    expect(wins[1]?.supportingQuote).toBe("got it done");
   });
 
   it("enriches after canonical season wins; preserves order and ownership", async () => {

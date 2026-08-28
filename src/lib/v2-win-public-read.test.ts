@@ -43,6 +43,8 @@ import {
   mapV2WinRowToPublicDto,
   quotePostgrestFilterValue,
   sanitizePublicWinSupportingQuote,
+  isMemberOwnedWinPresentation,
+  publicWinCardDisplayBody,
 } from "@/lib/v2-win-public-read";
 
 function winRow(overrides: Record<string, unknown> = {}) {
@@ -57,6 +59,8 @@ function winRow(overrides: Record<string, unknown> = {}) {
     commitment_id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
     status: "active",
     updated_at: "2026-08-01T12:05:00.000Z",
+    source_type: "sms_inbound",
+    user_edited_at: null,
     ...overrides,
   };
 }
@@ -131,7 +135,7 @@ describe("sanitizePublicWinSupportingQuote", () => {
 });
 
 describe("mapV2WinRowToPublicDto", () => {
-  it("maps approved fields and omits sensitive quote", () => {
+  it("maps approved fields, hides unedited system body, and omits sensitive quote", () => {
     const dto = mapV2WinRowToPublicDto(
       winRow({
         sensitivity_caution: true,
@@ -143,19 +147,25 @@ describe("mapV2WinRowToPublicDto", () => {
       id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
       occurredAt: "2026-08-01T12:00:00.000Z",
       displayTitle: "Showed up",
-      displayBody: "You did the hard thing.",
+      displayBody: "",
       supportingQuote: null,
       celebrationAppropriate: true,
       commitmentId: null,
       updatedAt: "2026-08-01T12:05:00.000Z",
+      sourceType: "sms_inbound",
+      userEditedAt: null,
     });
     expect(dto).not.toHaveProperty("model_confidence");
     expect(dto).not.toHaveProperty("idempotency_key");
     expect(dto).not.toHaveProperty("source_message_sid");
     expect(dto).not.toHaveProperty("hidden_reason");
+    expect(dto).not.toHaveProperty("action_fact");
     expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("updated_at");
+    expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("source_type");
+    expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("user_edited_at");
     expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("source_message");
     expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("hidden_reason");
+    expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("action_fact");
   });
 
   it("includes whole-life and commitment-linked rows", () => {
@@ -163,6 +173,157 @@ describe("mapV2WinRowToPublicDto", () => {
     expect(
       mapV2WinRowToPublicDto(winRow({ commitment_id: "c1" }) as never).commitmentId
     ).toBe("c1");
+  });
+
+  it("A. hides recognition-style system body and keeps sanitized quote", () => {
+    const dto = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Consistent Weight Lifting",
+        display_body: "Tyler, you lifted weights again today, showing your commitment.",
+        supporting_quote: "I lifted weights again today!",
+        source_type: "sms_inbound",
+        user_edited_at: null,
+      }) as never
+    );
+    expect(dto.displayTitle).toBe("Consistent Weight Lifting");
+    expect(dto.displayBody).toBe("");
+    expect(dto.supportingQuote).toBe("I lifted weights again today!");
+  });
+
+  it("B. hides Sol life Win duplicate body and keeps rich inbound quote", () => {
+    const quote =
+      "Swimming with them. I put my phone away and was completely in the moment with them.";
+    const title = "Put his phone away while swimming and gave his kids his full attention.";
+    const dto = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: title,
+        display_body: title,
+        supporting_quote: quote,
+        source_type: "sms_inbound",
+        user_edited_at: null,
+      }) as never
+    );
+    expect(dto.displayTitle).toBe(title);
+    expect(dto.displayBody).toBe("");
+    expect(dto.supportingQuote).toBe(quote);
+  });
+
+  it("C. hides structural accountability duplicate body when quote is null", () => {
+    const dto = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Lift weights for 30 minutes a day.",
+        display_body: "Lift weights for 30 minutes a day.",
+        supporting_quote: null,
+        source_type: "sms_inbound",
+        user_edited_at: null,
+      }) as never
+    );
+    expect(dto.displayTitle).toBe("Lift weights for 30 minutes a day.");
+    expect(dto.displayBody).toBe("");
+    expect(dto.supportingQuote).toBeNull();
+  });
+
+  it("preserves manual member-authored body even when it equals title", () => {
+    const dto = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Family Vacation",
+        display_body: "Took the kids to the beach.",
+        supporting_quote: null,
+        celebration_appropriate: false,
+        source_type: "manual",
+        user_edited_at: null,
+      }) as never
+    );
+    expect(dto.displayTitle).toBe("Family Vacation");
+    expect(dto.displayBody).toBe("Took the kids to the beach.");
+    expect(dto.supportingQuote).toBeNull();
+  });
+
+  it("preserves manual body when body equals title and celebration is quiet", () => {
+    const dto = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Done",
+        display_body: "Done",
+        supporting_quote: null,
+        celebration_appropriate: false,
+        source_type: "manual",
+        user_edited_at: null,
+      }) as never
+    );
+    expect(dto.displayBody).toBe("Done");
+  });
+
+  it("preserves edited system Win body via user_edited_at, not body/title difference", () => {
+    const dto = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Lifted weights with Brooke",
+        display_body: "We actually made it to the gym together.",
+        supporting_quote: null,
+        source_type: "sms_inbound",
+        user_edited_at: "2026-08-20T15:00:00.000Z",
+      }) as never
+    );
+    expect(dto.displayTitle).toBe("Lifted weights with Brooke");
+    expect(dto.displayBody).toBe("We actually made it to the gym together.");
+    expect(dto.userEditedAt).toBe("2026-08-20T15:00:00.000Z");
+  });
+
+  it("does not infer edit ownership from celebration_appropriate or body/title mismatch", () => {
+    const dto = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Consistent Weight Lifting",
+        display_body: "Tyler, you lifted weights again today.",
+        celebration_appropriate: false,
+        source_type: "sms_inbound",
+        user_edited_at: null,
+      }) as never
+    );
+    expect(dto.displayBody).toBe("");
+    expect(isMemberOwnedWinPresentation({ sourceType: "sms_inbound", userEditedAt: null })).toBe(
+      false
+    );
+  });
+});
+
+describe("publicWinCardDisplayBody owner-mode", () => {
+  it("treats sms_inbound + null user_edited_at as unedited system", () => {
+    expect(
+      publicWinCardDisplayBody({
+        displayBody: "Tyler, you lifted weights again today.",
+        sourceType: "sms_inbound",
+        userEditedAt: null,
+      })
+    ).toBe("");
+    expect(
+      isMemberOwnedWinPresentation({ sourceType: "sms_inbound", userEditedAt: null })
+    ).toBe(false);
+  });
+
+  it("treats source_type manual as member-authored even without user_edited_at", () => {
+    expect(
+      publicWinCardDisplayBody({
+        displayBody: "Took the kids to the beach.",
+        sourceType: "manual",
+        userEditedAt: null,
+      })
+    ).toBe("Took the kids to the beach.");
+    expect(isMemberOwnedWinPresentation({ sourceType: "manual", userEditedAt: null })).toBe(true);
+  });
+
+  it("treats sms_inbound + user_edited_at as member-authored", () => {
+    expect(
+      publicWinCardDisplayBody({
+        displayBody: "We actually made it to the gym together.",
+        sourceType: "sms_inbound",
+        userEditedAt: "2026-08-20T15:00:00.000Z",
+      })
+    ).toBe("We actually made it to the gym together.");
+    expect(
+      isMemberOwnedWinPresentation({
+        sourceType: "sms_inbound",
+        userEditedAt: "2026-08-20T15:00:00.000Z",
+      })
+    ).toBe(true);
   });
 });
 
@@ -279,6 +440,7 @@ describe("loadPublicVictoryWinsForUser", () => {
     expect(result.recentWins).toHaveLength(2);
     expect(result.recentWins[0]?.displayTitle).toBe("Whole life");
     expect(result.recentWins[0]?.commitmentId).toBeNull();
+    expect(result.recentWins[0]?.displayBody).toBe("");
     expect(result.recentWins[1]?.commitmentId).toBe("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
     expect(state.lastSelects).toContain(PUBLIC_WIN_SELECT_COLUMNS);
@@ -325,6 +487,8 @@ describe("loadPublicVictoryWinsForUser", () => {
       ]),
     });
     expect(result.recentWins[0]?.media?.cardUrl).toBe("https://signed.example/card.jpg");
+    expect(result.recentWins[0]?.displayBody).toBe("");
+    expect(result.recentWins[0]?.id).toBe("cccccccc-cccc-cccc-cccc-cccccccccccc");
     expect(result.recentWins).toHaveLength(2);
     expect(result.totalActiveWins).toBe(2);
   });
