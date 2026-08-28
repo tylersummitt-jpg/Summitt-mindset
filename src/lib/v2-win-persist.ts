@@ -23,6 +23,7 @@ import {
   equivalenceMapFromJudgments,
   type WinEquivalenceJudgment,
 } from "@/lib/openai-win-candidate-equivalence-v1";
+import { normalizeSolTrophyTitle } from "@/lib/inbound-sol-coaching-brief";
 
 export type WinSourceType = "sms_inbound" | "system_event";
 
@@ -517,6 +518,15 @@ export type PersistInboundWinsWithAccountabilityArgs = {
    * When omitted, OpenAI equivalence helper runs (with documented fallback).
    */
   equivalenceByOrdinal?: Record<number, WinEquivalenceJudgment> | null;
+  /**
+   * Display-only title overlays. Applied after merge. Never creates Wins.
+   * Never writes action_fact / display_body / supporting_quote / grounded_action.
+   * Mini callers omit this (current titles unchanged).
+   */
+  displayTitleOverrides?: {
+    accountability?: string | null;
+    independent?: string | null;
+  };
 };
 
 /**
@@ -646,6 +656,19 @@ export async function persistInboundWinsWithAccountability(
     return empty;
   }
 
+  const accTitleOverride = normalizeSolTrophyTitle(args.displayTitleOverrides?.accountability);
+  const accountability = accTitleOverride
+    ? { ...plan.accountability, display_title: accTitleOverride }
+    : plan.accountability;
+
+  const independentTitleOverride = normalizeSolTrophyTitle(
+    args.displayTitleOverrides?.independent
+  );
+  const independent =
+    plan.independent && independentTitleOverride
+      ? { ...plan.independent, suggested_title: independentTitleOverride }
+      : plan.independent;
+
   let sourceEventId = args.userYesEventId?.trim() || null;
   if (!sourceEventId) {
     sourceEventId = await lookupUserYesEventIdByMessageSid(sid);
@@ -677,7 +700,7 @@ export async function persistInboundWinsWithAccountability(
       sourceEventId,
       commitmentId,
       occurredAtIso: args.occurredAtIso,
-      presentation: plan.accountability,
+      presentation: accountability,
     });
     const accInsert = await insertV2WinRow(accRow);
     if (accInsert.status === "inserted") {
@@ -691,7 +714,7 @@ export async function persistInboundWinsWithAccountability(
       console.log("[win_persist_inserted]", {
         ordinal: 0,
         kind: "accountability_user_yes",
-        presentation_source: plan.accountability.presentation_source,
+        presentation_source: accountability.presentation_source,
         suppressed_same_candidates: plan.suppressed_same_candidate_count,
         schema_version: WIN_RECOGNITION_VERSION,
       });
@@ -730,7 +753,7 @@ export async function persistInboundWinsWithAccountability(
   }
 
   // 2) Distinct recognized Win only (normalized ordinal 1; any relationship_type)
-  if (plan.independent) {
+  if (independent) {
     result.attempted += 1;
     try {
       const indRow = buildV2WinInsertRow({
@@ -742,7 +765,7 @@ export async function persistInboundWinsWithAccountability(
         activeCommitmentId: commitmentId,
         activeCommitmentClerkUserId: clerk,
         occurredAtIso: args.occurredAtIso,
-        candidate: plan.independent,
+        candidate: independent,
       });
       const indInsert = await insertV2WinRow(indRow);
       if (indInsert.status === "inserted") {
@@ -756,7 +779,7 @@ export async function persistInboundWinsWithAccountability(
         console.log("[win_persist_inserted]", {
           ordinal: 1,
           kind: "distinct_recognized",
-          relationship_type: plan.independent.relationship_type,
+          relationship_type: independent.relationship_type,
           schema_version: WIN_RECOGNITION_VERSION,
         });
       } else if (indInsert.status === "existing") {

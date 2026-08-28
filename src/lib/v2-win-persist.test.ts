@@ -648,4 +648,126 @@ describe("accountability user_yes Win persistence", () => {
     expect(persistSrc).toContain('status: "existing"');
     expect(persistSrc).toContain("lookupExistingWinByKey");
   });
+
+  it("A. trophy overlay sets display_title only; action_fact/body/quote stay structural", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    const r = await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMyes",
+      sourceMessageId: null,
+      userYesEventId: "evt-yes-1",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: null,
+      equivalenceByOrdinal: {},
+      displayTitleOverrides: {
+        accountability: "Lifted Weights",
+        independent: "Swam With the Kids",
+      },
+    });
+    expect(r.persisted).toBe(1);
+    expect(r.wins).toHaveLength(1);
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.display_title).toBe("Lifted Weights");
+    expect(insertedRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+    expect(insertedRow.display_body).toBe("Lift weights for 30 minutes a day.");
+    expect(insertedRow.supporting_quote).toBeNull();
+    expect(insertedRow.candidate_ordinal).toBe(0);
+    expect(insertedRow.idempotency_key).toBe("win_v1:acc_yes:SMyes");
+  });
+
+  it("B/C. missing or invalid trophy falls back to structural goal title", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMyes2",
+      sourceMessageId: null,
+      userYesEventId: "evt-yes-2",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: null,
+      equivalenceByOrdinal: {},
+      displayTitleOverrides: {
+        accountability: `Family experience ${"x".repeat(80)}`,
+        independent: null,
+      },
+    });
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.display_title).toBe("Lift weights for 30 minutes a day.");
+    expect(insertedRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+  });
+
+  it("G. acc+life overlays map to ordinal 0 vs 1 without swapping", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle
+      .mockResolvedValueOnce({ data: { id: "w-acc" }, error: null })
+      .mockResolvedValueOnce({ data: { id: "w-life" }, error: null });
+    const grounded = "Took the kids swimming tonight";
+    const r = await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMboth",
+      sourceMessageId: null,
+      userYesEventId: "evt-yes-3",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: recognition([
+        candidate({
+          ordinal: 0,
+          grounded_action: grounded,
+          suggested_title: grounded.slice(0, 80),
+          suggested_body: grounded,
+          evidence_quote: "Yes, and I took the kids swimming tonight.",
+          relationship_type: "whole_life",
+        }),
+      ]),
+      equivalenceByOrdinal: { 0: "distinct" },
+      displayTitleOverrides: {
+        accountability: "Lifted Weights",
+        independent: "Swam With the Kids",
+      },
+    });
+    expect(r.persisted).toBe(2);
+    expect(r.wins[0]?.ordinal).toBe(0);
+    expect(r.wins[1]?.ordinal).toBe(1);
+    const accRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    const lifeRow = insertMaybeSingle.mock.calls[1]?.[0] as Record<string, unknown>;
+    expect(accRow.display_title).toBe("Lifted Weights");
+    expect(accRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+    expect(accRow.idempotency_key).toBe("win_v1:acc_yes:SMboth");
+    expect(lifeRow.display_title).toBe("Swam With the Kids");
+    expect(lifeRow.action_fact).toBe(grounded);
+    expect(lifeRow.candidate_ordinal).toBe(1);
+    expect(lifeRow.idempotency_key).toBe("win_v1:SMboth:1");
+  });
+
+  it("M. mini path without displayTitleOverrides keeps donor suggested_title", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMmini",
+      sourceMessageId: null,
+      userYesEventId: "evt-mini",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: recognition([
+        candidate({
+          relationship_type: "goal",
+          suggested_title: "Lifted today",
+          suggested_body: "You protected the bar.",
+          grounded_action: "Lifted weights today",
+        }),
+      ]),
+      equivalenceByOrdinal: { 0: "same" },
+    });
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.display_title).toBe("Lifted today");
+    expect(insertedRow.action_fact).toBe("Lifted weights today");
+  });
 });

@@ -82,6 +82,19 @@ export const EMPTY_INBOUND_SOL_PENDING_PHOTO_RELATION: InboundSolPendingPhotoRel
   target_win_id: null,
 };
 
+/** Matches v2_win.display_title CHECK / WIN_FIELD_LIMITS.display_title. */
+export const SOL_TROPHY_TITLE_MAX_CHARS = 80 as const;
+
+export type InboundSolWinPresentation = {
+  accountability_trophy_title: string | null;
+  life_trophy_title: string | null;
+};
+
+export const EMPTY_INBOUND_SOL_WIN_PRESENTATION: InboundSolWinPresentation = {
+  accountability_trophy_title: null,
+  life_trophy_title: null,
+};
+
 export type InboundSolBriefExtras = {
   answer_priority: InboundSolAnswerPriority;
   coaching_after_answer: InboundSolCoachingAfterAnswer;
@@ -95,6 +108,8 @@ export type InboundSolBriefExtras = {
   meaningful_win: InboundSolMeaningfulWin | null;
   pending_photo_relation: InboundSolPendingPhotoRelation;
   durable_user_evidence: InboundSolDurableUserEvidence | null;
+  /** Display-only. Never Win truth. Parser defaults when missing/malformed. */
+  win_presentation: InboundSolWinPresentation;
 };
 
 export type InboundCoachingBriefV1 = MorningCoachingBriefV1 & {
@@ -156,6 +171,7 @@ export function parseInboundSolBriefExtras(raw: unknown): InboundSolBriefExtras 
     meaningful_win,
     pending_photo_relation: parsePendingPhotoRelation(o.pending_photo_relation),
     durable_user_evidence: parseDurableUserEvidence(o.durable_user_evidence),
+    win_presentation: parseWinPresentation(o.win_presentation),
   };
 }
 
@@ -168,6 +184,33 @@ function parseDurableUserEvidence(raw: unknown): InboundSolDurableUserEvidence |
   if (excerpt.length === 0) return null;
   if (excerpt.length > DURABLE_USER_EVIDENCE_PARSER_MAX_CHARS) return null;
   return { exact_user_evidence: excerpt };
+}
+
+/**
+ * Shape-only trophy title validator. No grammar, no banned-word list, no conjugator.
+ * Invalid or >80 after trim → null (caller falls back). Never slice mid-word.
+ */
+export function normalizeSolTrophyTitle(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  for (let i = 0; i < raw.length; i++) {
+    const code = raw.charCodeAt(i);
+    if (code < 32 || code === 127) return null;
+  }
+  const collapsed = raw.replace(/ +/g, " ").trim();
+  if (!collapsed) return null;
+  if (collapsed.length > SOL_TROPHY_TITLE_MAX_CHARS) return null;
+  return collapsed;
+}
+
+function parseWinPresentation(raw: unknown): InboundSolWinPresentation {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { ...EMPTY_INBOUND_SOL_WIN_PRESENTATION };
+  }
+  const o = raw as Record<string, unknown>;
+  return {
+    accountability_trophy_title: normalizeSolTrophyTitle(o.accountability_trophy_title),
+    life_trophy_title: normalizeSolTrophyTitle(o.life_trophy_title),
+  };
 }
 
 function parsePendingPhotoRelation(raw: unknown): InboundSolPendingPhotoRelation {

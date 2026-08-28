@@ -217,6 +217,8 @@ describe("inbound Win recognition — specialized lane coverage", () => {
     expect(wireSrc).toContain("isTapback");
     expect(wireSrc).toContain("isSafetyOrCrisisOwned");
     expect(wireSrc).toContain("isComplianceOrStop");
+    expect(wireSrc).not.toContain("displayTitleOverrides");
+    expect(wireSrc).not.toContain("win_presentation");
     const handlerStart = src.indexOf("async function handleV2SmsInboundCoachJob");
     const safetyIdx = src.indexOf("await processInboundSmsSafetyShortCircuit(", handlerStart);
     const normalIdx = src.indexOf("await processV2NormalInboundOutcome(", handlerStart);

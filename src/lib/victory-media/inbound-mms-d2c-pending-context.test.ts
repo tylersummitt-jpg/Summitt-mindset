@@ -191,6 +191,32 @@ describe("loadInboundMmsD2cPendingContext", () => {
     expect(JSON.stringify(ctx)).toContain(QUESTION);
   });
 
+  it("uses stored display_title as concise recent-win label", async () => {
+    const trophyWin: InboundMmsD1WinLite = {
+      ...win,
+      display_title: "Swam With the Kids",
+      display_body:
+        "Put his phone away while swimming and gave his kids his full attention.",
+    };
+    const ctx = await loadInboundMmsD2cPendingContext(
+      { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },
+      {
+        hasUnresolvedDeletion: async () => false,
+        listPendingJobs: async () => [job()],
+        listBodySids: async () => new Set(),
+        listRecentWins: async () => [trophyWin],
+        listWinIdsWithMedia: async () => new Set(),
+      }
+    );
+    expect(ctx).not.toBe("error");
+    if (ctx === "error") return;
+    expect(ctx.candidate_count).toBe(1);
+    expect(ctx.recent_wins).toHaveLength(1);
+    expect(ctx.recent_wins[0]?.id).toBe(WIN_A);
+    expect(ctx.recent_wins[0]?.text).toBe("Swam With the Kids");
+    expect(ctx.recent_wins[0]?.text).not.toContain("Put his phone away");
+  });
+
   it("candidate_count 0 when no pending_user jobs", async () => {
     const ctx = await loadInboundMmsD2cPendingContext(
       { clerkUserId: USER, currentMessageSid: BODY_SID, now: NOW },

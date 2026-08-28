@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MORNING_COACHING_BRIEF_VERSION } from "@/lib/morning-tto-coaching-brief-v1";
 import {
   parseInboundCoachingBriefV1,
+  EMPTY_INBOUND_SOL_WIN_PRESENTATION,
   type InboundSolBriefExtras,
 } from "@/lib/inbound-sol-coaching-brief";
 import { shouldPersistSolInboundAccountabilityOutcome } from "@/lib/inbound-sol-persist-advice";
@@ -24,6 +25,7 @@ function extras(overrides: Partial<InboundSolBriefExtras> = {}): InboundSolBrief
     meaningful_win: null,
     pending_photo_relation: { relation: "none", target_win_id: null },
     durable_user_evidence: null,
+    win_presentation: EMPTY_INBOUND_SOL_WIN_PRESENTATION,
     ...rest,
   };
 }
@@ -329,5 +331,32 @@ describe("parseInboundCoachingBriefV1 inbound extras", () => {
     expect(parsed).not.toBeNull();
     expect(parsed?.inbound.accountability_interpretation.outcome).toBe("not_applicable");
     expect(parsed?.goal_role_today.role).toBe("do_not_mention");
+  });
+
+  it("trophy titles cannot create or suppress accountability persist", () => {
+    const withTitles = extras({
+      accountability_interpretation: {
+        relevance: "unrelated",
+        outcome: "not_applicable",
+        confidence: "high",
+        evidence: "hello",
+      },
+      win_presentation: {
+        accountability_trophy_title: "Lifted Weights",
+        life_trophy_title: "Swam With the Kids",
+      },
+    });
+    const skipped = advice(withTitles);
+    expect(skipped.persist).toBe(false);
+
+    const completedWithTitles = extras({
+      win_presentation: {
+        accountability_trophy_title: "Lifted Weights",
+        life_trophy_title: null,
+      },
+    });
+    const yes = advice(completedWithTitles);
+    expect(yes.persist).toBe(true);
+    if (yes.persist) expect(yes.resolvedEventType).toBe("user_yes");
   });
 });

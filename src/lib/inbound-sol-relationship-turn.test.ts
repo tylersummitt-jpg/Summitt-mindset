@@ -8,6 +8,7 @@ import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import { defaultGatedDecision } from "@/lib/v2-ai-inbound";
 import { MORNING_COACHING_BRIEF_VERSION } from "@/lib/morning-tto-coaching-brief-v1";
 import type { InboundCoachingBriefV1 } from "@/lib/inbound-sol-coaching-brief";
+import { EMPTY_INBOUND_SOL_WIN_PRESENTATION } from "@/lib/inbound-sol-coaching-brief";
 
 const persistSolInboundUserEvidence = vi.hoisted(() => vi.fn());
 const persistInboundAccountabilityOutcomeEvent = vi.hoisted(() => vi.fn());
@@ -206,6 +207,7 @@ function brief(
       meaningful_win: null,
       pending_photo_relation: { relation: "none", target_win_id: null },
       durable_user_evidence: null,
+      win_presentation: EMPTY_INBOUND_SOL_WIN_PRESENTATION,
       ...overrides,
     },
   };
@@ -348,6 +350,40 @@ describe("runInboundSolRelationshipTurn", () => {
       clerkUserId: "user_1",
       messageSid: "SMfin",
     });
+  });
+
+  it("passes display-only trophy overlays after user_yes without a second persist path", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        win_presentation: {
+          accountability_trophy_title: "Lifted Weights",
+          life_trophy_title: null,
+        },
+      }),
+      capture: { retry_occurred: false },
+    });
+
+    await runInboundSolRelationshipTurn({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "yes",
+      messageSid: "SMfin",
+      recentEventsNewestFirst: [],
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      classifierEventType: "user_no",
+      classifierNormalizedHint: null,
+      exclusiveLaneOwnsTurn: false,
+      pendingConfirmationConflict: false,
+    });
+
+    expect(persistInboundWinsWithAccountability).toHaveBeenCalledTimes(1);
+    expect(persistInboundWinsWithAccountability.mock.calls[0]?.[0]?.displayTitleOverrides).toEqual({
+      accountability: "Lifted Weights",
+      independent: null,
+    });
+    expect(recognizeWinsFromInboundV1).not.toHaveBeenCalled();
   });
 
   it("C1 persist hook throw cannot block Sol Coach send", async () => {

@@ -103,16 +103,20 @@ export function toWriterFacingInboundRelationshipPacket(
 }
 
 /**
- * Writer-facing brief: drop D1 pending_photo_relation.
+ * Writer-facing brief: drop D1 pending_photo_relation and display-only win_presentation.
  * Interpreter and the claim scheduler keep the full brief.
  */
 export function toWriterFacingInboundCoachingBrief(
   brief: InboundCoachingBriefV1
 ): Omit<InboundCoachingBriefV1, "inbound"> & {
-  inbound: Omit<InboundCoachingBriefV1["inbound"], "pending_photo_relation">;
+  inbound: Omit<
+    InboundCoachingBriefV1["inbound"],
+    "pending_photo_relation" | "win_presentation"
+  >;
 } {
-  const { pending_photo_relation, ...inbound } = brief.inbound;
+  const { pending_photo_relation, win_presentation, ...inbound } = brief.inbound;
   void pending_photo_relation;
+  void win_presentation;
   return { ...brief, inbound };
 }
 

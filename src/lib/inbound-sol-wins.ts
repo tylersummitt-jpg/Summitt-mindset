@@ -9,7 +9,10 @@ import {
   type WinRecognitionResultV1,
 } from "@/lib/openai-win-recognition-v1";
 import type { WinEquivalenceJudgment } from "@/lib/openai-win-candidate-equivalence-v1";
-import type { InboundSolBriefExtras } from "@/lib/inbound-sol-coaching-brief";
+import {
+  normalizeSolTrophyTitle,
+  type InboundSolBriefExtras,
+} from "@/lib/inbound-sol-coaching-brief";
 import type { InboundOutcomePersistResult } from "@/lib/v2-inbound-accountability-outcome-persist";
 import {
   persistInboundWinsWithAccountability,
@@ -85,6 +88,31 @@ function persistedUserYes(
   );
 }
 
+/** Named trophy overlays. Life title is null unless this turn independently has a life Win. */
+export function solWinDisplayTitleOverrides(inbound: InboundSolBriefExtras): {
+  accountability: string | null;
+  independent: string | null;
+} {
+  const presentation = inbound.win_presentation;
+  const hasLife = inbound.meaningful_win?.relationship === "life";
+  return {
+    accountability: normalizeSolTrophyTitle(presentation?.accountability_trophy_title),
+    independent: hasLife ? normalizeSolTrophyTitle(presentation?.life_trophy_title) : null,
+  };
+}
+
+function recognitionWithLifeTrophyTitle(
+  recognition: WinRecognitionResultV1,
+  lifeTitle: string | null
+): WinRecognitionResultV1 {
+  if (!lifeTitle || !recognition.has_win || recognition.wins.length === 0) return recognition;
+  const first = recognition.wins[0]!;
+  return {
+    ...recognition,
+    wins: [{ ...first, suggested_title: lifeTitle }, ...recognition.wins.slice(1)],
+  };
+}
+
 /**
  * Accountability Win stays on user_yes (existing merge).
  * Distinct life Win persists even when user_yes did not.
@@ -105,6 +133,7 @@ export async function persistSolInboundWins(args: {
     inbound: args.inbound,
     inboundText: args.inboundText,
   });
+  const titles = solWinDisplayTitleOverrides(args.inbound);
 
   if (persistedUserYes(args.persistResult)) {
     const result = await persistInboundWinsWithAccountability({
@@ -120,6 +149,10 @@ export async function persistSolInboundWins(args: {
       recognition: winPlan.recognition,
       inboundMessage: args.inboundText,
       equivalenceByOrdinal: winPlan.equivalenceByOrdinal,
+      displayTitleOverrides: {
+        accountability: titles.accountability,
+        independent: titles.independent,
+      },
     });
     scheduleC1IfWinsDurable({
       persisted: result.persisted,
@@ -137,6 +170,7 @@ export async function persistSolInboundWins(args: {
     return null;
   }
 
+  const recognition = recognitionWithLifeTrophyTitle(winPlan.recognition, titles.independent);
   const recognized = await persistRecognizedWins({
     clerkUserId: args.clerkUserId,
     sourceType: "sms_inbound",
@@ -146,7 +180,7 @@ export async function persistSolInboundWins(args: {
     activeCommitmentId: args.commitmentId,
     activeCommitmentClerkUserId: args.clerkUserId,
     occurredAtIso: args.occurredAtIso,
-    recognition: winPlan.recognition,
+    recognition,
   });
   scheduleC1IfWinsDurable({
     persisted: recognized.persisted,

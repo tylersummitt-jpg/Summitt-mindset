@@ -156,6 +156,12 @@ describe("inbound Sol contracts", () => {
       "It does NOT refer to pending photo clarification"
     );
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("pending_photo_relation");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("win_presentation");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Lifted Weights");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "does NOT determine whether a Win exists"
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("win_presentation");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("DURABLE USER EVIDENCE");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("verbatim contiguous substring");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("DURABLE USER EVIDENCE");
@@ -467,6 +473,38 @@ describe("writer D1 pending-photo data minimization", () => {
     expect(user).toContain("This was me finally taking the kids hiking.");
     expect(p.pending_media_context.candidate_count).toBe(1);
     expect(brief?.inbound.pending_photo_relation.relation).toBe("current_turn_win");
+  });
+
+  it("does not give the writer win_presentation trophy titles", () => {
+    const p = packet("yes", []);
+    const brief = briefWithInbound({
+      answer_priority: "normal",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "central",
+        outcome: "completed",
+        confidence: "high",
+        evidence: "yes",
+      },
+      meaningful_win: null,
+      pending_photo_relation: { relation: "none", target_win_id: null },
+      win_presentation: {
+        accountability_trophy_title: "Lifted Weights",
+        life_trophy_title: "Swam With the Kids",
+      },
+    });
+    expect(brief?.inbound.win_presentation.accountability_trophy_title).toBe("Lifted Weights");
+    const writerBrief = toWriterFacingInboundCoachingBrief(brief!);
+    expect(writerBrief.inbound).not.toHaveProperty("win_presentation");
+    expect(writerBrief.inbound).not.toHaveProperty("accountability_trophy_title");
+    expect(writerBrief.inbound).not.toHaveProperty("life_trophy_title");
+    const user = String(buildInboundSolWriterMessages(p, brief!)[1]?.content ?? "");
+    expect(user).not.toContain("win_presentation");
+    expect(user).not.toContain("accountability_trophy_title");
+    expect(user).not.toContain("life_trophy_title");
+    expect(user).not.toContain("Lifted Weights");
+    expect(user).not.toContain("Swam With the Kids");
   });
 
   it("D2c awaiting_user and clarification_body are stripped from writer input", () => {
