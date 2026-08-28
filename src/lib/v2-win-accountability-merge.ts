@@ -15,6 +15,7 @@ import {
   fallbackEquivalenceForRelationship,
   type WinEquivalenceJudgment,
 } from "@/lib/openai-win-candidate-equivalence-v1";
+import { limitWinDisplayTitleOrFallback } from "@/lib/v2-win-display-title";
 
 export function buildAccountabilityWinIdempotencyKey(messageSid: string): string {
   const sid = messageSid.trim();
@@ -92,7 +93,7 @@ export function buildStructuralAccountabilityWinPresentation(args: {
     ? trimTo(goal, WIN_FIELD_LIMITS.action_fact)
     : "Confirmed today's commitment follow-through";
   const title = goal
-    ? trimTo(goal, WIN_FIELD_LIMITS.display_title)
+    ? limitWinDisplayTitleOrFallback(goal)
     : "Today's follow-through";
   const body = goal
     ? trimTo(goal, WIN_FIELD_LIMITS.display_body)
@@ -129,7 +130,7 @@ function presentationFromGoalCandidate(
     why_meaningful: candidate.why_meaningful
       ? trimTo(candidate.why_meaningful, WIN_FIELD_LIMITS.why_meaningful)
       : null,
-    display_title: trimTo(candidate.suggested_title, WIN_FIELD_LIMITS.display_title),
+    display_title: limitWinDisplayTitleOrFallback(candidate.suggested_title),
     display_body: trimTo(candidate.suggested_body, WIN_FIELD_LIMITS.display_body),
     supporting_quote: supportingQuote,
     relationship_type: candidate.relationship_type === "mixed" ? "mixed" : "goal",

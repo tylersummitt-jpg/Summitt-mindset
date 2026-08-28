@@ -393,3 +393,51 @@ describe("persistSolInboundWins trophy overlay routing", () => {
     expect(arg.equivalenceByOrdinal?.[0]).toBe("distinct");
   });
 });
+
+const LONG_SWIM =
+  "Swam with the children and shared in their excitement during the family experience";
+
+describe("Sol life fallback display_title is word-boundary limited", () => {
+  it("never persists family experien; action_fact stays full grounded_action", () => {
+    expect(LONG_SWIM.length).toBeGreaterThan(80);
+    const input = buildSolInboundWinPlanInput({
+      inbound: {
+        ...completed,
+        meaningful_win: {
+          present: true,
+          grounded_action: LONG_SWIM,
+          relationship: "life",
+        },
+      },
+      inboundText: LONG_SWIM,
+    });
+    const win = input.recognition?.wins[0];
+    expect(win?.grounded_action).toBe(LONG_SWIM);
+    expect(win?.suggested_body).toBe(LONG_SWIM);
+    expect(win?.evidence_quote).toBe(LONG_SWIM);
+    expect(win?.suggested_title.length).toBeLessThanOrEqual(80);
+    expect(win?.suggested_title).toBe(
+      "Swam with the children and shared in their excitement during the family"
+    );
+    expect(win?.suggested_title).not.toMatch(/experien$/);
+    expect(win?.suggested_title).not.toContain("experien");
+  });
+
+  it("unbroken >80 token uses stock fallback instead of mid-word slice", () => {
+    const token = `Token${"x".repeat(80)}`;
+    const input = buildSolInboundWinPlanInput({
+      inbound: {
+        ...completed,
+        meaningful_win: {
+          present: true,
+          grounded_action: token,
+          relationship: "life",
+        },
+      },
+      inboundText: "yes",
+    });
+    expect(input.recognition?.wins[0]?.grounded_action).toBe(token.slice(0, 240));
+    expect(input.recognition?.wins[0]?.suggested_title).toBe("Today's follow-through");
+    expect(input.recognition?.wins[0]?.suggested_title).not.toBe(token.slice(0, 80));
+  });
+});

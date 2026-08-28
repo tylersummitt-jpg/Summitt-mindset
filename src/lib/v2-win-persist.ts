@@ -24,6 +24,7 @@ import {
   type WinEquivalenceJudgment,
 } from "@/lib/openai-win-candidate-equivalence-v1";
 import { normalizeSolTrophyTitle } from "@/lib/inbound-sol-coaching-brief";
+import { limitWinDisplayTitleOrFallback } from "@/lib/v2-win-display-title";
 
 export type WinSourceType = "sms_inbound" | "system_event";
 
@@ -161,7 +162,7 @@ export function buildV2WinInsertRow(args: {
     why_meaningful: args.candidate.why_meaningful
       ? args.candidate.why_meaningful.slice(0, WIN_FIELD_LIMITS.why_meaningful)
       : null,
-    display_title: args.candidate.suggested_title.slice(0, WIN_FIELD_LIMITS.display_title),
+    display_title: limitWinDisplayTitleOrFallback(args.candidate.suggested_title),
     display_body: args.candidate.suggested_body.slice(0, WIN_FIELD_LIMITS.display_body),
     supporting_quote: supportingQuote,
     relationship_type: args.candidate.relationship_type,
@@ -318,7 +319,7 @@ export function buildAccountabilityV2WinInsertRow(args: {
     why_meaningful: args.presentation.why_meaningful
       ? args.presentation.why_meaningful.slice(0, WIN_FIELD_LIMITS.why_meaningful)
       : null,
-    display_title: args.presentation.display_title.slice(0, WIN_FIELD_LIMITS.display_title),
+    display_title: limitWinDisplayTitleOrFallback(args.presentation.display_title),
     display_body: args.presentation.display_body.slice(0, WIN_FIELD_LIMITS.display_body),
     supporting_quote: args.presentation.supporting_quote
       ? args.presentation.supporting_quote.slice(0, WIN_FIELD_LIMITS.supporting_quote)

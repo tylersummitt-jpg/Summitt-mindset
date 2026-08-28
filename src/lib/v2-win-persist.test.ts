@@ -113,6 +113,53 @@ describe("v2-win-persist keys and row construction", () => {
     expect(wrongOwner.commitment_id).toBeNull();
   });
 
+  it("display_title word-boundary limits the swimming example; action_fact stays full", () => {
+    const grounded =
+      "Swam with the children and shared in their excitement during the family experience";
+    const row = buildV2WinInsertRow({
+      clerkUserId: "user_1",
+      sourceType: "sms_inbound",
+      sourceMessageSid: "SM1",
+      sourceMessageId: null,
+      sourceEventId: null,
+      activeCommitmentId: null,
+      activeCommitmentClerkUserId: null,
+      occurredAtIso: "2026-08-28T12:00:00.000Z",
+      candidate: candidate({
+        grounded_action: grounded,
+        suggested_title: grounded,
+        suggested_body: grounded,
+        evidence_quote: grounded,
+      }),
+    });
+    expect(row.action_fact).toBe(grounded);
+    expect(row.display_body).toBe(grounded);
+    expect(row.supporting_quote).toBe(grounded);
+    expect(row.display_title).toBe(
+      "Swam with the children and shared in their excitement during the family"
+    );
+    expect(row.display_title).not.toContain("experien");
+    expect(String(row.display_title).length).toBeLessThanOrEqual(80);
+  });
+
+  it("unbroken >80 suggested_title uses stock fallback instead of mid-word slice", () => {
+    const token = "x".repeat(81);
+    const row = buildV2WinInsertRow({
+      clerkUserId: "user_1",
+      sourceType: "sms_inbound",
+      sourceMessageSid: "SM1",
+      sourceMessageId: null,
+      sourceEventId: null,
+      activeCommitmentId: null,
+      activeCommitmentClerkUserId: null,
+      occurredAtIso: "2026-08-28T12:00:00.000Z",
+      candidate: candidate({ suggested_title: token, grounded_action: "Apologized to my wife" }),
+    });
+    expect(row.display_title).toBe("Today's follow-through");
+    expect(row.display_title).not.toBe(token.slice(0, 80));
+    expect(row.action_fact).toBe("Apologized to my wife");
+  });
+
   it("omits supporting quote when sensitivity_caution", () => {
     const row = buildV2WinInsertRow({
       clerkUserId: "user_1",
@@ -647,6 +694,10 @@ describe("accountability user_yes Win persistence", () => {
     }
     expect(persistSrc).toContain('status: "existing"');
     expect(persistSrc).toContain("lookupExistingWinByKey");
+    expect(persistSrc).not.toMatch(
+      /display_title:\s*args\.(candidate\.suggested_title|presentation\.display_title)\.slice\(0,\s*WIN_FIELD_LIMITS\.display_title\)/
+    );
+    expect(persistSrc).toContain("limitWinDisplayTitleOrFallback");
   });
 
   it("A. trophy overlay sets display_title only; action_fact/body/quote stay structural", async () => {
@@ -699,6 +750,31 @@ describe("accountability user_yes Win persistence", () => {
     const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(insertedRow.display_title).toBe("Lift weights for 30 minutes a day.");
     expect(insertedRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+  });
+
+  it("long Current Goal accountability title is word-boundary limited at persist", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    const goal =
+      "Swam with the children and shared in their excitement during the family experience";
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMlonggoal",
+      sourceMessageId: null,
+      userYesEventId: "evt-yes-long",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: goal,
+      recognition: null,
+      equivalenceByOrdinal: {},
+    });
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.action_fact).toBe(goal);
+    expect(insertedRow.display_body).toBe(goal);
+    expect(insertedRow.display_title).toBe(
+      "Swam with the children and shared in their excitement during the family"
+    );
+    expect(String(insertedRow.display_title)).not.toContain("experien");
   });
 
   it("G. acc+life overlays map to ordinal 0 vs 1 without swapping", async () => {

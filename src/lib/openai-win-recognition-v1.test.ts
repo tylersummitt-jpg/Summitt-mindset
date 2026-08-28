@@ -611,6 +611,43 @@ describe("prompt fixture coverage (mocked outputs)", () => {
     expect(result.wins).toHaveLength(2);
   });
 
+  it("mini suggested_title >80 is word-boundary limited; grounded_action/body/quote unchanged", () => {
+    const longTitle =
+      "Swam with the children and shared in their excitement during the family experience";
+    const r = parseAndValidateWinRecognitionResult(
+      validPayload([
+        validCandidate({
+          suggested_title: longTitle,
+          suggested_body: "You owned the miss and apologized — that took humility.",
+          grounded_action: "Apologized to my wife after the argument",
+          evidence_quote: "I finally apologized to my wife",
+        }),
+      ]),
+      INBOUND
+    );
+    expect(r?.has_win).toBe(true);
+    expect(r?.wins[0]?.grounded_action).toBe("Apologized to my wife after the argument");
+    expect(r?.wins[0]?.suggested_body).toBe(
+      "You owned the miss and apologized — that took humility."
+    );
+    expect(r?.wins[0]?.evidence_quote).toBe("I finally apologized to my wife");
+    expect(r?.wins[0]?.suggested_title).toBe(
+      "Swam with the children and shared in their excitement during the family"
+    );
+    expect(r?.wins[0]?.suggested_title).not.toContain("experien");
+  });
+
+  it("mini unbroken >80 suggested_title uses stock fallback without chopping the token", () => {
+    const token = "x".repeat(81);
+    const r = parseAndValidateWinRecognitionResult(
+      validPayload([validCandidate({ suggested_title: token })]),
+      INBOUND
+    );
+    expect(r?.has_win).toBe(true);
+    expect(r?.wins[0]?.suggested_title).toBe("Today's follow-through");
+    expect(r?.wins[0]?.suggested_title).not.toBe(token.slice(0, 80));
+  });
+
   it("sensitive material omits quote after validation", async () => {
     const inbound = "I told my therapist the hard truth about my drinking.";
     const { result } = await runWithMock(

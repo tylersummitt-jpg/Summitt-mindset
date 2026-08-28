@@ -240,6 +240,32 @@ describe("v2-win-accountability-merge", () => {
     expect(p.display_body).not.toMatch(/win detected|logged|victory recorded/i);
   });
 
+  it("long Current Goal display_title cuts on a complete word; action_fact stays full", () => {
+    const goal =
+      "Swam with the children and shared in their excitement during the family experience";
+    const p = buildStructuralAccountabilityWinPresentation({
+      effectiveAsk: goal,
+      behaviorStatement: goal,
+    });
+    expect(p.action_fact).toBe(goal);
+    expect(p.display_body).toBe(goal);
+    expect(p.supporting_quote).toBeNull();
+    expect(p.display_title.length).toBeLessThanOrEqual(80);
+    expect(p.display_title).toBe(
+      "Swam with the children and shared in their excitement during the family"
+    );
+    expect(p.display_title).not.toContain("experien");
+  });
+
+  it("unbroken >80 Current Goal title uses stock fallback; action_fact still mid-caps at 240", () => {
+    const goal = `x`.repeat(90);
+    const p = buildStructuralAccountabilityWinPresentation({ effectiveAsk: goal });
+    expect(p.action_fact).toBe(goal);
+    expect(p.action_fact.length).toBeLessThanOrEqual(240);
+    expect(p.display_title).toBe("Today's follow-through");
+    expect(p.display_title).not.toBe(goal.slice(0, 80));
+  });
+
   it("no regex/string-similarity semantic shortcut in merge or equivalence modules", () => {
     const mergeSrc = fs.readFileSync(
       path.join(process.cwd(), "src/lib/v2-win-accountability-merge.ts"),

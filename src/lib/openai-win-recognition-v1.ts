@@ -8,6 +8,7 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
+import { limitWinDisplayTitleOrFallback } from "@/lib/v2-win-display-title";
 
 export const WIN_RECOGNITION_VERSION = "win_v1" as const;
 export const WIN_RECOGNITION_OPENAI_MODEL = "gpt-4o-mini" as const;
@@ -188,7 +189,7 @@ export function parseAndValidateWinRecognitionResult(
       ordinal,
       grounded_action: trimTo(grounded, WIN_FIELD_LIMITS.action_fact),
       why_meaningful: whyRaw ? trimTo(whyRaw, WIN_FIELD_LIMITS.why_meaningful) : null,
-      suggested_title: trimTo(title, WIN_FIELD_LIMITS.display_title),
+      suggested_title: limitWinDisplayTitleOrFallback(title),
       suggested_body: trimTo(body, WIN_FIELD_LIMITS.display_body),
       evidence_quote: evidence,
       relationship_type: rel as WinRelationshipTypeV1,

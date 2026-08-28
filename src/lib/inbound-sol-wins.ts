@@ -20,6 +20,7 @@ import {
   type PersistRecognizedWinsResult,
 } from "@/lib/v2-win-persist";
 import { scheduleC1IfWinsDurable } from "@/lib/victory-media/correlate-inbound-mms-c1";
+import { limitWinDisplayTitleOrFallback } from "@/lib/v2-win-display-title";
 
 export type SolInboundWinPlanInput = {
   recognition: WinRecognitionResultV1 | null;
@@ -39,7 +40,7 @@ function lifeWinCandidate(groundedAction: string, inboundText: string): WinCandi
     ordinal: 0,
     grounded_action: action,
     why_meaningful: null,
-    suggested_title: action.slice(0, 80),
+    suggested_title: limitWinDisplayTitleOrFallback(action),
     suggested_body: action.slice(0, 240),
     evidence_quote: quote,
     relationship_type: "whole_life",
