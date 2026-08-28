@@ -7,7 +7,7 @@ export const vrRouteShell =
 export const vrPageOuter = "relative w-full";
 
 export const vrPageGlow =
-  "pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_55%_at_50%_-5%,rgba(251,191,36,0.14),transparent_58%),radial-gradient(ellipse_70%_45%_at_100%_0%,rgba(249,115,22,0.08),transparent_52%),radial-gradient(ellipse_55%_35%_at_0%_100%,rgba(30,58,95,0.35),transparent_48%)]";
+  "pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_55%_at_50%_-5%,rgba(249,115,22,0.14),transparent_58%),radial-gradient(ellipse_70%_45%_at_100%_0%,rgba(249,115,22,0.08),transparent_52%),radial-gradient(ellipse_55%_35%_at_0%_100%,rgba(30,58,95,0.35),transparent_48%)]";
 
 export const vrPageInner =
   "relative mx-auto w-full max-w-3xl px-5 py-12 sm:px-8 sm:py-16 lg:max-w-4xl lg:px-10";
