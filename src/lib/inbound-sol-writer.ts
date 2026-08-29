@@ -103,20 +103,29 @@ export function toWriterFacingInboundRelationshipPacket(
 }
 
 /**
- * Writer-facing brief: drop D1 pending_photo_relation and display-only win_presentation.
- * Interpreter and the claim scheduler keep the full brief.
+ * Writer-facing brief: drop D1 pending-photo, display-only win_presentation,
+ * and the commit-1 Pat-knowledge flag (writer must not see it until evidence exists).
+ * Interpreter and telemetry keep the full brief.
  */
 export function toWriterFacingInboundCoachingBrief(
   brief: InboundCoachingBriefV1
 ): Omit<InboundCoachingBriefV1, "inbound"> & {
   inbound: Omit<
     InboundCoachingBriefV1["inbound"],
-    "pending_photo_relation" | "win_presentation"
+    | "pending_photo_relation"
+    | "win_presentation"
+    | "requires_pat_personal_knowledge"
   >;
 } {
-  const { pending_photo_relation, win_presentation, ...inbound } = brief.inbound;
+  const {
+    pending_photo_relation,
+    win_presentation,
+    requires_pat_personal_knowledge,
+    ...inbound
+  } = brief.inbound;
   void pending_photo_relation;
   void win_presentation;
+  void requires_pat_personal_knowledge;
   return { ...brief, inbound };
 }
 

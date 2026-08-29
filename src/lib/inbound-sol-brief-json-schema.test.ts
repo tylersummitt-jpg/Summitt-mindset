@@ -5,9 +5,13 @@ import {
 } from "@/lib/inbound-sol-brief-json-schema";
 import {
   EMPTY_INBOUND_SOL_PENDING_PHOTO_RELATION,
+  INBOUND_SOL_REQUIRES_PAT_PERSONAL_KNOWLEDGE,
+  compactInboundSolBriefForTelemetry,
   normalizeSolTrophyTitle,
+  parseInboundCoachingBriefV1,
   parseInboundSolBriefExtras,
 } from "@/lib/inbound-sol-coaching-brief";
+import { MORNING_COACHING_BRIEF_VERSION } from "@/lib/morning-tto-coaching-brief-v1";
 
 describe("inbound Sol D1 schema extras", () => {
   it("requires pending_photo_relation on inbound extras", () => {
@@ -153,6 +157,150 @@ describe("inbound Sol win_presentation extras", () => {
     expect(appendix).toContain("Being a Present Father");
     expect(appendix).toContain("Proud Family Support");
     expect(appendix).not.toContain("He recognized");
+  });
+});
+
+function extrasBase(overrides: Record<string, unknown> = {}) {
+  return {
+    answer_priority: "normal",
+    coaching_after_answer: "no",
+    user_is_correcting_coach: false,
+    accountability_interpretation: {
+      relevance: "unrelated",
+      outcome: "not_applicable",
+      confidence: "high",
+      evidence: "hello",
+    },
+    meaningful_win: null,
+    ...overrides,
+  };
+}
+
+describe("inbound.requires_pat_personal_knowledge", () => {
+  it("schema requires yes | no | unknown", () => {
+    const inbound = INBOUND_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1.properties.inbound;
+    expect(inbound.required).toContain("requires_pat_personal_knowledge");
+    expect(inbound.properties.requires_pat_personal_knowledge).toEqual({
+      type: "string",
+      enum: ["yes", "no", "unknown"],
+    });
+    expect([...INBOUND_SOL_REQUIRES_PAT_PERSONAL_KNOWLEDGE]).toEqual([
+      "yes",
+      "no",
+      "unknown",
+    ]);
+  });
+
+  it("missing safely becomes unknown", () => {
+    const extras = parseInboundSolBriefExtras(extrasBase());
+    expect(extras?.requires_pat_personal_knowledge).toBe("unknown");
+  });
+
+  it("accepts yes, no, and unknown", () => {
+    expect(
+      parseInboundSolBriefExtras(extrasBase({ requires_pat_personal_knowledge: "yes" }))
+        ?.requires_pat_personal_knowledge
+    ).toBe("yes");
+    expect(
+      parseInboundSolBriefExtras(extrasBase({ requires_pat_personal_knowledge: "no" }))
+        ?.requires_pat_personal_knowledge
+    ).toBe("no");
+    expect(
+      parseInboundSolBriefExtras(
+        extrasBase({ requires_pat_personal_knowledge: "unknown" })
+      )?.requires_pat_personal_knowledge
+    ).toBe("unknown");
+  });
+
+  it("invalid explicit enum fails extras parse (interpreter retry)", () => {
+    expect(
+      parseInboundSolBriefExtras(extrasBase({ requires_pat_personal_knowledge: "maybe" }))
+    ).toBeNull();
+    expect(
+      parseInboundSolBriefExtras(extrasBase({ requires_pat_personal_knowledge: true }))
+    ).toBeNull();
+    expect(
+      parseInboundSolBriefExtras(extrasBase({ requires_pat_personal_knowledge: null }))
+    ).toBeNull();
+    expect(
+      parseInboundSolBriefExtras(extrasBase({ requires_pat_personal_knowledge: "" }))
+    ).toBeNull();
+  });
+
+  it("prompt appendix states yes/no/unknown law and interpreter boundary", () => {
+    const appendix = buildInboundSolBriefExactContractPromptAppendix();
+    expect(appendix).toContain("requires_pat_personal_knowledge: yes | no | unknown");
+    expect(appendix).toContain("How did having Tyler change your coaching?");
+    expect(appendix).toContain("What would you tell me about handling pressure?");
+    expect(appendix).toContain("What did you learn from losing?");
+    expect(appendix).toContain("Do not set yes merely because the text is about leadership");
+    expect(appendix).toContain("does not select a Pat story");
+    expect(appendix).toContain("search books");
+    expect(appendix).toContain("retrieve chunks");
+  });
+
+  it("compact telemetry includes the flag", () => {
+    const parsed = parseInboundCoachingBriefV1({
+      version: MORNING_COACHING_BRIEF_VERSION,
+      confidence: "high",
+      human_situation: {
+        most_alive: "Newest inbound",
+        direct_question_or_need: null,
+        relevant_life_event: null,
+        context_use: "relevant",
+        identity_use: "background",
+        person_use: "do_not_force",
+        selected_person: null,
+        selected_person_reason: null,
+      },
+      truth_and_evidence: {
+        latest_user_truth: "newest",
+        outcome: "unknown",
+        evidence_note: "unknown",
+        evidence_strength: "none",
+        consistency_supported: false,
+        proof_claims_allowed: {
+          completion: false,
+          miss: false,
+          partial: false,
+          proof: false,
+        },
+      },
+      conversation_continuity: {
+        already_acknowledged: [],
+        answered_question: null,
+        open_loop: null,
+        stale_or_exhausted_topics: [],
+        do_not_repeat: [],
+      },
+      goal_role_today: {
+        canonical_goal: "Lift 30 minutes",
+        pending_goal: null,
+        goal_alignment: "aligned",
+        role: "background",
+        note: "n",
+      },
+      coaching_direction: {
+        primary_move: "answer",
+        question_policy: "none",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+      boundaries: {
+        claims_to_avoid: [],
+        topics_not_to_force: [],
+        unsupported_capabilities: [],
+        goal_authority_boundaries: [],
+        identity_people_boundaries: [],
+        coach_history_is_not_style: "History is not style.",
+      },
+      inbound: extrasBase({ requires_pat_personal_knowledge: "yes" }),
+    });
+    expect(parsed).not.toBeNull();
+    expect(compactInboundSolBriefForTelemetry(parsed!)).toMatchObject({
+      inbound_sol_requires_pat_personal_knowledge: "yes",
+    });
   });
 });
 

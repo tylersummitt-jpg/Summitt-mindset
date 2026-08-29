@@ -140,6 +140,9 @@ describe("compactInboundTurnTelemetryLaneFields", () => {
     expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
       "inbound_sol_durable_user_evidence_persist_status"
     );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
+      "inbound_sol_requires_pat_personal_knowledge"
+    );
   });
 });
 

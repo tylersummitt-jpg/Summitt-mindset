@@ -14,6 +14,7 @@ const INBOUND_EXTRAS_SCHEMA = {
   required: [
     "answer_priority",
     "coaching_after_answer",
+    "requires_pat_personal_knowledge",
     "user_is_correcting_coach",
     "accountability_interpretation",
     "meaningful_win",
@@ -24,6 +25,10 @@ const INBOUND_EXTRAS_SCHEMA = {
   properties: {
     answer_priority: { type: "string", enum: ["first", "normal", "unknown"] },
     coaching_after_answer: { type: "string", enum: ["yes", "no", "unknown"] },
+    requires_pat_personal_knowledge: {
+      type: "string",
+      enum: ["yes", "no", "unknown"],
+    },
     user_is_correcting_coach: {
       anyOf: [{ type: "boolean" }, { type: "string", enum: ["unknown"] }],
     },
@@ -137,6 +142,13 @@ export function buildInboundSolBriefExactContractPromptAppendix(): string {
     "INBOUND EXTRAS (required object `inbound`):",
     "answer_priority: first | normal | unknown",
     "coaching_after_answer: yes | no | unknown",
+    "requires_pat_personal_knowledge: yes | no | unknown",
+    "requires_pat_personal_knowledge asks ONLY whether a truthful answer to the newest inbound requires specific Pat Summitt autobiographical / historical fact (her life, career, family, players, championships, historical events, experiences, actions, feelings at a historical moment, or things she personally said/did in history).",
+    "yes examples: \"Were you nervous speaking in public?\"; \"Did you ever struggle with confidence?\"; \"What was your favorite championship team?\"; \"How did having Tyler change your coaching?\"; \"Did you ever lose your temper with a player?\"; \"How did you become so disciplined?\"",
+    "no examples: \"What would you tell me about handling pressure?\"; \"How do I get more disciplined?\"; \"I missed my workout.\"; \"Work was terrible.\"; \"What time does my morning text come?\"",
+    "unknown example: \"What did you learn from losing?\" — wording does not establish whether autobiography is required.",
+    "Do not set yes merely because the text is about leadership, discipline, pressure, or coaching in general.",
+    "This field does not select a Pat story, search books, retrieve chunks, summarize biography, write SMS, or decide whether source evidence supports a historical claim.",
     "user_is_correcting_coach: true | false | unknown",
     "accountability_interpretation.relevance: central | related | unrelated | unclear",
     "accountability_interpretation.outcome: completed | partial | missed | attempt | plan | unclear | not_applicable",

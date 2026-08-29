@@ -14,6 +14,7 @@ function extras(overrides: Partial<InboundSolBriefExtras> = {}): InboundSolBrief
   return {
     answer_priority: "normal",
     coaching_after_answer: "yes",
+    requires_pat_personal_knowledge: "unknown",
     user_is_correcting_coach: false,
     accountability_interpretation: {
       relevance: "central",

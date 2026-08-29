@@ -507,6 +507,33 @@ describe("writer D1 pending-photo data minimization", () => {
     expect(user).not.toContain("Swam With the Kids");
   });
 
+  it("does not give the writer requires_pat_personal_knowledge (commit 1)", () => {
+    const p = packet("How did having Tyler change your coaching?", []);
+    const brief = briefWithInbound({
+      answer_priority: "first",
+      coaching_after_answer: "no",
+      requires_pat_personal_knowledge: "yes",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "unrelated",
+        outcome: "not_applicable",
+        confidence: "high",
+        evidence: "How did having Tyler change your coaching?",
+      },
+      meaningful_win: null,
+    });
+    expect(brief?.inbound.requires_pat_personal_knowledge).toBe("yes");
+    const writerBrief = toWriterFacingInboundCoachingBrief(brief!);
+    expect(writerBrief.inbound).not.toHaveProperty("requires_pat_personal_knowledge");
+    const user = String(buildInboundSolWriterMessages(p, brief!)[1]?.content ?? "");
+    expect(user).not.toContain("requires_pat_personal_knowledge");
+    expect(user).not.toContain("PAT_SOURCE_EVIDENCE");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "You are replying to the user's newest real text in one ongoing Coach Pat relationship."
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("You are Coach Pat Summitt");
+  });
+
   it("D2c awaiting_user and clarification_body are stripped from writer input", () => {
     const p = packet("I took Lakelyn to her first dance class.", []);
     p.pending_media_context = {

@@ -16,6 +16,17 @@ export const INBOUND_SOL_COACHING_AFTER_ANSWER = ["yes", "no", "unknown"] as con
 export type InboundSolCoachingAfterAnswer =
   (typeof INBOUND_SOL_COACHING_AFTER_ANSWER)[number];
 
+export const INBOUND_SOL_REQUIRES_PAT_PERSONAL_KNOWLEDGE = [
+  "yes",
+  "no",
+  "unknown",
+] as const;
+export type InboundSolRequiresPatPersonalKnowledge =
+  (typeof INBOUND_SOL_REQUIRES_PAT_PERSONAL_KNOWLEDGE)[number];
+
+export const DEFAULT_INBOUND_SOL_REQUIRES_PAT_PERSONAL_KNOWLEDGE =
+  "unknown" as const satisfies InboundSolRequiresPatPersonalKnowledge;
+
 export const INBOUND_SOL_BOOL_OR_UNKNOWN = [true, false, "unknown"] as const;
 export type InboundSolBoolOrUnknown = boolean | "unknown";
 
@@ -98,6 +109,11 @@ export const EMPTY_INBOUND_SOL_WIN_PRESENTATION: InboundSolWinPresentation = {
 export type InboundSolBriefExtras = {
   answer_priority: InboundSolAnswerPriority;
   coaching_after_answer: InboundSolCoachingAfterAnswer;
+  /**
+   * Whether a truthful answer to the newest inbound requires Pat Summitt
+   * autobiographical / historical fact. Parser defaults missing to unknown.
+   */
+  requires_pat_personal_knowledge: InboundSolRequiresPatPersonalKnowledge;
   user_is_correcting_coach: InboundSolBoolOrUnknown;
   accountability_interpretation: {
     relevance: InboundSolAccountabilityRelevance;
@@ -126,12 +142,28 @@ function parseBoolOrUnknown(value: unknown): InboundSolBoolOrUnknown | null {
   return null;
 }
 
+/**
+ * Missing / undefined → unknown (fail closed; no retrieval in later commits).
+ * Invalid explicit value → null so the extras parse fails (interpreter retry).
+ */
+function parseRequiresPatPersonalKnowledge(
+  value: unknown
+): InboundSolRequiresPatPersonalKnowledge | null {
+  if (value === undefined) return DEFAULT_INBOUND_SOL_REQUIRES_PAT_PERSONAL_KNOWLEDGE;
+  if (!isInSet(value, INBOUND_SOL_REQUIRES_PAT_PERSONAL_KNOWLEDGE)) return null;
+  return value;
+}
+
 export function parseInboundSolBriefExtras(raw: unknown): InboundSolBriefExtras | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;
 
   if (!isInSet(o.answer_priority, INBOUND_SOL_ANSWER_PRIORITY)) return null;
   if (!isInSet(o.coaching_after_answer, INBOUND_SOL_COACHING_AFTER_ANSWER)) return null;
+  const requires_pat_personal_knowledge = parseRequiresPatPersonalKnowledge(
+    o.requires_pat_personal_knowledge
+  );
+  if (requires_pat_personal_knowledge == null) return null;
   const user_is_correcting_coach = parseBoolOrUnknown(o.user_is_correcting_coach);
   if (user_is_correcting_coach == null) return null;
 
@@ -161,6 +193,7 @@ export function parseInboundSolBriefExtras(raw: unknown): InboundSolBriefExtras 
   return {
     answer_priority: o.answer_priority,
     coaching_after_answer: o.coaching_after_answer,
+    requires_pat_personal_knowledge,
     user_is_correcting_coach,
     accountability_interpretation: {
       relevance: a.relevance,
@@ -249,6 +282,8 @@ export function compactInboundSolBriefForTelemetry(
     inbound_sol_goal_role: brief.goal_role_today.role,
     inbound_sol_answer_priority: brief.inbound.answer_priority,
     inbound_sol_coaching_after_answer: brief.inbound.coaching_after_answer,
+    inbound_sol_requires_pat_personal_knowledge:
+      brief.inbound.requires_pat_personal_knowledge,
     inbound_sol_user_is_correcting_coach: brief.inbound.user_is_correcting_coach,
     inbound_sol_accountability_relevance: brief.inbound.accountability_interpretation.relevance,
     inbound_sol_accountability_outcome: brief.inbound.accountability_interpretation.outcome,

@@ -197,6 +197,7 @@ function brief(
     inbound: {
       answer_priority: "normal",
       coaching_after_answer: "no",
+      requires_pat_personal_knowledge: "unknown",
       user_is_correcting_coach: false,
       accountability_interpretation: {
         relevance: "central",

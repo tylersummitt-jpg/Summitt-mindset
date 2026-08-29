@@ -114,6 +114,7 @@ export const INBOUND_TURN_TELEMETRY_COMPACT_KEYS = [
   "inbound_sol_goal_role",
   "inbound_sol_answer_priority",
   "inbound_sol_coaching_after_answer",
+  "inbound_sol_requires_pat_personal_knowledge",
   "inbound_sol_user_is_correcting_coach",
   "inbound_sol_accountability_outcome",
   "inbound_sol_accountability_relevance",
