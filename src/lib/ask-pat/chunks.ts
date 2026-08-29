@@ -7,6 +7,8 @@ export interface PatChunk {
   embedding: number[];
   bookId: string;
   sectionTitle: string;
+  globalId: string;
+  order: number;
 }
 
 let cachedChunks: PatChunk[] | null = null;
@@ -37,6 +39,8 @@ export function getPatChunks(): PatChunk[] {
       embedding: obj.embedding,
       bookId: obj.book_id,
       sectionTitle: obj.section_title,
+      globalId: typeof obj.global_id === "string" ? obj.global_id : "",
+      order: typeof obj.order === "number" ? obj.order : Number(obj.order) || 0,
     });
   }
 

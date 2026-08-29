@@ -208,6 +208,9 @@ describe("inbound Sol main-branch wire", () => {
     expect(persistIdx).toBeGreaterThan(0);
     expect(sideIdx).toBeGreaterThan(persistIdx);
     expect(writerIdx).toBeGreaterThan(sideIdx);
+    const retrieveIdx = turn.indexOf("await getPatEvidenceForSms");
+    expect(retrieveIdx).toBeGreaterThan(sideIdx);
+    expect(writerIdx).toBeGreaterThan(retrieveIdx);
     expect(turn).not.toContain("v3LearningNotebookAppend");
     expect(turn).not.toContain("gatedDecision.should_open_blocker_capture");
   });

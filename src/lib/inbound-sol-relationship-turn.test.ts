@@ -20,6 +20,7 @@ const scheduleInboundMmsD2cSemanticClaim = vi.hoisted(() => vi.fn(() => null));
 const loadInboundRelationshipPacket = vi.hoisted(() => vi.fn());
 const runInboundSolBriefInterpreter = vi.hoisted(() => vi.fn());
 const writeInboundSolBody = vi.hoisted(() => vi.fn());
+const getPatEvidenceForSms = vi.hoisted(() => vi.fn());
 const recognizeWinsFromInboundV1 = vi.hoisted(() => vi.fn());
 const classifyWinCandidatesEquivalenceV1 = vi.hoisted(() => vi.fn());
 const recomputeV2CoachingMemory = vi.hoisted(() => vi.fn());
@@ -107,6 +108,14 @@ vi.mock("@/lib/inbound-sol-writer", async (importOriginal) => {
   return {
     ...actual,
     writeInboundSolBody,
+  };
+});
+
+vi.mock("@/lib/inbound-pat-source-evidence", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/inbound-pat-source-evidence")>();
+  return {
+    ...actual,
+    getPatEvidenceForSms,
   };
 });
 
@@ -229,6 +238,10 @@ describe("runInboundSolRelationshipTurn", () => {
     loadInboundRelationshipPacket.mockReset();
     runInboundSolBriefInterpreter.mockReset();
     writeInboundSolBody.mockReset();
+    getPatEvidenceForSms.mockReset();
+    getPatEvidenceForSms.mockImplementation(async () => {
+      throw new Error("unexpected_pat_retrieval");
+    });
     recognizeWinsFromInboundV1.mockReset();
     classifyWinCandidatesEquivalenceV1.mockReset();
     recomputeV2CoachingMemory.mockReset();
@@ -2210,5 +2223,111 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(result.forensics.inbound_sol_durable_user_evidence_persist_status).toBe(
       "validation_rejected"
     );
+  });
+
+  it("NO / UNKNOWN Pat-knowledge does not retrieve and still sends", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ requires_pat_personal_knowledge: "no" }),
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMpressure", "What would you tell me about handling pressure?")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(getPatEvidenceForSms).not.toHaveBeenCalled();
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.patSourceEvidence).toBeNull();
+    expect(result.forensics.inbound_sol_pat_retrieval_attempted).toBe(false);
+
+    getPatEvidenceForSms.mockClear();
+    writeInboundSolBody.mockClear();
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Proud you finished before lunch.",
+      capture: { retry_occurred: false },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ requires_pat_personal_knowledge: "unknown" }),
+      capture: { retry_occurred: false },
+    });
+    await runInboundSolRelationshipTurn(turnArgs("SMunk", "Losing?"));
+    expect(getPatEvidenceForSms).not.toHaveBeenCalled();
+  });
+
+  it("YES Pat-knowledge retrieves once and passes packet to the same writer", async () => {
+    const packet = {
+      required: true as const,
+      retrieval_status: "ok" as const,
+      excerpts: [
+        {
+          book_id: "sum_it_up",
+          section_title: "CHAPTER 8",
+          text: "What do you think, Ty-man?",
+        },
+      ],
+    };
+    getPatEvidenceForSms.mockResolvedValue({
+      packet,
+      forensics: {
+        inbound_sol_pat_retrieval_attempted: true,
+        inbound_sol_pat_evidence_present: true,
+        inbound_sol_pat_source_count: 1,
+        inbound_sol_pat_retrieval_error: null,
+        inbound_sol_pat_global_ids: "PAT_0457",
+      },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        requires_pat_personal_knowledge: "yes",
+        answer_priority: "first",
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "How did having Tyler change the way you coached?",
+        },
+      }),
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMty", "How did having Tyler change the way you coached?")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(getPatEvidenceForSms).toHaveBeenCalledTimes(1);
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.patSourceEvidence).toEqual(packet);
+    expect(result.forensics.inbound_sol_pat_global_ids).toBe("PAT_0457");
+  });
+
+  it("YES retrieval failure still calls the same writer with empty evidence", async () => {
+    getPatEvidenceForSms.mockResolvedValue({
+      packet: { required: true, retrieval_status: "error", excerpts: [] },
+      forensics: {
+        inbound_sol_pat_retrieval_attempted: true,
+        inbound_sol_pat_evidence_present: false,
+        inbound_sol_pat_source_count: 0,
+        inbound_sol_pat_retrieval_error: "boom",
+        inbound_sol_pat_global_ids: "",
+      },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ requires_pat_personal_knowledge: "yes" }),
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMfail", "Were you ever scared?")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.patSourceEvidence).toEqual({
+      required: true,
+      retrieval_status: "error",
+      excerpts: [],
+    });
+    expect(result.forensics.inbound_sol_pat_retrieval_error).toBe("boom");
   });
 });

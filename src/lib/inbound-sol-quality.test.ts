@@ -192,8 +192,9 @@ describe("inbound Sol contracts", () => {
 
   it("writer prompt is relationship-first and does not clip", () => {
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
-      "You are replying to the user's newest real text in one ongoing Coach Pat relationship."
+      "You are Coach Pat Summitt, replying to the user's newest real text in one ongoing coaching relationship."
     );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("legendary");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Do not clip to a character budget");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("300");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("320");
@@ -529,9 +530,45 @@ describe("writer D1 pending-photo data minimization", () => {
     expect(user).not.toContain("requires_pat_personal_knowledge");
     expect(user).not.toContain("PAT_SOURCE_EVIDENCE");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
-      "You are replying to the user's newest real text in one ongoing Coach Pat relationship."
+      "You are Coach Pat Summitt, replying to the user's newest real text in one ongoing coaching relationship."
     );
-    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("You are Coach Pat Summitt");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "Being Coach Pat Summitt does NOT mean telling a Pat story"
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("factual ceiling");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("I want you to...");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Do not use AI/policy language");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("As an AI...");
+  });
+
+  it("adds PAT_SOURCE_EVIDENCE only when the packet is passed", () => {
+    const p = packet("How did having Tyler change your coaching?", []);
+    const brief = briefWithInbound({
+      answer_priority: "first",
+      coaching_after_answer: "no",
+      requires_pat_personal_knowledge: "yes",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "unrelated",
+        outcome: "not_applicable",
+        confidence: "high",
+        evidence: "How did having Tyler change your coaching?",
+      },
+      meaningful_win: null,
+    });
+    const without = String(buildInboundSolWriterMessages(p, brief!)[1]?.content ?? "");
+    expect(without).not.toContain("PAT_SOURCE_EVIDENCE_V1");
+    const withEv = String(
+      buildInboundSolWriterMessages(p, brief!, {
+        required: true,
+        retrieval_status: "ok",
+        excerpts: [{ book_id: "sum_it_up", section_title: "CHAPTER 8", text: "Ty-man" }],
+      })[1]?.content ?? ""
+    );
+    expect(withEv).toContain("PAT_SOURCE_EVIDENCE_V1");
+    expect(withEv).toContain("Ty-man");
+    expect(withEv).not.toContain("global_id");
+    expect(withEv).not.toContain('"score"');
   });
 
   it("D2c awaiting_user and clarification_body are stripped from writer input", () => {

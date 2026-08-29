@@ -43,6 +43,12 @@ import { applySolAnsweredOpenCoachQuestion } from "@/lib/v2-commitment-sms-threa
 import { scheduleInboundMmsD1SemanticClaim } from "@/lib/victory-media/inbound-mms-d1-claim";
 import { scheduleInboundMmsD2cSemanticClaim } from "@/lib/victory-media/inbound-mms-d2c-claim";
 import { isInboundMmsPendingClarificationContext } from "@/lib/victory-media/inbound-mms-d2c-pending-context";
+import {
+  buildPatSmsEmbeddingQuery,
+  getPatEvidenceForSms,
+  skippedPatSourceEvidenceForensics,
+  type PatSourceEvidencePacketV1,
+} from "@/lib/inbound-pat-source-evidence";
 
 export function isInboundSolMainCoachingBranch(args: {
   normalInboundV3OwnershipEligible: boolean;
@@ -335,7 +341,21 @@ export async function runInboundSolRelationshipTurn(args: {
     baseForensics.inbound_sol_d2c_claim_scheduled = false;
   }
 
-  const written = await writeInboundSolBody({ packet, brief });
+  let patSourceEvidence: PatSourceEvidencePacketV1 | null = null;
+  if (brief.inbound.requires_pat_personal_knowledge === "yes") {
+    const evidence = await getPatEvidenceForSms({
+      query: buildPatSmsEmbeddingQuery({
+        latestInboundText: packet.latest_inbound_text,
+        directQuestionOrNeed: brief.human_situation.direct_question_or_need,
+      }),
+    });
+    patSourceEvidence = evidence.packet;
+    Object.assign(baseForensics, evidence.forensics);
+  } else {
+    Object.assign(baseForensics, skippedPatSourceEvidenceForensics());
+  }
+
+  const written = await writeInboundSolBody({ packet, brief, patSourceEvidence });
   baseForensics.inbound_sol_retry_writer = written.capture.retry_occurred;
   baseForensics.writer_model = INBOUND_SOL_WRITER_MODEL;
   if (!written.ok) {

@@ -143,6 +143,11 @@ describe("compactInboundTurnTelemetryLaneFields", () => {
     expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
       "inbound_sol_requires_pat_personal_knowledge"
     );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("inbound_sol_pat_retrieval_attempted");
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("inbound_sol_pat_evidence_present");
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("inbound_sol_pat_source_count");
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("inbound_sol_pat_retrieval_error");
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("inbound_sol_pat_global_ids");
   });
 });
 

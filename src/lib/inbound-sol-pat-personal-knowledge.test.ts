@@ -53,41 +53,70 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
     expect(p).toContain("write SMS");
   });
 
-  it("writer identity and messages stay commit-1 unchanged", () => {
+  it("writer identity is Coach Pat Summitt with truth ceiling; retrieval is not in the writer", () => {
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
-      "You are replying to the user's newest real text in one ongoing Coach Pat relationship."
+      "You are Coach Pat Summitt, replying to the user's newest real text in one ongoing coaching relationship."
     );
-    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("You are Coach Pat Summitt");
-    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("PAT_SOURCE_EVIDENCE");
-    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain(
-      "requires_pat_personal_knowledge"
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "Being Coach Pat Summitt does NOT mean telling a Pat story"
     );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("factual ceiling");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("legendary Lady Vols");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("gpt-4.1-mini");
     const writer = fs.readFileSync(WRITER, "utf8");
     expect(writer).toContain("writeInboundSolBody");
     expect(writer).not.toContain("embeddings.create");
     expect(writer).not.toContain("getTopRelevantChunks");
-    expect(writer).not.toContain("getPatEvidenceForSms");
+    expect(writer).not.toContain("gpt-4.1-mini");
+    expect(writer).not.toContain("applyFinalVoiceOwnershipGate");
   });
 
-  it("orchestration still has no retrieval or embedding", () => {
+  it("YES retrieval is local and only after interpreter yes; no Ask Pat GPT", () => {
     const turn = fs.readFileSync(TURN, "utf8");
     const interpreter = fs.readFileSync(INTERPRETER, "utf8");
     const route = fs.readFileSync(ROUTE, "utf8");
-    for (const src of [turn, interpreter, route]) {
-      expect(src).not.toContain("getTopRelevantChunks");
-      expect(src).not.toContain("getPatEvidenceForSms");
-      expect(src).not.toContain("embeddings.create");
-      expect(src).not.toContain("PAT_SOURCE_EVIDENCE");
-      expect(src).not.toContain("text-embedding-3-small");
-    }
-    expect(turn).toContain("await writeInboundSolBody({ packet, brief })");
+    expect(turn).toContain("getPatEvidenceForSms");
+    expect(turn).toContain('requires_pat_personal_knowledge === "yes"');
+    expect(turn).toContain("writeInboundSolBody({ packet, brief, patSourceEvidence })");
     expect(turn.split("writeInboundSolBody({").length - 1).toBe(1);
     expect(turn.split("runInboundSolBriefInterpreter({").length - 1).toBe(1);
+    expect(turn).not.toContain("gpt-4.1-mini");
+    expect(turn).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(turn).not.toContain("finalizeNorthStarInboundCoachReplyAsync");
+    for (const src of [interpreter, route]) {
+      expect(src).not.toContain("getPatEvidenceForSms");
+      expect(src).not.toContain("embeddings.create");
+      expect(src).not.toContain("text-embedding-3-small");
+    }
+    expect(turn).not.toContain("embeddings.create");
+    expect(turn).not.toContain("text-embedding-3-small");
   });
 
-  it("does not modify Ask Pat chunk helper", () => {
+  it("Ask Pat chunk helper keeps topK=6 and only adds unused globalId/order fields", () => {
     const chunks = fs.readFileSync(CHUNKS, "utf8");
+    expect(chunks).toContain("globalId");
+    expect(chunks).toContain("order");
+    expect(chunks).toContain("topK = 6");
     expect(chunks).not.toContain("requires_pat_personal_knowledge");
+    expect(chunks).not.toContain("getPatEvidenceForSms");
     expect(chunks).toContain("export function getTopRelevantChunks");
+    const askPat = fs.readFileSync(
+      path.join(process.cwd(), "src/app/api/ask-pat/route.ts"),
+      "utf8"
+    );
+    expect(askPat).toContain("getTopRelevantChunks(queryEmbedding, 6)");
+  });
+
+  it("SMS helper embeds locally and never calls Ask Pat GPT or a second writer", () => {
+    const helper = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/inbound-pat-source-evidence.ts"),
+      "utf8"
+    );
+    expect(helper.split("embeddings.create").length - 1).toBe(1);
+    expect(helper).toContain("text-embedding-3-small");
+    expect(helper).not.toContain("chat.completions");
+    expect(helper).not.toContain("gpt-4.1-mini");
+    expect(helper).not.toContain("applyFinalVoiceOwnershipGate");
+    expect(helper).not.toContain("writeInboundSolBody");
   });
 });

@@ -7,6 +7,7 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import type { InboundCoachingBriefV1 } from "@/lib/inbound-sol-coaching-brief";
 import type { InboundRelationshipPacket } from "@/lib/inbound-relationship-packet";
+import type { PatSourceEvidencePacketV1 } from "@/lib/inbound-pat-source-evidence";
 import {
   scrubOpenAiRequestErrorForCapture,
   type ScrubbedOpenAiRequestError,
@@ -22,14 +23,26 @@ export const INBOUND_SOL_WRITER_PROMPT_PATH = "inbound_sol_writer_v1" as const;
 export const INBOUND_SOL_WRITER_JSON_REMINDER =
   'Return strict JSON only: {"body":"<nonempty sms text>"}. No other keys. No markdown.';
 
-export const INBOUND_SOL_WRITER_SYSTEM_PROMPT = `You are replying to the user's newest real text in one ongoing Coach Pat relationship.
+export const INBOUND_SOL_WRITER_SYSTEM_PROMPT = `You are Coach Pat Summitt, replying to the user's newest real text in one ongoing coaching relationship.
 
-You receive two JSON blocks:
+You receive two JSON blocks, and sometimes a third:
 1. INBOUND_COACHING_BRIEF_V1 — the coaching plan for this reply (what matters, what to do, what not to claim).
 2. INBOUND_RELATIONSHIP_PACKET_V1 — canonical facts and the exact real conversation.
+3. PAT_SOURCE_EVIDENCE_V1 — only when this turn requires Pat personal/history knowledge.
 
 The Brief controls coaching meaning. You control natural language only.
 Do not rediscover the whole relationship from scratch. Do not mechanically translate Brief enum labels into canned sentences. Do not mention internal Brief field names in the SMS.
+
+Speak as yourself in first person. Ordinary coaching first-person is natural and encouraged ("I want you to...", "I think...", "I'm proud of you...", "Tell me what happened.", "I'd focus on..."). Do not talk about yourself in third person ("Pat Summitt believed...", "Pat Summitt said...", "Her approach was...").
+
+Being Coach Pat Summitt does NOT mean telling a Pat story. Do not open ordinary texts with career anecdotes. Do not use autobiography just because PAT_SOURCE_EVIDENCE happens to be present. Use personal history only when directly answering the user's Pat-personal question, or when it is materially necessary to answer that question truthfully. Do not follow a story-then-principle-then-challenge structure. This is a short SMS conversation, not a long-form essay.
+
+PAT SOURCE EVIDENCE is the factual ceiling for autobiographical and historical claims about your life, career, family, players, championships, and past experiences. Supplied excerpts outrank pretrained world knowledge for Pat history.
+- When PAT_SOURCE_EVIDENCE is absent: do not invent Pat autobiography. Coach the member without a Pat-history story.
+- When it is present: you may speak in first person ("When Tyler was born...", "Early in my coaching career...", "I learned...", "I remember...") ONLY to the extent the supplied excerpts actually support those facts.
+- Do not embellish, merge unsupported details, invent feelings, invent dialogue, invent player incidents, or invent championship preferences.
+- Compress source material into a naturally short SMS. Do not reproduce book passages. Do not quote long passages. Do not cite book or chapter names unless the user explicitly asks. Do not expose source IDs.
+- If the requested personal fact is not supported by the excerpts (including retrieval_status empty or error, or excerpts that do not contain that fact): do not invent it. Acknowledge naturally without fake certainty, then continue the relationship only if useful. Do not use AI/policy language ("As an AI...", "I don't have personal experiences...", "I can't claim Pat Summitt's feelings as my own...").
 
 Writer law:
 - Relationship first.
@@ -104,7 +117,7 @@ export function toWriterFacingInboundRelationshipPacket(
 
 /**
  * Writer-facing brief: drop D1 pending-photo, display-only win_presentation,
- * and the commit-1 Pat-knowledge flag (writer must not see it until evidence exists).
+ * and the interpreter Pat-knowledge flag. Evidence arrives as PAT_SOURCE_EVIDENCE_V1.
  * Interpreter and telemetry keep the full brief.
  */
 export function toWriterFacingInboundCoachingBrief(
@@ -131,21 +144,25 @@ export function toWriterFacingInboundCoachingBrief(
 
 export function buildInboundSolWriterMessages(
   packet: InboundRelationshipPacket,
-  brief: InboundCoachingBriefV1
+  brief: InboundCoachingBriefV1,
+  patSourceEvidence?: PatSourceEvidencePacketV1 | null
 ): ChatCompletionMessageParam[] {
+  const parts = [
+    "INBOUND_COACHING_BRIEF_V1",
+    JSON.stringify(toWriterFacingInboundCoachingBrief(brief)),
+    "",
+    "INBOUND_RELATIONSHIP_PACKET_V1",
+    JSON.stringify(toWriterFacingInboundRelationshipPacket(packet)),
+  ];
+  if (patSourceEvidence) {
+    parts.push("", "PAT_SOURCE_EVIDENCE_V1", JSON.stringify(patSourceEvidence));
+  }
+  parts.push("", INBOUND_SOL_WRITER_JSON_REMINDER);
   return [
     { role: "system", content: INBOUND_SOL_WRITER_SYSTEM_PROMPT },
     {
       role: "user",
-      content: [
-        "INBOUND_COACHING_BRIEF_V1",
-        JSON.stringify(toWriterFacingInboundCoachingBrief(brief)),
-        "",
-        "INBOUND_RELATIONSHIP_PACKET_V1",
-        JSON.stringify(toWriterFacingInboundRelationshipPacket(packet)),
-        "",
-        INBOUND_SOL_WRITER_JSON_REMINDER,
-      ].join("\n"),
+      content: parts.join("\n"),
     },
   ];
 }
@@ -204,6 +221,7 @@ Return valid JSON only. No markdown code fences, no commentary before or after t
 export async function writeInboundSolBody(args: {
   packet: InboundRelationshipPacket;
   brief: InboundCoachingBriefV1;
+  patSourceEvidence?: PatSourceEvidencePacketV1 | null;
   client?: OpenAI | null;
 }): Promise<InboundSolWriterResult> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -237,7 +255,11 @@ export async function writeInboundSolBody(args: {
     );
   }
 
-  const messages = buildInboundSolWriterMessages(args.packet, args.brief);
+  const messages = buildInboundSolWriterMessages(
+    args.packet,
+    args.brief,
+    args.patSourceEvidence
+  );
   const solCreate = (msgs: ChatCompletionMessageParam[]) =>
     client.chat.completions.create({
       model: INBOUND_SOL_WRITER_MODEL,
