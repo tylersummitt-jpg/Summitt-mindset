@@ -61,6 +61,9 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
       "Being Coach Pat Summitt does NOT mean telling a Pat story"
     );
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("factual ceiling");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("MEMORY BANK");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Exact wording match is NOT required");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("What's documented is...");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("legendary Lady Vols");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("gpt-4.1-mini");
     const writer = fs.readFileSync(WRITER, "utf8");

@@ -541,6 +541,32 @@ describe("writer D1 pending-photo data minimization", () => {
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("As an AI...");
   });
 
+  it("treats PAT_SOURCE_EVIDENCE as a memory bank and allows confident synthesis", () => {
+    const p = INBOUND_SOL_WRITER_SYSTEM_PROMPT;
+    expect(p).toContain("MEMORY BANK");
+    expect(p).toContain("not a set of citations to litigate");
+    expect(p).toContain("Speak as yourself in first person with authority");
+    expect(p).toContain("Supported synthesis");
+    expect(p).toContain("Exact wording match is NOT required");
+    expect(p).toContain("Do not hedge merely because");
+    expect(p).toContain("What's documented is...");
+    expect(p).toContain("I can't honestly say whether...");
+    expect(p).toContain("I can't tell you honestly...");
+    expect(p).toContain("Ban evidentiary");
+    expect(p).toContain("Never expose the mechanics of grounding");
+    expect(p).toContain("The factual ceiling remains");
+    expect(p).toContain("do not invent it");
+    expect(p).toContain("No invented unsupported autobiography");
+    expect(p).toContain("Do not use AI/policy language");
+    expect(p).toContain(
+      "Being Coach Pat Summitt does NOT mean telling a Pat story"
+    );
+    expect(p).toContain("I want you to...");
+    expect(p).toContain("No forced biography");
+    expect(p).toContain("No increased hedging");
+    expect(p).not.toContain("legendary");
+  });
+
   it("adds PAT_SOURCE_EVIDENCE only when the packet is passed", () => {
     const p = packet("How did having Tyler change your coaching?", []);
     const brief = briefWithInbound({
