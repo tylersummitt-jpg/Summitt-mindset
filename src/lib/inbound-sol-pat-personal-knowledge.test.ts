@@ -31,7 +31,22 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
     expect(p).toContain("Work was terrible.");
     expect(p).toContain("What time does my morning text come?");
     expect(p).toContain("What did you learn from losing?");
-    expect(p).toContain("Do not set yes merely because the text is about leadership");
+    expect(p).toContain("What can I learn from losing?");
+    expect(p).toContain("How did you handle pressure when you were coaching?");
+    expect(p).toContain("How should I handle pressure?");
+    expect(p).toMatch(
+      /Examples → yes:[\s\S]*What did you learn from losing\?[\s\S]*How did you handle pressure when you were coaching\?/
+    );
+    expect(p).toMatch(
+      /Examples → no:[\s\S]*What can I learn from losing\?[\s\S]*How should I handle pressure\?/
+    );
+    expect(p).not.toMatch(/Example → unknown:[\s\S]{0,80}What did you learn from losing\?/);
+    expect(p).toContain("Asking about Pat's actual experience → yes");
+    expect(p).toContain("Asking Pat for coaching/advice about the member's life → no");
+    expect(p).toContain(
+      "Do not use unknown merely because that answer could also yield a general coaching lesson"
+    );
+    expect(p).toContain("Do not set yes merely because the topic is leadership, discipline, losing");
     expect(p).toContain("You do NOT select a Pat story");
     expect(p).toContain("search books");
     expect(p).toContain("retrieve chunks");

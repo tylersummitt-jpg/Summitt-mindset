@@ -233,7 +233,23 @@ describe("inbound.requires_pat_personal_knowledge", () => {
     expect(appendix).toContain("How did having Tyler change your coaching?");
     expect(appendix).toContain("What would you tell me about handling pressure?");
     expect(appendix).toContain("What did you learn from losing?");
-    expect(appendix).toContain("Do not set yes merely because the text is about leadership");
+    expect(appendix).toContain("What can I learn from losing?");
+    expect(appendix).toContain("How did you handle pressure when you were coaching?");
+    expect(appendix).toContain("How should I handle pressure?");
+    expect(appendix).toMatch(
+      /yes examples:[\s\S]*What did you learn from losing\?[\s\S]*How did you handle pressure when you were coaching\?/
+    );
+    expect(appendix).toMatch(
+      /no examples:[\s\S]*What can I learn from losing\?[\s\S]*How should I handle pressure\?/
+    );
+    expect(appendix).not.toMatch(
+      /unknown example:[\s\S]{0,80}What did you learn from losing\?/
+    );
+    expect(appendix).toContain("Asking about Pat's actual experience → yes");
+    expect(appendix).toContain(
+      "Do not use unknown merely because a Pat-personal question could also lead to a general coaching lesson"
+    );
+    expect(appendix).toContain("Do not set yes merely because the topic is leadership, discipline, losing");
     expect(appendix).toContain("does not select a Pat story");
     expect(appendix).toContain("search books");
     expect(appendix).toContain("retrieve chunks");

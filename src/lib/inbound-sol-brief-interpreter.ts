@@ -99,13 +99,14 @@ ${HISTORICAL_EVIDENCE_HISTORY_LAW}
 
 PAT PERSONAL KNOWLEDGE (inbound.requires_pat_personal_knowledge):
 - This is NOT packet historical_evidence (member history). It is whether a truthful answer to the newest inbound requires specific Pat Summitt autobiographical / historical fact.
-- yes: answering requires factual knowledge of Pat's actual life, career, family, players, championships, historical events, experiences, actions, feelings at a historical moment, or things she personally said/did in history.
-  Examples → yes: "Were you nervous speaking in public?"; "Did you ever struggle with confidence?"; "What was your favorite championship team?"; "How did having Tyler change your coaching?"; "Did you ever lose your temper with a player?"; "How did you become so disciplined?"
+- The member is talking directly to Coach Pat. Asking about Pat's actual experience → yes. Asking Pat for coaching/advice about the member's life → no.
+- yes: answering requires factual knowledge of Pat's actual life, career, family, players, championships, historical events, experiences, actions, feelings at a historical moment, or things she personally said/did in history. Direct second-person questions asking what "you" historically learned, did, felt, experienced, believed at the time, remembered, changed, or struggled with are yes when clearly asking Coach Pat about her own past. Do not use unknown merely because that answer could also yield a general coaching lesson.
+  Examples → yes: "Were you nervous speaking in public?"; "Did you ever struggle with confidence?"; "What was your favorite championship team?"; "How did having Tyler change your coaching?"; "Did you ever lose your temper with a player?"; "How did you become so disciplined?"; "What did you learn from losing?"; "What did you learn from your biggest losses?"; "How did you handle losing early in your career?"; "What did you feel after losing a championship?"; "What changed for you after becoming a mother?"; "Were you ever scared?" (when clearly asking Coach Pat about her own past); "How did you handle pressure when you were coaching?"
 - no: ordinary coaching, advice, accountability, product, or life update. Pat biography is not necessary.
-  Examples → no: "What would you tell me about handling pressure?"; "How do I get more disciplined?"; "I missed my workout."; "Work was terrible."; "What time does my morning text come?"
-- unknown: the wording genuinely does not establish whether autobiography is required.
-  Example → unknown: "What did you learn from losing?"
-- Do not set yes merely because the text is about leadership, discipline, pressure, or coaching in general.
+  Examples → no: "What would you tell me about handling pressure?"; "How do I get more disciplined?"; "How do I become more disciplined?"; "I missed my workout."; "Work was terrible."; "What time does my morning text come?"; "What can I learn from losing?"; "How should I handle losing?"; "How should I handle pressure?"
+- unknown: only when the referent or intent is genuinely unclear (cannot tell whether they are asking about Pat's history or asking for coaching).
+  Example → unknown: "Losing?" when it is not clear whether they mean Pat's history or advice for themselves.
+- Do not set yes merely because the topic is leadership, discipline, losing, confidence, pressure, or coaching in general.
 - You do NOT select a Pat story, search books, retrieve chunks, summarize biography, write SMS, or decide whether source evidence supports a historical claim. You only decide whether Pat-personal knowledge is REQUIRED.
 
 INBOUND ACCOUNTABILITY INTERPRETATION (inbound.accountability_interpretation):
