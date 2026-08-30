@@ -545,7 +545,8 @@ export const dynamic = "force-dynamic";
  * Job status (text column):
  * pending → claimed → processing → generating_reply → reply_ready → sending → sent
  * failed: retriable; needs_manual_review: operator must reset (e.g. to pending) or verify Twilio
- * cancelled: user ineligible
+ * cancelled: user ineligible / generic intentional no-send
+ * awaiting_manual_pat_answer: Sol YES + manual Pat handoff; not claimable; no SMS
  */
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -2343,6 +2344,7 @@ async function markJobFinal(args: {
   lastError?: string | null;
   attemptCount?: number;
   nextRetry?: string;
+  replyBody?: string | null;
 }) {
   const patch: Record<string, unknown> = {
     status: args.status,
@@ -2356,6 +2358,9 @@ async function markJobFinal(args: {
   }
   if (typeof args.attemptCount === "number") {
     patch.attempt_count = args.attemptCount;
+  }
+  if (args.replyBody !== undefined) {
+    patch.reply_body = args.replyBody;
   }
 
   await supabaseServer
@@ -6000,22 +6005,42 @@ async function processV2NormalInboundOutcome(
       };
 
       if (!solTurn.shouldSend || !solTurn.body?.trim()) {
-        await markJobFinal({
-          messageSid: job.message_sid,
-          status: "cancelled",
-          lastError: JSON.stringify({
-            tag: "inbound_sol_main_no_send",
+        if (solTurn.noSendReason === "manual_pat_answer_needed") {
+          await markJobFinal({
+            messageSid: job.message_sid,
+            status: "awaiting_manual_pat_answer",
+            lastError: JSON.stringify({
+              tag: "inbound_sol_awaiting_manual_pat_answer",
+              no_send_reason: solTurn.noSendReason,
+              persist_status: solTurn.persistResult.status,
+              ...solLaneMetadata,
+            }).slice(0, 1900),
+            nextRetry: farFutureIso(),
+            replyBody: null,
+          });
+          console.warn("[sms-inbound-coach] inbound_sol_awaiting_manual_pat_answer", {
+            message_sid: job.message_sid,
+            commitment_id: commitment.id,
             no_send_reason: solTurn.noSendReason,
-            persist_status: solTurn.persistResult.status,
-            ...solLaneMetadata,
-          }).slice(0, 1900),
-          nextRetry: farFutureIso(),
-        });
-        console.warn("[sms-inbound-coach] inbound_sol_main_no_send", {
-          message_sid: job.message_sid,
-          commitment_id: commitment.id,
-          no_send_reason: solTurn.noSendReason,
-        });
+          });
+        } else {
+          await markJobFinal({
+            messageSid: job.message_sid,
+            status: "cancelled",
+            lastError: JSON.stringify({
+              tag: "inbound_sol_main_no_send",
+              no_send_reason: solTurn.noSendReason,
+              persist_status: solTurn.persistResult.status,
+              ...solLaneMetadata,
+            }).slice(0, 1900),
+            nextRetry: farFutureIso(),
+          });
+          console.warn("[sms-inbound-coach] inbound_sol_main_no_send", {
+            message_sid: job.message_sid,
+            commitment_id: commitment.id,
+            no_send_reason: solTurn.noSendReason,
+          });
+        }
         await insertInboundTurnTelemetryBestEffort({
           commitmentId: commitment.id,
           clerkUserId: userId,
@@ -12549,6 +12574,13 @@ async function processJob(claimedJob: JobRow): Promise<void> {
   }
 
   let job = fresh;
+
+  if (job.status === "awaiting_manual_pat_answer") {
+    console.info("[sms-inbound-coach] inbound_sol_awaiting_manual_pat_answer_idempotent", {
+      message_sid: job.message_sid,
+    });
+    return;
+  }
 
   let splitSuppressedMessageSids: string[] = [];
 
