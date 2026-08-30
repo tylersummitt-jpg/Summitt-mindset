@@ -1,6 +1,6 @@
 /**
- * Inbound Sol writer — GPT-5.6 Sol, reasoning_effort low, body-only JSON, one JSON retry.
- * No 300/320 clipping. No second writer.
+ * Inbound Sol writer — GPT-5.6 Sol, reasoning_effort low, JSON body + optional
+ * needs_manual_pat_answer, one JSON retry. No 300/320 clipping. No second writer.
  */
 
 import OpenAI from "openai";
@@ -21,7 +21,7 @@ export const INBOUND_SOL_WRITER_MAX_COMPLETION_TOKENS = 1200 as const;
 export const INBOUND_SOL_WRITER_PROMPT_PATH = "inbound_sol_writer_v1" as const;
 
 export const INBOUND_SOL_WRITER_JSON_REMINDER =
-  'Return strict JSON only: {"body":"<nonempty sms text>"}. No other keys. No markdown.';
+  'Return strict JSON only. Normal reply: {"body":"<nonempty sms text>","needs_manual_pat_answer":false} (the flag may be omitted; treated as false). Manual Pat handoff: {"body":"","needs_manual_pat_answer":true}. Empty body is allowed only with needs_manual_pat_answer true. Do not combine a nonempty body with needs_manual_pat_answer true. No markdown.';
 
 export const INBOUND_SOL_WRITER_SYSTEM_PROMPT = `You are Coach Pat Summitt, replying to the user's newest real text in one ongoing coaching relationship.
 
@@ -52,8 +52,11 @@ GOOD, if sources support nerves being present or hidden: "Sure I got nervous. I 
 
 Ban evidentiary / lawyer / source-mechanics language unless truly unavoidable. Do not say: "What's documented is...", "What is documented is...", "I can't honestly say whether...", "I can't tell you honestly...", "The source material says...", "The excerpts show...", "I can't verify...", "There isn't enough evidence to say...", "I can't claim...", "According to the books...". Do not use AI/policy language ("As an AI...", "I don't have personal experiences...", "I can't claim Pat Summitt's feelings as my own...").
 
-- When PAT_SOURCE_EVIDENCE is absent: do not invent Pat autobiography. Same direct Coach Pat relationship. No forced biography. No random stories. No source language. No increased hedging.
-- When retrieval_status is empty or error, or the excerpts do not reasonably support the requested personal fact: do not invent it. Remain Coach Pat. Answer narrowly without AI disclaimers or source-mechanics language. Only if that stance itself is supportable: decline a favorite-team / similar exact-fact question naturally without pretending certainty. Otherwise answer narrowly without inventing.
+- When PAT_SOURCE_EVIDENCE is absent: do not invent Pat autobiography. Same direct Coach Pat relationship. No forced biography. No random stories. No source language. No increased hedging. Never set needs_manual_pat_answer true. Return a normal nonempty coaching SMS.
+- When PAT_SOURCE_EVIDENCE is present and the excerpts reasonably support a truthful direct answer to the user's Pat-personal question: answer confidently in first person, using supported synthesis. Exact wording match is NOT required.
+- When PAT_SOURCE_EVIDENCE is present and the excerpts do NOT reasonably support the autobiographical fact needed to answer (including retrieval_status empty or error): do not invent it. Do NOT hedge. Do NOT decline. Do NOT say "I don't remember". Do NOT say "I won't make it up". Do NOT mention sources, evidence, or documentation. Return {"body":"","needs_manual_pat_answer":true} with no member-visible SMS.
+- needs_manual_pat_answer is ONLY for missing grounded Pat autobiography when PAT_SOURCE_EVIDENCE is present. Never use it for ordinary coaching-judgment uncertainty, advice questions, turns with no PAT_SOURCE_EVIDENCE, user silence, hard or emotional questions, or goal/accountability questions.
+- Examples (only when PAT_SOURCE_EVIDENCE is present): "Did you set alarms at night?" / "Did you drink a lot of water every day?" / "What time did you normally wake up?" — if excerpts do not establish it → manual. "Did you struggle with confidence early in coaching?" — if PAT_0339-style evidence supports it → normal body. "How did having Tyler change your coaching?" — if Tyler sources support it → normal body. "What did you learn from losing?" / discipline / temper — if excerpts reasonably support synthesis → normal body.
 - Compress source material into a naturally short SMS. Do not reproduce book passages. Do not quote long passages. Do not cite book or chapter names unless the user explicitly asks. Do not expose source IDs.
 
 Writer law:
@@ -83,9 +86,10 @@ Forbidden:
 HISTORICAL EVIDENCE
 ${HISTORICAL_EVIDENCE_HISTORY_LAW}
 
-Write one SMS. Return strict JSON only:
-{"body":"<sms text>"}
-The body must be nonempty. No other keys.`;
+Write one SMS when a member-visible reply is appropriate. Return strict JSON only, one of:
+{"body":"<nonempty sms text>","needs_manual_pat_answer":false}
+{"body":"","needs_manual_pat_answer":true}
+On a normal reply the flag may be omitted (treated as false). Body must be nonempty unless needs_manual_pat_answer is true.`;
 
 export type InboundSolWriterCapture = {
   model: typeof INBOUND_SOL_WRITER_MODEL;
@@ -103,6 +107,7 @@ export type InboundSolWriterCapture = {
 export type InboundSolWriterSuccess = {
   ok: true;
   body: string;
+  needs_manual_pat_answer: boolean;
   capture: InboundSolWriterCapture;
 };
 
@@ -179,28 +184,53 @@ export function buildInboundSolWriterMessages(
   ];
 }
 
-function parseWriterJson(raw: string): { body: string } | null {
+export type InboundSolWriterParsedJson = {
+  body: string;
+  needs_manual_pat_answer: boolean;
+};
+
+/**
+ * Writer JSON contract. Absent needs_manual_pat_answer defaults to false when body is nonempty.
+ * Empty body is valid only with needs_manual_pat_answer === true.
+ */
+export function parseInboundSolWriterJson(raw: string): InboundSolWriterParsedJson | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") return null;
-    const body = (parsed as { body?: unknown }).body;
-    if (typeof body !== "string") return null;
-    const trimmed = body.trim();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const rec = parsed as Record<string, unknown>;
+    if (typeof rec.body !== "string") return null;
+    const trimmed = rec.body.trim();
+    const flagRaw = rec.needs_manual_pat_answer;
+    if (flagRaw === undefined) {
+      if (!trimmed) return null;
+      return { body: trimmed, needs_manual_pat_answer: false };
+    }
+    if (typeof flagRaw !== "boolean") return null;
+    if (flagRaw === true) {
+      if (trimmed) return null;
+      return { body: "", needs_manual_pat_answer: true };
+    }
     if (!trimmed) return null;
-    return { body: trimmed };
+    return { body: trimmed, needs_manual_pat_answer: false };
   } catch {
     return null;
   }
 }
 
-function isEmptyBodyJson(raw: string): boolean {
+function classifyWriterJsonFailure(raw: string): "empty_body" | "invalid_json" {
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") return false;
-    const body = (parsed as { body?: unknown }).body;
-    return typeof body === "string" && !body.trim();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "invalid_json";
+    const rec = parsed as Record<string, unknown>;
+    if (typeof rec.body !== "string") return "invalid_json";
+    const trimmed = rec.body.trim();
+    const flagRaw = rec.needs_manual_pat_answer;
+    if (flagRaw === true && trimmed) return "invalid_json";
+    if (flagRaw !== undefined && typeof flagRaw !== "boolean") return "invalid_json";
+    if (!trimmed) return "empty_body";
+    return "invalid_json";
   } catch {
-    return false;
+    return "invalid_json";
   }
 }
 
@@ -284,7 +314,7 @@ export async function writeInboundSolBody(args: {
   try {
     const first = await solCreate(messages);
     const raw = first.choices[0]?.message?.content?.trim() ?? "";
-    let parsed = raw ? parseWriterJson(raw) : null;
+    let parsed = raw ? parseInboundSolWriterJson(raw) : null;
     let rawRetry: string | null = null;
     let retryOccurred = false;
 
@@ -296,13 +326,14 @@ export async function writeInboundSolBody(args: {
       ];
       const second = await solCreate([...messages, ...retryMessages]);
       rawRetry = second.choices[0]?.message?.content?.trim() ?? "";
-      parsed = rawRetry ? parseWriterJson(rawRetry) : null;
+      parsed = rawRetry ? parseInboundSolWriterJson(rawRetry) : null;
     }
 
-    if (parsed?.body) {
+    if (parsed) {
       return {
         ok: true,
         body: parsed.body,
+        needs_manual_pat_answer: parsed.needs_manual_pat_answer,
         capture: buildCapture({
           raw_response: raw || null,
           raw_retry_response: rawRetry,
@@ -314,13 +345,13 @@ export async function writeInboundSolBody(args: {
     }
 
     const failRaw = rawRetry ?? raw;
-    const empty = isEmptyBodyJson(failRaw) || isEmptyBodyJson(raw);
+    const error = classifyWriterJsonFailure(failRaw);
     return fail(
-      empty ? "empty_body" : "invalid_json",
+      error,
       buildCapture({
         raw_response: raw || null,
         raw_retry_response: rawRetry,
-        error: empty ? "empty_body" : "invalid_json",
+        error,
         retry_occurred: retryOccurred,
         retry_succeeded: retryOccurred ? false : null,
       })

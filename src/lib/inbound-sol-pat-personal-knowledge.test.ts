@@ -66,7 +66,10 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("What's documented is...");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("legendary Lady Vols");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("gpt-4.1-mini");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("needs_manual_pat_answer");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("decline a favorite-team");
     const writer = fs.readFileSync(WRITER, "utf8");
+    expect(writer.split("chat.completions.create").length - 1).toBe(1);
     expect(writer).toContain("writeInboundSolBody");
     expect(writer).not.toContain("embeddings.create");
     expect(writer).not.toContain("getTopRelevantChunks");
@@ -84,6 +87,8 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
     expect(turn).not.toContain("buildPatSmsEmbeddingQuery");
     expect(turn).not.toContain("directQuestionOrNeed");
     expect(turn).toContain("writeInboundSolBody({ packet, brief, patSourceEvidence })");
+    expect(turn).toContain('noSend("manual_pat_answer_needed"');
+    expect(turn).toContain("writer_manual_pat_flag_without_yes");
     expect(turn.split("writeInboundSolBody({").length - 1).toBe(1);
     expect(turn.split("runInboundSolBriefInterpreter({").length - 1).toBe(1);
     expect(turn).not.toContain("gpt-4.1-mini");

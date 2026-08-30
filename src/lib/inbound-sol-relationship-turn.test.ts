@@ -2339,4 +2339,133 @@ describe("runInboundSolRelationshipTurn", () => {
     });
     expect(result.forensics.inbound_sol_pat_retrieval_error).toBe("boom");
   });
+
+  it("YES unsupported Pat fact: writer manual signal is distinct no-send with blank body", async () => {
+    getPatEvidenceForSms.mockResolvedValue({
+      packet: {
+        required: true,
+        retrieval_status: "ok",
+        excerpts: [
+          {
+            book_id: "reach_for_the_summit",
+            section_title: "CHAPTER 4",
+            text: "Communication is paramount in a game or pressure situation.",
+          },
+        ],
+      },
+      forensics: {
+        inbound_sol_pat_retrieval_attempted: true,
+        inbound_sol_pat_evidence_present: true,
+        inbound_sol_pat_source_count: 1,
+        inbound_sol_pat_retrieval_error: null,
+        inbound_sol_pat_global_ids: "PAT_0048",
+      },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "",
+      needs_manual_pat_answer: true,
+      capture: { retry_occurred: false },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ requires_pat_personal_knowledge: "yes" }),
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMalarm", "Did you set alarms at night?")
+    );
+    expect(result.shouldSend).toBe(false);
+    expect(result.body).toBeNull();
+    expect(result.noSendReason).toBe("manual_pat_answer_needed");
+    expect(result.forensics.inbound_sol_needs_manual_pat_answer).toBe(true);
+    expect(result.noSendReason).not.toMatch(/^writer_/);
+    expect(getPatEvidenceForSms).toHaveBeenCalledTimes(1);
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.patSourceEvidence?.excerpts).toHaveLength(1);
+  });
+
+  it("YES grounded confidence/Tyler-style evidence still sends a normal body from the same writer", async () => {
+    getPatEvidenceForSms.mockResolvedValue({
+      packet: {
+        required: true,
+        retrieval_status: "ok",
+        excerpts: [
+          {
+            book_id: "sum_it_up",
+            section_title: "SUM IT UP CHAPTER 4",
+            text: "I was an insecure young coach. I had to project confidence.",
+          },
+        ],
+      },
+      forensics: {
+        inbound_sol_pat_retrieval_attempted: true,
+        inbound_sol_pat_evidence_present: true,
+        inbound_sol_pat_source_count: 1,
+        inbound_sol_pat_retrieval_error: null,
+        inbound_sol_pat_global_ids: "PAT_0339",
+      },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Absolutely. Early on I had to project a confidence I was still building.",
+      needs_manual_pat_answer: false,
+      capture: { retry_occurred: false },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ requires_pat_personal_knowledge: "yes" }),
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMconf", "Did you struggle with confidence early in your coaching career?")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toContain("Early on");
+    expect(result.noSendReason).toBeNull();
+    expect(result.forensics.inbound_sol_needs_manual_pat_answer).toBeUndefined();
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(getPatEvidenceForSms).toHaveBeenCalledTimes(1);
+  });
+
+  it("NO / UNKNOWN cannot produce manual_pat_answer_needed even if the writer flags it", async () => {
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "",
+      needs_manual_pat_answer: true,
+      capture: { retry_occurred: false },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ requires_pat_personal_knowledge: "no" }),
+      capture: { retry_occurred: false },
+    });
+    const noResult = await runInboundSolRelationshipTurn(
+      turnArgs("SMadv", "How do I get more disciplined?")
+    );
+    expect(getPatEvidenceForSms).not.toHaveBeenCalled();
+    expect(noResult.shouldSend).toBe(false);
+    expect(noResult.body).toBeNull();
+    expect(noResult.noSendReason).toBe("writer_manual_pat_flag_without_yes");
+    expect(noResult.noSendReason).not.toBe("manual_pat_answer_needed");
+    expect(noResult.forensics.inbound_sol_needs_manual_pat_answer).toBe(false);
+
+    getPatEvidenceForSms.mockClear();
+    writeInboundSolBody.mockClear();
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "",
+      needs_manual_pat_answer: true,
+      capture: { retry_occurred: false },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ requires_pat_personal_knowledge: "unknown" }),
+      capture: { retry_occurred: false },
+    });
+    const unk = await runInboundSolRelationshipTurn(turnArgs("SMunk2", "Losing?"));
+    expect(getPatEvidenceForSms).not.toHaveBeenCalled();
+    expect(unk.noSendReason).toBe("writer_manual_pat_flag_without_yes");
+    expect(unk.noSendReason).not.toBe("manual_pat_answer_needed");
+  });
 });

@@ -556,6 +556,9 @@ describe("writer D1 pending-photo data minimization", () => {
     expect(p).toContain("Never expose the mechanics of grounding");
     expect(p).toContain("The factual ceiling remains");
     expect(p).toContain("do not invent it");
+    expect(p).toContain("needs_manual_pat_answer");
+    expect(p).toContain("Did you set alarms at night?");
+    expect(p).toContain("Never set needs_manual_pat_answer true");
     expect(p).toContain("No invented unsupported autobiography");
     expect(p).toContain("Do not use AI/policy language");
     expect(p).toContain(

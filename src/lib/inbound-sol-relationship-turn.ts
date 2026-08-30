@@ -364,6 +364,31 @@ export async function runInboundSolRelationshipTurn(args: {
     });
   }
 
+  if (written.needs_manual_pat_answer) {
+    if (brief.inbound.requires_pat_personal_knowledge !== "yes") {
+      return noSend("writer_manual_pat_flag_without_yes", {
+        packet,
+        brief,
+        persistResult,
+        winResult,
+        forensics: {
+          ...baseForensics,
+          inbound_sol_needs_manual_pat_answer: false,
+        },
+      });
+    }
+    return noSend("manual_pat_answer_needed", {
+      packet,
+      brief,
+      persistResult,
+      winResult,
+      forensics: {
+        ...baseForensics,
+        inbound_sol_needs_manual_pat_answer: true,
+      },
+    });
+  }
+
   const blocked = evaluateInboundSolBlockOnlyReply({
     body: written.body,
     persistedUserYes,
