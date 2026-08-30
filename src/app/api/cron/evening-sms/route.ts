@@ -84,6 +84,7 @@ function bumpSkip(
     skippedNotFullyOnV2: number;
     skippedUserCompletedToday: number;
     skippedMissingTwilio: number;
+    skippedAwaitingManualPatAnswer: number;
     dryRunWouldSend: number;
     failed: number;
     skippedOther: number;
@@ -135,6 +136,9 @@ function bumpSkip(
     case "twilio_not_configured":
       stats.skippedMissingTwilio += 1;
       break;
+    case "awaiting_manual_pat_answer":
+      stats.skippedAwaitingManualPatAnswer += 1;
+      break;
     case "dry_run":
       stats.dryRunWouldSend += 1;
       break;
@@ -180,6 +184,7 @@ export async function GET(req: Request) {
     skippedTtoMachineShouldSendFalse: 0,
     alreadyReservedOrSentToday: 0,
     skippedMissingTwilio: 0,
+    skippedAwaitingManualPatAnswer: 0,
     skippedOther: 0,
     skippedDeletionBlocked: 0,
   };

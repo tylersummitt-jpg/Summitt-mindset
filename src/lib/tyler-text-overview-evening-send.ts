@@ -37,6 +37,10 @@ import { getActiveCommitment } from "@/lib/v2-commitment";
 import { upsertCommitmentSmsThreadMemoryFromOutbound } from "@/lib/v2-commitment-sms-thread-memory";
 import { insertV2CheckSentEventBestEffort } from "@/lib/v2-outbound-check-sent";
 import {
+  AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
+  hasAwaitingManualPatAnswer,
+} from "@/lib/has-awaiting-manual-pat-answer";
+import {
   fetchV2UserSmsCommsPreferences,
   isPauseActive,
 } from "@/lib/v2-sms-comms-preferences";
@@ -88,7 +92,8 @@ export type TylerTextOverviewEveningSendRefusalCode =
   | "missing_clerk_user_id_for_outbound_sms"
   | "post_send_bookkeeping_failed"
   | "body_changed_before_twilio"
-  | "dry_run";
+  | "dry_run"
+  | "awaiting_manual_pat_answer";
 
 export type TylerTextOverviewEveningSendResult =
   | {
@@ -820,6 +825,20 @@ export async function sendEveningTtoAuthoritativeCronSend(args: {
   if (!authority.ok) return authority.result;
 
   const draft = authority.draft;
+
+  if (await hasAwaitingManualPatAnswer(args.clerkUserId)) {
+    console.log("[evening-sms] skip awaiting_manual_pat_answer", {
+      clerk_user_id: args.clerkUserId,
+      draft_for_day_key: dayKey,
+      skip_reason: AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
+    });
+    return refuse(
+      "awaiting_manual_pat_answer",
+      "A Coach Pat question is waiting for a manual answer.",
+      { ...base, draftId: draft.draftId }
+    );
+  }
+
   const existing = await readExistingEveningSendEvent({
     clerkUserId: args.clerkUserId,
     dayKey,

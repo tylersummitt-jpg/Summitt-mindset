@@ -52,6 +52,10 @@ import {
   type TylerTextOverviewSendContext,
 } from "@/lib/tyler-text-overview-send";
 import { SMS_DAILY_PRODUCTION_SEND_SLOT, isTylerTextOverviewEnabled } from "@/lib/tyler-text-overview-types";
+import {
+  AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
+  hasAwaitingManualPatAnswer,
+} from "@/lib/has-awaiting-manual-pat-answer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,6 +68,10 @@ async function shouldSkipDailyForActiveInboundThread(clerkUserId: string): Promi
   const ac = await getActiveCommitment(clerkUserId);
   if (!ac?.id) return false;
   return hasRecentInboundAccountabilityExchange(ac.id);
+}
+
+async function shouldSkipDailyForAwaitingManualPatAnswer(clerkUserId: string): Promise<boolean> {
+  return hasAwaitingManualPatAnswer(clerkUserId);
 }
 
 function timeOfDayForOutboundContext(_md: Record<string, unknown>): "morning" | "evening" {
@@ -835,6 +843,7 @@ export async function GET(req: Request) {
     skippedCadence: 0,
     skippedSilenceCadenceSpace: 0,
     skippedActiveInboundThread: 0,
+    skippedAwaitingManualPatAnswer: 0,
     skippedReactivationCooldown: 0,
     skippedRefreshIdentityAwaiting: 0,
     skippedPendingResolutionRecentConfirmation: 0,
@@ -1110,6 +1119,18 @@ export async function GET(req: Request) {
               }
             }
 
+            if (await shouldSkipDailyForAwaitingManualPatAnswer(audienceUser.clerk_user_id)) {
+              console.log("[daily-sms] skip awaiting_manual_pat_answer", {
+                clerk_user_id: audienceUser.clerk_user_id,
+                day_key: todayKey,
+                path: "retry",
+                skip_reason: AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
+              });
+              stats.skippedAwaitingManualPatAnswer += 1;
+              stats.skippedIntentional += 1;
+              continue;
+            }
+
             stage = "active_inbound_thread_gate";
             if (await shouldSkipDailyForActiveInboundThread(audienceUser.clerk_user_id)) {
               await supabaseServer
@@ -1338,6 +1359,18 @@ export async function GET(req: Request) {
             continue;
           }
         }
+      }
+
+      if (await shouldSkipDailyForAwaitingManualPatAnswer(audienceUser.clerk_user_id)) {
+        console.log("[daily-sms] skip awaiting_manual_pat_answer", {
+          clerk_user_id: audienceUser.clerk_user_id,
+          day_key: todayKey,
+          path: "main",
+          skip_reason: AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
+        });
+        stats.skippedAwaitingManualPatAnswer += 1;
+        stats.skippedIntentional += 1;
+        continue;
       }
 
       stage = "canonical_state_maintenance";
@@ -1615,6 +1648,7 @@ export async function GET(req: Request) {
     skippedOptedOut: stats.skippedOptedOut,
     skippedCadence: stats.skippedCadence,
     skippedActiveInboundThread: stats.skippedActiveInboundThread,
+    skippedAwaitingManualPatAnswer: stats.skippedAwaitingManualPatAnswer,
     skippedNotFullyOnV2Daily: stats.skippedNotFullyOnV2Daily,
     failed: stats.failed,
     reservationErrors: stats.reservationErrors,

@@ -9,6 +9,7 @@ const db = vi.hoisted(() => ({
   audience: null as Record<string, unknown> | null,
   commitment: null as { id: string } | null,
   yesEvents: [] as Array<Record<string, unknown>>,
+  inboundJobs: [] as Array<Record<string, unknown>>,
 }));
 
 const sendSMS = vi.hoisted(() =>
@@ -90,6 +91,16 @@ vi.mock("@/lib/supabase-server", () => {
         }
         if (table === "v2_commitment_event") {
           return { data: db.yesEvents, error: null };
+        }
+        if (table === "sms_inbound_coach_jobs") {
+          const row = db.inboundJobs.find((j) => {
+            if (state.filters.clerk_user_id && j.clerk_user_id !== state.filters.clerk_user_id) {
+              return false;
+            }
+            if (state.filters.status && j.status !== state.filters.status) return false;
+            return true;
+          });
+          return { data: row ?? null, error: null };
         }
         return { data: null, error: null };
       },
@@ -221,6 +232,7 @@ function seedEveningDraft(overrides: Record<string, unknown> = {}) {
   db.commitment = { id: "c1" };
   db.sendEvents = [];
   db.yesEvents = [];
+  db.inboundJobs = [];
 }
 
 describe("Evening lane fixed window [19:00, 21:00)", () => {
@@ -404,6 +416,54 @@ describe("Evening authoritative gate + cron send", () => {
     expect(meta.sms_body).toBe("Current A");
     expect(meta.final_sms_body).toBe("Current A");
     expect(meta.final_body_sent).toBe("Current A");
+  });
+
+  it("pending manual Pat answer blocks Evening SMS and leaves the draft", async () => {
+    seedEveningDraft({
+      draft_for_day_key: "2026-06-27",
+      current_body_to_send: "Current A",
+    });
+    db.inboundJobs = [
+      {
+        message_sid: "SMpark1",
+        clerk_user_id: "user_e5",
+        status: "awaiting_manual_pat_answer",
+      },
+    ];
+    const result = await sendEveningTtoAuthoritativeCronSend({
+      clerkUserId: "user_e5",
+      phoneNumber: "+15551234567",
+      timezone: "America/New_York",
+      now: new Date("2026-06-27T23:05:00.000Z"),
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("awaiting_manual_pat_answer");
+    expect(sendSMS).not.toHaveBeenCalled();
+    expect(db.sendEvents).toHaveLength(0);
+    expect(db.drafts[0]?.current_body_to_send).toBe("Current A");
+    expect(db.drafts[0]?.status).toBe("current");
+  });
+
+  it("resolved manual Pat jobs do not block Evening send", async () => {
+    seedEveningDraft({
+      draft_for_day_key: "2026-06-27",
+      current_body_to_send: "Current A",
+    });
+    db.inboundJobs = [
+      {
+        message_sid: "SMsent",
+        clerk_user_id: "user_e5",
+        status: "sent",
+      },
+    ];
+    const result = await sendEveningTtoAuthoritativeCronSend({
+      clerkUserId: "user_e5",
+      phoneNumber: "+15551234567",
+      timezone: "America/New_York",
+      now: new Date("2026-06-27T23:05:00.000Z"),
+    });
+    expect(result.ok).toBe(true);
+    expect(sendSMS).toHaveBeenCalledTimes(1);
   });
 
   it("Tyler B sends B not machine A", async () => {

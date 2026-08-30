@@ -33,6 +33,10 @@ import {
   fetchV2UserSmsCommsPreferences,
   isPauseActive,
 } from "@/lib/v2-sms-comms-preferences";
+import {
+  AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
+  hasAwaitingManualPatAnswer,
+} from "@/lib/has-awaiting-manual-pat-answer";
 
 export {
   WEEKLY_TTO_COMPLIANCE_FOOTER,
@@ -69,7 +73,8 @@ export type WeeklyTtoManualSendRefusalCode =
   | "deletion_lookup_failed"
   | "missing_clerk_user_id_for_outbound_sms"
   | "reservation_failed"
-  | "post_send_bookkeeping_failed";
+  | "post_send_bookkeeping_failed"
+  | "awaiting_manual_pat_answer";
 
 /** Cron-facing skip reasons (authority failures). */
 export type WeeklyTtoCronAuthoritySkipReason =
@@ -146,7 +151,7 @@ function isUniqueViolation(error: { code?: string; message?: string } | null): b
 
 export function mapWeeklyTtoRefusalToCronSkipReason(
   code: WeeklyTtoManualSendRefusalCode
-): WeeklyTtoCronAuthoritySkipReason | "skipped_duplicate_weekly_send" | "skipped_missing_twilio" | "failed" | null {
+): WeeklyTtoCronAuthoritySkipReason | "skipped_duplicate_weekly_send" | "skipped_missing_twilio" | "skipped_awaiting_manual_pat_answer" | "failed" | null {
   switch (code) {
     case "no_draft":
     case "draft_not_current":
@@ -183,6 +188,8 @@ export function mapWeeklyTtoRefusalToCronSkipReason(
       return "failed";
     case "account_deletion_blocks_sms":
       return null;
+    case "awaiting_manual_pat_answer":
+      return "skipped_awaiting_manual_pat_answer";
     default:
       return null;
   }
@@ -787,6 +794,24 @@ export async function sendWeeklyTtoDraftAuthoritative(args: {
         clerkUserId: draft.clerkUserId,
         weekKey: draft.weekKey,
         recoverable: false,
+      }
+    );
+  }
+
+  if (await hasAwaitingManualPatAnswer(draft.clerkUserId)) {
+    console.log("[weekly-tto-send] skip awaiting_manual_pat_answer", {
+      clerk_user_id: draft.clerkUserId,
+      week_key: draft.weekKey,
+      send_source: args.sendSource,
+      skip_reason: AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
+    });
+    return refuse(
+      "awaiting_manual_pat_answer",
+      "A Coach Pat question is waiting for a manual answer.",
+      {
+        draftId: draft.draftId,
+        clerkUserId: draft.clerkUserId,
+        weekKey: draft.weekKey,
       }
     );
   }

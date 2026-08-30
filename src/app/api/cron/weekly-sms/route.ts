@@ -33,6 +33,10 @@ import {
   sendWeeklyTtoDraftAuthoritative,
   WEEKLY_TTO_CRON_SEND_SOURCE,
 } from "@/lib/tyler-text-overview-weekly-send";
+import {
+  AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
+  hasAwaitingManualPatAnswer,
+} from "@/lib/has-awaiting-manual-pat-answer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,6 +95,7 @@ export type WeeklySmsCronStats = {
   skippedTtoWeekKeyMismatch: number;
   skippedTtoAmbiguousWeeklyDraft: number;
   skippedTtoWrongSlot: number;
+  skippedAwaitingManualPatAnswer: number;
   skippedDuplicateWeeklySend: number;
   skippedMissingTwilio: number;
   skippedV2WeeklyPendingResolution: number;
@@ -120,6 +125,7 @@ function emptyStats(): WeeklySmsCronStats {
     skippedTtoWeekKeyMismatch: 0,
     skippedTtoAmbiguousWeeklyDraft: 0,
     skippedTtoWrongSlot: 0,
+    skippedAwaitingManualPatAnswer: 0,
     skippedDuplicateWeeklySend: 0,
     skippedMissingTwilio: 0,
     skippedV2WeeklyPendingResolution: 0,
@@ -159,6 +165,9 @@ function bumpAuthoritySkip(
       break;
     case "skipped_tto_wrong_slot":
       stats.skippedTtoWrongSlot += 1;
+      break;
+    case "skipped_awaiting_manual_pat_answer":
+      stats.skippedAwaitingManualPatAnswer += 1;
       break;
     case "skipped_duplicate_weekly_send":
       stats.skippedDuplicateWeeklySend += 1;
@@ -250,6 +259,15 @@ export async function GET(req: Request) {
       const weeklyCommsPrefs = await fetchV2UserSmsCommsPreferences(user.id);
       if (shouldSkipWeeklyForCommsPrefs(weeklyCommsPrefs, now)) {
         stats.skippedV2WeeklyUserPause += 1;
+        continue;
+      }
+
+      if (await hasAwaitingManualPatAnswer(user.id)) {
+        console.log("[weekly-sms] skip awaiting_manual_pat_answer", {
+          clerk_user_id: user.id,
+          skip_reason: AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
+        });
+        stats.skippedAwaitingManualPatAnswer += 1;
         continue;
       }
 

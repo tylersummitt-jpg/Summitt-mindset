@@ -39,6 +39,7 @@ const db = vi.hoisted(() => ({
   weeklyEvents: [] as Array<Record<string, unknown>>,
   sendEvents: [] as Array<Record<string, unknown>>,
   commitmentEvents: [] as Array<Record<string, unknown>>,
+  inboundJobs: [] as Array<Record<string, unknown>>,
   forceWeeklyInsertError: null as { code?: string; message?: string } | null,
   smsSendEventsInsertCount: 0,
   checkSentWriteCount: 0,
@@ -88,6 +89,7 @@ function seedWeeklyDraft(overrides?: {
   db.weeklyEvents = [];
   db.sendEvents = [];
   db.commitmentEvents = [];
+  db.inboundJobs = [];
   db.forceWeeklyInsertError = null;
   db.smsSendEventsInsertCount = 0;
   db.checkSentWriteCount = 0;
@@ -122,6 +124,17 @@ function makeChain(state: {
     if (table === "sms_daily_draft_generations" && state.action === "select") {
       const row = db.generations.find((g) => g.id === payload.id) ?? null;
       return { data: row, error: null };
+    }
+
+    if (table === "sms_inbound_coach_jobs" && state.action === "select") {
+      let rows = [...db.inboundJobs];
+      if (payload.clerk_user_id) {
+        rows = rows.filter((j) => j.clerk_user_id === payload.clerk_user_id);
+      }
+      if (payload.status) {
+        rows = rows.filter((j) => j.status === payload.status);
+      }
+      return { data: payload.maybeSingle ? rows[0] ?? null : rows, error: null };
     }
 
     if (table === "sms_weekly_send_events" && state.action === "insert") {
@@ -216,6 +229,7 @@ function makeChain(state: {
     state.payload.maybeSingle = true;
     return execute();
   });
+  self.limit = vi.fn(() => self);
   self.then = (onFulfilled: (value: unknown) => unknown, onRejected?: (reason: unknown) => unknown) =>
     execute().then(onFulfilled, onRejected);
 
@@ -622,6 +636,49 @@ describe("sendWeeklyTtoDraftManually", () => {
     expect(sendSmsMock).not.toHaveBeenCalled();
     expect(db.weeklyEvents).toHaveLength(0);
   });
+
+  it("pending manual Pat answer blocks manual Weekly send and keeps the draft", async () => {
+    db.inboundJobs = [
+      {
+        message_sid: "SMpark1",
+        clerk_user_id: "user_weekly",
+        status: "awaiting_manual_pat_answer",
+      },
+    ];
+    const bodyBefore = db.drafts[0]?.current_body_to_send;
+    const result = await sendWeeklyTtoDraftManually({
+      draftId: "draft-weekly-1",
+      requestedByClerkUserId: "admin_tyler",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("awaiting_manual_pat_answer");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+    expect(db.weeklyEvents).toHaveLength(0);
+    expect(db.drafts[0]?.current_body_to_send).toBe(bodyBefore);
+    expect(db.drafts[0]?.status).toBe("current");
+  });
+
+  it("one answered and one still pending still blocks Weekly send", async () => {
+    db.inboundJobs = [
+      {
+        message_sid: "SMdone",
+        clerk_user_id: "user_weekly",
+        status: "sent",
+      },
+      {
+        message_sid: "SMstill",
+        clerk_user_id: "user_weekly",
+        status: "awaiting_manual_pat_answer",
+      },
+    ];
+    const result = await sendWeeklyTtoDraftManually({
+      draftId: "draft-weekly-1",
+      requestedByClerkUserId: "admin_tyler",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("awaiting_manual_pat_answer");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("assertWeeklyTtoDraftAuthoritativeForCronSend", () => {
@@ -751,6 +808,27 @@ describe("sendWeeklyTtoDraftViaCron / shared core", () => {
     });
     expect(db.drafts[0].status).toBe("sent");
     expect(db.drafts[0].final_body_sent).toBe(buildWeeklyTtoFinalBodyWithFooter(WEEKLY_BODY));
+  });
+
+  it("already-generated Weekly draft cannot send while a manual Pat answer is pending", async () => {
+    db.inboundJobs = [
+      {
+        message_sid: "SMpark1",
+        clerk_user_id: "user_weekly",
+        status: "awaiting_manual_pat_answer",
+      },
+    ];
+    const result = await sendWeeklyTtoDraftViaCron({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+      phoneTo: "+15551234567",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("awaiting_manual_pat_answer");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+    expect(db.weeklyEvents).toHaveLength(0);
+    expect(db.drafts[0]?.status).toBe("current");
+    expect(db.drafts[0]?.current_body_to_send).toBe(WEEKLY_BODY);
   });
 
   it("manual-sent duplicate blocks cron before Twilio", async () => {
