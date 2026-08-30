@@ -564,6 +564,9 @@ describe("writer D1 pending-photo data minimization", () => {
     expect(p).toContain("I want you to...");
     expect(p).toContain("No forced biography");
     expect(p).toContain("No increased hedging");
+    expect(p).toContain("Witness material from Pat's books about Pat herself");
+    expect(p).toContain("If she's nervous they'd never know it");
+    expect(p).toContain("Direct first-person evidence outweighs weaker conditional witness language");
     expect(p).not.toContain("legendary");
   });
 

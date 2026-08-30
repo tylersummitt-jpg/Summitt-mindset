@@ -1,22 +1,19 @@
 /**
  * Thin SMS Pat-source retrieval. Reuses Ask Pat's JSONL loader and cosine helper.
- * Does not call Ask Pat GPT. Does not change Ask Pat topK/prompt/route.
+ * YES path: same query normalize + ranked top-6 as Ask Pat. Does not call Ask Pat GPT.
+ * Does not change Ask Pat topK/prompt/route.
  */
 
 import OpenAI from "openai";
 import {
-  getPatChunks,
   getTopRelevantChunks,
   type PatChunk,
   type ScoredChunk,
 } from "@/lib/ask-pat/chunks";
 
 export const PAT_SMS_EMBEDDING_MODEL = "text-embedding-3-small" as const;
-export const PAT_SMS_CANDIDATE_POOL = 8 as const;
-export const PAT_SMS_MIN_CHUNK_CHARS = 80 as const;
-export const PAT_SMS_MAX_CHUNK_CHARS = 2800 as const;
-export const PAT_SMS_MAX_EXCERPTS = 4 as const;
-export const PAT_SMS_MAX_TOTAL_CHARS = 4500 as const;
+export const PAT_SMS_TOP_K = 6 as const;
+export const PAT_SMS_MAX_EXCERPTS = 6 as const;
 
 export type PatSourceEvidenceExcerpt = {
   book_id: string;
@@ -46,11 +43,6 @@ export type GetPatEvidenceForSmsDeps = {
   loadChunks?: () => PatChunk[];
   client?: OpenAI | null;
 };
-
-function unusedPatSmsText(text: string): boolean {
-  const n = text.length;
-  return n < PAT_SMS_MIN_CHUNK_CHARS || n > PAT_SMS_MAX_CHUNK_CHARS;
-}
 
 function skippedPatRetrievalForensics(): PatSourceEvidenceForensics {
   return {
@@ -92,72 +84,33 @@ function errorPacket(error: string): {
   return { packet, forensics: forensicsFromPacket(packet, [], error) };
 }
 
-export function buildPatSmsEmbeddingQuery(args: {
-  latestInboundText: string;
-  directQuestionOrNeed?: string | null;
-}): string {
-  const latest = args.latestInboundText.trim();
-  const need =
-    typeof args.directQuestionOrNeed === "string" ? args.directQuestionOrNeed.trim() : "";
-  if (!need || need === "unknown") return latest;
-  if (need.toLowerCase() === latest.toLowerCase()) return latest;
-  if (latest.includes(need) || need.includes(latest)) {
-    return latest.length >= need.length ? latest : need;
-  }
-  return `${latest}\n${need}`;
+/** Same formula as Ask Pat's private normalizeText. Do not import Ask Pat. */
+export function normalizePatSmsQuery(text: string): string {
+  return (text || "").trim().replace(/\s+/g, " ");
 }
 
+/**
+ * Format Ask Pat's ranked top-K hits for the SMS writer.
+ * Preserves rank order. No neighbor expansion. No length filter.
+ */
 export function assemblePatSmsEvidence(args: {
   scoredHits: ScoredChunk[];
-  allChunks: PatChunk[];
 }): { excerpts: PatSourceEvidenceExcerpt[]; globalIds: string[] } {
-  const byBookOrder = new Map<string, PatChunk>();
-  for (const chunk of args.allChunks) {
-    if (!chunk.globalId) continue;
-    byBookOrder.set(`${chunk.bookId}:${chunk.order}`, chunk);
-  }
-
-  const usableHits = args.scoredHits.filter(
-    (hit) => hit.globalId && !unusedPatSmsText(hit.text)
-  );
-  const topHits = usableHits.slice(0, 2);
-
-  const selected = new Map<string, PatChunk>();
-  const addChunk = (chunk: PatChunk | undefined) => {
-    if (!chunk?.globalId) return;
-    if (unusedPatSmsText(chunk.text)) return;
-    if (selected.has(chunk.globalId)) return;
-    selected.set(chunk.globalId, chunk);
-  };
-
-  for (const hit of topHits) {
-    addChunk(hit);
-    addChunk(byBookOrder.get(`${hit.bookId}:${hit.order - 1}`));
-    addChunk(byBookOrder.get(`${hit.bookId}:${hit.order + 1}`));
-  }
-
-  const hitIds = new Set(topHits.map((hit) => hit.globalId));
-  const ordered = [...selected.values()].sort((a, b) => {
-    const aHit = hitIds.has(a.globalId) ? 0 : 1;
-    const bHit = hitIds.has(b.globalId) ? 0 : 1;
-    if (aHit !== bHit) return aHit - bHit;
-    if (a.bookId !== b.bookId) return a.bookId.localeCompare(b.bookId);
-    return a.order - b.order;
-  });
-
+  const seen = new Set<string>();
   const excerpts: PatSourceEvidenceExcerpt[] = [];
   const globalIds: string[] = [];
-  let totalChars = 0;
-  for (const chunk of ordered) {
+
+  for (const hit of args.scoredHits) {
     if (excerpts.length >= PAT_SMS_MAX_EXCERPTS) break;
-    if (totalChars + chunk.text.length > PAT_SMS_MAX_TOTAL_CHARS) break;
+    if (!hit.globalId) continue;
+    if (seen.has(hit.globalId)) continue;
+    seen.add(hit.globalId);
     excerpts.push({
-      book_id: chunk.bookId,
-      section_title: chunk.sectionTitle,
-      text: chunk.text,
+      book_id: hit.bookId,
+      section_title: hit.sectionTitle,
+      text: hit.text,
     });
-    globalIds.push(chunk.globalId);
-    totalChars += chunk.text.length;
+    globalIds.push(hit.globalId);
   }
 
   return { excerpts, globalIds };
@@ -180,7 +133,7 @@ export async function getPatEvidenceForSms(args: {
   packet: PatSourceEvidencePacketV1;
   forensics: PatSourceEvidenceForensics;
 }> {
-  const query = args.query.trim();
+  const query = normalizePatSmsQuery(args.query);
   if (!query) return errorPacket("empty_query");
 
   try {
@@ -201,12 +154,8 @@ export async function getPatEvidenceForSms(args: {
     if (!queryEmbedding.length) return errorPacket("empty_embedding");
 
     const scoreChunks = args.deps?.scoreChunks ?? getTopRelevantChunks;
-    const loadChunks = args.deps?.loadChunks ?? getPatChunks;
-    const scoredHits = scoreChunks(queryEmbedding, PAT_SMS_CANDIDATE_POOL);
-    const assembled = assemblePatSmsEvidence({
-      scoredHits,
-      allChunks: loadChunks(),
-    });
+    const scoredHits = scoreChunks(queryEmbedding, PAT_SMS_TOP_K);
+    const assembled = assemblePatSmsEvidence({ scoredHits });
 
     if (assembled.excerpts.length === 0) {
       const packet: PatSourceEvidencePacketV1 = {

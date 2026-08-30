@@ -2277,28 +2277,37 @@ describe("runInboundSolRelationshipTurn", () => {
         inbound_sol_pat_global_ids: "PAT_0457",
       },
     });
+    const inbound = "Got the whole thing finished before lunch.";
+    const yesBrief = brief({
+      requires_pat_personal_knowledge: "yes",
+      answer_priority: "first",
+      accountability_interpretation: {
+        relevance: "unrelated",
+        outcome: "not_applicable",
+        confidence: "high",
+        evidence: inbound,
+      },
+    });
+    yesBrief.human_situation.direct_question_or_need =
+      "Were you nervous speaking in public?";
     runInboundSolBriefInterpreter.mockResolvedValue({
       ok: true,
-      brief: brief({
-        requires_pat_personal_knowledge: "yes",
-        answer_priority: "first",
-        accountability_interpretation: {
-          relevance: "unrelated",
-          outcome: "not_applicable",
-          confidence: "high",
-          evidence: "How did having Tyler change the way you coached?",
-        },
-      }),
+      brief: yesBrief,
       capture: { retry_occurred: false },
     });
 
-    const result = await runInboundSolRelationshipTurn(
-      turnArgs("SMty", "How did having Tyler change the way you coached?")
-    );
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMty", inbound));
     expect(result.shouldSend).toBe(true);
     expect(getPatEvidenceForSms).toHaveBeenCalledTimes(1);
+    expect(getPatEvidenceForSms).toHaveBeenCalledWith({ query: inbound });
+    expect(getPatEvidenceForSms.mock.calls[0]?.[0]?.query).not.toContain(
+      "Were you nervous speaking in public?"
+    );
     expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
     expect(writeInboundSolBody.mock.calls[0]?.[0]?.patSourceEvidence).toEqual(packet);
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.brief.human_situation.direct_question_or_need).toBe(
+      "Were you nervous speaking in public?"
+    );
     expect(result.forensics.inbound_sol_pat_global_ids).toBe("PAT_0457");
   });
 

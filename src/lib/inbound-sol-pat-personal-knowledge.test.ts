@@ -80,6 +80,9 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
     const route = fs.readFileSync(ROUTE, "utf8");
     expect(turn).toContain("getPatEvidenceForSms");
     expect(turn).toContain('requires_pat_personal_knowledge === "yes"');
+    expect(turn).toContain("query: packet.latest_inbound_text");
+    expect(turn).not.toContain("buildPatSmsEmbeddingQuery");
+    expect(turn).not.toContain("directQuestionOrNeed");
     expect(turn).toContain("writeInboundSolBody({ packet, brief, patSourceEvidence })");
     expect(turn.split("writeInboundSolBody({").length - 1).toBe(1);
     expect(turn.split("runInboundSolBriefInterpreter({").length - 1).toBe(1);
@@ -117,6 +120,16 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
     );
     expect(helper.split("embeddings.create").length - 1).toBe(1);
     expect(helper).toContain("text-embedding-3-small");
+    expect(helper).toContain("PAT_SMS_TOP_K = 6");
+    expect(helper).toContain("normalizePatSmsQuery");
+    expect(helper).toContain('(text || "").trim().replace(/\\s+/g, " ")');
+    expect(helper).not.toContain("buildPatSmsEmbeddingQuery");
+    expect(helper).not.toContain("directQuestionOrNeed");
+    expect(helper).not.toContain("PAT_SMS_MIN_CHUNK");
+    expect(helper).not.toContain("PAT_SMS_MAX_CHUNK");
+    expect(helper).not.toContain("order - 1");
+    expect(helper).not.toContain("order + 1");
+    expect(helper).not.toContain("4500");
     expect(helper).not.toContain("chat.completions");
     expect(helper).not.toContain("gpt-4.1-mini");
     expect(helper).not.toContain("applyFinalVoiceOwnershipGate");
