@@ -36,6 +36,12 @@ export default async function AdminLayout({
               Weekly feedback
             </Link>
             <Link
+              href="/admin/manual-pat-answers"
+              className="text-gray-700 underline hover:text-gray-900"
+            >
+              Manual Pat Answers
+            </Link>
+            <Link
               href="/admin/tyler-text-overview"
               className="text-gray-700 underline hover:text-gray-900"
             >
