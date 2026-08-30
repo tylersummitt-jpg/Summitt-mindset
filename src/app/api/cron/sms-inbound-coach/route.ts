@@ -537,6 +537,7 @@ import {
 } from "@/lib/sms-inbound-burst-pace";
 import { applyFinalVoiceOwnershipGate, type VoiceOwnershipResult } from "@/lib/v3-sms-voice-ownership";
 import { isAppleMessengerTapbackLine } from "@/lib/sms-imessage-reaction";
+import { notifyManualPatAnswerNeeded } from "@/lib/notify-manual-pat-answer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -6023,6 +6024,34 @@ async function processV2NormalInboundOutcome(
             commitment_id: commitment.id,
             no_send_reason: solTurn.noSendReason,
           });
+          try {
+            const parked = await loadJob(job.message_sid);
+            if (parked?.status === "awaiting_manual_pat_answer") {
+              await notifyManualPatAnswerNeeded({
+                preferredName:
+                  typeof preferredName === "string" && preferredName.trim()
+                    ? preferredName.trim()
+                    : null,
+                question: userMessage || job.raw_body || "",
+                messageSid: job.message_sid,
+                occurredAt: job.created_at ?? new Date().toISOString(),
+              });
+            } else {
+              console.warn(
+                "[sms-inbound-coach] manual_pat_answer_notification_failed",
+                {
+                  message_sid: job.message_sid,
+                  reason: "park_unconfirmed",
+                  status: parked?.status ?? null,
+                }
+              );
+            }
+          } catch (notifyErr) {
+            console.warn("[sms-inbound-coach] manual_pat_answer_notification_failed", {
+              message_sid: job.message_sid,
+              error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+            });
+          }
         } else {
           await markJobFinal({
             messageSid: job.message_sid,

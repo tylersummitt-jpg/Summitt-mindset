@@ -136,9 +136,11 @@ describe("commit 2 — durable awaiting_manual_pat_answer job state", () => {
 
   it("D: generic Sol no-send still cancels exactly as before", () => {
     const noSend = solNoSendBlock(src);
-    const elseIdx = noSend.indexOf("} else {");
-    expect(elseIdx).toBeGreaterThan(0);
-    const generic = noSend.slice(elseIdx);
+    const genericTag = noSend.indexOf('tag: "inbound_sol_main_no_send"');
+    expect(genericTag).toBeGreaterThan(0);
+    const genericIdx = noSend.lastIndexOf('status: "cancelled"', genericTag);
+    expect(genericIdx).toBeGreaterThan(0);
+    const generic = noSend.slice(genericIdx);
     const genericMark = generic.slice(0, generic.indexOf("insertInboundTurnTelemetryBestEffort"));
     expect(genericMark).toContain('status: "cancelled"');
     expect(genericMark).toContain('tag: "inbound_sol_main_no_send"');

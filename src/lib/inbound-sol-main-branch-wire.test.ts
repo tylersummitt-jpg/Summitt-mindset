@@ -194,11 +194,14 @@ describe("inbound Sol main-branch wire", () => {
     const sent = src.indexOf("inbound_sol_main_sent", start);
     const block = src.slice(start, sent);
     expect(block).toContain("inbound_sol_main_no_send");
-    const genericStart = block.indexOf('} else {');
+    const genericStart = block.indexOf(
+      'status: "cancelled",\n            lastError: JSON.stringify({\n              tag: "inbound_sol_main_no_send"'
+    );
+    expect(genericStart).toBeGreaterThan(0);
     const generic = block.slice(genericStart);
     expect(generic).toContain('status: "cancelled"');
     expect(generic).toContain("inbound_sol_main_no_send");
-    expect(generic).not.toContain("awaiting_manual_pat_answer");
+    expect(generic).not.toContain("notifyManualPatAnswerNeeded");
     expect(generic).not.toContain("replyBody: null");
     const noSendIdx = block.indexOf("inbound_sol_main_no_send");
     expect(block.slice(noSendIdx)).not.toContain("await runInboundSolRelationshipTurn");
