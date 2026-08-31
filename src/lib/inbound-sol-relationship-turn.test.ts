@@ -371,6 +371,7 @@ describe("runInboundSolRelationshipTurn", () => {
       ok: true,
       brief: brief({
         win_presentation: {
+          ...EMPTY_INBOUND_SOL_WIN_PRESENTATION,
           accountability_trophy_title: "Lifted Weights",
           life_trophy_title: null,
         },
@@ -395,6 +396,10 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(persistInboundWinsWithAccountability).toHaveBeenCalledTimes(1);
     expect(persistInboundWinsWithAccountability.mock.calls[0]?.[0]?.displayTitleOverrides).toEqual({
       accountability: "Lifted Weights",
+      independent: null,
+    });
+    expect(persistInboundWinsWithAccountability.mock.calls[0]?.[0]?.supportingQuoteOverrides).toEqual({
+      accountability: null,
       independent: null,
     });
     expect(recognizeWinsFromInboundV1).not.toHaveBeenCalled();

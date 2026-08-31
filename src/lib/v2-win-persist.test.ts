@@ -729,6 +729,193 @@ describe("accountability user_yes Win persistence", () => {
     expect(insertedRow.idempotency_key).toBe("win_v1:acc_yes:SMyes");
   });
 
+  it("validated accountability explanation quote persists; action_fact/body/title unchanged", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    const inbound =
+      "Yes — and I pushed through even though I was exhausted.";
+    const quote = "I pushed through even though I was exhausted.";
+    const r = await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMyesq",
+      sourceMessageId: null,
+      userYesEventId: "evt-yes-q",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: null,
+      inboundMessage: inbound,
+      equivalenceByOrdinal: {},
+      displayTitleOverrides: {
+        accountability: "Lifted Weights",
+        independent: null,
+      },
+      supportingQuoteOverrides: {
+        accountability: quote,
+        independent: null,
+      },
+    });
+    expect(r.persisted).toBe(1);
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.supporting_quote).toBe(quote);
+    expect(insertedRow.display_title).toBe("Lifted Weights");
+    expect(insertedRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+    expect(insertedRow.display_body).toBe("Lift weights for 30 minutes a day.");
+  });
+
+  it("paraphrase quote overlay becomes null without failing persist", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    const inbound = "Yes — and I pushed through even though I was exhausted.";
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMbadq",
+      sourceMessageId: null,
+      userYesEventId: "evt-yes-badq",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: null,
+      inboundMessage: inbound,
+      equivalenceByOrdinal: {},
+      displayTitleOverrides: { accountability: "Lifted Weights" },
+      supportingQuoteOverrides: {
+        accountability: "I refused to skip the workout despite fatigue.",
+        independent: null,
+      },
+    });
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.supporting_quote).toBeNull();
+    expect(insertedRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+    expect(insertedRow.display_title).toBe("Lifted Weights");
+  });
+
+  it("quote overlay >240 becomes null without slicing; control chars become null", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    const tooLong = `Yes ${"x".repeat(240)}`;
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMlongq",
+      sourceMessageId: null,
+      userYesEventId: "evt-longq",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      inboundMessage: tooLong,
+      equivalenceByOrdinal: {},
+      recognition: null,
+      supportingQuoteOverrides: { accountability: tooLong },
+    });
+    const longRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(longRow.supporting_quote).toBeNull();
+    expect(longRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+    expect(String(longRow.supporting_quote ?? "")).not.toBe(tooLong.slice(0, 240));
+
+    insertMaybeSingle.mockClear();
+    const inboundNl = "I pushed through even though I was exhausted.";
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMnlq",
+      sourceMessageId: null,
+      userYesEventId: "evt-nlq",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      inboundMessage: inboundNl,
+      equivalenceByOrdinal: {},
+      recognition: null,
+      supportingQuoteOverrides: { accountability: "I pushed through\neven though I was exhausted." },
+    });
+    const nlRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(nlRow.supporting_quote).toBeNull();
+  });
+
+  it("two-Win quote overlay writes acc null and life exact span", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle
+      .mockResolvedValueOnce({ data: { id: "w-acc" }, error: null })
+      .mockResolvedValueOnce({ data: { id: "w-life" }, error: null });
+    const inbound =
+      "Yes, I worked out — and afterward I took my daughter for ice cream and we had the best conversation.";
+    const lifeSpan =
+      "afterward I took my daughter for ice cream and we had the best conversation";
+    const grounded = "Took the kids swimming tonight";
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMquote2",
+      sourceMessageId: null,
+      userYesEventId: "evt-yes-q2",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      inboundMessage: inbound,
+      recognition: recognition([
+        candidate({
+          ordinal: 0,
+          grounded_action: grounded,
+          suggested_title: grounded.slice(0, 80),
+          suggested_body: grounded,
+          evidence_quote: inbound.slice(0, 240),
+          relationship_type: "whole_life",
+        }),
+      ]),
+      equivalenceByOrdinal: { 0: "distinct" },
+      displayTitleOverrides: {
+        accountability: "Lifted Weights",
+        independent: "Ice Cream With Daughter",
+      },
+      supportingQuoteOverrides: {
+        accountability: null,
+        independent: lifeSpan,
+      },
+    });
+    const accRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    const lifeRow = insertMaybeSingle.mock.calls[1]?.[0] as Record<string, unknown>;
+    expect(accRow.supporting_quote).toBeNull();
+    expect(accRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+    expect(accRow.display_title).toBe("Lifted Weights");
+    expect(lifeRow.supporting_quote).toBe(lifeSpan);
+    expect(lifeRow.action_fact).toBe(grounded);
+    expect(lifeRow.display_title).toBe("Ice Cream With Daughter");
+    expect(lifeRow.display_body).toBe(grounded);
+  });
+
+  it("sensitivity_caution still nulls an otherwise valid quote overlay", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    const inbound = "I told my therapist the hard truth about my drinking";
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMcaut",
+      sourceMessageId: null,
+      userYesEventId: "evt-caut",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      inboundMessage: inbound,
+      recognition: recognition([
+        candidate({
+          relationship_type: "goal",
+          sensitivity_caution: true,
+          evidence_quote: inbound,
+          suggested_title: "Told the truth",
+          suggested_body: "Told the truth",
+          grounded_action: "Told the therapist the truth",
+        }),
+      ]),
+      equivalenceByOrdinal: { 0: "same" },
+      supportingQuoteOverrides: {
+        accountability: inbound,
+        independent: null,
+      },
+    });
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.supporting_quote).toBeNull();
+    expect(insertedRow.sensitivity_caution).toBe(true);
+    expect(insertedRow.action_fact).toBe("Told the therapist the truth");
+  });
+
   it("B/C. missing or invalid trophy falls back to structural goal title", async () => {
     existingMaybeSingle.mockResolvedValue({ data: null, error: null });
     insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
@@ -838,6 +1025,7 @@ describe("accountability user_yes Win persistence", () => {
           suggested_title: "Lifted today",
           suggested_body: "You protected the bar.",
           grounded_action: "Lifted weights today",
+          evidence_quote: "got my workout done",
         }),
       ]),
       equivalenceByOrdinal: { 0: "same" },
@@ -845,5 +1033,6 @@ describe("accountability user_yes Win persistence", () => {
     const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(insertedRow.display_title).toBe("Lifted today");
     expect(insertedRow.action_fact).toBe("Lifted weights today");
+    expect(insertedRow.supporting_quote).toBe("got my workout done");
   });
 });

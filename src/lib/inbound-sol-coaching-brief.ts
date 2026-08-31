@@ -99,11 +99,15 @@ export const SOL_TROPHY_TITLE_MAX_CHARS = 80 as const;
 export type InboundSolWinPresentation = {
   accountability_trophy_title: string | null;
   life_trophy_title: string | null;
+  accountability_supporting_quote: string | null;
+  life_supporting_quote: string | null;
 };
 
 export const EMPTY_INBOUND_SOL_WIN_PRESENTATION: InboundSolWinPresentation = {
   accountability_trophy_title: null,
   life_trophy_title: null,
+  accountability_supporting_quote: null,
+  life_supporting_quote: null,
 };
 
 export type InboundSolBriefExtras = {
@@ -235,6 +239,13 @@ export function normalizeSolTrophyTitle(raw: unknown): string | null {
   return collapsed;
 }
 
+/** Shape-only. Grounding against inbound happens at persist. Invalid type → null. */
+function parsePresentationQuote(raw: unknown): string | null {
+  if (raw == null) return null;
+  if (typeof raw !== "string") return null;
+  return raw;
+}
+
 function parseWinPresentation(raw: unknown): InboundSolWinPresentation {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
     return { ...EMPTY_INBOUND_SOL_WIN_PRESENTATION };
@@ -243,6 +254,8 @@ function parseWinPresentation(raw: unknown): InboundSolWinPresentation {
   return {
     accountability_trophy_title: normalizeSolTrophyTitle(o.accountability_trophy_title),
     life_trophy_title: normalizeSolTrophyTitle(o.life_trophy_title),
+    accountability_supporting_quote: parsePresentationQuote(o.accountability_supporting_quote),
+    life_supporting_quote: parsePresentationQuote(o.life_supporting_quote),
   };
 }
 

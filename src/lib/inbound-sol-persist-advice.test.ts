@@ -343,8 +343,11 @@ describe("parseInboundCoachingBriefV1 inbound extras", () => {
         evidence: "hello",
       },
       win_presentation: {
+        ...EMPTY_INBOUND_SOL_WIN_PRESENTATION,
         accountability_trophy_title: "Lifted Weights",
         life_trophy_title: "Swam With the Kids",
+        accountability_supporting_quote: "I pushed through even though I was exhausted",
+        life_supporting_quote: "Going to church with Brooke and the kids!",
       },
     });
     const skipped = advice(withTitles);
@@ -352,6 +355,7 @@ describe("parseInboundCoachingBriefV1 inbound extras", () => {
 
     const completedWithTitles = extras({
       win_presentation: {
+        ...EMPTY_INBOUND_SOL_WIN_PRESENTATION,
         accountability_trophy_title: "Lifted Weights",
         life_trophy_title: null,
       },

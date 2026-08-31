@@ -21,6 +21,7 @@ import {
 } from "@/lib/v2-win-persist";
 import { scheduleC1IfWinsDurable } from "@/lib/victory-media/correlate-inbound-mms-c1";
 import { limitWinDisplayTitleOrFallback } from "@/lib/v2-win-display-title";
+import { validateWinSupportingQuote } from "@/lib/v2-win-supporting-quote";
 
 export type SolInboundWinPlanInput = {
   recognition: WinRecognitionResultV1 | null;
@@ -33,16 +34,15 @@ const emptyRecognition = (): WinRecognitionResultV1 => ({
   wins: [],
 });
 
-function lifeWinCandidate(groundedAction: string, inboundText: string): WinCandidateV1 {
+function lifeWinCandidate(groundedAction: string): WinCandidateV1 {
   const action = groundedAction.trim().slice(0, 240);
-  const quote = inboundText.trim().slice(0, 240) || null;
   return {
     ordinal: 0,
     grounded_action: action,
     why_meaningful: null,
     suggested_title: limitWinDisplayTitleOrFallback(action),
     suggested_body: action.slice(0, 240),
-    evidence_quote: quote,
+    evidence_quote: null,
     relationship_type: "whole_life",
     recognition_mode: "user_identified",
     user_expressed_pride: false,
@@ -74,7 +74,7 @@ export function buildSolInboundWinPlanInput(args: {
     recognition: {
       version: WIN_RECOGNITION_VERSION,
       has_win: true,
-      wins: [lifeWinCandidate(win.grounded_action, args.inboundText)],
+      wins: [lifeWinCandidate(win.grounded_action)],
     },
     equivalenceByOrdinal: { 0: "distinct" },
   };
@@ -102,15 +102,35 @@ export function solWinDisplayTitleOverrides(inbound: InboundSolBriefExtras): {
   };
 }
 
-function recognitionWithLifeTrophyTitle(
-  recognition: WinRecognitionResultV1,
-  lifeTitle: string | null
-): WinRecognitionResultV1 {
-  if (!lifeTitle || !recognition.has_win || recognition.wins.length === 0) return recognition;
+/** Raw quote fields. Persist validates exact-substring grounding. Life quote only when a life Win exists. */
+export function solWinSupportingQuoteOverrides(inbound: InboundSolBriefExtras): {
+  accountability: string | null;
+  independent: string | null;
+} {
+  const presentation = inbound.win_presentation;
+  const hasLife = inbound.meaningful_win?.relationship === "life";
+  return {
+    accountability: presentation?.accountability_supporting_quote ?? null,
+    independent: hasLife ? presentation?.life_supporting_quote ?? null : null,
+  };
+}
+
+function recognitionWithLifePresentation(args: {
+  recognition: WinRecognitionResultV1;
+  lifeTitle: string | null;
+  lifeQuote: string | null;
+  inboundText: string;
+}): WinRecognitionResultV1 {
+  const { recognition, lifeTitle, lifeQuote, inboundText } = args;
+  if (!recognition.has_win || recognition.wins.length === 0) return recognition;
   const first = recognition.wins[0]!;
+  const suggested_title = lifeTitle ?? first.suggested_title;
+  const evidence_quote = first.sensitivity_caution
+    ? null
+    : validateWinSupportingQuote(lifeQuote, inboundText);
   return {
     ...recognition,
-    wins: [{ ...first, suggested_title: lifeTitle }, ...recognition.wins.slice(1)],
+    wins: [{ ...first, suggested_title, evidence_quote }, ...recognition.wins.slice(1)],
   };
 }
 
@@ -135,6 +155,7 @@ export async function persistSolInboundWins(args: {
     inboundText: args.inboundText,
   });
   const titles = solWinDisplayTitleOverrides(args.inbound);
+  const quotes = solWinSupportingQuoteOverrides(args.inbound);
 
   if (persistedUserYes(args.persistResult)) {
     const result = await persistInboundWinsWithAccountability({
@@ -154,6 +175,10 @@ export async function persistSolInboundWins(args: {
         accountability: titles.accountability,
         independent: titles.independent,
       },
+      supportingQuoteOverrides: {
+        accountability: quotes.accountability,
+        independent: quotes.independent,
+      },
     });
     scheduleC1IfWinsDurable({
       persisted: result.persisted,
@@ -171,7 +196,12 @@ export async function persistSolInboundWins(args: {
     return null;
   }
 
-  const recognition = recognitionWithLifeTrophyTitle(winPlan.recognition, titles.independent);
+  const recognition = recognitionWithLifePresentation({
+    recognition: winPlan.recognition,
+    lifeTitle: titles.independent,
+    lifeQuote: quotes.independent,
+    inboundText: args.inboundText,
+  });
   const recognized = await persistRecognizedWins({
     clerkUserId: args.clerkUserId,
     sourceType: "sms_inbound",

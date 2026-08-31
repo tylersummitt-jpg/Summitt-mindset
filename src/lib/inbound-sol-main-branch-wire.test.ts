@@ -78,6 +78,9 @@ describe("inbound Sol main-branch wire", () => {
     expect(wins).toContain("persistInboundWinsWithAccountability");
     expect(wins).toContain("persistRecognizedWins(");
     expect(wins).toContain("scheduleC1IfWinsDurable");
+    expect(wins).toContain("supportingQuoteOverrides");
+    expect(wins).toContain("validateWinSupportingQuote");
+    expect(wins).not.toContain("openai.chat");
   });
 
   it("does not add env flags, shadow mode, or a second writer", () => {

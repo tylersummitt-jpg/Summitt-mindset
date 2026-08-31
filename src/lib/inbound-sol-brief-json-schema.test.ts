@@ -100,11 +100,19 @@ describe("inbound Sol win_presentation extras", () => {
     expect(presentation.required).toEqual([
       "accountability_trophy_title",
       "life_trophy_title",
+      "accountability_supporting_quote",
+      "life_supporting_quote",
     ]);
     expect(presentation.properties.accountability_trophy_title).toEqual({
       anyOf: [{ type: "string" }, { type: "null" }],
     });
     expect(presentation.properties.life_trophy_title).toEqual({
+      anyOf: [{ type: "string" }, { type: "null" }],
+    });
+    expect(presentation.properties.accountability_supporting_quote).toEqual({
+      anyOf: [{ type: "string" }, { type: "null" }],
+    });
+    expect(presentation.properties.life_supporting_quote).toEqual({
       anyOf: [{ type: "string" }, { type: "null" }],
     });
   });
@@ -126,6 +134,8 @@ describe("inbound Sol win_presentation extras", () => {
     expect(missing?.win_presentation).toEqual({
       accountability_trophy_title: null,
       life_trophy_title: null,
+      accountability_supporting_quote: null,
+      life_supporting_quote: null,
     });
 
     const malformed = parseInboundSolBriefExtras({
@@ -143,6 +153,35 @@ describe("inbound Sol win_presentation extras", () => {
     });
     expect(malformed?.accountability_interpretation.outcome).toBe("completed");
     expect(malformed?.win_presentation.accountability_trophy_title).toBeNull();
+    expect(malformed?.win_presentation.accountability_supporting_quote).toBeNull();
+    expect(malformed?.win_presentation.life_supporting_quote).toBeNull();
+  });
+
+  it("invalid quote types do not fail extras parse; strings pass through for persist grounding", () => {
+    const parsed = parseInboundSolBriefExtras({
+      answer_priority: "normal",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "central",
+        outcome: "completed",
+        confidence: "high",
+        evidence: "yes",
+      },
+      meaningful_win: null,
+      win_presentation: {
+        accountability_trophy_title: "Lifted Weights",
+        life_trophy_title: null,
+        accountability_supporting_quote: 12,
+        life_supporting_quote: "Going to church with Brooke and the kids!",
+      },
+    });
+    expect(parsed?.accountability_interpretation.outcome).toBe("completed");
+    expect(parsed?.win_presentation.accountability_trophy_title).toBe("Lifted Weights");
+    expect(parsed?.win_presentation.accountability_supporting_quote).toBeNull();
+    expect(parsed?.win_presentation.life_supporting_quote).toBe(
+      "Going to church with Brooke and the kids!"
+    );
   });
 
   it("prompt law is trophy chrome only and includes style goldens", () => {
@@ -157,6 +196,12 @@ describe("inbound Sol win_presentation extras", () => {
     expect(appendix).toContain("Being a Present Father");
     expect(appendix).toContain("Proud Family Support");
     expect(appendix).not.toContain("He recognized");
+    expect(appendix).toContain("accountability_supporting_quote");
+    expect(appendix).toContain("life_supporting_quote");
+    expect(appendix).toContain("exact contiguous substring of latest_inbound_text");
+    expect(appendix).toContain("Do not paraphrase");
+    expect(appendix).toContain("Do not infer text from an image");
+    expect(appendix).toContain("Do not copy one quote onto both Wins");
   });
 });
 

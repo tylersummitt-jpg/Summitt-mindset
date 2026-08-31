@@ -25,6 +25,7 @@ import {
 } from "@/lib/openai-win-candidate-equivalence-v1";
 import { normalizeSolTrophyTitle } from "@/lib/inbound-sol-coaching-brief";
 import { limitWinDisplayTitleOrFallback } from "@/lib/v2-win-display-title";
+import { validateWinSupportingQuote } from "@/lib/v2-win-supporting-quote";
 
 export type WinSourceType = "sms_inbound" | "system_event";
 
@@ -528,6 +529,16 @@ export type PersistInboundWinsWithAccountabilityArgs = {
     accountability?: string | null;
     independent?: string | null;
   };
+  /**
+   * Display-only quote overlays. Applied after merge. Never creates Wins.
+   * Never writes action_fact / display_body / grounded_action / relationship.
+   * Mini callers omit this (current quotes unchanged).
+   * Invalid / ungrounded values become null.
+   */
+  supportingQuoteOverrides?: {
+    accountability?: string | null;
+    independent?: string | null;
+  };
 };
 
 /**
@@ -658,17 +669,35 @@ export async function persistInboundWinsWithAccountability(
   }
 
   const accTitleOverride = normalizeSolTrophyTitle(args.displayTitleOverrides?.accountability);
-  const accountability = accTitleOverride
+  let accountability = accTitleOverride
     ? { ...plan.accountability, display_title: accTitleOverride }
     : plan.accountability;
+  if (args.supportingQuoteOverrides !== undefined) {
+    const quote = accountability.sensitivity_caution
+      ? null
+      : validateWinSupportingQuote(
+          args.supportingQuoteOverrides.accountability,
+          args.inboundMessage ?? ""
+        );
+    accountability = { ...accountability, supporting_quote: quote };
+  }
 
   const independentTitleOverride = normalizeSolTrophyTitle(
     args.displayTitleOverrides?.independent
   );
-  const independent =
+  let independent =
     plan.independent && independentTitleOverride
       ? { ...plan.independent, suggested_title: independentTitleOverride }
       : plan.independent;
+  if (independent && args.supportingQuoteOverrides !== undefined) {
+    const quote = independent.sensitivity_caution
+      ? null
+      : validateWinSupportingQuote(
+          args.supportingQuoteOverrides.independent,
+          args.inboundMessage ?? ""
+        );
+    independent = { ...independent, evidence_quote: quote };
+  }
 
   let sourceEventId = args.userYesEventId?.trim() || null;
   if (!sourceEventId) {

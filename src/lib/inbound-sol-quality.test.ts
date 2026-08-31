@@ -157,11 +157,15 @@ describe("inbound Sol contracts", () => {
     );
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("pending_photo_relation");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("win_presentation");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("accountability_supporting_quote");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("life_supporting_quote");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Lifted Weights");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
       "does NOT determine whether a Win exists"
     );
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("win_presentation");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("accountability_supporting_quote");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("life_supporting_quote");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("DURABLE USER EVIDENCE");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("verbatim contiguous substring");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("DURABLE USER EVIDENCE");
@@ -493,19 +497,30 @@ describe("writer D1 pending-photo data minimization", () => {
       win_presentation: {
         accountability_trophy_title: "Lifted Weights",
         life_trophy_title: "Swam With the Kids",
+        accountability_supporting_quote: "I pushed through even though I was exhausted",
+        life_supporting_quote: "Going to church with Brooke and the kids!",
       },
     });
     expect(brief?.inbound.win_presentation.accountability_trophy_title).toBe("Lifted Weights");
+    expect(brief?.inbound.win_presentation.life_supporting_quote).toBe(
+      "Going to church with Brooke and the kids!"
+    );
     const writerBrief = toWriterFacingInboundCoachingBrief(brief!);
     expect(writerBrief.inbound).not.toHaveProperty("win_presentation");
     expect(writerBrief.inbound).not.toHaveProperty("accountability_trophy_title");
     expect(writerBrief.inbound).not.toHaveProperty("life_trophy_title");
+    expect(writerBrief.inbound).not.toHaveProperty("accountability_supporting_quote");
+    expect(writerBrief.inbound).not.toHaveProperty("life_supporting_quote");
     const user = String(buildInboundSolWriterMessages(p, brief!)[1]?.content ?? "");
     expect(user).not.toContain("win_presentation");
     expect(user).not.toContain("accountability_trophy_title");
     expect(user).not.toContain("life_trophy_title");
+    expect(user).not.toContain("accountability_supporting_quote");
+    expect(user).not.toContain("life_supporting_quote");
     expect(user).not.toContain("Lifted Weights");
     expect(user).not.toContain("Swam With the Kids");
+    expect(user).not.toContain("I pushed through even though I was exhausted");
+    expect(user).not.toContain("Going to church with Brooke and the kids!");
   });
 
   it("does not give the writer requires_pat_personal_knowledge (commit 1)", () => {

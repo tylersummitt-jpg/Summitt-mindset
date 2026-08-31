@@ -25,10 +25,12 @@ import {
   buildSolInboundWinPlanInput,
   persistSolInboundWins,
   solWinDisplayTitleOverrides,
+  solWinSupportingQuoteOverrides,
 } from "@/lib/inbound-sol-wins";
 import {
   EMPTY_INBOUND_SOL_WIN_PRESENTATION,
   type InboundSolBriefExtras,
+  type InboundSolWinPresentation,
 } from "@/lib/inbound-sol-coaching-brief";
 
 const completed: InboundSolBriefExtras = {
@@ -47,6 +49,12 @@ const completed: InboundSolBriefExtras = {
   durable_user_evidence: null,
   win_presentation: EMPTY_INBOUND_SOL_WIN_PRESENTATION,
 };
+
+function pres(
+  overrides: Partial<InboundSolWinPresentation> = {}
+): InboundSolWinPresentation {
+  return { ...EMPTY_INBOUND_SOL_WIN_PRESENTATION, ...overrides };
+}
 
 describe("Sol inbound Win / Victory Room mapping", () => {
   it("simple goal completion: accountability win only, no ordinal 1", () => {
@@ -186,10 +194,10 @@ describe("solWinDisplayTitleOverrides targeting", () => {
   it("A. accountability trophy is selected for user_yes; life title ignored without life Win", () => {
     const inbound: InboundSolBriefExtras = {
       ...completed,
-      win_presentation: {
+      win_presentation: pres({
         accountability_trophy_title: "Lifted Weights",
         life_trophy_title: "Swam With the Kids",
-      },
+      }),
     };
     expect(solWinDisplayTitleOverrides(inbound)).toEqual({
       accountability: "Lifted Weights",
@@ -205,10 +213,10 @@ describe("solWinDisplayTitleOverrides targeting", () => {
         grounded_action: "Put his phone away while swimming and gave his kids his full attention.",
         relationship: "life",
       },
-      win_presentation: {
+      win_presentation: pres({
         accountability_trophy_title: "Lifted Weights",
         life_trophy_title: "Proud Moment With Daughter",
-      },
+      }),
     };
     expect(solWinDisplayTitleOverrides(inbound)).toEqual({
       accountability: "Lifted Weights",
@@ -224,10 +232,10 @@ describe("solWinDisplayTitleOverrides targeting", () => {
         grounded_action: "Took the kids swimming tonight",
         relationship: "life",
       },
-      win_presentation: {
+      win_presentation: pres({
         accountability_trophy_title: "Lifted Weights",
         life_trophy_title: "Swam With the Kids",
-      },
+      }),
     };
     const titles = solWinDisplayTitleOverrides(inbound);
     expect(titles.accountability).toBe("Lifted Weights");
@@ -239,14 +247,49 @@ describe("solWinDisplayTitleOverrides targeting", () => {
     expect(tooLong.length).toBeGreaterThan(80);
     const inbound: InboundSolBriefExtras = {
       ...completed,
-      win_presentation: {
+      win_presentation: pres({
         accountability_trophy_title: tooLong,
         life_trophy_title: "Swam\nWith the Kids",
-      },
+      }),
     };
     expect(solWinDisplayTitleOverrides(inbound)).toEqual({
       accountability: null,
       independent: null,
+    });
+  });
+});
+
+describe("solWinSupportingQuoteOverrides targeting", () => {
+  it("life quote is ignored without a life Win", () => {
+    const inbound: InboundSolBriefExtras = {
+      ...completed,
+      win_presentation: pres({
+        accountability_supporting_quote: null,
+        life_supporting_quote: "Going to church with Brooke and the kids!",
+      }),
+    };
+    expect(solWinSupportingQuoteOverrides(inbound)).toEqual({
+      accountability: null,
+      independent: null,
+    });
+  });
+
+  it("named quote fields do not swap", () => {
+    const inbound: InboundSolBriefExtras = {
+      ...completed,
+      meaningful_win: {
+        present: true,
+        grounded_action: "Took the kids swimming tonight",
+        relationship: "life",
+      },
+      win_presentation: pres({
+        accountability_supporting_quote: "I pushed through even though I was exhausted",
+        life_supporting_quote: "Took the kids swimming tonight",
+      }),
+    };
+    expect(solWinSupportingQuoteOverrides(inbound)).toEqual({
+      accountability: "I pushed through even though I was exhausted",
+      independent: "Took the kids swimming tonight",
     });
   });
 });
@@ -296,10 +339,10 @@ describe("persistSolInboundWins trophy overlay routing", () => {
       persistResult: yesEvent,
       inbound: {
         ...completed,
-        win_presentation: {
+        win_presentation: pres({
           accountability_trophy_title: "Lifted Weights",
           life_trophy_title: null,
-        },
+        }),
       },
     });
     expect(persistInboundWinsWithAccountability).toHaveBeenCalledTimes(1);
@@ -307,6 +350,10 @@ describe("persistSolInboundWins trophy overlay routing", () => {
     const arg = persistInboundWinsWithAccountability.mock.calls[0]?.[0];
     expect(arg.displayTitleOverrides).toEqual({
       accountability: "Lifted Weights",
+      independent: null,
+    });
+    expect(arg.supportingQuoteOverrides).toEqual({
+      accountability: null,
       independent: null,
     });
     expect(arg.recognition?.has_win).toBe(false);
@@ -323,10 +370,10 @@ describe("persistSolInboundWins trophy overlay routing", () => {
           confidence: "high",
           evidence: "hello",
         },
-        win_presentation: {
+        win_presentation: pres({
           accountability_trophy_title: "Lifted Weights",
           life_trophy_title: "Swam With the Kids",
-        },
+        }),
       },
     });
     expect(result).toBeNull();
@@ -354,10 +401,10 @@ describe("persistSolInboundWins trophy overlay routing", () => {
           grounded_action: grounded,
           relationship: "life",
         },
-        win_presentation: {
+        win_presentation: pres({
           accountability_trophy_title: "Lifted Weights",
           life_trophy_title: "Swam With the Kids",
-        },
+        }),
       },
     });
     expect(persistInboundWinsWithAccountability).not.toHaveBeenCalled();
@@ -366,6 +413,7 @@ describe("persistSolInboundWins trophy overlay routing", () => {
     expect(rec.wins[0]?.grounded_action).toBe(grounded);
     expect(rec.wins[0]?.suggested_title).toBe("Swam With the Kids");
     expect(rec.wins[0]?.suggested_body).toBe(grounded.slice(0, 240));
+    expect(rec.wins[0]?.evidence_quote).toBeNull();
   });
 
   it("G. acc+life passes named overlays onto the accountability merge call", async () => {
@@ -378,10 +426,10 @@ describe("persistSolInboundWins trophy overlay routing", () => {
           grounded_action: "Took the kids swimming tonight",
           relationship: "life",
         },
-        win_presentation: {
+        win_presentation: pres({
           accountability_trophy_title: "Lifted Weights",
           life_trophy_title: "Swam With the Kids",
-        },
+        }),
       },
     });
     expect(persistInboundWinsWithAccountability).toHaveBeenCalledTimes(1);
@@ -391,7 +439,182 @@ describe("persistSolInboundWins trophy overlay routing", () => {
       accountability: "Lifted Weights",
       independent: "Swam With the Kids",
     });
+    expect(arg.supportingQuoteOverrides).toEqual({
+      accountability: null,
+      independent: null,
+    });
     expect(arg.equivalenceByOrdinal?.[0]).toBe("distinct");
+  });
+
+  it("accountability bare yes with model null quote stays null overlay", async () => {
+    await persist({
+      persistResult: yesEvent,
+      inboundText: "yes",
+      inbound: {
+        ...completed,
+        win_presentation: pres({
+          accountability_trophy_title: "Lifted Weights",
+          accountability_supporting_quote: null,
+        }),
+      },
+    });
+    const arg = persistInboundWinsWithAccountability.mock.calls[0]?.[0];
+    expect(arg.supportingQuoteOverrides).toEqual({
+      accountability: null,
+      independent: null,
+    });
+  });
+
+  it("life model-null quote does not fall back to full inbound", async () => {
+    const inboundText = "Family vacation";
+    await persist({
+      persistResult: skippedEvent,
+      inboundText,
+      inbound: {
+        ...completed,
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "vacation",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Took a family vacation",
+          relationship: "life",
+        },
+        win_presentation: pres({
+          life_trophy_title: "Family Vacation",
+          life_supporting_quote: null,
+        }),
+      },
+    });
+    const rec = persistRecognizedWins.mock.calls[0]?.[0]?.recognition;
+    expect(rec.wins[0]?.evidence_quote).toBeNull();
+    expect(rec.wins[0]?.suggested_title).toBe("Family Vacation");
+    expect(rec.wins[0]?.grounded_action).toBe("Took a family vacation");
+  });
+
+  it("church inbound exact life quote persists on life-only candidate", async () => {
+    const inboundText = "Going to church with Brooke and the kids!";
+    await persist({
+      persistResult: skippedEvent,
+      inboundText,
+      inbound: {
+        ...completed,
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "church",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Went to church with family",
+          relationship: "life",
+        },
+        win_presentation: pres({
+          life_trophy_title: "Church With the Family",
+          life_supporting_quote: inboundText,
+        }),
+      },
+    });
+    const rec = persistRecognizedWins.mock.calls[0]?.[0]?.recognition;
+    expect(rec.wins[0]?.evidence_quote).toBe(inboundText);
+    expect(rec.wins[0]?.suggested_title).toBe("Church With the Family");
+    expect(rec.wins[0]?.grounded_action).toBe("Went to church with family");
+    expect(rec.wins[0]?.suggested_body).toBe("Went to church with family");
+  });
+
+  it("paraphrased life quote becomes null and still persists the Win", async () => {
+    const inboundText = "Going to church with Brooke and the kids!";
+    await persist({
+      persistResult: skippedEvent,
+      inboundText,
+      inbound: {
+        ...completed,
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "church",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Went to church with family",
+          relationship: "life",
+        },
+        win_presentation: pres({
+          life_trophy_title: "Church With the Family",
+          life_supporting_quote: "Attended worship with the family",
+        }),
+      },
+    });
+    const rec = persistRecognizedWins.mock.calls[0]?.[0]?.recognition;
+    expect(rec.wins[0]?.evidence_quote).toBeNull();
+    expect(rec.wins[0]?.grounded_action).toBe("Went to church with family");
+    expect(rec.wins[0]?.suggested_title).toBe("Church With the Family");
+  });
+
+  it("two-Win inbound keeps named quote fields separate", async () => {
+    const inboundText =
+      "Yes, I worked out — and afterward I took my daughter for ice cream and we had the best conversation.";
+    const lifeSpan =
+      "afterward I took my daughter for ice cream and we had the best conversation";
+    await persist({
+      persistResult: yesEvent,
+      inboundText,
+      inbound: {
+        ...completed,
+        meaningful_win: {
+          present: true,
+          grounded_action: "Took daughter for ice cream",
+          relationship: "life",
+        },
+        win_presentation: pres({
+          accountability_trophy_title: "Lifted Weights",
+          life_trophy_title: "Ice Cream With Daughter",
+          accountability_supporting_quote: null,
+          life_supporting_quote: lifeSpan,
+        }),
+      },
+    });
+    const arg = persistInboundWinsWithAccountability.mock.calls[0]?.[0];
+    expect(arg.displayTitleOverrides).toEqual({
+      accountability: "Lifted Weights",
+      independent: "Ice Cream With Daughter",
+    });
+    expect(arg.supportingQuoteOverrides).toEqual({
+      accountability: null,
+      independent: lifeSpan,
+    });
+    expect(arg.inboundMessage).toBe(inboundText);
+    expect(persistRecognizedWins).not.toHaveBeenCalled();
+  });
+
+  it("quotes cannot create a Win when none is authorized", async () => {
+    const result = await persist({
+      persistResult: skippedEvent,
+      inboundText: "Going to church with Brooke and the kids!",
+      inbound: {
+        ...completed,
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "hello",
+        },
+        win_presentation: pres({
+          accountability_trophy_title: "Lifted Weights",
+          life_trophy_title: "Church With the Family",
+          accountability_supporting_quote: "yes",
+          life_supporting_quote: "Going to church with Brooke and the kids!",
+        }),
+      },
+    });
+    expect(result).toBeNull();
+    expect(persistInboundWinsWithAccountability).not.toHaveBeenCalled();
+    expect(persistRecognizedWins).not.toHaveBeenCalled();
   });
 });
 
@@ -415,7 +638,7 @@ describe("Sol life fallback display_title is word-boundary limited", () => {
     const win = input.recognition?.wins[0];
     expect(win?.grounded_action).toBe(LONG_SWIM);
     expect(win?.suggested_body).toBe(LONG_SWIM);
-    expect(win?.evidence_quote).toBe(LONG_SWIM);
+    expect(win?.evidence_quote).toBeNull();
     expect(win?.suggested_title.length).toBeLessThanOrEqual(80);
     expect(win?.suggested_title).toBe(
       "Swam with the children and shared in their excitement during the family"
@@ -438,6 +661,7 @@ describe("Sol life fallback display_title is word-boundary limited", () => {
       inboundText: "yes",
     });
     expect(input.recognition?.wins[0]?.grounded_action).toBe(token.slice(0, 240));
+    expect(input.recognition?.wins[0]?.evidence_quote).toBeNull();
     expect(input.recognition?.wins[0]?.suggested_title).toBe("Today's follow-through");
     expect(input.recognition?.wins[0]?.suggested_title).not.toBe(token.slice(0, 80));
   });
