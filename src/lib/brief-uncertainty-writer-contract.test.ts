@@ -137,6 +137,7 @@ function morningPacket(
       omitted_older_turn_count: 0,
       messages: [],
     },
+    answered_user_message_links: [],
     ...overrides,
   };
 }
@@ -176,6 +177,7 @@ function weeklyPacket(
       omitted_older_turn_count: 0,
       messages: [],
     },
+    answered_user_message_links: [],
     ...overrides,
   };
 }

@@ -5,10 +5,8 @@
  */
 
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor-validation";
-import {
-  EMPTY_HISTORICAL_EVIDENCE,
-  type HistoricalEvidenceSlice,
-} from "@/lib/historical-evidence";
+import { EMPTY_HISTORICAL_EVIDENCE, type HistoricalEvidenceSlice } from "@/lib/historical-evidence";
+import type { AnsweredUserMessageLink } from "@/lib/sms-recent-exact-thread-72h";
 import {
   isImportantPeopleRelationshipType,
   type ImportantPeopleRelationshipType,
@@ -103,6 +101,11 @@ export type MorningBriefInterpreterInputV1 = {
     messages: MorningBriefExactThreadMessage[];
     omitted_older_turn_count: number;
   };
+  /**
+   * Deterministic USER inbound → Coach outbound pairings from sent inbound coach jobs.
+   * Outranks thread_memory_hint for whether a user message was answered.
+   */
+  answered_user_message_links: AnsweredUserMessageLink[];
 };
 
 export const MORNING_BRIEF_LIFE_CONTEXT_TYPES = [
@@ -242,6 +245,8 @@ export type AssembleMorningBriefInterpreterInputArgs = {
   quietRelationshipEligible?: boolean;
   /** Copied from packet.historical_evidence. Do not load separately. */
   historicalEvidence?: HistoricalEvidenceSlice;
+  /** Copied from packet.answered_user_message_links. Do not infer. */
+  answeredUserMessageLinks?: AnsweredUserMessageLink[];
 };
 
 /**
@@ -400,6 +405,9 @@ export function assembleMorningBriefInterpreterInputV1(
       messages,
       omitted_older_turn_count: Math.max(0, Math.floor(args.omittedOlderTurnCount ?? 0)),
     },
+    answered_user_message_links: Array.isArray(args.answeredUserMessageLinks)
+      ? args.answeredUserMessageLinks
+      : [],
   };
 }
 
@@ -413,6 +421,7 @@ export function isMorningBriefInterpreterInputV1(
     (v.message_for?.daypart === "morning" || v.message_for?.daypart === "evening") &&
     typeof v.canonical_goal?.text === "string" &&
     Array.isArray(v.available_important_people) &&
-    Array.isArray(v.exact_thread?.messages)
+    Array.isArray(v.exact_thread?.messages) &&
+    Array.isArray(v.answered_user_message_links)
   );
 }

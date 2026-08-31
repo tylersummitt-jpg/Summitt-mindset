@@ -212,6 +212,11 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(p).toContain("today / tonight / tomorrow / yesterday");
     expect(p).toContain("daypart alone never creates evidence");
     expect(p).toContain("Answer direct user questions when present");
+    expect(p).toContain("ANSWERED USER MESSAGE LINKS");
+    expect(p).toContain("answered_user_message_links is deterministic relationship truth");
+    expect(p).toContain("Do not treat a linked user message as an unanswered direct question");
+    expect(p).toContain("Do not infer additional links from wording, timestamps, adjacency, or topic");
+    expect(p).toContain("Do not overwrite or weaken deterministic linkage");
     expect(p).toContain("Current Goal is context, not a compulsory subject");
     expect(p).toContain(
       "Return a single JSON object with sections: version, confidence, human_situation, truth_and_evidence, conversation_continuity, goal_role_today, coaching_direction, boundaries"

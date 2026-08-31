@@ -90,6 +90,7 @@ function morningPacket(overrides: Partial<MorningRelationshipPacket> = {}): Morn
         },
       ],
     },
+    answered_user_message_links: [],
     ...overrides,
   };
 }
@@ -193,6 +194,35 @@ describe("weekly-tto-relationship-packet", () => {
     if (!result.ok) return;
     expect(result.packet.historical_evidence).toEqual(evidence);
     expect(result.packet.historical_evidence).toBe(evidence);
+  });
+
+  it("inherits Morning answered_user_message_links without a weekly-specific derive", async () => {
+    const links = [
+      {
+        inbound_message_sid: "SM_Q2",
+        outbound_message_sid: "SM_A2",
+        user_body: "Did you set alarms at night?",
+        coach_body: "Absolutely!",
+        answered_at: "2026-07-10T16:00:00.000Z",
+      },
+    ];
+    loadMorningRelationshipPacket.mockResolvedValue({
+      ok: true,
+      packet: morningPacket({ answered_user_message_links: links }),
+      commitmentId: "cmt_weekly",
+    });
+    const src = readFileSync(join(REPO, "src/lib/weekly-tto-relationship-packet.ts"), "utf8");
+    expect(src).not.toContain("answeredUserMessageLinkFromCoachJobRow");
+    const result = await loadWeeklyRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/New_York",
+      weekStartLocalDate: "2026-07-06",
+      weekEndLocalDate: "2026-07-12",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.answered_user_message_links).toEqual(links);
+    expect(result.packet.answered_user_message_links).toBe(links);
   });
 
   it("keeps pending goal separate from current_goal", async () => {

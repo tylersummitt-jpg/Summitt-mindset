@@ -7,6 +7,7 @@ import { fetchLastAnyUserReplyAt } from "@/lib/sms-last-any-user-reply";
 import {
   buildMorningExactThreadForPacket,
   formatAtLocal,
+  type AnsweredUserMessageLink,
 } from "@/lib/sms-recent-exact-thread-72h";
 import { requireTylerTextOverviewDraftDayKey } from "@/lib/tyler-text-overview-draft-day-key";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
@@ -88,6 +89,11 @@ export type MorningRelationshipPacket = {
     /** Writer-facing turns in-window removed by 30-turn and/or 12k budget caps. */
     omitted_older_turn_count: number;
   };
+  /**
+   * Deterministic USER inbound → Coach outbound pairings from sent inbound coach jobs.
+   * Not inferred from exact_thread wording, adjacency, or timestamps.
+   */
+  answered_user_message_links: AnsweredUserMessageLink[];
 };
 
 const PERSONAL_CONTEXT_PROFILE_FIELDS = [
@@ -364,6 +370,7 @@ export async function loadMorningRelationshipPacket(args: {
       messages: exactThread.messages,
       omitted_older_turn_count: exactThread.omitted_older_turn_count,
     },
+    answered_user_message_links: exactThread.answered_user_message_links,
   };
 
   return { ok: true, packet, commitmentId: commitment.id };

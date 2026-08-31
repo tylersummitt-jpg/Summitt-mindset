@@ -298,6 +298,7 @@ vi.mock("@/lib/morning-tto-brief-canonical-load-v1", () => ({
     thread_memory_hint: null,
     historical_evidence: packet.historical_evidence,
     exact_thread: packet.exact_thread,
+    answered_user_message_links: packet.answered_user_message_links ?? [],
   })),
   countRecentUnansweredOutboundFromExactThread: vi.fn(() => 0),
 }));
@@ -410,6 +411,7 @@ const MORNING_PACKET = {
       },
     ],
   },
+  answered_user_message_links: [],
 };
 
 const WRITER_CAPTURE = buildWriterOpenAiCapture({

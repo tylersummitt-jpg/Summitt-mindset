@@ -61,6 +61,18 @@ export type RecentExactThread72hMessage = {
   is_fallback_context?: boolean;
 };
 
+/**
+ * Deterministic USER inbound → Coach outbound pairing from a sent inbound coach job.
+ * Not projected onto model-facing exact_thread messages.
+ */
+export type AnsweredUserMessageLink = {
+  inbound_message_sid: string;
+  outbound_message_sid: string;
+  user_body: string;
+  coach_body: string;
+  answered_at: string;
+};
+
 export type RecentExactThread72hResult = {
   messages: RecentExactThread72hMessage[];
   /** Actual inclusion window in hours (may be 168 daily/inbound or 240 weekly). */
@@ -70,6 +82,11 @@ export type RecentExactThread72hResult = {
   had_system_no_send: boolean;
   oldest_at?: string;
   newest_at?: string;
+  /**
+   * Sent inbound-coach-job replies in this window. SID pairing only.
+   * Always populated by buildRecentExactThread72h (possibly empty).
+   */
+  answered_user_message_links?: AnsweredUserMessageLink[];
   /** Populated when thread build records fetch/filter stats (weekly memory packet, etc.). */
   build_telemetry?: BriefThreadBuildTelemetry;
 };
@@ -759,6 +776,68 @@ export function timestampFromCoachJobReplyRow(row: Record<string, unknown>): num
     meta?.created_at,
     meta?.updated_at,
   ]);
+}
+
+/**
+ * Derive one answered-user link from an inbound coach job row.
+ * Same Coach-history delivery gate as exact-thread replies, plus an outbound SID
+ * (the link is SID identity, not status-name guessing).
+ * Bodies are the stored raw_body / reply_body strings — no rewrite, no trim.
+ */
+export function answeredUserMessageLinkFromCoachJobRow(
+  row: Record<string, unknown>
+): AnsweredUserMessageLink | null {
+  const inbound_message_sid =
+    typeof row.message_sid === "string" && row.message_sid.trim()
+      ? row.message_sid.trim()
+      : "";
+  const outbound_message_sid =
+    typeof row.outbound_message_sid === "string" && row.outbound_message_sid.trim()
+      ? row.outbound_message_sid.trim()
+      : "";
+  if (!inbound_message_sid || !outbound_message_sid) return null;
+
+  const user_body = typeof row.raw_body === "string" ? row.raw_body : "";
+  const coach_body = typeof row.reply_body === "string" ? row.reply_body : "";
+  if (!user_body.trim() || !coach_body.trim()) return null;
+
+  if (!coachJobReplyStrongDeliveryEvidence(row, coach_body)) return null;
+
+  let answered_at =
+    typeof row.sent_at === "string" && row.sent_at.trim() ? row.sent_at.trim() : "";
+  if (!answered_at) {
+    const ts = timestampFromCoachJobReplyRow(row);
+    if (!Number.isFinite(ts) || ts <= 0) return null;
+    answered_at = new Date(ts).toISOString();
+  }
+
+  return {
+    inbound_message_sid,
+    outbound_message_sid,
+    user_body,
+    coach_body,
+    answered_at,
+  };
+}
+
+export function answeredUserMessageLinksFromCoachJobRows(
+  rows: Record<string, unknown>[]
+): AnsweredUserMessageLink[] {
+  const out: AnsweredUserMessageLink[] = [];
+  const seenInbound = new Set<string>();
+  for (const row of rows) {
+    const link = answeredUserMessageLinkFromCoachJobRow(row);
+    if (!link) continue;
+    if (seenInbound.has(link.inbound_message_sid)) continue;
+    seenInbound.add(link.inbound_message_sid);
+    out.push(link);
+  }
+  out.sort(
+    (a, b) =>
+      a.answered_at.localeCompare(b.answered_at) ||
+      a.inbound_message_sid.localeCompare(b.inbound_message_sid)
+  );
+  return out;
 }
 
 /** Strong inbound-coach reply gate: outbound SID, or status sent|delivered|success with sent_at. */
@@ -1499,6 +1578,12 @@ async function buildRecentExactThreadWithWindowMs(
 
   const merged = dedupeTimeline(rich);
   const messages = merged.map((e) => toOutputMessage(e, tz));
+  const answered_user_message_links = answeredUserMessageLinksFromCoachJobRows(
+    coachJobRows
+  ).filter((link) => {
+    const ts = Date.parse(link.answered_at);
+    return Number.isFinite(ts) && ts >= cutoffMs;
+  });
 
   const windowHours = Math.round(args.windowMs / (60 * 60 * 1000));
   return {
@@ -1509,6 +1594,7 @@ async function buildRecentExactThreadWithWindowMs(
     had_system_no_send: messages.some((m) => m.role === "system_no_send"),
     oldest_at: messages[0]?.at,
     newest_at: messages[messages.length - 1]?.at,
+    answered_user_message_links,
   };
 }
 
@@ -1853,6 +1939,7 @@ export async function buildRelationshipExactThreadForPacket(args: {
   message_count: number;
   char_count: number;
   surviving_message_sids: string[];
+  answered_user_message_links: AnsweredUserMessageLink[];
 }> {
   return buildMorningExactThreadForPacket(args);
 }
@@ -1874,6 +1961,7 @@ export async function buildMorningExactThreadForPacket(args: {
   message_count: number;
   char_count: number;
   surviving_message_sids: string[];
+  answered_user_message_links: AnsweredUserMessageLink[];
 }> {
   const now = args.now ?? new Date();
   const tz = resolveUserTimezone(args.timezone);
@@ -1905,5 +1993,6 @@ export async function buildMorningExactThreadForPacket(args: {
     message_count: capped.messages.length,
     char_count: morningExactThreadMessageCharCount(capped.messages),
     surviving_message_sids: capped.surviving_message_sids,
+    answered_user_message_links: timeline.answered_user_message_links ?? [],
   };
 }

@@ -11,6 +11,7 @@ import {
 } from "@/lib/morning-tto-brief-canonical-load-v1";
 import type { MorningBriefInterpreterInputV1 } from "@/lib/morning-tto-brief-canonical-input-v1";
 import {
+  ANSWERED_USER_MESSAGE_LINKS_INTERPRETER_LAW,
   MORNING_BRIEF_INTERPRETER_MAX_COMPLETION_TOKENS,
   MORNING_BRIEF_INTERPRETER_MODEL,
   MORNING_BRIEF_INTERPRETER_REASONING_EFFORT,
@@ -82,6 +83,8 @@ TRUTH HIERARCHY
 
 HISTORICAL EVIDENCE
 ${HISTORICAL_EVIDENCE_HISTORY_LAW}
+
+${ANSWERED_USER_MESSAGE_LINKS_INTERPRETER_LAW}
 
 RELATIONSHIP CONTINUITY
 - Do not re-ask a stale or unanswered Coach question in different words. If it is stale, mark it stale in conversation_continuity.
@@ -349,6 +352,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
           messages: args.packet.exact_thread.messages,
           omitted_older_turn_count: args.packet.exact_thread.omitted_older_turn_count,
         },
+        answered_user_message_links: args.packet.answered_user_message_links ?? [],
       }),
       capture: {
         capture_version: WEEKLY_BRIEF_INTERPRETER_CAPTURE_VERSION,
@@ -397,6 +401,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
             messages: args.packet.exact_thread.messages,
             omitted_older_turn_count: args.packet.exact_thread.omitted_older_turn_count,
           },
+          answered_user_message_links: args.packet.answered_user_message_links ?? [],
           ...weeklyTapeFieldsFromPacket(args.packet),
         },
         raw_response: null,
@@ -456,6 +461,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
         messages: args.packet.exact_thread.messages,
         omitted_older_turn_count: args.packet.exact_thread.omitted_older_turn_count,
       },
+      answered_user_message_links: args.packet.answered_user_message_links ?? [],
       ...weeklyTapeFieldsFromPacket(args.packet),
     };
     return {

@@ -27,6 +27,14 @@ import {
 import { clampProactiveDecision } from "@/lib/sms-proactive-relationship-touch";
 import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
 
+export const ANSWERED_USER_MESSAGE_LINKS_INTERPRETER_LAW = `ANSWERED USER MESSAGE LINKS
+answered_user_message_links is deterministic relationship truth.
+Each entry means: the user message identified by inbound_message_sid received the Coach answer identified by outbound_message_sid, with coach_body, at answered_at.
+Do not treat a linked user message as an unanswered direct question, direct_question_or_need, or open_loop merely because its original question still appears in exact_thread.
+Do not infer additional links from wording, timestamps, adjacency, or topic.
+Do not overwrite or weaken deterministic linkage.
+The exact thread remains the real conversation. The linkage only tells you which Coach outbound directly answered which user inbound.`;
+
 /**
  * Phase 2C locked interpreter model — quality-first.
  * Chat Completions + strict JSON Schema; reasoning_effort low.
@@ -84,6 +92,8 @@ Hard rules:
 
 HISTORICAL EVIDENCE
 ${HISTORICAL_EVIDENCE_HISTORY_LAW}
+
+${ANSWERED_USER_MESSAGE_LINKS_INTERPRETER_LAW}
 
 UNRESOLVED COACHING-FOCUS CHOICE
 If Coach has explicitly asked the member to choose whether to continue, change, pause, or redefine the current coaching focus / Current Goal, and the member has not answered that choice, preserve the unresolved choice. Read that meaning from the exact thread. Do not use a phrase list.

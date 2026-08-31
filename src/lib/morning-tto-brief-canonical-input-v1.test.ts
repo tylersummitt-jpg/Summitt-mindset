@@ -116,6 +116,7 @@ describe("morning-tto-brief-canonical-input-v1", () => {
     );
     expect(result.thread_memory_hint?.authority).toBe("non_authoritative_projection");
     expect(result.historical_evidence).toEqual([]);
+    expect(result.answered_user_message_links).toEqual([]);
   });
 
   it("includes quotable identity and excludes non-quotable identity", () => {

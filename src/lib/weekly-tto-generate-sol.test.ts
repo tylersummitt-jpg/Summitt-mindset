@@ -121,6 +121,7 @@ function packet(): WeeklyRelationshipPacket {
         },
       ],
     },
+    answered_user_message_links: [],
   };
 }
 

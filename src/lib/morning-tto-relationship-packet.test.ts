@@ -64,6 +64,7 @@ function setupPacketSupabase(args: {
   importantPeople?: unknown[];
   sendRows?: unknown[];
   inboundRows?: unknown[];
+  jobRows?: unknown[];
   evidenceRows?: unknown[];
   winRows?: unknown[];
   priorCommitmentRows?: unknown[];
@@ -95,7 +96,7 @@ function setupPacketSupabase(args: {
       case "sms_weekly_send_events":
         return chain([]);
       case "sms_inbound_coach_jobs":
-        return chain([]);
+        return chain(args.jobRows ?? []);
       case "sms_inbound_messages":
         return chain(args.inboundRows ?? []);
       case "sms_last_outbound_context":
@@ -167,6 +168,7 @@ describe("loadMorningRelationshipPacket", () => {
     expect(result.packet.current_identity.text).toBe("I am a steady father.");
     expect(result.packet.personal_context.some((c) => c.type === "responsibility")).toBe(true);
     expect(result.packet.historical_evidence).toEqual([]);
+    expect(result.packet.answered_user_message_links).toEqual([]);
     expect(result.packet.exact_thread.window_days).toBe(21);
     expect(result.packet.exact_thread.max_messages).toBe(30);
     expect(result.commitmentId).toBe("cmt_morning");

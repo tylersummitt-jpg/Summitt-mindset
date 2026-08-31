@@ -112,6 +112,7 @@ function samplePacket(
         },
       ],
     },
+    answered_user_message_links: [],
     ...overrides,
   };
 }
@@ -253,10 +254,40 @@ describe("morning-tto-brief-canonical-load-v1", () => {
       { name: "Brooke", relationship: "spouse/partner" },
     ]);
     expect(input.mechanical.recent_unanswered_outbound_count).toBe(2);
+    expect(input.answered_user_message_links).toEqual([]);
     expect(input.truth_spine.latest_outcome).toBe("user_yes");
     expect(input.truth_spine.consistency_supported).toBe(false);
     expect(input.available_life_context.some((x) => x.type === "work_challenge")).toBe(true);
     expect(input.available_life_context.some((x) => x.type === "important_person")).toBe(false);
+  });
+
+  it("copies answered_user_message_links from the packet into interpreter input", () => {
+    const links = [
+      {
+        inbound_message_sid: "SM_Q2",
+        outbound_message_sid: "SM_A2",
+        user_body: "Did you set alarms at night?",
+        coach_body: "Absolutely!",
+        answered_at: "2026-08-06T16:00:00.000Z",
+      },
+    ];
+    const packet = samplePacket({ answered_user_message_links: links });
+    const input = assembleMorningBriefInterpreterInputFromPacket({
+      packet,
+      extras: {
+        importantPeople: [],
+        outcomeSpine: {
+          latestOutcome: null as const,
+          latestOutcomeAt: null,
+          latestOutcomeMessage: null,
+          matchingOutcomeCount: 0,
+          hasVerifiedProofMetadata: false as const,
+        },
+        threadMemoryHint: null,
+      },
+    });
+    if ("ok" in input) throw new Error("unexpected");
+    expect(input.answered_user_message_links).toEqual(links);
   });
 
   it("packet identity null stays null without inventing provenance", () => {

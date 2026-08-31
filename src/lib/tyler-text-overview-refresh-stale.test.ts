@@ -284,6 +284,7 @@ vi.mock("@/lib/morning-tto-brief-canonical-load-v1", () => ({
       messages: [],
       omitted_older_turn_count: 0,
     },
+    answered_user_message_links: packet.answered_user_message_links ?? [],
   })),
   countRecentUnansweredOutboundFromExactThread: vi.fn(() => 0),
 }));

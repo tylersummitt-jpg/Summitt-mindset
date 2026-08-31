@@ -1144,6 +1144,7 @@ function failSoftInterpreterInputFromPacket(
       messages: packet.exact_thread.messages,
       omitted_older_turn_count: packet.exact_thread.omitted_older_turn_count,
     },
+    answered_user_message_links: packet.answered_user_message_links ?? [],
   };
 }
 

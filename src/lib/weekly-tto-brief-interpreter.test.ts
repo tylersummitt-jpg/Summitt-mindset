@@ -85,6 +85,7 @@ function samplePacket(
         },
       ],
     },
+    answered_user_message_links: [],
     ...overrides,
   };
 }
@@ -334,6 +335,9 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(p).toContain("Identity is never proof");
     expect(p).toContain("Identity may be connected to concrete evidence");
     expect(p).toContain("Direct unresolved user needs are high-priority");
+    expect(p).toContain("ANSWERED USER MESSAGE LINKS");
+    expect(p).toContain("answered_user_message_links is deterministic relationship truth");
+    expect(p).toContain("Do not treat a linked user message as an unanswered direct question");
     expect(p).toContain("generally outrank manufacturing Weekly perspective");
     expect(p).toContain("weekly_accountability_events");
     expect(p).toContain("It is facts, not a score");

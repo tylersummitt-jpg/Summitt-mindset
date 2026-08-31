@@ -70,6 +70,7 @@ function samplePacket(
         },
       ],
     },
+    answered_user_message_links: [],
     ...overrides,
   };
 }

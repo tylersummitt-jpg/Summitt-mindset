@@ -267,6 +267,7 @@ function weeklyPacket(
       omitted_older_turn_count: 0,
       messages: RACHAEL_THREAD,
     },
+    answered_user_message_links: [],
     ...overrides,
   };
 }
