@@ -18,6 +18,10 @@ const CRON = path.join(ROOT, "src/app/api/cron/victory-media/route.ts");
 const C1 = path.join(ROOT, "src/lib/victory-media/correlate-inbound-mms-c1.ts");
 const C2 = path.join(ROOT, "src/lib/victory-media/attach-inbound-mms-c2.ts");
 const VERCEL = path.join(ROOT, "vercel.json");
+const D2C = path.join(
+  ROOT,
+  "src/lib/victory-media/inbound-mms-d2c-pending-context.ts"
+);
 const MIGRATION = path.join(
   ROOT,
   "supabase/migrations/20260822120000_v2_inbound_media_job_clarification_body.sql"
@@ -34,6 +38,7 @@ describe("inbound MMS D2b wire", () => {
   const c2 = fs.readFileSync(C2, "utf8");
   const vercel = fs.readFileSync(VERCEL, "utf8");
   const migration = fs.readFileSync(MIGRATION, "utf8");
+  const d2c = fs.readFileSync(D2C, "utf8");
 
   it("uses sendSMSChunked with lastOutbound question, never Twilio SDK", () => {
     expect(d2b).toContain("sendSMSChunked");
@@ -119,5 +124,26 @@ describe("inbound MMS D2b wire", () => {
     expect(d2b).toContain("return armModelFailed()");
     expect(codes).toContain("INBOUND_MEDIA_D2A_SEMANTIC_GRACE");
     expect(codes).toContain("INBOUND_MEDIA_D2B_OWNED_LAST_ERROR_CODES = [");
+  });
+
+  it("active-clarification list requires future expires_at (D2c-aligned clock)", () => {
+    const list = d2b.slice(
+      d2b.indexOf("export async function listInboundMmsD2bActiveClarifications")
+    );
+    expect(list).toContain("expires_at");
+    expect(list).toContain('.gt("expires_at", nowIso)');
+    expect(list).toContain('.not("expires_at", "is", null)');
+    expect(list).toContain("isInboundMediaJobD2bActiveClarification");
+    expect(d2b).not.toContain("cleanupNorm(active");
+    expect(d2b).not.toContain("INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS");
+  });
+
+  it("does not mutate stale pending_user blockers or change D2c expiry law", () => {
+    expect(d2c).toContain('.gt("expires_at", args.expiresAfterIso)');
+    expect(d2c).toContain("return t > now.getTime()");
+    expect(d2c).toContain('.eq("resolution", "pending_user")');
+    expect(d2c).not.toContain("INBOUND_MEDIA_D1_PENDING_LOOKBACK_MS");
+    const sendReserved = d2b.slice(d2b.indexOf("const sendReserved"));
+    expect(sendReserved).toContain('resolution: "pending_user"');
   });
 });

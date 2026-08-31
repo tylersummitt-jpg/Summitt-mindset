@@ -230,17 +230,63 @@ export type InboundMmsD2bActiveClarificationLite = {
   status: string;
 };
 
-async function defaultListActiveClarifications(args: {
+/**
+ * Same conceptual liveness as D2c: expires_at must be parseable and strictly
+ * in the future. Missing / blank / invalid / past → not an active blocker.
+ */
+function isInboundMediaJobClarificationExpiresAtLive(
+  row: { expires_at?: string | null },
+  now: Date
+): boolean {
+  if (row.expires_at == null) return false;
+  const trimmed = String(row.expires_at).trim();
+  if (!trimmed) return false;
+  const t = new Date(trimmed).getTime();
+  if (!Number.isFinite(t)) return false;
+  return t > now.getTime();
+}
+
+export type InboundMmsD2bActiveClarificationShape = {
+  status: string;
+  resolution: string | null;
+  followup_idempotency_key: string | null;
+  tombstoned_at: string | null;
+  expires_at: string | null;
+};
+
+/**
+ * Live photo-clarification blocker. Aligns D2b serialization with D2c:
+ * pending_user or reserved-unsent, only while expires_at > now.
+ */
+export function isInboundMediaJobD2bActiveClarification(
+  row: InboundMmsD2bActiveClarificationShape,
+  now: Date
+): boolean {
+  if (row.status !== "pending_semantics") return false;
+  if (hasNonEmptyText(row.tombstoned_at)) return false;
+  if (!isInboundMediaJobClarificationExpiresAtLive(row, now)) return false;
+  if (row.resolution === "pending_user") return true;
+  if (row.resolution == null && hasNonEmptyText(row.followup_idempotency_key)) {
+    return true;
+  }
+  return false;
+}
+
+export async function listInboundMmsD2bActiveClarifications(args: {
   clerkUserId: string;
   excludeJobId: string;
+  now: Date;
 }): Promise<InboundMmsD2bActiveClarificationLite[] | "error"> {
+  const nowIso = args.now.toISOString();
   const { data, error } = await supabaseServer
     .from("v2_inbound_media_job")
-    .select("id,status,resolution,followup_idempotency_key,tombstoned_at")
+    .select("id,status,resolution,followup_idempotency_key,tombstoned_at,expires_at")
     .eq("clerk_user_id", args.clerkUserId)
     .eq("status", "pending_semantics")
     .neq("id", args.excludeJobId)
     .is("tombstoned_at", null)
+    .not("expires_at", "is", null)
+    .gt("expires_at", nowIso)
     .or(
       "resolution.eq.pending_user,followup_idempotency_key.not.is.null"
     )
@@ -257,16 +303,21 @@ async function defaultListActiveClarifications(args: {
       typeof r.followup_idempotency_key === "string"
         ? r.followup_idempotency_key
         : null;
-    // Historical NULL/NULL photos must not count as an active question.
-    if (resolution === "pending_user" || hasNonEmptyText(key)) {
-      if (resolution != null && resolution !== "pending_user") continue;
-      out.push({
-        id,
-        status: String(r.status ?? ""),
-        resolution,
-        followup_idempotency_key: key,
-      });
-    }
+    const shape: InboundMmsD2bActiveClarificationShape = {
+      status: String(r.status ?? ""),
+      resolution,
+      followup_idempotency_key: key,
+      tombstoned_at:
+        typeof r.tombstoned_at === "string" ? r.tombstoned_at : null,
+      expires_at: typeof r.expires_at === "string" ? r.expires_at : null,
+    };
+    if (!isInboundMediaJobD2bActiveClarification(shape, args.now)) continue;
+    out.push({
+      id,
+      status: shape.status,
+      resolution,
+      followup_idempotency_key: key,
+    });
   }
   return out;
 }
@@ -324,7 +375,7 @@ export type ProcessInboundMmsD2bDeps = {
     clerkUserId: string;
     excludeJobId: string;
   }) => Promise<Array<{ id: string }> | "error">;
-  listActiveClarifications?: typeof defaultListActiveClarifications;
+  listActiveClarifications?: typeof listInboundMmsD2bActiveClarifications;
   loadFacts?: (args: {
     job: InboundMediaJobRow;
     now: Date;
@@ -358,7 +409,7 @@ export async function processInboundMmsD2bJob(
   const removeObjects = deps.removeObjects ?? defaultRemoveObjects;
   const listSiblings = deps.listSiblingPhotos ?? defaultListD2ArmedSiblings;
   const listActive =
-    deps.listActiveClarifications ?? defaultListActiveClarifications;
+    deps.listActiveClarifications ?? listInboundMmsD2bActiveClarifications;
   const loadFacts = deps.loadFacts ?? loadInboundMmsD2aSemanticFacts;
   const runSemantics = deps.runSemantics ?? runInboundMmsD2bSemantics;
   const claim = deps.claim ?? claimInboundMediaJobSemanticTarget;
@@ -646,6 +697,7 @@ export async function processInboundMmsD2bJob(
   const active = await listActive({
     clerkUserId: job.clerk_user_id,
     excludeJobId: job.id,
+    now,
   });
   if (active === "error") {
     const won = await casPark({

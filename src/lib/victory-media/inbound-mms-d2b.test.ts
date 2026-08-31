@@ -33,6 +33,7 @@ import {
 } from "@/lib/victory-media/inbound-mms-d2a-codes";
 import type { InboundMmsD2aSemanticFacts } from "@/lib/victory-media/inbound-mms-d2a-semantics";
 import {
+  INBOUND_MEDIA_D2B_ACTIVE_CLARIFICATION_WAIT_MS,
   INBOUND_MEDIA_D2B_CLARIFICATION_DUE,
   INBOUND_MEDIA_D2B_CLARIFICATION_MODEL_FAILED,
   INBOUND_MEDIA_D2B_CLARIFICATION_SEND_FAILED,
@@ -43,8 +44,10 @@ import {
 } from "@/lib/victory-media/inbound-mms-d2b-codes";
 import {
   INBOUND_MEDIA_D2_QUEUE_LAST_ERROR_CODES,
+  isInboundMediaJobD2bActiveClarification,
   isInboundMediaJobD2bDueListCandidate,
   listInboundMediaJobsForD2,
+  listInboundMmsD2bActiveClarifications,
   processInboundMmsD2bJob,
   processInboundMmsD2Job,
 } from "@/lib/victory-media/inbound-mms-d2b";
@@ -53,12 +56,17 @@ import { victoryMediaMmsNormMasterPath } from "@/lib/victory-media/storage-paths
 const NOW = new Date("2026-08-22T12:10:00.000Z");
 const JOB_ID = "aaaaaaaa-1111-4111-8111-111111111111";
 const JOB_B = "bbbbbbbb-2222-4222-8222-222222222222";
+const JOB_C = "dddddddd-4444-4444-8444-444444444444";
 const WIN_A = "cccccccc-3333-4333-8333-333333333333";
 const USER = "user_d2b";
 const PHOTO_SID = "SMdddddddddddddddddddddddddddddddd";
 const NORM = victoryMediaMmsNormMasterPath(USER, JOB_ID);
 const QUESTION = "What made this one a win for you?";
 const KEY = inboundMmsD2bClarificationIdempotencyKey(JOB_ID);
+const KEY_B = inboundMmsD2bClarificationIdempotencyKey(JOB_B);
+const INCIDENT_NOW = new Date("2026-08-31T11:31:00.000Z");
+const STALE_EXPIRES_AT = "2026-08-25T10:00:00.000Z";
+const LIVE_EXPIRES_AT = "2026-09-03T10:53:23.000Z";
 
 function dueJob(partial: Partial<InboundMediaJobRow> = {}): InboundMediaJobRow {
   return {
@@ -233,6 +241,185 @@ describe("D2b due candidate and list", () => {
     expect(captured.limit).toBe(1);
     expect(ids).toEqual([JOB_ID]);
     expect(ids).not.toContain(JOB_B);
+  });
+});
+
+function activeShape(
+  partial: Partial<Parameters<typeof isInboundMediaJobD2bActiveClarification>[0]> = {}
+): Parameters<typeof isInboundMediaJobD2bActiveClarification>[0] {
+  return {
+    status: "pending_semantics",
+    resolution: "pending_user",
+    followup_idempotency_key: KEY_B,
+    tombstoned_at: null,
+    expires_at: LIVE_EXPIRES_AT,
+    ...partial,
+  };
+}
+
+function mockActiveClarificationList(rows: Array<Record<string, unknown>>) {
+  const captured: {
+    select?: string;
+    gt?: [string, unknown];
+    not?: Array<[string, string]>;
+  } = { not: [] };
+  const api = {
+    select: (cols: string) => {
+      captured.select = cols;
+      return api;
+    },
+    eq: () => api,
+    neq: () => api,
+    is: () => api,
+    not: (col: string, op: string) => {
+      captured.not!.push([col, op]);
+      return api;
+    },
+    gt: (col: string, val: unknown) => {
+      captured.gt = [col, val];
+      return api;
+    },
+    or: () => api,
+    limit: () => api,
+    then(resolve: (v: { data: unknown; error: unknown }) => void) {
+      resolve({ data: rows, error: null });
+    },
+  };
+  vi.mocked(supabaseServer.from).mockReturnValue(
+    api as unknown as ReturnType<typeof supabaseServer.from>
+  );
+  return captured;
+}
+
+describe("isInboundMediaJobD2bActiveClarification", () => {
+  it("accepts in-window pending_user", () => {
+    expect(isInboundMediaJobD2bActiveClarification(activeShape(), INCIDENT_NOW)).toBe(
+      true
+    );
+  });
+
+  it("rejects past-expiry pending_user", () => {
+    expect(
+      isInboundMediaJobD2bActiveClarification(
+        activeShape({ expires_at: STALE_EXPIRES_AT }),
+        INCIDENT_NOW
+      )
+    ).toBe(false);
+  });
+
+  it("accepts in-window reserved-unsent (resolution null + key)", () => {
+    expect(
+      isInboundMediaJobD2bActiveClarification(
+        activeShape({
+          resolution: null,
+          followup_idempotency_key: KEY_B,
+          expires_at: LIVE_EXPIRES_AT,
+        }),
+        INCIDENT_NOW
+      )
+    ).toBe(true);
+  });
+
+  it("rejects past-expiry reserved-unsent", () => {
+    expect(
+      isInboundMediaJobD2bActiveClarification(
+        activeShape({
+          resolution: null,
+          followup_idempotency_key: KEY_B,
+          expires_at: STALE_EXPIRES_AT,
+        }),
+        INCIDENT_NOW
+      )
+    ).toBe(false);
+  });
+
+  it("missing or invalid expires_at is not an immortal blocker", () => {
+    expect(
+      isInboundMediaJobD2bActiveClarification(
+        activeShape({ expires_at: null }),
+        INCIDENT_NOW
+      )
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD2bActiveClarification(
+        activeShape({ expires_at: "  " }),
+        INCIDENT_NOW
+      )
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD2bActiveClarification(
+        activeShape({ expires_at: "not-a-timestamp" }),
+        INCIDENT_NOW
+      )
+    ).toBe(false);
+  });
+
+  it("ignores tombstoned, attached, and expired-status rows", () => {
+    expect(
+      isInboundMediaJobD2bActiveClarification(
+        activeShape({ tombstoned_at: INCIDENT_NOW.toISOString() }),
+        INCIDENT_NOW
+      )
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD2bActiveClarification(
+        activeShape({ status: "attached" }),
+        INCIDENT_NOW
+      )
+    ).toBe(false);
+    expect(
+      isInboundMediaJobD2bActiveClarification(
+        activeShape({ status: "expired", resolution: "expired" }),
+        INCIDENT_NOW
+      )
+    ).toBe(false);
+  });
+});
+
+describe("listInboundMmsD2bActiveClarifications", () => {
+  it("SQL requires future expires_at and JS drops stale/missing even if SQL returns them", async () => {
+    const live = {
+      id: JOB_B,
+      status: "pending_semantics",
+      resolution: "pending_user",
+      followup_idempotency_key: KEY_B,
+      tombstoned_at: null,
+      expires_at: LIVE_EXPIRES_AT,
+    };
+    const staleAug22 = {
+      id: JOB_C,
+      status: "pending_semantics",
+      resolution: "pending_user",
+      followup_idempotency_key: inboundMmsD2bClarificationIdempotencyKey(JOB_C),
+      tombstoned_at: null,
+      expires_at: STALE_EXPIRES_AT,
+    };
+    const missingExpiry = {
+      ...live,
+      id: "eeeeeeee-5555-4555-8555-555555555555",
+      expires_at: null,
+    };
+    const captured = mockActiveClarificationList([
+      live,
+      staleAug22,
+      missingExpiry,
+    ]);
+    const ids = await listInboundMmsD2bActiveClarifications({
+      clerkUserId: USER,
+      excludeJobId: JOB_ID,
+      now: INCIDENT_NOW,
+    });
+    expect(captured.select).toContain("expires_at");
+    expect(captured.gt).toEqual(["expires_at", INCIDENT_NOW.toISOString()]);
+    expect(captured.not).toContainEqual(["expires_at", "is"]);
+    expect(ids).toEqual([
+      {
+        id: JOB_B,
+        status: "pending_semantics",
+        resolution: "pending_user",
+        followup_idempotency_key: KEY_B,
+      },
+    ]);
   });
 });
 
@@ -567,7 +754,41 @@ describe("processInboundMmsD2bJob", () => {
     expect(runSemantics).not.toHaveBeenCalled();
   });
 
-  it("another active clarification makes this job wait, not send", async () => {
+  it("in-window pending_user A blocks B (5-min wait, no send, no remodel)", async () => {
+    const sendSms = vi.fn();
+    const runSemantics = vi.fn();
+    const casPark = vi.fn(async () => true);
+    const r = await processInboundMmsD2bJob(
+      JOB_ID,
+      processDeps({
+        listActiveClarifications: async () => [
+          {
+            id: JOB_B,
+            status: "pending_semantics",
+            resolution: "pending_user",
+            followup_idempotency_key: KEY_B,
+          },
+        ],
+        sendSms,
+        runSemantics,
+        casPark,
+      })
+    );
+    expect(r).toEqual({ ok: true, jobId: JOB_ID, action: "parked" });
+    expect(sendSms).not.toHaveBeenCalled();
+    expect(runSemantics).not.toHaveBeenCalled();
+    expect(casPark).toHaveBeenCalledTimes(1);
+    expect(casPark.mock.calls[0]![0].job.id).toBe(JOB_ID);
+    expect(casPark.mock.calls[0]![0].patch).toEqual({
+      last_error_code: INBOUND_MEDIA_D2A_SEMANTIC_GRACE,
+      next_retry_at: new Date(
+        NOW.getTime() + INBOUND_MEDIA_D2B_ACTIVE_CLARIFICATION_WAIT_MS
+      ).toISOString(),
+      updated_at: NOW.toISOString(),
+    });
+  });
+
+  it("in-window reserved-unsent A blocks B", async () => {
     const sendSms = vi.fn();
     const runSemantics = vi.fn();
     const r = await processInboundMmsD2bJob(
@@ -577,10 +798,8 @@ describe("processInboundMmsD2bJob", () => {
           {
             id: JOB_B,
             status: "pending_semantics",
-            resolution: "pending_user",
-            followup_idempotency_key: inboundMmsD2bClarificationIdempotencyKey(
-              JOB_B
-            ),
+            resolution: null,
+            followup_idempotency_key: KEY_B,
           },
         ],
         sendSms,
@@ -590,6 +809,124 @@ describe("processInboundMmsD2bJob", () => {
     expect(r).toEqual({ ok: true, jobId: JOB_ID, action: "parked" });
     expect(sendSms).not.toHaveBeenCalled();
     expect(runSemantics).not.toHaveBeenCalled();
+  });
+
+  it("past-expiry pending_user A does not block B; B sends once after Twilio", async () => {
+    let row = dueJob({
+      created_at: "2026-08-31T10:53:23.000Z",
+      next_retry_at: INCIDENT_NOW.toISOString(),
+      expires_at: LIVE_EXPIRES_AT,
+      updated_at: "2026-08-31T10:54:00.000Z",
+    });
+    const sendSms = vi.fn(async () => ({ firstSid: "SM_out" }));
+    const removeObjects = vi.fn(async () => {});
+    const casPark = vi.fn(async ({ patch }: { patch: Record<string, unknown> }) => {
+      row = { ...row, ...patch } as InboundMediaJobRow;
+      return true;
+    });
+    const r = await processInboundMmsD2bJob(
+      JOB_ID,
+      processDeps({
+        now: INCIDENT_NOW,
+        loadJob: async () => row,
+        casPark,
+        sendSms,
+        removeObjects,
+        listActiveClarifications: async () => [],
+      })
+    );
+    expect(r).toEqual({ ok: true, jobId: JOB_ID, action: "sent" });
+    expect(sendSms).toHaveBeenCalledTimes(1);
+    expect(row.resolution).toBe("pending_user");
+    expect(row.followup_idempotency_key).toBe(KEY);
+    expect(row.clarification_body).toBe(QUESTION);
+    expect(casPark.mock.calls.map((c) => c[0].job.id)).toEqual([JOB_ID, JOB_ID]);
+    expect(casPark.mock.calls[0]![0].patch.resolution).toBeUndefined();
+    expect(casPark.mock.calls[1]![0].patch.resolution).toBe("pending_user");
+    expect(removeObjects).not.toHaveBeenCalled();
+  });
+
+  it("past-expiry reserved-unsent A does not block B", async () => {
+    let row = dueJob();
+    const sendSms = vi.fn(async () => ({ firstSid: "SM_out" }));
+    const r = await processInboundMmsD2bJob(
+      JOB_ID,
+      processDeps({
+        loadJob: async () => row,
+        casPark: async ({ patch }) => {
+          row = { ...row, ...patch } as InboundMediaJobRow;
+          return true;
+        },
+        sendSms,
+        listActiveClarifications: async () => [],
+      })
+    );
+    expect(r).toEqual({ ok: true, jobId: JOB_ID, action: "sent" });
+    expect(sendSms).toHaveBeenCalledTimes(1);
+  });
+
+  it("Aug 22 stale pending_user omitted; Aug 31 church photo can proceed", async () => {
+    expect(
+      isInboundMediaJobD2bActiveClarification(
+        {
+          status: "pending_semantics",
+          resolution: "pending_user",
+          followup_idempotency_key: KEY_B,
+          tombstoned_at: null,
+          expires_at: STALE_EXPIRES_AT,
+        },
+        INCIDENT_NOW
+      )
+    ).toBe(false);
+    let church = dueJob({
+      created_at: "2026-08-31T10:53:23.000Z",
+      next_retry_at: INCIDENT_NOW.toISOString(),
+      expires_at: LIVE_EXPIRES_AT,
+      last_error_code: INBOUND_MEDIA_D2A_SEMANTIC_GRACE,
+    });
+    const sendSms = vi.fn(async () => ({ firstSid: "SM_church" }));
+    const r = await processInboundMmsD2bJob(
+      JOB_ID,
+      processDeps({
+        now: INCIDENT_NOW,
+        loadJob: async () => church,
+        casPark: async ({ patch }) => {
+          church = { ...church, ...patch } as InboundMediaJobRow;
+          return true;
+        },
+        sendSms,
+        listActiveClarifications: async () => [],
+      })
+    );
+    expect(r).toEqual({ ok: true, jobId: JOB_ID, action: "sent" });
+    expect(sendSms).toHaveBeenCalledTimes(1);
+    expect(church.resolution).toBe("pending_user");
+  });
+
+  it("C waits after B successfully becomes pending_user", async () => {
+    const sendC = vi.fn();
+    const r = await processInboundMmsD2bJob(
+      JOB_C,
+      processDeps({
+        loadJob: async () =>
+          dueJob({
+            id: JOB_C,
+            followup_idempotency_key: null,
+            clarification_body: null,
+          }),
+        listActiveClarifications: async () => [
+          {
+            id: JOB_ID,
+            status: "pending_semantics",
+            resolution: "pending_user",
+            followup_idempotency_key: KEY,
+          },
+        ],
+        sendSms: sendC,
+      })
+    );
+    expect(r).toEqual({ ok: true, jobId: JOB_C, action: "parked" });
+    expect(sendC).not.toHaveBeenCalled();
   });
 
   it("historical NULL/NULL sibling does not block a valid D2b send", async () => {
