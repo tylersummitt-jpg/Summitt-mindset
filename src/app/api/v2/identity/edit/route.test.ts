@@ -188,6 +188,7 @@ describe("POST /api/v2/identity/edit", () => {
     const json = await res.json();
     expect(json.ok).toBe(true);
     expect(json.versionId).toBe("ver_new");
+    expect(json.identity_anchor_text).toBe(validBody.identity_anchor_text);
     expect(persistMock).toHaveBeenCalled();
   });
 

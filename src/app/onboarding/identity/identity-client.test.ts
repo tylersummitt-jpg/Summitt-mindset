@@ -270,4 +270,14 @@ describe("IdentityClient", () => {
     expect(src).toContain("Use mine anyway");
     expect(src).toContain("setShowWeakPanel(true)");
   });
+
+  it("advances to Current Goal only via onSaveSuccess after identity save", () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, "identity-client.tsx"),
+      "utf8"
+    );
+    expect(src).toContain('saveEndpoint="/api/onboarding/identity"');
+    expect(src).toContain('router.push("/onboarding/commitment")');
+    expect(src).toContain("onSaveSuccess");
+  });
 });

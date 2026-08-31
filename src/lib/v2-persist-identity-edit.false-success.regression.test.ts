@@ -18,6 +18,21 @@ describe("Edit Identity client success guard", () => {
   });
 });
 
+describe("Onboarding identity API matches IdentityBuilderClient success contract", () => {
+  it("returns ok + versionId + normalizedAnchor, not success-only", () => {
+    const src = readFileSync(
+      path.join(root, "src/app/api/onboarding/identity/route.ts"),
+      "utf8"
+    );
+    expect(src).toContain("ok: true");
+    expect(src).toContain("versionId: result.versionId");
+    expect(src).toContain("identity_anchor_text: normalizedAnchor");
+    expect(src).not.toMatch(
+      /return Response\.json\(\{\s*success:\s*true,\s*versionId:/
+    );
+  });
+});
+
 describe("Victory Room identity source compatibility", () => {
   it("treats user_edited as quotable for canonical profile mirrors", () => {
     expect(isQuotableIdentitySource("user_edited")).toBe(true);

@@ -123,7 +123,11 @@ export async function POST(req: Request) {
 
     await clearProposedCommitmentReviewAcknowledgment(userId);
 
-    return Response.json({ success: true, versionId: result.versionId });
+    return Response.json({
+      ok: true,
+      versionId: result.versionId,
+      identity_anchor_text: normalizedAnchor,
+    });
   } catch (err) {
     console.error(ROUTE, err);
     return NextResponse.json({ error: UI_SAVE_GENERIC }, { status: 500 });

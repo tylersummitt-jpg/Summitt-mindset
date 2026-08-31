@@ -57,6 +57,10 @@ describe("POST /api/onboarding/identity", () => {
       })
     );
     expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({
+      error: "Your session expired. Please sign in again.",
+    });
+    expect(persistMock).not.toHaveBeenCalled();
     expect(clearReviewAckMock).not.toHaveBeenCalled();
   });
 
@@ -75,11 +79,17 @@ describe("POST /api/onboarding/identity", () => {
       })
     );
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      versionId: "ver_1",
+      identity_anchor_text: validBody.identity_anchor_text,
+    });
     expect(persistMock).toHaveBeenCalledWith(
       expect.objectContaining({
         ingredientIds: ["parent", "discipline", "other"],
         otherText: "builder",
         importantPeople: [{ display_name: "Sam", relationship_type: "child" }],
+        identityAnchorText: validBody.identity_anchor_text,
       })
     );
     expect(clearReviewAckMock).toHaveBeenCalledWith("user_2abc");
@@ -95,6 +105,11 @@ describe("POST /api/onboarding/identity", () => {
       })
     );
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      versionId: "ver_1",
+      identity_anchor_text: validBody.identity_anchor_text,
+    });
     expect(persistMock).toHaveBeenCalled();
     expect(clearReviewAckMock).toHaveBeenCalledWith("user_2abc");
   });
@@ -112,6 +127,9 @@ describe("POST /api/onboarding/identity", () => {
       })
     );
     expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("Add what Coach Pat should call you.");
+    expect(persistMock).not.toHaveBeenCalled();
     expect(clearReviewAckMock).not.toHaveBeenCalled();
   });
 
@@ -143,6 +161,11 @@ describe("POST /api/onboarding/identity", () => {
       })
     );
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      versionId: "ver_1",
+      identity_anchor_text: validBody.identity_anchor_text,
+    });
     expect(clearReviewAckMock).toHaveBeenCalledTimes(1);
   });
 
@@ -178,6 +201,11 @@ describe("POST /api/onboarding/identity", () => {
       })
     );
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      versionId: "ver_1",
+      identity_anchor_text: validBody.identity_anchor_text,
+    });
     expect(persistMock).toHaveBeenCalledWith(
       expect.objectContaining({
         otherText: "artist",
@@ -217,6 +245,58 @@ describe("POST /api/onboarding/identity", () => {
       })
     );
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      versionId: "ver_1",
+      identity_anchor_text: "I am becoming the best me I can be.",
+    });
     expect(persistMock).toHaveBeenCalled();
+  });
+
+  it("returns the normalized persisted identity_anchor_text on success", async () => {
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/onboarding/identity", {
+        method: "POST",
+        body: JSON.stringify({
+          preferred_name: "  Alex  ",
+          identity_anchor_text:
+            "  A steadier parent who follows through on small promises every day.  ",
+        }),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(persistMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preferredName: "Alex",
+        identityAnchorText: validBody.identity_anchor_text,
+      })
+    );
+    expect(await res.json()).toEqual({
+      ok: true,
+      versionId: "ver_1",
+      identity_anchor_text: validBody.identity_anchor_text,
+    });
+  });
+
+  it("returns 500 persist error without treating save as success", async () => {
+    persistMock.mockResolvedValue({
+      ok: false,
+      error: "We couldn’t save this step. Please try again.",
+    });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/onboarding/identity", {
+        method: "POST",
+        body: JSON.stringify(validBody),
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: "We couldn’t save this step. Please try again.",
+    });
+    expect(clearReviewAckMock).not.toHaveBeenCalled();
   });
 });

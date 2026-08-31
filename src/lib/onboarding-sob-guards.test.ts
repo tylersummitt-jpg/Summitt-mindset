@@ -96,6 +96,8 @@ describe("SoB onboarding guards", () => {
     const src = readSrc("src/app/api/onboarding/identity/route.ts");
     expect(src).not.toContain("life_desires");
     expect(src).toContain("clearProposedCommitmentReviewAcknowledgment");
+    expect(src).toContain("ok: true");
+    expect(src).toContain("identity_anchor_text: normalizedAnchor");
   });
 
   it("identity page loads draft data for resume", () => {
