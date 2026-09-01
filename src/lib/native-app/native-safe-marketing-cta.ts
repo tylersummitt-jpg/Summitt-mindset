@@ -6,7 +6,7 @@
 import { APP_SIGN_IN_PATH } from "@/lib/app-sign-in/app-sign-in-constants";
 import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
 
-const BROWSER_SIGN_IN_SUBSCRIBE = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
+const BROWSER_SIGN_UP_SUBSCRIBE = `/sign-up?redirect_url=${encodeURIComponent("/subscribe")}`;
 
 export function marketingAcquisitionHref(options: {
   isNativeApp: boolean;
@@ -15,7 +15,7 @@ export function marketingAcquisitionHref(options: {
   if (options.isNativeApp) {
     return options.isSignedIn ? APP_MEMBERSHIP_PATH : APP_SIGN_IN_PATH;
   }
-  return options.isSignedIn ? "/subscribe" : BROWSER_SIGN_IN_SUBSCRIBE;
+  return options.isSignedIn ? "/subscribe" : BROWSER_SIGN_UP_SUBSCRIBE;
 }
 
 export function marketingTrialCtaLabel(isNativeApp: boolean): string {

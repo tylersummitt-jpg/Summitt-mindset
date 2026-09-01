@@ -265,6 +265,41 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignUp).not.toContain("AppEmailCodeSignIn");
   });
 
+  it("website SignUp presentation is component-local and keeps redirect props", () => {
+    const websiteSignUp = readSrc("src/app/sign-up/[[...sign-up]]/page.tsx");
+    expect(websiteSignUp).toContain("showOptionalFields: false");
+    expect(websiteSignUp).toContain('socialButtonsPlacement: "top"');
+    expect(websiteSignUp).toContain('socialButtonsVariant: "blockButton"');
+    expect(websiteSignUp).toContain("afterSignInUrl={safeAfterSignInUrl}");
+    expect(websiteSignUp).toContain("afterSignUpUrl={safeAfterSignUpUrl}");
+    expect(websiteSignUp).not.toContain("forceRedirectUrl");
+    expect(websiteSignUp).not.toContain("fallbackRedirectUrl");
+    expect(websiteSignUp).not.toMatch(/display:\s*["']none["']/);
+    expect(websiteSignUp).toContain("STEP 1 OF 2");
+    expect(websiteSignUp).toContain("7-day");
+    expect(websiteSignUp).toContain('aria-label="Coach signup steps"');
+
+    const coachOlStart = websiteSignUp.indexOf(
+      'aria-label="Coach signup steps"'
+    );
+    const coachSignUpSlot = websiteSignUp.indexOf("{signUp}", coachOlStart);
+    expect(coachOlStart).toBeGreaterThan(-1);
+    expect(coachSignUpSlot).toBeGreaterThan(coachOlStart);
+    expect(websiteSignUp.slice(coachOlStart, coachSignUpSlot)).not.toContain(
+      "STEP 1 OF 2"
+    );
+
+    const layout = readSrc("src/app/layout.tsx");
+    expect(layout).toContain("<ClerkProvider");
+    expect(layout).not.toMatch(/<ClerkProvider[\s\S]*appearance=/);
+
+    const nativeClient = readSrc(
+      "src/components/app-sign-in/AppEmailCodeSignIn.tsx"
+    );
+    expect(nativeClient).not.toContain("<SignUp");
+    expect(nativeClient).not.toMatch(/oauth_/i);
+  });
+
   it("findEmailCodeFirstFactor selects only email_code factors", () => {
     expect(
       findEmailCodeFirstFactor([

@@ -44,7 +44,7 @@ describe("native-safe marketing CTA helper", () => {
     ).toBe("/app/membership");
     expect(
       marketingAcquisitionHref({ isNativeApp: false, isSignedIn: false })
-    ).toContain("/sign-in");
+    ).toBe(`/sign-up?redirect_url=${encodeURIComponent("/subscribe")}`);
     expect(
       marketingAcquisitionHref({ isNativeApp: false, isSignedIn: true })
     ).toBe("/subscribe");
@@ -52,6 +52,22 @@ describe("native-safe marketing CTA helper", () => {
     expect(marketingTrialCtaLabel(false)).toMatch(/Free Trial/i);
     expect(marketingSubscribeCtaLabel(true)).toBe("Continue");
     expect(shouldShowMarketingPricingCopy(true)).toBe(false);
+  });
+
+  it("Navbar consumer Start Free Trial uses sign-up; Sign In and coach stay put", () => {
+    const nav = readSrc("src/components/Navbar.tsx");
+    expect(nav).toContain(
+      'SIGN_UP_WITH_SUBSCRIBE_REDIRECT = `/sign-up?redirect_url=${encodeURIComponent("/subscribe")}`'
+    );
+    expect(nav).toContain(
+      'SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT = `/sign-up?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`'
+    );
+    expect(nav).toContain('label: "Sign In"');
+    expect(nav).toContain(': "/sign-in"');
+    expect(nav).toContain(
+      'SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`'
+    );
+    expect(nav).not.toContain("SIGN_IN_WITH_SUBSCRIBE_REDIRECT");
   });
 });
 

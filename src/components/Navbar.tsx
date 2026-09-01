@@ -26,7 +26,7 @@ const linkActive =
 const linkInactive =
   "text-[var(--muted)] hover:text-[var(--text)]";
 
-const SIGN_IN_WITH_SUBSCRIBE_REDIRECT = `/sign-in?redirect_url=${encodeURIComponent("/subscribe")}`;
+const SIGN_UP_WITH_SUBSCRIBE_REDIRECT = `/sign-up?redirect_url=${encodeURIComponent("/subscribe")}`;
 
 /** Meta ad landing: coach funnel — primary acquisition uses sign-up. */
 const SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT = `/sign-up?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`;
@@ -79,7 +79,7 @@ export function Navbar() {
 
   const startFreeTrialHref = isCoachLeadershipKitPath(pathname)
     ? SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT
-    : SIGN_IN_WITH_SUBSCRIBE_REDIRECT;
+    : SIGN_UP_WITH_SUBSCRIBE_REDIRECT;
 
   const signInHref = isNativeApp
     ? APP_SIGN_IN_PATH

@@ -26,6 +26,48 @@ import {
  * Optional ?redirect_url= — same sanitization as sign-in (safe internal paths only).
  */
 
+const websiteSignUpAppearance = {
+  layout: {
+    showOptionalFields: false,
+    socialButtonsPlacement: "top" as const,
+    socialButtonsVariant: "blockButton" as const,
+  },
+  variables: {
+    colorPrimary: "#f97316",
+    colorBackground: "#ffffff",
+    colorForeground: "#111827",
+    colorMutedForeground: "#6b7280",
+    colorInputBackground: "#ffffff",
+    colorInputForeground: "#111827",
+    colorBorder: "#e5e7eb",
+    borderRadius: "0.75rem",
+    fontFamily: "inherit",
+  },
+  elements: {
+    card: {
+      boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+    },
+    formButtonPrimary: {
+      backgroundColor: "#f97316",
+      color: "#ffffff",
+      fontWeight: "600",
+    },
+    formFieldLabel: {
+      color: "#111827",
+    },
+    dividerText: {
+      color: "#6b7280",
+    },
+    headerSubtitle: {
+      color: "#6b7280",
+      fontSize: "0.8125rem",
+    },
+    footerActionLink: {
+      color: "#f97316",
+    },
+  },
+};
+
 export default function SignUpPage() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams?.get("redirect_url");
@@ -42,11 +84,17 @@ export default function SignUpPage() {
     <SignUp
       afterSignInUrl={safeAfterSignInUrl}
       afterSignUpUrl={safeAfterSignUpUrl}
+      appearance={websiteSignUpAppearance}
     />
   );
 
   return (
-    <AuthMarketingShell authPage="sign-up">
+    <AuthMarketingShell
+      authPage="sign-up"
+      contentClassName={
+        isCoachSignUp ? "w-full max-w-md" : "w-full max-w-md lg:max-w-6xl"
+      }
+    >
       {isCoachSignUp ? <CoachAttributionSync enabled /> : null}
       {isCoachSignUp ? (
         <div className="mx-auto w-full max-w-[min(100%,24rem)] sm:max-w-[25rem]">
@@ -104,7 +152,23 @@ export default function SignUpPage() {
           {signUp}
         </div>
       ) : (
-        signUp
+        <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-2 lg:items-center lg:gap-14">
+          <div className="flex min-w-0 flex-col justify-center gap-2 text-center lg:gap-3 lg:text-left">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
+              STEP 1 OF 2
+            </p>
+            <p className="text-lg font-semibold leading-snug text-white drop-shadow-sm sm:text-xl">
+              You&apos;re one step away.
+            </p>
+            <p className="text-sm leading-snug text-white/90 sm:text-[15px] sm:leading-relaxed">
+              Create your account below. Next, you&apos;ll start your 7-day
+              free trial.
+            </p>
+          </div>
+          <div className="w-full min-w-0 lg:justify-self-end">
+            <div className="w-full max-w-md lg:ml-auto">{signUp}</div>
+          </div>
+        </div>
       )}
     </AuthMarketingShell>
   );
