@@ -134,6 +134,25 @@ describe("Edit Win UI", () => {
     expect(html).not.toContain("Remove photo");
   });
 
+  it("Cancel uses the provided calendar month/day href", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(EditWinClient, {
+        winId: "w1",
+        maxOccurredOn: "2026-08-09",
+        initialOccurredOn: "2026-08-08",
+        initialTitle: "Lifted",
+        initialDetails: "",
+        initialSeasonId: "",
+        expectedUpdatedAt: "2026-08-09T12:00:00.000Z",
+        seasonOptions: [],
+        cancelHref: "/dashboard/victory-room?month=2026-08&day=2026-08-18",
+        orphanCommitmentNotice: false,
+        media: null,
+      })
+    );
+    expect(html).toContain('href="/dashboard/victory-room?month=2026-08&amp;day=2026-08-18"');
+  });
+
   it("edit page wires ownership loader, enricher, and bounded from origin", () => {
     const pageSrc = fs.readFileSync(
       path.join(process.cwd(), "src/app/dashboard/victory-room/wins/[winId]/edit/page.tsx"),
@@ -147,6 +166,8 @@ describe("Edit Win UI", () => {
     expect(pageSrc).not.toContain("returnTo");
     expect(pageSrc).not.toContain("openai");
     expect(pageSrc).not.toContain("storage_master_path");
+    expect(pageSrc).toContain("parseEditWinOrigin(sp.from)");
+    expect(pageSrc).toContain("editWinOriginHref(origin)");
   });
 
   it("confirm UI copy is available from actions component", () => {

@@ -47,9 +47,14 @@ const base = {
 };
 
 describe("VictoryCalendarSection import guards", () => {
-  it("does not add Add Win or semantic-system imports", () => {
-    expect(SECTION_SRC).not.toContain("add-win");
-    expect(SECTION_SRC).not.toContain("Add a Win");
+  it("adds only the selected-day accent Add Win link and keeps semantic systems out", () => {
+    expect(SECTION_SRC).toContain("buildCalendarAddWinHref");
+    expect(SECTION_SRC).toContain("+ Add a Win");
+    expect(SECTION_SRC).toContain("vrAccentLink");
+    expect(SECTION_SRC).not.toContain("vrFoundationBtn");
+    expect(SECTION_SRC).not.toContain("returnTo");
+    expect(SECTION_SRC).not.toContain("persistManualV2Win");
+    expect(SECTION_SRC).not.toContain("/api/v2/wins/manual");
     expect(SECTION_SRC).not.toContain("sms_audience");
     expect(SECTION_SRC).not.toContain("inbound-sol");
     expect(SECTION_SRC).not.toContain("inbound-mms-d2");
@@ -73,7 +78,7 @@ describe("VictoryCalendarSection selected-day detail", () => {
     expect(html).not.toContain("Add a Win");
   });
 
-  it("shows empty copy for a selected day with no Wins", () => {
+  it("shows empty copy and a single + Add a Win link for a selected day with no Wins", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryCalendarSection, {
         ...base,
@@ -83,7 +88,11 @@ describe("VictoryCalendarSection selected-day detail", () => {
     );
     expect(html).toContain("September 15");
     expect(html).toContain("No Wins recorded yet.");
-    expect(html).not.toContain("Add a Win");
+    expect(html).toContain("+ Add a Win");
+    expect(html.split("Add a Win").length - 1).toBe(1);
+    expect(html).toContain(
+      "/dashboard/victory-room/add-win?occurredOn=2026-09-15&amp;from=calendar%3A2026-09%3A2026-09-15"
+    );
   });
 
   it("renders existing VictoryWinCard for one and multiple Wins, including photo DTO", () => {
@@ -98,6 +107,15 @@ describe("VictoryCalendarSection selected-day detail", () => {
     expect(one).toContain("1 Win");
     expect(one).toContain("Showed up");
     expect(one).toContain("You did the hard thing.");
+    expect(one).toContain("+ Add a Win");
+    expect(one.split("Add a Win").length - 1).toBe(1);
+    expect(one).toContain(
+      "/dashboard/victory-room/add-win?occurredOn=2026-09-14&amp;from=calendar%3A2026-09%3A2026-09-14"
+    );
+    expect(one).toContain(
+      "/dashboard/victory-room/wins/w1/edit?from=calendar%3A2026-09%3A2026-09-14"
+    );
+    expect(one).not.toContain("from=victory-room");
 
     const many = renderToStaticMarkup(
       React.createElement(VictoryCalendarSection, {
@@ -123,5 +141,12 @@ describe("VictoryCalendarSection selected-day detail", () => {
     expect(many).toContain("Photo win");
     expect(many).toContain("https://signed.example/card.jpg");
     expect(many).toContain("alt=\"Photo attached to this win\"");
+    expect(many.split("Add a Win").length - 1).toBe(1);
+    expect(many).toContain(
+      "/dashboard/victory-room/wins/w2/edit?from=calendar%3A2026-09%3A2026-09-14"
+    );
+    expect(many).toContain(
+      "/dashboard/victory-room/wins/w3/edit?from=calendar%3A2026-09%3A2026-09-14"
+    );
   });
 });

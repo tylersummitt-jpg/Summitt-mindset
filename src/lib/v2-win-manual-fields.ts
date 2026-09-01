@@ -45,6 +45,18 @@ export function isValidOccurredOnDateKey(raw: unknown): raw is string {
   );
 }
 
+/** Prefill Add Win date from a query candidate. `todayKey` must be member-local today. */
+export function resolveManualWinOccurredOnPrefill(
+  occurredOnRaw: unknown,
+  todayKey: string
+): string {
+  if (!isValidOccurredOnDateKey(todayKey)) return todayKey;
+  if (typeof occurredOnRaw !== "string") return todayKey;
+  const candidate = occurredOnRaw.trim();
+  if (!isValidOccurredOnDateKey(candidate) || candidate > todayKey) return todayKey;
+  return candidate;
+}
+
 export function buildManualWinIdempotencyKey(
   clerkUserId: string,
   clientRequestId: string

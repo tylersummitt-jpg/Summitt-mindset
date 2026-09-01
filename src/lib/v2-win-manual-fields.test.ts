@@ -6,6 +6,7 @@ import {
   mapManualWinUserText,
   MANUAL_WIN_DETAILS_MAX,
   MANUAL_WIN_TITLE_MAX,
+  resolveManualWinOccurredOnPrefill,
 } from "@/lib/v2-win-manual-fields";
 
 describe("v2-win-manual-fields", () => {
@@ -47,6 +48,15 @@ describe("v2-win-manual-fields", () => {
     expect(isValidOccurredOnDateKey("2026-08-08")).toBe(true);
     expect(isValidOccurredOnDateKey("2026-02-30")).toBe(false);
     expect(isValidOccurredOnDateKey("08/08/2026")).toBe(false);
+  });
+
+  it("prefills occurredOn only for valid past/today keys against member-local today", () => {
+    expect(resolveManualWinOccurredOnPrefill("2026-08-01", "2026-08-08")).toBe("2026-08-01");
+    expect(resolveManualWinOccurredOnPrefill("2026-08-08", "2026-08-08")).toBe("2026-08-08");
+    expect(resolveManualWinOccurredOnPrefill("2026-08-09", "2026-08-08")).toBe("2026-08-08");
+    expect(resolveManualWinOccurredOnPrefill("not-a-date", "2026-08-08")).toBe("2026-08-08");
+    expect(resolveManualWinOccurredOnPrefill("08/01/2026", "2026-08-08")).toBe("2026-08-08");
+    expect(resolveManualWinOccurredOnPrefill(undefined, "2026-08-08")).toBe("2026-08-08");
   });
 
   it("builds manual idempotency namespace without timestamp", () => {

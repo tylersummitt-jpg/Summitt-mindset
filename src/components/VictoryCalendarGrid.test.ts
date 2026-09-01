@@ -27,6 +27,7 @@ describe("VictoryCalendarGrid import / timezone guards", () => {
     expect(GRID_SRC).not.toContain("inbound-sol");
     expect(GRID_SRC).not.toContain("inbound-mms-d2");
     expect(GRID_SRC).not.toContain("add-win");
+    expect(GRID_SRC).not.toContain("Add a Win");
     expect(GRID_SRC).toContain("scroll: false");
     expect(GRID_SRC).not.toMatch(/new Date\(/);
   });
@@ -49,6 +50,7 @@ describe("VictoryCalendarGrid", () => {
       })
     );
     expect(container.querySelector("[role='group']")?.children).toHaveLength(7 + 42);
+    expect(container.textContent).not.toContain("Add a Win");
     const one = screen.getByRole("button", { name: "September 14, 2026, 1 Win" });
     expect(one.textContent).toContain("🏆");
     expect(one.textContent).not.toMatch(/🏆\s*1/);

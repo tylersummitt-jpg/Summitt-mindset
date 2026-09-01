@@ -46,8 +46,8 @@ describe("Victory Room Victory Calendar wiring", () => {
     const cal = pageSrc.indexOf("<VictoryCalendarSection");
     const wins = pageSrc.indexOf("<VictoryRecentProofSection");
     expect(top).toBeGreaterThan(-1);
-    expect(cal).toBeGreaterThan(top);
-    expect(wins).toBeGreaterThan(cal);
+    expect(wins).toBeGreaterThan(top);
+    expect(cal).toBeGreaterThan(wins);
     const notReady = pageSrc.indexOf("Not quite ready");
     expect(cal).toBeGreaterThan(notReady);
     expect(pageSrc).toContain("calendarState.selectedDay");

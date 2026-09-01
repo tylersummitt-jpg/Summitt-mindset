@@ -29,7 +29,8 @@ import { VICTORY_MEDIA_MAX_UPLOAD_BYTES } from "@/lib/victory-media/constants";
 
 const baseProps = {
   timeZone: "America/New_York",
-  defaultOccurredOn: "2026-08-08",
+  initialOccurredOn: "2026-08-08",
+  maxOccurredOn: "2026-08-08",
   lockedSeason: null as null | {
     seasonId: string;
     seasonName: string;
@@ -76,6 +77,21 @@ describe("AddWinClient static markup", () => {
     expect(html).toContain("Overall only");
     expect(html).toContain("Save Win");
     expect(html).not.toMatch(/streak|score|badge|points|achievement/i);
+  });
+
+  it("historical initialOccurredOn does not become maxOccurredOn", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AddWinClient, {
+        ...baseProps,
+        initialOccurredOn: "2026-08-01",
+        maxOccurredOn: "2026-08-08",
+        cancelHref: "/dashboard/victory-room?month=2026-08&day=2026-08-01",
+      })
+    );
+    expect(html).toContain('id="win-date"');
+    expect(html).toContain('max="2026-08-08"');
+    expect(html).toContain('value="2026-08-01"');
+    expect(html).toContain('href="/dashboard/victory-room?month=2026-08&amp;day=2026-08-01"');
   });
 
   it("photo input sits after details and before date", () => {
@@ -187,6 +203,36 @@ describe("AddWinClient photo flows", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v2/wins/manual");
     expect(putMock).not.toHaveBeenCalled();
+  });
+
+  it("save from calendar cancelHref returns the exact month/day, ignoring API redirect_to", async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/v2/wins/manual") {
+        return jsonResponse({
+          ok: true,
+          status: "inserted",
+          win_id: "win-cal",
+          redirect_to: "/dashboard/victory-room",
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+
+    const calendarHref = "/dashboard/victory-room?month=2026-08&day=2026-08-18";
+    render(
+      React.createElement(AddWinClient, {
+        ...baseProps,
+        initialOccurredOn: "2026-08-18",
+        maxOccurredOn: "2026-08-31",
+        cancelHref: calendarHref,
+      })
+    );
+    await fillRequiredAndSubmit();
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith(calendarHref);
+    });
+    expect(refreshMock).toHaveBeenCalled();
   });
 
   it("JPEG success: Win → intent → PUT → finalize → navigate (exact order)", async () => {
@@ -513,6 +559,31 @@ describe("AddWinClient source policy", () => {
     expect(pageSrc).toContain("formatUserFacingGoal");
     expect(persistSrc).toContain("behavior_statement");
     expect(persistSrc).not.toMatch(/commitment\.title|legacy.*title/i);
+    expect(pageSrc).not.toMatch(/commitment\.title|legacy.*title/i);
+    expect(pageSrc).toContain("occurredOn");
+    expect(pageSrc).toContain("resolveManualWinOccurredOnPrefill");
+    expect(pageSrc).toContain("resolveUserTimezone(md?.timezone)");
+    expect(pageSrc).toContain("getDateKeyInTimezone(new Date(), timeZone)");
+    expect(pageSrc).toContain("initialOccurredOn={initialOccurredOn}");
+    expect(pageSrc).toContain("maxOccurredOn={today}");
+    expect(pageSrc).toContain("editWinOriginHref(parseEditWinOrigin(params.from))");
+    expect(pageSrc).toContain("lockedSeason");
+    expect(pageSrc).not.toContain("returnTo");
+    expect(pageSrc).not.toContain("Intl.DateTimeFormat");
+    expect(pageSrc).not.toContain("persistManualV2Win");
+  });
+
+  it("splits initial vs max date and posts the existing manual API only", () => {
+    const clientSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/dashboard/victory-room/add-win/add-win-client.tsx"),
+      "utf8"
+    );
+    expect(clientSrc).toContain("initialOccurredOn");
+    expect(clientSrc).toContain("maxOccurredOn");
+    expect(clientSrc).not.toContain("defaultOccurredOn");
+    expect(clientSrc).toContain("useState(props.initialOccurredOn)");
+    expect(clientSrc).toContain("max={props.maxOccurredOn}");
+    expect(clientSrc).toContain("/api/v2/wins/manual");
   });
 
   it("mobile-safe structure uses full-width controls", () => {

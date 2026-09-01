@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { VictoryCalendarGrid } from "@/components/VictoryCalendarGrid";
 import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import { VictoryWinCard } from "@/components/VictoryWinCard";
-import { vrBodyMuted } from "@/components/victory-room-visual";
+import { vrAccentLink, vrBodyMuted } from "@/components/victory-room-visual";
 import { formatVictoryCalendarDayHeading } from "@/lib/v2-victory-calendar";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
-import { buildEditWinHref } from "@/lib/v2-win-edit-origin";
+import { buildCalendarAddWinHref, buildEditWinHref } from "@/lib/v2-win-edit-origin";
 import type { PublicWinDto } from "@/lib/v2-win-public-read";
 
 type VictoryCalendarSectionProps = {
@@ -64,12 +65,24 @@ export function VictoryCalendarSection({
                     hasMedia={Boolean(w.media)}
                     winId={w.id}
                     expectedUpdatedAt={w.updatedAt}
-                    editHref={buildEditWinHref(w.id, { kind: "victory-room" })}
+                    editHref={buildEditWinHref(w.id, {
+                      kind: "calendar",
+                      month: monthKey,
+                      day: selectedDay,
+                    })}
                   />
                 </li>
               ))}
             </ul>
           ) : null}
+          <p className="mt-6">
+            <Link
+              href={buildCalendarAddWinHref(monthKey, selectedDay)}
+              className={vrAccentLink}
+            >
+              + Add a Win
+            </Link>
+          </p>
         </div>
       ) : null}
     </VictoryRoomSectionShell>

@@ -28,7 +28,9 @@ import {
   USER_EDITED_PRESENTATION_GUARD,
 } from "@/lib/v2-win-user-edit";
 import {
+  buildCalendarAddWinHref,
   buildEditWinHref,
+  encodeEditWinOrigin,
   editWinOriginHref,
   parseEditWinOrigin,
 } from "@/lib/v2-win-edit-origin";
@@ -163,17 +165,70 @@ function mockSeasonOwned(season: {
 }
 
 describe("v2-win-edit-origin", () => {
+  const seasonId = "11111111-1111-4111-8111-111111111111";
+  const calendarOrigin = { kind: "calendar" as const, month: "2026-08", day: "2026-08-18" };
+
   it("parses bounded origins and rejects arbitrary return URLs", () => {
+    expect(parseEditWinOrigin("victory-room")).toEqual({ kind: "victory-room" });
     expect(parseEditWinOrigin("all-wins")).toEqual({ kind: "all-wins" });
-    expect(parseEditWinOrigin("season:11111111-1111-4111-8111-111111111111")).toEqual({
+    expect(parseEditWinOrigin(`season:${seasonId}`)).toEqual({
       kind: "season",
-      seasonId: "11111111-1111-4111-8111-111111111111",
+      seasonId,
     });
     expect(parseEditWinOrigin("https://evil.example/x")).toEqual({ kind: "victory-room" });
     expect(editWinOriginHref({ kind: "victory-room" })).toBe("/dashboard/victory-room");
     expect(buildEditWinHref("w1", { kind: "all-wins" })).toContain(
       "/dashboard/victory-room/wins/w1/edit?from=all-wins"
     );
+    expect(editWinOriginHref({ kind: "all-wins" })).toBe("/dashboard/victory-room/all-proof");
+    expect(editWinOriginHref({ kind: "season", seasonId })).toBe(
+      `/dashboard/victory-room/seasons/${seasonId}`
+    );
+  });
+
+  it("parses a valid calendar origin and resolves the exact month/day href", () => {
+    expect(parseEditWinOrigin("calendar:2026-08:2026-08-18")).toEqual(calendarOrigin);
+    expect(parseEditWinOrigin("  calendar:2026-08:2026-08-18  ")).toEqual(calendarOrigin);
+    expect(encodeEditWinOrigin(calendarOrigin)).toBe("calendar:2026-08:2026-08-18");
+    expect(editWinOriginHref(calendarOrigin)).toBe(
+      "/dashboard/victory-room?month=2026-08&day=2026-08-18"
+    );
+    expect(buildCalendarAddWinHref("2026-08", "2026-08-18")).toBe(
+      "/dashboard/victory-room/add-win?occurredOn=2026-08-18&from=calendar%3A2026-08%3A2026-08-18"
+    );
+    expect(buildEditWinHref("w1", calendarOrigin)).toBe(
+      "/dashboard/victory-room/wins/w1/edit?from=calendar%3A2026-08%3A2026-08-18"
+    );
+  });
+
+  it("rejects malformed calendar tokens, extra suffix/prefix, and open-redirect payloads", () => {
+    expect(parseEditWinOrigin("calendar:2026-13:2026-13-01")).toEqual({ kind: "victory-room" });
+    expect(parseEditWinOrigin("calendar:2026-08:2026-08-32")).toEqual({ kind: "victory-room" });
+    expect(parseEditWinOrigin("calendar:2026-08:2026-07-31")).toEqual({ kind: "victory-room" });
+    expect(parseEditWinOrigin("calendar:2026-08")).toEqual({ kind: "victory-room" });
+    expect(parseEditWinOrigin("calendar:2026-08:2026-08-18:extra")).toEqual({
+      kind: "victory-room",
+    });
+    expect(parseEditWinOrigin("xcalendar:2026-08:2026-08-18")).toEqual({ kind: "victory-room" });
+    expect(parseEditWinOrigin("calendar:2026-8:2026-08-18")).toEqual({ kind: "victory-room" });
+    expect(parseEditWinOrigin("/dashboard/admin")).toEqual({ kind: "victory-room" });
+    expect(parseEditWinOrigin("//evil.example")).toEqual({ kind: "victory-room" });
+    expect(parseEditWinOrigin("https://evil.example/?from=calendar:2026-08:2026-08-18")).toEqual({
+      kind: "victory-room",
+    });
+    expect(parseEditWinOrigin("calendar:2026-08:2026-08-18/../../evil")).toEqual({
+      kind: "victory-room",
+    });
+    expect(parseEditWinOrigin("calendar:2026-08:2026-08-18%2Fadmin")).toEqual({
+      kind: "victory-room",
+    });
+    expect(parseEditWinOrigin(decodeURIComponent("calendar%3A2026-08%3A2026-08-18%2Fadmin"))).toEqual(
+      { kind: "victory-room" }
+    );
+    expect(editWinOriginHref(parseEditWinOrigin("https://evil.example/x"))).toBe(
+      "/dashboard/victory-room"
+    );
+    expect(buildCalendarAddWinHref("2026-08", "2026-07-31")).toBe("/dashboard/victory-room/add-win");
   });
 });
 

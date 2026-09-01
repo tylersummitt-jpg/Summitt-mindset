@@ -2,6 +2,8 @@ import { currentUser } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import { vrPageGlow, vrPageInner, vrPageOuter } from "@/components/victory-room-visual";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
+import { editWinOriginHref, parseEditWinOrigin } from "@/lib/v2-win-edit-origin";
+import { resolveManualWinOccurredOnPrefill } from "@/lib/v2-win-manual-fields";
 import {
   loadManualWinSeasonOptionsForUser,
   loadOwnedSeasonForManualWin,
@@ -13,8 +15,8 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   searchParams?:
-    | Promise<{ seasonId?: string; from?: string }>
-    | { seasonId?: string; from?: string };
+    | Promise<{ seasonId?: string; from?: string; occurredOn?: string }>
+    | { seasonId?: string; from?: string; occurredOn?: string };
 };
 
 async function resolveSearchParams(searchParams: PageProps["searchParams"]) {
@@ -33,8 +35,8 @@ export default async function VictoryRoomAddWinPage({ searchParams }: PageProps)
     typeof params.seasonId === "string" && params.seasonId.trim()
       ? params.seasonId.trim()
       : null;
-  const fromAll =
-    typeof params.from === "string" && params.from.trim() === "all-wins";
+  const today = getDateKeyInTimezone(new Date(), timeZone);
+  const initialOccurredOn = resolveManualWinOccurredOnPrefill(params.occurredOn, today);
 
   let lockedSeason: {
     seasonId: string;
@@ -75,9 +77,7 @@ export default async function VictoryRoomAddWinPage({ searchParams }: PageProps)
 
   const cancelHref = lockedSeason
     ? `/dashboard/victory-room/seasons/${lockedSeason.seasonId}`
-    : fromAll
-      ? "/dashboard/victory-room/all-proof"
-      : "/dashboard/victory-room";
+    : editWinOriginHref(parseEditWinOrigin(params.from));
 
   return (
     <div className={`victory-room-route-canvas ${vrPageOuter}`}>
@@ -85,7 +85,8 @@ export default async function VictoryRoomAddWinPage({ searchParams }: PageProps)
       <main className={vrPageInner}>
         <AddWinClient
           timeZone={timeZone}
-          defaultOccurredOn={getDateKeyInTimezone(new Date(), timeZone)}
+          initialOccurredOn={initialOccurredOn}
+          maxOccurredOn={today}
           lockedSeason={lockedSeason}
           seasonOptions={seasonOptions}
           cancelHref={cancelHref}

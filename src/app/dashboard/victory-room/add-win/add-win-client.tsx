@@ -33,7 +33,8 @@ function newClientRequestId(): string {
 
 type Props = {
   timeZone: string;
-  defaultOccurredOn: string;
+  initialOccurredOn: string;
+  maxOccurredOn: string;
   /** When set, Season is fixed (no picker). */
   lockedSeason: {
     seasonId: string;
@@ -103,7 +104,7 @@ export default function AddWinClient(props: Props) {
   const [clientRequestId] = useState(() => newClientRequestId());
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
-  const [occurredOn, setOccurredOn] = useState(props.defaultOccurredOn);
+  const [occurredOn, setOccurredOn] = useState(props.initialOccurredOn);
   const [seasonChoice, setSeasonChoice] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
@@ -513,7 +514,7 @@ export default function AddWinClient(props: Props) {
             name="occurred_on"
             type="date"
             required
-            max={props.defaultOccurredOn}
+            max={props.maxOccurredOn}
             value={occurredOn}
             onChange={(e) => setOccurredOn(e.target.value)}
             className={inputClass}
