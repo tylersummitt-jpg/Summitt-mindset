@@ -192,6 +192,10 @@ describe("native membership gate surfaces", () => {
     const createIdx = route.indexOf("checkout.sessions.create");
     expect(nativeIdx).toBeGreaterThan(-1);
     expect(createIdx).toBeGreaterThan(nativeIdx);
+    expect(route).toContain("trial_period_days: 7");
+    expect(route).toContain("process.env.STRIPE_PRICE_ID_MONTHLY");
+    expect(route).toContain("process.env.STRIPE_PRICE_ID_ANNUAL");
+    expect(route).toContain("STRIPE_LEGACY_PRICE_IDS");
   });
 
   it("does not loosen unrelated protected routes in middleware", () => {

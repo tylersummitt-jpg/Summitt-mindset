@@ -158,11 +158,10 @@ export default function SignUpPage() {
               STEP 1 OF 2
             </p>
             <p className="text-lg font-semibold leading-snug text-white drop-shadow-sm sm:text-xl">
-              You&apos;re one step away.
+              Create your account
             </p>
             <p className="text-sm leading-snug text-white/90 sm:text-[15px] sm:leading-relaxed">
-              Create your account below. Next, you&apos;ll start your 7-day
-              free trial.
+              7 days free, then $29/month. You won&apos;t be charged today.
             </p>
           </div>
           <div className="w-full min-w-0 lg:justify-self-end">

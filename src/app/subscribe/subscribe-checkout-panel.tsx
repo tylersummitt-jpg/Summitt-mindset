@@ -53,9 +53,7 @@ export default function SubscribeCheckoutPanel() {
         "[subscribe] user not signed in; redirecting to auth with return path"
       );
       setLoadingPlan(null);
-      const authHref = isCoachExperience
-        ? `/sign-up?redirect_url=${encodeURIComponent(subscribeReturnPath)}`
-        : `/sign-in?redirect_url=${encodeURIComponent(subscribeReturnPath)}`;
+      const authHref = `/sign-up?redirect_url=${encodeURIComponent(subscribeReturnPath)}`;
       router.push(authHref);
       return;
     }
@@ -214,38 +212,68 @@ export default function SubscribeCheckoutPanel() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 w-full">
-        <button
-          onClick={() => handleCheckout("monthly")}
-          disabled={disabled}
-          className="relative w-full cursor-pointer border-2 border-[var(--brand)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition disabled:cursor-wait disabled:opacity-70"
+      <div className="space-y-4">
+        <div
+          className="rounded-2xl border-2 border-[var(--brand)] bg-[var(--surface)] p-5 text-left sm:p-6"
+          data-subscribe-offer="monthly-primary"
         >
-          <p className="text-sm font-semibold mb-1">Founding Member Monthly</p>
-          <p className="text-2xl font-bold mb-2">$29</p>
-          <p className="text-sm text-[var(--muted)]">Cancel anytime.</p>
-          {loadingPlan === "monthly" && (
-            <p className="absolute top-4 right-4 text-xs text-[var(--muted)]">
-              Redirecting…
-            </p>
-          )}
-        </button>
-
-        <button
-          onClick={() => handleCheckout("annual")}
-          disabled={disabled}
-          className="relative w-full cursor-pointer border border-[var(--border)] rounded-2xl p-6 bg-[var(--surface)] text-left hover:bg-[var(--brand-soft)] transition disabled:cursor-wait disabled:opacity-70"
-        >
-          <p className="text-sm font-semibold mb-1">Founding Member Annual</p>
-          <p className="text-2xl font-bold mb-2">$249</p>
-          <p className="text-sm text-[var(--muted)]">
-            Save $99 · about 28% vs monthly
+          <p className="text-2xl font-bold tracking-tight text-[var(--text)]">
+            $29/month
           </p>
-          {loadingPlan === "annual" && (
-            <p className="absolute top-4 right-4 text-xs text-[var(--muted)]">
-              Redirecting…
+          <p className="mt-2 text-sm font-medium text-[var(--text)]">
+            7-day free trial
+          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            You won&apos;t be charged today
+          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">Cancel anytime</p>
+          <button
+            type="button"
+            onClick={() => handleCheckout("monthly")}
+            disabled={disabled}
+            className="mt-4 w-full cursor-pointer rounded-xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-orange-500/20 transition hover:opacity-95 disabled:cursor-wait disabled:opacity-70"
+          >
+            {loadingPlan === "monthly" ? "Redirecting…" : "Start My Free Trial"}
+          </button>
+        </div>
+
+        <p className="text-sm leading-snug text-[var(--muted)]">
+          You&apos;ll continue to Stripe to add a payment method. You won&apos;t
+          be charged today.
+        </p>
+
+        <div
+          className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3"
+          data-subscribe-offer="annual-secondary"
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-[var(--muted)]">
+              Prefer annual?
             </p>
-          )}
-        </button>
+            <p className="text-sm font-semibold text-[var(--text)]">
+              $249/year
+            </p>
+            <p className="text-xs text-[var(--muted)]">Save $99 vs monthly</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleCheckout("annual")}
+            disabled={disabled}
+            className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--brand-soft)] disabled:cursor-wait disabled:opacity-70"
+          >
+            {loadingPlan === "annual" ? "Redirecting…" : "Choose annual"}
+          </button>
+        </div>
+
+        <blockquote className="border-t border-[var(--border)] pt-4 text-left">
+          <p className="text-sm leading-relaxed text-[var(--text)]">
+            &ldquo;Talking with &lsquo;Coach Pat&rsquo; through Summitt Mindset
+            feels like having Pat Summitt sitting on my shoulder.&rdquo;
+          </p>
+          <footer className="mt-2 text-sm font-medium text-[var(--muted)]">
+            — Kathy P., Oregon
+          </footer>
+        </blockquote>
       </div>
 
       {canceled && (

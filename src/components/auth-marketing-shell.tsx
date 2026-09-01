@@ -15,10 +15,8 @@ type Props = {
   contentClassName?: string;
 };
 
-const SPAM_HELPER = "Didn't get the code? Check your spam folder.";
-
 /**
- * Centered Clerk over a full-bleed arena image: image → overlay → Clerk + helper.
+ * Centered Clerk over a full-bleed arena image: image → overlay → Clerk.
  * Presentation only — no Clerk props or redirect logic here.
  */
 export function AuthMarketingShell({
@@ -26,7 +24,6 @@ export function AuthMarketingShell({
   children,
   contentClassName = "w-full max-w-md",
 }: Props) {
-  const showSpamHelper = authPage === "sign-in" || authPage === "sign-up";
   const heroMinH =
     authPage === "coach-complete"
       ? "min-h-screen"
@@ -66,23 +63,11 @@ export function AuthMarketingShell({
           aria-hidden
         />
 
-        {/* Foreground: centered Clerk + helper (no extra shell card — Clerk is the card) */}
+        {/* Foreground: centered Clerk (no extra shell card — Clerk is the card) */}
         <div
           className={`relative z-10 mx-auto flex w-full flex-col items-center justify-center px-4 py-12 sm:py-14 md:py-16 ${heroMinH} ${contentClassName}`}
         >
           <div className="w-full">{children}</div>
-
-          {showSpamHelper ? (
-            <p
-              className={
-                authPage === "sign-up"
-                  ? "mt-8 max-w-md text-center text-[13px] font-medium leading-relaxed text-white/92 sm:text-sm sm:text-white/95"
-                  : "mt-8 max-w-md text-center text-[13px] leading-relaxed text-white/85 sm:text-sm sm:text-white/90"
-              }
-            >
-              {SPAM_HELPER}
-            </p>
-          ) : null}
         </div>
       </div>
     </section>

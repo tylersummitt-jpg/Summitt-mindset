@@ -276,7 +276,14 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignUp).not.toContain("fallbackRedirectUrl");
     expect(websiteSignUp).not.toMatch(/display:\s*["']none["']/);
     expect(websiteSignUp).toContain("STEP 1 OF 2");
-    expect(websiteSignUp).toContain("7-day");
+    expect(websiteSignUp).toContain("Create your account");
+    expect(websiteSignUp).toContain("$29/month");
+    expect(websiteSignUp).toContain("You won&apos;t be charged today");
+    expect(websiteSignUp).toContain("7 days free, then $29/month");
+    expect(websiteSignUp).not.toContain("Start your 7-day free trial");
+    expect(websiteSignUp).not.toContain("$249");
+    expect(websiteSignUp).not.toContain("Daily accountability");
+    expect(websiteSignUp).not.toContain("$0 due today");
     expect(websiteSignUp).toContain('aria-label="Coach signup steps"');
 
     const coachOlStart = websiteSignUp.indexOf(
@@ -288,10 +295,19 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignUp.slice(coachOlStart, coachSignUpSlot)).not.toContain(
       "STEP 1 OF 2"
     );
+    expect(websiteSignUp.slice(coachOlStart, coachSignUpSlot)).not.toContain(
+      "$29/month"
+    );
 
     const layout = readSrc("src/app/layout.tsx");
     expect(layout).toContain("<ClerkProvider");
     expect(layout).not.toMatch(/<ClerkProvider[\s\S]*appearance=/);
+
+    const authShell = readSrc("src/components/auth-marketing-shell.tsx");
+    expect(authShell).not.toContain("Didn't get the code?");
+    expect(authShell).not.toContain("SPAM_HELPER");
+    expect(authShell).not.toContain("MutationObserver");
+    expect(authShell).not.toContain("querySelector");
 
     const nativeClient = readSrc(
       "src/components/app-sign-in/AppEmailCodeSignIn.tsx"
