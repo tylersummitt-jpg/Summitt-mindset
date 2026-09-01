@@ -8,6 +8,7 @@ import {
   isCoachAttributionEnabled,
   isCoachAttributionPath,
 } from "@/lib/coach-attribution";
+import { attachMarketingCookies } from "@/lib/marketing-middleware-cookies";
 import { isNativeSummittMindsetApp } from "@/lib/native-app/platform";
 import { signInPathForClient } from "@/lib/native-app/membership-paths";
 
@@ -81,6 +82,9 @@ const isPublicRoute = createRouteMatcher([
   // Challenge signup (anonymous email capture)
   "/api/challenge/signup",
 
+  // First-party marketing collect (anonymous, fail-open, no session required)
+  "/api/marketing/collect",
+
   // Pulse flow (SMS users open /pulse?t=... and POST to pulse-reply without session)
   "/api/sms/pulse-reply",
 
@@ -110,7 +114,7 @@ export default clerkMiddleware(async (auth, req) => {
         httpOnly: false,
       });
     }
-    return res;
+    return attachMarketingCookies(req, res);
   }
 
   const { userId } = await auth();
@@ -130,7 +134,7 @@ export default clerkMiddleware(async (auth, req) => {
         httpOnly: false,
       });
     }
-    return res;
+    return attachMarketingCookies(req, res);
   }
 
   const res = NextResponse.next();
@@ -143,7 +147,7 @@ export default clerkMiddleware(async (auth, req) => {
       httpOnly: false,
     });
   }
-  return res;
+  return attachMarketingCookies(req, res);
 });
 
 export const config = {

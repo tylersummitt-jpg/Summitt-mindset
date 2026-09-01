@@ -157,7 +157,7 @@ export default function SubscribeCheckoutPanel() {
   }
 
   return (
-    <div className="w-full max-w-lg mx-auto md:mx-0">
+    <div className="w-full max-w-lg mx-auto md:mx-0" data-growth-ignore="checkout">
       {isCoachExperience ? (
         <div className="mb-5 text-left">
           <ol

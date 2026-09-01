@@ -6,6 +6,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { maySetCoachAcquisitionSource } from "@/lib/coach-attribution";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
 import SubscribeCheckoutPanel from "./subscribe-checkout-panel";
@@ -74,6 +75,14 @@ export default async function SubscribePage({
         "[subscribe] unable to set acquisitionSource from src=coach:",
         err
       );
+    }
+  }
+
+  if (user?.id) {
+    try {
+      await linkMarketingVisitorToClerkUser(user.id);
+    } catch {
+      // fail-open: analytics must never change subscribe or Checkout
     }
   }
 

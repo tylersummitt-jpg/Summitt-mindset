@@ -14,6 +14,7 @@ import {
   MEMBER_APP_HOME_PATH,
 } from "@/lib/onboarding-sob-gates";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
+import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import {
   inactiveMembershipRedirectPath,
   signInPathForClient,
@@ -92,6 +93,12 @@ export default async function PostSignInPage() {
         );
       }
     }
+  }
+
+  try {
+    await linkMarketingVisitorToClerkUser(user.id);
+  } catch {
+    // fail-open: analytics must never change post-sign-in redirects
   }
 
   const isSubscribed = isSubscribedFromMetadata(effectiveMd);

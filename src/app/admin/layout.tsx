@@ -29,6 +29,12 @@ export default async function AdminLayout({
           </p>
 
           <nav className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <Link
+              href="/admin/subscriber-growth"
+              className="text-gray-700 underline hover:text-gray-900"
+            >
+              Subscriber Growth
+            </Link>
             <Link href="/admin/customers" className="text-gray-700 underline hover:text-gray-900">
               Subscribed customers
             </Link>
@@ -63,7 +69,9 @@ export default async function AdminLayout({
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-6 py-10">{children}</main>
+      <main className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 [&:has([data-admin-wide])]:max-w-6xl">
+        {children}
+      </main>
     </div>
   );
 }

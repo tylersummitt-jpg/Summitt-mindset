@@ -3,6 +3,8 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { MarketingCtaCapture } from "@/components/marketing-cta-capture";
+import { MarketingPageViewBeacon } from "@/components/marketing-page-view-beacon";
 import { MetaPixelRoot } from "@/components/MetaPixelRoot";
 import { Navbar } from "@/components/Navbar";
 import { NativeAppProvider } from "@/components/native-app/NativeAppProvider";
@@ -63,8 +65,14 @@ export default async function RootLayout({
             isNativeSummittMindsetApp={isNativeSummittMindsetApp}
             platform={platform}
           >
-            {/* Meta Pixel: browser/marketing only. Native app UA never mounts fbq / fbevents.js. */}
-            {!isNativeSummittMindsetApp ? <MetaPixelRoot /> : null}
+            {/* Meta Pixel + first-party marketing observers: browser only. Native UA never mounts. */}
+            {!isNativeSummittMindsetApp ? (
+              <>
+                <MetaPixelRoot />
+                <MarketingPageViewBeacon />
+                <MarketingCtaCapture />
+              </>
+            ) : null}
             <div className="flex flex-col min-h-screen">
               <Navbar />
 

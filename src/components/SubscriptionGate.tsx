@@ -137,6 +137,9 @@ function SubscriptionGateInner({
           </p>
 
           <button
+            type="button"
+            data-growth-cta="trial"
+            data-growth-surface="gate"
             onClick={() => {
               const target = `/subscribe${
                 fromParam ? `?from=${encodeURIComponent(fromParam)}` : ""

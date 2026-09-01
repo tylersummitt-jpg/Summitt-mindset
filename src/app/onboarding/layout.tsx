@@ -2,6 +2,7 @@ import type { ReactElement, ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { OnboardingShellMain } from "@/components/onboarding-shell-main";
+import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import {
@@ -96,6 +97,12 @@ export default async function OnboardingLayout({
       redirect: redirectTarget,
     });
     redirect(redirectTarget);
+  }
+
+  try {
+    await linkMarketingVisitorToClerkUser(user.id);
+  } catch {
+    // fail-open: analytics must never change onboarding gate order
   }
 
   const isSubscribed = isSubscribedFromPublicMetadata(user.publicMetadata);
