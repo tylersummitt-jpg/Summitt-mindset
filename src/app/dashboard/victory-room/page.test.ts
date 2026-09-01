@@ -21,3 +21,36 @@ describe("Victory Room main — legacy proof surface retirement", () => {
     expect(pageSrc).not.toContain("hasEarlierChapterHistory");
   });
 });
+
+describe("Victory Room Victory Calendar wiring", () => {
+  const pageSrc = fs.readFileSync(
+    path.join(process.cwd(), "src/app/dashboard/victory-room/page.tsx"),
+    "utf8"
+  );
+
+  it("resolves month/day from Clerk TZ helpers and Slice 1 clamp, not sms_audience", () => {
+    expect(pageSrc).toContain("getDateKeyInTimezone");
+    expect(pageSrc).toContain("resolveUserTimezone");
+    expect(pageSrc).toContain("resolveVictoryCalendarPageState");
+    expect(pageSrc).toContain("loadVictoryWinMonthMarkersForUser");
+    expect(pageSrc).toContain("loadPublicVictoryWinsForUserLocalDay");
+    expect(pageSrc).toContain("PUBLIC_WINS_RECENT_LIMIT");
+    expect(pageSrc).toContain("loadPublicVictoryWinsForUser");
+    expect(pageSrc).not.toContain("sms_audience");
+    expect(pageSrc).not.toContain("resolveSmsUserTimezone");
+  });
+
+  it("places the calendar after the foundation card and only in the active-commitment branch", () => {
+    expect(pageSrc).toContain("VictoryCalendarSection");
+    const top = pageSrc.indexOf("<VictoryRoomTopCard");
+    const cal = pageSrc.indexOf("<VictoryCalendarSection");
+    const wins = pageSrc.indexOf("<VictoryRecentProofSection");
+    expect(top).toBeGreaterThan(-1);
+    expect(cal).toBeGreaterThan(top);
+    expect(wins).toBeGreaterThan(cal);
+    const notReady = pageSrc.indexOf("Not quite ready");
+    expect(cal).toBeGreaterThan(notReady);
+    expect(pageSrc).toContain("calendarState.selectedDay");
+    expect(pageSrc).toContain("Promise.resolve([] as PublicWinDto[])");
+  });
+});

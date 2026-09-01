@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { fromMock, state } = vi.hoisted(() => {
@@ -9,6 +11,8 @@ const { fromMock, state } = vi.hoisted(() => {
     lastOrders: [] as Array<{ col: string; ascending: boolean }>,
     lastLimit: null as number | null,
     lastOr: null as string | null,
+    lastGte: null as { col: string; val: string } | null,
+    lastLt: null as { col: string; val: string } | null,
   };
 
   const fromMock = vi.fn();
@@ -32,6 +36,7 @@ vi.mock("@/lib/victory-media/enrich-public-wins-with-media", () => ({
 }));
 
 import {
+  PUBLIC_WIN_MONTH_MARKER_SELECT_COLUMNS,
   PUBLIC_WIN_SELECT_COLUMNS,
   PUBLIC_WINS_PAGE_LIMIT,
   PUBLIC_WINS_RECENT_LIMIT,
@@ -40,12 +45,15 @@ import {
   encodePublicWinsCursor,
   loadPublicAllWinsForUser,
   loadPublicVictoryWinsForUser,
+  loadPublicVictoryWinsForUserLocalDay,
+  loadVictoryWinMonthMarkersForUser,
   mapV2WinRowToPublicDto,
   quotePostgrestFilterValue,
   sanitizePublicWinSupportingQuote,
   isMemberOwnedWinPresentation,
   publicWinCardDisplayBody,
 } from "@/lib/v2-win-public-read";
+import { localDayUtcRange, localMonthUtcRange } from "@/lib/timezone";
 
 function winRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -89,6 +97,14 @@ function installFromMock() {
     });
     chain.or = vi.fn((filter: string) => {
       state.lastOr = filter;
+      return chain;
+    });
+    chain.gte = vi.fn((col: string, val: string) => {
+      state.lastGte = { col, val };
+      return chain;
+    });
+    chain.lt = vi.fn((col: string, val: string) => {
+      state.lastLt = { col, val };
       return chain;
     });
     // thenable for await query — per-chain head flag avoids Promise.all races
@@ -404,6 +420,8 @@ describe("loadPublicVictoryWinsForUser", () => {
     state.lastLimit = null;
     state.lastOr = null;
     state.lastSelects = [];
+    state.lastGte = null;
+    state.lastLt = null;
     state.countResult = { count: 2, error: null };
     state.pageResult = {
       data: [
@@ -503,6 +521,8 @@ describe("loadPublicAllWinsForUser", () => {
     state.lastLimit = null;
     state.lastOr = null;
     state.lastSelects = [];
+    state.lastGte = null;
+    state.lastLt = null;
     state.pageResult = {
       data: Array.from({ length: PUBLIC_WINS_PAGE_LIMIT + 1 }, (_, i) =>
         winRow({
@@ -580,5 +600,229 @@ describe("loadPublicAllWinsForUser", () => {
         ["status", "active"],
       ])
     );
+  });
+});
+
+const PUBLIC_READ_SRC = readFileSync(join(process.cwd(), "src/lib/v2-win-public-read.ts"), "utf8");
+
+function resetPublicReadQueryCapture() {
+  vi.clearAllMocks();
+  enrichMock.mockImplementation(async ({ wins }: { wins: unknown[] }) => wins);
+  state.lastEqCalls = [];
+  state.lastOrders = [];
+  state.lastLimit = null;
+  state.lastOr = null;
+  state.lastSelects = [];
+  state.lastGte = null;
+  state.lastLt = null;
+  state.pageResult = { data: [], error: null };
+}
+
+describe("loadVictoryWinMonthMarkersForUser", () => {
+  beforeEach(() => {
+    resetPublicReadQueryCapture();
+    installFromMock();
+  });
+
+  it("queries clerk_user_id + active + local month range, selects only id and occurred_at, no media, no row cap", async () => {
+    const range = localMonthUtcRange("2026-09", "America/New_York")!;
+    state.pageResult = {
+      data: [
+        { id: "a", occurred_at: "2026-09-14T16:00:00.000Z" },
+        { id: "b", occurred_at: "2026-09-15T02:00:00.000Z" },
+        { id: "c", occurred_at: "2026-09-14T20:00:00.000Z" },
+      ],
+      error: null,
+    };
+
+    const result = await loadVictoryWinMonthMarkersForUser({
+      clerkUserId: "user_1",
+      timeZone: "America/New_York",
+      monthKey: "2026-09",
+    });
+
+    expect(fromMock).toHaveBeenCalledWith("v2_win");
+    expect(state.lastSelects).toEqual([PUBLIC_WIN_MONTH_MARKER_SELECT_COLUMNS]);
+    expect(PUBLIC_WIN_MONTH_MARKER_SELECT_COLUMNS).toBe("id, occurred_at");
+    expect(state.lastEqCalls).toEqual([
+      ["clerk_user_id", "user_1"],
+      ["status", "active"],
+    ]);
+    expect(state.lastGte).toEqual({ col: "occurred_at", val: range.startUtcIso });
+    expect(state.lastLt).toEqual({ col: "occurred_at", val: range.endUtcIso });
+    expect(state.lastLimit).toBeNull();
+    expect(enrichMock).not.toHaveBeenCalled();
+    expect(result.counts["2026-09-14"]).toBe(3);
+    expect(Object.keys(result.counts)).toEqual(["2026-09-14"]);
+  });
+
+  it("groups two UTC calendar dates onto one member-local day", async () => {
+    state.pageResult = {
+      data: [
+        { id: "utc-sep-14", occurred_at: "2026-09-14T16:00:00.000Z" },
+        { id: "utc-sep-15-still-local-14", occurred_at: "2026-09-15T02:00:00.000Z" },
+      ],
+      error: null,
+    };
+    const result = await loadVictoryWinMonthMarkersForUser({
+      clerkUserId: "user_1",
+      timeZone: "America/New_York",
+      monthKey: "2026-09",
+    });
+    expect(result.counts).toEqual({ "2026-09-14": 2 });
+  });
+
+  it("does not count hidden rows because the query is status=active only", async () => {
+    state.pageResult = {
+      data: [{ id: "only-active-returned", occurred_at: "2026-09-14T16:00:00.000Z" }],
+      error: null,
+    };
+    const result = await loadVictoryWinMonthMarkersForUser({
+      clerkUserId: "user_1",
+      timeZone: "America/New_York",
+      monthKey: "2026-09",
+    });
+    expect(state.lastEqCalls).toContainEqual(["status", "active"]);
+    expect(result.counts["2026-09-14"]).toBe(1);
+  });
+
+  it("fail-closed: invalid month does not query the database", async () => {
+    const result = await loadVictoryWinMonthMarkersForUser({
+      clerkUserId: "user_1",
+      timeZone: "America/New_York",
+      monthKey: "2026-13",
+    });
+    expect(result).toEqual({ counts: {} });
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(enrichMock).not.toHaveBeenCalled();
+  });
+
+  it("requires clerk user id like the home loader", async () => {
+    await expect(
+      loadVictoryWinMonthMarkersForUser({
+        clerkUserId: "  ",
+        timeZone: "America/New_York",
+        monthKey: "2026-09",
+      })
+    ).rejects.toThrow(/v2_win_public_read_requires_clerk_user_id/);
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadPublicVictoryWinsForUserLocalDay", () => {
+  beforeEach(() => {
+    resetPublicReadQueryCapture();
+    installFromMock();
+  });
+
+  it("scopes owner + active + local day range, maps DTO, hides unedited system body, enriches media, orders desc", async () => {
+    const range = localDayUtcRange("2026-09-14", "America/New_York")!;
+    state.pageResult = {
+      data: [
+        winRow({
+          id: "newer",
+          occurred_at: "2026-09-14T20:00:00.000Z",
+          display_title: "Later win",
+          display_body: "Tyler, you did the thing.",
+          source_type: "sms_inbound",
+          user_edited_at: null,
+        }),
+        winRow({
+          id: "older",
+          occurred_at: "2026-09-14T16:00:00.000Z",
+          display_title: "Earlier win",
+          display_body: "Member wrote this.",
+          source_type: "manual",
+          user_edited_at: null,
+          supporting_quote: null,
+          celebration_appropriate: false,
+        }),
+      ],
+      error: null,
+    };
+    enrichMock.mockImplementation(async ({ wins }: { wins: unknown[] }) =>
+      (wins as Array<{ id: string }>).map((w) =>
+        w.id === "newer"
+          ? {
+              ...w,
+              media: { id: "m1", cardUrl: "https://signed.example/card.jpg", width: 10, height: 8 },
+            }
+          : w
+      )
+    );
+
+    const wins = await loadPublicVictoryWinsForUserLocalDay({
+      clerkUserId: "user_1",
+      timeZone: "America/New_York",
+      dayKey: "2026-09-14",
+    });
+
+    expect(state.lastSelects).toEqual([PUBLIC_WIN_SELECT_COLUMNS]);
+    expect(state.lastEqCalls).toEqual([
+      ["clerk_user_id", "user_1"],
+      ["status", "active"],
+    ]);
+    expect(state.lastGte).toEqual({ col: "occurred_at", val: range.startUtcIso });
+    expect(state.lastLt).toEqual({ col: "occurred_at", val: range.endUtcIso });
+    expect(state.lastOrders).toEqual([
+      { col: "occurred_at", ascending: false },
+      { col: "id", ascending: false },
+    ]);
+    expect(state.lastLimit).toBe(PUBLIC_WINS_PAGE_LIMIT);
+    expect(enrichMock).toHaveBeenCalledTimes(1);
+    expect(enrichMock).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      wins: expect.any(Array),
+    });
+    expect(wins).toHaveLength(2);
+    expect(wins[0]?.id).toBe("newer");
+    expect(wins[0]?.displayBody).toBe("");
+    expect(wins[0]?.media?.cardUrl).toBe("https://signed.example/card.jpg");
+    expect(wins[1]?.id).toBe("older");
+    expect(wins[1]?.displayBody).toBe("Member wrote this.");
+    expect(wins[0]).not.toHaveProperty("action_fact");
+    expect(wins[0]).not.toHaveProperty("source_message");
+    expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("action_fact");
+    expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("source_message");
+  });
+
+  it("fail-closed: invalid day does not query or enrich", async () => {
+    const wins = await loadPublicVictoryWinsForUserLocalDay({
+      clerkUserId: "user_1",
+      timeZone: "America/New_York",
+      dayKey: "2026-02-30",
+    });
+    expect(wins).toEqual([]);
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(enrichMock).not.toHaveBeenCalled();
+  });
+
+  it("requires clerk user id", async () => {
+    await expect(
+      loadPublicVictoryWinsForUserLocalDay({
+        clerkUserId: "",
+        timeZone: "UTC",
+        dayKey: "2026-09-14",
+      })
+    ).rejects.toThrow(/v2_win_public_read_requires_clerk_user_id/);
+  });
+});
+
+describe("Victory Calendar public-read source policy", () => {
+  it("does not import Sol, D2, weekly TTO, SMS persist, or media write pipelines", () => {
+    expect(PUBLIC_READ_SRC).not.toContain("weekly-tto-accountability-events");
+    expect(PUBLIC_READ_SRC).not.toContain("inbound-win-recognition");
+    expect(PUBLIC_READ_SRC).not.toContain("inbound-sol-relationship");
+    expect(PUBLIC_READ_SRC).not.toContain("inbound-mms-d2a");
+    expect(PUBLIC_READ_SRC).not.toContain("inbound-mms-d2b");
+    expect(PUBLIC_READ_SRC).not.toContain("inbound-mms-d2c");
+    expect(PUBLIC_READ_SRC).not.toContain("historical-win-evidence-load");
+    expect(PUBLIC_READ_SRC).not.toContain("v2-win-persist");
+    expect(PUBLIC_READ_SRC).not.toContain("victory-media/upload");
+    expect(PUBLIC_READ_SRC).toContain("loadVictoryWinMonthMarkersForUser");
+    expect(PUBLIC_READ_SRC).toContain("loadPublicVictoryWinsForUserLocalDay");
+    expect(PUBLIC_READ_SRC).toContain("PUBLIC_WINS_RECENT_LIMIT = 7");
+    expect(PUBLIC_READ_SRC).toContain('eq("clerk_user_id"');
+    expect(PUBLIC_READ_SRC).toContain('eq("status", "active")');
   });
 });

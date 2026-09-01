@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { VictoryCalendarSection } from "@/components/VictoryCalendarSection";
 import { VictoryPatPrinciplesSection } from "@/components/VictoryPatPrinciplesSection";
 import { VictoryPatReadSection } from "@/components/VictoryPatReadSection";
 import { VictoryRecentProofSection } from "@/components/VictoryRecentProofSection";
@@ -17,24 +18,52 @@ import {
 import { loadPatReadForVictoryRoom } from "@/lib/v2-victory-pat-read-persist";
 import { loadPatPrinciplesForVictoryRoom } from "@/lib/v2-victory-principles-persist";
 import { loadVictorySeasonListForRoom } from "@/lib/v2-victory-season-list";
-import { resolveUserTimezone } from "@/lib/timezone";
+import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
+import { resolveVictoryCalendarPageState } from "@/lib/v2-victory-calendar";
 import { loadVictoryEvolutionNudge } from "@/lib/v2-victory-evolution-nudge";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { getPendingResolutionOrNull, isSmsInboundPendingResolutionActionable } from "@/lib/v2-guided-resolution";
 import { loadVictoryRoomView } from "@/lib/v2-victory-room-view";
 import {
   loadPublicVictoryWinsForUser,
+  loadPublicVictoryWinsForUserLocalDay,
+  loadVictoryWinMonthMarkersForUser,
   PUBLIC_WINS_RECENT_LIMIT,
+  type PublicWinDto,
 } from "@/lib/v2-win-public-read";
 
 export const dynamic = "force-dynamic";
 
-export default async function VictoryRoomPage() {
+type VictoryRoomSearchParams = {
+  month?: string;
+  day?: string;
+};
+
+type PageProps = {
+  searchParams?: Promise<VictoryRoomSearchParams> | VictoryRoomSearchParams;
+};
+
+async function resolveVictoryRoomSearchParams(
+  searchParams: PageProps["searchParams"]
+): Promise<VictoryRoomSearchParams> {
+  if (!searchParams) return {};
+  return searchParams instanceof Promise ? await searchParams : searchParams;
+}
+
+export default async function VictoryRoomPage({ searchParams }: PageProps) {
   const user = await currentUser();
   if (!user?.id) redirect("/sign-in");
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
   const timeZone = resolveUserTimezone(md?.timezone);
+  const params = await resolveVictoryRoomSearchParams(searchParams);
+  const todayKey = getDateKeyInTimezone(new Date(), timeZone);
+  const currentMonthKey = todayKey.slice(0, 7);
+  const calendarState = resolveVictoryCalendarPageState({
+    requestedMonth: params.month,
+    requestedDay: params.day,
+    todayKey,
+  }) ?? { monthKey: currentMonthKey, selectedDay: null };
 
   const [view, publicWins] = await Promise.all([
     loadVictoryRoomView(user.id, { timeZone }),
@@ -90,6 +119,27 @@ export default async function VictoryRoomPage() {
     ? await loadVictoryEvolutionNudge({ clerkUserId: user.id })
     : null;
 
+  let calendarCounts: Record<string, number> = {};
+  let selectedWins: PublicWinDto[] = [];
+  if (view.hasActiveV2Commitment) {
+    const [markers, dayWins] = await Promise.all([
+      loadVictoryWinMonthMarkersForUser({
+        clerkUserId: user.id,
+        timeZone,
+        monthKey: calendarState.monthKey,
+      }),
+      calendarState.selectedDay
+        ? loadPublicVictoryWinsForUserLocalDay({
+            clerkUserId: user.id,
+            timeZone,
+            dayKey: calendarState.selectedDay,
+          })
+        : Promise.resolve([] as PublicWinDto[]),
+    ]);
+    calendarCounts = markers.counts;
+    selectedWins = dayWins;
+  }
+
   return (
     <div className={`victory-room-route-canvas ${vrPageOuter}`}>
       <div className={vrPageGlow} aria-hidden />
@@ -128,6 +178,16 @@ export default async function VictoryRoomPage() {
                 showEditIdentityLink={showEditIdentityLink}
               />
             ) : null}
+
+            <VictoryCalendarSection
+              monthKey={calendarState.monthKey}
+              currentMonthKey={currentMonthKey}
+              todayKey={todayKey}
+              selectedDay={calendarState.selectedDay}
+              counts={calendarCounts}
+              selectedWins={selectedWins}
+              timeZone={timeZone}
+            />
 
             <VictoryRecentProofSection
               totalActiveWins={publicWins.totalActiveWins}

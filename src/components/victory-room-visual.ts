@@ -105,6 +105,25 @@ export const vrPrincipleDefault =
 export const vrEvolutionNudge =
   "mb-10 rounded-2xl border border-amber-500/35 bg-gradient-to-br from-[#101622] to-[#0a0e16] p-6 shadow-[0_0_40px_-12px_rgba(251,191,36,0.24)] sm:p-7";
 
+export const vrCalendarNavBtn =
+  "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-amber-200/90 transition hover:text-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#060a11] disabled:pointer-events-none disabled:opacity-30";
+
+export const vrCalendarWeekday =
+  "text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-500 sm:text-xs";
+
+export const vrCalendarCellInteractive =
+  "flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 text-sm tabular-nums text-stone-400 transition hover:text-stone-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0e16]";
+
+export const vrCalendarCellWin = "bg-amber-500/10 text-amber-100";
+
+export const vrCalendarCellToday = "ring-1 ring-inset ring-amber-400/40";
+
+export const vrCalendarCellSelected =
+  "bg-amber-500/15 text-amber-50 ring-2 ring-inset ring-amber-400/70";
+
+export const vrCalendarCellFuture =
+  "flex min-h-11 w-full items-center justify-center text-sm tabular-nums text-stone-600";
+
 export type VictoryProofCategoryToneKey =
   | "kept_the_goal"
   | "told_the_truth"

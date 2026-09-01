@@ -100,6 +100,156 @@ export function resolveUserTimezone(raw: unknown): string {
   return trimmed;
 }
 
+const LOCAL_DATE_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const LOCAL_MONTH_KEY_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+function parseLocalDateKey(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const match = LOCAL_DATE_KEY_RE.exec(raw.trim());
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+    return null;
+  }
+  return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
+function parseLocalMonthKey(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const match = LOCAL_MONTH_KEY_RE.exec(raw.trim());
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  if (!Number.isInteger(y) || !Number.isInteger(m)) return null;
+  const dt = new Date(Date.UTC(y, m - 1, 1));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1) return null;
+  return `${match[1]}-${match[2]}`;
+}
+
+function addCalendarDaysToDateKey(dateKey: string, deltaDays: number): string | null {
+  const parsed = parseLocalDateKey(dateKey);
+  if (!parsed) return null;
+  const [y, m, d] = parsed.split("-").map(Number);
+  const nd = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  const yy = nd.getUTCFullYear();
+  const mm = String(nd.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(nd.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+function nextLocalMonthKey(monthKey: string): string | null {
+  const parsed = parseLocalMonthKey(monthKey);
+  if (!parsed) return null;
+  const y = Number(parsed.slice(0, 4));
+  const m = Number(parsed.slice(5, 7));
+  const nd = new Date(Date.UTC(y, m, 1));
+  const yy = nd.getUTCFullYear();
+  const mm = String(nd.getUTCMonth() + 1).padStart(2, "0");
+  return `${yy}-${mm}`;
+}
+
+function localWallParts(
+  date: Date,
+  timeZone: string
+): { y: number; m: number; d: number; h: number; min: number; s: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type: string) => {
+    const v = parts.find((p) => p.type === type)?.value;
+    return v != null ? Number(v) : NaN;
+  };
+  let h = get("hour");
+  if (h === 24) h = 0;
+  return {
+    y: get("year"),
+    m: get("month"),
+    d: get("day"),
+    h,
+    min: get("minute"),
+    s: get("second"),
+  };
+}
+
+/**
+ * UTC instant for local calendar-day midnight in `timeZone`.
+ * Invalid date or unresolvable local midnight → null (fail closed).
+ * Invalid timezone falls back via resolveUserTimezone.
+ */
+export function utcInstantForLocalMidnight(dateKey: unknown, timeZone: unknown): Date | null {
+  const key = parseLocalDateKey(dateKey);
+  if (!key) return null;
+  const tz = resolveUserTimezone(timeZone);
+  const match = LOCAL_DATE_KEY_RE.exec(key);
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  const desiredAsUtc = Date.UTC(y, m - 1, d, 0, 0, 0);
+  let utcMs = desiredAsUtc;
+  for (let i = 0; i < 8; i++) {
+    const wall = localWallParts(new Date(utcMs), tz);
+    if (![wall.y, wall.m, wall.d, wall.h, wall.min, wall.s].every(Number.isFinite)) {
+      return null;
+    }
+    const actualAsUtc = Date.UTC(wall.y, wall.m - 1, wall.d, wall.h, wall.min, wall.s);
+    const delta = desiredAsUtc - actualAsUtc;
+    if (delta === 0) break;
+    utcMs += delta;
+  }
+  const resolved = new Date(utcMs);
+  if (getDateKeyInTimezone(resolved, tz) !== key) return null;
+  return resolved;
+}
+
+export type LocalUtcRange = {
+  startUtcIso: string;
+  endUtcIso: string;
+};
+
+/**
+ * Member-local calendar day as [local midnight, next local midnight).
+ * Uses next-local-midnight, never +24h. Unresolvable → null.
+ */
+export function localDayUtcRange(dateKey: unknown, timeZone: unknown): LocalUtcRange | null {
+  const key = parseLocalDateKey(dateKey);
+  if (!key) return null;
+  const nextKey = addCalendarDaysToDateKey(key, 1);
+  if (!nextKey) return null;
+  const start = utcInstantForLocalMidnight(key, timeZone);
+  const end = utcInstantForLocalMidnight(nextKey, timeZone);
+  if (!start || !end) return null;
+  if (!(start.getTime() < end.getTime())) return null;
+  return { startUtcIso: start.toISOString(), endUtcIso: end.toISOString() };
+}
+
+/**
+ * Member-local calendar month as [first-of-month midnight, first-of-next-month midnight).
+ * Never +30 days. Unresolvable → null.
+ */
+export function localMonthUtcRange(monthKey: unknown, timeZone: unknown): LocalUtcRange | null {
+  const key = parseLocalMonthKey(monthKey);
+  if (!key) return null;
+  const nextKey = nextLocalMonthKey(key);
+  if (!nextKey) return null;
+  const start = utcInstantForLocalMidnight(`${key}-01`, timeZone);
+  const end = utcInstantForLocalMidnight(`${nextKey}-01`, timeZone);
+  if (!start || !end) return null;
+  if (!(start.getTime() < end.getTime())) return null;
+  return { startUtcIso: start.toISOString(), endUtcIso: end.toISOString() };
+}
+
 export type SmsTimezoneSource = "clerk" | "audience" | "default";
 
 export type ResolvedSmsUserTimezone = {

@@ -7,6 +7,7 @@
 import "server-only";
 
 import { supabaseServer } from "@/lib/supabase-server";
+import { getDateKeyInTimezone, localDayUtcRange, localMonthUtcRange } from "@/lib/timezone";
 import { enrichPublicWinsWithMedia } from "@/lib/victory-media/enrich-public-wins-with-media";
 
 /** Home "Your Wins" recent card cap. */
@@ -18,6 +19,9 @@ export const PUBLIC_WINS_PAGE_LIMIT = 50;
 /** Columns selected from v2_win for public mapping (never returned raw to clients). */
 export const PUBLIC_WIN_SELECT_COLUMNS =
   "id, occurred_at, display_title, display_body, supporting_quote, sensitivity_caution, celebration_appropriate, commitment_id, status, updated_at, source_type, user_edited_at" as const;
+
+/** Month-marker query only — no card fields, quotes, or media. */
+export const PUBLIC_WIN_MONTH_MARKER_SELECT_COLUMNS = "id, occurred_at" as const;
 
 /** Optional Victory Media card presentation — never includes Storage paths. */
 export type PublicWinMediaDto = {
@@ -332,4 +336,104 @@ export async function loadPublicAllWinsForUser(args: {
     nextCursor,
     pageLimit,
   };
+}
+
+export type VictoryWinMonthMarkerResult = {
+  counts: Record<string, number>;
+};
+
+type MonthMarkerRow = {
+  id: string;
+  occurred_at: string;
+};
+
+function isMonthMarkerRow(raw: unknown): raw is MonthMarkerRow {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
+  const r = raw as Record<string, unknown>;
+  return typeof r.id === "string" && typeof r.occurred_at === "string";
+}
+
+/**
+ * Lightweight active-Win counts for one member-local month.
+ * Bounded by clerk_user_id + status=active + local month UTC range.
+ * No media. No application row cap (range is the bound).
+ */
+export async function loadVictoryWinMonthMarkersForUser(args: {
+  clerkUserId: string;
+  timeZone: string;
+  monthKey: string;
+}): Promise<VictoryWinMonthMarkerResult> {
+  const clerkUserId = requireClerkUserId(args.clerkUserId);
+  const range = localMonthUtcRange(args.monthKey, args.timeZone);
+  if (!range) {
+    return { counts: {} };
+  }
+
+  const { data, error } = await supabaseServer
+    .from("v2_win")
+    .select(PUBLIC_WIN_MONTH_MARKER_SELECT_COLUMNS)
+    .eq("clerk_user_id", clerkUserId)
+    .eq("status", "active")
+    .gte("occurred_at", range.startUtcIso)
+    .lt("occurred_at", range.endUtcIso);
+
+  if (error) {
+    console.error("[v2-win-public-read] month markers failed", {
+      clerk_user_id: clerkUserId,
+      message: error.message,
+    });
+    return { counts: {} };
+  }
+
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    if (!isMonthMarkerRow(row)) continue;
+    const occurred = new Date(row.occurred_at);
+    if (Number.isNaN(occurred.getTime())) continue;
+    const dayKey = getDateKeyInTimezone(occurred, args.timeZone);
+    counts[dayKey] = (counts[dayKey] ?? 0) + 1;
+  }
+
+  return { counts };
+}
+
+/**
+ * Full public DTOs for one member-local day, with existing media enrichment.
+ * Fail closed to [] when the local-day range cannot be resolved.
+ */
+export async function loadPublicVictoryWinsForUserLocalDay(args: {
+  clerkUserId: string;
+  timeZone: string;
+  dayKey: string;
+}): Promise<PublicWinDto[]> {
+  const clerkUserId = requireClerkUserId(args.clerkUserId);
+  const range = localDayUtcRange(args.dayKey, args.timeZone);
+  if (!range) {
+    return [];
+  }
+
+  const { data, error } = await supabaseServer
+    .from("v2_win")
+    .select(PUBLIC_WIN_SELECT_COLUMNS)
+    .eq("clerk_user_id", clerkUserId)
+    .eq("status", "active")
+    .gte("occurred_at", range.startUtcIso)
+    .lt("occurred_at", range.endUtcIso)
+    .order("occurred_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(PUBLIC_WINS_PAGE_LIMIT);
+
+  if (error) {
+    console.error("[v2-win-public-read] local-day wins failed", {
+      clerk_user_id: clerkUserId,
+      message: error.message,
+    });
+    return [];
+  }
+
+  const dtos = (data ?? []).filter(isWinRow).map(mapV2WinRowToPublicDto);
+  return enrichPublicWinsWithMedia({
+    clerkUserId,
+    wins: dtos,
+  });
 }
