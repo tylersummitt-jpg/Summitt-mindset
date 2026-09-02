@@ -268,10 +268,14 @@ export default function PrivacyPage() {
           website in a browser may still use Meta Pixel when configured.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
-          We do not operate a separate server-side Meta Conversions API as part
-          of the product described here. Meta remains a third party involved in
-          website analytics and marketing measurement; its use of information is
-          also governed by Meta’s own terms and policies.
+          We may also send limited server-side conversion events to Meta through
+          Meta’s Conversions API. Those events are used to measure trial start
+          and the first successful paid subscription payment. We do not send
+          email address, phone number, or name with those server-side events.
+          We do not send SMS content, goals, journal or Victory Room content,
+          Ask Pat conversations, or payment-card data. Meta remains a third
+          party involved in website analytics and marketing measurement; its
+          use of information is also governed by Meta’s own terms and policies.
         </p>
       </section>
 

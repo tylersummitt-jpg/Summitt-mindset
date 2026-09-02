@@ -2,21 +2,24 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Environment variables
 
-### Meta Pixel (Phase 1 — marketing routes only)
+### Meta Pixel and Conversions API
 
-- **`NEXT_PUBLIC_META_PIXEL_ID`** — optional. When set to a **numeric** Meta Pixel ID, the [Meta Pixel](https://developers.facebook.com/docs/meta-pixel) loads via `MetaPixelRoot`. If unset or non-numeric, all Meta tracking is a no-op.
+- **`NEXT_PUBLIC_META_PIXEL_ID`** — optional. When set to a **numeric** Meta Pixel ID, the [Meta Pixel](https://developers.facebook.com/docs/meta-pixel) loads via `MetaPixelRoot`. The same ID is the Conversions API dataset. If unset or non-numeric, browser Pixel and CAPI are a no-op.
 
-- **`NEXT_PUBLIC_META_PIXEL_ENABLED`** — optional. Set to **`false`** to disable the pixel even when an ID is present (useful for local/preview). Defaults to enabled when a valid ID exists.
+- **`NEXT_PUBLIC_META_PIXEL_ENABLED`** — optional. Set to **`false`** to disable the pixel (and CAPI) even when an ID is present (useful for local/preview). Defaults to enabled when a valid ID exists.
+
+- **`META_CAPI_ACCESS_TOKEN`** — server-only. Required for Meta Conversions API StartTrial / Subscribe. Never `NEXT_PUBLIC_`. If missing, CAPI skips; Stripe membership is unchanged.
 
 **Behavior:**
 
-- **PageView** fires only on public marketing routes (home, subscribe, coach kit, SEO pages, auth pages, policies). Authenticated product surfaces (`/dashboard`, `/onboarding`, Victory Room, Ask Pat, Film Room, etc.) are **blocked**.
+- **PageView (browser only)** fires on selected public marketing routes (home, about, daily-practice, previews, subscribe, sign-in/sign-up, coach kit, Pat Summitt SEO pages, challenge). Legal/support pages, member product, admin, and `/subscribe/success` are **blocked**.
+- **StartTrial (server CAPI only)** fires from the Stripe webhook after `checkout.session.completed` membership projection succeeds and the subscription is actually trialing. Not on CTA, signup, subscribe view, or Checkout session creation. Apple IAP is excluded.
+- **Subscribe (server CAPI only)** fires from the Stripe webhook after `invoice.paid` membership projection succeeds, only for the **first** paid invoice (`amount_paid > 0`, USD) on that subscription. Trial $0 invoices, renewals, manual invoices, and Apple IAP do not fire Subscribe.
 - **Native app (iOS or Android UA markers):** when the request User-Agent contains exact `SummittMindsetiOS` or `SummittMindsetAndroid`, `MetaPixelRoot` is **not rendered** (no `fbevents.js` / `fbq`). Website/browser Pixel unchanged. Detection is via the canonical `detectSummittMindsetPlatform` helper (`none` | `ios` | `android`).
 - Sensitive URLs (`/subscribe/success`, `/pulse`, `/winback`, `/internal`, …) and denylisted query keys (`session_id`, `t`, `token`, …) never receive PageView.
-- Custom/coach events use an allowlisted payload only — never identity, goal, journal, SMS, proof, email, phone, tokens, or Stripe/session IDs.
-- **Not included yet:** Purchase, Subscribe, StartTrial, or Conversions API (server-side).
+- Custom/coach events use an allowlisted payload only — never identity, goal, journal, SMS, proof, email, phone, tokens, or Stripe/session IDs. Coach browser events (`coach_cta_clicked`, `coach_how_it_works_nav`, `coach_shipping_submitted`, coach `InitiateCheckout`) stay on the same Pixel.
 
-**Local / preview / production:** Prefer leaving `NEXT_PUBLIC_META_PIXEL_ID` unset locally; use a test pixel or `NEXT_PUBLIC_META_PIXEL_ENABLED=false` on preview. Production: set the live pixel ID in Vercel.
+**Local / preview / production:** Prefer leaving `NEXT_PUBLIC_META_PIXEL_ID` unset locally; use a test pixel or `NEXT_PUBLIC_META_PIXEL_ENABLED=false` on preview. Production: set the live pixel ID and CAPI token in Vercel. Do not put tokens in this repo.
 
 **Limitation:** The browser may still attach the full document URL to some Meta events unless `event_source_url` override is honored by `fbevents.js`; sensitive routes are blocked entirely so tokenized query strings are not tracked via PageView.
 

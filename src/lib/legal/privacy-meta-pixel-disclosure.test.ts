@@ -75,6 +75,15 @@ describe("privacy policy Meta Pixel website disclosure", () => {
     expect(privacy).toMatch(/payment card numbers/i);
   });
 
+  it("discloses limited server-side Meta Conversions API for trial and first paid subscription", () => {
+    expect(privacy).toMatch(/Conversions API/i);
+    expect(privacy).toMatch(/trial start/i);
+    expect(privacy).toMatch(/first successful paid subscription payment/i);
+    expect(privacy).not.toMatch(/We do not operate a separate server-side Meta Conversions API/i);
+    expect(privacy).toMatch(/We do not send\s+email address, phone number, or name with those server-side events/i);
+    expect(privacy).toMatch(/Victory Room/i);
+  });
+
   it("preserves core providers, no-sale, support contact, and avoids unsupported legal claims", () => {
     for (const provider of [
       "Clerk",

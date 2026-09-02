@@ -23,11 +23,10 @@ describe("native Meta Pixel suppression (layout wiring)", () => {
     expect(layout).toContain(
       "isNativeSummittMindsetApp={isNativeSummittMindsetApp}"
     );
-    expect(layout).toContain(
-      "!isNativeSummittMindsetApp ? <MetaPixelRoot /> : null"
-    );
-    expect(layout).not.toMatch(
-      /NativeAppProvider[\s\S]*?>\s*<MetaPixelRoot\s*\/>/
+    expect(layout).toContain("!isNativeSummittMindsetApp ? (");
+    expect(layout).toContain("<MetaPixelRoot />");
+    expect(layout).toMatch(
+      /!isNativeSummittMindsetApp \? \([\s\S]*<MetaPixelRoot \/>/
     );
   });
 
@@ -71,9 +70,8 @@ describe("native Meta Pixel suppression (layout wiring)", () => {
 
   it("covers native shell routes via global layout gate (sign-in, membership, user, home)", () => {
     const layout = readSrc("src/app/layout.tsx");
-    expect(layout).toContain(
-      "!isNativeSummittMindsetApp ? <MetaPixelRoot /> : null"
-    );
+    expect(layout).toContain("!isNativeSummittMindsetApp ? (");
+    expect(layout).toContain("<MetaPixelRoot />");
     for (const route of [
       "src/app/app/sign-in/page.tsx",
       "src/app/app/membership/page.tsx",

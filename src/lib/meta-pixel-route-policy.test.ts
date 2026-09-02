@@ -6,14 +6,18 @@ describe("getMetaPageViewDecision", () => {
     for (const path of [
       "/",
       "/about",
+      "/daily-practice",
       "/subscribe",
       "/coach-leadership-kit",
       "/coach-leadership-kit/how-it-works",
       "/pat-summitt-quotes",
       "/pat-summitt-leadership-principles",
       "/ask-pat-preview",
+      "/ask-pat-preview/sample",
       "/film-room-preview",
-      "/privacy",
+      "/film-room-preview/clip",
+      "/challenge",
+      "/challenge/day/1",
       "/sign-in",
       "/sign-up",
     ]) {
@@ -25,6 +29,13 @@ describe("getMetaPageViewDecision", () => {
   it("allows subscribe with marketing query params", () => {
     const d = getMetaPageViewDecision("/subscribe", "src=coach&canceled=1&from=post-sign-in");
     expect(d.action).toBe("allow");
+  });
+
+  it("blocks legal and support pages", () => {
+    for (const path of ["/privacy", "/terms", "/sms", "/support", "/data-deletion", "/twilio"]) {
+      const d = getMetaPageViewDecision(path, "");
+      expect(d.action, path).toBe("block");
+    }
   });
 
   it("blocks sensitive and private routes", () => {
@@ -40,6 +51,8 @@ describe("getMetaPageViewDecision", () => {
       ["/coach/setup", ""],
       ["/post-sign-in", ""],
       ["/user", ""],
+      ["/admin", ""],
+      ["/admin/subscriber-growth", ""],
     ];
 
     for (const [path, search] of blocked) {
@@ -51,7 +64,9 @@ describe("getMetaPageViewDecision", () => {
   it("blocks denylisted query keys on allowed pathnames", () => {
     const d = getMetaPageViewDecision("/subscribe", "session_id=cs_test");
     expect(d.action).toBe("block");
-    expect(d.reason).toContain("session_id");
+    if (d.action === "block") {
+      expect(d.reason).toContain("session_id");
+    }
   });
 
   it("blocks sensitive redirect_url on sign-in", () => {
@@ -60,12 +75,16 @@ describe("getMetaPageViewDecision", () => {
       `redirect_url=${encodeURIComponent("/internal/sms-qa")}`
     );
     expect(d.action).toBe("block");
-    expect(d.reason).toBe("sensitive_redirect_url");
+    if (d.action === "block") {
+      expect(d.reason).toBe("sensitive_redirect_url");
+    }
   });
 
   it("blocks unknown routes by default", () => {
     const d = getMetaPageViewDecision("/modules", "");
     expect(d.action).toBe("block");
-    expect(d.reason).toBe("unknown_route");
+    if (d.action === "block") {
+      expect(d.reason).toBe("unknown_route");
+    }
   });
 });

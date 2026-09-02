@@ -143,6 +143,7 @@ function isAllowedMarketingPath(pathname: string): boolean {
 
   if (path === "/") return true;
   if (path === "/about") return true;
+  if (path === "/daily-practice") return true;
   if (path === "/subscribe") return true;
   if (path === "/sign-in" || path.startsWith("/sign-in/")) return true;
   if (path === "/sign-up" || path.startsWith("/sign-up/")) return true;
@@ -156,7 +157,7 @@ function isAllowedMarketingPath(pathname: string): boolean {
   if (path === "/film-room-preview" || path.startsWith("/film-room-preview/")) {
     return true;
   }
-  if (path === "/privacy" || path === "/terms" || path === "/sms") return true;
+  if (path === "/challenge" || path.startsWith("/challenge/")) return true;
 
   return false;
 }

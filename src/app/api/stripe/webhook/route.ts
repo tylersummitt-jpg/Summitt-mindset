@@ -17,6 +17,10 @@ import {
 } from "@/lib/account-deletion/deletion-guards";
 import { releaseStripeWebhookEventDedupe } from "@/lib/stripe-webhook-dedupe";
 import {
+  maybeEmitMetaStartTrialFromCheckout,
+  maybeEmitMetaSubscribeFromInvoicePaid,
+} from "@/lib/meta-capi-stripe-conversions";
+import {
   isRetryableMembershipSourceOrClerkFailure,
   recomputeMembershipFromAuthoritativeStripeSubscription,
   isSmsReplicaFailureAfterClerkSuccess,
@@ -344,6 +348,16 @@ export async function POST(req: NextRequest) {
       });
       if (projected === "retry") {
         return new NextResponse("Webhook error", { status: 500 });
+      }
+
+      try {
+        await maybeEmitMetaStartTrialFromCheckout({
+          subscription,
+          userId,
+          eventCreatedUnix: event.created,
+        });
+      } catch {
+        console.warn("[webhook] Meta StartTrial isolated failure");
       }
 
       const existing = await getClerkPublicMetadata(userId);
@@ -700,6 +714,18 @@ export async function POST(req: NextRequest) {
       });
       if (projected === "retry") {
         return new NextResponse("Webhook error", { status: 500 });
+      }
+
+      try {
+        await maybeEmitMetaSubscribeFromInvoicePaid({
+          stripe,
+          invoice,
+          subscription,
+          userId,
+          eventCreatedUnix: event.created,
+        });
+      } catch {
+        console.warn("[webhook] Meta Subscribe isolated failure");
       }
     }
 

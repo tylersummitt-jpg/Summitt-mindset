@@ -7,6 +7,13 @@ const deleteEqMock = vi.fn();
 const deleteMock = vi.fn(() => ({ eq: deleteEqMock }));
 const appleEqMock = vi.fn();
 
+const maybeStartTrialMock = vi.fn(async () => undefined);
+const maybeSubscribeMock = vi.fn(async () => undefined);
+vi.mock("@/lib/meta-capi-stripe-conversions", () => ({
+  maybeEmitMetaStartTrialFromCheckout: maybeStartTrialMock,
+  maybeEmitMetaSubscribeFromInvoicePaid: maybeSubscribeMock,
+}));
+
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {
     from: (table: string) => {
@@ -119,6 +126,8 @@ describe("Stripe webhook B3b anti-resurrection", () => {
     insertMock.mockResolvedValue({ error: null });
     deleteEqMock.mockResolvedValue({ error: null });
     appleEqMock.mockResolvedValue({ data: [], error: null });
+    maybeStartTrialMock.mockResolvedValue(undefined);
+    maybeSubscribeMock.mockResolvedValue(undefined);
     releaseDedupeMock.mockResolvedValue({ ok: true });
     evaluateUnlockMock.mockResolvedValue({ decision: "allowed" });
     updateClerkMock.mockResolvedValue(undefined);
@@ -536,6 +545,8 @@ describe("Stripe webhook Phase 3 membership cutover", () => {
     insertMock.mockResolvedValue({ error: null });
     deleteEqMock.mockResolvedValue({ error: null });
     appleEqMock.mockResolvedValue({ data: [], error: null });
+    maybeStartTrialMock.mockResolvedValue(undefined);
+    maybeSubscribeMock.mockResolvedValue(undefined);
     releaseDedupeMock.mockResolvedValue({ ok: true });
     evaluateUnlockMock.mockResolvedValue({ decision: "allowed" });
     updateClerkMock.mockResolvedValue(undefined);
@@ -567,6 +578,8 @@ describe("Stripe webhook Phase 3 membership cutover", () => {
       summittSubscribed: true,
       summittPlan: "monthly",
     });
+    expect(maybeStartTrialMock).toHaveBeenCalledTimes(1);
+    expect(maybeSubscribeMock).not.toHaveBeenCalled();
   });
 
   it("paused Stripe + Apple active → subscribed monthly", async () => {
@@ -632,6 +645,8 @@ describe("Stripe webhook Phase 3 membership cutover", () => {
       summittSubscribed: true,
       summittPlan: "monthly",
     });
+    expect(maybeSubscribeMock).toHaveBeenCalledTimes(1);
+    expect(maybeStartTrialMock).not.toHaveBeenCalled();
   });
 
   it("invoice.payment_failed Stripe-only → false/null", async () => {
@@ -814,5 +829,99 @@ describe("Stripe webhook Phase 3 membership cutover", () => {
       expect.objectContaining({ summittPlan: "monthly" })
     );
     expect(appleEqMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("Stripe webhook Meta CAPI fail-open wiring", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    process.env.STRIPE_SECRET_KEY = "sk_test_wh";
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    process.env.CLERK_SECRET_KEY = "sk_clerk";
+    insertMock.mockResolvedValue({ error: null });
+    deleteEqMock.mockResolvedValue({ error: null });
+    appleEqMock.mockResolvedValue({ data: [], error: null });
+    maybeStartTrialMock.mockResolvedValue(undefined);
+    maybeSubscribeMock.mockResolvedValue(undefined);
+    releaseDedupeMock.mockResolvedValue({ ok: true });
+    evaluateUnlockMock.mockResolvedValue({ decision: "allowed" });
+    updateClerkMock.mockResolvedValue(undefined);
+    getClerkMdMock.mockResolvedValue({});
+    syncSmsMock.mockResolvedValue(undefined);
+    retrieveSubMock.mockResolvedValue(activeSub({ status: "trialing" }));
+  });
+
+  it("duplicate Stripe event does not call Meta helpers", async () => {
+    insertMock.mockResolvedValue({
+      error: { code: "23505", message: "duplicate" },
+    });
+    constructEventMock.mockReturnValue({
+      id: "evt_dup_meta",
+      type: "checkout.session.completed",
+      data: { object: {} },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(maybeStartTrialMock).not.toHaveBeenCalled();
+    expect(maybeSubscribeMock).not.toHaveBeenCalled();
+  });
+
+  it("StartTrial helper throw does not fail membership webhook", async () => {
+    maybeStartTrialMock.mockRejectedValue(new Error("meta down"));
+    constructEventMock.mockReturnValue({
+      id: "evt_meta_throw",
+      type: "checkout.session.completed",
+      created: 1_700_000_000,
+      data: {
+        object: {
+          id: "cs_meta",
+          client_reference_id: "user_1",
+          subscription: "sub_1",
+          customer: "cus_1",
+          metadata: {},
+        },
+      },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(updateClerkMock).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({ summittSubscribed: true })
+    );
+  });
+
+  it("Subscribe helper throw does not fail invoice.paid membership", async () => {
+    maybeSubscribeMock.mockRejectedValue(new Error("meta down"));
+    retrieveSubMock.mockResolvedValue(activeSub({ status: "active" }));
+    constructEventMock.mockReturnValue({
+      id: "evt_paid_meta_throw",
+      type: "invoice.paid",
+      created: 1_700_000_100,
+      data: { object: invoiceForSub() },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(updateClerkMock).toHaveBeenCalledWith("user_1", {
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
+  });
+
+  it("invoice.payment_failed does not emit Subscribe", async () => {
+    retrieveSubMock.mockResolvedValue(activeSub({ status: "past_due" }));
+    constructEventMock.mockReturnValue({
+      id: "evt_fail_meta",
+      type: "invoice.payment_failed",
+      data: { object: invoiceForSub() },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(maybeSubscribeMock).not.toHaveBeenCalled();
+    expect(maybeStartTrialMock).not.toHaveBeenCalled();
   });
 });
