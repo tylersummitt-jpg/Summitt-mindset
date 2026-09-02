@@ -1,7 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 import {
   COACH_ATTRIBUTION_COOKIE_NAME,
@@ -77,11 +77,47 @@ export function collectFailOpenResponse(): NextResponse {
   return new NextResponse(null, { status: 204 });
 }
 
+function decodeCookieHeaderValue(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function marketingCookiesFromRaw(
+  visitorRaw: string | null,
+  acqRaw: string | null,
+  coach: string | null
+): {
+  visitorId: string | null;
+  attribution: AcquisitionCookiePayload | null;
+  coachCookie: string | null;
+} {
+  return {
+    visitorId: isVisitorId(visitorRaw) ? visitorRaw : null,
+    attribution: parseAcquisitionCookie(acqRaw),
+    coachCookie: coach === COACH_ATTRIBUTION_COOKIE_VALUE_COACH ? coach : null,
+  };
+}
+
 export async function readMarketingCookiesFromRequest(req: Request): Promise<{
   visitorId: string | null;
   attribution: AcquisitionCookiePayload | null;
   coachCookie: string | null;
 }> {
+  // Next.js cookies.get() peels the Set-Cookie encode layer. sm_acq is also
+  // encodeURIComponent'd by serializeAcquisitionCookie, so this matches
+  // cookies() / account_created. A raw Cookie-header split does not.
+  const nextCookies = (req as NextRequest).cookies;
+  if (nextCookies && typeof nextCookies.get === "function") {
+    return marketingCookiesFromRaw(
+      nextCookies.get(SM_VISITOR_COOKIE)?.value ?? null,
+      nextCookies.get(SM_ACQ_COOKIE)?.value ?? null,
+      nextCookies.get(COACH_ATTRIBUTION_COOKIE_NAME)?.value ?? null
+    );
+  }
+
   const cookieHeader = req.headers.get("cookie") ?? "";
   const map = new Map<string, string>();
   for (const part of cookieHeader.split(";")) {
@@ -89,16 +125,13 @@ export async function readMarketingCookiesFromRequest(req: Request): Promise<{
     if (idx < 0) continue;
     const key = part.slice(0, idx).trim();
     const value = part.slice(idx + 1).trim();
-    if (key) map.set(key, value);
+    if (key) map.set(key, decodeCookieHeaderValue(value));
   }
-  const visitorRaw = map.get(SM_VISITOR_COOKIE) ?? null;
-  const acqRaw = map.get(SM_ACQ_COOKIE) ?? null;
-  const coach = map.get(COACH_ATTRIBUTION_COOKIE_NAME) ?? null;
-  return {
-    visitorId: isVisitorId(visitorRaw) ? visitorRaw : null,
-    attribution: parseAcquisitionCookie(acqRaw),
-    coachCookie: coach === COACH_ATTRIBUTION_COOKIE_VALUE_COACH ? coach : null,
-  };
+  return marketingCookiesFromRaw(
+    map.get(SM_VISITOR_COOKIE) ?? null,
+    map.get(SM_ACQ_COOKIE) ?? null,
+    map.get(COACH_ATTRIBUTION_COOKIE_NAME) ?? null
+  );
 }
 
 export async function readMarketingCookiesFromStore(): Promise<{

@@ -13,6 +13,16 @@ function read(rel: string) {
 }
 
 describe("marketing observers and fail-open wiring", () => {
+  it("root layout mounts page-view and CTA observers for browser only", () => {
+    const layout = read("src/app/layout.tsx");
+    expect(layout).toContain("MarketingPageViewBeacon");
+    expect(layout).toContain("MarketingCtaCapture");
+    expect(layout).toContain("!isNativeSummittMindsetApp");
+    const nativeGate = layout.lastIndexOf("!isNativeSummittMindsetApp");
+    expect(layout.lastIndexOf("<MarketingPageViewBeacon")).toBeGreaterThan(nativeGate);
+    expect(layout.lastIndexOf("<MarketingCtaCapture")).toBeGreaterThan(nativeGate);
+  });
+
   it("CTA capture does not preventDefault, stopPropagation, or await fetch", () => {
     const src = read("src/components/marketing-cta-capture.tsx");
     expect(src).not.toContain("preventDefault");

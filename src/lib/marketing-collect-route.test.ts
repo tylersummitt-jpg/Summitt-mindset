@@ -101,4 +101,23 @@ describe("POST /api/marketing/collect", () => {
     const res = await POST(req({ event_type: "page_viewed", path: "/" }));
     expect(res.status).toBe(204);
   });
+
+  it("fail-opens without insert when visitor or attribution cookies are missing", async () => {
+    cookiesMock.mockResolvedValueOnce({
+      visitorId: null,
+      attribution: null,
+      coachCookie: null,
+    });
+    const res = await POST(req({ event_type: "page_viewed", path: "/" }));
+    expect(res.status).toBe(204);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("does not insert for native-app User-Agent", async () => {
+    nativeMock.mockReturnValueOnce(true);
+    const res = await POST(req({ event_type: "page_viewed", path: "/" }));
+    expect(res.status).toBe(204);
+    expect(insertMock).not.toHaveBeenCalled();
+    expect(cookiesMock).not.toHaveBeenCalled();
+  });
 });

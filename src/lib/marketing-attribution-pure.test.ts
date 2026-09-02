@@ -241,6 +241,7 @@ describe("trial CTA href detection", () => {
     expect(isTrialAcquisitionHref(`/sign-up?redirect_url=${encodeURIComponent("/subscribe")}`)).toBe(
       true
     );
+    expect(isTrialAcquisitionHref("/sign-up?redirect_url=/subscribe")).toBe(true);
     expect(
       isTrialAcquisitionHref(`/sign-up?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`)
     ).toBe(true);
