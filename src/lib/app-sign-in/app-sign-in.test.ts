@@ -276,14 +276,26 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignUp).not.toContain("fallbackRedirectUrl");
     expect(websiteSignUp).not.toMatch(/display:\s*["']none["']/);
     expect(websiteSignUp).toContain("STEP 1 OF 2");
+    expect(websiteSignUp).toContain("Start your 7-day free trial");
     expect(websiteSignUp).toContain("Create your account");
+
+    const consumerGrid = websiteSignUp.indexOf("lg:grid-cols-2");
+    const consumerSignUpSlot = websiteSignUp.indexOf("{signUp}", consumerGrid);
+    expect(consumerGrid).toBeGreaterThan(-1);
+    expect(consumerSignUpSlot).toBeGreaterThan(consumerGrid);
+    const consumerCopy = websiteSignUp.slice(consumerGrid, consumerSignUpSlot);
+    expect(consumerCopy).toContain("Start your 7-day free trial");
+    expect(consumerCopy).not.toContain("Create your account");
     expect(websiteSignUp).toContain("$29/month");
-    expect(websiteSignUp).toContain("You won&apos;t be charged today");
-    expect(websiteSignUp).toContain("7 days free, then $29/month");
-    expect(websiteSignUp).not.toContain("Start your 7-day free trial");
+    expect(websiteSignUp).toContain("7 days free · then $29/month");
+    expect(websiteSignUp).toContain("$0 DUE TODAY");
+    expect(websiteSignUp).toContain(
+      "Next, you&apos;ll choose your plan and securely add a payment method to start your trial."
+    );
+    expect(websiteSignUp).not.toContain("You won&apos;t be charged today");
+    expect(websiteSignUp).not.toContain("7 days free, then $29/month");
     expect(websiteSignUp).not.toContain("$249");
     expect(websiteSignUp).not.toContain("Daily accountability");
-    expect(websiteSignUp).not.toContain("$0 due today");
     expect(websiteSignUp).toContain('aria-label="Coach signup steps"');
 
     const coachOlStart = websiteSignUp.indexOf(
@@ -292,12 +304,13 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     const coachSignUpSlot = websiteSignUp.indexOf("{signUp}", coachOlStart);
     expect(coachOlStart).toBeGreaterThan(-1);
     expect(coachSignUpSlot).toBeGreaterThan(coachOlStart);
-    expect(websiteSignUp.slice(coachOlStart, coachSignUpSlot)).not.toContain(
-      "STEP 1 OF 2"
-    );
-    expect(websiteSignUp.slice(coachOlStart, coachSignUpSlot)).not.toContain(
-      "$29/month"
-    );
+    const coachCopy = websiteSignUp.slice(coachOlStart, coachSignUpSlot);
+    expect(coachCopy).not.toContain("STEP 1 OF 2");
+    expect(coachCopy).not.toContain("$29/month");
+    expect(coachCopy).not.toContain("$0 DUE TODAY");
+    expect(coachCopy).not.toContain("Start your 7-day free trial");
+    expect(coachCopy).not.toContain("7 days free");
+    expect(coachCopy).not.toContain("payment method");
 
     const layout = readSrc("src/app/layout.tsx");
     expect(layout).toContain("<ClerkProvider");
