@@ -144,13 +144,10 @@ export default async function SubscribePage({
                   STEP 2 OF 2
                 </p>
                 <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-4xl md:leading-tight lg:text-[2.5rem] lg:leading-tight">
-                  Start your 7-day free trial
+                  Add a payment method to start your trial
                 </h1>
-                <p className="text-base font-semibold text-white/95 sm:text-lg">
-                  Then $29/month
-                </p>
                 <p className="text-sm leading-snug text-white/85">
-                  You won&apos;t be charged today · Cancel anytime
+                  Your 7-day trial is free. You won&apos;t be charged today.
                 </p>
               </div>
             )}

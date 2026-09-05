@@ -32,11 +32,19 @@ describe("paused membership UX wiring (source)", () => {
     expect(panel).toContain("$29/month");
     expect(panel).toContain("$249/year");
     expect(panel).toContain("Save $99 vs monthly");
-    expect(panel).toContain("Start My Free Trial");
-    expect(panel).toContain("7-day free trial");
-    expect(panel).toContain("You won&apos;t be charged today");
+    expect(panel).toContain("Continue to Secure Checkout");
+    expect(panel).toContain("Opening secure checkout…");
+    expect(panel).toContain("7 days free · then $29/month");
     expect(panel).toContain("Cancel anytime");
+    expect(panel).toContain(
+      "Secure checkout powered by Stripe. You won&apos;t be charged today."
+    );
+    expect(panel).toContain("Prefer annual?");
+    expect(panel).toContain("Choose annual");
     expect(panel).toContain("Kathy P., Oregon");
+    expect(panel).not.toContain("Start My Free Trial");
+    expect(panel).not.toContain("7-day free trial");
+    expect(panel).not.toContain("Redirecting…");
     expect(panel).toContain('data-subscribe-offer="monthly-primary"');
     expect(panel).toContain('data-subscribe-offer="annual-secondary"');
     expect(panel).not.toContain(FOUNDING_MEMBER_BONUS_HEADING);
@@ -48,9 +56,7 @@ describe("paused membership UX wiring (source)", () => {
     expect(panel).not.toContain("$0 due today");
 
     const pausedBranchStart = panel.indexOf("if (showPausedResume)");
-    const pricingReturnStart = panel.indexOf(
-      'return (\n    <div className="w-full max-w-lg mx-auto md:mx-0">'
-    );
+    const pricingReturnStart = panel.indexOf('data-growth-ignore="checkout"');
     expect(pausedBranchStart).toBeGreaterThan(-1);
     expect(pricingReturnStart).toBeGreaterThan(pausedBranchStart);
     const pausedBranch = panel.slice(pausedBranchStart, pricingReturnStart);
@@ -60,26 +66,47 @@ describe("paused membership UX wiring (source)", () => {
     expect(pausedBranch).not.toContain(FOUNDING_MEMBER_BONUS_BODY);
   });
 
-  it("subscribe checkout is monthly-primary with annual secondary and Kathy below the close", () => {
+  it("subscribe checkout is monthly-primary with Kathy before annual", () => {
     const panel = read("src/app/subscribe/subscribe-checkout-panel.tsx");
     const monthlyOffer = panel.indexOf('data-subscribe-offer="monthly-primary"');
-    const monthlyCta = panel.indexOf("Start My Free Trial");
+    const monthlyCta = panel.indexOf("Continue to Secure Checkout");
     const stripeReassurance = panel.indexOf(
-      "You&apos;ll continue to Stripe to add a payment method"
+      "Secure checkout powered by Stripe. You won&apos;t be charged today."
     );
-    const annualOffer = panel.indexOf('data-subscribe-offer="annual-secondary"');
     const kathy = panel.indexOf("Kathy P., Oregon");
+    const annualOffer = panel.indexOf('data-subscribe-offer="annual-secondary"');
     const coachSteps = panel.indexOf('aria-label="Coach subscribe steps"');
     expect(monthlyOffer).toBeGreaterThan(-1);
     expect(monthlyCta).toBeGreaterThan(monthlyOffer);
     expect(stripeReassurance).toBeGreaterThan(monthlyCta);
-    expect(annualOffer).toBeGreaterThan(stripeReassurance);
-    expect(kathy).toBeGreaterThan(annualOffer);
+    expect(kathy).toBeGreaterThan(stripeReassurance);
+    expect(annualOffer).toBeGreaterThan(kathy);
     expect(coachSteps).toBeGreaterThan(-1);
     expect(panel.slice(coachSteps, monthlyOffer)).not.toContain("STEP 2 OF 2");
+    expect(panel.slice(coachSteps, monthlyOffer)).not.toContain(
+      "Add a payment method to start your trial"
+    );
     expect(panel).toContain('handleCheckout("monthly")');
     expect(panel).toContain('handleCheckout("annual")');
     expect(panel).toContain('fetch("/api/stripe/create-checkout-session"');
+    expect(panel).toContain('data-growth-ignore="checkout"');
+  });
+
+  it("subscribe checkout waits for Clerk isLoaded before signed-out redirect", () => {
+    const panel = read("src/app/subscribe/subscribe-checkout-panel.tsx");
+    expect(panel).toContain("const { isLoaded, isSignedIn, user } = useUser();");
+    expect(panel).toContain("() => !isLoaded || loadingPlan !== null");
+    const loadedGuard = panel.indexOf("if (!isLoaded)");
+    const signedOutRedirect = panel.indexOf("if (!isSignedIn)");
+    const checkoutPost = panel.indexOf(
+      'fetch("/api/stripe/create-checkout-session"'
+    );
+    expect(loadedGuard).toBeGreaterThan(-1);
+    expect(signedOutRedirect).toBeGreaterThan(loadedGuard);
+    expect(checkoutPost).toBeGreaterThan(signedOutRedirect);
+    expect(panel).toContain(
+      "`/sign-up?redirect_url=${encodeURIComponent(subscribeReturnPath)}`"
+    );
   });
 
   it("unsigned consumer subscribe goes to sign-up; coach keeps src=coach sign-up", () => {
@@ -100,9 +127,12 @@ describe("paused membership UX wiring (source)", () => {
     expect(page).toContain(FOUNDING_MEMBER_BONUS_BODY);
     expect(page).toContain('bg-[var(--brand)]');
     expect(page).toContain("STEP 2 OF 2");
-    expect(page).toContain("Start your 7-day free trial");
-    expect(page).toContain("Then $29/month");
-    expect(page).toContain("You won&apos;t be charged today · Cancel anytime");
+    expect(page).toContain("Add a payment method to start your trial");
+    expect(page).toContain(
+      "Your 7-day trial is free. You won&apos;t be charged today."
+    );
+    expect(page).not.toContain("Then $29/month");
+    expect(page).not.toContain("You won&apos;t be charged today · Cancel anytime");
     expect(page).toContain("redirect(APP_MEMBERSHIP_PATH)");
     expect(page).not.toContain("$0 due today");
 

@@ -11,7 +11,7 @@ type Plan = "monthly" | "annual";
 const CHECKOUT_TIMEOUT_MS = 15000;
 
 export default function SubscribeCheckoutPanel() {
-  const { isSignedIn, user } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -40,9 +40,16 @@ export default function SubscribeCheckoutPanel() {
   const initiateCheckoutFiredForAttemptRef = useRef(false);
 
   const showPausedResume = Boolean(isSignedIn && (pausedFromClerk || forcePausedUi));
-  const disabled = useMemo(() => loadingPlan !== null, [loadingPlan]);
+  const disabled = useMemo(
+    () => !isLoaded || loadingPlan !== null,
+    [isLoaded, loadingPlan]
+  );
 
   async function handleCheckout(plan: Plan) {
+    if (!isLoaded) {
+      return;
+    }
+
     console.info("[subscribe] plan clicked", { plan });
     setError(null);
     initiateCheckoutFiredForAttemptRef.current = false;
@@ -221,10 +228,7 @@ export default function SubscribeCheckoutPanel() {
             $29/month
           </p>
           <p className="mt-2 text-sm font-medium text-[var(--text)]">
-            7-day free trial
-          </p>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            You won&apos;t be charged today
+            7 days free · then $29/month
           </p>
           <p className="mt-1 text-sm text-[var(--muted)]">Cancel anytime</p>
           <button
@@ -233,14 +237,25 @@ export default function SubscribeCheckoutPanel() {
             disabled={disabled}
             className="mt-4 w-full cursor-pointer rounded-xl bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-orange-500/20 transition hover:opacity-95 disabled:cursor-wait disabled:opacity-70"
           >
-            {loadingPlan === "monthly" ? "Redirecting…" : "Start My Free Trial"}
+            {loadingPlan === "monthly"
+              ? "Opening secure checkout…"
+              : "Continue to Secure Checkout"}
           </button>
         </div>
 
         <p className="text-sm leading-snug text-[var(--muted)]">
-          You&apos;ll continue to Stripe to add a payment method. You won&apos;t
-          be charged today.
+          Secure checkout powered by Stripe. You won&apos;t be charged today.
         </p>
+
+        <blockquote className="border-t border-[var(--border)] pt-4 text-left">
+          <p className="text-sm leading-relaxed text-[var(--text)]">
+            &ldquo;Talking with &lsquo;Coach Pat&rsquo; through Summitt Mindset
+            feels like having Pat Summitt sitting on my shoulder.&rdquo;
+          </p>
+          <footer className="mt-2 text-sm font-medium text-[var(--muted)]">
+            — Kathy P., Oregon
+          </footer>
+        </blockquote>
 
         <div
           className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-3"
@@ -261,19 +276,11 @@ export default function SubscribeCheckoutPanel() {
             disabled={disabled}
             className="shrink-0 cursor-pointer rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--text)] transition hover:bg-[var(--brand-soft)] disabled:cursor-wait disabled:opacity-70"
           >
-            {loadingPlan === "annual" ? "Redirecting…" : "Choose annual"}
+            {loadingPlan === "annual"
+              ? "Opening secure checkout…"
+              : "Choose annual"}
           </button>
         </div>
-
-        <blockquote className="border-t border-[var(--border)] pt-4 text-left">
-          <p className="text-sm leading-relaxed text-[var(--text)]">
-            &ldquo;Talking with &lsquo;Coach Pat&rsquo; through Summitt Mindset
-            feels like having Pat Summitt sitting on my shoulder.&rdquo;
-          </p>
-          <footer className="mt-2 text-sm font-medium text-[var(--muted)]">
-            — Kathy P., Oregon
-          </footer>
-        </blockquote>
       </div>
 
       {canceled && (
