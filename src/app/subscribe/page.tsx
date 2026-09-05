@@ -163,18 +163,21 @@ export default async function SubscribePage({
       </section>
 
       <section
-        className="w-full bg-[var(--brand)]"
+        className="w-full border-t border-[var(--border)] bg-[var(--surface)]"
         aria-labelledby="founding-member-bonus-heading"
       >
-        <div className="mx-auto max-w-6xl px-4 py-10 text-center sm:px-6 sm:py-14 md:py-20">
+        <div className="mx-auto max-w-6xl px-4 py-10 text-center sm:px-6 sm:py-12 md:py-14">
           <h2
             id="founding-member-bonus-heading"
-            className="text-2xl font-bold tracking-tight text-white sm:text-3xl md:text-4xl"
+            className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]"
           >
-            Founding Member Bonus
+            ALSO INCLUDED WITH YOUR MEMBERSHIP
           </h2>
-          <p className="mx-auto mt-5 max-w-3xl text-base leading-relaxed text-white sm:mt-6 sm:text-lg md:text-xl md:leading-snug">
-            All video content from four Pat Summitt leadership programs—previously sold separately for over $1,000—is included at no additional cost.
+          <p className="mt-3 text-lg font-semibold tracking-tight text-[var(--text)] sm:text-xl">
+            $1,000+ in Pat Summitt leadership programs
+          </p>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-[var(--muted)] sm:text-base">
+            All video content from four Pat Summitt leadership programs is included at no additional cost.
           </p>
         </div>
       </section>

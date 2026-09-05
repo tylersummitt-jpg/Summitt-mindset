@@ -8,9 +8,11 @@ function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
-const FOUNDING_MEMBER_BONUS_HEADING = "Founding Member Bonus";
+const FOUNDING_MEMBER_BONUS_HEADING = "ALSO INCLUDED WITH YOUR MEMBERSHIP";
+const FOUNDING_MEMBER_BONUS_VALUE =
+  "$1,000+ in Pat Summitt leadership programs";
 const FOUNDING_MEMBER_BONUS_BODY =
-  "All video content from four Pat Summitt leadership programs—previously sold separately for over $1,000—is included at no additional cost.";
+  "All video content from four Pat Summitt leadership programs is included at no additional cost.";
 
 describe("paused membership UX wiring (source)", () => {
   it("account shows Resume and hides manage/cancel while paused", () => {
@@ -29,31 +31,35 @@ describe("paused membership UX wiring (source)", () => {
     expect(panel).toContain("Your membership is paused.");
     expect(panel).toContain("Resume your existing membership to continue on the same plan.");
     expect(panel).toContain('body?.error === "membership_paused"');
+    expect(panel).toContain("$0 DUE TODAY");
     expect(panel).toContain("$29/month");
     expect(panel).toContain("$249/year");
     expect(panel).toContain("Save $99 vs monthly");
     expect(panel).toContain("Continue to Secure Checkout");
     expect(panel).toContain("Opening secure checkout…");
-    expect(panel).toContain("7 days free · then $29/month");
+    expect(panel).toContain("7-day free trial");
+    expect(panel).toContain("Then $29/month");
     expect(panel).toContain("Cancel anytime");
-    expect(panel).toContain(
+    expect(panel).toContain("Secure checkout powered by Stripe");
+    expect(panel).not.toContain("7 days free · then $29/month");
+    expect(panel).not.toContain(
       "Secure checkout powered by Stripe. You won&apos;t be charged today."
     );
     expect(panel).toContain("Prefer annual?");
     expect(panel).toContain("Choose annual");
     expect(panel).toContain("Kathy P., Oregon");
     expect(panel).not.toContain("Start My Free Trial");
-    expect(panel).not.toContain("7-day free trial");
     expect(panel).not.toContain("Redirecting…");
     expect(panel).toContain('data-subscribe-offer="monthly-primary"');
     expect(panel).toContain('data-subscribe-offer="annual-secondary"');
     expect(panel).not.toContain(FOUNDING_MEMBER_BONUS_HEADING);
+    expect(panel).not.toContain(FOUNDING_MEMBER_BONUS_VALUE);
     expect(panel).not.toContain(FOUNDING_MEMBER_BONUS_BODY);
+    expect(panel).not.toContain("Founding Member Bonus");
     expect(panel).not.toContain("$19.99");
     expect(panel).not.toContain("$120");
     expect(panel).not.toContain("Lowest price locked in");
     expect(panel).not.toContain("Save 50%");
-    expect(panel).not.toContain("$0 due today");
 
     const pausedBranchStart = panel.indexOf("if (showPausedResume)");
     const pricingReturnStart = panel.indexOf('data-growth-ignore="checkout"');
@@ -63,6 +69,7 @@ describe("paused membership UX wiring (source)", () => {
     expect(pausedBranch).toContain("Your membership is paused.");
     expect(pausedBranch).toContain("ResumeMembershipButton");
     expect(pausedBranch).not.toContain(FOUNDING_MEMBER_BONUS_HEADING);
+    expect(pausedBranch).not.toContain(FOUNDING_MEMBER_BONUS_VALUE);
     expect(pausedBranch).not.toContain(FOUNDING_MEMBER_BONUS_BODY);
   });
 
@@ -71,7 +78,7 @@ describe("paused membership UX wiring (source)", () => {
     const monthlyOffer = panel.indexOf('data-subscribe-offer="monthly-primary"');
     const monthlyCta = panel.indexOf("Continue to Secure Checkout");
     const stripeReassurance = panel.indexOf(
-      "Secure checkout powered by Stripe. You won&apos;t be charged today."
+      "Secure checkout powered by Stripe"
     );
     const kathy = panel.indexOf("Kathy P., Oregon");
     const annualOffer = panel.indexOf('data-subscribe-offer="annual-secondary"');
@@ -124,8 +131,11 @@ describe("paused membership UX wiring (source)", () => {
   it("subscribe page places Founding Member Bonus below the hero section", () => {
     const page = read("src/app/subscribe/page.tsx");
     expect(page).toContain(FOUNDING_MEMBER_BONUS_HEADING);
+    expect(page).toContain(FOUNDING_MEMBER_BONUS_VALUE);
     expect(page).toContain(FOUNDING_MEMBER_BONUS_BODY);
-    expect(page).toContain('bg-[var(--brand)]');
+    expect(page).toContain("bg-[var(--surface)]");
+    expect(page).not.toContain("Founding Member Bonus");
+    expect(page).not.toContain('bg-[var(--brand)]');
     expect(page).toContain("STEP 2 OF 2");
     expect(page).toContain("Add a payment method to start your trial");
     expect(page).toContain(

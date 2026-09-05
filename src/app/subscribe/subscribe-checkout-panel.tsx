@@ -224,12 +224,13 @@ export default function SubscribeCheckoutPanel() {
           className="rounded-2xl border-2 border-[var(--brand)] bg-[var(--surface)] p-5 text-left sm:p-6"
           data-subscribe-offer="monthly-primary"
         >
-          <p className="text-2xl font-bold tracking-tight text-[var(--text)]">
-            $29/month
+          <p className="text-2xl font-bold uppercase tracking-[0.18em] text-[var(--text)]">
+            $0 DUE TODAY
           </p>
           <p className="mt-2 text-sm font-medium text-[var(--text)]">
-            7 days free · then $29/month
+            7-day free trial
           </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">Then $29/month</p>
           <p className="mt-1 text-sm text-[var(--muted)]">Cancel anytime</p>
           <button
             type="button"
@@ -241,11 +242,10 @@ export default function SubscribeCheckoutPanel() {
               ? "Opening secure checkout…"
               : "Continue to Secure Checkout"}
           </button>
+          <p className="mt-3 text-sm leading-snug text-[var(--muted)]">
+            Secure checkout powered by Stripe
+          </p>
         </div>
-
-        <p className="text-sm leading-snug text-[var(--muted)]">
-          Secure checkout powered by Stripe. You won&apos;t be charged today.
-        </p>
 
         <blockquote className="border-t border-[var(--border)] pt-4 text-left">
           <p className="text-sm leading-relaxed text-[var(--text)]">
