@@ -29,77 +29,6 @@ function isSubscribedFromMetadata(md: Record<string, any>) {
 const ctaHeroPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
 
-const heroValuePropGridClass =
-  "mt-0 grid w-full min-w-0 max-w-xl list-none grid-cols-1 gap-3 p-0 md:mt-0 md:grid-cols-3 md:gap-2.5 lg:max-w-2xl lg:gap-3";
-
-const heroValuePropChipClass =
-  "flex min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-3.5 py-3 shadow-sm shadow-black/25 backdrop-blur-sm ring-1 ring-inset ring-orange-500/10 md:flex-col md:items-start md:gap-2.5 md:px-3 md:py-3.5 lg:flex-row lg:items-center lg:gap-3 lg:px-3.5";
-
-const heroValuePropIconBoxClass =
-  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--brand)]/30 bg-[var(--brand)]/10 text-[var(--brand)] shadow-sm shadow-orange-950/30";
-
-const heroValuePropIconClass = "h-5 w-5";
-
-const heroValuePropLabelClass =
-  "min-w-0 text-sm font-medium leading-snug text-white/90 drop-shadow-sm";
-
-function HeroIconDailyTexts() {
-  return (
-    <svg
-      className={heroValuePropIconClass}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      <path d="M8 10h8" />
-      <path d="M8 14h5" />
-    </svg>
-  );
-}
-
-function HeroIconFilmRoom() {
-  return (
-    <svg
-      className={heroValuePropIconClass}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m10 10 6 3.5-6 3.5V10z" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function HeroIconAskPat() {
-  return (
-    <svg
-      className={heroValuePropIconClass}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-      <path d="M9.5 11a1 1 0 1 0 0 .01" />
-      <path d="M12.5 11a1 1 0 1 0 0 .01" />
-      <path d="M15.5 11a1 1 0 1 0 0 .01" />
-    </svg>
-  );
-}
-
 const howItWorksIconClass = "h-14 w-14";
 
 function HowItWorksIdentityIcon() {
@@ -265,10 +194,10 @@ export default async function HomePage() {
             <div className="flex w-full max-w-2xl flex-col gap-5 md:gap-8 min-w-0">
               <div className="space-y-3 md:space-y-5">
                 <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-5xl md:leading-tight lg:text-6xl">
-                  TAKE PRIDE IN YOUR LIFE.
+                  BECOME WHO YOU WANT TO BE.
                 </h1>
                 <p className="text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
-                  Pat Summitt is your personal coach - every day.
+                  Pat Summitt in your corner with personalized accountability texts that turn your goals into daily action.
                 </p>
               </div>
 
@@ -322,45 +251,14 @@ export default async function HomePage() {
                 <>
                   <div className="w-full max-w-md">
                     <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
-                      {trialCtaLabel}
+                      {isNativeApp ? trialCtaLabel : "Start My 7-Day Free Trial"}
                     </Link>
                   </div>
-                  <div className="flex flex-col gap-3 md:gap-4">
-                    {showPricingCopy ? (
-                      <p className="text-sm text-white/80 drop-shadow-sm">
-                        Then $29 a month • Cancel anytime
-                      </p>
-                    ) : null}
-                    <ul
-                      className={heroValuePropGridClass}
-                      aria-label="What's included"
-                    >
-                      <li className={heroValuePropChipClass}>
-                        <span className={heroValuePropIconBoxClass} aria-hidden>
-                          <HeroIconDailyTexts />
-                        </span>
-                        <span className={heroValuePropLabelClass}>
-                          Daily coaching texts
-                        </span>
-                      </li>
-                      <li className={heroValuePropChipClass}>
-                        <span className={heroValuePropIconBoxClass} aria-hidden>
-                          <HeroIconFilmRoom />
-                        </span>
-                        <span className={heroValuePropLabelClass}>
-                          100+ Film Room videos
-                        </span>
-                      </li>
-                      <li className={heroValuePropChipClass}>
-                        <span className={heroValuePropIconBoxClass} aria-hidden>
-                          <HeroIconAskPat />
-                        </span>
-                        <span className={heroValuePropLabelClass}>
-                          Ask Pat guidance
-                        </span>
-                      </li>
-                    </ul>
-                  </div>
+                  {showPricingCopy ? (
+                    <p className="text-base font-medium text-white/90 drop-shadow-sm">
+                      7 days free · then $29/month · no charge today · cancel anytime
+                    </p>
+                  ) : null}
                 </>
               )}
             </div>
