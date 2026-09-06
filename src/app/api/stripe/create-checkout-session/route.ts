@@ -638,6 +638,16 @@ export async function POST(req: Request) {
           : `${appUrl}/subscribe?canceled=1`,
     };
 
+    // Presentation-only. Consumer monthly Checkout only — not annual, not coach.
+    if (plan === "monthly" && channel === "web") {
+      createParams.custom_text = {
+        submit: {
+          message:
+            "**$0 due today.** 7 days free, then $29/month. Cancel anytime.",
+        },
+      };
+    }
+
     const primaryIdempotencyKey = checkoutIdempotencyKeyV2({
       userId,
       plan,

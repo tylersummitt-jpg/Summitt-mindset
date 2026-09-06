@@ -412,6 +412,47 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     });
   });
 
+  it("consumer monthly Checkout includes $0 due today custom_text", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    listSubsMock.mockResolvedValue({ data: [] });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(createSessionMock.mock.calls[0][0].custom_text).toEqual({
+      submit: {
+        message:
+          "**$0 due today.** 7 days free, then $29/month. Cancel anytime.",
+      },
+    });
+  });
+
+  it("annual Checkout does not include monthly custom_text", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    listSubsMock.mockResolvedValue({ data: [] });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "annual" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(createSessionMock.mock.calls[0][0]).not.toHaveProperty(
+      "custom_text"
+    );
+  });
+
   it("annual plan maps to STRIPE_PRICE_ID_ANNUAL only", async () => {
     getClerkPublicMetadataMock.mockResolvedValue({
       stripeCustomerId: "cus_1",
@@ -855,6 +896,9 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
       plan: "monthly",
       summittAcquisition: "coach",
     });
+    expect(createSessionMock.mock.calls[0][0]).not.toHaveProperty(
+      "custom_text"
+    );
     expect(createSessionMock.mock.calls[0][1]).toEqual({
       idempotencyKey: "checkout-subscription-v2:user_1:monthly:coach",
     });
