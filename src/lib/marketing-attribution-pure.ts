@@ -491,6 +491,7 @@ export function isTrialAcquisitionHref(href: string): boolean {
     if (path === "/sign-in" || path.startsWith("/sign-in/")) return false;
     if (path === "/subscribe/success") return false;
     if (path === "/subscribe") return true;
+    if (path === "/checkout/start") return true;
     if (path === "/sign-up" || path.startsWith("/sign-up/")) {
       const redirect = url.searchParams.get("redirect_url");
       if (!redirect) return false;
@@ -503,7 +504,8 @@ export function isTrialAcquisitionHref(href: string): boolean {
       const inner = decoded.startsWith("http://") || decoded.startsWith("https://")
         ? new URL(decoded)
         : new URL(decoded.startsWith("/") ? decoded : `/${decoded}`, "https://summittmindset.com");
-      return normalizePathname(inner.pathname) === "/subscribe";
+      const dest = normalizePathname(inner.pathname);
+      return dest === "/subscribe" || dest === "/checkout/start";
     }
     return false;
   } catch {

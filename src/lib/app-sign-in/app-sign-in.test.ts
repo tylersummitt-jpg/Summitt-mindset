@@ -256,7 +256,9 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
   it("does not modify the normal website sign-in or sign-up routes", () => {
     const websiteSignIn = readSrc("src/app/sign-in/[[...sign-in]]/page.tsx");
     expect(websiteSignIn).toContain("<SignIn");
-    expect(websiteSignIn).toContain("afterSignInUrl");
+    expect(websiteSignIn).toContain("forceRedirectUrl={safeAfterSignInUrl}");
+    expect(websiteSignIn).toContain("signUpForceRedirectUrl={safeAfterSignUpUrl}");
+    expect(websiteSignIn).toContain("signUpUrlPreservingInternalRedirect");
     expect(websiteSignIn).not.toContain("AppEmailCodeSignIn");
     expect(websiteSignIn).not.toContain("/app/sign-in");
 
@@ -270,10 +272,11 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignUp).toContain("showOptionalFields: false");
     expect(websiteSignUp).toContain('socialButtonsPlacement: "top"');
     expect(websiteSignUp).toContain('socialButtonsVariant: "blockButton"');
-    expect(websiteSignUp).toContain("afterSignInUrl={safeAfterSignInUrl}");
-    expect(websiteSignUp).toContain("afterSignUpUrl={safeAfterSignUpUrl}");
-    expect(websiteSignUp).not.toContain("forceRedirectUrl");
-    expect(websiteSignUp).not.toContain("fallbackRedirectUrl");
+    expect(websiteSignUp).toContain("forceRedirectUrl={safeAfterSignUpUrl}");
+    expect(websiteSignUp).toContain("signInForceRedirectUrl={safeAfterSignInUrl}");
+    expect(websiteSignUp).toContain("signInUrlPreservingInternalRedirect");
+    expect(websiteSignUp).not.toContain("afterSignUpUrl=");
+    expect(websiteSignUp).not.toContain("afterSignInUrl=");
     expect(websiteSignUp).not.toMatch(/display:\s*["']none["']/);
     expect(websiteSignUp).toContain("STEP 1 OF 2");
     expect(websiteSignUp).toContain("Start your 7-day free trial");
@@ -285,12 +288,22 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(consumerSignUpSlot).toBeGreaterThan(consumerGrid);
     const consumerCopy = websiteSignUp.slice(consumerGrid, consumerSignUpSlot);
     expect(consumerCopy).toContain("Start your 7-day free trial");
-    expect(consumerCopy).not.toContain("Create your account");
+    expect(consumerCopy).toContain("isAcquisitionSignUp");
+    expect(consumerCopy).toContain("Create your account");
+    expect(consumerCopy).toContain(
+      "After you sign up, we&apos;ll send you to the next step for your"
+    );
     expect(websiteSignUp).toContain("$29/month");
     expect(websiteSignUp).toContain("7 days free · then $29/month");
     expect(websiteSignUp).toContain("$0 DUE TODAY");
     expect(websiteSignUp).toContain(
-      "Next, you&apos;ll choose your plan and securely add a payment method to start your trial."
+      "Next, you&apos;ll securely add a payment method to start your trial."
+    );
+    expect(websiteSignUp).not.toContain("choose your plan");
+    expect(websiteSignUp).toContain("safeCheckoutStartDestination");
+    expect(websiteSignUp).toContain('"/checkout/start"');
+    expect(websiteSignUp).toContain(
+      'safeSubscribeDestination ?? safeCheckoutStartDestination ?? "/onboarding"'
     );
     expect(websiteSignUp).not.toContain("You won&apos;t be charged today");
     expect(websiteSignUp).not.toContain("7 days free, then $29/month");

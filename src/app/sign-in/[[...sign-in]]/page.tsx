@@ -8,6 +8,7 @@ import {
   isCoachSubscribeRedirectUrl,
   sanitizeInternalRedirectUrl,
   sanitizeSubscribeRedirectUrl,
+  signUpUrlPreservingInternalRedirect,
 } from "@/lib/safe-redirect";
 
 /**
@@ -15,24 +16,27 @@ import {
  * Sign In Page (CANONICAL)
  * ======================================================
  *
- * Default behavior:
- * - afterSignIn → /post-sign-in
+ * Default after sign-in: /post-sign-in
+ * Optional ?redirect_url= — sanitized internal paths only.
  *
- * BUT:
- * If user arrived here with:
- * ?redirect_url=/somewhere
- *
- * We send them there after sign-in.
+ * Sign Up footer link preserves the same sanitized redirect
+ * (consumer hop /checkout/start, coach /subscribe?src=coach).
  */
 
 export default function SignInPage() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams?.get("redirect_url");
 
+  const safeSubscribeDestination = sanitizeSubscribeRedirectUrl(redirectUrl);
+  const safeCheckoutStartDestination =
+    sanitizeInternalRedirectUrl(redirectUrl) === "/checkout/start"
+      ? "/checkout/start"
+      : null;
+
   const safeAfterSignInUrl =
     sanitizeInternalRedirectUrl(redirectUrl) ?? "/post-sign-in";
   const safeAfterSignUpUrl =
-    sanitizeSubscribeRedirectUrl(redirectUrl) ?? "/onboarding";
+    safeSubscribeDestination ?? safeCheckoutStartDestination ?? "/onboarding";
 
   const isCoachSignIn = isCoachSubscribeRedirectUrl(redirectUrl);
 
@@ -40,8 +44,11 @@ export default function SignInPage() {
     <AuthMarketingShell authPage="sign-in">
       {isCoachSignIn ? <CoachAttributionSync enabled /> : null}
       <SignIn
-        afterSignInUrl={safeAfterSignInUrl}
-        afterSignUpUrl={safeAfterSignUpUrl}
+        forceRedirectUrl={safeAfterSignInUrl}
+        fallbackRedirectUrl={safeAfterSignInUrl}
+        signUpForceRedirectUrl={safeAfterSignUpUrl}
+        signUpFallbackRedirectUrl={safeAfterSignUpUrl}
+        signUpUrl={signUpUrlPreservingInternalRedirect(redirectUrl)}
       />
     </AuthMarketingShell>
   );

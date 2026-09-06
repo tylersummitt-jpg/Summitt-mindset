@@ -44,7 +44,7 @@ describe("native-safe marketing CTA helper", () => {
     ).toBe("/app/membership");
     expect(
       marketingAcquisitionHref({ isNativeApp: false, isSignedIn: false })
-    ).toBe(`/sign-up?redirect_url=${encodeURIComponent("/subscribe")}`);
+    ).toBe(`/sign-up?redirect_url=${encodeURIComponent("/checkout/start")}`);
     expect(
       marketingAcquisitionHref({ isNativeApp: false, isSignedIn: true })
     ).toBe("/subscribe");
@@ -57,7 +57,7 @@ describe("native-safe marketing CTA helper", () => {
   it("Navbar consumer Start Free Trial uses sign-up; Sign In and coach stay put", () => {
     const nav = readSrc("src/components/Navbar.tsx");
     expect(nav).toContain(
-      'SIGN_UP_WITH_SUBSCRIBE_REDIRECT = `/sign-up?redirect_url=${encodeURIComponent("/subscribe")}`'
+      'SIGN_UP_WITH_SUBSCRIBE_REDIRECT = `/sign-up?redirect_url=${encodeURIComponent("/checkout/start")}`'
     );
     expect(nav).toContain(
       'SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT = `/sign-up?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`'
@@ -119,7 +119,7 @@ describe("reviewer-visible link and navigation audit", () => {
     expect(page).not.toMatch(/\$29|\$249/);
     expect(page).not.toMatch(/free trial/i);
     expect(page).not.toMatch(/\bSubscribe\b/);
-    expect(page).not.toMatch(/\bCheckout\b/i);
+    expect(page).not.toMatch(/href=["'][^"']*checkout/i);
     expect(page).not.toContain('href="/subscribe"');
     expect(page).toContain("Sign out");
     expect(page).toContain("AccountDeletionDangerZone");

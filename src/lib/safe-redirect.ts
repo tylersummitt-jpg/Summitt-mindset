@@ -16,6 +16,7 @@ const INTERNAL_PATH_ALLOWLIST = new Set([
   "/onboarding/sms",
   "/onboarding/complete",
   "/subscribe/success",
+  "/checkout/start",
   "/ask-pat",
   "/film-room",
   "/dashboard",
@@ -137,4 +138,22 @@ export function sanitizeInternalRedirectUrl(
   if (!INTERNAL_PATH_ALLOWLIST.has(path)) return null;
 
   return path;
+}
+
+/** Sign-up href that keeps a sanitized internal redirect_url (coach, hop, etc.). */
+export function signUpUrlPreservingInternalRedirect(
+  raw: string | null | undefined
+): string {
+  const dest = sanitizeInternalRedirectUrl(raw);
+  if (!dest) return "/sign-up";
+  return `/sign-up?redirect_url=${encodeURIComponent(dest)}`;
+}
+
+/** Sign-in href that keeps a sanitized internal redirect_url. */
+export function signInUrlPreservingInternalRedirect(
+  raw: string | null | undefined
+): string {
+  const dest = sanitizeInternalRedirectUrl(raw);
+  if (!dest) return "/sign-in";
+  return `/sign-in?redirect_url=${encodeURIComponent(dest)}`;
 }

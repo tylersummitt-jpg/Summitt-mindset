@@ -102,7 +102,7 @@ describe("collect cookie decode matches middleware Set-Cookie", () => {
           event_type: "trial_cta_clicked",
           path: "/",
           cta_surface: "hero",
-          href: "/sign-up?redirect_url=/subscribe",
+          href: "/sign-up?redirect_url=/checkout/start",
         }),
       })
     );

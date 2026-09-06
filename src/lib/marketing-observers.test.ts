@@ -77,7 +77,8 @@ describe("marketing observers and fail-open wiring", () => {
     const post = read("src/app/post-sign-in/page.tsx");
     const subscribe = read("src/app/subscribe/page.tsx");
     const onboarding = read("src/app/onboarding/layout.tsx");
-    for (const src of [post, subscribe, onboarding]) {
+    const checkoutStart = read("src/app/checkout/start/page.tsx");
+    for (const src of [post, subscribe, onboarding, checkoutStart]) {
       expect(src).toContain("linkMarketingVisitorToClerkUser");
       expect(src).toContain("try {");
       expect(src).toContain("fail-open");
@@ -97,6 +98,14 @@ describe("marketing observers and fail-open wiring", () => {
     const webhook = read("src/app/api/stripe/webhook/route.ts");
     const apple = read("src/app/api/apple/webhook/route.ts");
     expect(checkout).toContain("stripe.checkout.sessions");
+    expect(checkout).toContain("resolveAppleMembershipGrantForUser");
+    expect(checkout).toContain("checkoutIdempotencyKeyV2");
+    expect(checkout).not.toContain("sessions.expire");
+    expect(checkout).not.toContain("sessions.search");
+    expect(checkout).not.toContain(":after:");
+    expect(read("src/lib/stripe-pending-checkout-session.ts")).toContain(
+      "checkout-subscription-v2"
+    );
     expect(webhook).toContain("constructEvent");
     expect(apple).toContain("handleAppleServerNotification");
     expect(read("src/lib/coach-attribution.ts")).toContain('summitt_attribution');

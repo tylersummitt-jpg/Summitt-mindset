@@ -237,11 +237,16 @@ describe("cookie flags", () => {
 describe("trial CTA href detection", () => {
   it("counts subscribe and sign-up-to-subscribe, not sign-in or native", () => {
     expect(isTrialAcquisitionHref("/subscribe")).toBe(true);
+    expect(isTrialAcquisitionHref("/checkout/start")).toBe(true);
     expect(isTrialAcquisitionHref("/subscribe?from=home")).toBe(true);
     expect(isTrialAcquisitionHref(`/sign-up?redirect_url=${encodeURIComponent("/subscribe")}`)).toBe(
       true
     );
+    expect(isTrialAcquisitionHref(`/sign-up?redirect_url=${encodeURIComponent("/checkout/start")}`)).toBe(
+      true
+    );
     expect(isTrialAcquisitionHref("/sign-up?redirect_url=/subscribe")).toBe(true);
+    expect(isTrialAcquisitionHref("/sign-up?redirect_url=/checkout/start")).toBe(true);
     expect(
       isTrialAcquisitionHref(`/sign-up?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`)
     ).toBe(true);

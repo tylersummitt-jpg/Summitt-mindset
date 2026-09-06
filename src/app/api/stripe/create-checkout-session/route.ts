@@ -22,7 +22,21 @@ import { NATIVE_APP_CHECKOUT_UNAVAILABLE_ERROR } from "@/lib/native-app/membersh
 import {
   isSmsReplicaFailureAfterClerkSuccess,
   recomputeMembershipFromAuthoritativeStripeSubscription,
+  resolveAppleMembershipGrantForUser,
 } from "@/lib/summitt-membership-entitlement.server";
+import {
+  CHECKOUT_PENDING_BODY,
+  CHECKOUT_PROCESSING_BODY,
+  CHECKOUT_UNAVAILABLE_BODY,
+  checkoutChannelFromSrc,
+  checkoutCustomerIdempotencyKey,
+  checkoutIdempotencyKeyV2,
+  decidePendingCheckoutAction,
+  isReusableOpenCheckoutSession,
+  isStripeIdempotencyError,
+  isUsableOpenCheckoutUrl,
+  type PendingCheckoutSessionLike,
+} from "@/lib/stripe-pending-checkout-session";
 
 export const runtime = "nodejs";
 
@@ -144,6 +158,112 @@ async function findBlockingSummittSubscription(args: {
   return candidates[0] ?? null;
 }
 
+const OPEN_CHECKOUT_LIST_PAGE_SIZE = 100;
+const OPEN_CHECKOUT_LIST_MAX_PAGES = 10;
+
+function asPendingCheckoutSession(
+  raw: Stripe.Checkout.Session
+): PendingCheckoutSessionLike {
+  return {
+    id: raw.id,
+    status: raw.status,
+    mode: raw.mode,
+    url: raw.url,
+    client_reference_id: raw.client_reference_id,
+    metadata: (raw.metadata ?? null) as Record<string, string> | null,
+    line_items: raw.line_items
+      ? { data: raw.line_items.data }
+      : null,
+  };
+}
+
+async function listOpenCheckoutSessionsForCustomer(args: {
+  stripe: Stripe;
+  customerId: string;
+}): Promise<PendingCheckoutSessionLike[] | "lookup_failed"> {
+  const out: PendingCheckoutSessionLike[] = [];
+  let startingAfter: string | undefined;
+  try {
+    for (let page = 0; page < OPEN_CHECKOUT_LIST_MAX_PAGES; page += 1) {
+      const listed = await args.stripe.checkout.sessions.list({
+        customer: args.customerId,
+        status: "open",
+        limit: OPEN_CHECKOUT_LIST_PAGE_SIZE,
+        starting_after: startingAfter,
+        expand: ["data.line_items"],
+      });
+      for (const session of listed.data) {
+        out.push(asPendingCheckoutSession(session));
+      }
+      if (!listed.has_more) return out;
+      const lastId = listed.data[listed.data.length - 1]?.id;
+      if (!lastId) return out;
+      startingAfter = lastId;
+    }
+    console.error(
+      "[stripe/create-checkout-session] open checkout list exceeded page cap; fail closed"
+    );
+    return "lookup_failed";
+  } catch (err) {
+    console.error(
+      "[stripe/create-checkout-session] open checkout list failed; fail closed",
+      err
+    );
+    return "lookup_failed";
+  }
+}
+
+async function retrieveOpenCheckoutSession(args: {
+  stripe: Stripe;
+  sessionId: string;
+}): Promise<PendingCheckoutSessionLike | "lookup_failed"> {
+  try {
+    const raw = await args.stripe.checkout.sessions.retrieve(args.sessionId, {
+      expand: ["line_items"],
+    });
+    return asPendingCheckoutSession(raw);
+  } catch (err) {
+    console.error(
+      "[stripe/create-checkout-session] checkout session retrieve failed; fail closed",
+      err
+    );
+    return "lookup_failed";
+  }
+}
+
+/**
+ * Stable Stripe Customer for Checkout create params.
+ * Clerk id is used when present; otherwise an idempotent customers.create
+ * keyed only by Clerk user id. Session create always passes `customer`
+ * and never an email prefill field, so v2 idempotency params stay stable.
+ */
+async function resolveStripeCustomerForCheckout(args: {
+  stripe: Stripe;
+  userId: string;
+  userEmail: string;
+  existingCustomerId: string | null;
+}): Promise<string | "lookup_failed"> {
+  if (args.existingCustomerId) return args.existingCustomerId;
+  try {
+    const customer = await args.stripe.customers.create(
+      {
+        email: args.userEmail,
+        metadata: { userId: args.userId },
+      },
+      { idempotencyKey: checkoutCustomerIdempotencyKey(args.userId) }
+    );
+    const id = typeof customer.id === "string" ? customer.id.trim() : "";
+    if (!id) return "lookup_failed";
+    return id;
+  } catch (err) {
+    console.error(
+      "[stripe/create-checkout-session] customer create failed; fail closed",
+      err
+    );
+    return "lookup_failed";
+  }
+}
+
 export async function POST(req: Request) {
   try {
     if (isNativeSummittMindsetAppRequestFromRequest(req)) {
@@ -229,6 +349,29 @@ export async function POST(req: Request) {
         "Stripe price ID not configured for this plan",
         { status: 500 }
       );
+    }
+
+    try {
+      const appleGrant = await resolveAppleMembershipGrantForUser(userId);
+      if (appleGrant?.grantsAccess === true) {
+        console.log(
+          "[stripe/create-checkout-session] blocked: Apple membership currently grants",
+          { userId }
+        );
+        return NextResponse.json(
+          {
+            error: "already_subscribed",
+            message: "You already have an active Summitt Mindset membership.",
+          },
+          { status: 409 }
+        );
+      }
+    } catch (appleErr) {
+      console.error(
+        "[stripe/create-checkout-session] Apple grant lookup failed; fail closed",
+        appleErr
+      );
+      return new NextResponse("Internal Server Error", { status: 500 });
     }
 
     // 🔎 Check if we already have a Stripe customer ID saved
@@ -386,11 +529,83 @@ export async function POST(req: Request) {
       );
     }
 
-    // Hourly bucket: still dedupes rapid double-clicks, but a new hour gets a new key so abandoned
-    // Checkout does not reuse the same session for the full Stripe idempotency window.
-    const utc = new Date();
-    const utcHourBucket = `${utc.getUTCFullYear()}-${String(utc.getUTCMonth() + 1).padStart(2, "0")}-${String(utc.getUTCDate()).padStart(2, "0")}-${String(utc.getUTCHours()).padStart(2, "0")}`;
-    const checkoutIdempotencyKey = `checkout-subscription-v1:${userId}:${plan}:${utcHourBucket}`;
+    const channel = checkoutChannelFromSrc(src);
+    const recognizedPriceIds = getRecognizedSummittPriceIds({
+      monthly: monthlyPriceId,
+      annual: annualPriceId,
+      legacyCsv: process.env.STRIPE_LEGACY_PRICE_IDS,
+    });
+
+    const resolvedCustomerId = await resolveStripeCustomerForCheckout({
+      stripe,
+      userId,
+      userEmail,
+      existingCustomerId,
+    });
+    if (resolvedCustomerId === "lookup_failed") {
+      return new NextResponse("Internal Server Error", { status: 500 });
+    }
+    if (resolvedCustomerId !== existingCustomerId) {
+      try {
+        await updateClerkPublicMetadata(userId, {
+          stripeCustomerId: resolvedCustomerId,
+        });
+      } catch (err) {
+        console.warn("Unable to pre-link stripeCustomerId:", err);
+      }
+    }
+
+    const openSessions = await listOpenCheckoutSessionsForCustomer({
+      stripe,
+      customerId: resolvedCustomerId,
+    });
+    if (openSessions === "lookup_failed") {
+      return new NextResponse("Internal Server Error", { status: 500 });
+    }
+
+    const pendingArgs = {
+      userId,
+      plan,
+      channel,
+      expectedPriceId: priceId,
+      recognizedPriceIds,
+    };
+    const pendingDecision = decidePendingCheckoutAction(openSessions, pendingArgs);
+    if (pendingDecision.kind === "conflict") {
+      return NextResponse.json(CHECKOUT_PENDING_BODY, { status: 409 });
+    }
+    if (pendingDecision.kind === "reuse" || pendingDecision.kind === "retrieve") {
+      let reusable = pendingDecision.session;
+      if (pendingDecision.kind === "retrieve") {
+        const sessionId =
+          typeof reusable.id === "string" ? reusable.id.trim() : "";
+        if (!sessionId) {
+          return NextResponse.json(CHECKOUT_PENDING_BODY, { status: 409 });
+        }
+        const retrieved = await retrieveOpenCheckoutSession({
+          stripe,
+          sessionId,
+        });
+        if (retrieved === "lookup_failed") {
+          return new NextResponse("Internal Server Error", { status: 500 });
+        }
+        reusable = retrieved;
+      }
+      if (
+        isReusableOpenCheckoutSession(reusable, {
+          userId,
+          plan,
+          channel,
+          expectedPriceId: priceId,
+        })
+      ) {
+        const reuseUrl = reusable.url;
+        if (typeof reuseUrl === "string" && reuseUrl.trim()) {
+          return NextResponse.json({ url: reuseUrl.trim() });
+        }
+      }
+      return NextResponse.json(CHECKOUT_PENDING_BODY, { status: 409 });
+    }
 
     const sessionMetadata: Stripe.MetadataParam = {
       userId,
@@ -405,58 +620,96 @@ export async function POST(req: Request) {
       subscriptionMetadata.summittAcquisition = "coach";
     }
 
-    const session = await stripe.checkout.sessions.create(
-      {
-        mode: "subscription",
-
-        client_reference_id: userId,
-
-        line_items: [{ price: priceId, quantity: 1 }],
-
-        allow_promotion_codes: true,
-
-        // 🔥 Correct behavior for subscription mode
-        customer: existingCustomerId || undefined,
-        customer_email: existingCustomerId ? undefined : userEmail,
-
-        metadata: sessionMetadata,
-
-        subscription_data: {
-          trial_period_days: 7,
-          metadata: subscriptionMetadata,
-        },
-
-        success_url: `${appUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url:
-          src === "coach"
-            ? `${appUrl}/subscribe?canceled=1&src=coach`
-            : `${appUrl}/subscribe?canceled=1`,
+    const createParams: Stripe.Checkout.SessionCreateParams = {
+      mode: "subscription",
+      client_reference_id: userId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
+      customer: resolvedCustomerId,
+      metadata: sessionMetadata,
+      subscription_data: {
+        trial_period_days: 7,
+        metadata: subscriptionMetadata,
       },
-      { idempotencyKey: checkoutIdempotencyKey }
-    );
+      success_url: `${appUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:
+        src === "coach"
+          ? `${appUrl}/subscribe?canceled=1&src=coach`
+          : `${appUrl}/subscribe?canceled=1`,
+    };
 
-    if (!session.url) {
-      return new NextResponse("Failed to create checkout session", {
-        status: 500,
+    const primaryIdempotencyKey = checkoutIdempotencyKeyV2({
+      userId,
+      plan,
+      channel,
+    });
+
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create(createParams, {
+        idempotencyKey: primaryIdempotencyKey,
       });
-    }
-
-    // Optional: Pre-link customer id immediately
-    const customerId =
-      typeof session.customer === "string" ? session.customer : null;
-
-    if (customerId && customerId !== existingCustomerId) {
-      try {
-        await updateClerkPublicMetadata(userId, {
-          stripeCustomerId: customerId,
-        });
-      } catch (err) {
-        console.warn("Unable to pre-link stripeCustomerId:", err);
+    } catch (createErr: unknown) {
+      if (isStripeIdempotencyError(createErr)) {
+        console.warn(
+          "[stripe/create-checkout-session] Stripe idempotency error; not creating successor",
+          { userId, plan, channel }
+        );
+        return NextResponse.json(CHECKOUT_UNAVAILABLE_BODY, { status: 409 });
       }
+      throw createErr;
+    }
+    let usable = asPendingCheckoutSession(session);
+
+    if (
+      session.status === "open" &&
+      !isUsableOpenCheckoutUrl(usable) &&
+      session.id
+    ) {
+      const retrieved = await retrieveOpenCheckoutSession({
+        stripe,
+        sessionId: session.id,
+      });
+      if (retrieved === "lookup_failed") {
+        return new NextResponse("Internal Server Error", { status: 500 });
+      }
+      usable = retrieved;
     }
 
-    return NextResponse.json({ url: session.url });
-  } catch (err: any) {
+    if (isUsableOpenCheckoutUrl(usable) && usable.url) {
+      return NextResponse.json({ url: usable.url.trim() });
+    }
+
+    if (session.status === "complete") {
+      const blockingAgain = await findBlockingSummittSubscription({
+        stripe,
+        clerkUserId: userId,
+        userEmail,
+        existingCustomerId: resolvedCustomerId,
+      });
+      if (blockingAgain) {
+        const blockBody = checkoutBlockErrorForClass(blockingAgain.classification);
+        return NextResponse.json(
+          blockBody ?? {
+            error: "already_subscribed",
+            message: "You already have an active Summitt Mindset membership.",
+          },
+          { status: 409 }
+        );
+      }
+      console.warn(
+        "[stripe/create-checkout-session] idempotent replay returned complete session; not creating successor",
+        { userId, sessionId: session.id }
+      );
+      return NextResponse.json(CHECKOUT_PROCESSING_BODY, { status: 409 });
+    }
+
+    console.warn(
+      "[stripe/create-checkout-session] checkout session is not a usable open URL; fail closed",
+      { userId, sessionId: session.id, status: session.status }
+    );
+    return NextResponse.json(CHECKOUT_UNAVAILABLE_BODY, { status: 409 });
+  } catch (err: unknown) {
     console.error("Error creating checkout session:", err);
     return new NextResponse(
       "Internal Server Error creating checkout session",

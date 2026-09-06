@@ -8,6 +8,7 @@ import {
   isCoachSubscribeRedirectUrl,
   sanitizeInternalRedirectUrl,
   sanitizeSubscribeRedirectUrl,
+  signInUrlPreservingInternalRedirect,
 } from "@/lib/safe-redirect";
 
 /**
@@ -15,15 +16,15 @@ import {
  * Sign Up Page (CANONICAL)
  * ======================================================
  *
- * Anyone who signs up MUST go to onboarding.
+ * After sign-up destination is sanitized from ?redirect_url=:
+ * - consumer acquisition → /checkout/start
+ * - coach → /subscribe?src=coach
+ * - bare /sign-up (no redirect) → /onboarding, then unpaid users
+ *   are gated to /subscribe (not an automatic Checkout hop)
  *
  * We do NOT send them to /dashboard.
- * That would cause:
- * - broken metadata
- * - missing goal
- * - retention loss
  *
- * Optional ?redirect_url= — same sanitization as sign-in (safe internal paths only).
+ * forceRedirectUrl is the Clerk v6 prop that wins over Dashboard/env FORCE.
  */
 
 const websiteSignUpAppearance = {
@@ -74,16 +75,26 @@ export default function SignUpPage() {
 
   const safeSubscribeDestination = sanitizeSubscribeRedirectUrl(redirectUrl);
   const isCoachSignUp = isCoachSubscribeRedirectUrl(redirectUrl);
+  const safeCheckoutStartDestination =
+    sanitizeInternalRedirectUrl(redirectUrl) === "/checkout/start"
+      ? "/checkout/start"
+      : null;
 
   const safeAfterSignInUrl =
     sanitizeInternalRedirectUrl(redirectUrl) ?? "/post-sign-in";
   const safeAfterSignUpUrl =
-    safeSubscribeDestination ?? "/onboarding";
+    safeSubscribeDestination ?? safeCheckoutStartDestination ?? "/onboarding";
+  const isAcquisitionSignUp = Boolean(
+    safeSubscribeDestination || safeCheckoutStartDestination
+  );
 
   const signUp = (
     <SignUp
-      afterSignInUrl={safeAfterSignInUrl}
-      afterSignUpUrl={safeAfterSignUpUrl}
+      forceRedirectUrl={safeAfterSignUpUrl}
+      fallbackRedirectUrl={safeAfterSignUpUrl}
+      signInForceRedirectUrl={safeAfterSignInUrl}
+      signInFallbackRedirectUrl={safeAfterSignInUrl}
+      signInUrl={signInUrlPreservingInternalRedirect(redirectUrl)}
       appearance={websiteSignUpAppearance}
     />
   );
@@ -154,21 +165,35 @@ export default function SignUpPage() {
       ) : (
         <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-2 lg:items-center lg:gap-14">
           <div className="flex min-w-0 flex-col justify-center gap-2 text-center lg:gap-3 lg:text-left">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
-              STEP 1 OF 2
-            </p>
-            <p className="text-lg font-semibold leading-snug text-white drop-shadow-sm sm:text-xl">
-              Start your 7-day free trial
-            </p>
-            <p className="text-sm leading-snug text-white/90 sm:text-[15px] sm:leading-relaxed">
-              7 days free · then $29/month
-            </p>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-white drop-shadow-sm">
-              $0 DUE TODAY
-            </p>
-            <p className="text-sm leading-snug text-white/80 sm:text-[15px] sm:leading-relaxed">
-              Next, you&apos;ll choose your plan and securely add a payment method to start your trial.
-            </p>
+            {isAcquisitionSignUp ? (
+              <>
+                <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
+                  STEP 1 OF 2
+                </p>
+                <p className="text-lg font-semibold leading-snug text-white drop-shadow-sm sm:text-xl">
+                  Start your 7-day free trial
+                </p>
+                <p className="text-sm leading-snug text-white/90 sm:text-[15px] sm:leading-relaxed">
+                  7 days free · then $29/month
+                </p>
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-white drop-shadow-sm">
+                  $0 DUE TODAY
+                </p>
+                <p className="text-sm leading-snug text-white/80 sm:text-[15px] sm:leading-relaxed">
+                  Next, you&apos;ll securely add a payment method to start your trial.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-semibold leading-snug text-white drop-shadow-sm sm:text-xl">
+                  Create your account
+                </p>
+                <p className="text-sm leading-snug text-white/80 sm:text-[15px] sm:leading-relaxed">
+                  After you sign up, we&apos;ll send you to the next step for your
+                  account.
+                </p>
+              </>
+            )}
           </div>
           <div className="w-full min-w-0 lg:justify-self-end">
             <div className="w-full max-w-md lg:ml-auto">{signUp}</div>
