@@ -10,7 +10,7 @@ export type ConversationBrainNormalInboundGate = {
   pendingResolutionActive: boolean;
   contractOverlayActive: boolean;
   optOutOrComplianceTurn: boolean;
-  /** Deterministic: obvious commitment replace/tighten/switch language — skip brain; use legacy Wave 4 / gated path. */
+  /** Collision fence: skip conversation brain on obvious Goal Change phrasing so it cannot own that English. First-turn saved replace is Sol pending-open (Slice 5). */
   commitmentChangeIntentLikely: boolean;
 };
 

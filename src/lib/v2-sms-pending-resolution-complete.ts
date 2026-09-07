@@ -67,6 +67,7 @@ import {
   shouldRunHumanSmsPipelineForPendingResolution,
 } from "@/lib/v2-human-sms-brain/flags";
 import { isThinCommitmentBarForVictoryCallout } from "@/lib/v2-human-sms-brain/thin-commitment-bar-for-victory";
+import { resolveReplaceHallwayClockCandidate } from "@/lib/sol-goal-change-clock-substitute";
 
 const BEHAVIOR_MAX = 2000;
 const RAW_LOG_MAX = 280;
@@ -759,7 +760,11 @@ function extractBootstrapCandidateForPending(
 export async function bootstrapSmsPendingConfirmationFromInbound(args: {
   commitment: ActiveV2CommitmentRow;
   rawBody: string;
-  /** When Wave4 opened an awaiting_candidate shell with no concrete bar, skip raw-body promotion. */
+  /**
+   * Sol-owned saved-replace hallway: Sol already determined there is no usable
+   * candidate. Do not leftover-extract or promote on this same inbound.
+   * Legacy/tighten/predeploy callers omit this flag so bootstrap still runs.
+   */
   openedAsAwaitingCandidateShell?: boolean;
 }): Promise<SmsPendingBootstrapResult> {
   const pending = getPendingResolutionOrNull(args.commitment);
@@ -772,6 +777,14 @@ export async function bootstrapSmsPendingConfirmationFromInbound(args: {
   const smsState = pending.payload.sms_state ?? "awaiting_candidate";
   if (smsState !== "awaiting_candidate") {
     return { promoted: false, candidate: null, skipReason: "not_awaiting_candidate" };
+  }
+
+  if (args.openedAsAwaitingCandidateShell === true) {
+    return {
+      promoted: false,
+      candidate: null,
+      skipReason: "sol_owned_awaiting_candidate_shell",
+    };
   }
 
   const raw = args.rawBody.trim();
@@ -801,11 +814,6 @@ export async function bootstrapSmsPendingConfirmationFromInbound(args: {
 
   if (preferRichTextOverBareDuration(raw, extracted)) {
     extracted = null;
-  }
-
-  // Shell opened without a concrete bar: do not promote unless structured extract (or payload) found one.
-  if (args.openedAsAwaitingCandidateShell === true && !payloadPreCandidate && !extracted) {
-    return { promoted: false, candidate: null, skipReason: "shell_without_concrete_candidate" };
   }
 
   if (
@@ -1610,8 +1618,34 @@ export async function tryHandleSmsInboundPendingResolution(args: {
   }
 
   let meaningInterpreterAcceptedBar: string | null = null;
+  let skipAiCandidateExtraction = false;
+  let clockNormalizedCandidate: string | null = null;
+  if (smsState === "awaiting_candidate" && kind === "commitment_replace") {
+    // Production Turn 2 for this hallway is owned by
+    // runSolGoalChangeAwaitingCandidateForInbound (Sol interpreter / clock slot).
+    // This leftover block remains for direct callers and pre-route compatibility
+    // tests; processV2SmsInboundPendingResolution must not reach it for the
+    // normal saved-replace hallway.
+    const clock = resolveReplaceHallwayClockCandidate({
+      canonicalBehaviorStatement: c.behavior_statement ?? "",
+      extracted: null,
+      inboundRaw: rawFull,
+    });
+    if (clock.status === "normalized") {
+      clockNormalizedCandidate = clock.candidate;
+      skipAiCandidateExtraction = true;
+    } else if (clock.status === "unnormalizable") {
+      // Clock fragment cannot be expanded into the canonical sentence.
+      // Do not persist raw `10:30` or let leftover AI invent a bar.
+      skipAiCandidateExtraction = true;
+    }
+  }
 
-  if (shouldRunCommitmentInterpreterForPendingResolution()) {
+  if (
+    !clockNormalizedCandidate &&
+    !skipAiCandidateExtraction &&
+    shouldRunCommitmentInterpreterForPendingResolution()
+  ) {
     const interp = await interpretCommitmentMeaningFromUserText({
       rawUserText: rawFull,
       pendingKind: kind,
@@ -1709,6 +1743,22 @@ export async function tryHandleSmsInboundPendingResolution(args: {
   if (!meaningInterpreterAcceptedBar && preferRichTextOverBareDuration(rawFull, extracted)) {
     extracted = null;
   }
+  if (clockNormalizedCandidate) {
+    extracted = clockNormalizedCandidate;
+  } else if (smsState === "awaiting_candidate" && kind === "commitment_replace") {
+    const clock = resolveReplaceHallwayClockCandidate({
+      canonicalBehaviorStatement: c.behavior_statement ?? "",
+      extracted,
+      inboundRaw: rawFull,
+    });
+    if (clock.status === "normalized") {
+      extracted = clock.candidate;
+      skipAiCandidateExtraction = true;
+    } else if (clock.status === "unnormalizable") {
+      extracted = null;
+      skipAiCandidateExtraction = true;
+    }
+  }
 
   // Never fall back to raw inbound as the candidate — only structured extract, meaning interpreter, or AI.
   let candidateRaw: string | null = meaningInterpreterAcceptedBar ?? extracted ?? null;
@@ -1730,7 +1780,11 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     reasoningShort: string | null;
   } | null = null;
 
-  if (!deterministicGood && shouldAttemptAiCandidateExtraction(rawFull)) {
+  if (
+    !deterministicGood &&
+    !skipAiCandidateExtraction &&
+    shouldAttemptAiCandidateExtraction(rawFull)
+  ) {
     const aiRes = await tryExtractV2SmsPendingResolutionCandidateAi({
       rawInbound: rawFull,
       pendingKind: kind,

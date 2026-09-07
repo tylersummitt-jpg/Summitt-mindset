@@ -82,6 +82,18 @@ vi.mock("@/lib/v2-human-sms-brain/flags", () => ({
   shouldRunHumanSmsPipelineForPendingResolution: vi.fn(() => false),
 }));
 
+vi.mock("@/lib/v2-ai-sms-pending-candidate", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/v2-ai-sms-pending-candidate")>();
+  return {
+    ...actual,
+    tryExtractV2SmsPendingResolutionCandidateAi: vi.fn(async () => ({
+      ok: false as const,
+      attempted: false as const,
+      reason: "test_no_live_openai",
+    })),
+  };
+});
+
 vi.mock("@/lib/v2-victory-snapshot-invalidation", () => ({
   invalidateVictorySnapshotsAfterCanonicalGoalChange: vi.fn(async () => ({
     ok: true,
@@ -1382,6 +1394,85 @@ describe("pending keep-current clears hallway without mutation", () => {
     expect(rpcMock).not.toHaveBeenCalled();
     if (r.handled) {
       expect(r.pendingStillActiveAfterPhase1).toBe(true);
+    }
+  });
+});
+
+const ANGELA_CANONICAL_HALLWAY = "I will be in bed by 9:30 pm nightly.";
+const ANGELA_NORMALIZED_HALLWAY = "I will be in bed by 10:30 pm nightly.";
+
+describe("Slice 5 correction — awaiting_candidate leftover hallway clock", () => {
+  function awaitingCandidateReplace(): ActiveV2CommitmentRow {
+    const c = commitmentAwaitingConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+      confirmation_prompt_sent_at: null,
+      awaiting_candidate_reason: "goal_change_without_concrete_bar",
+    });
+    c.behavior_statement = ANGELA_CANONICAL_HALLWAY;
+    return c;
+  }
+
+  function promotedCandidateFromMerges(): string | null {
+    for (const call of mergeMock.mock.calls) {
+      const mergeArg = call[0] as {
+        merge?: (prev: Record<string, unknown>) => Record<string, unknown>;
+      };
+      if (typeof mergeArg?.merge !== "function") continue;
+      const out = mergeArg.merge({
+        source: "sms_inbound",
+        detected_intent: "sms_replace_request",
+        sms_state: "awaiting_candidate",
+        candidate_behavior_statement: null,
+        candidate_new_bar: null,
+      });
+      if (out.sms_state === "awaiting_confirmation") {
+        return String(out.candidate_behavior_statement ?? out.candidate_new_bar ?? "");
+      }
+    }
+    return null;
+  }
+
+  it("Turn 2 clock fragment becomes the full normalized bedtime sentence", async () => {
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMhall_clock", raw_body: "10:30." },
+      clerkUserId: "user_pr",
+      commitment: awaitingCandidateReplace(),
+    });
+    expect(r.handled).toBe(true);
+    expect(promotedCandidateFromMerges()).toBe(ANGELA_NORMALIZED_HALLWAY);
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody).toContain(ANGELA_NORMALIZED_HALLWAY);
+      expect(r.replyBody).not.toMatch(/new goal to be:\s*10:30\.?\s*$/i);
+    }
+  });
+
+  it("Turn 2 unrelated workout does not manufacture a candidate", async () => {
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMhall_workout", raw_body: "Actually I had a great workout today." },
+      clerkUserId: "user_pr",
+      commitment: awaitingCandidateReplace(),
+    });
+    expect(r.handled).toBe(true);
+    expect(promotedCandidateFromMerges()).toBeNull();
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
+      expect(r.replyBody.toLowerCase()).toMatch(/new goal|hold you to/);
+    }
+  });
+
+  it("Turn 2 vague 'Something easier.' stays in the hallway", async () => {
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMhall_vague", raw_body: "Something easier." },
+      clerkUserId: "user_pr",
+      commitment: awaitingCandidateReplace(),
+    });
+    expect(r.handled).toBe(true);
+    expect(promotedCandidateFromMerges()).toBeNull();
+    if (r.handled) {
+      expect(r.pendingResolutionApplied).toBe(false);
     }
   });
 });

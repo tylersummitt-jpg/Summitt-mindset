@@ -107,13 +107,13 @@ describe("applyRelationshipExitGatedOverride", () => {
   });
 });
 
-describe("goal handoff deferral", () => {
-  it("defers goal abandonment when commitment-change heuristic matches", () => {
+describe("goal abandonment deferral", () => {
+  it("defers goal abandonment to normal coaching without a Goal Change phrase list", () => {
     const det = detectSmsRelationshipExitIntent("I'm done with this goal");
+    expect(det.goalAbandonment).toBe(true);
     expect(
       shouldDeferRelationshipExitToGoalHandoff({
         detection: det,
-        commitmentChangeIntentLikely: true,
         plannedInterruptionActionable: false,
       })
     ).toBe(true);
@@ -123,5 +123,111 @@ describe("goal handoff deferral", () => {
         deferToGoalHandoff: true,
       })
     ).toBe(false);
+  });
+
+  it("does not defer app abandonment as if it were Goal Change", () => {
+    const det = detectSmsRelationshipExitIntent("I'm done with this app");
+    expect(det.goalAbandonment).toBe(false);
+    expect(
+      shouldDeferRelationshipExitToGoalHandoff({
+        detection: det,
+        plannedInterruptionActionable: false,
+      })
+    ).toBe(false);
+    expect(
+      isRelationshipExitLaneActive({
+        detection: det,
+        deferToGoalHandoff: false,
+      })
+    ).toBe(true);
+  });
+
+  it("does not defer goal abandonment when planned interruption is actionable", () => {
+    const det = detectSmsRelationshipExitIntent("I'm done with this goal");
+    expect(
+      shouldDeferRelationshipExitToGoalHandoff({
+        detection: det,
+        plannedInterruptionActionable: true,
+      })
+    ).toBe(false);
+  });
+});
+
+describe("Slice 5 correction — mixed relationship-exit precedence", () => {
+  it("1: goal-only abandonment defers to coaching", () => {
+    const d = detectSmsRelationshipExitIntent("I'm done with this goal.");
+    expect(d.category).toBe("goal_abandonment");
+    expect(d.goalAbandonment).toBe(true);
+    expect(
+      shouldDeferRelationshipExitToGoalHandoff({
+        detection: d,
+        plannedInterruptionActionable: false,
+      })
+    ).toBe(true);
+  });
+
+  it("2: I don't want this goal anymore stays goal-only", () => {
+    const d = detectSmsRelationshipExitIntent("I don't want this goal anymore.");
+    expect(d.category).toBe("goal_abandonment");
+    expect(
+      shouldDeferRelationshipExitToGoalHandoff({
+        detection: d,
+        plannedInterruptionActionable: false,
+      })
+    ).toBe(true);
+  });
+
+  it("3: mixed goal + app keeps app exit", () => {
+    const d = detectSmsRelationshipExitIntent(
+      "I'm done with this goal and I'm done with this app."
+    );
+    expect(d.category).toBe("app_abandonment");
+    expect(d.goalAbandonment).toBe(false);
+    expect(
+      shouldDeferRelationshipExitToGoalHandoff({
+        detection: d,
+        plannedInterruptionActionable: false,
+      })
+    ).toBe(false);
+    expect(
+      isRelationshipExitLaneActive({ detection: d, deferToGoalHandoff: false })
+    ).toBe(true);
+  });
+
+  it("4: mixed goal + billing keeps billing", () => {
+    const d = detectSmsRelationshipExitIntent(
+      "I'm done with this goal. Cancel my membership."
+    );
+    expect(d.category).toBe("subscription_billing");
+    expect(d.subscriptionIntegrity).toBe(true);
+  });
+
+  it("5: mixed forget-goal + stop texting keeps texting/STOP-compatible path", () => {
+    const d = detectSmsRelationshipExitIntent("Forget this goal. Stop texting me.");
+    expect(d.category).toBe("texting_soft_opt_out");
+    expect(d.textOptOutSoft).toBe(true);
+  });
+
+  it("6: mixed goal + coaching uses existing coach-exit English only", () => {
+    const coaching = detectSmsRelationshipExitIntent(
+      "I'm done with this goal and I'm done with coaching."
+    );
+    expect(coaching.category).toBe("goal_abandonment");
+    const you = detectSmsRelationshipExitIntent(
+      "I'm done with this goal and I'm done with you."
+    );
+    expect(you.category).toBe("coach_directed_exit");
+  });
+
+  it("7: done with this goal, not the program does not invent app exit", () => {
+    const d = detectSmsRelationshipExitIntent("I'm done with this goal, not the program.");
+    expect(d.category).toBe("goal_abandonment");
+    expect(d.goalAbandonment).toBe(true);
+  });
+
+  it("8: done with the program, not the goal keeps program/app exit", () => {
+    const d = detectSmsRelationshipExitIntent("I'm done with the program, not the goal.");
+    expect(d.category).toBe("app_abandonment");
+    expect(d.goalAbandonment).toBe(false);
   });
 });

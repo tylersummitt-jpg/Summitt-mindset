@@ -336,6 +336,24 @@ import {
   runInboundSolRelationshipTurn,
 } from "@/lib/inbound-sol-relationship-turn";
 import {
+  runSolGoalChangePendingOpenForInbound,
+} from "@/lib/sol-goal-change-pending-open";
+import {
+  buildSolGoalChangePendingConfirmFallbackBody,
+  runSolGoalChangePendingConfirmForInbound,
+  type SolGoalChangePendingConfirmResult,
+} from "@/lib/sol-goal-change-pending-confirm";
+import {
+  runSolGoalChangeAwaitingCandidateForInbound,
+  type SolGoalChangeAwaitingCandidateResult,
+} from "@/lib/sol-goal-change-awaiting-candidate";
+import {
+  applyGoalChangeMachineBodySafety,
+  SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+  tryBuildAuthorizedGoalChangeWriterFailureFallback,
+  type SolGoalChangeConfirmationAuthorization,
+} from "@/lib/sol-goal-change-confirmation-guard";
+import {
   loadPriorInboundMemoryRepeatNoSendContext,
   normalizeInboundTextForEscalation,
 } from "@/lib/inbound-completion-memory-repeat-escalation";
@@ -1717,6 +1735,7 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
   shouldPersistNonOutcomeMemoryEvent: boolean;
   memorySignalStored: ReturnType<typeof buildStoredMemorySignalPayload> | null;
   tuGoalChangeHandoffTelemetry?: Record<string, unknown> | null;
+  goalChangeConfirmationAuthorization?: SolGoalChangeConfirmationAuthorization | null;
 }): Promise<{ ok: true; sentBody: string } | { ok: false }> {
   const wave11MemoryPending = (await fetchLatestAwaitingMemoryConfirmation(args.commitment.id)) != null;
   const { facts, contextPacket, winRecognition } = await buildTransactionalInboundLaneFactsPackage({
@@ -1782,6 +1801,16 @@ async function persistCommitmentChangeHandoffLaneAndSend(args: {
         ...baseTelemetry(),
       }),
     });
+  }
+
+  const guardedHandoff = applyGoalChangeMachineBodySafety({
+    body: lane.body,
+    authorization: args.goalChangeConfirmationAuthorization,
+  });
+  lane.body = guardedHandoff.body;
+  if (guardedHandoff.blocked) {
+    lane.metadata.goal_change_binding_confirmation_blocked = true;
+    lane.metadata.goal_change_binding_confirmation_block_reason = guardedHandoff.reason;
   }
 
   const v3BrainMetadata: Record<string, unknown> = {
@@ -2861,7 +2890,6 @@ async function processV2NormalInboundOutcome(
   const relationshipExitDetection = detectSmsRelationshipExitIntent(userMessage);
   const deferRelationshipExitToGoalHandoff = shouldDeferRelationshipExitToGoalHandoff({
     detection: relationshipExitDetection,
-    commitmentChangeIntentLikely: isLikelyCommitmentChangeIntentTurn(userMessage),
     plannedInterruptionActionable,
   });
   const relationshipExitLaneActiveEarly = isRelationshipExitLaneActive({
@@ -3493,6 +3521,16 @@ async function processV2NormalInboundOutcome(
           },
         },
       };
+
+      const guardedOpen = applyGoalChangeMachineBodySafety({
+        body: openLaneRes.body,
+        authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+      });
+      openLaneRes.body = guardedOpen.body;
+      if (guardedOpen.blocked) {
+        openLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
+        openLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedOpen.reason;
+      }
 
       const oqV3BrainMetadata: Record<string, unknown> = {
         ...openLaneRes.metadata,
@@ -4272,6 +4310,16 @@ async function processV2NormalInboundOutcome(
         return;
       }
 
+      const guardedCb = applyGoalChangeMachineBodySafety({
+        body: cbLaneRes.body,
+        authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+      });
+      cbLaneRes.body = guardedCb.body;
+      if (guardedCb.blocked) {
+        cbLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
+        cbLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedCb.reason;
+      }
+
       const cbV3BrainMetadata: Record<string, unknown> = {
         ...cbLaneRes.metadata,
         inbound_v3_relationship_lane: true,
@@ -4950,7 +4998,7 @@ async function processV2NormalInboundOutcome(
     identityLaneActive: identityEditLaneActive,
   });
 
-  const openCommitmentChangeHandoff =
+  const legacyOpenCommitmentChangeHandoff =
     (shouldOpenCommitmentChangeHandoff({
       gatedMode: gatedDecision.mode,
       userMessage,
@@ -4961,6 +5009,19 @@ async function processV2NormalInboundOutcome(
     (tuGoalChangePendingHandoffEval.open &&
       !identitySuppressesCommitmentHandoff &&
       !inboundSolMainLikely);
+
+  // Slice 5: first-turn saved Goal Change pending and writer are Sol-owned.
+  // Phrase lists, TU, and gated AI must not open Wave4 pending or steal the writer.
+  const openCommitmentChangeHandoff = false;
+  if (legacyOpenCommitmentChangeHandoff) {
+    console.info("[sol-goal-change-slice5] legacy_wave4_handoff_suppressed", {
+      message_sid: job.message_sid,
+      commitment_id: commitment.id,
+      gated_mode: gatedDecision.mode,
+      tu_handoff_open: tuGoalChangePendingHandoffEval.open,
+      planned_interruption_actionable: plannedInterruptionActionable,
+    });
+  }
 
   /** Wave-4 handoff uses its own lane entrypoint; main lane skips duplicate produce. */
   const normalInboundV3OwnershipEligible =
@@ -5210,6 +5271,16 @@ async function processV2NormalInboundOutcome(
         },
       });
       return;
+    }
+
+    const guardedPivot = applyGoalChangeMachineBodySafety({
+      body: pivotLaneRes.body,
+      authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+    });
+    pivotLaneRes.body = guardedPivot.body;
+    if (guardedPivot.blocked) {
+      pivotLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
+      pivotLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedPivot.reason;
     }
 
     const pivotV3BrainMetadata: Record<string, unknown> = {
@@ -5650,6 +5721,16 @@ async function processV2NormalInboundOutcome(
         return;
       }
 
+      const guardedArc = applyGoalChangeMachineBodySafety({
+        body: arcLaneRes.body,
+        authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+      });
+      arcLaneRes.body = guardedArc.body;
+      if (guardedArc.blocked) {
+        arcLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
+        arcLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedArc.reason;
+      }
+
       const arcV3BrainMetadata: Record<string, unknown> = {
         ...arcLaneRes.metadata,
         inbound_v3_relationship_lane: true,
@@ -5912,6 +5993,10 @@ async function processV2NormalInboundOutcome(
     ReturnType<typeof bootstrapSmsPendingConfirmationFromInbound>
   > | null = null;
 
+  // Slice 5: `openCommitmentChangeHandoff` is forced false so this Wave4 first-turn
+  // pending writer does not run. Sol pending-open owns saved replace. Keep the
+  // block for Slice 6 retirement / debug. Tighten leftover pending still uses
+  // exclusive pending resolution, not this first-turn path.
   if (openCommitmentChangeHandoff && !plannedInterruptionActionable) {
     handoffCommitmentIntentPack =
       tuGoalChangePendingHandoffEval.intentPack ??
@@ -5968,12 +6053,66 @@ async function processV2NormalInboundOutcome(
     }
   }
 
+  let goalChangeConfirmationAuthorization: SolGoalChangeConfirmationAuthorization = {
+    ...SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+    canonical_behavior_statement: (commitment.behavior_statement ?? "").trim(),
+  };
+  // Exclusive lanes own both the visible writer and first-turn Goal Change state.
+  // Do not open hidden saved-replace pending while exit or identity replies.
+  // Goal-only abandonment defers exit (relationshipExitLaneActive false) and still
+  // reaches this pending-open. Planned interruption must not skip it.
+  if (relationshipExitLaneActive || identityEditLaneActive) {
+    console.info("[sol-goal-change-pending-open] skipped_exclusive_lane", {
+      message_sid: job.message_sid,
+      commitment_id: commitment.id,
+      relationship_exit_lane_active: relationshipExitLaneActive,
+      identity_edit_lane_active: identityEditLaneActive,
+    });
+  } else {
+    try {
+      const lastCoachExact = (
+        inboundRelationshipMemoryPacket.last_outbound_full_body ?? lastOutboundSmsPreview
+      )?.trim();
+      const recentExactThread = [
+        ...(lastCoachExact ? [{ sender: "coach" as const, body: lastCoachExact }] : []),
+        { sender: "user" as const, body: userMessage },
+      ];
+      const solGoalChangePendingOpen = await runSolGoalChangePendingOpenForInbound({
+        clerkUserId: userId,
+        commitment,
+        inboundRaw: userMessage,
+        messageSid: job.message_sid,
+        plannedInterruptionKnown: plannedInterruptionActionable,
+        timezone,
+        recentExactThread,
+      });
+      commitment = solGoalChangePendingOpen.commitment;
+      goalChangeConfirmationAuthorization = solGoalChangePendingOpen.authorization;
+      console.info("[sol-goal-change-pending-open]", {
+        message_sid: job.message_sid,
+        commitment_id: commitment.id,
+        planned_interruption_known: plannedInterruptionActionable,
+        authorized: solGoalChangePendingOpen.authorization.goal_change_confirmation_authorized,
+        ...solGoalChangePendingOpen.forensics,
+      });
+    } catch (e) {
+      console.error("[sol-goal-change-pending-open] failed_closed", {
+        message_sid: job.message_sid,
+        commitment_id: commitment.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      goalChangeConfirmationAuthorization = {
+        ...SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+        canonical_behavior_statement: (commitment.behavior_statement ?? "").trim(),
+      };
+    }
+  }
+
   let inboundRelationshipLane: InboundV3RelationshipLaneResult | null = null;
   let mainInboundMissAdjustmentPolicy: MissAdjustmentPolicyResult | null = null;
   let preWriterTelemetryMain: Record<string, unknown> = {};
   if (normalInboundV3OwnershipEligible) {
-    const commitmentChangeHeuristicContext =
-      isLikelyCommitmentChangeIntentTurn(userMessage) && !openCommitmentChangeHandoff;
+    const commitmentChangeHeuristicContext = false;
 
     if (
       isInboundSolMainCoachingBranch({
@@ -5998,6 +6137,7 @@ async function processV2NormalInboundOutcome(
         pendingConfirmationConflict: isSmsInboundPendingResolutionActionable(commitment),
         receivedAt: job.created_at ?? null,
         currentTurnMessageSids: [...splitSuppressedMessageSids, job.message_sid],
+        goalChangeConfirmationAuthorization,
       });
 
       const solLaneMetadata: Record<string, unknown> = {
@@ -6053,6 +6193,80 @@ async function processV2NormalInboundOutcome(
             });
           }
         } else {
+          const pendingAskFallbackRaw = tryBuildAuthorizedGoalChangeWriterFailureFallback(
+            goalChangeConfirmationAuthorization
+          );
+          if (pendingAskFallbackRaw) {
+            const guardedFallback = applyGoalChangeMachineBodySafety({
+              body: pendingAskFallbackRaw,
+              authorization: goalChangeConfirmationAuthorization,
+            });
+            const fallbackBody = guardedFallback.body.trim();
+            const fallbackLaneMetadata: Record<string, unknown> = {
+              ...solLaneMetadata,
+              inbound_sol_main_pending_ask_fallback: true,
+              goal_change_body_safety_blocked: guardedFallback.blocked,
+              goal_change_body_safety_reason: guardedFallback.reason,
+            };
+            const nowFallback = new Date().toISOString();
+            const { data: persistedFallback } = await supabaseServer
+              .from("sms_inbound_coach_jobs")
+              .update({
+                reply_body: fallbackBody,
+                status: "reply_ready",
+                next_retry_at: nowFallback,
+                updated_at: nowFallback,
+                last_error: null,
+              })
+              .eq("message_sid", job.message_sid)
+              .eq("status", "processing")
+              .select()
+              .maybeSingle();
+
+            const fallbackThreadMemory: InboundCoachReplyThreadMemoryContext = {
+              commitmentId: commitment.id,
+              expectedAnswerType: null,
+              meaningShadow: null,
+            };
+
+            await insertInboundTurnTelemetryBestEffort({
+              commitmentId: commitment.id,
+              clerkUserId: userId,
+              messageSid: job.message_sid,
+              rawBody: userMessage,
+              replyBody: fallbackBody,
+              coachingMoveSource: "inbound_sol_relationship_turn",
+              laneMetadata: fallbackLaneMetadata,
+              routePurpose: "normal_inbound_reply",
+              branchName: "inbound_sol_main_pending_ask_fallback",
+              visibleSentIntended: true,
+              branch: "main",
+            });
+
+            if (!persistedFallback) {
+              const j2 = await loadJob(job.message_sid);
+              if (j2?.reply_body?.trim()) {
+                await commitAndSendInboundCoachReply(j2, userId, fallbackThreadMemory);
+                await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+                return;
+              }
+              throw new Error("v2_reply_ready_persist_failed");
+            }
+
+            const freshFallback = (await loadJob(job.message_sid)) ?? job;
+            await commitAndSendInboundCoachReply(freshFallback, userId, fallbackThreadMemory);
+            await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+            console.info("[sms-inbound-coach] inbound_sol_main_pending_ask_fallback", {
+              message_sid: job.message_sid,
+              commitment_id: commitment.id,
+              no_send_reason: solTurn.noSendReason,
+              apply_authorized:
+                goalChangeConfirmationAuthorization.goal_change_apply_authorized,
+              confirmation_authorized:
+                goalChangeConfirmationAuthorization.goal_change_confirmation_authorized,
+            });
+            return;
+          }
           await markJobFinal({
             messageSid: job.message_sid,
             status: "cancelled",
@@ -6551,6 +6765,18 @@ async function processV2NormalInboundOutcome(
       inboundReplyBriefBuildFailed,
     });
 
+    if (laneRes.shouldSend && laneRes.body.trim()) {
+      const guardedV3 = applyGoalChangeMachineBodySafety({
+        body: laneRes.body,
+        authorization: goalChangeConfirmationAuthorization,
+      });
+      laneRes.body = guardedV3.body;
+      if (guardedV3.blocked) {
+        laneRes.metadata.goal_change_binding_confirmation_blocked = true;
+        laneRes.metadata.goal_change_binding_confirmation_block_reason = guardedV3.reason;
+      }
+    }
+
     if (inboundReplyBriefV1) {
       attachInboundReplyBriefTelemetryToLaneMetadata(laneRes.metadata, inboundReplyBriefV1);
     }
@@ -6745,6 +6971,7 @@ async function processV2NormalInboundOutcome(
       wave4PendingResult: w4,
       shouldPersistNonOutcomeMemoryEvent,
       memorySignalStored,
+      goalChangeConfirmationAuthorization,
       tuGoalChangeHandoffTelemetry: {
         ...buildTuGoalChangeHandoffTelemetry(
           tuGoalChangePendingHandoffEval,
@@ -10875,6 +11102,170 @@ async function processV2MemoryConfirmationInbound(
   return true;
 }
 
+async function sendSolGoalChangeOwnedPendingInboundReply(args: {
+  job: JobRow;
+  userId: string;
+  timezone: string;
+  inboundRaw: string;
+  commitment: ActiveV2CommitmentRow;
+  authorization: SolGoalChangeConfirmationAuthorization;
+  forensics: Record<string, unknown>;
+  consequence: string;
+  decisionReason: string;
+  coachingMoveSource: string;
+  branchName: string;
+  laneTag: string;
+}): Promise<void> {
+  const { job, userId, timezone, inboundRaw, commitment, authorization } = args;
+  const fallbackGuarded = applyGoalChangeMachineBodySafety({
+    body: buildSolGoalChangePendingConfirmFallbackBody(authorization),
+    authorization,
+  });
+  let body = fallbackGuarded.body;
+  let laneMetadata: Record<string, unknown> = {
+    ...args.forensics,
+    [args.laneTag]: true,
+    consequence: args.consequence,
+    goal_change_apply_authorized: authorization.goal_change_apply_authorized,
+    goal_change_confirmation_authorized: authorization.goal_change_confirmation_authorized,
+  };
+
+  try {
+    const recentEventsPr = await getRecentV2EventsForAi(commitment.id);
+    const gated = {
+      mode: "use_deterministic" as const,
+      final_event_type: "user_partial" as const,
+      decision_reason: args.decisionReason,
+      confidence_used: null,
+      should_write_outcome_event: false,
+      should_open_blocker_capture: false,
+      reply_style: "normal_outcome" as const,
+      overrode_deterministic: false,
+    };
+    const solTurn = await runInboundSolRelationshipTurn({
+      clerkUserId: userId,
+      timezone,
+      commitment,
+      latestInboundText: inboundRaw,
+      messageSid: job.message_sid,
+      recentEventsNewestFirst: recentEventsPr,
+      gatedDecision: gated,
+      classifierEventType: classifyV2InboundReply(inboundRaw).eventType,
+      classifierNormalizedHint: null,
+      exclusiveLaneOwnsTurn: true,
+      pendingConfirmationConflict: isSmsInboundPendingResolutionActionable(commitment),
+      receivedAt: job.created_at ?? null,
+      currentTurnMessageSids: [job.message_sid],
+      goalChangeConfirmationAuthorization: authorization,
+    });
+    laneMetadata = { ...laneMetadata, ...solTurn.forensics };
+    if (solTurn.shouldSend && solTurn.body?.trim()) {
+      body = solTurn.body.trim();
+    }
+  } catch (e) {
+    console.warn(`[${args.branchName}] writer_failed_closed`, {
+      message_sid: job.message_sid,
+      commitment_id: commitment.id,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  const now = new Date().toISOString();
+  const { data: persisted } = await supabaseServer
+    .from("sms_inbound_coach_jobs")
+    .update({
+      reply_body: body,
+      status: "reply_ready",
+      next_retry_at: now,
+      updated_at: now,
+      last_error: null,
+    })
+    .eq("message_sid", job.message_sid)
+    .eq("status", "processing")
+    .select()
+    .maybeSingle();
+
+  const threadMemory: InboundCoachReplyThreadMemoryContext = {
+    commitmentId: commitment.id,
+    expectedAnswerType: null,
+    meaningShadow: null,
+  };
+
+  await insertInboundTurnTelemetryBestEffort({
+    commitmentId: commitment.id,
+    clerkUserId: userId,
+    messageSid: job.message_sid,
+    rawBody: inboundRaw,
+    replyBody: body,
+    coachingMoveSource: args.coachingMoveSource,
+    laneMetadata,
+    routePurpose: "pending_resolution",
+    branchName: args.branchName,
+    visibleSentIntended: true,
+    branch: "main",
+  });
+
+  if (!persisted) {
+    const j2 = await loadJob(job.message_sid);
+    if (j2?.reply_body?.trim()) {
+      await commitAndSendInboundCoachReply(j2, userId, threadMemory);
+      await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+      return;
+    }
+    throw new Error(`${args.branchName}_reply_ready_persist_failed`);
+  }
+
+  const fresh = (await loadJob(job.message_sid)) ?? job;
+  await commitAndSendInboundCoachReply(fresh, userId, threadMemory);
+  await recordV2SendTimeProfileInboundEngagement(userId, timezone, new Date());
+}
+
+async function sendSolGoalChangePendingConfirmInboundReply(args: {
+  job: JobRow;
+  userId: string;
+  timezone: string;
+  inboundRaw: string;
+  slice3: SolGoalChangePendingConfirmResult;
+}): Promise<void> {
+  await sendSolGoalChangeOwnedPendingInboundReply({
+    job: args.job,
+    userId: args.userId,
+    timezone: args.timezone,
+    inboundRaw: args.inboundRaw,
+    commitment: args.slice3.commitment,
+    authorization: args.slice3.authorization,
+    forensics: args.slice3.forensics,
+    consequence: args.slice3.consequence,
+    decisionReason: "sol_goal_change_pending_confirm",
+    coachingMoveSource: "sol_goal_change_pending_confirm",
+    branchName: "sol_goal_change_pending_confirm",
+    laneTag: "sol_goal_change_pending_confirm",
+  });
+}
+
+async function sendSolGoalChangeAwaitingCandidateInboundReply(args: {
+  job: JobRow;
+  userId: string;
+  timezone: string;
+  inboundRaw: string;
+  hallway: SolGoalChangeAwaitingCandidateResult;
+}): Promise<void> {
+  await sendSolGoalChangeOwnedPendingInboundReply({
+    job: args.job,
+    userId: args.userId,
+    timezone: args.timezone,
+    inboundRaw: args.inboundRaw,
+    commitment: args.hallway.commitment,
+    authorization: args.hallway.authorization,
+    forensics: args.hallway.forensics,
+    consequence: args.hallway.consequence,
+    decisionReason: "sol_goal_change_awaiting_candidate",
+    coachingMoveSource: "sol_goal_change_awaiting_candidate",
+    branchName: "sol_goal_change_awaiting_candidate",
+    laneTag: "sol_goal_change_awaiting_candidate",
+  });
+}
+
 /**
  * Wave 4.1 — SMS pending tighten/replace completion before accountability scoring or overlay consent.
  */
@@ -10897,6 +11288,61 @@ async function processV2SmsInboundPendingResolution(
 
   if (!isSmsInboundPendingResolutionActionable(c)) {
     return false;
+  }
+
+  const rawPrEarly = (job.raw_body || "").trim();
+  const slice3 = await runSolGoalChangePendingConfirmForInbound({
+    clerkUserId: userId,
+    commitment: c,
+    inboundRaw: rawPrEarly,
+    messageSid: job.message_sid,
+    timezone,
+  });
+  console.info("[sol-goal-change-pending-confirm]", {
+    message_sid: job.message_sid,
+    commitment_id: slice3.commitment.id,
+    handled: slice3.handled,
+    consequence: slice3.consequence,
+    apply_authorized: slice3.authorization.goal_change_apply_authorized,
+    confirmation_authorized: slice3.authorization.goal_change_confirmation_authorized,
+    ...slice3.forensics,
+  });
+  if (slice3.handled) {
+    await sendSolGoalChangePendingConfirmInboundReply({
+      job,
+      userId,
+      timezone,
+      inboundRaw: rawPrEarly,
+      slice3,
+    });
+    return true;
+  }
+
+  const hallway = await runSolGoalChangeAwaitingCandidateForInbound({
+    clerkUserId: userId,
+    commitment: c,
+    inboundRaw: rawPrEarly,
+    messageSid: job.message_sid,
+    timezone,
+  });
+  console.info("[sol-goal-change-awaiting-candidate]", {
+    message_sid: job.message_sid,
+    commitment_id: hallway.commitment.id,
+    handled: hallway.handled,
+    consequence: hallway.consequence,
+    apply_authorized: hallway.authorization.goal_change_apply_authorized,
+    confirmation_authorized: hallway.authorization.goal_change_confirmation_authorized,
+    ...hallway.forensics,
+  });
+  if (hallway.handled) {
+    await sendSolGoalChangeAwaitingCandidateInboundReply({
+      job,
+      userId,
+      timezone,
+      inboundRaw: rawPrEarly,
+      hallway,
+    });
+    return true;
   }
 
   const pendBefore = getPendingResolutionOrNull(c);

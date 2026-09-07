@@ -131,8 +131,8 @@ describe("inbound MMS D2c wire", () => {
     expect(handleBody).not.toContain("scheduleInboundMmsD2cSemanticClaim");
   });
 
-  it("goal-change heuristic excludes Sol/D2c; D2b still noops pending_user", () => {
-    expect(safety).toContain("commitmentChangeHeuristicContext");
+  it("goal-change phrase list does not suppress Sol; D2b still noops pending_user", () => {
+    expect(safety).toContain("const commitmentChangeHeuristicContext = false");
     expect(safety).toContain("isLikelyCommitmentChangeIntentTurn(userMessage)");
     expect(d2b).toContain("if (job.resolution === \"pending_user\")");
     expect(d2b).toContain('action: "noop"');

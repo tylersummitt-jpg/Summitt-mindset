@@ -1,7 +1,15 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: {},
+}));
+
+vi.mock("@/lib/v2-refresh-session", () => ({
+  isRefreshSessionActive: vi.fn(() => false),
+}));
 
 import {
   buildCommitmentChangeContextFactsForHeuristicInbound,
@@ -93,7 +101,7 @@ describe("Phase 3G-1 — sms-inbound-coach route gating (static)", () => {
 
   it("declares isInboundTransactionalException from compliance/opt-out only", () => {
     expect(route).toMatch(
-      /const isInboundTransactionalException = isLikelySmsComplianceOrOptOutTurn\(userMessage\)/
+      /const isInboundTransactionalException =\s*isLikelySmsComplianceOrOptOutTurn\(userMessage\) && !relationshipExitLaneActive/
     );
   });
 

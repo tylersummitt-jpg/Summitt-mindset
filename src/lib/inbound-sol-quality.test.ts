@@ -200,6 +200,22 @@ describe("inbound Sol contracts", () => {
     );
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("legendary");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Do not clip to a character budget");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "A binding saved-goal confirmation question is allowed only when goal_change_confirmation_authorized is true."
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Pending is not applied");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "You may ask the member to confirm the pending saved-goal replacement"
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      'You must NOT say the saved goal already changed, that it is done, that it is locked in, that "your goal is now X", that "we\'ll use X going forward", or imply a successful canonical mutation.'
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("three mutually exclusive coaching states");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "Acknowledge the actual canonical_behavior_statement"
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Do NOT re-ask confirmation after apply");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Do not invent why they changed");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("300");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain("320");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("accept the correction");
@@ -512,6 +528,9 @@ describe("writer D1 pending-photo data minimization", () => {
     expect(writerBrief.inbound).not.toHaveProperty("accountability_supporting_quote");
     expect(writerBrief.inbound).not.toHaveProperty("life_supporting_quote");
     const user = String(buildInboundSolWriterMessages(p, brief!)[1]?.content ?? "");
+    expect(user).toContain("GOAL_CHANGE_CONFIRMATION_STATE");
+    expect(user).toContain("goal_change_confirmation_authorized");
+    expect(user).toContain("goal_change_apply_authorized");
     expect(user).not.toContain("win_presentation");
     expect(user).not.toContain("accountability_trophy_title");
     expect(user).not.toContain("life_trophy_title");

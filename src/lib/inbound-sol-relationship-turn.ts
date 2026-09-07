@@ -34,6 +34,8 @@ import {
   INBOUND_SOL_WRITER_REASONING_EFFORT,
   writeInboundSolBody,
 } from "@/lib/inbound-sol-writer";
+import { applyGoalChangeMachineBodySafety } from "@/lib/sol-goal-change-confirmation-guard";
+import type { SolGoalChangeConfirmationAuthorization } from "@/lib/sol-goal-change-confirmation-guard";
 import { shouldPersistSolInboundAccountabilityOutcome } from "@/lib/inbound-sol-persist-advice";
 import { persistSolInboundWins } from "@/lib/inbound-sol-wins";
 import { persistSolInboundUserEvidence } from "@/lib/inbound-sol-user-evidence";
@@ -53,14 +55,15 @@ export function isInboundSolMainCoachingBranch(args: {
   normalInboundV3OwnershipEligible: boolean;
   relationshipExitLaneActive: boolean;
   identityEditLaneActive: boolean;
+  /** Slice 5: phrase-list Goal Change cues must not suppress Sol. Kept for call-site compatibility. */
   commitmentChangeHeuristicContext: boolean;
   conversationBrainControlTurnActive: boolean;
 }): boolean {
+  void args.commitmentChangeHeuristicContext;
   return (
     args.normalInboundV3OwnershipEligible &&
     !args.relationshipExitLaneActive &&
     !args.identityEditLaneActive &&
-    !args.commitmentChangeHeuristicContext &&
     !args.conversationBrainControlTurnActive
   );
 }
@@ -68,13 +71,14 @@ export function isInboundSolMainCoachingBranch(args: {
 export function isLikelyInboundSolMainBeforeHandoff(args: {
   relationshipExitLaneActive: boolean;
   identityEditLaneActive: boolean;
+  /** Slice 5: phrase-list Goal Change cues must not suppress Sol-likely routing. */
   commitmentChangeIntentLikely: boolean;
   conversationBrainControlTurnActive: boolean;
 }): boolean {
+  void args.commitmentChangeIntentLikely;
   return (
     !args.relationshipExitLaneActive &&
     !args.identityEditLaneActive &&
-    !args.commitmentChangeIntentLikely &&
     !args.conversationBrainControlTurnActive
   );
 }
@@ -110,6 +114,7 @@ export async function runInboundSolRelationshipTurn(args: {
   receivedAt?: Date | string | null;
   /** Current coalesced turn SIDs: split-suppressed + newest claimed job. */
   currentTurnMessageSids?: string[];
+  goalChangeConfirmationAuthorization?: SolGoalChangeConfirmationAuthorization | null;
 }): Promise<InboundSolRelationshipTurnResult> {
   const baseForensics: Record<string, unknown> = {
     inbound_sol_interpreter_model: INBOUND_SOL_INTERPRETER_MODEL,
@@ -351,7 +356,12 @@ export async function runInboundSolRelationshipTurn(args: {
     Object.assign(baseForensics, skippedPatSourceEvidenceForensics());
   }
 
-  const written = await writeInboundSolBody({ packet, brief, patSourceEvidence });
+  const written = await writeInboundSolBody({
+    packet,
+    brief,
+    patSourceEvidence,
+    goalChangeConfirmationAuthorization: args.goalChangeConfirmationAuthorization ?? null,
+  });
   baseForensics.inbound_sol_retry_writer = written.capture.retry_occurred;
   baseForensics.writer_model = INBOUND_SOL_WRITER_MODEL;
   if (!written.ok) {
@@ -409,18 +419,27 @@ export async function runInboundSolRelationshipTurn(args: {
     });
   }
 
+  const guarded = applyGoalChangeMachineBodySafety({
+    body: written.body,
+    authorization: args.goalChangeConfirmationAuthorization,
+  });
+  if (guarded.blocked) {
+    baseForensics.goal_change_binding_confirmation_blocked = true;
+    baseForensics.goal_change_binding_confirmation_block_reason = guarded.reason;
+  }
+
   return {
     shouldSend: true,
     noSendReason: null,
-    body: written.body,
+    body: guarded.body,
     packet,
     brief,
     persistResult,
     winResult,
     forensics: {
       ...baseForensics,
-      inbound_sol_body_preview: previewInboundText(written.body),
-      inbound_sol_body_hash: hashInboundText(written.body),
+      inbound_sol_body_preview: previewInboundText(guarded.body),
+      inbound_sol_body_hash: hashInboundText(guarded.body),
       inbound_sol_reasoning_effort: INBOUND_SOL_WRITER_REASONING_EFFORT,
     },
   };

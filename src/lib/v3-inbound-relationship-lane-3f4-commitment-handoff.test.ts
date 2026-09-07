@@ -177,40 +177,39 @@ describe("sms-inbound-coach route — Phase 3F-4 commitment_change_handoff (stat
     expect(route).not.toContain("appendWhenExistingPendingResolution");
   });
 
-  it("uses openCommitmentChangeHandoff and skips Wave4 when planned interruption is actionable", () => {
+  it("uses openCommitmentChangeHandoff only behind Slice 5 suppress; PI still skips the dead Wave4 block", () => {
     expect(route).toContain("shouldOpenCommitmentChangeHandoff");
-    expect(route).toContain("openCommitmentChangeHandoff");
+    expect(route).toContain("legacyOpenCommitmentChangeHandoff");
+    expect(route).toContain("const openCommitmentChangeHandoff = false");
     expect(route).toMatch(/openCommitmentChangeHandoff && !plannedInterruptionActionable/);
     expect(route).toContain("bootstrapSmsPendingConfirmationFromInbound");
     expect(route).not.toContain("V2_SMS_COMMITMENT_HANDOFF_HEURISTIC_ENABLED");
     expect(route).not.toContain("isV2SmsCommitmentHandoffHeuristicEnabled");
+    const suppressIdx = route.indexOf("const openCommitmentChangeHandoff = false");
+    const wave4If = route.indexOf(
+      "if (openCommitmentChangeHandoff && !plannedInterruptionActionable)"
+    );
+    expect(suppressIdx).toBeGreaterThan(-1);
+    expect(wave4If).toBeGreaterThan(suppressIdx);
   });
 
-  it("Slice A3 — Wave4 → bootstrap → facts → handoff send order; pending handler not on handoff turn", () => {
-    const sliceStart = route.indexOf("if (openCommitmentChangeHandoff && !plannedInterruptionActionable)");
-    expect(sliceStart).toBeGreaterThan(-1);
-
-    const persistIdx = route.indexOf("await persistCommitmentChangeHandoffLaneAndSend", sliceStart);
-    const sliceEnd = route.indexOf("return;", persistIdx);
-    const a3Slice = route.slice(sliceStart, sliceEnd + "return;".length);
-
-    const wave4Idx = a3Slice.indexOf("await applyWave4SmsCommitmentPendingResolution");
-    const bootstrapIdx = a3Slice.indexOf("await bootstrapSmsPendingConfirmationFromInbound");
-    const factsIdx = a3Slice.indexOf("buildCommitmentChangeInboundFactsFromWave4");
-    const persistInSliceIdx = a3Slice.indexOf("await persistCommitmentChangeHandoffLaneAndSend");
-
-    expect(wave4Idx).toBeGreaterThan(-1);
-    expect(bootstrapIdx).toBeGreaterThan(-1);
-    expect(factsIdx).toBeGreaterThan(-1);
-    expect(persistInSliceIdx).toBeGreaterThan(-1);
-
-    expect(wave4Idx).toBeLessThan(bootstrapIdx);
-    expect(bootstrapIdx).toBeLessThan(factsIdx);
-    expect(factsIdx).toBeLessThan(persistInSliceIdx);
-
-    expect(a3Slice).not.toContain("tryHandleSmsInboundPendingResolution");
-    expect(a3Slice).toMatch(
-      /if\s*\(\s*prWave\.pendingApplied\s*\)[\s\S]*await bootstrapSmsPendingConfirmationFromInbound/
+  it("Slice 5 — Sol pending-open is the live first-turn pending writer; Wave4 apply is not invoked first", () => {
+    const fnStart = route.indexOf("async function processV2NormalInboundOutcome");
+    const suppressIdx = route.indexOf("const openCommitmentChangeHandoff = false", fnStart);
+    const wave4If = route.indexOf(
+      "if (openCommitmentChangeHandoff && !plannedInterruptionActionable)",
+      fnStart
     );
+    const openIdx = route.indexOf("await runSolGoalChangePendingOpenForInbound", fnStart);
+    const persistIdx = route.indexOf("await persistCommitmentChangeHandoffLaneAndSend", fnStart);
+    expect(suppressIdx).toBeGreaterThan(fnStart);
+    expect(wave4If).toBeGreaterThan(suppressIdx);
+    expect(openIdx).toBeGreaterThan(wave4If);
+    expect(persistIdx).toBeGreaterThan(openIdx);
+
+    const wave4Block = route.slice(wave4If, openIdx);
+    expect(wave4Block).toContain("applyWave4SmsCommitmentPendingResolution");
+    expect(wave4Block).not.toContain("runSolGoalChangePendingOpenForInbound");
+    expect(wave4Block).not.toContain("tryHandleSmsInboundPendingResolution");
   });
 });

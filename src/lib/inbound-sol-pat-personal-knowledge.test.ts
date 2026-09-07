@@ -86,7 +86,8 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
     expect(turn).toContain("query: packet.latest_inbound_text");
     expect(turn).not.toContain("buildPatSmsEmbeddingQuery");
     expect(turn).not.toContain("directQuestionOrNeed");
-    expect(turn).toContain("writeInboundSolBody({ packet, brief, patSourceEvidence })");
+    expect(turn).toContain("writeInboundSolBody({");
+    expect(turn).toContain("goalChangeConfirmationAuthorization: args.goalChangeConfirmationAuthorization ?? null");
     expect(turn).toContain('noSend("manual_pat_answer_needed"');
     expect(turn).toContain("writer_manual_pat_flag_without_yes");
     expect(turn.split("writeInboundSolBody({").length - 1).toBe(1);

@@ -80,13 +80,12 @@ function isGoalAbandonmentPhrase(t: string): boolean {
 }
 
 function isDoneWithTextingAbandonmentPhrase(t: string): boolean {
-  if (isGoalAbandonmentPhrase(t)) return false;
   return DONE_WITH_TEXTING_ABANDON_RE.test(t);
 }
 
 function isAppAbandonmentPhrase(t: string): boolean {
-  if (isGoalAbandonmentPhrase(t)) return false;
   if (APP_ABANDONMENT_RE.test(t)) return true;
+  if (isGoalAbandonmentPhrase(t)) return false;
   if (isDoneAbandonmentContext(t)) {
     if (/\b(texts?|texting|sms)\b/i.test(t)) return false;
     if (GOAL_ABANDONMENT_RE.test(t)) return false;
@@ -147,16 +146,24 @@ export function detectSmsRelationshipExitIntent(text: string): SmsRelationshipEx
     return buildDetection("coach_directed_exit", "high", "coach_directed_exit_phrase");
   }
 
-  if (isGoalAbandonmentPhrase(t)) {
-    return buildDetection("goal_abandonment", "high", "goal_abandonment_phrase");
+  // Slice 5 correction: true relationship/comms exits beat goal-only
+  // abandonment when BOTH are present. Do not return goal_abandonment
+  // before checking texting/app. Do not use Goal Change phrase lists.
+  // Do not invent unsupported coaching-exit English (`done with coaching`).
+  if (matchesTextingSoftOptOut(t)) {
+    return buildDetection("texting_soft_opt_out", "high", "texting_soft_opt_out_phrase");
   }
 
   if (isDoneWithTextingAbandonmentPhrase(t)) {
     return buildDetection("texting_soft_opt_out", "high", "done_with_texting_abandonment");
   }
 
-  if (matchesTextingSoftOptOut(t)) {
-    return buildDetection("texting_soft_opt_out", "high", "texting_soft_opt_out_phrase");
+  if (APP_ABANDONMENT_RE.test(t)) {
+    return buildDetection("app_abandonment", "high", "app_abandonment_phrase");
+  }
+
+  if (isGoalAbandonmentPhrase(t)) {
+    return buildDetection("goal_abandonment", "high", "goal_abandonment_phrase");
   }
 
   if (isAppAbandonmentPhrase(t)) {
@@ -172,12 +179,13 @@ export function detectSmsRelationshipExitIntent(text: string): SmsRelationshipEx
 
 export function shouldDeferRelationshipExitToGoalHandoff(args: {
   detection: SmsRelationshipExitDetection;
-  commitmentChangeIntentLikely: boolean;
   plannedInterruptionActionable: boolean;
 }): boolean {
   if (!args.detection.detected || !args.detection.goalAbandonment) return false;
   if (args.plannedInterruptionActionable) return false;
-  return args.commitmentChangeIntentLikely;
+  // Slice 5: fail closed to normal coaching (Sol Goal Change English), not
+  // relationship exit. Do not use Goal Change phrase lists as the deferral brain.
+  return true;
 }
 
 export function isRelationshipExitLaneActive(args: {

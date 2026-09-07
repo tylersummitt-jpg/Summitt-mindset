@@ -2473,4 +2473,154 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(unk.noSendReason).toBe("writer_manual_pat_flag_without_yes");
     expect(unk.noSendReason).not.toBe("manual_pat_answer_needed");
   });
+
+  it("11: unauthorized binding confirmation from the writer is replaced", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Do you want 10:30 to replace 9:30 going forward?",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMbind", "I'm out of town. I need to revise to 10:30.")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe(
+      "Are you talking about tonight only, or changing the goal going forward?"
+    );
+    expect(result.forensics.goal_change_binding_confirmation_blocked).toBe(true);
+  });
+
+  it("12: authorized pending may send a binding confirmation question", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Do you want 10:30 to replace 9:30 going forward?",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn({
+      ...turnArgs("SMbindOk", "I'm out of town. I need to revise to 10:30."),
+      goalChangeConfirmationAuthorization: {
+        goal_change_confirmation_authorized: true,
+        goal_change_apply_authorized: false,
+        candidate_behavior_statement: "I will be in bed by 10:30 pm nightly.",
+        canonical_behavior_statement: "I will be in bed by 9:30 pm nightly.",
+        pending_state: "awaiting_confirmation",
+        previous_behavior_statement: null,
+        previous_commitment_id: null,
+        active_commitment_id: "c1",
+        pending_cleared: false,
+      },
+    });
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe("Do you want 10:30 to replace 9:30 going forward?");
+    expect(result.forensics.goal_change_binding_confirmation_blocked).toBeUndefined();
+  });
+
+  it("13: authorized pending cannot claim the saved goal is already applied", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Your goal is now 10:30.",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn({
+      ...turnArgs("SMapplied", "I'm out of town. I need to revise to 10:30."),
+      goalChangeConfirmationAuthorization: {
+        goal_change_confirmation_authorized: true,
+        goal_change_apply_authorized: false,
+        candidate_behavior_statement: "I will be in bed by 10:30 pm nightly.",
+        canonical_behavior_statement: "I will be in bed by 9:30 pm nightly.",
+        pending_state: "awaiting_confirmation",
+        previous_behavior_statement: null,
+        previous_commitment_id: null,
+        active_commitment_id: "c1",
+        pending_cleared: false,
+      },
+    });
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe(
+      "Do you want I will be in bed by 10:30 pm nightly to replace I will be in bed by 9:30 pm nightly going forward?"
+    );
+    expect(result.forensics.goal_change_binding_confirmation_blocked).toBe(true);
+    expect(result.forensics.goal_change_binding_confirmation_block_reason).toBe(
+      "false_applied_goal_change_claim"
+    );
+  });
+
+  it("Slice 4: applied authorization allows a truthful 10:30 acknowledgment", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Got it, Angela. 10:30 is your goal going forward. Now let's make that one real.",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn({
+      ...turnArgs("SMappliedAck", "Yes"),
+      goalChangeConfirmationAuthorization: {
+        goal_change_confirmation_authorized: false,
+        goal_change_apply_authorized: true,
+        candidate_behavior_statement: null,
+        canonical_behavior_statement: "I will be in bed by 10:30 pm nightly.",
+        pending_state: null,
+        previous_behavior_statement: "I will be in bed by 9:30 pm nightly.",
+        previous_commitment_id: "cmt_old",
+        active_commitment_id: "cmt_new",
+        pending_cleared: true,
+      },
+    });
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toContain("10:30");
+    expect(result.forensics.goal_change_binding_confirmation_blocked).toBeUndefined();
+  });
+
+  it("Slice 4: applied writer re-ask is replaced with truthful ack", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Do you want 10:30 to replace 9:30 going forward?",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn({
+      ...turnArgs("SMappliedReask", "Yes"),
+      goalChangeConfirmationAuthorization: {
+        goal_change_confirmation_authorized: false,
+        goal_change_apply_authorized: true,
+        candidate_behavior_statement: null,
+        canonical_behavior_statement: "I will be in bed by 10:30 pm nightly.",
+        pending_state: null,
+        previous_behavior_statement: "I will be in bed by 9:30 pm nightly.",
+        previous_commitment_id: "cmt_old",
+        active_commitment_id: "cmt_new",
+        pending_cleared: true,
+      },
+    });
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toContain("10:30");
+    expect(result.body.toLowerCase()).not.toContain("do you want");
+    expect(result.forensics.goal_change_binding_confirmation_blocked).toBe(true);
+    expect(result.forensics.goal_change_binding_confirmation_block_reason).toBe(
+      "post_apply_goal_change_reask"
+    );
+  });
 });

@@ -14,6 +14,7 @@ import {
   applyIdentityEditGatedOverride,
   buildIdentityEditLaneGuardrails,
   detectSmsIdentityEditIntent,
+  isIdentityEditLaneActive,
 } from "@/lib/sms-identity-edit-intent";
 
 const REPO = path.join(__dirname, "..", "..");
@@ -70,7 +71,9 @@ describe("Slice B — identity edit integrity wire", () => {
       "async function processV2BlockerCapture"
     );
     expect(fn).toContain("identityEditLaneActive");
-    expect(fn).toMatch(/expectedAnswerType:\s*identityEditLaneActive\s*\?\s*null/);
+    expect(fn).toMatch(
+      /expectedAnswerType:\s*\n\s*inboundRelationshipLane\s*!=\s*null\s*\n\s*\?\s*identityEditLaneActive\s*\n\s*\?\s*null/
+    );
   });
 
   it("does not call profile or version persistence in identity path", () => {
@@ -102,14 +105,32 @@ describe("Slice B — identity edit integrity wire", () => {
     expect(lane).toContain("identity_edit?:");
   });
 
-  it("commitment handoff still uses Wave4 on behavior goal", () => {
+  it("first-turn saved Goal Change pending is Sol pending-open, not Wave4 handoff", () => {
     const fn = sliceBetween(
       routeSrc(),
       "async function processV2NormalInboundOutcome",
       "async function processV2BlockerCapture"
     );
-    expect(fn).toContain("applyWave4SmsCommitmentPendingResolution");
+    expect(fn).toContain("const openCommitmentChangeHandoff = false");
+    expect(fn).toContain("runSolGoalChangePendingOpenForInbound");
     expect(fn).toContain("persistCommitmentChangeHandoffLaneAndSend");
+    expect(fn).toContain("applyWave4SmsCommitmentPendingResolution");
+    expect(fn).toContain("if (relationshipExitLaneActive || identityEditLaneActive)");
+    expect(fn.indexOf("if (relationshipExitLaneActive || identityEditLaneActive)")).toBeLessThan(
+      fn.indexOf("await runSolGoalChangePendingOpenForInbound")
+    );
+  });
+
+  it("identity-exclusive turn is active and pending-open is skipped for that lane", () => {
+    const mixed = detectSmsIdentityEditIntent(
+      "Change my identity to someone who keeps promises. I also want to change my goal."
+    );
+    expect(
+      isIdentityEditLaneActive({
+        detection: mixed,
+        relationshipExitLaneActive: false,
+      })
+    ).toBe(true);
   });
 
   it("D-lite relationship exit still wired before identity override", () => {

@@ -13,6 +13,7 @@ import {
   type ScrubbedOpenAiRequestError,
 } from "@/lib/openai-request-error-scrub";
 import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
+import type { SolGoalChangeConfirmationAuthorization } from "@/lib/sol-goal-change-confirmation-guard";
 
 export const INBOUND_SOL_WRITER_MODEL = "gpt-5.6-sol" as const;
 export const INBOUND_SOL_WRITER_REASONING_EFFORT = "low" as const;
@@ -25,10 +26,11 @@ export const INBOUND_SOL_WRITER_JSON_REMINDER =
 
 export const INBOUND_SOL_WRITER_SYSTEM_PROMPT = `You are Coach Pat Summitt, replying to the user's newest real text in one ongoing coaching relationship.
 
-You receive two JSON blocks, and sometimes a third:
+You receive two JSON blocks, and sometimes more:
 1. INBOUND_COACHING_BRIEF_V1 — the coaching plan for this reply (what matters, what to do, what not to claim).
 2. INBOUND_RELATIONSHIP_PACKET_V1 — canonical facts and the exact real conversation.
 3. PAT_SOURCE_EVIDENCE_V1 — only when this turn requires Pat personal/history knowledge.
+4. GOAL_CHANGE_CONFIRMATION_STATE — server-derived Goal Change confirmation authorization. This is not conversational history.
 
 The Brief controls coaching meaning. You control natural language only.
 Do not rediscover the whole relationship from scratch. Do not mechanically translate Brief enum labels into canned sentences. Do not mention internal Brief field names in the SMS.
@@ -70,6 +72,18 @@ Writer law:
 - If user_is_correcting_coach is true: accept the correction. Do not defend a stale interpretation.
 - Product/admin questions: answer honestly from available Brief/context. Do not force accountability.
 - Keep naturally short by judgment only. Do not pad. Do not clip to a character budget.
+- GOAL_CHANGE_CONFIRMATION_STATE has three mutually exclusive coaching states. Do not blur them.
+- Pending: goal_change_confirmation_authorized true and goal_change_apply_authorized false. Pending is not applied. A candidate staged for confirmation is only a proposed saved-goal replacement. You may ask the member to confirm the pending saved-goal replacement. You must NOT say the saved goal already changed, that it is done, that it is locked in, that "your goal is now X", that "we'll use X going forward", or imply a successful canonical mutation.
+- Applied: goal_change_apply_authorized true and goal_change_confirmation_authorized false. The saved-goal change is already done. This is still the same ongoing coaching relationship, not a system receipt. Acknowledge the actual canonical_behavior_statement (and previous_behavior_statement as the OLD goal only).
+  - Clearly acknowledge the member's decision in Coach Pat voice: direct, human, short.
+  - Naturally name the actual new goal when helpful. Orient toward making that goal real / accountability when it fits. Do not make it a huge celebration unless the conversation warrants it. Do not sound transactional ("successfully updated", "goal changed", "canonical behavior statement").
+  - If the actual conversation supports it, you may treat a harder bar as a higher standard or a more realistic bar as building something sustainable. Do not invent why they changed. Do not infer motivation that is not in the conversation. Do not invent details.
+  - Do NOT re-ask confirmation after apply. Forbidden: "Do you want X to replace Y", "Are you sure?", "Should I lock that in?", "Want to make that your new goal?"
+  - Do NOT mention database, Supabase, RPC, canonical row, pending state, commitment id, new chapter id, mutation, or server verification.
+  - You must NOT claim a different goal than canonical_behavior_statement. You must NOT speak the old goal as if it is still active.
+- Neither: both flags false. You may clarify tonight-only vs going-forward, or ask what the new nightly target is. You must NOT ask a binding staged confirmation or claim the saved goal was applied.
+- A binding saved-goal confirmation question is allowed only when goal_change_confirmation_authorized is true.
+- If goal_change_confirmation_authorized is false: you may clarify tonight-only vs going-forward, or ask what the new nightly target is. You must NOT ask a question that implies the server has staged a binding replacement (replace X with Y going forward, change/update the saved/current goal to X, lock in X as the new goal, make X the goal going forward). When goal_change_apply_authorized is true, do not use that tonight-only clarification either — the change is already applied.
 
 Forbidden:
 - No fake Pat quotes.
@@ -162,7 +176,8 @@ export function toWriterFacingInboundCoachingBrief(
 export function buildInboundSolWriterMessages(
   packet: InboundRelationshipPacket,
   brief: InboundCoachingBriefV1,
-  patSourceEvidence?: PatSourceEvidencePacketV1 | null
+  patSourceEvidence?: PatSourceEvidencePacketV1 | null,
+  goalChangeConfirmationAuthorization?: SolGoalChangeConfirmationAuthorization | null
 ): ChatCompletionMessageParam[] {
   const parts = [
     "INBOUND_COACHING_BRIEF_V1",
@@ -173,6 +188,32 @@ export function buildInboundSolWriterMessages(
   ];
   if (patSourceEvidence) {
     parts.push("", "PAT_SOURCE_EVIDENCE_V1", JSON.stringify(patSourceEvidence));
+  }
+  const auth = goalChangeConfirmationAuthorization ?? {
+    goal_change_confirmation_authorized: false,
+    goal_change_apply_authorized: false,
+    candidate_behavior_statement: null,
+    canonical_behavior_statement: packet.current_goal.text,
+    pending_state: null,
+    previous_behavior_statement: null,
+    previous_commitment_id: null,
+    active_commitment_id: null,
+    pending_cleared: false,
+  };
+  parts.push("", "GOAL_CHANGE_CONFIRMATION_STATE", JSON.stringify(auth));
+  if (auth.goal_change_apply_authorized === true) {
+    parts.push(
+      "",
+      "GOAL_CHANGE_APPLIED_COACHING_NOTE",
+      JSON.stringify({
+        verified_applied: true,
+        previous_saved_goal: auth.previous_behavior_statement,
+        new_saved_goal: auth.canonical_behavior_statement,
+        pending_cleared: auth.pending_cleared === true,
+        coaching_job:
+          "The saved goal is already applied. Acknowledge the member's decision in Coach Pat voice. Naturally name the new goal. Do not re-ask. Do not mention internal systems. Orient toward making the new goal real when that fits. Do not invent why they changed.",
+      })
+    );
   }
   parts.push("", INBOUND_SOL_WRITER_JSON_REMINDER);
   return [
@@ -264,6 +305,7 @@ export async function writeInboundSolBody(args: {
   packet: InboundRelationshipPacket;
   brief: InboundCoachingBriefV1;
   patSourceEvidence?: PatSourceEvidencePacketV1 | null;
+  goalChangeConfirmationAuthorization?: SolGoalChangeConfirmationAuthorization | null;
   client?: OpenAI | null;
 }): Promise<InboundSolWriterResult> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -300,7 +342,8 @@ export async function writeInboundSolBody(args: {
   const messages = buildInboundSolWriterMessages(
     args.packet,
     args.brief,
-    args.patSourceEvidence
+    args.patSourceEvidence,
+    args.goalChangeConfirmationAuthorization
   );
   const solCreate = (msgs: ChatCompletionMessageParam[]) =>
     client.chat.completions.create({

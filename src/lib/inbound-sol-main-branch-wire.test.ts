@@ -90,13 +90,22 @@ describe("inbound Sol main-branch wire", () => {
     expect(src).not.toContain("INBOUND_SOL_ENABLED");
   });
 
-  it("predicate excludes exit, identity, heuristic commitment-change, and conversation-brain takeover", () => {
+  it("predicate excludes exit, identity, and conversation-brain takeover, not Goal Change phrase lists", () => {
     expect(
       isInboundSolMainCoachingBranch({
         normalInboundV3OwnershipEligible: true,
         relationshipExitLaneActive: false,
         identityEditLaneActive: false,
         commitmentChangeHeuristicContext: false,
+        conversationBrainControlTurnActive: false,
+      })
+    ).toBe(true);
+    expect(
+      isInboundSolMainCoachingBranch({
+        normalInboundV3OwnershipEligible: true,
+        relationshipExitLaneActive: false,
+        identityEditLaneActive: false,
+        commitmentChangeHeuristicContext: true,
         conversationBrainControlTurnActive: false,
       })
     ).toBe(true);
@@ -116,7 +125,15 @@ describe("inbound Sol main-branch wire", () => {
         commitmentChangeIntentLikely: true,
         conversationBrainControlTurnActive: false,
       })
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      isLikelyInboundSolMainBeforeHandoff({
+        relationshipExitLaneActive: false,
+        identityEditLaneActive: false,
+        commitmentChangeIntentLikely: false,
+        conversationBrainControlTurnActive: false,
+      })
+    ).toBe(true);
   });
 
   it("skips TU / open-question V3 intercept on Sol-likely normal turns", () => {

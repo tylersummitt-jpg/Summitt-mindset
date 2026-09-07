@@ -197,7 +197,7 @@ describe("bootstrapSmsPendingConfirmationFromInbound", () => {
     expect(r.candidate).toMatch(/30 minutes of walking after dinner/i);
   });
 
-  it("A — shell without concrete bar does not promote meta goal-change raw body", async () => {
+  it("A — Sol-owned awaiting_candidate shell does not promote meta goal-change raw body", async () => {
     const raw = "I want to change my goal, please.";
     const c = commitmentWithPending({
       source: "sms_inbound",
@@ -215,11 +215,11 @@ describe("bootstrapSmsPendingConfirmationFromInbound", () => {
       openedAsAwaitingCandidateShell: true,
     });
     expect(r.promoted).toBe(false);
-    expect(r.skipReason).toBe("shell_without_concrete_candidate");
+    expect(r.skipReason).toBe("sol_owned_awaiting_candidate_shell");
     expect(mergeSmsPendingResolutionPayload).not.toHaveBeenCalled();
   });
 
-  it("B — shell + structured change-to clause still promotes concrete candidate", async () => {
+  it("B — Sol-owned shell does not leftover-extract even when inbound has a change-to clause", async () => {
     const raw = "Change my goal to walking 10,000 steps every day.";
     const c = commitmentWithPending({
       source: "sms_inbound",
@@ -236,8 +236,51 @@ describe("bootstrapSmsPendingConfirmationFromInbound", () => {
       rawBody: raw,
       openedAsAwaitingCandidateShell: true,
     });
+    expect(r.promoted).toBe(false);
+    expect(r.candidate).toBeNull();
+    expect(r.skipReason).toBe("sol_owned_awaiting_candidate_shell");
+    expect(mergeSmsPendingResolutionPayload).not.toHaveBeenCalled();
+  });
+
+  it("C — Sol-owned shell does not leftover-extract a clock from I want to change my goal to 10:30", async () => {
+    const raw = "I want to change my goal to 10:30";
+    const c = commitmentWithPending({
+      source: "sms_inbound",
+      detected_intent: "sms_replace_request",
+      raw_user_text: raw,
+      inbound_message_sid: "SMboot_clock",
+      ai_confidence: null,
+      sms_state: "awaiting_candidate",
+      candidate_new_bar: null,
+      candidate_behavior_statement: null,
+    });
+    const r = await bootstrapSmsPendingConfirmationFromInbound({
+      commitment: c,
+      rawBody: raw,
+      openedAsAwaitingCandidateShell: true,
+    });
+    expect(r.promoted).toBe(false);
+    expect(r.candidate).toBeNull();
+    expect(mergeSmsPendingResolutionPayload).not.toHaveBeenCalled();
+  });
+
+  it("legacy bootstrap without the Sol shell flag still promotes a concrete same-turn candidate", async () => {
+    const raw = "Change my goal to walking 10,000 steps every day.";
+    const c = commitmentWithPending({
+      source: "sms_inbound",
+      detected_intent: "sms_replace_request",
+      raw_user_text: raw,
+      inbound_message_sid: "SMboot_legacy",
+      ai_confidence: null,
+      sms_state: "awaiting_candidate",
+      candidate_new_bar: null,
+      candidate_behavior_statement: null,
+    });
+    const r = await bootstrapSmsPendingConfirmationFromInbound({
+      commitment: c,
+      rawBody: raw,
+    });
     expect(r.promoted).toBe(true);
     expect(r.candidate).toMatch(/walking 10,?000 steps every day/i);
-    expect(r.candidate).not.toBe(raw);
   });
 });
