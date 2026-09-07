@@ -992,6 +992,53 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     );
   }
 
+  // Slice 6: leftover does not own saved-replace English. Sol hallway / Slice 3 own
+  // healthy replace. Keep only degenerate empty-candidate confirmation so a ghost
+  // pending cannot fall through into normal coaching.
+  if (kind === "commitment_replace") {
+    if (smsState === "awaiting_confirmation") {
+      const cand =
+        payload.candidate_behavior_statement?.trim() ||
+        payload.candidate_tightened_bar?.trim() ||
+        payload.candidate_new_bar?.trim() ||
+        "";
+      if (!cand) {
+        await mergeSmsPendingResolutionPayload({
+          commitmentId: c.id,
+          merge: (prev) => ({
+            ...prev,
+            sms_state: "awaiting_candidate",
+          }),
+        });
+        const raiseNeedsBar = payload.detected_intent === "sms_raise_bar_request";
+        const lostDraft = raiseNeedsBar
+          ? "What harder goal should I hold you to? One clear action—then tell me YES when it's right."
+          : "I lost track of the candidate—what exactly should I hold you to tomorrow? One clear action.";
+        return pendingHandled(
+          await phase1PendingReply({
+            machineDraft: lostDraft,
+            brainCase: "pending_resolution_lost_candidate",
+            allowVictoryRoomPhrase: false,
+            currentBarSummary,
+            safeFallback: lostDraft,
+          }),
+          {
+            pendingNoSendPolicyBranch: "pending_active_clarify",
+            pendingResolutionKind: kind,
+            pendingStateMutatedBeforeSms: true,
+            pendingClearedBeforeSms: false,
+            pendingStillActiveAfterPhase1: true,
+            pendingResolutionApplied: false,
+            pendingProgressed: true,
+            stateTransitionSummary:
+              "Lost confirmation candidate; regressed pending to awaiting_candidate before visible SMS.",
+          }
+        );
+      }
+    }
+    return { handled: false };
+  }
+
   if (looksLikeCancellation(rawFull) && smsState === "awaiting_candidate") {
     await clearPendingResolution(c.id, { expectedUpdatedAt: c.updated_at });
     await recomputeV2CoachingMemory(c.id, { reasonCode: "sms_pending_resolution_cancelled" });
@@ -1623,9 +1670,8 @@ export async function tryHandleSmsInboundPendingResolution(args: {
   if (smsState === "awaiting_candidate" && kind === "commitment_replace") {
     // Production Turn 2 for this hallway is owned by
     // runSolGoalChangeAwaitingCandidateForInbound (Sol interpreter / clock slot).
-    // This leftover block remains for direct callers and pre-route compatibility
-    // tests; processV2SmsInboundPendingResolution must not reach it for the
-    // normal saved-replace hallway.
+    // Slice 6: leftover returns handled:false for healthy saved replace before
+    // this block. Tighten leftover may still reach candidate extraction.
     const clock = resolveReplaceHallwayClockCandidate({
       canonicalBehaviorStatement: c.behavior_statement ?? "",
       extracted: null,

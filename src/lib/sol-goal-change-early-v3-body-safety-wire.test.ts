@@ -86,7 +86,7 @@ describe("early V3 Goal Change body-safety seams", () => {
     expect(seam).toContain("arcLaneRes.body = guardedArc.body");
   });
 
-  it("already-protected Sol main, V3 main, and Wave4 handoff still call the shared helper", () => {
+  it("already-protected Sol main and V3 main still call the shared helper; dead Wave4 handoff is gone", () => {
     expect(turn).toContain("applyGoalChangeMachineBodySafety");
     const v3Main = seamBetween(
       src,
@@ -94,16 +94,7 @@ describe("early V3 Goal Change body-safety seams", () => {
       "attachInboundReplyBriefTelemetryToLaneMetadata"
     );
     expect(v3Main).toContain("applyGoalChangeMachineBodySafety");
-    const handoffStart = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-    const handoff = src.slice(
-      handoffStart,
-      src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound", handoffStart)
-    );
-    const produceIdx = handoff.indexOf("produceInboundV3RelationshipSms");
-    const safetyIdx = handoff.indexOf("applyGoalChangeMachineBodySafety");
-    const persistIdx = handoff.indexOf("northStarGatePersistBodyAsync");
-    expect(safetyIdx).toBeGreaterThan(produceIdx);
-    expect(persistIdx).toBeGreaterThan(safetyIdx);
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
   });
 });
 

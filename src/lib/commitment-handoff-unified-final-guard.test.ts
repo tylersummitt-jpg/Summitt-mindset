@@ -76,76 +76,18 @@ function handoffEvidence(): OutcomeClaimEvidenceBundle {
 
 describe("Phase 2.1e commitment handoff — route wiring", () => {
   const src = fs.readFileSync(ROUTE, "utf8");
-  const handoffStart = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-  const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
-  const handoffBlock = src.slice(handoffStart, handoffEnd);
   const adaptiveStart = src.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
-  const adaptiveBlock = src.slice(adaptiveStart, handoffStart);
+  const adaptiveEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
+  const adaptiveBlock = src.slice(adaptiveStart, adaptiveEnd);
   const contractStart = src.indexOf("async function runContractConsentNoSendTruthPolicy");
   const contractBlock = src.slice(contractStart, adaptiveStart);
 
-  it("18: handoff path calls unified guard before reply_body", () => {
-    expect(handoffBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
-    expect(handoffBlock).toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
-    expect(handoffBlock).toContain("cancelCommitmentHandoffNoSend");
-    expect(src).toContain("persistCommitmentHandoffTruthOnNoSend");
-  });
-
-  it("19: handoff uses transactional_coaching_limited, not normal_coaching_full", () => {
-    expect(handoffBlock).toContain('mode: "transactional_coaching_limited"');
-    expect(handoffBlock).not.toContain('mode: "normal_coaching_full"');
-    expect(handoffBlock).not.toContain("unifiedFinalGuard:");
-  });
-
-  it("20: unified guard body becomes reply_body", () => {
-    expect(handoffBlock).toContain("const gatedBody = unifiedGuard.body");
-    expect(handoffBlock).toContain("reply_body: gatedBody");
-    expect(handoffBlock).not.toContain("const gatedBody = voicePack.voice.body");
-  });
-
-  it("21: lane no-send after pending created calls handoff truth policy", () => {
-    expect(handoffBlock).toContain("cancelCommitmentHandoffNoSend");
-    expect(handoffBlock).toContain('noSendStage: "lane"');
-    expect(handoffBlock).toContain("buildCommitmentHandoffNoSendTruthPolicyContext");
-  });
-
-  it("22: FVG no-send after pending created calls handoff truth policy", () => {
-    expect(handoffBlock).toContain('noSendStage: "final_voice_gate"');
-    expect(handoffBlock).toContain("commitment_change_handoff_final_voice_suppressed");
-    expect(handoffBlock).toContain("preSendSideEffects");
-  });
-
-  it("23: unified guard no-send after pending created calls handoff truth policy", () => {
-    expect(handoffBlock).toContain('noSendStage: "unified_final_guard"');
-    expect(handoffBlock).toContain("commitment_change_handoff_unified_guard_no_send");
-  });
-
-  it("24: post-unified truth failure calls handoff truth policy", () => {
-    expect(handoffBlock).toContain('noSendStage: "post_unified_truth_recheck"');
-    expect(handoffBlock).toContain("commitment_change_handoff_post_unified_truth_no_send");
-  });
-
-  it("25: recordV2SendTimeProfileInboundEngagement moved post-send", () => {
-    const sendIdx = handoffBlock.indexOf("await commitAndSendInboundRelationshipCoachReply");
-    const engagementIdx = handoffBlock.indexOf(
-      "await recordV2SendTimeProfileInboundEngagement",
-      sendIdx
-    );
-    expect(sendIdx).toBeGreaterThan(-1);
-    expect(engagementIdx).toBeGreaterThan(sendIdx);
-    const preSendBlock = handoffBlock.slice(0, sendIdx);
-    expect(preSendBlock).not.toContain("await recordV2SendTimeProfileInboundEngagement");
-  });
-
-  it("26: memory merge side effect if pre-send is recorded in audit", () => {
-    expect(handoffBlock).toContain("memoryMergedIntoPendingBeforeSms");
-    expect(handoffBlock).toContain("sideEffectsRecordedBeforeSms");
-    expect(handoffBlock).toContain("runPreSendHandoffSideEffects");
-  });
-
-  it("27: valid handoff send still sends", () => {
-    expect(handoffBlock).toContain("commitAndSendInboundRelationshipCoachReply");
-    expect(handoffBlock).toContain("commitment_change_handoff_lane_sent");
+  it("18: dead V3 handoff writer is gone", () => {
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
+    expect(src).not.toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
+    expect(src).not.toContain("persistCommitmentHandoffTruthOnNoSend");
+    expect(src).not.toContain("cancelCommitmentHandoffNoSend");
+    expect(src).toContain("await runSolGoalChangePendingOpenForInbound");
   });
 
   it("28: contract A1/A2 unchanged", () => {
@@ -191,16 +133,6 @@ describe("Phase 2.1e commitment handoff — route wiring", () => {
     expect(blockerIdx).toBeGreaterThan(-1);
     const blockerBlock = src.slice(blockerIdx - 500, blockerIdx + 500);
     expect(blockerBlock).not.toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
-  });
-
-  it("34: no Twilio/send changes", () => {
-    expect(handoffBlock).not.toMatch(/twilio.*send.*mechanic/i);
-    expect(handoffBlock).toContain("commitAndSendInboundRelationshipCoachReply");
-  });
-
-  it("35: no persistence enum changes", () => {
-    expect(handoffBlock).not.toContain("event_type:");
-    expect(src).not.toContain("sms_v2_commitment_handoff_no_send");
   });
 });
 

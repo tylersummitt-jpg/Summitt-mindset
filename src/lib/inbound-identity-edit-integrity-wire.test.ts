@@ -42,7 +42,7 @@ describe("Slice B — identity edit integrity wire", () => {
     expect(fn).toContain("applyIdentityEditGatedOverride");
     expect(fn).toContain("identity_edit_integrity");
     expect(fn).toContain("buildInboundV3IdentityEditFacts");
-    expect(fn).toContain("shouldSuppressCommitmentChangeHandoffForIdentity");
+    expect(fn).not.toContain("shouldSuppressCommitmentChangeHandoffForIdentity");
     const exitIdx = fn.indexOf("applyRelationshipExitGatedOverride");
     const identityIdx = fn.indexOf("applyIdentityEditGatedOverride");
     expect(exitIdx).toBeGreaterThanOrEqual(0);
@@ -111,10 +111,10 @@ describe("Slice B — identity edit integrity wire", () => {
       "async function processV2NormalInboundOutcome",
       "async function processV2BlockerCapture"
     );
-    expect(fn).toContain("const openCommitmentChangeHandoff = false");
+    expect(fn).not.toContain("openCommitmentChangeHandoff");
     expect(fn).toContain("runSolGoalChangePendingOpenForInbound");
-    expect(fn).toContain("persistCommitmentChangeHandoffLaneAndSend");
-    expect(fn).toContain("applyWave4SmsCommitmentPendingResolution");
+    expect(fn).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
+    expect(fn).not.toContain("applyWave4SmsCommitmentPendingResolution");
     expect(fn).toContain("if (relationshipExitLaneActive || identityEditLaneActive)");
     expect(fn.indexOf("if (relationshipExitLaneActive || identityEditLaneActive)")).toBeLessThan(
       fn.indexOf("await runSolGoalChangePendingOpenForInbound")

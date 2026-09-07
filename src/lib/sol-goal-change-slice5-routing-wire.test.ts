@@ -48,25 +48,17 @@ describe("Slice 5 first-turn Goal Change routing", () => {
   const pendingConfirm = fs.readFileSync(PENDING_CONFIRM, "utf8");
   const turn = fs.readFileSync(SOL_TURN, "utf8");
 
-  it("1–2: heuristic-true change and heuristic-false revise both reach Sol pending-open; Wave4 is not first", () => {
+  it("1–2: heuristic-true change and heuristic-false revise both reach Sol pending-open; Wave4 first-turn is gone", () => {
     expect(isLikelyCommitmentChangeIntentTurn("I want to change my goal to 10:30")).toBe(true);
     expect(isLikelyCommitmentChangeIntentTurn("I need to revise my goal to 10:30")).toBe(false);
 
     const fnStart = src.indexOf("async function processV2NormalInboundOutcome");
-    const suppressIdx = src.indexOf("const openCommitmentChangeHandoff = false", fnStart);
-    const wave4If = src.indexOf(
-      "if (openCommitmentChangeHandoff && !plannedInterruptionActionable)",
-      fnStart
-    );
     const openIdx = src.indexOf("await runSolGoalChangePendingOpenForInbound", fnStart);
     const solIdx = src.indexOf("await runInboundSolRelationshipTurn", fnStart);
-    expect(suppressIdx).toBeGreaterThan(fnStart);
-    expect(wave4If).toBeGreaterThan(suppressIdx);
-    expect(openIdx).toBeGreaterThan(wave4If);
+    expect(openIdx).toBeGreaterThan(fnStart);
     expect(solIdx).toBeGreaterThan(openIdx);
-
-    const wave4Block = src.slice(wave4If, openIdx);
-    expect(wave4Block).not.toContain("runSolGoalChangePendingOpenForInbound");
+    expect(src).not.toContain("openCommitmentChangeHandoff");
+    expect(src).not.toContain("if (openCommitmentChangeHandoff && !plannedInterruptionActionable)");
     expect(src).toContain("const commitmentChangeHeuristicContext = false");
   });
 
@@ -93,13 +85,13 @@ describe("Slice 5 first-turn Goal Change routing", () => {
     }
   });
 
-  it("4: Wave4 first-turn saved-replace state writer is not invoked first", () => {
+  it("4: Wave4 first-turn saved-replace state writer is not invoked from the route", () => {
     const fnStart = src.indexOf("async function processV2NormalInboundOutcome");
-    expect(src).toContain("const openCommitmentChangeHandoff = false");
-    expect(src).toContain("legacy_wave4_handoff_suppressed");
+    expect(src).not.toContain("openCommitmentChangeHandoff");
+    expect(src).not.toContain("legacy_wave4_handoff_suppressed");
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
     const openIdx = src.indexOf("await runSolGoalChangePendingOpenForInbound", fnStart);
-    const persistIdx = src.indexOf("await persistCommitmentChangeHandoffLaneAndSend", fnStart);
-    expect(persistIdx).toBeGreaterThan(openIdx);
+    expect(openIdx).toBeGreaterThan(fnStart);
     expect(pendingOpen).toContain("runSolGoalChangeSemanticInterpreter");
     expect(pendingOpen).toContain("applyWave4SmsCommitmentPendingResolution");
   });
@@ -156,7 +148,7 @@ describe("Slice 5 first-turn Goal Change routing", () => {
     expect(pendingOpen).toContain("openedAsAwaitingCandidateShell: true");
     expect(pendingOpen).toContain('intent: "sms_replace_request"');
     expect(pendingOpen).toContain("New first-turn Wave4 tighten/raise-bar English is intentionally NOT restored");
-    expect(src).toContain("const openCommitmentChangeHandoff = false");
+    expect(src).not.toContain("openCommitmentChangeHandoff");
     expect(src).not.toMatch(
       /openCommitmentChangeHandoff\s*=\s*legacyOpenCommitmentChangeHandoff/
     );
@@ -197,7 +189,7 @@ describe("Slice 5 change vs revise / fragment / collision canaries", () => {
   it("new first-turn Wave4 tighten is intentionally not restored; overlay remains live elsewhere", () => {
     const src = fs.readFileSync(ROUTE, "utf8");
     const pendingOpen = fs.readFileSync(PENDING_OPEN, "utf8");
-    expect(src).toContain("const openCommitmentChangeHandoff = false");
+    expect(src).not.toContain("openCommitmentChangeHandoff");
     expect(pendingOpen).toContain(
       "New first-turn Wave4 tighten/raise-bar English is intentionally NOT restored"
     );

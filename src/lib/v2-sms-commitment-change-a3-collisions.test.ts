@@ -312,9 +312,8 @@ describe('Slice A3 collisions — "no, walking after dinner" documented limitati
       commitment: c,
     });
 
-    expect(r.handled).toBe(true);
+    expect(r.handled).toBe(false);
     expect(rpcMock).not.toHaveBeenCalled();
     expect(mergeSmsPendingResolutionPayload).not.toHaveBeenCalled();
-    expect(r.replyBody).toMatch(new RegExp(priorCandidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   });
 });

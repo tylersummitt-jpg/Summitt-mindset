@@ -105,11 +105,10 @@ describe("Phase 3G-1 — sms-inbound-coach route gating (static)", () => {
     );
   });
 
-  it("feeds heuristic commitment-change context into buildInboundV3RelationshipFacts before produceInboundV3RelationshipSms", () => {
-    const idx = route.indexOf("buildCommitmentChangeContextFactsForHeuristicInbound");
-    const prod = route.indexOf("const laneRes = await produceInboundV3RelationshipSms", idx);
-    expect(idx).toBeGreaterThan(-1);
-    expect(prod).toBeGreaterThan(idx);
+  it("feeds heuristic commitment-change context only as a forced-false Sol safety, not a V3 writer", () => {
+    expect(route).toContain("const commitmentChangeHeuristicContext = false");
+    expect(route).not.toContain("buildCommitmentChangeContextFactsForHeuristicInbound");
+    expect(route).toContain("const laneRes = await produceInboundV3RelationshipSms");
   });
 
   it("guards legacy else with inbound_active_coaching_legacy_else_invariant", () => {
@@ -117,10 +116,9 @@ describe("Phase 3G-1 — sms-inbound-coach route gating (static)", () => {
     expect(route).toContain("non_transactional_inbound_reached_legacy_else_without_inboundRelationshipLane");
   });
 
-  it("calls await applyWave4SmsCommitmentPendingResolution only under commitment_change_handoff", () => {
-    const matches = route.match(/await applyWave4SmsCommitmentPendingResolution/g);
-    expect(matches?.length).toBe(1);
-    expect(route).toMatch(/gatedDecision\.mode === "commitment_change_handoff"/);
+  it("does not call applyWave4SmsCommitmentPendingResolution from the inbound route", () => {
+    expect(route).not.toContain("await applyWave4SmsCommitmentPendingResolution");
+    expect(route).toContain('"commitment_change_handoff"');
   });
 });
 

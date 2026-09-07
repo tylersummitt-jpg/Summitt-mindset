@@ -186,7 +186,7 @@ describe("inbound Sol main-branch wire", () => {
     expect(persist).not.toContain("runInboundSolBriefInterpreter");
     expect(persist).not.toContain("produceInboundV3RelationshipSms");
     const clarifyStart = src.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
-    const clarifyEnd = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
+    const clarifyEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
     const clarify = src.slice(clarifyStart, clarifyEnd);
     expect(clarify).toContain("writeContractConsentSolClarifyBody");
     expect(clarify).not.toContain("produceInboundV3RelationshipSms");

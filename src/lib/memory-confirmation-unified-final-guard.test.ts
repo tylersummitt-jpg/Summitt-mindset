@@ -5,6 +5,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+
 import {
   applyUnifiedSmsFinalProductLawGuard,
   TRANSACTIONAL_COACHING_LIMITED_CHECKS_SKIPPED,
@@ -402,9 +407,6 @@ describe("Phase 2.1g-A memory confirmation — engagement-on-no-send cleanup", (
     src.indexOf("async function processV2CoachingRefreshInbound"),
     src.indexOf("async function processV2CoachingRefreshInbound") + 80000
   );
-  const handoffStart = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-  const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
-  const handoffBlock = src.slice(handoffStart, handoffEnd);
 
   function noSendIfBody(sendVar: string): string {
     const idx = memoryBlock.indexOf(`if (!${sendVar}.ok)`);
@@ -504,14 +506,8 @@ describe("Phase 2.1g-A memory confirmation — engagement-on-no-send cleanup", (
     expect(keepEngagement).toBeGreaterThan(keepNoSend);
   });
 
-  it("16: handoff engagement ordering unchanged", () => {
-    const sendIdx = handoffBlock.indexOf("await commitAndSendInboundRelationshipCoachReply");
-    const engagementIdx = handoffBlock.indexOf(
-      "await recordV2SendTimeProfileInboundEngagement",
-      sendIdx
-    );
-    expect(sendIdx).toBeGreaterThan(-1);
-    expect(engagementIdx).toBeGreaterThan(sendIdx);
+  it("16: dead V3 handoff writer is gone", () => {
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
   });
 
   it("17: contract/adaptive unchanged", () => {

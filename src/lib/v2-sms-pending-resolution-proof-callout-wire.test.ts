@@ -7,16 +7,13 @@ const SRC = path.join(process.cwd(), "src/lib/v2-sms-pending-resolution-complete
 describe("v2-sms-pending-resolution-complete — proof callout after insert", () => {
   const src = fs.readFileSync(SRC, "utf8");
 
-  it("inserts commitment change proof before appending Victory callout (replace)", () => {
-    const replaceBlock = src.slice(
-      src.indexOf("const proofInserted = await insertSmsCommitmentChangeProofEvent"),
-      src.indexOf("brainCase: \"pending_resolution_replace_applied\"")
-    );
-    const insertIdx = replaceBlock.indexOf("insertSmsCommitmentChangeProofEvent");
-    const appendIdx = replaceBlock.indexOf("appendSmsParagraphIfUnderCap");
-    expect(insertIdx).toBeGreaterThanOrEqual(0);
-    expect(appendIdx).toBeGreaterThan(insertIdx);
-    expect(replaceBlock).toContain("if (proofInserted && vrAppend)");
+  it("inserts commitment change proof before appending Victory callout (replace) is leftover-dead", () => {
+    const early = src.indexOf("Slice 6: leftover does not own saved-replace English.");
+    const replaceApplied = src.indexOf('brainCase: "pending_resolution_replace_applied"');
+    expect(early).toBeGreaterThan(0);
+    expect(replaceApplied).toBeGreaterThan(early);
+    expect(src.indexOf("return { handled: false };", early)).toBeGreaterThan(early);
+    expect(src.indexOf("return { handled: false };", early)).toBeLessThan(replaceApplied);
   });
 
   it("inserts commitment change proof before appending Victory callout (tighten)", () => {

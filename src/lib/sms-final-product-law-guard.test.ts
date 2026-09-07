@@ -2,6 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+
 import {
   SMS_FINAL_PRODUCT_LAW_GUARD_VERSION,
   TRANSACTIONAL_COACHING_LIMITED_CHECKS_SKIPPED,
@@ -479,21 +483,13 @@ describe("PR 2.1b route wiring invariants", () => {
     expect(adaptiveIdx).toBeGreaterThan(0);
     const adaptiveBlock = src.slice(
       adaptiveIdx,
-      src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend")
+      src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound")
     );
     expect(adaptiveBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
     expect(adaptiveBlock).toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
 
     const handoffIdx = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-    expect(handoffIdx).toBeGreaterThan(0);
-    const handoffBlock = src.slice(
-      handoffIdx,
-      src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound")
-    );
-    expect(handoffBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
-    expect(handoffBlock).toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
-    expect(handoffBlock).toContain("cancelCommitmentHandoffNoSend");
-    expect(src).toContain("persistCommitmentHandoffTruthOnNoSend");
+    expect(handoffIdx).toBe(-1);
 
     const refreshIdx = src.indexOf("async function persistRefreshSmsLaneAndSend");
     const refreshBlock = src.slice(refreshIdx, refreshIdx + 5000);

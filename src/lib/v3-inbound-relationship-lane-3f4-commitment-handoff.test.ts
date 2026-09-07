@@ -139,77 +139,24 @@ describe("sms-inbound-coach route — Phase 3F-4 commitment_change_handoff (stat
   const routePath = join(__dirname, "../app/api/cron/sms-inbound-coach/route.ts");
   const route = readFileSync(routePath, "utf8");
 
-  it("defines persistCommitmentChangeHandoffLaneAndSend using lane + NS+FVG on inbound_coach_reply", () => {
-    const start = route.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-    expect(start).toBeGreaterThan(-1);
-    const end = route.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound", start);
-    expect(end).toBeGreaterThan(start);
-    const body = route.slice(start, end);
-    expect(body).toContain("produceInboundV3RelationshipSms");
-    expect(body).toContain("northStarGatePersistBodyAsync");
-    expect(body).toContain('channel: "inbound_coach_reply"');
-    expect(body).toContain("formatInboundV3LaneNoSendLastError");
-    expect(body).toContain("finalVoiceSkipLastError");
-    expect(body).not.toContain("wave4_commitment_handoff");
-    expect(body).not.toContain("produceV3InboundCoachDraft");
-    expect(body).toContain("buildCommitmentChangeHandoffThreadMemoryContext");
-    expect(body).toContain("commitAndSendInboundRelationshipCoachReply");
-    expect(body).toContain("const gatedBody = unifiedGuard.body");
-    expect(body).toContain("applyUnifiedSmsFinalProductLawGuard");
-    expect(body).toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
-    expect(route).toContain("persistCommitmentHandoffTruthOnNoSend");
-    expect(body).toContain("cancelCommitmentHandoffNoSend");
-    expect(body).not.toContain("legacy_commitment_change_reply_preview");
-    expect(body).not.toContain('expectedAnswerType: "proposal_yes_no"');
-  });
-
-  it("early-returns from processV2NormalInboundOutcome after persistCommitmentChangeHandoffLaneAndSend for handoff", () => {
-    const idxReturn = route.indexOf("await persistCommitmentChangeHandoffLaneAndSend");
-    expect(idxReturn).toBeGreaterThan(-1);
-    // Call args exceed a fixed 900-char window; assert closing }); then return on the handoff path.
-    const afterCall = route.slice(idxReturn, idxReturn + 2500);
-    const closeIdx = afterCall.indexOf("});");
-    expect(closeIdx).toBeGreaterThan(0);
-    expect(afterCall.slice(closeIdx, closeIdx + 40)).toMatch(/\}\);\s*\n\s*return;/);
-  });
-
-  it("does not use appendWhenExistingPendingResolution in the Wave4 block", () => {
+  it("Slice 6 — dead V3 handoff writer and Wave4 first-turn route are gone", () => {
+    expect(route).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
+    expect(route).not.toContain("openCommitmentChangeHandoff");
+    expect(route).not.toContain("legacyOpenCommitmentChangeHandoff");
+    expect(route).not.toContain("shouldOpenCommitmentChangeHandoff");
+    expect(route).not.toContain("if (openCommitmentChangeHandoff && !plannedInterruptionActionable)");
+    expect(route).not.toContain("await applyWave4SmsCommitmentPendingResolution");
     expect(route).not.toContain("appendWhenExistingPendingResolution");
-  });
-
-  it("uses openCommitmentChangeHandoff only behind Slice 5 suppress; PI still skips the dead Wave4 block", () => {
-    expect(route).toContain("shouldOpenCommitmentChangeHandoff");
-    expect(route).toContain("legacyOpenCommitmentChangeHandoff");
-    expect(route).toContain("const openCommitmentChangeHandoff = false");
-    expect(route).toMatch(/openCommitmentChangeHandoff && !plannedInterruptionActionable/);
-    expect(route).toContain("bootstrapSmsPendingConfirmationFromInbound");
     expect(route).not.toContain("V2_SMS_COMMITMENT_HANDOFF_HEURISTIC_ENABLED");
     expect(route).not.toContain("isV2SmsCommitmentHandoffHeuristicEnabled");
-    const suppressIdx = route.indexOf("const openCommitmentChangeHandoff = false");
-    const wave4If = route.indexOf(
-      "if (openCommitmentChangeHandoff && !plannedInterruptionActionable)"
-    );
-    expect(suppressIdx).toBeGreaterThan(-1);
-    expect(wave4If).toBeGreaterThan(suppressIdx);
   });
 
-  it("Slice 5 — Sol pending-open is the live first-turn pending writer; Wave4 apply is not invoked first", () => {
+  it("Slice 6 — Sol pending-open is the live first-turn pending writer", () => {
     const fnStart = route.indexOf("async function processV2NormalInboundOutcome");
-    const suppressIdx = route.indexOf("const openCommitmentChangeHandoff = false", fnStart);
-    const wave4If = route.indexOf(
-      "if (openCommitmentChangeHandoff && !plannedInterruptionActionable)",
-      fnStart
-    );
     const openIdx = route.indexOf("await runSolGoalChangePendingOpenForInbound", fnStart);
-    const persistIdx = route.indexOf("await persistCommitmentChangeHandoffLaneAndSend", fnStart);
-    expect(suppressIdx).toBeGreaterThan(fnStart);
-    expect(wave4If).toBeGreaterThan(suppressIdx);
-    expect(openIdx).toBeGreaterThan(wave4If);
-    expect(persistIdx).toBeGreaterThan(openIdx);
-
-    const wave4Block = route.slice(wave4If, openIdx);
-    expect(wave4Block).toContain("applyWave4SmsCommitmentPendingResolution");
-    expect(wave4Block).not.toContain("runSolGoalChangePendingOpenForInbound");
-    expect(wave4Block).not.toContain("tryHandleSmsInboundPendingResolution");
+    const solIdx = route.indexOf("await runInboundSolRelationshipTurn", fnStart);
+    expect(openIdx).toBeGreaterThan(fnStart);
+    expect(solIdx).toBeGreaterThan(openIdx);
+    expect(route).toContain("produceInboundV3RelationshipSms");
   });
 });

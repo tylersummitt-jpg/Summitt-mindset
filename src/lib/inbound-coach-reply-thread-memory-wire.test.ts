@@ -34,7 +34,7 @@ describe("inbound coach reply — durable thread memory projection wire (Slice 1
       "const openQuestionThreadMemoryCtx = {",
       "open_question_answer_lane_sent"
     );
-    expect(block).toContain("northStarPktEarly.expectedReplySemantics");
+    expect(block).toContain("northStarPktOpenQuestion.expectedReplySemantics");
     expect(block).toContain("commitAndSendInboundRelationshipCoachReply");
     expect(block).not.toMatch(/commitAndSendInboundCoachReply\(\s*\w+,\s*userId\s*\)/);
   });
@@ -112,7 +112,7 @@ describe("inbound coach reply — durable thread memory projection wire (Slice 1
     const tap = sliceBetween(
       src,
       "if (isAppleMessengerTapbackLine(rawInboundEarly))",
-      "if (await processInboundSmsSafetyShortCircuit(job, userId))"
+      "if (await processInboundSmsSafetyShortCircuit(job, userId, c.id))"
     );
     expect(tap).toContain("imessage_tapback_suppressed");
     expect(tap).not.toContain("commitAndSendInboundRelationshipCoachReply");
@@ -133,8 +133,8 @@ describe("inbound coach reply — durable thread memory projection wire (Slice 1
     const src = routeSrc();
     const contract = sliceBetween(
       src,
-      "async function persistContractConsentInboundLaneAckAndSend",
-      "async function persistAdaptiveProposalConsentClarificationAndSend"
+      "async function trySendContractConsentBodyAfterUnifiedGuard",
+      "async function persistContractConsentInboundLaneAckAndSend"
     );
     expect(contract).toContain("commitAndSendInboundRelationshipCoachReply");
     expect(contract).toContain("contractAckThreadMemoryCtx");
@@ -153,7 +153,7 @@ describe("inbound coach reply — durable thread memory projection wire (Slice 1
     const clarification = sliceBetween(
       src,
       "async function persistAdaptiveProposalConsentClarificationAndSend",
-      "async function persistCommitmentChangeHandoffLaneAndSend"
+      "async function handleAdaptiveProposalConsentAmbiguousInbound"
     );
     expect(clarification).toContain("commitAndSendInboundRelationshipCoachReply");
     expect(clarification).toContain("adaptiveClarificationThreadMemoryCtx");
@@ -165,21 +165,10 @@ describe("inbound coach reply — durable thread memory projection wire (Slice 1
     );
   });
 
-  it("Slice 2C commitment-change handoff uses relationship helper with handoff thread memory context", () => {
+  it("Slice 2C commitment-change handoff writer is retired", () => {
     const src = routeSrc();
-    const handoff = sliceBetween(
-      src,
-      "async function persistCommitmentChangeHandoffLaneAndSend",
-      "async function handleAdaptiveProposalConsentAmbiguousInbound"
-    );
-    expect(handoff).toContain("commitAndSendInboundRelationshipCoachReply");
-    expect(handoff).toContain("buildCommitmentChangeHandoffThreadMemoryContext");
-    expect(handoff).toContain("deriveCommitmentChangeHandoffSmsStateFromFacts");
-    expect(handoff).toContain("commitmentChangeHandoffThreadMemoryCtx");
-    expect(handoff).toContain("const gatedBody = voicePack.voice.body");
-    expect(handoff).not.toMatch(/commitAndSendInboundCoachReply\(\s*\w+,\s*args\.userId\s*\)/);
-    expect(handoff).not.toContain("resolveAdaptiveClarificationExpectedAnswerType");
-    expect(handoff).not.toContain("legacy_commitment_change_reply_preview");
-    expect(handoff).not.toContain('expectedAnswerType: "proposal_yes_no"');
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
+    expect(src).not.toContain("buildCommitmentChangeHandoffThreadMemoryContext");
+    expect(src).toContain("runSolGoalChangePendingOpenForInbound");
   });
 });

@@ -36,7 +36,7 @@ describe("sms-inbound-coach route — Phase 3F-3 ambiguous consent (static)", ()
 
   it("persistAdaptiveProposalConsentClarificationAndSend uses isolated Sol writer then unified guard", () => {
     const start = route.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
-    const end = route.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
+    const end = route.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const body = route.slice(start, end);

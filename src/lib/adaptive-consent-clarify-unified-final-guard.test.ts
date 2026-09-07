@@ -77,7 +77,7 @@ function adaptiveEvidence(): OutcomeClaimEvidenceBundle {
 describe("Phase 2.1d-A2 adaptive clarify — route wiring", () => {
   const src = fs.readFileSync(ROUTE, "utf8");
   const adaptiveStart = src.indexOf("async function persistAdaptiveProposalConsentClarificationAndSend");
-  const adaptiveEnd = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
+  const adaptiveEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
   const adaptiveBlock = src.slice(adaptiveStart, adaptiveEnd);
   const contractStart = src.indexOf("async function runContractConsentNoSendTruthPolicy");
   const contractBlock = src.slice(contractStart, adaptiveStart);
@@ -141,13 +141,10 @@ describe("Phase 2.1d-A2 adaptive clarify — route wiring", () => {
     expect(memoryBlock).not.toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
   });
 
-  it("22: handoff wired separately (Phase 2.1e)", () => {
-    const handoffStart = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-    const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
-    const handoffBlock = src.slice(handoffStart, handoffEnd);
-    expect(handoffBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
-    expect(handoffBlock).toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
-    expect(handoffBlock).not.toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
+  it("22: dead V3 handoff writer is gone; adaptive clarify remains separate", () => {
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
+    expect(src).not.toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
+    expect(adaptiveBlock).toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
   });
 });
 

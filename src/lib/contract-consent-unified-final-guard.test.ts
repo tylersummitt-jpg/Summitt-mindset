@@ -81,7 +81,7 @@ describe("Phase 2.1d-A1 contract consent — route wiring", () => {
   const contractBlock = src.slice(contractPipelineStart, contractEnd);
   const adaptiveBlock = src.slice(
     contractEnd,
-    src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend")
+    src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound")
   );
 
   it("15: contract YES path applies unified guard before send", () => {

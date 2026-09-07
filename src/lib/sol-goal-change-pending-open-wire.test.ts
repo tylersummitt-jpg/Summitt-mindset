@@ -21,28 +21,20 @@ describe("Slice 2 Goal Change pending-open production seam", () => {
   const turn = fs.readFileSync(TURN, "utf8");
   const writer = fs.readFileSync(WRITER, "utf8");
 
-  it("runs Sol pending-open on the normal inbound path; Wave4 first-turn apply is suppressed", () => {
+  it("runs Sol pending-open on the normal inbound path; Wave4 first-turn apply is gone", () => {
     const fnStart = src.indexOf("async function processV2NormalInboundOutcome");
     const openIdx = src.indexOf("await runSolGoalChangePendingOpenForInbound", fnStart);
     const solIdx = src.indexOf("await runInboundSolRelationshipTurn", fnStart);
-    const suppressIdx = src.indexOf("const openCommitmentChangeHandoff = false", fnStart);
-    const wave4If = src.indexOf(
-      "if (openCommitmentChangeHandoff && !plannedInterruptionActionable)",
-      fnStart
-    );
     expect(fnStart).toBeGreaterThan(0);
-    expect(suppressIdx).toBeGreaterThan(fnStart);
-    expect(wave4If).toBeGreaterThan(suppressIdx);
-    expect(openIdx).toBeGreaterThan(wave4If);
+    expect(openIdx).toBeGreaterThan(fnStart);
     expect(solIdx).toBeGreaterThan(openIdx);
+    expect(src).not.toContain("openCommitmentChangeHandoff");
+    expect(src).not.toContain("if (openCommitmentChangeHandoff && !plannedInterruptionActionable)");
+    expect(src).not.toContain("await applyWave4SmsCommitmentPendingResolution");
 
-    const wave4Block = src.slice(wave4If, openIdx);
-    expect(wave4Block).toContain("applyWave4SmsCommitmentPendingResolution");
-    expect(wave4Block).not.toContain("runSolGoalChangePendingOpenForInbound");
-
-    const afterWave4If = src.slice(openIdx, solIdx);
-    expect(afterWave4If).toContain("plannedInterruptionKnown: plannedInterruptionActionable");
-    expect(afterWave4If).not.toContain("!plannedInterruptionActionable");
+    const afterOpen = src.slice(openIdx, solIdx);
+    expect(afterOpen).toContain("plannedInterruptionKnown: plannedInterruptionActionable");
+    expect(afterOpen).not.toContain("!plannedInterruptionActionable");
   });
 
   it("does not apply the canonical Goal Change RPC", () => {
@@ -65,18 +57,9 @@ describe("Slice 2 Goal Change pending-open production seam", () => {
     expect(guardIdx).toBeGreaterThan(v3Idx);
   });
 
-  it("guards Wave4 handoff V3 after produceInboundV3RelationshipSms and before persist/send", () => {
-    const start = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-    const end = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound", start);
-    const body = src.slice(start, end);
-    const produceIdx = body.indexOf("produceInboundV3RelationshipSms");
-    const safetyIdx = body.indexOf("applyGoalChangeMachineBodySafety");
-    const persistIdx = body.indexOf("northStarGatePersistBodyAsync");
-    expect(produceIdx).toBeGreaterThan(0);
-    expect(safetyIdx).toBeGreaterThan(produceIdx);
-    expect(persistIdx).toBeGreaterThan(safetyIdx);
-    expect(body).toContain("goalChangeConfirmationAuthorization");
-    expect(src).toContain("goalChangeConfirmationAuthorization,");
+  it("guards remaining V3 writers with body safety; dead Wave4 handoff writer is gone", () => {
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
+    expect(src).toContain("applyGoalChangeMachineBodySafety");
   });
 
   it("writer prompt forbids unbound binding confirmation and false-applied claims", () => {

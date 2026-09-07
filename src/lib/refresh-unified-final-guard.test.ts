@@ -87,11 +87,8 @@ describe("Phase 2.1f-B1 refresh identity — route wiring", () => {
   const helperStart = src.indexOf("async function persistInboundV3RelationshipLaneReplyReadyAndSend");
   const helperBlock = src.slice(helperStart, helperStart + 32000);
   const contractStart = src.indexOf("async function runContractConsentNoSendTruthPolicy");
-  const contractEnd = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
+  const contractEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
   const contractBlock = src.slice(contractStart, contractEnd);
-  const handoffStart = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-  const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound");
-  const handoffBlock = src.slice(handoffStart, handoffEnd);
   const pendingStart = src.indexOf("async function processV2SmsInboundPendingResolution");
   const pendingBlock = src.slice(pendingStart, processStart);
   const memoryStart = src.indexOf("async function processV2MemoryConfirmationInbound");
@@ -169,8 +166,8 @@ describe("Phase 2.1f-B1 refresh identity — route wiring", () => {
   it("33: contract/adaptive/pending/memory/handoff unchanged", () => {
     expect(contractBlock).toContain("trySendContractConsentBodyAfterUnifiedGuard");
     expect(contractBlock).not.toContain("evaluatePostUnifiedGuardRefreshTruthRecheck");
-    expect(handoffBlock).toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
-    expect(handoffBlock).not.toContain("evaluatePostUnifiedGuardRefreshTruthRecheck");
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
+    expect(src).not.toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
     expect(pendingBlock).toContain("pendingNoSendTruthPolicy");
     expect(pendingBlock).not.toContain("refreshNoSendTruthPolicy");
     expect(memoryBlock).toContain("unifiedFinalGuard:");

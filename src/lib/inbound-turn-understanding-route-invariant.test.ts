@@ -58,7 +58,7 @@ describe("inbound turn understanding route invariants", () => {
   });
 
   it("main path attempts pre-writer persist before inbound lane writer", () => {
-    const mainPreWriterIdx = src.indexOf('const preWriterTelemetryMain = await attemptPreWriterExplicitOutcomePersist({');
+    const mainPreWriterIdx = src.indexOf("preWriterTelemetryMain = await attemptPreWriterExplicitOutcomePersist({");
     expect(mainPreWriterIdx).toBeGreaterThan(0);
     const block = src.slice(mainPreWriterIdx, mainPreWriterIdx + 1200);
     expect(block).toContain('branch: "main"');
@@ -130,15 +130,14 @@ describe("inbound turn understanding route invariants", () => {
     expect(src).not.toContain("applyRapidNearDuplicateCoachReplyGuard");
   });
 
-  it("M: daily C1 wired; weekly route wired to outbound_weekly", () => {
+  it("M: inbound route stays off daily/weekly surfaces", () => {
     expect(src).not.toContain('surface: "daily"');
     expect(src).not.toContain('surface: "weekly"');
     const dailySrc = fs.readFileSync(DAILY_ROUTE, "utf8");
     const weeklySrc = fs.readFileSync(WEEKLY_ROUTE, "utf8");
-    expect(dailySrc).toContain('mode: "outbound_daily"');
-    expect(dailySrc).toContain("isOutboundDailyWiredRoutePurpose");
-    expect(weeklySrc).toContain('mode: "outbound_weekly"');
-    expect(weeklySrc).not.toContain('mode: "outbound_daily"');
+    expect(dailySrc).not.toContain("runSolGoalChangePendingOpenForInbound");
+    expect(weeklySrc).not.toContain("runSolGoalChangePendingOpenForInbound");
+    expect(weeklySrc).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
   });
 
   it("conversation brain control defers when TU is authoritative", () => {
@@ -243,7 +242,7 @@ describe("inbound turn understanding route invariants", () => {
     expect(adaptiveIdx).toBeGreaterThan(0);
     const adaptiveBlock = src.slice(
       adaptiveIdx,
-      src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend")
+      src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound")
     );
     expect(adaptiveBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
     expect(adaptiveBlock).toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
@@ -252,23 +251,12 @@ describe("inbound turn understanding route invariants", () => {
     expect(adaptiveBlock).not.toContain("persistContractConsentTruthOnNoSend");
   });
 
-  it("U: Phase 2.1e commitment handoff uses dedicated unified guard + handoff no-send truth", () => {
-    expect(src).toContain("persistCommitmentHandoffTruthOnNoSend");
-    expect(src).toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
-    expect(src).toContain("buildCommitmentHandoffNoSendTruthPolicyContext");
-
-    const handoffIdx = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-    expect(handoffIdx).toBeGreaterThan(0);
-    const handoffBlock = src.slice(
-      handoffIdx,
-      src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound")
-    );
-    expect(handoffBlock).toContain("applyUnifiedSmsFinalProductLawGuard");
-    expect(handoffBlock).toContain('mode: "transactional_coaching_limited"');
-    expect(handoffBlock).toContain("cancelCommitmentHandoffNoSend");
-    expect(handoffBlock).not.toContain("unifiedFinalGuard:");
-    expect(handoffBlock).not.toContain("persistContractConsentTruthOnNoSend");
-    expect(handoffBlock).not.toContain("evaluatePostUnifiedGuardAdaptiveClarifyTruthRecheck");
+  it("U: Phase 2.1e commitment handoff writer is retired; Sol owns saved Goal Change", () => {
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
+    expect(src).not.toContain("persistCommitmentHandoffTruthOnNoSend");
+    expect(src).not.toContain("evaluatePostUnifiedGuardCommitmentHandoffTruthRecheck");
+    expect(src).not.toContain("buildCommitmentHandoffNoSendTruthPolicyContext");
+    expect(src).toContain("await runSolGoalChangePendingOpenForInbound");
   });
 });
 
@@ -508,15 +496,8 @@ describe("Phase 2.1g-B2 normal coaching — engagement-on-no-send cleanup", () =
     expect(keepSlice.slice(0, noSendReturn)).not.toContain("recordV2SendTimeProfileInboundEngagement");
   });
 
-  it("25: handoff behavior unchanged", () => {
-    const handoffIdx = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-    expect(handoffIdx).toBeGreaterThan(-1);
-    const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound", handoffIdx);
-    const handoffBlock = src.slice(handoffIdx, handoffEnd);
-    const sendIdx = handoffBlock.indexOf("commitAndSendInboundRelationshipCoachReply");
-    expect(sendIdx).toBeGreaterThan(-1);
-    const engIdx = handoffBlock.indexOf("recordV2SendTimeProfileInboundEngagement", sendIdx);
-    expect(engIdx).toBeGreaterThan(sendIdx);
+  it("25: dead Wave4 handoff writer is gone", () => {
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
   });
 
   it("26: adaptive behavior unchanged", () => {
@@ -646,15 +627,12 @@ describe("Phase 2.1g-B2.1 duplicate reply_ready engagement micro-gaps", () => {
     expect(memoryBlock.slice(ambNoSend, memoryBlock.indexOf("}", ambNoSend) + 1)).not.toContain(
       "recordV2SendTimeProfileInboundEngagement"
     );
-    const handoffIdx = src.indexOf("async function persistCommitmentChangeHandoffLaneAndSend");
-    const handoffEnd = src.indexOf("async function handleAdaptiveProposalConsentAmbiguousInbound", handoffIdx);
-    expect(src.slice(handoffIdx, handoffEnd)).toContain("recordV2SendTimeProfileInboundEngagement");
+    expect(src).not.toContain("persistCommitmentChangeHandoffLaneAndSend");
   });
 
-  it("9: daily/weekly inbound engagement untouched; weekly uses outbound_weekly guard", () => {
+  it("9: daily/weekly inbound engagement untouched", () => {
     expect(dailySrc).not.toContain("recordV2SendTimeProfileInboundEngagement");
     expect(weeklySrc).not.toContain("recordV2SendTimeProfileInboundEngagement");
-    expect(weeklySrc).toContain('mode: "outbound_weekly"');
   });
 
   it("10: no Twilio/send mechanics changes in B2.1 scope", () => {
