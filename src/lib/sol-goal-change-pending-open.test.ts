@@ -338,6 +338,9 @@ describe("runSolGoalChangePendingOpenForInbound", () => {
       intent: "sms_replace_request",
       candidateNewBar: ANGELA_NORMALIZED,
     });
+    expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.solTemporaryOverlay).not.toBe(
+      true
+    );
   });
 
   it("2: semantic saved replace + invalid candidate → no pending, no binding confirmation", async () => {
@@ -769,6 +772,9 @@ describe("runSolGoalChangePendingOpenForInbound", () => {
     expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.intentPack).toMatchObject({
       intent: "sms_tighten_request",
     });
+    expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.solTemporaryOverlay).toBe(
+      true
+    );
     expect(r.authorization.goal_change_confirmation_authorized).toBe(false);
     expect(r.authorization.temporary_adjustment_confirmation_authorized).not.toBe(true);
     expect(r.authorization.pending_state).toBe("awaiting_candidate");

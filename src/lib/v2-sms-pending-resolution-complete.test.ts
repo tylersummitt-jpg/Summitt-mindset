@@ -112,6 +112,7 @@ vi.mock("@/lib/v2-victory-snapshot-invalidation", () => ({
 }));
 
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
+import { getPendingResolutionOrNull } from "@/lib/v2-guided-resolution";
 import {
   parseSmsConfirmation,
   mapPendingConfirmationParseToUserAnswerType,
@@ -351,6 +352,23 @@ describe("Slice 6 leftover tighten still works", () => {
     }
   });
 
+  it("Wave4-shaped untagged tighten (no sol_temporary_overlay) remains leftover-owned", async () => {
+    const pending = commitmentTightenConfirm({
+      sms_state: "awaiting_candidate",
+      candidate_tightened_bar: "Wake at 10:30.",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+    });
+    expect(getPendingResolutionOrNull(pending)?.payload.sol_temporary_overlay).toBeUndefined();
+    getActiveCommitmentMock.mockResolvedValue(pending);
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMwave4untagged", raw_body: "yes" },
+      clerkUserId: "user_pr",
+      commitment: pending,
+    });
+    expect(r.handled).toBe(true);
+  });
+
   it("sol_temporary_overlay tighten is skipped by leftover (Sol-owned, no overlay apply)", async () => {
     const { persistContractOverlayProposed, activateAdaptiveOverlayFromProposal } = await import(
       "@/lib/v2-adaptive-contract"
@@ -406,6 +424,51 @@ describe("Slice 6 leftover tighten still works", () => {
     expect(rpcMock).not.toHaveBeenCalled();
     expect(persistContractOverlayProposed).not.toHaveBeenCalled();
     expect(activateAdaptiveOverlayFromProposal).not.toHaveBeenCalled();
+  });
+
+  it("Wave4 initial Sol-temp payload (pre-merge shape) is leftover-ineligible", async () => {
+    const { persistContractOverlayProposed, activateAdaptiveOverlayFromProposal } = await import(
+      "@/lib/v2-adaptive-contract"
+    );
+    vi.mocked(persistContractOverlayProposed).mockClear();
+    vi.mocked(activateAdaptiveOverlayFromProposal).mockClear();
+    const pending = commitmentTightenConfirm({
+      sms_state: "awaiting_candidate",
+      sol_temporary_overlay: true,
+      candidate_tightened_bar: "Wake at 10:30.",
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+    });
+    getActiveCommitmentMock.mockResolvedValue(pending);
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMwave4shell", raw_body: "yes" },
+      clerkUserId: "user_pr",
+      commitment: pending,
+    });
+    expect(getPendingResolutionOrNull(pending)?.payload).toMatchObject({
+      sol_temporary_overlay: true,
+    });
+    expect(r.handled).toBe(false);
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(persistContractOverlayProposed).not.toHaveBeenCalled();
+    expect(activateAdaptiveOverlayFromProposal).not.toHaveBeenCalled();
+  });
+
+  it("malformed tagged tighten (marker, missing candidate/duration) is leftover-ineligible", async () => {
+    const pending = commitmentTightenConfirm({
+      sms_state: "awaiting_candidate",
+      sol_temporary_overlay: true,
+      candidate_tightened_bar: null,
+      candidate_behavior_statement: null,
+      candidate_new_bar: null,
+    });
+    getActiveCommitmentMock.mockResolvedValue(pending);
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMmalformed", raw_body: "Never mind, make it 9:00" },
+      clerkUserId: "user_pr",
+      commitment: pending,
+    });
+    expect(r.handled).toBe(false);
   });
 });
 

@@ -404,6 +404,12 @@ export async function applyWave4SmsCommitmentPendingResolution(args: {
   rawBody: string;
   intentPack: V2SmsCommitmentIntentPack;
   shellMetadata?: TuGoalChangePendingShellMetadata | null;
+  /**
+   * Explicit Sol-temp ownership marker for the initial pending write.
+   * Callers must pass this; Wave4 does not infer it from English, kind, or candidates.
+   * Only stored when the pending kind is commitment_tighten.
+   */
+  solTemporaryOverlay?: true;
 }): Promise<{
   pendingApplied: boolean;
   pendingKind: V2PendingResolutionKind | null;
@@ -455,6 +461,9 @@ export async function applyWave4SmsCommitmentPendingResolution(args: {
     ai_confidence: intentPack.aiConfidence,
     candidate_tightened_bar: intentPack.candidateTightenedBar,
     candidate_new_bar: intentPack.candidateNewBar,
+    ...(args.solTemporaryOverlay === true && kind === "commitment_tighten"
+      ? { sol_temporary_overlay: true as const }
+      : {}),
     ...(args.shellMetadata
       ? {
           tu_goal_change_type: args.shellMetadata.tu_goal_change_type,

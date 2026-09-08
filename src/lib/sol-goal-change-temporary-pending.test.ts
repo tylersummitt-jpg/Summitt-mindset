@@ -314,6 +314,9 @@ describe("Slice 7B pending-open", () => {
     expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.intentPack).toMatchObject({
       intent: "sms_tighten_request",
     });
+    expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.solTemporaryOverlay).toBe(
+      true
+    );
     expect(mergeSmsPendingResolutionPayload).toHaveBeenCalled();
     const parsed = getPendingResolutionOrNull(reloaded);
     expect(parsed?.kind).toBe("commitment_tighten");
@@ -430,16 +433,33 @@ describe("Slice 7B pending-open", () => {
     expect(mergeSmsPendingResolutionPayload).not.toHaveBeenCalled();
   });
 
-  it("payload merge failure clears the untagged tighten shell", async () => {
+  it("payload merge failure still tagged the initial Wave4 write before clear", async () => {
     runSolGoalChangeSemanticInterpreter.mockResolvedValue(
       interpreterOk(semantic({ temporary_duration_kind: "local_week" }))
     );
     mergeSmsPendingResolutionPayload.mockResolvedValue({ ok: false, error: "cas_mismatch" });
     getActiveCommitment.mockResolvedValue(base);
     const r = await run();
+    expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.solTemporaryOverlay).toBe(
+      true
+    );
     expect(clearPendingResolution).toHaveBeenCalled();
     expect(r.authorization.temporary_adjustment_confirmation_authorized).not.toBe(true);
     expect(r.forensics.pending_write_applied).toBe(false);
+  });
+
+  it("merge failure + clear failure still passed the Sol-temp ownership flag to Wave4", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ temporary_duration_kind: "local_week" }))
+    );
+    mergeSmsPendingResolutionPayload.mockResolvedValue({ ok: false, error: "cas_mismatch" });
+    clearPendingResolution.mockRejectedValue(new Error("clear_failed"));
+    getActiveCommitment.mockResolvedValue(base);
+    const r = await run();
+    expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.solTemporaryOverlay).toBe(
+      true
+    );
+    expect(r.authorization.temporary_adjustment_confirmation_authorized).not.toBe(true);
   });
 
   it("resolver throw does not persist user-facing duration clarification pending", async () => {

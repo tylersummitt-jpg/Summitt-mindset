@@ -97,6 +97,7 @@ describe("applyWave4SmsCommitmentPendingResolution — Slice 1 parity", () => {
     const payload = (setPendingResolution as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]
       ?.payload;
     expect(payload?.detected_intent).toBe("sms_raise_bar_request");
+    expect(payload?.sol_temporary_overlay).toBeUndefined();
   });
 
   it("skips with paused_reactivation when accountability phase is low_pressure_reactivation", async () => {
@@ -115,5 +116,80 @@ describe("applyWave4SmsCommitmentPendingResolution — Slice 1 parity", () => {
     });
     expect(r.pendingApplied).toBe(false);
     expect(r.skipReason).toBe("paused_reactivation");
+  });
+
+  it("tighten without Sol-temp flag writes an untagged commitment_tighten payload", async () => {
+    const r = await applyWave4SmsCommitmentPendingResolution({
+      commitmentId: "cmt_wave4",
+      clerkUserId: "user_wave4",
+      commitment: minimalCommitment(),
+      messageSid: "SMwave4tighten",
+      rawBody: "make it smaller",
+      intentPack: {
+        intent: "sms_tighten_request",
+        candidateTightenedBar: "Walk 10 minutes after dinner",
+        candidateNewBar: null,
+        aiConfidence: null,
+      },
+    });
+    expect(r.pendingApplied).toBe(true);
+    expect(r.pendingKind).toBe("commitment_tighten");
+    const payload = (setPendingResolution as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]
+      ?.payload;
+    expect(payload?.source).toBe("sms_inbound");
+    expect(payload?.sms_state).toBe("awaiting_candidate");
+    expect(payload?.detected_intent).toBe("sms_tighten_request");
+    expect(payload?.sol_temporary_overlay).toBeUndefined();
+  });
+
+  it("explicit Sol-temp flag writes sol_temporary_overlay on the initial tighten payload", async () => {
+    const r = await applyWave4SmsCommitmentPendingResolution({
+      commitmentId: "cmt_wave4",
+      clerkUserId: "user_wave4",
+      commitment: minimalCommitment(),
+      messageSid: "SMwave4soltemp",
+      rawBody: "This week, make it 10:30.",
+      intentPack: {
+        intent: "sms_tighten_request",
+        candidateTightenedBar: "Wake at 10:30.",
+        candidateNewBar: null,
+        aiConfidence: null,
+      },
+      solTemporaryOverlay: true,
+    });
+    expect(r.pendingApplied).toBe(true);
+    expect(r.pendingKind).toBe("commitment_tighten");
+    const payload = (setPendingResolution as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]
+      ?.payload;
+    expect(payload).toMatchObject({
+      source: "sms_inbound",
+      sms_state: "awaiting_candidate",
+      detected_intent: "sms_tighten_request",
+      sol_temporary_overlay: true,
+      candidate_tightened_bar: "Wake at 10:30.",
+    });
+  });
+
+  it("saved replace never stores sol_temporary_overlay even if the flag is passed", async () => {
+    const r = await applyWave4SmsCommitmentPendingResolution({
+      commitmentId: "cmt_wave4",
+      clerkUserId: "user_wave4",
+      commitment: minimalCommitment(),
+      messageSid: "SMwave4replace",
+      rawBody: "Change my goal to walk 20 minutes after dinner",
+      intentPack: {
+        intent: "sms_replace_request",
+        candidateTightenedBar: null,
+        candidateNewBar: "Walk 20 minutes after dinner",
+        aiConfidence: null,
+      },
+      solTemporaryOverlay: true,
+    });
+    expect(r.pendingApplied).toBe(true);
+    expect(r.pendingKind).toBe("commitment_replace");
+    const payload = (setPendingResolution as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]
+      ?.payload;
+    expect(payload?.detected_intent).toBe("sms_replace_request");
+    expect(payload?.sol_temporary_overlay).toBeUndefined();
   });
 });

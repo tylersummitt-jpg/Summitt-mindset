@@ -49,6 +49,7 @@ import {
   freezeTemporaryDurationFromSemantic,
   isSolOwnedTemporaryOverlayPending,
   normalizeSemanticTemporaryCandidate,
+  SOL_TEMPORARY_OVERLAY_PENDING_MARKER,
   shouldAttemptSolTemporaryPendingOpen,
   temporaryConfirmationAuthorizationFromReloadedCommitment,
 } from "@/lib/sol-goal-change-temporary-pending";
@@ -625,6 +626,7 @@ async function writeSolTemporaryPending(args: {
         candidateNewBar: null,
         aiConfidence: null,
       },
+      solTemporaryOverlay: SOL_TEMPORARY_OVERLAY_PENDING_MARKER,
     });
     pendingApplied = wave4.pendingApplied === true;
     skipReason = wave4.skipReason;
@@ -670,7 +672,7 @@ async function writeSolTemporaryPending(args: {
     try {
       await clearPendingResolution(liveStart.id, { expectedUpdatedAt: afterWrite.updated_at });
     } catch {
-      /* fail closed: untagged tighten must not remain confirmable */
+      /* Incomplete duration merge. Initial Wave4 write already tagged Sol ownership. */
     }
     return unauthorized(afterWrite, {
       interpreter_ok: true,
