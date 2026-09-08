@@ -68,6 +68,13 @@ vi.mock("@/lib/v2-adaptive-contract", async (importOriginal) => {
   };
 });
 
+const refreshUnsentTtoDraftsAfterRelationshipChange = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ ok: true, clerkUserId: "user_angela", outcomes: [] })
+);
+vi.mock("@/lib/sol-goal-change-tto-draft-refresh", () => ({
+  refreshUnsentTtoDraftsAfterRelationshipChange,
+}));
+
 import {
   buildTemporaryAppliedAuthorization,
   proveTemporaryOverlayApply,
@@ -542,6 +549,11 @@ describe("runSolTemporaryOverlayConfirmForInbound", () => {
         return { ok: true, result: "applied", updatedAt: live.updated_at };
       }
     );
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockResolvedValue({
+      ok: true,
+      clerkUserId: "user_angela",
+      outcomes: [],
+    });
   });
 
   async function run(
@@ -592,6 +604,10 @@ describe("runSolTemporaryOverlayConfirmForInbound", () => {
     expect(actArgs.contractKind).toBe(SOL_TEMPORARY_OVERLAY_CONTRACT_KIND);
     expect(actArgs.inboundMessageSid).toBe("SMyes");
     expect(getEffectiveCoachingAsk(live, NOW.getTime())).toBe(CANDIDATE);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledTimes(1);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledWith({
+      clerkUserId: "user_angela",
+    });
   });
 
   it("natural Absolutely via Sol applies", async () => {
@@ -970,6 +986,74 @@ describe("runSolTemporaryOverlayConfirmForInbound", () => {
     const fallback = tryBuildAuthorizedGoalChangeWriterFailureFallback(r.authorization);
     expect(fallback ?? "").not.toMatch(/I'll coach you against/i);
     expect(fallback ?? "").not.toMatch(/Temporary target is active/i);
+  });
+
+  it("D: first temp apply refreshes unsent TTO drafts after proof", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ confirms_existing_pending: true }))
+    );
+    const r = await run("Yes");
+    expect(r.consequence).toBe("applied");
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("H: ambiguous pending confirmation does not refresh TTO drafts", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ needs_clarification: true }))
+    );
+    const r = await run("Maybe");
+    expect(r.consequence).toBe("ambiguous");
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
+  });
+
+  it("I: temp reject does not refresh TTO drafts", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ rejects_existing_pending: true }))
+    );
+    const r = await run("No");
+    expect(r.consequence).toBe("rejected");
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
+  });
+
+  it("J: temp modify-pending does not refresh TTO drafts", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(
+        semantic({
+          modifies_existing_pending_candidate: true,
+          candidate_behavior_statement: "10:15",
+        })
+      )
+    );
+    const r = await run("Actually make it 10:15.");
+    expect(r.consequence).toBe("modified");
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
+  });
+
+  it("O: TTO refresh failure does not roll back proven temp apply", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ confirms_existing_pending: true }))
+    );
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockRejectedValue(new Error("tto down"));
+    const r = await run("Yes");
+    expect(r.consequence).toBe("applied");
+    expect(r.authorization.temporary_adjustment_apply_authorized).toBe(true);
+    expect(live.adaptive_ask_text).toBe(CANDIDATE);
+  });
+
+  it("G: temp apply stays applied when TTO refresh reports unresolved failure", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ confirms_existing_pending: true }))
+    );
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockResolvedValue({
+      ok: false,
+      clerkUserId: "user_angela",
+      reason: "stale_draft_could_not_be_disabled",
+      outcomes: [],
+    });
+    const r = await run("Yes");
+    expect(r.consequence).toBe("applied");
+    expect(r.authorization.temporary_adjustment_apply_authorized).toBe(true);
+    expect(live.adaptive_ask_text).toBe(CANDIDATE);
   });
 });
 

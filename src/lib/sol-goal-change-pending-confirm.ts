@@ -62,6 +62,7 @@ import {
   SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
   type SolGoalChangeConfirmationAuthorization,
 } from "@/lib/sol-goal-change-confirmation-guard";
+import { refreshUnsentTtoDraftsAfterRelationshipChange } from "@/lib/sol-goal-change-tto-draft-refresh";
 
 const RAW_LOG_MAX = 280;
 const CLOCK_IN_TEXT_RE = /\b(\d{1,2}):(\d{2})(?:\s*(a\.?m\.?|p\.?m\.?))?\b/gi;
@@ -633,6 +634,14 @@ export async function runSolGoalChangePendingConfirmForInbound(args: {
         reload_fail_reason: proved.ok ? "reload_missing_active" : proved.reason,
       },
     };
+  }
+
+  try {
+    await refreshUnsentTtoDraftsAfterRelationshipChange({
+      clerkUserId: args.clerkUserId,
+    });
+  } catch (error) {
+    console.warn("[sol-goal-change-tto-draft-refresh] after_saved_apply", error);
   }
 
   return {

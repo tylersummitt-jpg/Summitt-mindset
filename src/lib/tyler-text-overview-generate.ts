@@ -1230,8 +1230,14 @@ export async function generateTylerTextOverviewDraftForUser(args: {
   /** Required: control-room / existing-draft day. Never derived from user-local hour. */
   draftForDayKey: string;
   generationReason?: TylerTextOverviewGenerationReason;
+  /** Relationship-state refresh: overwrite machine copy; pin Tyler edit/blank. */
+  protectTylerProvenanceOnly?: boolean;
 }): Promise<TylerTextOverviewMorningDraftResult> {
   const draftForDayKey = requireTylerTextOverviewDraftDayKey(args.draftForDayKey);
+  const persistProtect =
+    args.protectTylerProvenanceOnly === true
+      ? { protectTylerProvenanceOnly: true as const }
+      : {};
   const clerkUserId = args.audienceUser.clerk_user_id;
   const user = await getClerkUser(clerkUserId);
   const md = (user.public_metadata ?? {}) as Record<string, unknown>;
@@ -1274,6 +1280,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       sendPrefSnapshot,
       now: args.now,
       failure: { error: packetResult.error },
+      ...persistProtect,
     });
 
     if (!persisted.ok) {
@@ -1346,6 +1353,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
         error: null,
       },
       notebookVerdictReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
+      ...persistProtect,
     });
 
     if (!persisted.ok) {
@@ -1426,6 +1434,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
         ...quietMeta,
         intentional_space: false,
       },
+      ...persistProtect,
     });
 
     if (!persisted.ok) {
@@ -1469,6 +1478,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       ...quietMeta,
       intentional_space: false,
     },
+    ...persistProtect,
   });
 
   if (!persisted.ok) {
@@ -1618,6 +1628,8 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   clerkUserId: string;
   draftForDayKey?: string;
   now?: Date;
+  /** Relationship-state refresh: overwrite machine copy; pin Tyler edit/blank. */
+  protectTylerProvenanceOnly?: boolean;
 }): Promise<TylerTextOverviewEveningPreviewResult> {
   if (!isTylerTextOverviewEnabled()) {
     return { ok: false, reason: "disabled" };
@@ -1627,6 +1639,11 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   if (!clerkUserId) {
     return { ok: false, reason: "audience", error: "missing_clerk_user_id" };
   }
+
+  const persistProtect =
+    args.protectTylerProvenanceOnly === true
+      ? { protectTylerProvenanceOnly: true as const }
+      : {};
 
   const audienceUser = await loadTylerTextOverviewAudienceRow(clerkUserId);
   if (!audienceUser) {
@@ -1698,6 +1715,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
       failure: { error: packetResult.error },
       generationMetadataExtra: eveningMetaBase,
       respectProtectedMorningDraft: true,
+      ...persistProtect,
     });
 
     if (!persisted.ok) {
@@ -1776,6 +1794,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
       },
       notebookVerdictReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
       respectProtectedMorningDraft: true,
+      ...persistProtect,
     });
 
     if (!persisted.ok) {
@@ -1865,6 +1884,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
       packetMetadata,
       generationMetadataExtra,
       respectProtectedMorningDraft: true,
+      ...persistProtect,
     });
 
     if (!persisted.ok) {
@@ -1907,6 +1927,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     packetMetadata,
     generationMetadataExtra,
     respectProtectedMorningDraft: true,
+    ...persistProtect,
   });
 
   if (!persisted.ok) {

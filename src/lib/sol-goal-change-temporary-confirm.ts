@@ -57,6 +57,7 @@ import {
   SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
   type SolGoalChangeConfirmationAuthorization,
 } from "@/lib/sol-goal-change-confirmation-guard";
+import { refreshUnsentTtoDraftsAfterRelationshipChange } from "@/lib/sol-goal-change-tto-draft-refresh";
 import {
   applySolTemporaryHallwayMerge,
   canPromoteSolTemporaryConfirmation,
@@ -1365,6 +1366,14 @@ async function finishProvenOverlay(args: {
         pending_cleared: pendingCleared,
       },
     };
+  }
+
+  try {
+    await refreshUnsentTtoDraftsAfterRelationshipChange({
+      clerkUserId: args.clerkUserId,
+    });
+  } catch (error) {
+    console.warn("[sol-goal-change-tto-draft-refresh] after_overlay_apply", error);
   }
 
   return {

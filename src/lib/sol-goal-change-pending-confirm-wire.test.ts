@@ -29,6 +29,8 @@ describe("Slice 3 exclusive pending confirmation seam", () => {
 
   it("reuses the existing canonical Goal Change helper, not a forked RPC", () => {
     expect(confirm).toContain("applyCanonicalGoalChangeWithSeasonMutation");
+    expect(confirm).toContain("refreshUnsentTtoDraftsAfterRelationshipChange");
+    expect(confirm).not.toContain("generateTylerTextOverviewDraftForUser");
     expect(confirm).toContain('memoryReasonCode: "sms_pending_resolution_replace"');
     expect(confirm).toContain("getActiveCommitment");
     expect(src).not.toContain("applyCanonicalGoalChangeWithSeasonMutation");

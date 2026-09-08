@@ -46,6 +46,13 @@ vi.mock("@/lib/v2-guided-resolution", async (importOriginal) => {
   return { ...actual, clearPendingResolution, mergeSmsPendingResolutionPayload };
 });
 
+const refreshUnsentTtoDraftsAfterRelationshipChange = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ ok: true, clerkUserId: "user_angela", outcomes: [] })
+);
+vi.mock("@/lib/sol-goal-change-tto-draft-refresh", () => ({
+  refreshUnsentTtoDraftsAfterRelationshipChange,
+}));
+
 import {
   isDeterministicPendingReject,
   isExactPendingProtocolNo,
@@ -371,6 +378,11 @@ describe("runSolGoalChangePendingConfirmForInbound", () => {
       live = angelaApplied();
       return rpcApplied();
     });
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockResolvedValue({
+      ok: true,
+      clerkUserId: "user_angela",
+      outcomes: [],
+    });
   });
 
   async function run(inboundRaw: string, messageSid = "SMturn2") {
@@ -420,6 +432,10 @@ describe("runSolGoalChangePendingConfirmForInbound", () => {
     expect(r.commitment.behavior_statement).toBe(ANGELA_PENDING);
     expect(r.forensics.reload_proved).toBe(true);
     expect(r.forensics.rpc_ok).toBe(true);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledTimes(1);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledWith({
+      clerkUserId: "user_angela",
+    });
   });
 
   it("2: pending + Absolutely applies when Sol confirms", async () => {
@@ -786,6 +802,66 @@ describe("runSolGoalChangePendingConfirmForInbound", () => {
     const r = await run("Yes");
     expect(r.handled).toBe(false);
     expect(applyCanonicalGoalChangeWithSeasonMutation).not.toHaveBeenCalled();
+  });
+
+  it("G: failed Goal Change mutation does not refresh TTO drafts", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ confirms_existing_pending: true }))
+    );
+    applyCanonicalGoalChangeWithSeasonMutation.mockRejectedValue(new Error("rpc down"));
+    const r = await run("Yes");
+    expect(r.consequence).toBe("rpc_failed");
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
+  });
+
+  it("I: reject does not refresh TTO drafts", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ rejects_existing_pending: true }))
+    );
+    const r = await run("No");
+    expect(r.consequence).toBe("rejected");
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
+  });
+
+  it("J: modify-pending does not refresh TTO drafts", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(
+        semantic({
+          modifies_existing_pending_candidate: true,
+          candidate_behavior_statement: "10:15",
+        })
+      )
+    );
+    const r = await run("Yes, but make it 10:15");
+    expect(r.consequence).toBe("modified");
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
+  });
+
+  it("O: TTO refresh failure does not roll back a proven saved Goal Change", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ confirms_existing_pending: true }))
+    );
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockRejectedValue(new Error("tto down"));
+    const r = await run("Yes");
+    expect(r.consequence).toBe("applied");
+    expect(r.authorization.goal_change_apply_authorized).toBe(true);
+    expect(r.commitment.behavior_statement).toBe(ANGELA_PENDING);
+  });
+
+  it("G: saved Goal Change stays applied when TTO refresh reports unresolved failure", async () => {
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ confirms_existing_pending: true }))
+    );
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockResolvedValue({
+      ok: false,
+      clerkUserId: "user_angela",
+      reason: "stale_draft_could_not_be_disabled",
+      outcomes: [],
+    });
+    const r = await run("Yes");
+    expect(r.consequence).toBe("applied");
+    expect(r.authorization.goal_change_apply_authorized).toBe(true);
+    expect(r.commitment.behavior_statement).toBe(ANGELA_PENDING);
   });
 });
 

@@ -60,6 +60,13 @@ vi.mock("@/lib/v2-guided-resolution", async (importOriginal) => {
   return { ...actual, mergeSmsPendingResolutionPayload, clearPendingResolution };
 });
 
+const refreshUnsentTtoDraftsAfterRelationshipChange = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ ok: true, clerkUserId: "user_angela", outcomes: [] })
+);
+vi.mock("@/lib/sol-goal-change-tto-draft-refresh", () => ({
+  refreshUnsentTtoDraftsAfterRelationshipChange,
+}));
+
 import { runSolGoalChangePendingOpenForInbound } from "@/lib/sol-goal-change-pending-open";
 import {
   applySolActiveTemporaryOverlayRevert,
@@ -336,6 +343,12 @@ describe("runSolGoalChangePendingOpenForInbound — 7F-1 revert", () => {
     mergeSmsPendingResolutionPayload.mockReset();
     clearPendingResolution.mockReset();
     supabaseFrom.mockReset();
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockReset();
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockResolvedValue({
+      ok: true,
+      clerkUserId: "user_angela",
+      outcomes: [],
+    });
     recomputeV2CoachingMemory.mockResolvedValue(undefined);
     applyWave4SmsCommitmentPendingResolution.mockResolvedValue({
       pendingApplied: true,
@@ -398,9 +411,31 @@ describe("runSolGoalChangePendingOpenForInbound — 7F-1 revert", () => {
     expect(recomputeV2CoachingMemory).toHaveBeenCalledWith("cmt_angela", {
       reasonCode: "sol_temporary_overlay_reverted",
     });
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledTimes(1);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledWith({
+      clerkUserId: "user_angela",
+    });
     const input = runSolGoalChangeSemanticInterpreter.mock.calls[0]?.[0]?.input;
     expect(input.authoritative_active_overlay?.active).toBe(true);
     expect(input.authoritative_active_overlay?.overlay_behavior_statement).toBe(OVERLAY);
+  });
+
+  it("O: TTO refresh failure does not roll back a proven revert", async () => {
+    const live = overlayRow();
+    const after = clearedRow(live);
+    getActiveCommitment
+      .mockResolvedValueOnce(live)
+      .mockResolvedValueOnce(live)
+      .mockResolvedValueOnce(after);
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ reverts_active_temporary_overlay: true }))
+    );
+    mockClearQuery({});
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockRejectedValue(new Error("tto down"));
+    const r = await run(live);
+    expect(r.authorization.temporary_adjustment_reverted).toBe(true);
+    expect(r.forensics.overlay_revert_proved).toBe(true);
+    expect(r.commitment.adaptive_ask_text).toBeNull();
   });
 
   it("A2: revert=true + saved_replace does not clear overlay; saved path still opens", async () => {
@@ -536,6 +571,7 @@ describe("runSolGoalChangePendingOpenForInbound — 7F-1 revert", () => {
     expect(r.forensics.overlay_revert_proved).toBe(false);
     expect(r.forensics.overlay_revert_reason).toContain("clear_failed");
     expect(recomputeV2CoachingMemory).not.toHaveBeenCalled();
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
   });
 
   it("G: reload proof fails → no revert auth", async () => {
@@ -576,6 +612,7 @@ describe("runSolGoalChangePendingOpenForInbound — 7F-1 revert", () => {
     expect(supabaseFrom).not.toHaveBeenCalled();
     expect(r2.forensics.overlay_revert_reason).toBe("already_canonical");
     expect(after.behavior_statement).toBe(CANONICAL);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledTimes(2);
   });
 
   it("I: writer failure after clear → canonical stays; retry does not re-clear", async () => {
@@ -607,6 +644,7 @@ describe("runSolGoalChangePendingOpenForInbound — 7F-1 revert", () => {
     expect(retry.commitment.adaptive_ask_text).toBeNull();
     expect(retry.commitment.behavior_statement).toBe(CANONICAL);
     expect(retry.authorization.temporary_adjustment_reverted).toBe(true);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledTimes(2);
   });
 
   it("J: active overlay + saved pending → saved pending precedence / no steal", async () => {
@@ -742,6 +780,12 @@ describe("Slice 7F-1 applySolActiveTemporaryOverlayRevert isolation", () => {
     getActiveCommitment.mockReset();
     recomputeV2CoachingMemory.mockReset();
     supabaseFrom.mockReset();
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockReset();
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockResolvedValue({
+      ok: true,
+      clerkUserId: "user_angela",
+      outcomes: [],
+    });
     recomputeV2CoachingMemory.mockResolvedValue(undefined);
   });
 
@@ -757,6 +801,66 @@ describe("Slice 7F-1 applySolActiveTemporaryOverlayRevert isolation", () => {
     });
     expect(r.authorization.temporary_adjustment_reverted).not.toBe(true);
     expect(r.forensics.overlay_revert_reason).toBe("cas_mismatch");
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
+  });
+
+  it("A: alreadyCleared proved revert still refreshes TTO drafts", async () => {
+    const live = overlayRow();
+    const after = clearedRow(live);
+    getActiveCommitment.mockResolvedValueOnce(live).mockResolvedValueOnce(after);
+    const { patches } = mockClearQuery({ data: null });
+    const r = await applySolActiveTemporaryOverlayRevert({
+      clerkUserId: "user_angela",
+      commitment: live,
+      inboundMessageSid: "SMalready",
+      mutationClock: () => NOW.getTime(),
+    });
+    expect(r.authorization.temporary_adjustment_reverted).toBe(true);
+    expect(r.forensics.already_cleared).toBe(true);
+    expect(r.forensics.overlay_revert_proved).toBe(true);
+    expect(patches).toHaveLength(1);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledTimes(1);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledWith({
+      clerkUserId: "user_angela",
+    });
+  });
+
+  it("B: already_canonical recovery refreshes without a second clear", async () => {
+    const after = clearedRow(overlayRow());
+    getActiveCommitment.mockResolvedValue(after);
+    const { patches } = mockClearQuery({});
+    const r = await applySolActiveTemporaryOverlayRevert({
+      clerkUserId: "user_angela",
+      commitment: after,
+      inboundMessageSid: "SMcanonical",
+      mutationClock: () => NOW.getTime(),
+    });
+    expect(r.authorization.temporary_adjustment_reverted).toBe(true);
+    expect(r.forensics.overlay_revert_reason).toBe("already_canonical");
+    expect(r.forensics.already_cleared).toBe(true);
+    expect(patches).toHaveLength(0);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("G: proved revert stays applied when TTO refresh hard-fails", async () => {
+    const live = overlayRow();
+    const after = clearedRow(live);
+    getActiveCommitment.mockResolvedValueOnce(live).mockResolvedValueOnce(after);
+    mockClearQuery({});
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockResolvedValue({
+      ok: false,
+      clerkUserId: "user_angela",
+      reason: "stale_draft_could_not_be_disabled",
+      outcomes: [],
+    });
+    const r = await applySolActiveTemporaryOverlayRevert({
+      clerkUserId: "user_angela",
+      commitment: live,
+      inboundMessageSid: "SMhard",
+      mutationClock: () => NOW.getTime(),
+    });
+    expect(r.authorization.temporary_adjustment_reverted).toBe(true);
+    expect(r.commitment.adaptive_ask_text).toBeNull();
   });
 
   it("reverted authorization never stages confirmation", () => {

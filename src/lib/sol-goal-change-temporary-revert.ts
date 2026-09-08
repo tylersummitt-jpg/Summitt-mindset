@@ -24,6 +24,7 @@ import {
   SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
   type SolGoalChangeConfirmationAuthorization,
 } from "@/lib/sol-goal-change-confirmation-guard";
+import { refreshUnsentTtoDraftsAfterRelationshipChange } from "@/lib/sol-goal-change-tto-draft-refresh";
 
 export type ClearActiveTemporaryOverlayResult =
   | { ok: true; alreadyCleared: boolean; updatedAt: string | null }
@@ -179,6 +180,17 @@ function neitherAuth(commitment: ActiveV2CommitmentRow): SolGoalChangeConfirmati
   };
 }
 
+/** Side effect after proved revert/canonical. Repeatable. Never rolls back Goal Change. */
+async function refreshTtoDraftsAfterProvenRevert(clerkUserId: string): Promise<void> {
+  try {
+    await refreshUnsentTtoDraftsAfterRelationshipChange({
+      clerkUserId,
+    });
+  } catch (error) {
+    console.warn("[sol-goal-change-tto-draft-refresh] after_overlay_revert", error);
+  }
+}
+
 export async function applySolActiveTemporaryOverlayRevert(args: {
   clerkUserId: string;
   commitment: ActiveV2CommitmentRow;
@@ -239,6 +251,7 @@ export async function applySolActiveTemporaryOverlayRevert(args: {
         },
       };
     }
+    await refreshTtoDraftsAfterProvenRevert(args.clerkUserId);
     return {
       commitment: liveStart,
       authorization: buildTemporaryRevertedAuthorization({ commitment: liveStart }),
@@ -307,6 +320,8 @@ export async function applySolActiveTemporaryOverlayRevert(args: {
   await recomputeV2CoachingMemory(liveStart.id, {
     reasonCode: "sol_temporary_overlay_reverted",
   });
+
+  await refreshTtoDraftsAfterProvenRevert(args.clerkUserId);
 
   return {
     commitment: after,

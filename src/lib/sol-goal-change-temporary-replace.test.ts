@@ -79,6 +79,13 @@ vi.mock("@/lib/v2-adaptive-contract", async (importOriginal) => {
   };
 });
 
+const refreshUnsentTtoDraftsAfterRelationshipChange = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ ok: true, clerkUserId: "user_angela", outcomes: [] })
+);
+vi.mock("@/lib/sol-goal-change-tto-draft-refresh", () => ({
+  refreshUnsentTtoDraftsAfterRelationshipChange,
+}));
+
 import { runSolGoalChangePendingOpenForInbound } from "@/lib/sol-goal-change-pending-open";
 import { runSolTemporaryOverlayConfirmForInbound } from "@/lib/sol-goal-change-temporary-confirm";
 import { resolveActiveOverlayReplacementFill } from "@/lib/sol-goal-change-temporary-pending";
@@ -413,6 +420,11 @@ describe("7F-2 pending-open + confirm", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    refreshUnsentTtoDraftsAfterRelationshipChange.mockResolvedValue({
+      ok: true,
+      clerkUserId: "user_angela",
+      outcomes: [],
+    });
     live = overlayRow();
     getActiveCommitment.mockImplementation(async () => live);
     recomputeV2CoachingMemory.mockResolvedValue(undefined);
@@ -505,6 +517,7 @@ describe("7F-2 pending-open + confirm", () => {
       ? pending.payload.replaces_active_temporary_overlay
       : null).toBe(true);
     expect(activateAdaptiveOverlayFromProposal).not.toHaveBeenCalled();
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
   });
 
   it("E: confirm atomically replaces overlay and does not use consent RPC", async () => {
@@ -536,6 +549,10 @@ describe("7F-2 pending-open + confirm", () => {
     expect(getPendingResolutionOrNull(live)).toBeNull();
     expect(persistContractOverlayProposed).not.toHaveBeenCalled();
     expect(activateAdaptiveOverlayFromProposal).not.toHaveBeenCalled();
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledTimes(1);
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).toHaveBeenCalledWith({
+      clerkUserId: "user_angela",
+    });
   });
 
   it("F: reject leaves old overlay untouched", async () => {
@@ -550,6 +567,7 @@ describe("7F-2 pending-open + confirm", () => {
     expect(live.behavior_statement).toBe(CANONICAL);
     expect(getPendingResolutionOrNull(live)).toBeNull();
     expect(activateAdaptiveOverlayFromProposal).not.toHaveBeenCalled();
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
   });
 
   it("G: modify pending restages and keeps live overlay", async () => {
@@ -576,6 +594,7 @@ describe("7F-2 pending-open + confirm", () => {
         .replaces_active_temporary_overlay
     ).toBe(true);
     expect(activateAdaptiveOverlayFromProposal).not.toHaveBeenCalled();
+    expect(refreshUnsentTtoDraftsAfterRelationshipChange).not.toHaveBeenCalled();
   });
 
   it("retry after replace-before-clear proves already applied without a second mutation", async () => {
