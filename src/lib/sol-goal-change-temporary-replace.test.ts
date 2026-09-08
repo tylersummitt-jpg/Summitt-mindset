@@ -678,7 +678,51 @@ describe("7F-2 pending-open + confirm", () => {
     expect(activateAdaptiveOverlayFromProposal).not.toHaveBeenCalled();
   });
 
-  it("K: saved_replace over active overlay still opens saved pending", async () => {
+  it("A: overlay + saved_replace copying overlay text stages that overlay as saved candidate", async () => {
+    applyWave4SmsCommitmentPendingResolution.mockImplementation(
+      async (args: {
+        intentPack: { intent: string; candidateNewBar: string | null };
+      }) => {
+        live = {
+          ...live,
+          pending_resolution_kind: "commitment_replace",
+          pending_resolution_created_at: UPDATED,
+          pending_resolution_expires_at: "2027-09-07T12:00:00.000Z",
+          pending_resolution_payload: {
+            source: "sms_inbound",
+            sms_state: "awaiting_confirmation",
+            detected_intent: "sms_replace_request",
+            candidate_new_bar: args.intentPack.candidateNewBar,
+            candidate_behavior_statement: args.intentPack.candidateNewBar,
+            inbound_message_sid: "SMrep",
+            raw_user_text: "Make this permanent.",
+            ai_confidence: null,
+          },
+        };
+        return { pendingApplied: true, pendingKind: "commitment_replace", skipReason: null };
+      }
+    );
+    const r = await open(
+      "Make this permanent.",
+      semantic({
+        intent: "saved_replace",
+        candidate_behavior_statement: OVERLAY,
+        temporary_duration_kind: "unspecified",
+      })
+    );
+    expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.intentPack).toMatchObject({
+      intent: "sms_replace_request",
+      candidateNewBar: OVERLAY,
+    });
+    expect(r.authorization.goal_change_confirmation_authorized).toBe(true);
+    expect(r.authorization.candidate_behavior_statement).toBe(OVERLAY);
+    expect(r.authorization.temporary_adjustment_confirmation_authorized).not.toBe(true);
+    expect(live.adaptive_ask_text).toBe(OVERLAY);
+    expect(isV2AdaptiveOverlayActive(live, NOW.getTime())).toBe(true);
+    expect(live.behavior_statement).toBe(CANONICAL);
+  });
+
+  it("B: overlay + saved_replace with a different explicit candidate does not use overlay text", async () => {
     applyWave4SmsCommitmentPendingResolution.mockResolvedValue({
       pendingApplied: true,
       pendingKind: "commitment_replace",
@@ -694,8 +738,25 @@ describe("7F-2 pending-open + confirm", () => {
     );
     expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.intentPack).toMatchObject({
       intent: "sms_replace_request",
+      candidateNewBar: REPLACEMENT,
     });
+    expect(
+      applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.intentPack?.candidateNewBar
+    ).not.toBe(OVERLAY);
     expect(r.forensics.semantic_intent).toBe("saved_replace");
+    expect(live.adaptive_ask_text).toBe(OVERLAY);
+    expect(live.behavior_statement).toBe(CANONICAL);
+  });
+
+  it("G: overlay + temporary_adjustment still opens 7F-2 replacement, not saved_replace", async () => {
+    const r = await open("Make it 10:15 instead.");
+    expect(r.authorization.temporary_adjustment_confirmation_authorized).toBe(true);
+    expect(r.authorization.replaces_active_temporary_overlay).toBe(true);
+    expect(r.authorization.goal_change_confirmation_authorized).not.toBe(true);
+    expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.intentPack).toMatchObject({
+      intent: "sms_tighten_request",
+    });
+    expect(live.adaptive_ask_text).toBe(OVERLAY);
   });
 
   it("L: exclusive revert still owns overlay restore", async () => {
@@ -801,11 +862,26 @@ describe("7F-2 writer + no-English + blast radius", () => {
       expect(src).not.toMatch(/through Friday/);
       expect(src).not.toMatch(/actually make it/);
       expect(src).not.toContain("modifies_active_temporary_overlay");
+      expect(src).not.toContain("make this permanent");
+      expect(src).not.toContain("keep this as my regular goal");
+      expect(src).not.toContain("make the temporary one my real goal");
+      expect(src).not.toContain("I want this going forward");
     }
+    const slice3 = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/sol-goal-change-pending-confirm.ts"),
+      "utf8"
+    );
+    expect(slice3).not.toContain("make this permanent");
+    expect(slice3).not.toContain("keep this as my regular goal");
+    expect(slice3).not.toContain("make the temporary one my real goal");
+    expect(slice3).not.toContain("I want this going forward");
     expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).toContain(
       "Member wants the live temporary overlay changed"
     );
     expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).toContain("temporary_adjustment");
+    expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "copy overlay_behavior_statement into candidate_behavior_statement"
+    );
   });
 
   it("N: leftover still skips tagged Sol temp including replacement marker", () => {

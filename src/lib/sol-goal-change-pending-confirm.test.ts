@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import {
   emptySolGoalChangeSemanticResult,
@@ -116,6 +118,29 @@ function angelaPending(): ActiveV2CommitmentRow {
     candidate_behavior_statement: ANGELA_PENDING,
     candidate_new_bar: ANGELA_PENDING,
   });
+}
+
+const OVERLAY_FROM = "2026-09-07T16:00:00.000Z";
+const OVERLAY_EXPIRES = "2026-09-14T04:00:00.000Z";
+
+function angelaPendingWithLiveOverlay(): ActiveV2CommitmentRow {
+  return withPending(
+    commitment({
+      adaptive_ask_text: ANGELA_PENDING,
+      adaptive_ask_active_from: OVERLAY_FROM,
+      adaptive_ask_expires_at: OVERLAY_EXPIRES,
+    }),
+    {
+      source: "sms_inbound",
+      sms_state: "awaiting_confirmation",
+      detected_intent: "sms_replace_request",
+      raw_user_text: "Make this permanent.",
+      inbound_message_sid: "SMturn1",
+      ai_confidence: null,
+      candidate_behavior_statement: ANGELA_PENDING,
+      candidate_new_bar: ANGELA_PENDING,
+    }
+  );
 }
 
 function angelaApplied(): ActiveV2CommitmentRow {
@@ -675,6 +700,74 @@ describe("runSolGoalChangePendingConfirmForInbound", () => {
     expect(second.consequence).toBe("not_applicable");
     expect(applyCanonicalGoalChangeWithSeasonMutation).toHaveBeenCalledTimes(1);
     expect(second.authorization.goal_change_apply_authorized).toBe(false);
+  });
+
+  it("C: saved confirmation NO over live overlay leaves overlay untouched", async () => {
+    live = angelaPendingWithLiveOverlay();
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ rejects_existing_pending: true }))
+    );
+    const r = await run("No");
+    expect(applyCanonicalGoalChangeWithSeasonMutation).not.toHaveBeenCalled();
+    expect(r.consequence).toBe("rejected");
+    expect(live.adaptive_ask_text).toBe(ANGELA_PENDING);
+    expect(live.adaptive_ask_active_from).toBe(OVERLAY_FROM);
+    expect(live.adaptive_ask_expires_at).toBe(OVERLAY_EXPIRES);
+    expect(live.behavior_statement).toBe(ANGELA_CANONICAL);
+    expect(live.id).toBe("cmt_angela");
+    expect(live.pending_resolution_kind).toBeNull();
+  });
+
+  it("D: saved confirmation MODIFY over live overlay restages candidate and leaves overlay", async () => {
+    live = angelaPendingWithLiveOverlay();
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(
+        semantic({
+          modifies_existing_pending_candidate: true,
+          candidate_behavior_statement: "10:15",
+        })
+      )
+    );
+    const r = await run("Yes, but make it 10:15");
+    expect(applyCanonicalGoalChangeWithSeasonMutation).not.toHaveBeenCalled();
+    expect(r.consequence).toBe("modified");
+    expect(r.authorization.candidate_behavior_statement).toBe(ANGELA_1015);
+    expect(live.adaptive_ask_text).toBe(ANGELA_PENDING);
+    expect(live.adaptive_ask_active_from).toBe(OVERLAY_FROM);
+    expect(live.adaptive_ask_expires_at).toBe(OVERLAY_EXPIRES);
+    expect(live.behavior_statement).toBe(ANGELA_CANONICAL);
+    expect(live.id).toBe("cmt_angela");
+  });
+
+  it("E: saved confirmation YES over live overlay creates a new chapter without copying overlay", async () => {
+    live = angelaPendingWithLiveOverlay();
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ confirms_existing_pending: true }))
+    );
+    const r = await run("Yes");
+    expect(applyCanonicalGoalChangeWithSeasonMutation).toHaveBeenCalledTimes(1);
+    const applyArgs = applyCanonicalGoalChangeWithSeasonMutation.mock.calls[0]![0] as {
+      behaviorStatement: string;
+      seasonMode: string;
+    };
+    expect(applyArgs.behaviorStatement).toBe(ANGELA_PENDING);
+    expect(applyArgs.seasonMode).toBe("new_chapter");
+    expect(r.consequence).toBe("applied");
+    expect(r.commitment.id).toBe("cmt_angela_2");
+    expect(r.commitment.behavior_statement).toBe(ANGELA_PENDING);
+    expect(r.commitment.adaptive_ask_text).toBeNull();
+    expect(r.commitment.adaptive_ask_active_from).toBeNull();
+    expect(r.commitment.adaptive_ask_expires_at).toBeNull();
+    const sql = fs.readFileSync(
+      path.join(
+        process.cwd(),
+        "supabase/migrations/20260508170000_v2_guided_commitment_replace_wrapper.sql"
+      ),
+      "utf8"
+    );
+    expect(sql).toContain("INSERT INTO v2_commitment");
+    expect(sql).toContain("p_new_behavior_statement");
+    expect(sql).not.toMatch(/INSERT INTO v2_commitment \([\s\S]*adaptive_ask_text/);
   });
 
   it("tighten pending is not owned by Slice 3", async () => {

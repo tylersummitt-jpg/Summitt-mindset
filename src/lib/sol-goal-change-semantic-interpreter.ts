@@ -125,7 +125,10 @@ If authoritative_active_overlay.active is true, the member already has a live te
 - If overlay is inactive/null: reverts_active_temporary_overlay MUST be false.
 - If authoritative_pending is actionable: reverts_active_temporary_overlay MUST be false.
 - Member wants the live temporary overlay changed (different target and/or different end) while it stays temporary → temporary_adjustment. If they named a new target, output candidate_behavior_statement. If they only changed the end, candidate_behavior_statement may be null (server keeps current overlay text). If they named a new end, output a structured duration using existing kinds (convert relative ends like two more days into through_local_date or days). If they only changed the target, temporary_duration_kind may be unspecified (server keeps current overlay end). Do not set reverts_active_temporary_overlay. Do not invent saved_replace.
-- Member wants that live temporary overlay to become the saved Current Goal going forward → saved_replace with a candidate. Not revert. Not temporary_adjustment.
+- Member wants that live temporary overlay to become the saved Current Goal going forward → saved_replace. Not revert. Not temporary_adjustment.
+- If they did not name a different saved target, copy overlay_behavior_statement into candidate_behavior_statement. That copies the live overlay; it is not inventing a bar.
+- If they named a different saved target, use that candidate instead. Do not invent a candidate from unrelated context.
+- Examples of overlay-becomes-saved meaning (candidate = overlay_behavior_statement unless they named a different bar): "make this permanent"; "keep this as my regular goal"; "make the temporary one my real goal"; "I want this going forward".
 
 DUAL MEANING (required capability):
 "I'm out of town tonight, so 9:30 won't happen. Also I think I need to revise the goal to 10:30."

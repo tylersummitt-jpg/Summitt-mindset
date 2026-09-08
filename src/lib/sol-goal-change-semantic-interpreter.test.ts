@@ -168,6 +168,29 @@ describe("runSolGoalChangeSemanticInterpreter", () => {
     expect(result.result.goal_change.reverts_active_temporary_overlay).toBe(false);
   });
 
+  it("teaches live overlay + make-permanent as saved_replace copying overlay_behavior_statement", () => {
+    expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "copy overlay_behavior_statement into candidate_behavior_statement"
+    );
+    expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "If they named a different saved target, use that candidate instead"
+    );
+    expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).toContain("make this permanent");
+    expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "keep this as my regular goal"
+    );
+    expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "make the temporary one my real goal"
+    );
+    expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "I want this going forward"
+    );
+    expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).toContain("saved_replace");
+    expect(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT).not.toContain(
+      "modifies_active_temporary_overlay"
+    );
+  });
+
   it("messages are interpreter-only: Sol system prompt, compact input, no SMS instruction to write", () => {
     const messages = buildSolGoalChangeSemanticInterpreterMessages(angelaInput);
     expect(messages[0]?.content).toBe(SOL_GOAL_CHANGE_SEMANTIC_INTERPRETER_SYSTEM_PROMPT);
