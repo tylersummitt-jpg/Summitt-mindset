@@ -45,6 +45,7 @@ describe("weekly-sms is Weekly TTO draft-authoritative (static)", () => {
     expect(src).toContain("sendWeeklyTtoDraftAuthoritative");
     expect(src).toContain("WEEKLY_TTO_CRON_SEND_SOURCE");
     expect(src).toContain("resolveTylerTextOverviewWeeklyPeriod");
+    expect(src).not.toContain("ensureCurrentTtoDraftFreshForSend");
   });
 
   it("force only bypasses Sunday noon window", () => {
@@ -67,6 +68,7 @@ describe("weekly-sms is Weekly TTO draft-authoritative (static)", () => {
     expect(drySlice).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
     expect(drySlice).toContain("dryRunWouldSend");
     expect(drySlice).not.toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(drySlice).not.toContain("ensureCurrentTtoDraftFreshForSend");
     expect(drySlice).not.toContain("sendSMS");
     expect(drySlice).not.toContain('from("sms_weekly_send_events")');
   });
@@ -101,6 +103,29 @@ describe("weekly-sms send core still draft-authoritative", () => {
     ]) {
       expect(sendSrc).not.toContain(forbidden);
     }
+  });
+
+  it("live send uses send-core freshness once, not a cron-level duplicate", () => {
+    const routeSrc = fs.readFileSync(ROUTE, "utf8");
+    expect(routeSrc).not.toContain("ensureCurrentTtoDraftFreshForSend");
+    expect(sendSrc).toContain("ensureCurrentTtoDraftFreshForSend");
+    const liveStart = routeSrc.indexOf("if (!isTwilioReady())");
+    const liveSlice = routeSrc.slice(liveStart);
+    expect(liveSlice).toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(liveSlice).not.toContain("ensureCurrentTtoDraftFreshForSend");
+  });
+
+  it("runs shared TTO freshness then re-reads weekly authority before footer/send", () => {
+    const fnStart = sendSrc.indexOf("export async function sendWeeklyTtoDraftAuthoritative");
+    const fn = sendSrc.slice(fnStart);
+    const freshIdx = fn.indexOf("ensureCurrentTtoDraftFreshForSend");
+    const reassertIdx = fn.indexOf("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    const footerIdx = fn.indexOf("buildWeeklyTtoFinalBodyWithFooter");
+    const twilioIdx = fn.indexOf("await sendSMS(");
+    expect(freshIdx).toBeGreaterThan(-1);
+    expect(reassertIdx).toBeGreaterThan(freshIdx);
+    expect(footerIdx).toBeGreaterThan(reassertIdx);
+    expect(twilioIdx).toBeGreaterThan(footerIdx);
   });
 });
 

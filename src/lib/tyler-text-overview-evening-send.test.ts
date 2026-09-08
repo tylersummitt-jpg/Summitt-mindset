@@ -176,6 +176,19 @@ vi.mock("@/lib/north-star-sms-context-packet", () => ({
   recentEventsIncludeUserYesOnLocalDay: vi.fn(() => false),
 }));
 
+const ensureCurrentTtoDraftFreshForSend = vi.hoisted(() =>
+  vi.fn(async () => ({
+    ok: true as const,
+    status: "fresh" as const,
+    draftId: "draft-e",
+    currentBodyToSend: "Have a good evening.",
+    currentGenerationId: "gen-e",
+  }))
+);
+vi.mock("@/lib/tto-draft-fresh-for-send", () => ({
+  ensureCurrentTtoDraftFreshForSend,
+}));
+
 import {
   EVENING_PROACTIVE_SEND_DISABLED,
   EVENING_PROACTIVE_SEND_DISABLED_CODE,
@@ -418,6 +431,55 @@ describe("Evening authoritative gate + cron send", () => {
     expect(meta.final_body_sent).toBe("Current A");
   });
 
+  it("stale freshness persist is what revalidation and Twilio send", async () => {
+    seedEveningDraft({
+      draft_for_day_key: "2026-06-27",
+      current_body_to_send: "STALE EVENING",
+    });
+    ensureCurrentTtoDraftFreshForSend.mockImplementationOnce(async () => {
+      const draft = db.drafts[0];
+      if (draft) {
+        draft.current_body_to_send = "FRESH EVENING";
+        draft.current_generation_id = "gen-e-fresh";
+      }
+      db.generations = [
+        {
+          id: "gen-e-fresh",
+          commitment_id: "c1",
+          machine_should_send: true,
+          send_slot: "evening_checkin",
+          generated_at: "2026-06-27T23:00:00.000Z",
+          generation_metadata: {
+            preview_only: true,
+            coaching_stack: "shared_sol_v1",
+            generation_effective_ask: "I will be in bed by 9:30 pm nightly.",
+          },
+        },
+      ];
+      return {
+        ok: true as const,
+        status: "regenerated" as const,
+        draftId: "draft-e",
+        currentBodyToSend: "FRESH EVENING",
+        currentGenerationId: "gen-e-fresh",
+      };
+    });
+    const result = await sendEveningTtoAuthoritativeCronSend({
+      clerkUserId: "user_e5",
+      phoneNumber: "+15551234567",
+      timezone: "America/New_York",
+      now: new Date("2026-06-27T23:05:00.000Z"),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.finalBodySent).toBe("FRESH EVENING");
+    }
+    expect(sendSMS).toHaveBeenCalledTimes(1);
+    expect(sendSMS.mock.calls[0]?.[0]?.body).toBe("FRESH EVENING");
+    expect(sendSMS.mock.calls[0]?.[0]?.body).not.toBe("STALE EVENING");
+    expect(db.sendEvents[0]?.sms_body).toBe("FRESH EVENING");
+  });
+
   it("pending manual Pat answer blocks Evening SMS and leaves the draft", async () => {
     seedEveningDraft({
       draft_for_day_key: "2026-06-27",
@@ -652,6 +714,23 @@ describe("Evening cron wiring", () => {
     expect(src).not.toContain("generateEvening");
     expect(src).not.toContain("reply_rate");
     expect(src).not.toContain("preferred_send_window");
+  });
+
+  it("runs shared TTO freshness before Evening Twilio revalidation", () => {
+    const sendSrc = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-evening-send.ts"),
+      "utf8"
+    );
+    const fnStart = sendSrc.indexOf("export async function sendEveningTtoAuthoritativeCronSend");
+    const fn = sendSrc.slice(fnStart);
+    const dryIdx = fn.indexOf("if (args.dryRun)");
+    const freshIdx = fn.indexOf("ensureCurrentTtoDraftFreshForSend");
+    const revalIdx = fn.indexOf("revalidateEveningTtoBodyBeforeTwilio");
+    expect(dryIdx).toBeGreaterThan(-1);
+    expect(freshIdx).toBeGreaterThan(dryIdx);
+    expect(revalIdx).toBeGreaterThan(freshIdx);
+    const twilioIdx = fn.indexOf("await sendSMS(");
+    expect(twilioIdx).toBeGreaterThan(revalIdx);
   });
 
   it("daily-sms is not branched for Evening", () => {

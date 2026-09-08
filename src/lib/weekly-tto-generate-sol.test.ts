@@ -289,6 +289,7 @@ describe("generateTylerTextOverviewWeeklyDraftForUser Sol orchestration", () => 
     expect(persistArgs.routeKind).toBe("weekly_relationship");
     expect(persistArgs.notebookVerdictReason).toBe("weekly_brief_writer_ran");
     expect(persistArgs.success.body).toBe("The ankle comes first. I'm here, not another inbox.");
+    expect(persistArgs.generationEffectiveAsk).toBe("Walk 20 minutes after dinner");
     expect(persistArgs.success.writerPromptPath).toBe("weekly_brief_writer_v1");
     expect(persistArgs.generationMetadataExtra.message_for.local_date).toBe("2026-07-12");
     expect(persistArgs.generationMetadataExtra.message_for.daypart).toBe("weekly");

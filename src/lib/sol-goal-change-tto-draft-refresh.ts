@@ -8,6 +8,7 @@
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
+import { markCurrentTtoDraftUnusable } from "@/lib/tto-mark-current-draft-unusable";
 import {
   generateTylerTextOverviewDraftForUser,
   generateTylerTextOverviewEveningPreviewForUser,
@@ -28,8 +29,6 @@ import {
 
 const LOG_PREFIX = "[sol-goal-change-tto-draft-refresh]";
 const RELATIONSHIP_REFRESH_GENERATION_REASON = "manual_regenerate" as const;
-/** Initial skip write + two retries for transient DB errors. Matches existing TTO insert retry scale. */
-const MARK_UNUSABLE_ATTEMPTS = 3 as const;
 
 export type RefreshUnsentTtoDraftsOutcomeStatus =
   | "refreshed"
@@ -234,7 +233,7 @@ async function settleGeneratedDraft(
 async function settleUnusableDraft(
   draft: CurrentUnsentTtoDraftRow
 ): Promise<RefreshUnsentTtoDraftsOutcome> {
-  const disabled = await markCurrentDraftUnusable(draft.id);
+  const disabled = await markCurrentTtoDraftUnusable(draft.id);
   if (disabled) {
     return outcome(draft, "skipped_unusable");
   }
@@ -301,68 +300,4 @@ async function loadCurrentUnsentTtoDrafts(
       } satisfies CurrentUnsentTtoDraftRow;
     })
     .filter((row): row is CurrentUnsentTtoDraftRow => row != null);
-}
-
-function isProvenNonCurrent(status: string | null): boolean {
-  return status !== null && status !== "current";
-}
-
-async function loadDraftStatus(draftId: string): Promise<string | null> {
-  const { data, error } = await supabaseServer
-    .from(SMS_DAILY_DRAFTS_TABLE)
-    .select("status")
-    .eq("id", draftId)
-    .maybeSingle();
-
-  if (error) {
-    warnRefresh("draft_status_lookup_failed", {
-      draft_id: draftId,
-      error: error.message,
-    });
-    return null;
-  }
-  if (!data) {
-    return "";
-  }
-  return typeof data.status === "string" ? data.status : null;
-}
-
-/**
- * Retry a skip UPDATE; only true when DB proves the row is no longer current.
- */
-async function markCurrentDraftUnusable(draftId: string): Promise<boolean> {
-  for (let attempt = 1; attempt <= MARK_UNUSABLE_ATTEMPTS; attempt++) {
-    const { data, error } = await supabaseServer
-      .from(SMS_DAILY_DRAFTS_TABLE)
-      .update({
-        status: "skipped",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", draftId)
-      .eq("status", "current")
-      .select("id, status")
-      .maybeSingle();
-
-    if (!error) {
-      const updatedStatus = typeof data?.status === "string" ? data.status : null;
-      if (isProvenNonCurrent(updatedStatus)) {
-        return true;
-      }
-      if (!data) {
-        const existing = await loadDraftStatus(draftId);
-        if (existing !== null && existing !== "current") {
-          return true;
-        }
-      }
-    } else {
-      warnRefresh("mark_unusable_failed", {
-        draft_id: draftId,
-        attempt,
-        error: error.message,
-      });
-    }
-  }
-
-  const existing = await loadDraftStatus(draftId);
-  return existing !== null && existing !== "current";
 }

@@ -13,6 +13,18 @@ export function isTylerTextOverviewEnabled(): boolean {
 export const SMS_DAILY_DRAFT_GENERATIONS_TABLE = "sms_daily_draft_generations" as const;
 export const SMS_DAILY_DRAFTS_TABLE = "sms_daily_drafts" as const;
 
+/** First-class generation_metadata key: effective coaching ask used for that writer run. */
+export const TTO_GENERATION_EFFECTIVE_ASK_KEY = "generation_effective_ask" as const;
+
+export function readTtoGenerationEffectiveAsk(
+  metadata: Record<string, unknown> | null | undefined
+): string | null {
+  const raw = metadata?.[TTO_GENERATION_EFFECTIVE_ASK_KEY];
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 /**
  * Outbound SMS moment/purpose slots — NOT wall-clock send times.
  * Future per-slot local schedules (e.g. morning 5–10 AM, evening_checkin 5–10 PM) will be

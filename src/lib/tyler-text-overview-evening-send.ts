@@ -3,7 +3,8 @@
  *
  * Manual admin send remains disabled (sendTylerTextOverviewEveningDraft).
  * Auto-send: exact local-day evening_checkin current draft → [19:00,21:00) → Twilio.
- * No OpenAI. No generation. No machine_draft_body fallback.
+ * Stale machine drafts regenerate via the existing Evening generator before Twilio.
+ * Twilio sends the persisted current body only. No send-time body rewrite.
  */
 
 import {
@@ -45,6 +46,7 @@ import {
   isPauseActive,
 } from "@/lib/v2-sms-comms-preferences";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
+import { ensureCurrentTtoDraftFreshForSend } from "@/lib/tto-draft-fresh-for-send";
 
 /** @deprecated E5: 4h stale rule removed from auto-send eligibility. Kept only for legacy imports. */
 export const EVENING_PREVIEW_STALE_MS = 4 * 60 * 60 * 1000;
@@ -93,7 +95,8 @@ export type TylerTextOverviewEveningSendRefusalCode =
   | "post_send_bookkeeping_failed"
   | "body_changed_before_twilio"
   | "dry_run"
-  | "awaiting_manual_pat_answer";
+  | "awaiting_manual_pat_answer"
+  | "tto_draft_not_fresh";
 
 export type TylerTextOverviewEveningSendResult =
   | {
@@ -788,7 +791,8 @@ async function markEveningSendEventFailed(args: {
 
 /**
  * Cron-authorized Evening send. Enforces [19:00,21:00) server-side.
- * Does not call OpenAI. Does not generate drafts.
+ * May refresh a stale machine draft via the existing Evening generator, then
+ * re-reads persisted authority before Twilio. Does not rewrite bodies at send time.
  */
 export async function sendEveningTtoAuthoritativeCronSend(args: {
   clerkUserId: string;
@@ -862,6 +866,20 @@ export async function sendEveningTtoAuthoritativeCronSend(args: {
       ...base,
       draftId: draft.draftId,
     });
+  }
+
+  const eveningFresh = await ensureCurrentTtoDraftFreshForSend({
+    clerkUserId: args.clerkUserId,
+    sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+    draftForDayKey: dayKey,
+    now,
+  });
+  if (!eveningFresh.ok) {
+    return refuse(
+      "tto_draft_not_fresh",
+      `TTO draft not fresh (${eveningFresh.reason})`,
+      { ...base, draftId: draft.draftId }
+    );
   }
 
   if (!isTwilioReady()) {

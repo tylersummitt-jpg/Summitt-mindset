@@ -1,6 +1,7 @@
 /**
  * Weekly TTO draft-authoritative send — manual + cron share this core.
- * Never live-builds. Never calls weekly writers. Never writes check_sent / sms_send_events.
+ * Pre-send freshness may regenerate via the existing Weekly generator, persist, and re-read.
+ * Never rewrites the SMS body at Twilio send time.
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
@@ -37,6 +38,7 @@ import {
   AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
   hasAwaitingManualPatAnswer,
 } from "@/lib/has-awaiting-manual-pat-answer";
+import { ensureCurrentTtoDraftFreshForSend } from "@/lib/tto-draft-fresh-for-send";
 
 export {
   WEEKLY_TTO_COMPLIANCE_FOOTER,
@@ -74,7 +76,8 @@ export type WeeklyTtoManualSendRefusalCode =
   | "missing_clerk_user_id_for_outbound_sms"
   | "reservation_failed"
   | "post_send_bookkeeping_failed"
-  | "awaiting_manual_pat_answer";
+  | "awaiting_manual_pat_answer"
+  | "tto_draft_not_fresh";
 
 /** Cron-facing skip reasons (authority failures). */
 export type WeeklyTtoCronAuthoritySkipReason =
@@ -190,6 +193,8 @@ export function mapWeeklyTtoRefusalToCronSkipReason(
       return null;
     case "awaiting_manual_pat_answer":
       return "skipped_awaiting_manual_pat_answer";
+    case "tto_draft_not_fresh":
+      return "failed";
     default:
       return null;
   }
@@ -755,7 +760,7 @@ export async function sendWeeklyTtoDraftAuthoritative(args: {
   now?: Date;
 }): Promise<WeeklyTtoManualSendResult> {
   const now = args.now ?? new Date();
-  const draft = args.draft;
+  let draft = args.draft;
   const phone = args.phoneTo.trim();
   if (!phone) {
     return refuse("no_phone", "User has no phone number", {
@@ -823,6 +828,30 @@ export async function sendWeeklyTtoDraftAuthoritative(args: {
       weekKey: draft.weekKey,
     });
   }
+
+  const fresh = await ensureCurrentTtoDraftFreshForSend({
+    clerkUserId: draft.clerkUserId,
+    sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+    draftForDayKey: draft.draftForDayKey,
+    now,
+  });
+  if (!fresh.ok) {
+    return refuse(
+      "tto_draft_not_fresh",
+      `TTO draft not fresh (${fresh.reason})`,
+      {
+        draftId: draft.draftId,
+        clerkUserId: draft.clerkUserId,
+        weekKey: draft.weekKey,
+      }
+    );
+  }
+  const authority = await assertWeeklyTtoDraftAuthoritativeForCronSend({
+    clerkUserId: draft.clerkUserId,
+    weekKey: draft.weekKey,
+  });
+  if (!authority.ok) return authority.result;
+  draft = authority.draft;
 
   let commitmentId = draft.commitmentId;
   if (!commitmentId) {

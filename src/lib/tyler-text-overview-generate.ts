@@ -30,6 +30,7 @@ import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
   SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+  TTO_GENERATION_EFFECTIVE_ASK_KEY,
   type SmsDailySendSlot,
   type TylerTextOverviewGenerationReason,
   type TylerTextOverviewNotebookVerdict,
@@ -449,6 +450,8 @@ export function mapMorningWriterToGenerationRow(args: {
     has_pending_goal_change: boolean;
   };
   generationMetadataExtra?: Record<string, unknown>;
+  /** Effective coaching ask used by this writer run. First-class generation_metadata key. */
+  generationEffectiveAsk?: string | null;
   routeKind?: string;
   notebookVerdictReason?: string;
 }): TylerTextOverviewGenerationInsertRow {
@@ -473,6 +476,7 @@ export function mapMorningWriterToGenerationRow(args: {
     args.success?.retrySucceeded ?? args.failure?.retrySucceeded ?? null;
   const writerCapture =
     args.success?.writerCapture ?? args.failure?.writerCapture ?? null;
+  const generationEffectiveAsk = args.generationEffectiveAsk?.trim() || "";
 
   return {
     clerk_user_id: args.clerkUserId,
@@ -527,11 +531,20 @@ export function mapMorningWriterToGenerationRow(args: {
             error: args.success ? null : failureError,
           },
       ...(args.generationMetadataExtra ?? {}),
+      ...(generationEffectiveAsk
+        ? { [TTO_GENERATION_EFFECTIVE_ASK_KEY]: generationEffectiveAsk }
+        : {}),
     },
     timezone_snapshot: args.timezone,
     send_pref_snapshot: args.sendPrefSnapshot,
     machine_body_hash: machineBody ? hashSmsSnippet(machineBody) : null,
   };
+}
+
+function persistEffectiveAskFromPacket(packet: { current_goal: { text: string } }): {
+  generationEffectiveAsk: string;
+} {
+  return { generationEffectiveAsk: packet.current_goal.text };
 }
 
 export async function persistMorningTtoGeneration(args: {
@@ -570,6 +583,8 @@ export async function persistMorningTtoGeneration(args: {
     has_pending_goal_change: boolean;
   };
   generationMetadataExtra?: Record<string, unknown>;
+  /** Effective coaching ask used by this writer run. Persisted on generation_metadata. */
+  generationEffectiveAsk?: string | null;
   respectProtectedMorningDraft?: boolean;
   /** Weekly explicit regenerate: pin Tyler edit/blank only; allow replacing untouched machine copy. */
   protectTylerProvenanceOnly?: boolean;
@@ -608,6 +623,7 @@ export async function persistMorningTtoGeneration(args: {
     failure: args.failure,
     packetMetadata: args.packetMetadata,
     generationMetadataExtra: args.generationMetadataExtra,
+    generationEffectiveAsk: args.generationEffectiveAsk,
     routeKind: args.routeKind,
     notebookVerdictReason: args.notebookVerdictReason,
   });
@@ -1345,6 +1361,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       now: args.now,
       failure: { error: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE },
       packetMetadata,
+      ...persistEffectiveAskFromPacket(packet),
       generationMetadataExtra: {
         ...briefMetadataExtra,
         morning_coaching_brief_v1: morningCoachingBrief,
@@ -1428,6 +1445,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
         writerCapture,
       },
       packetMetadata,
+      ...persistEffectiveAskFromPacket(packet),
       generationMetadataExtra: {
         ...briefMetadataExtra,
         morning_coaching_brief_v1: morningCoachingBrief,
@@ -1472,6 +1490,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       writerCapture,
     },
     packetMetadata,
+    ...persistEffectiveAskFromPacket(packet),
     generationMetadataExtra: {
       ...briefMetadataExtra,
       morning_coaching_brief_v1: morningCoachingBrief,
@@ -1782,6 +1801,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
       sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
       failure: { error: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE },
       packetMetadata,
+      ...persistEffectiveAskFromPacket(packet),
       generationMetadataExtra: {
         ...eveningMetaBase,
         ...briefMetadataExtra,
@@ -1882,6 +1902,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
         writerCapture,
       },
       packetMetadata,
+      ...persistEffectiveAskFromPacket(packet),
       generationMetadataExtra,
       respectProtectedMorningDraft: true,
       ...persistProtect,
@@ -1925,6 +1946,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
       writerCapture,
     },
     packetMetadata,
+    ...persistEffectiveAskFromPacket(packet),
     generationMetadataExtra,
     respectProtectedMorningDraft: true,
     ...persistProtect,

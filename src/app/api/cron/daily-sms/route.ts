@@ -52,6 +52,7 @@ import {
   type TylerTextOverviewSendContext,
 } from "@/lib/tyler-text-overview-send";
 import { SMS_DAILY_PRODUCTION_SEND_SLOT, isTylerTextOverviewEnabled } from "@/lib/tyler-text-overview-types";
+import { ensureCurrentTtoDraftFreshForSend } from "@/lib/tto-draft-fresh-for-send";
 import {
   AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
   hasAwaitingManualPatAnswer,
@@ -1179,6 +1180,31 @@ export async function GET(req: Request) {
               nowMs: now.getTime(),
             });
 
+            if (!SMS_DRY_RUN) {
+              stage = "morning_tto_draft_freshness";
+              const morningFreshRetry = await ensureCurrentTtoDraftFreshForSend({
+                clerkUserId: audienceUser.clerk_user_id,
+                sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+                draftForDayKey: todayKey,
+                now,
+              });
+              if (!morningFreshRetry.ok) {
+                await recordMorningTtoAuthoritativeGateFailure({
+                  clerkUserId: audienceUser.clerk_user_id,
+                  todayKey,
+                  reason: `tto_draft_not_fresh:${morningFreshRetry.reason}`,
+                  hasSendEventRow: true,
+                  existingMeta,
+                  retryCount,
+                  timezone,
+                  localNow,
+                });
+                stats.skippedTtoAuthoritativeFailClosed += 1;
+                stats.skippedIntentional += 1;
+                continue;
+              }
+            }
+
             stage = "morning_tto_authoritative_gate";
             const morningTtoAuthoritativeGateRetry = await assertMorningTtoDraftAuthoritativeForSend({
               clerkUserId: audienceUser.clerk_user_id,
@@ -1383,6 +1409,29 @@ export async function GET(req: Request) {
       });
       if (stateMaintenance.commitment?.behavior_statement?.trim()) {
         activeCadence = stateMaintenance.commitment;
+      }
+
+      if (!SMS_DRY_RUN) {
+        stage = "morning_tto_draft_freshness";
+        const morningFreshMain = await ensureCurrentTtoDraftFreshForSend({
+          clerkUserId: audienceUser.clerk_user_id,
+          sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+          draftForDayKey: todayKey,
+          now,
+        });
+        if (!morningFreshMain.ok) {
+          await recordMorningTtoAuthoritativeGateFailure({
+            clerkUserId: audienceUser.clerk_user_id,
+            todayKey,
+            reason: `tto_draft_not_fresh:${morningFreshMain.reason}`,
+            hasSendEventRow: false,
+            timezone,
+            localNow,
+          });
+          stats.skippedTtoAuthoritativeFailClosed += 1;
+          stats.skippedIntentional += 1;
+          continue;
+        }
       }
 
       stage = "morning_tto_authoritative_gate";

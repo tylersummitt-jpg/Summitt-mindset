@@ -320,6 +320,7 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
         writerCapture,
       },
       packetMetadata,
+      generationEffectiveAsk: packet.current_goal.text,
       generationMetadataExtra,
       respectProtectedMorningDraft: true,
       protectTylerProvenanceOnly: true,
@@ -368,6 +369,7 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
         writerCapture,
       },
       packetMetadata,
+      generationEffectiveAsk: packet.current_goal.text,
       generationMetadataExtra: {
         ...generationMetadataExtra,
         weekly_block_only_reason: blocked.reason,
@@ -418,6 +420,7 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
       writerCapture,
     },
     packetMetadata,
+    generationEffectiveAsk: packet.current_goal.text,
     generationMetadataExtra,
     respectProtectedMorningDraft: true,
     protectTylerProvenanceOnly: true,

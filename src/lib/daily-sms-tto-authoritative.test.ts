@@ -590,6 +590,18 @@ describe("daily-sms route authoritative wiring", () => {
     expect(route).toContain("hasSendEventRow: false");
   });
 
+  it("runs shared TTO freshness before Morning authority on retry and first-send paths", () => {
+    expect(route).toContain("ensureCurrentTtoDraftFreshForSend");
+    const retryFresh = route.indexOf("morningFreshRetry");
+    const retryGate = route.indexOf("morningTtoAuthoritativeGateRetry");
+    expect(retryFresh).toBeGreaterThan(-1);
+    expect(retryGate).toBeGreaterThan(retryFresh);
+    const mainFresh = route.indexOf("morningFreshMain");
+    const mainGate = route.indexOf("morningTtoAuthoritativeGateMain");
+    expect(mainFresh).toBeGreaterThan(-1);
+    expect(mainGate).toBeGreaterThan(mainFresh);
+  });
+
   it("calls authoritative gate on retry path before attemptMorningTtoTwilioSend", () => {
     const retryGateIdx = route.indexOf("morningTtoAuthoritativeGateRetry");
     const attemptAfterRetry = route.indexOf("attemptMorningTtoTwilioSend", retryGateIdx);

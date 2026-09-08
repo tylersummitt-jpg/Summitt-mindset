@@ -867,6 +867,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
     expect(meta.capture_present).toBe(true);
     expect(meta.thread_message_count).toBe(2);
     expect(meta.writer_model).toBe("gpt-5.6-sol");
+    expect(meta.generation_effective_ask).toBe("Two hours deep work");
     expect(meta.morning_writer_capture_v1).toEqual(
       expect.objectContaining({
         model: "gpt-5.6-sol",
@@ -2140,6 +2141,7 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     expect(meta.preview_only).toBe(true);
     expect(meta.preview_slot).toBe(SMS_DAILY_EVENING_PREVIEW_SEND_SLOT);
     expect(meta.coaching_stack).toBe("shared_sol_v1");
+    expect(meta.generation_effective_ask).toBe("Two hours deep work");
     expect(meta.morning_coaching_brief_v1).toBeTruthy();
     expect(meta.morning_brief_interpreter_v1).toBeTruthy();
     expect(meta.morning_relationship_packet_v1).toBeTruthy();

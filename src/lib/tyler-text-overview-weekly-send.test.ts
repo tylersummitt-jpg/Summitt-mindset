@@ -278,6 +278,19 @@ vi.mock("@/lib/v2-commitment-sms-thread-memory", () => ({
   upsertCommitmentSmsThreadMemoryFromOutbound: upsertThreadMemoryMock,
 }));
 
+const ensureCurrentTtoDraftFreshForSend = vi.hoisted(() =>
+  vi.fn(async () => ({
+    ok: true as const,
+    status: "fresh" as const,
+    draftId: "draft-weekly-1",
+    currentBodyToSend: "This week you showed up three times. What made that possible?",
+    currentGenerationId: "gen-weekly-1",
+  }))
+);
+vi.mock("@/lib/tto-draft-fresh-for-send", () => ({
+  ensureCurrentTtoDraftFreshForSend,
+}));
+
 const REPO = process.cwd();
 
 describe("assertWeeklyTtoDraftAuthoritativeForManualSend", () => {
@@ -808,6 +821,63 @@ describe("sendWeeklyTtoDraftViaCron / shared core", () => {
     });
     expect(db.drafts[0].status).toBe("sent");
     expect(db.drafts[0].final_body_sent).toBe(buildWeeklyTtoFinalBodyWithFooter(WEEKLY_BODY));
+  });
+
+  it("stale freshness persist is what re-assert, footer, and Twilio send", async () => {
+    const freshBody = "FRESH WEEKLY BODY FROM PERSIST";
+    ensureCurrentTtoDraftFreshForSend.mockImplementationOnce(async () => {
+      const draft = db.drafts[0];
+      if (draft) {
+        draft.current_body_to_send = freshBody;
+        draft.current_generation_id = "gen-weekly-fresh";
+      }
+      db.generations = [
+        {
+          id: "gen-weekly-fresh",
+          send_slot: "weekly_review",
+          commitment_id: COMMITMENT_ID,
+          machine_should_send: true,
+          machine_no_send_reason: null,
+          timezone_snapshot: "America/New_York",
+          generation_metadata: {
+            week_key: WEEK_KEY,
+            week_start: "2026-07-06",
+            week_end: "2026-07-12",
+            timezone: "America/New_York",
+            send_slot: "weekly_review",
+            draft_excludes_compliance_footer: true,
+            generation_effective_ask: "I will be in bed by 9:30 pm nightly.",
+          },
+        },
+      ];
+      return {
+        ok: true as const,
+        status: "regenerated" as const,
+        draftId: "draft-weekly-1",
+        currentBodyToSend: freshBody,
+        currentGenerationId: "gen-weekly-fresh",
+      };
+    });
+    const result = await sendWeeklyTtoDraftViaCron({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+      phoneTo: "+15551234567",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const expectedFinal = buildWeeklyTtoFinalBodyWithFooter(freshBody);
+    expect(sendSmsMock).toHaveBeenCalledTimes(1);
+    expect(sendSmsMock.mock.calls[0]?.[0].body).toBe(expectedFinal);
+    expect(sendSmsMock.mock.calls[0]?.[0].body).toContain(freshBody);
+    expect(sendSmsMock.mock.calls[0]?.[0].body).toContain(WEEKLY_TTO_COMPLIANCE_FOOTER);
+    expect(sendSmsMock.mock.calls[0]?.[0].body).not.toBe(
+      buildWeeklyTtoFinalBodyWithFooter(WEEKLY_BODY)
+    );
+    expect(result.finalBodySent).toBe(expectedFinal);
+    expect(result.bodyWithoutFooter).toBe(freshBody);
+    expect(db.weeklyEvents[0].metadata).toMatchObject({
+      body_without_footer: freshBody,
+    });
   });
 
   it("already-generated Weekly draft cannot send while a manual Pat answer is pending", async () => {

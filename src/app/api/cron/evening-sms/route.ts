@@ -2,7 +2,9 @@
  * /api/cron/evening-sms
  *
  * Evening TTO draft-authoritative auto-send for user-local [19:00, 21:00).
- * Does not generate drafts. Does not call OpenAI.
+ * Does not compose SMS at Twilio send time.
+ * Pre-send freshness may invoke the existing Evening generator when a persisted
+ * machine draft is stale; Twilio then sends the persisted current body.
  * Does not branch into Morning daily-sms.
  */
 
@@ -143,6 +145,9 @@ function bumpSkip(
       stats.dryRunWouldSend += 1;
       break;
     case "twilio_failed":
+      stats.failed += 1;
+      break;
+    case "tto_draft_not_fresh":
       stats.failed += 1;
       break;
     default:
