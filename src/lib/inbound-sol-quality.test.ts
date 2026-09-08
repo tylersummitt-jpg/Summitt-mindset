@@ -210,7 +210,7 @@ describe("inbound Sol contracts", () => {
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
       'You must NOT say the saved goal already changed, that it is done, that it is locked in, that "your goal is now X", that "we\'ll use X going forward", or imply a successful canonical mutation.'
     );
-    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("three mutually exclusive coaching states");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("mutually exclusive coaching states");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
       "Acknowledge the actual canonical_behavior_statement"
     );

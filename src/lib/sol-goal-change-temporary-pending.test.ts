@@ -1519,7 +1519,7 @@ describe("Slice 7B correction — exclusive temp awaiting_confirmation owner", (
   });
 });
 
-describe("Slice 7B exclusive holding route wire", () => {
+describe("Slice 7C exclusive temp confirm route wire", () => {
   const src = fs.readFileSync(
     path.join(process.cwd(), "src/app/api/cron/sms-inbound-coach/route.ts"),
     "utf8"
@@ -1530,22 +1530,22 @@ describe("Slice 7B exclusive holding route wire", () => {
     src.indexOf("async function processV2CoachingRefreshInbound")
   );
 
-  it("holder is after hallway and before leftover, and returns true", () => {
+  it("confirm owner is after hallway and before leftover, and returns true", () => {
     const slice3 = pendingBlock.indexOf("await runSolGoalChangePendingConfirmForInbound");
     const hallway = pendingBlock.indexOf("await runSolGoalChangeAwaitingCandidateForInbound");
-    const holder = pendingBlock.indexOf("await runSolTemporaryOverlayHoldingForInbound");
+    const confirm = pendingBlock.indexOf("await runSolTemporaryOverlayConfirmForInbound");
     const leftoverCall = pendingBlock.indexOf("await tryHandleSmsInboundPendingResolution");
-    expect(holder).toBeGreaterThan(hallway);
-    expect(leftoverCall).toBeGreaterThan(holder);
+    expect(confirm).toBeGreaterThan(hallway);
+    expect(leftoverCall).toBeGreaterThan(confirm);
     expect(slice3).toBeGreaterThan(0);
-    const between = pendingBlock.slice(holder, leftoverCall);
-    expect(between).toContain("sendSolTemporaryOverlayHoldingInboundReply");
+    const between = pendingBlock.slice(confirm, leftoverCall);
+    expect(between).toContain("sendSolTemporaryOverlayConfirmInboundReply");
     expect(between).toContain("return true");
     expect(between).not.toContain("tryHandleSmsInboundPendingResolution");
     expect(pendingBlock).toContain("isSolOwnedTemporaryOverlayPending");
   });
 
-  it("holding writer is exclusive Sol, no scoring, no V3 persist", () => {
+  it("confirm writer is exclusive Sol, no scoring, no V3 persist", () => {
     const ownedStart = src.indexOf("async function sendSolGoalChangeOwnedPendingInboundReply");
     const ownedBlock = src.slice(
       ownedStart,
@@ -1553,10 +1553,19 @@ describe("Slice 7B exclusive holding route wire", () => {
     );
     expect(ownedBlock).toContain("exclusiveLaneOwnsTurn: true");
     expect(ownedBlock).toContain("should_write_outcome_event: false");
-    expect(src).toContain('decisionReason: "sol_temporary_overlay_holding"');
+    expect(src).toContain('decisionReason: "sol_temporary_overlay_confirm"');
     expect(src).not.toMatch(
-      /sendSolTemporaryOverlayHoldingInboundReply[\s\S]{0,1200}persistInboundV3RelationshipLaneReplyReadyAndSend/
+      /sendSolTemporaryOverlayConfirmInboundReply[\s\S]{0,1200}persistInboundV3RelationshipLaneReplyReadyAndSend/
     );
+  });
+
+  it("route passes job.created_at as semantic now only; mutationClock is not wired from the job", () => {
+    const confirm = pendingBlock.indexOf("await runSolTemporaryOverlayConfirmForInbound");
+    const leftoverCall = pendingBlock.indexOf("await tryHandleSmsInboundPendingResolution");
+    const between = pendingBlock.slice(confirm, leftoverCall);
+    expect(between).toContain("now: job.created_at");
+    expect(between).toContain("Semantic/turn time only");
+    expect(between).not.toContain("mutationClock:");
   });
 });
 

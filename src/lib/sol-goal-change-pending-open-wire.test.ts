@@ -67,7 +67,7 @@ describe("Slice 2 Goal Change pending-open production seam", () => {
       "A binding saved-goal confirmation question is allowed only when goal_change_confirmation_authorized is true."
     );
     expect(writer).toContain("Pending is not applied");
-    expect(writer).toContain("three mutually exclusive coaching states");
+    expect(writer).toContain("mutually exclusive coaching states");
     expect(writer).toContain("GOAL_CHANGE_CONFIRMATION_STATE");
     expect(writer).toContain("GOAL_CHANGE_APPLIED_COACHING_NOTE");
     expect(writer).toContain("Do NOT re-ask confirmation after apply");

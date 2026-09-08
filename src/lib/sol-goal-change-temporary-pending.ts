@@ -75,6 +75,17 @@ export function isSolOwnedTemporaryAwaitingCandidatePending(
   return st === "awaiting_candidate";
 }
 
+export function isSolOwnedTemporaryAwaitingConfirmationPending(
+  commitment: ActiveV2CommitmentRow
+): boolean {
+  if (!isSolOwnedTemporaryOverlayPending(commitment)) return false;
+  const pending = getPendingResolutionOrNull(commitment);
+  const st = pending?.payload && pending.payload.source === "sms_inbound"
+    ? pending.payload.sms_state ?? "awaiting_candidate"
+    : null;
+  return st === "awaiting_confirmation";
+}
+
 export function shouldAttemptSolTemporaryPendingOpen(
   result: SolGoalChangeSemanticResult
 ): boolean {

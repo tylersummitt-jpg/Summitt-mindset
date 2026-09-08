@@ -334,8 +334,11 @@ import {
 } from "@/lib/sol-goal-change-awaiting-candidate";
 import {
   isSolOwnedTemporaryOverlayPending,
-  runSolTemporaryOverlayHoldingForInbound,
 } from "@/lib/sol-goal-change-temporary-pending";
+import {
+  runSolTemporaryOverlayConfirmForInbound,
+  type SolTemporaryConfirmResult,
+} from "@/lib/sol-goal-change-temporary-confirm";
 import {
   applyGoalChangeMachineBodySafety,
   SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
@@ -10440,41 +10443,37 @@ async function sendSolGoalChangeAwaitingCandidateInboundReply(args: {
 }
 
 /**
- * Slice 7B correction — exclusive holding owner for tagged temp overlay pending
- * that Slice 3 (replace-only) and the temp awaiting-candidate hallway did not
- * consume. Consumes the turn. No overlay apply. No canonical mutation. No 7C.
+ * Slice 7C — exclusive Sol-owned temp overlay confirmation for tagged pending.
+ * Overlay apply only after overlay RPC + post-RPC reload proof + pending clear.
+ * Canonical Current Goal never mutates here.
  */
-async function sendSolTemporaryOverlayHoldingInboundReply(args: {
+async function sendSolTemporaryOverlayConfirmInboundReply(args: {
   job: JobRow;
   userId: string;
   timezone: string;
   inboundRaw: string;
-  held: {
-    commitment: ActiveV2CommitmentRow;
-    authorization: SolGoalChangeConfirmationAuthorization;
-    demoted: boolean;
-  };
+  confirm: SolTemporaryConfirmResult;
 }): Promise<void> {
   await sendSolGoalChangeOwnedPendingInboundReply({
     job: args.job,
     userId: args.userId,
     timezone: args.timezone,
     inboundRaw: args.inboundRaw,
-    commitment: args.held.commitment,
-    authorization: args.held.authorization,
+    commitment: args.confirm.commitment,
+    authorization: args.confirm.authorization,
     forensics: {
       leftover_saved_replace_english: false,
       leftover_candidate_ai_invoked: false,
       parse_sms_confirmation_used: false,
       leftover_tighten_english: false,
-      exclusive_temp_holding: true,
-      demoted: args.held.demoted,
+      exclusive_temp_confirm: true,
+      ...args.confirm.forensics,
     },
-    consequence: args.held.demoted ? "hold_demote" : "hold",
-    decisionReason: "sol_temporary_overlay_holding",
-    coachingMoveSource: "sol_temporary_overlay_holding",
-    branchName: "sol_temporary_overlay_holding",
-    laneTag: "sol_temporary_overlay_holding",
+    consequence: args.confirm.consequence,
+    decisionReason: "sol_temporary_overlay_confirm",
+    coachingMoveSource: "sol_temporary_overlay_confirm",
+    branchName: "sol_temporary_overlay_confirm",
+    laneTag: "sol_temporary_overlay_confirm",
   });
 }
 
@@ -10636,28 +10635,35 @@ async function processV2SmsInboundPendingResolution(
     return true;
   }
 
-  const nowMsPending = job.created_at ? new Date(job.created_at).getTime() : Date.now();
   if (isSolOwnedTemporaryOverlayPending(c)) {
-    const held = await runSolTemporaryOverlayHoldingForInbound({
+    const confirm = await runSolTemporaryOverlayConfirmForInbound({
+      clerkUserId: userId,
       commitment: c,
-      nowMs: nowMsPending,
+      inboundRaw: rawPrEarly,
+      messageSid: job.message_sid,
+      timezone,
+      // Semantic/turn time only. Overlay apply/proof uses Date.now() internally.
+      now: job.created_at ? new Date(job.created_at) : new Date(),
     });
-    console.info("[sol-temporary-overlay-holding]", {
+    console.info("[sol-temporary-overlay-confirm]", {
       message_sid: job.message_sid,
-      commitment_id: held.commitment.id,
+      commitment_id: confirm.commitment.id,
       handled: true,
-      demoted: held.demoted,
-      apply_authorized: held.authorization.goal_change_apply_authorized,
-      confirmation_authorized: held.authorization.goal_change_confirmation_authorized,
+      consequence: confirm.consequence,
+      apply_authorized: confirm.authorization.goal_change_apply_authorized,
+      confirmation_authorized: confirm.authorization.goal_change_confirmation_authorized,
       temporary_confirmation_authorized:
-        held.authorization.temporary_adjustment_confirmation_authorized === true,
+        confirm.authorization.temporary_adjustment_confirmation_authorized === true,
+      temporary_apply_authorized:
+        confirm.authorization.temporary_adjustment_apply_authorized === true,
+      ...confirm.forensics,
     });
-    await sendSolTemporaryOverlayHoldingInboundReply({
+    await sendSolTemporaryOverlayConfirmInboundReply({
       job,
       userId,
       timezone,
       inboundRaw: rawPrEarly,
-      held,
+      confirm,
     });
     return true;
   }

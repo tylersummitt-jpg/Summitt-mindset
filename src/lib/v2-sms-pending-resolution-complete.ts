@@ -1039,9 +1039,9 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     return { handled: false };
   }
 
-  // Slice 7B: Sol-owned temporary overlay pending. Leftover must not extract,
-  // confirm, or apply overlay. Legacy commitment_tighten rows without this
-  // marker remain leftover-owned.
+  // Slice 7B/7C: Sol-owned temporary overlay pending. Leftover must not extract,
+  // confirm, or apply overlay. Tagged rows are exclusive to Sol 7C confirm.
+  // Legacy commitment_tighten rows without this marker remain leftover-owned.
   if (payload.sol_temporary_overlay === true) {
     return { handled: false };
   }

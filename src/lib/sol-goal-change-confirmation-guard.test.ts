@@ -404,4 +404,81 @@ describe("Slice 7B temporary confirmation body safety", () => {
     });
     expect(r.blocked).toBe(false);
   });
+
+  it("blocks It's set and temporary-target-is-now before apply", () => {
+    for (const body of ["It's set.", "10:30 is active through Friday.", "Your temporary target is now 10:30."]) {
+      const r = applyGoalChangeMachineBodySafety({ body, authorization: tempAuth });
+      expect(r.blocked).toBe(true);
+      expect(r.body).toMatch(/temporary target/i);
+    }
+  });
+});
+
+describe("Slice 7C temporary applied body safety", () => {
+  const appliedAuth: SolGoalChangeConfirmationAuthorization = {
+    ...pendingAuth,
+    goal_change_confirmation_authorized: false,
+    goal_change_apply_authorized: false,
+    temporary_adjustment_confirmation_authorized: false,
+    temporary_adjustment_apply_authorized: true,
+    candidate_behavior_statement: CANDIDATE,
+    temporary_candidate_behavior_statement: CANDIDATE,
+    temporary_last_included_local_date: "2026-09-13",
+    temporary_expires_at: "2026-09-14T04:00:00.000Z",
+    pending_cleared: true,
+  };
+
+  it("blocks false permanence after temp apply", () => {
+    for (const body of [
+      "I've changed your goal to 10:30.",
+      "I've changed your Current Goal to 10:30.",
+      "I've changed your current goal to 10:30.",
+      "I'VE CHANGED YOUR CURRENT GOAL TO 10:30.",
+      "I have changed your Current Goal to 10:30.",
+      "I have changed your goal to 10:30.",
+      "I've just changed your Current Goal to 10:30.",
+      "I changed your goal to 10:30.",
+      "I changed your Current Goal to 10:30.",
+      "I changed your current goal to 10:30.",
+      "I CHANGED YOUR CURRENT GOAL TO 10:30.",
+      "I changed your   Current   Goal to 10:30.",
+      "Your Current Goal is now 10:30.",
+      "Your current goal is now 10:30.",
+      "Your CURRENT GOAL is now 10:30.",
+      "Your Current Goal is now set to 10:30.",
+      "Your goal is now 10:30.",
+      "Your new Current Goal is 10:30.",
+      "Going forward, your goal is 10:30.",
+      "I changed your goal permanently.",
+    ]) {
+      const r = applyGoalChangeMachineBodySafety({ body, authorization: appliedAuth });
+      expect(r.blocked).toBe(true);
+      expect(r.body).toMatch(/Current Goal stays/i);
+      expect(r.body).not.toMatch(/going forward is/i);
+    }
+  });
+
+  it("allows truthful Current Goal stays/remains and temporary coaching language", () => {
+    for (const body of [
+      "I haven't changed your Current Goal.",
+      "I did not change your Current Goal.",
+      "Your Current Goal stays 9:30.",
+      "Your Current Goal remains 9:30.",
+      "Your Current Goal is still 9:30.",
+      "I've changed how I'll coach you through Sunday, but your Current Goal stays 9:30.",
+      "I'll coach you against 10:30 through Sunday.",
+      "Until Sunday, 10:30 is the temporary target.",
+      "Your Current Goal stays 9:30 while I coach you against 10:30 through Sunday.",
+    ]) {
+      const r = applyGoalChangeMachineBodySafety({ body, authorization: appliedAuth });
+      expect(r.blocked).toBe(false);
+    }
+  });
+
+  it("writer failure fallback is temporary applied, not saved-goal language", () => {
+    const body = tryBuildAuthorizedGoalChangeWriterFailureFallback(appliedAuth);
+    expect(body).toMatch(/Current Goal stays/i);
+    expect(body).not.toMatch(/going forward is/i);
+    expect(body).toContain("2026-09-13");
+  });
 });

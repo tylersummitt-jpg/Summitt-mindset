@@ -114,14 +114,15 @@ describe("Slice 6 — dead saved Goal Change routing retired", () => {
     expect(pendingBlock).toContain("await tryHandleSmsInboundPendingResolution");
   });
 
-  it("tagged temp awaiting_confirmation has exclusive holding owner before leftover", () => {
+  it("tagged temp awaiting_confirmation has exclusive confirm owner before leftover", () => {
     const hallway = pendingBlock.indexOf("await runSolGoalChangeAwaitingCandidateForInbound");
-    const holder = pendingBlock.indexOf("await runSolTemporaryOverlayHoldingForInbound");
+    const confirm = pendingBlock.indexOf("await runSolTemporaryOverlayConfirmForInbound");
     const leftoverCall = pendingBlock.indexOf("await tryHandleSmsInboundPendingResolution");
-    expect(holder).toBeGreaterThan(hallway);
-    expect(leftoverCall).toBeGreaterThan(holder);
-    expect(pendingBlock).toContain("sendSolTemporaryOverlayHoldingInboundReply");
+    expect(confirm).toBeGreaterThan(hallway);
+    expect(leftoverCall).toBeGreaterThan(confirm);
+    expect(pendingBlock).toContain("sendSolTemporaryOverlayConfirmInboundReply");
     expect(pendingBlock).toContain("isSolOwnedTemporaryOverlayPending");
+    expect(pendingBlock).not.toContain("runSolTemporaryOverlayHoldingForInbound");
   });
 
   it("Sol pending-open still uses the Wave4-named structural writer helper", () => {

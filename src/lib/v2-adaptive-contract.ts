@@ -33,6 +33,9 @@ import {
 
 export type V2AdaptiveContractKind = "shrink_ask" | "recommit_same";
 
+/** Overlay mutation kind. `temporary_ask` is Sol temp apply only; daily/contract SMS stay shrink/recommit. */
+export type V2OverlayMutationContractKind = V2AdaptiveContractKind | "temporary_ask";
+
 /** Pending shrink proposal window (authoritative for this PR). */
 export const V2_ADAPTIVE_PROPOSAL_TTL_MS = 48 * 60 * 60 * 1000;
 
@@ -213,7 +216,7 @@ export async function persistContractOverlayProposed(args: {
   proposalText: string;
   dayKey: string;
   messageSid: string;
-  contractKind: V2AdaptiveContractKind;
+  contractKind: V2OverlayMutationContractKind;
   /** Distinct idempotency when multiple proposals could share the same calendar day_key (e.g. guided + cron). */
   idempotencySuffix?: string;
   expectedUpdatedAt?: string | null;
@@ -286,14 +289,17 @@ export async function activateAdaptiveOverlayFromProposal(args: {
   clerkUserId: string;
   proposalText: string;
   inboundMessageSid: string;
-  contractKind: V2AdaptiveContractKind;
+  contractKind: V2OverlayMutationContractKind;
   expectedProposalExpiresAt?: string | null;
   expectedUpdatedAt?: string | null;
+  /** Slice 7C — explicit frozen expiry. Omitters keep RPC DEFAULT NULL → now()+7 days. */
+  overlayExpiresAt?: string | null;
 }): Promise<
   | { ok: true; updatedAt: string | null; result: OverlayConsentMutationResult }
   | { ok: false; error: string; result?: OverlayConsentMutationResult }
 > {
   const nowIso = new Date().toISOString();
+  const overlayExpiresAt = args.overlayExpiresAt?.trim() || null;
   const { data, error } = await supabaseServer.rpc("v2_apply_overlay_consent_mutation", {
     p_commitment_id: args.commitmentId,
     p_clerk_user_id: args.clerkUserId,
@@ -305,6 +311,7 @@ export async function activateAdaptiveOverlayFromProposal(args: {
       typeof args.expectedProposalExpiresAt === "string" ? args.expectedProposalExpiresAt : null,
     p_expected_updated_at: typeof args.expectedUpdatedAt === "string" ? args.expectedUpdatedAt : null,
     p_now: nowIso,
+    ...(overlayExpiresAt ? { p_overlay_expires_at: overlayExpiresAt } : {}),
   });
   if (error) {
     return { ok: false, error: `contract_overlay_activate_rpc_failed:${error.message}` };
