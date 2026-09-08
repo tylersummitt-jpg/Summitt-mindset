@@ -58,6 +58,8 @@ import {
   type SmsRelationshipMemoryPacket,
 } from "@/lib/sms-relationship-memory-packet";
 import { extractRecentCoachBodiesForAntiRepeat } from "@/lib/sms-recent-coach-body-anti-repeat";
+import fs from "node:fs";
+import path from "node:path";
 
 const NOW = new Date("2026-05-18T12:00:00.000Z");
 
@@ -885,5 +887,273 @@ describe("inbound and daily memory packet wiring", () => {
     expect(thread.latest_answer_after_open_question).toContain("Sunday School");
     expect(thread.recent_exact_thread_text).toContain("Coach:");
     expect(thread.memory_priority_rules?.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Slice 7D Goal Change memory packet overlay truth (GC-038)", () => {
+  const CANONICAL = "I will be in bed by 9:30 pm nightly.";
+  const TEMP = "I will be in bed by 10:30 pm nightly through Sunday.";
+  const SAVED_CANDIDATE = "I will be in bed by 10:00 pm nightly.";
+  const FUTURE = new Date(NOW.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString();
+  const PAST = new Date(NOW.getTime() - 60_000).toISOString();
+
+  function gcCommitment(overrides: Partial<ActiveV2CommitmentRow> = {}): ActiveV2CommitmentRow {
+    return {
+      id: "cmt_gc038",
+      clerk_user_id: "user_1",
+      status: "active",
+      behavior_statement: CANONICAL,
+      title: "Bed",
+      success_criteria: null,
+      blocker_capture_expires_at: null,
+      blocker_capture_after_event: null,
+      adaptive_ask_text: null,
+      adaptive_ask_active_from: null,
+      adaptive_ask_expires_at: null,
+      adaptive_proposal_text: null,
+      adaptive_proposal_created_at: null,
+      adaptive_proposal_expires_at: null,
+      accountability_phase: "active_accountability",
+      reactivation_entered_at: null,
+      reactivation_last_sent_at: null,
+      reactivation_entry_reason_code: null,
+      refresh_session: null,
+      commitment_refresh_last_prompted_at: null,
+      pending_resolution_kind: null,
+      pending_resolution_created_at: null,
+      pending_resolution_expires_at: null,
+      pending_resolution_payload: null,
+      updated_at: NOW.toISOString(),
+      started_at: "2026-04-01T00:00:00.000Z",
+      ...overrides,
+    };
+  }
+
+  function tempPayload(smsState: "awaiting_candidate" | "awaiting_confirmation") {
+    return {
+      source: "sms_inbound",
+      sms_state: smsState,
+      sol_temporary_overlay: true,
+      candidate_behavior_statement: smsState === "awaiting_confirmation" ? TEMP : null,
+    };
+  }
+
+  async function buildGcPacket(
+    commitment: ActiveV2CommitmentRow,
+    events: { event_type: string; occurred_at: string; payload_json: Record<string, unknown> }[] = []
+  ) {
+    setupSupabaseTables({ commitment });
+    getRecentV2EventsForAi.mockResolvedValue(events);
+    fetchEventsForRelationshipProfile.mockResolvedValue(events);
+    return buildSmsRelationshipMemoryPacket({
+      clerkUserId: "user_1",
+      commitmentId: commitment.id,
+      timezone: "America/Chicago",
+      now: NOW,
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getRecentV2EventsForAi.mockResolvedValue([]);
+    fetchEventsForRelationshipProfile.mockResolvedValue([]);
+    loadSmsVictoryBackgroundContext.mockResolvedValue({
+      activeSeason: null,
+      patRead: null,
+      patPrinciples: null,
+    });
+    loadV2CoachingMemoryForPrompt.mockResolvedValue(null);
+    loadV2CommitmentSmsThreadMemory.mockResolvedValue(null);
+  });
+
+  it("1 canonical only: overlay_active false, effective ask is canonical", async () => {
+    const packet = await buildGcPacket(gcCommitment());
+    expect(packet.behavior_statement).toBe(CANONICAL);
+    expect(packet.effective_ask).toBe(CANONICAL);
+    expect(packet.overlay_active).toBe(false);
+    expect(packet.pending_resolution_summary).toBeNull();
+  });
+
+  it("A / 2 proposal only: overlay_active false (not proposal presence)", async () => {
+    const packet = await buildGcPacket(
+      gcCommitment({
+        adaptive_proposal_text: TEMP,
+        adaptive_proposal_created_at: NOW.toISOString(),
+        adaptive_proposal_expires_at: FUTURE,
+      })
+    );
+    expect(packet.behavior_statement).toBe(CANONICAL);
+    expect(packet.effective_ask).toBe(CANONICAL);
+    expect(packet.overlay_active).toBe(false);
+    expect(packet.pending_resolution_summary).toBeNull();
+  });
+
+  it("3 temp pending awaiting_candidate is not an active overlay", async () => {
+    const packet = await buildGcPacket(
+      gcCommitment({
+        pending_resolution_kind: "commitment_tighten",
+        pending_resolution_payload: tempPayload("awaiting_candidate"),
+      })
+    );
+    expect(packet.behavior_statement).toBe(CANONICAL);
+    expect(packet.effective_ask).toBe(CANONICAL);
+    expect(packet.overlay_active).toBe(false);
+    expect(packet.pending_resolution_summary).toContain("pending_resolution_kind=commitment_tighten");
+    expect(packet.pending_resolution_summary).toContain("sms_state=awaiting_candidate");
+    expect(packet.pending_resolution_summary).toContain("sol_temporary_overlay=true");
+  });
+
+  it("4 temp pending awaiting_confirmation is not an active overlay", async () => {
+    const packet = await buildGcPacket(
+      gcCommitment({
+        pending_resolution_kind: "commitment_tighten",
+        pending_resolution_payload: tempPayload("awaiting_confirmation"),
+      })
+    );
+    expect(packet.behavior_statement).toBe(CANONICAL);
+    expect(packet.effective_ask).toBe(CANONICAL);
+    expect(packet.overlay_active).toBe(false);
+    expect(packet.pending_resolution_summary).toContain("sms_state=awaiting_confirmation");
+    expect(packet.pending_resolution_summary).toContain("sol_temporary_overlay=true");
+  });
+
+  it("B / 5 / F active temp overlay: overlay_active true, canonical unchanged", async () => {
+    const packet = await buildGcPacket(
+      gcCommitment({
+        adaptive_ask_text: TEMP,
+        adaptive_ask_active_from: NOW.toISOString(),
+        adaptive_ask_expires_at: FUTURE,
+      })
+    );
+    expect(packet.behavior_statement).toBe(CANONICAL);
+    expect(packet.effective_ask).toBe(TEMP);
+    expect(packet.overlay_active).toBe(true);
+    expect(packet.pending_resolution_summary).toBeNull();
+  });
+
+  it("C / 6 expired overlay: overlay_active false, effective ask returns to canonical", async () => {
+    const packet = await buildGcPacket(
+      gcCommitment({
+        adaptive_ask_text: TEMP,
+        adaptive_ask_active_from: PAST,
+        adaptive_ask_expires_at: PAST,
+      })
+    );
+    expect(packet.behavior_statement).toBe(CANONICAL);
+    expect(packet.effective_ask).toBe(CANONICAL);
+    expect(packet.overlay_active).toBe(false);
+  });
+
+  it("7 active temp + saved pending can both be true", async () => {
+    const packet = await buildGcPacket(
+      gcCommitment({
+        adaptive_ask_text: TEMP,
+        adaptive_ask_active_from: NOW.toISOString(),
+        adaptive_ask_expires_at: FUTURE,
+        pending_resolution_kind: "commitment_replace",
+        pending_resolution_payload: {
+          source: "sms_inbound",
+          sms_state: "awaiting_confirmation",
+          candidate_behavior_statement: SAVED_CANDIDATE,
+        },
+      })
+    );
+    expect(packet.behavior_statement).toBe(CANONICAL);
+    expect(packet.effective_ask).toBe(TEMP);
+    expect(packet.overlay_active).toBe(true);
+    expect(packet.pending_resolution_summary).toContain("pending_resolution_kind=commitment_replace");
+    expect(packet.pending_resolution_summary).toContain("sms_state=awaiting_confirmation");
+    expect(packet.pending_resolution_summary).not.toContain("sol_temporary_overlay=true");
+  });
+
+  it("8 active temp + PI event: overlay_active stays true, PI does not erase it", async () => {
+    const packet = await buildGcPacket(
+      gcCommitment({
+        adaptive_ask_text: TEMP,
+        adaptive_ask_active_from: NOW.toISOString(),
+        adaptive_ask_expires_at: FUTURE,
+      }),
+      [
+        {
+          event_type: "sms_memory_signal",
+          occurred_at: NOW.toISOString(),
+          payload_json: {
+            planned_interruption: true,
+            message_preview: "traveling this week",
+          },
+        },
+      ]
+    );
+    expect(packet.behavior_statement).toBe(CANONICAL);
+    expect(packet.effective_ask).toBe(TEMP);
+    expect(packet.overlay_active).toBe(true);
+    expect(packet.pending_resolution_summary).toBeNull();
+  });
+
+  it("9 / 16 stale proposal after failed apply is not overlay or effective ask", async () => {
+    const packet = await buildGcPacket(
+      gcCommitment({
+        adaptive_proposal_text: TEMP,
+        adaptive_proposal_created_at: NOW.toISOString(),
+        adaptive_proposal_expires_at: FUTURE,
+        adaptive_ask_text: null,
+      })
+    );
+    expect(packet.behavior_statement).toBe(CANONICAL);
+    expect(packet.effective_ask).toBe(CANONICAL);
+    expect(packet.overlay_active).toBe(false);
+  });
+
+  it("10 saved applied / no temp: overlay_active false, canonical is the saved goal", async () => {
+    const saved = "I will be in bed by 10:00 pm nightly.";
+    const packet = await buildGcPacket(gcCommitment({ behavior_statement: saved }));
+    expect(packet.behavior_statement).toBe(saved);
+    expect(packet.effective_ask).toBe(saved);
+    expect(packet.overlay_active).toBe(false);
+    expect(packet.pending_resolution_summary).toBeNull();
+  });
+
+  it("D no proposal / no overlay", async () => {
+    const packet = await buildGcPacket(gcCommitment());
+    expect(packet.overlay_active).toBe(false);
+  });
+
+  it("E proposal + active overlay follows overlay truth, not proposal", async () => {
+    const packet = await buildGcPacket(
+      gcCommitment({
+        adaptive_proposal_text: "Ignore this stale proposal text.",
+        adaptive_proposal_created_at: NOW.toISOString(),
+        adaptive_proposal_expires_at: FUTURE,
+        adaptive_ask_text: TEMP,
+        adaptive_ask_active_from: NOW.toISOString(),
+        adaptive_ask_expires_at: FUTURE,
+      })
+    );
+    expect(packet.behavior_statement).toBe(CANONICAL);
+    expect(packet.effective_ask).toBe(TEMP);
+    expect(packet.overlay_active).toBe(true);
+  });
+
+  it("ordinary non-Goal-Change packet without commitment stays overlay_active false", async () => {
+    setupSupabaseTables({});
+    const packet = await buildSmsRelationshipMemoryPacket({
+      clerkUserId: "user_ordinary",
+      timezone: "America/Chicago",
+      now: NOW,
+    });
+    expect(packet.overlay_active).toBe(false);
+    expect(packet.behavior_statement).toBeNull();
+    expect(packet.pending_resolution_summary).toBeNull();
+  });
+
+  it("does not derive overlay_active from proposal text", () => {
+    const src = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/sms-relationship-memory-packet.ts"),
+      "utf8"
+    );
+    expect(src).toContain("isV2AdaptiveOverlayActive");
+    expect(src).not.toMatch(/overlay_active:\s*Boolean\(commitment\?\.adaptive_proposal_text/);
+    expect(src).not.toContain("parseSmsConfirmation");
+    expect(src).not.toMatch(/Yep|Absolutely|tonight only|through Friday/);
   });
 });

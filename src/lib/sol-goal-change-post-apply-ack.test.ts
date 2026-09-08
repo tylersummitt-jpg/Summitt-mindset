@@ -438,3 +438,73 @@ describe("Slice 4 Sol-writer-failure fallback", () => {
     expect(guarded.blocked).toBe(false);
   });
 });
+
+describe("Slice 7D temp applied writer truth", () => {
+  const tempApplied: SolGoalChangeConfirmationAuthorization = {
+    goal_change_confirmation_authorized: false,
+    goal_change_apply_authorized: false,
+    temporary_adjustment_confirmation_authorized: false,
+    temporary_adjustment_apply_authorized: true,
+    candidate_behavior_statement: ANGELA_NEW,
+    temporary_candidate_behavior_statement: ANGELA_NEW,
+    canonical_behavior_statement: ANGELA_PREV,
+    pending_state: null,
+    previous_behavior_statement: null,
+    previous_commitment_id: null,
+    active_commitment_id: "cmt_angela",
+    pending_cleared: true,
+    temporary_last_included_local_date: "2026-09-13",
+    temporary_expires_at: "2026-09-14T04:00:00.000Z",
+  };
+
+  it("attaches TEMPORARY_OVERLAY_APPLIED_COACHING_NOTE only when temp apply is proven", () => {
+    const user = String(
+      buildInboundSolWriterMessages(packet("Yes", ANGELA_NEW), brief(), null, tempApplied)[1]
+        ?.content ?? ""
+    );
+    expect(user).toContain("TEMPORARY_OVERLAY_APPLIED_COACHING_NOTE");
+    expect(user).toContain('"verified_temporary_overlay_applied":true');
+    expect(user).toContain(`"canonical_current_goal":"${ANGELA_PREV}"`);
+    expect(user).toContain(`"temporary_effective_ask":"${ANGELA_NEW}"`);
+    expect(user).toContain('"last_included_local_date":"2026-09-13"');
+    expect(user).toContain('"pending_cleared":true');
+    expect(user).toContain('"goal_change_apply_authorized":false');
+    expect(user).toContain('"temporary_adjustment_apply_authorized":true');
+    expect(user).not.toContain("GOAL_CHANGE_APPLIED_COACHING_NOTE");
+  });
+
+  it("does not attach temp applied note for temp confirmation (ask, do not assert)", () => {
+    const confirm: SolGoalChangeConfirmationAuthorization = {
+      ...tempApplied,
+      temporary_adjustment_apply_authorized: false,
+      temporary_adjustment_confirmation_authorized: true,
+      pending_cleared: false,
+      pending_state: "awaiting_confirmation",
+    };
+    const user = String(
+      buildInboundSolWriterMessages(packet("10:30 through Sunday", ANGELA_PREV), brief(), null, confirm)[1]
+        ?.content ?? ""
+    );
+    expect(user).not.toContain("TEMPORARY_OVERLAY_APPLIED_COACHING_NOTE");
+    expect(user).not.toContain("GOAL_CHANGE_APPLIED_COACHING_NOTE");
+    expect(user).toContain('"temporary_adjustment_confirmation_authorized":true');
+    expect(user).toContain('"temporary_adjustment_apply_authorized":false');
+    expect(user).toContain(`"canonical_behavior_statement":"${ANGELA_PREV}"`);
+  });
+
+  it("saved apply still uses saved note, not temp overlay note", () => {
+    const user = String(
+      buildInboundSolWriterMessages(packet("Yes", ANGELA_NEW), brief(), null, angelaApplied())[1]
+        ?.content ?? ""
+    );
+    expect(user).toContain("GOAL_CHANGE_APPLIED_COACHING_NOTE");
+    expect(user).not.toContain("TEMPORARY_OVERLAY_APPLIED_COACHING_NOTE");
+  });
+
+  it("proposal presence is not apply authorization in default writer state", () => {
+    const user = String(buildInboundSolWriterMessages(packet("Yes", ANGELA_PREV), brief())[1]?.content ?? "");
+    expect(user).not.toContain("TEMPORARY_OVERLAY_APPLIED_COACHING_NOTE");
+    expect(user).not.toContain("GOAL_CHANGE_APPLIED_COACHING_NOTE");
+    expect(user).toContain('"goal_change_apply_authorized":false');
+  });
+});

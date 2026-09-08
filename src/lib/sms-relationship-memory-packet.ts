@@ -17,7 +17,7 @@ import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
 import { getRecentV2EventsForAi, type V2EventRowForAi } from "@/lib/v2-commitment";
 import { loadV2CoachingMemoryForPrompt, type V2CoachingMemoryForPrompt } from "@/lib/v2-coaching-memory";
 import { formatCoachingMemoryPromptBlock } from "@/lib/v2-coaching-memory-prompt";
-import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
+import { getEffectiveCoachingAsk, isV2AdaptiveOverlayActive } from "@/lib/v2-adaptive-contract";
 import { loadV2CommitmentSmsThreadMemory } from "@/lib/v2-commitment-sms-thread-memory";
 import { deriveDoNotRepeatHintsFromCoachingMemory } from "@/lib/v3-daily-relationship-lane";
 import { deriveV3LearningSignalsFromContext } from "@/lib/v3-sms-learning";
@@ -57,6 +57,27 @@ export type { RelationshipMemory7dData, RelationshipMemory7dResult } from "@/lib
 export type { RelationshipMemory30dData, RelationshipMemory30dResult } from "@/lib/sms-relationship-memory-30d";
 
 export type SmsThreadMemoryProjectionSource = "projection" | "runtime_guess" | "none";
+
+function pendingResolutionSummaryFromCommitment(
+  commitment: ActiveV2CommitmentRow
+): string | null {
+  const kind = commitment.pending_resolution_kind;
+  if (!kind) return null;
+  const parts = [`pending_resolution_kind=${kind}`];
+  const payload = commitment.pending_resolution_payload;
+  if (payload && typeof payload === "object") {
+    const rec = payload as Record<string, unknown>;
+    if (rec.source === "sms_inbound") {
+      if (typeof rec.sms_state === "string" && rec.sms_state.trim()) {
+        parts.push(`sms_state=${rec.sms_state.trim()}`);
+      }
+      if (rec.sol_temporary_overlay === true) {
+        parts.push("sol_temporary_overlay=true");
+      }
+    }
+  }
+  return parts.join(";");
+}
 
 function isAlreadyToldYouCorrection(text: string): boolean {
   const t = text.trim();
@@ -123,6 +144,7 @@ export type SmsRelationshipMemoryPacket = {
   effective_ask: string | null;
   accountability_phase: string | null;
   pending_resolution_summary: string | null;
+  /** Live overlay via isV2AdaptiveOverlayActive. Not proposal presence. */
   overlay_active: boolean;
   recent_outcomes_summary: {
     yes_7d: number;
@@ -678,10 +700,9 @@ export async function buildSmsRelationshipMemoryPacket(args: {
         ? `preferred_name=${profile.preferred_name}`
         : null;
 
-  let pending_resolution_summary: string | null = null;
-  if (commitment?.pending_resolution_kind) {
-    pending_resolution_summary = `pending_resolution_kind=${commitment.pending_resolution_kind}`;
-  }
+  const pending_resolution_summary = commitment
+    ? pendingResolutionSummaryFromCommitment(commitment)
+    : null;
 
   const effective_ask =
     commitment != null ? getEffectiveCoachingAsk(commitment, nowMs) : coachingMemory?.effective_ask_text ?? null;
@@ -822,7 +843,7 @@ export async function buildSmsRelationshipMemoryPacket(args: {
     effective_ask: effective_ask?.trim() ?? null,
     accountability_phase: commitment?.accountability_phase ?? coachingMemory?.accountability_phase ?? null,
     pending_resolution_summary,
-    overlay_active: Boolean(commitment?.adaptive_proposal_text?.trim()),
+    overlay_active: commitment != null ? isV2AdaptiveOverlayActive(commitment, nowMs) : false,
     recent_outcomes_summary: recentOutcomesSummaryFromMemory7d(relationship_memory_7d),
     coaching_memory_summary,
     coaching_memory_is_background_only: true,

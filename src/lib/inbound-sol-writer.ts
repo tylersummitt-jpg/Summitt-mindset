@@ -222,6 +222,23 @@ export function buildInboundSolWriterMessages(
       })
     );
   }
+  if (auth.temporary_adjustment_apply_authorized === true) {
+    parts.push(
+      "",
+      "TEMPORARY_OVERLAY_APPLIED_COACHING_NOTE",
+      JSON.stringify({
+        verified_temporary_overlay_applied: true,
+        canonical_current_goal: auth.canonical_behavior_statement,
+        temporary_effective_ask:
+          auth.temporary_candidate_behavior_statement ?? auth.candidate_behavior_statement,
+        last_included_local_date: auth.temporary_last_included_local_date ?? null,
+        expires_at: auth.temporary_expires_at ?? null,
+        pending_cleared: auth.pending_cleared === true,
+        coaching_job:
+          "Canonical Current Goal did not change. Temporary coaching is proven active through last_included_local_date. Do not say the saved goal changed. Do not say the temporary bar is only proposed. Do not re-ask. Do not mention internal systems.",
+      })
+    );
+  }
   parts.push("", INBOUND_SOL_WRITER_JSON_REMINDER);
   return [
     { role: "system", content: INBOUND_SOL_WRITER_SYSTEM_PROMPT },
