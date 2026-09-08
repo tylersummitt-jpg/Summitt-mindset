@@ -50,6 +50,22 @@ describe("Slice 6 — dead saved Goal Change routing retired", () => {
     expect(src).not.toContain("shouldOpenCommitmentChangeHandoff");
   });
 
+  it("7E-1: dead inbound routing symbols are gone from the Wave4 library", () => {
+    const lib = fs.readFileSync(
+      path.join(ROOT, "src/lib/v2-sms-commitment-change.ts"),
+      "utf8"
+    );
+    expect(lib).not.toContain("export function deriveSmsCommitmentChangeIntent");
+    expect(lib).not.toContain("export function shouldOpenCommitmentChangeHandoff");
+    expect(lib).not.toContain("export function evaluateTuGoalChangePendingHandoff");
+    expect(lib).not.toContain("export function evaluateCoachAcceptedGoalEvolutionHandoff");
+    expect(lib).not.toContain("export function shouldOpenTuGoalChangePendingHandoff");
+    expect(lib).not.toContain("export function buildSmsCommitmentChangeCoachReply");
+    expect(lib).not.toContain("export function deriveIntentPackFromReconciledGoalChange");
+    expect(lib).toContain("export async function applyWave4SmsCommitmentPendingResolution");
+    expect(lib).toContain("export function validateTuProposedGoalBarText");
+  });
+
   it("3: openCommitmentChangeHandoff live routing variable is gone", () => {
     expect(src).not.toMatch(/\bopenCommitmentChangeHandoff\b/);
     expect(src).toContain("const normalInboundV3OwnershipEligible = !isInboundTransactionalException;");

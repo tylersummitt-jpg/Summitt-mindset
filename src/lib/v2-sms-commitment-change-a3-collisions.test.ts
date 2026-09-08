@@ -69,10 +69,7 @@ vi.mock("@/lib/v2-human-sms-brain/flags", () => ({
 }));
 
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
-import {
-  extractCandidateBarsFromSms,
-  shouldOpenCommitmentChangeHandoff,
-} from "@/lib/v2-sms-commitment-change";
+import { extractCandidateBarsFromSms } from "@/lib/v2-sms-commitment-change";
 import { applyWave4SmsCommitmentPendingResolution } from "@/lib/v2-sms-commitment-change";
 import {
   bootstrapSmsPendingConfirmationFromInbound,
@@ -150,18 +147,7 @@ beforeEach(() => {
   mergeSmsPendingResolutionPayload.mockResolvedValue({ ok: true });
 });
 
-describe("Slice A3 collisions — handoff gate + Wave 4", () => {
-  it("planned interruption blocks handoff even with change-goal phrase", () => {
-    expect(
-      shouldOpenCommitmentChangeHandoff({
-        gatedMode: "commitment_change_handoff",
-        userMessage: "change my goal to walking after dinner",
-        plannedInterruptionActionable: true,
-        classificationEventType: null,
-      })
-    ).toBe(false);
-  });
-
+describe("Slice A3 collisions — Wave 4 structural writer + leftover pending", () => {
   it("does not apply Wave 4 pending when intent pack has unsafe candidate", async () => {
     setPendingResolution.mockClear();
     const r = await applyWave4SmsCommitmentPendingResolution({

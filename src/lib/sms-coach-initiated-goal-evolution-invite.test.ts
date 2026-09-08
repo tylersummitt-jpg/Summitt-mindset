@@ -17,8 +17,6 @@ import {
   mapCoachGoalEvolutionInviteToDailyFacts,
 } from "@/lib/sms-coach-initiated-goal-evolution-invite";
 import { deriveSuggestedCoachingMoveForDailyFacts } from "@/lib/v3-daily-relationship-lane";
-import { evaluateTuGoalChangePendingHandoff } from "@/lib/v2-sms-commitment-change";
-import type { ReconciledGoalChangeIntent } from "@/lib/openai-relationship-turn-understanding-v1";
 
 function baseCommitment(
   overrides: Partial<ActiveV2CommitmentRow> = {}
@@ -506,38 +504,5 @@ describe("daily writer guardrails", () => {
       },
     });
     expect(move).toBe("invite_goal_evolution");
-  });
-});
-
-describe("Slice 2B proactive sources remain blocked (20)", () => {
-  function tuIntent(
-    overrides: Partial<ReconciledGoalChangeIntent> = {}
-  ): ReconciledGoalChangeIntent {
-    return {
-      authoritative: true,
-      detected: true,
-      adjustment_type: "raise",
-      source: "user_requested",
-      requires_confirmation: true,
-      proposed_new_goal_text: null,
-      evidence_quote: "keeps hitting goal",
-      confidence: "high",
-      goal_change_not_outcome_write: true,
-      goal_change_no_state_mutation_without_confirmation: true,
-      ...overrides,
-    };
-  }
-
-  it("consistency_signal does NOT open shell", () => {
-    const evalResult = evaluateTuGoalChangePendingHandoff({
-      reconciledGoalChangeIntent: tuIntent({ source: "consistency_signal" }),
-      commitment: baseCommitment(),
-      userMessage: "I've been crushing it.",
-      plannedInterruptionActionable: false,
-      classificationEventType: null,
-      relationshipMeaning: "reported_completion",
-    });
-    expect(evalResult.open).toBe(false);
-    expect(evalResult.skipReason).toBe("shell_deferred_proactive_source");
   });
 });

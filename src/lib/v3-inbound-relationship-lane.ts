@@ -699,7 +699,7 @@ export function buildCommitmentChangeInboundFactsFromWave4(args: {
   messageSid: string;
   wave4: Wave4SmsPendingApplyResult;
   pendingResolutionApplyException: string | null;
-  /** Non-speakable legacy Wave4 coach string — pass from `buildSmsCommitmentChangeCoachReply` at the route layer. */
+  /** Non-speakable leftover Wave4 coach string — unused by Sol-owned Goal Change inbound. */
   legacyCommitmentChangeReplyPreview: string;
   bootstrapResult?: CommitmentChangeBootstrapFacts | null;
   /** Slice 2B — awaiting_candidate shell without bootstrap. */

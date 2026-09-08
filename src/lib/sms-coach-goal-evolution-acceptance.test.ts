@@ -17,11 +17,6 @@ import {
   evaluateCoachInviteAcceptanceContext,
   isSubstantiveGoalChangeInviteContinuation,
 } from "@/lib/sms-coach-goal-evolution-acceptance";
-import {
-  evaluateCoachAcceptedGoalEvolutionHandoff,
-  evaluateTuGoalChangePendingHandoff,
-} from "@/lib/v2-sms-commitment-change";
-import type { ReconciledGoalChangeIntent } from "@/lib/openai-relationship-turn-understanding-v1";
 
 const NOW_MS = Date.parse("2026-06-01T12:00:00.000Z");
 
@@ -131,17 +126,7 @@ function acceptHandoff(args: {
     plannedInterruptionActionable: false,
     nowMs: NOW_MS,
   });
-  const handoff =
-    acceptance.disposition === "accepted"
-      ? evaluateCoachAcceptedGoalEvolutionHandoff({
-          acceptance,
-          commitment,
-          userMessage: args.userMessage,
-          plannedInterruptionActionable: false,
-          classificationEventType: args.classificationEventType ?? null,
-        })
-      : null;
-  return { invite, acceptance, handoff };
+  return { invite, acceptance };
 }
 
 describe("deriveRecentCoachGoalEvolutionInviteFromEvents", () => {
@@ -179,54 +164,53 @@ describe("deriveRecentCoachGoalEvolutionInviteFromEvents", () => {
   });
 });
 
-describe("Slice 3B coach invite acceptance → 2B shell", () => {
-  it("1 — recent raise invite + bare yes → unclear, no hallway", () => {
-    const { acceptance, handoff } = acceptHandoff({
+describe("Slice 3B coach invite acceptance (classification only; dead TU handoff retired)", () => {
+  it("1 — recent raise invite + bare yes → unclear, not accepted", () => {
+    const { acceptance } = acceptHandoff({
       userMessage: "yes",
       classificationEventType: "user_yes",
     });
     expect(acceptance.disposition).toBe("ignored");
     expect(acceptance.reply_meaning).toBe("unclear");
-    expect(handoff).toBeNull();
   });
 
-  it("2 — recent shrink invite + make it smaller → awaiting_candidate shell", () => {
-    const { handoff } = acceptHandoff({
+  it("2 — recent shrink invite + make it smaller → accepted change", () => {
+    const { acceptance } = acceptHandoff({
       inviteKind: "shrink",
       userMessage: "make it smaller",
     });
-    expect(handoff?.mode).toBe("awaiting_candidate_shell");
-    expect(handoff?.intentPack?.intent).toBe("sms_tighten_request");
+    expect(acceptance.disposition).toBe("accepted");
+    expect(acceptance.reply_meaning).toBe("change_goal");
   });
 
-  it("3 — recent reset invite + reset it → awaiting_candidate shell", () => {
-    const { handoff } = acceptHandoff({
+  it("3 — recent reset invite + reset it → accepted change", () => {
+    const { acceptance } = acceptHandoff({
       inviteKind: "reset",
       userMessage: "reset it",
     });
-    expect(handoff?.mode).toBe("awaiting_candidate_shell");
+    expect(acceptance.disposition).toBe("accepted");
+    expect(acceptance.reply_meaning).toBe("change_goal");
   });
 
-  it("4 — recent blocker-focus invite + focus on the blocker → awaiting_candidate shell", () => {
-    const { handoff } = acceptHandoff({
+  it("4 — recent blocker-focus invite + focus on the blocker → accepted change", () => {
+    const { acceptance } = acceptHandoff({
       inviteKind: "blocker_focus",
       userMessage: "let's focus on the blocker",
     });
-    expect(handoff?.mode).toBe("awaiting_candidate_shell");
+    expect(acceptance.disposition).toBe("accepted");
+    expect(acceptance.reply_meaning).toBe("change_goal");
   });
 
-  it("5 — recent invite + concrete bar → concrete_bar_pending", () => {
-    const { acceptance, handoff } = acceptHandoff({
+  it("5 — recent invite + concrete bar → accepted concrete candidate", () => {
+    const { acceptance } = acceptHandoff({
       userMessage: "yes change my goal to run 3 miles every day",
     });
     expect(acceptance.disposition).toBe("accepted");
     expect(acceptance.concrete_bar_present).toBe(true);
-    expect(handoff?.open).toBe(true);
-    expect(handoff?.mode).toBe("concrete_bar_pending");
-    expect(handoff?.validatedProposedBar).toMatch(/3 miles/i);
+    expect(acceptance.proposed_bar_text).toMatch(/3 miles/i);
   });
 
-  it("6 — no recent invite + bare yes → no shell", () => {
+  it("6 — no recent invite + bare yes → skip", () => {
     const invite = deriveInvite([]);
     const acceptance = evaluateCoachInviteAcceptanceContext({
       invite,
@@ -237,18 +221,9 @@ describe("Slice 3B coach invite acceptance → 2B shell", () => {
       nowMs: NOW_MS,
     });
     expect(acceptance.disposition).toBe("skip");
-    const handoff = evaluateTuGoalChangePendingHandoff({
-      reconciledGoalChangeIntent: null,
-      commitment: baseCommitment(),
-      userMessage: "yes",
-      plannedInterruptionActionable: false,
-      classificationEventType: "user_yes",
-    });
-    expect(handoff.open).toBe(false);
-    expect(handoff.skipReason).toBe("not_authoritative");
   });
 
-  it("9 — active pending blocks acceptance handoff", () => {
+  it("9 — active pending blocks acceptance", () => {
     const commitment = baseCommitment({
       pending_resolution_kind: "commitment_replace",
       pending_resolution_created_at: "2026-05-30T00:00:00.000Z",
@@ -270,142 +245,37 @@ describe("Slice 3B coach invite acceptance → 2B shell", () => {
     expect(acceptance.skip_reason).toBe("existing_pending");
   });
 
-  it("12 — decline not now → no pending", () => {
-    const { acceptance, handoff } = acceptHandoff({ userMessage: "not now" });
+  it("12 — decline not now", () => {
+    const { acceptance } = acceptHandoff({ userMessage: "not now" });
     expect(acceptance.disposition).toBe("declined");
     expect(acceptance.reply_meaning).toBe("keep_current");
-    expect(handoff).toBeNull();
     expect(acceptance.telemetry.coach_goal_evolution_user_declined).toBe(true);
   });
 
-  it("13 — ignore done today → no pending", () => {
-    const { acceptance, handoff } = acceptHandoff({
+  it("13 — ignore done today", () => {
+    const { acceptance } = acceptHandoff({
       userMessage: "done today",
       classificationEventType: "user_yes",
     });
     expect(acceptance.disposition).toBe("ignored");
-    expect(handoff).toBeNull();
   });
 
-  it("14-15 — acceptance shell metadata forbids mutation/proof flags", () => {
-    const { handoff } = acceptHandoff({ userMessage: "raise the bar" });
-    expect(handoff?.shellMetadata?.no_outcome_write).toBe(true);
-    expect(handoff?.shellMetadata?.no_state_change_taken).toBe(true);
-    expect(handoff?.shellMetadata?.coach_initiated_goal_evolution).toBe(true);
+  it("14-15 — raise-the-bar invite reply is accepted classification only", () => {
+    const { acceptance } = acceptHandoff({ userMessage: "raise the bar" });
+    expect(acceptance.disposition).toBe("accepted");
+    expect(acceptance.reply_meaning).toBe("raise_current_goal");
   });
 
-  it("20 — bare yes with invite does not open hallway (multi-option unsafe)", () => {
-    const blocked = evaluateTuGoalChangePendingHandoff({
-      reconciledGoalChangeIntent: {
-        authoritative: true,
-        detected: true,
-        adjustment_type: "raise",
-        source: "user_requested",
-        requires_confirmation: true,
-        proposed_new_goal_text: null,
-        evidence_quote: "yes",
-        confidence: "high",
-        goal_change_not_outcome_write: true,
-        goal_change_no_state_mutation_without_confirmation: true,
-      },
-      commitment: baseCommitment(),
-      userMessage: "yes",
-      plannedInterruptionActionable: false,
-      classificationEventType: "user_yes",
-    });
-    expect(blocked.skipReason).toBe("strong_outcome_classification");
-
-    const { acceptance, handoff } = acceptHandoff({
+  it("20 — bare yes with invite does not accept (multi-option unsafe)", () => {
+    const { acceptance } = acceptHandoff({
       userMessage: "yes",
       classificationEventType: "user_yes",
     });
     expect(acceptance.disposition).toBe("ignored");
     expect(acceptance.reply_meaning).toBe("unclear");
-    expect(handoff).toBeNull();
   });
 });
 
-describe("Slice 2B proactive sources remain blocked without invite acceptance", () => {
-  function tuIntent(
-    overrides: Partial<ReconciledGoalChangeIntent> = {}
-  ): ReconciledGoalChangeIntent {
-    return {
-      authoritative: true,
-      detected: true,
-      adjustment_type: "raise",
-      source: "user_requested",
-      requires_confirmation: true,
-      proposed_new_goal_text: null,
-      evidence_quote: "keeps hitting goal",
-      confidence: "high",
-      goal_change_not_outcome_write: true,
-      goal_change_no_state_mutation_without_confirmation: true,
-      ...overrides,
-    };
-  }
-
-  it("17 — consistency_signal still blocked without invite acceptance", () => {
-    const evalResult = evaluateTuGoalChangePendingHandoff({
-      reconciledGoalChangeIntent: tuIntent({ source: "consistency_signal" }),
-      commitment: baseCommitment(),
-      userMessage: "I've been crushing it.",
-      plannedInterruptionActionable: false,
-      classificationEventType: null,
-      relationshipMeaning: "reported_completion",
-    });
-    expect(evalResult.open).toBe(false);
-    expect(evalResult.skipReason).toBe("shell_deferred_proactive_source");
-  });
-});
-
-describe("user-initiated amend still works (18-19)", () => {
-  it("amend without invite opens 2B shell", () => {
-    const evalResult = evaluateTuGoalChangePendingHandoff({
-      reconciledGoalChangeIntent: {
-        authoritative: true,
-        detected: true,
-        adjustment_type: "amend",
-        source: "user_requested",
-        requires_confirmation: true,
-        proposed_new_goal_text: null,
-        evidence_quote: "need to amend my goal",
-        confidence: "high",
-        goal_change_not_outcome_write: true,
-        goal_change_no_state_mutation_without_confirmation: true,
-      },
-      commitment: baseCommitment(),
-      userMessage: "I need to amend my goal",
-      plannedInterruptionActionable: false,
-      classificationEventType: null,
-      relationshipMeaning: "goal_adjustment_request",
-    });
-    expect(evalResult.open).toBe(true);
-    expect(evalResult.mode).toBe("awaiting_candidate_shell");
-  });
-
-  it("concrete proposed bar still opens 2A", () => {
-    const evalResult = evaluateTuGoalChangePendingHandoff({
-      reconciledGoalChangeIntent: {
-        authoritative: true,
-        detected: true,
-        adjustment_type: "replace",
-        source: "user_requested",
-        requires_confirmation: true,
-        proposed_new_goal_text: "run 3 miles every day",
-        evidence_quote: "run 3 miles every day",
-        confidence: "high",
-        goal_change_not_outcome_write: true,
-        goal_change_no_state_mutation_without_confirmation: true,
-      },
-      commitment: baseCommitment(),
-      userMessage: "change to run 3 miles every day",
-      plannedInterruptionActionable: false,
-      classificationEventType: null,
-      relationshipMeaning: "goal_adjustment_request",
-    });
-    expect(evalResult.mode).toBe("concrete_bar_pending");
-  });
-});
 
 describe("freeform last-outbound goal-change invitation (TTO)", () => {
   it("detects TTO-style invite from last outbound body", () => {
@@ -509,39 +379,27 @@ describe("invite reply meaning — safe hallway policy", () => {
       plannedInterruptionActionable: false,
       nowMs: NOW_MS,
     });
-    const handoff =
-      acceptance.disposition === "accepted"
-        ? evaluateCoachAcceptedGoalEvolutionHandoff({
-            acceptance,
-            commitment,
-            userMessage,
-            plannedInterruptionActionable: false,
-            classificationEventType: null,
-          })
-        : null;
-    return { invite, acceptance, handoff };
+    return { invite, acceptance };
   }
 
   it("A — Stay 1 week more with that goal → keep_current, no hallway", () => {
-    const { acceptance, handoff } = freeformInviteAcceptance(
+    const { acceptance } = freeformInviteAcceptance(
       "Stay 1 week more with that goal",
       MULTI_OPTION_INVITE
     );
     expect(acceptance.reply_meaning).toBe("keep_current");
     expect(acceptance.disposition).toBe("declined");
-    expect(handoff).toBeNull();
   });
 
   it.each(["sure", "ok", "okay", "sounds good", "yes", "fine"])(
     "B — ambiguous affirmative %s after multi-option invite → unclear, no hallway",
     (userMessage) => {
-      const { acceptance, handoff } = freeformInviteAcceptance(
+      const { acceptance } = freeformInviteAcceptance(
         userMessage,
         MULTI_OPTION_INVITE
       );
       expect(acceptance.reply_meaning).toBe("unclear");
       expect(acceptance.disposition).toBe("ignored");
-      expect(handoff).toBeNull();
     }
   );
 
@@ -558,13 +416,12 @@ describe("invite reply meaning — safe hallway policy", () => {
     "Continue this goal",
     "Keep what we have",
   ])("C — keep-current %s → no hallway", (userMessage) => {
-    const { acceptance, handoff } = freeformInviteAcceptance(
+    const { acceptance } = freeformInviteAcceptance(
       userMessage,
       MULTI_OPTION_INVITE
     );
     expect(acceptance.reply_meaning).toBe("keep_current");
     expect(acceptance.disposition).toBe("declined");
-    expect(handoff).toBeNull();
   });
 
   it.each([
@@ -574,11 +431,10 @@ describe("invite reply meaning — safe hallway policy", () => {
     "I'm not sure yet",
     "So far so good",
   ])("D — substantive unclear %s → no hallway", (userMessage) => {
-    const { acceptance, handoff } = freeformInviteAcceptance(userMessage);
+    const { acceptance } = freeformInviteAcceptance(userMessage);
     expect(acceptance.reply_meaning).toBe("unclear");
     expect(["ignored", "declined"]).toContain(acceptance.disposition);
     expect(acceptance.disposition).not.toBe("accepted");
-    expect(handoff).toBeNull();
   });
 
   it.each([
@@ -587,88 +443,72 @@ describe("invite reply meaning — safe hallway policy", () => {
     "I need a new goal",
     "Can we change my goal?",
   ])("E — explicit change %s → hallway", (userMessage) => {
-    const { acceptance, handoff } = freeformInviteAcceptance(userMessage);
+    const { acceptance } = freeformInviteAcceptance(userMessage);
     expect(acceptance.reply_meaning).toBe("change_goal");
     expect(acceptance.disposition).toBe("accepted");
-    expect(handoff?.open).toBe(true);
-    expect(handoff?.mode).toBe("awaiting_candidate_shell");
   });
 
   it.each(["Raise the bar", "Let's make it harder", "I want to step it up"])(
     "F — explicit raise %s → hallway",
     (userMessage) => {
-      const { acceptance, handoff } = freeformInviteAcceptance(userMessage);
+      const { acceptance } = freeformInviteAcceptance(userMessage);
       expect(acceptance.reply_meaning).toBe("raise_current_goal");
       expect(acceptance.disposition).toBe("accepted");
-      expect(handoff?.open).toBe(true);
     }
   );
 
   it("G — concrete candidate → confirmation path", () => {
     const msg = "I want my goal to be waking up before my kids";
-    const { acceptance, handoff } = freeformInviteAcceptance(msg);
+    const { acceptance } = freeformInviteAcceptance(msg);
     expect(acceptance.reply_meaning).toBe("concrete_candidate");
     expect(acceptance.disposition).toBe("accepted");
     expect(acceptance.concrete_bar_present).toBe(true);
-    expect(handoff?.open).toBe(true);
-    expect(handoff?.mode).toBe("concrete_bar_pending");
   });
 
   it("A2 — Donna positivity after invite → concrete candidate, not length-acceptance", () => {
-    const { invite, acceptance, handoff } = freeformInviteAcceptance(DONNA);
+    const { invite, acceptance } = freeformInviteAcceptance(DONNA);
     expect(invite.last_outbound_is_invite).toBe(true);
     expect(acceptance.disposition).toBe("accepted");
     expect(acceptance.reply_meaning).toBe("concrete_candidate");
     expect(acceptance.proposed_bar_text).not.toBe(DONNA);
-    expect(handoff?.open).toBe(true);
-    expect(handoff?.mode).toBe("concrete_bar_pending");
-    expect(handoff?.validatedProposedBar).toMatch(/positive comment|self-talk|self talk/i);
+    expect(acceptance.proposed_bar_text).toMatch(/positive comment|self-talk|self talk/i);
   });
 
   it("B2 — broad workouts direction after invite → unclear, no hallway", () => {
-    const { acceptance, handoff } = freeformInviteAcceptance(
+    const { acceptance } = freeformInviteAcceptance(
       "I want to be more consistent with workouts."
     );
     expect(acceptance.disposition).not.toBe("accepted");
     expect(acceptance.reply_meaning).toBe("unclear");
-    expect(handoff).toBeNull();
   });
 
   it("C2 — concrete walk bar after invite → confirmation candidate", () => {
     const msg = "Walk 20 minutes after dinner every day.";
-    const { acceptance, handoff } = freeformInviteAcceptance(msg);
+    const { acceptance } = freeformInviteAcceptance(msg);
     expect(acceptance.disposition).toBe("accepted");
     expect(acceptance.concrete_bar_present).toBe(true);
     expect(acceptance.proposed_bar_text).toMatch(/walk 20 minutes/i);
-    expect(handoff?.open).toBe(true);
-    expect(handoff?.mode).toBe("concrete_bar_pending");
-    expect(handoff?.validatedProposedBar).toMatch(/20 minutes/i);
   });
 
   it("D2 — decline after invite → no pending", () => {
-    const { acceptance, handoff } = freeformInviteAcceptance("No, keep the same goal.");
+    const { acceptance } = freeformInviteAcceptance("No, keep the same goal.");
     expect(acceptance.disposition).toBe("declined");
     expect(acceptance.reply_meaning).toBe("keep_current");
-    expect(handoff).toBeNull();
   });
 
   it("E2 — bare Ok after invite → unclear, no hallway", () => {
-    const { acceptance, handoff } = freeformInviteAcceptance("Ok");
+    const { acceptance } = freeformInviteAcceptance("Ok");
     expect(acceptance.disposition).toBe("ignored");
     expect(acceptance.reply_meaning).toBe("unclear");
-    expect(handoff).toBeNull();
   });
 
   it("F2 — meta change please after invite → shell, raw not CBS", () => {
     const raw = "I want to change my goal, please.";
-    const { acceptance, handoff } = freeformInviteAcceptance(raw);
+    const { acceptance } = freeformInviteAcceptance(raw);
     expect(acceptance.disposition).toBe("accepted");
     expect(acceptance.reply_meaning).toBe("change_goal");
     expect(acceptance.concrete_bar_present).toBe(false);
     expect(acceptance.proposed_bar_text).toBeNull();
-    expect(handoff?.open).toBe(true);
-    expect(handoff?.mode).toBe("awaiting_candidate_shell");
-    expect(handoff?.validatedProposedBar).toBeNull();
   });
 
   it("G2 — same positivity text without invite does not accept via invite path", () => {
