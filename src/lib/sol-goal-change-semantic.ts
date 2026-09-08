@@ -27,6 +27,37 @@ export const SOL_GOAL_CHANGE_INTENTS = [
 
 export type SolGoalChangeIntent = (typeof SOL_GOAL_CHANGE_INTENTS)[number];
 
+/** Structured duration meaning only. Sol never outputs UTC or adaptive_ask_expires_at. */
+export const SOL_GOAL_CHANGE_TEMPORARY_DURATION_KINDS = [
+  "unspecified",
+  "remaining_local_day",
+  "days",
+  "local_week",
+  "through_weekday",
+  "until_weekday",
+  "through_local_date",
+  "until_local_date",
+] as const;
+
+export type SolGoalChangeTemporaryDurationKind =
+  (typeof SOL_GOAL_CHANGE_TEMPORARY_DURATION_KINDS)[number];
+
+export const SOL_GOAL_CHANGE_TEMPORARY_WEEKDAYS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+
+export type SolGoalChangeTemporaryWeekday =
+  (typeof SOL_GOAL_CHANGE_TEMPORARY_WEEKDAYS)[number];
+
+export const SOL_GOAL_CHANGE_TEMPORARY_DURATION_DAYS_MIN = 1 as const;
+export const SOL_GOAL_CHANGE_TEMPORARY_DURATION_DAYS_MAX = 14 as const;
+
 export const SOL_GOAL_CHANGE_PENDING_KINDS = [
   "commitment_replace",
   "commitment_tighten",
@@ -88,6 +119,14 @@ export type SolGoalChangeSemanticGoalChange = {
   rejects_existing_pending: boolean;
   modifies_existing_pending_candidate: boolean;
   member_meaning_summary: string | null;
+  /**
+   * Structured temporary duration. Meaningful only when intent is
+   * temporary_adjustment; otherwise unspecified with null details.
+   */
+  temporary_duration_kind: SolGoalChangeTemporaryDurationKind;
+  temporary_duration_days: number | null;
+  temporary_weekday: SolGoalChangeTemporaryWeekday | null;
+  temporary_end_local_date: string | null;
 };
 
 export type SolGoalChangeSemanticConcurrentMeaning = {
@@ -152,6 +191,153 @@ function isIntent(value: unknown): value is SolGoalChangeIntent {
     typeof value === "string" &&
     (SOL_GOAL_CHANGE_INTENTS as readonly string[]).includes(value)
   );
+}
+
+function isTemporaryDurationKind(
+  value: unknown
+): value is SolGoalChangeTemporaryDurationKind {
+  return (
+    typeof value === "string" &&
+    (SOL_GOAL_CHANGE_TEMPORARY_DURATION_KINDS as readonly string[]).includes(value)
+  );
+}
+
+function isTemporaryWeekday(value: unknown): value is SolGoalChangeTemporaryWeekday {
+  return (
+    typeof value === "string" &&
+    (SOL_GOAL_CHANGE_TEMPORARY_WEEKDAYS as readonly string[]).includes(value)
+  );
+}
+
+const STRUCTURED_LOCAL_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function parseStructuredLocalDate(value: string | null): string | null {
+  if (!value) return null;
+  const match = STRUCTURED_LOCAL_DATE_RE.exec(value.trim());
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) {
+    return null;
+  }
+  return `${match[1]}-${match[2]}-${match[3]}`;
+}
+
+function clearedTemporaryDurationFields(): Pick<
+  SolGoalChangeSemanticGoalChange,
+  | "temporary_duration_kind"
+  | "temporary_duration_days"
+  | "temporary_weekday"
+  | "temporary_end_local_date"
+> {
+  return {
+    temporary_duration_kind: "unspecified",
+    temporary_duration_days: null,
+    temporary_weekday: null,
+    temporary_end_local_date: null,
+  };
+}
+
+/**
+ * Structural clamps only. Does not read member English.
+ * Inconsistent duration structure → unspecified + needs_clarification.
+ */
+export function normalizeSolGoalChangeTemporaryDuration(
+  result: SolGoalChangeSemanticResult
+): SolGoalChangeSemanticResult {
+  const gc = result.goal_change;
+  if (gc.intent !== "temporary_adjustment") {
+    return {
+      ...result,
+      goal_change: {
+        ...gc,
+        ...clearedTemporaryDurationFields(),
+      },
+    };
+  }
+
+  const failClosed = (): SolGoalChangeSemanticResult => ({
+    ...result,
+    goal_change: {
+      ...gc,
+      ...clearedTemporaryDurationFields(),
+      needs_clarification: true,
+    },
+  });
+
+  const kind = gc.temporary_duration_kind;
+  const days = gc.temporary_duration_days;
+  const weekday = gc.temporary_weekday;
+  const date = gc.temporary_end_local_date;
+
+  if (kind === "unspecified" || kind === "remaining_local_day" || kind === "local_week") {
+    if (days != null || weekday != null || date != null) return failClosed();
+    return {
+      ...result,
+      goal_change: {
+        ...gc,
+        ...clearedTemporaryDurationFields(),
+        temporary_duration_kind: kind,
+        needs_clarification: kind === "unspecified" ? true : gc.needs_clarification,
+      },
+    };
+  }
+
+  if (kind === "days") {
+    if (
+      days == null ||
+      !Number.isInteger(days) ||
+      days < SOL_GOAL_CHANGE_TEMPORARY_DURATION_DAYS_MIN ||
+      days > SOL_GOAL_CHANGE_TEMPORARY_DURATION_DAYS_MAX
+    ) {
+      return failClosed();
+    }
+    if (weekday != null || date != null) return failClosed();
+    return {
+      ...result,
+      goal_change: {
+        ...gc,
+        temporary_duration_kind: "days",
+        temporary_duration_days: days,
+        temporary_weekday: null,
+        temporary_end_local_date: null,
+      },
+    };
+  }
+
+  if (kind === "through_weekday" || kind === "until_weekday") {
+    if (!isTemporaryWeekday(weekday) || days != null || date != null) return failClosed();
+    return {
+      ...result,
+      goal_change: {
+        ...gc,
+        temporary_duration_kind: kind,
+        temporary_duration_days: null,
+        temporary_weekday: weekday,
+        temporary_end_local_date: null,
+      },
+    };
+  }
+
+  if (kind === "through_local_date" || kind === "until_local_date") {
+    const validDate = parseStructuredLocalDate(date);
+    if (!validDate || days != null || weekday != null) return failClosed();
+    return {
+      ...result,
+      goal_change: {
+        ...gc,
+        temporary_duration_kind: kind,
+        temporary_duration_days: null,
+        temporary_weekday: null,
+        temporary_end_local_date: validDate,
+      },
+    };
+  }
+
+  return failClosed();
 }
 
 function capThread(
@@ -303,11 +489,59 @@ function emptyResult(): SolGoalChangeSemanticResult {
       rejects_existing_pending: false,
       modifies_existing_pending_candidate: false,
       member_meaning_summary: null,
+      ...clearedTemporaryDurationFields(),
     },
     concurrent_meaning: {
       planned_interruption: false,
       accountability_update: false,
     },
+  };
+}
+
+function parseTemporaryDurationFields(
+  g: Record<string, unknown>
+): Pick<
+  SolGoalChangeSemanticGoalChange,
+  | "temporary_duration_kind"
+  | "temporary_duration_days"
+  | "temporary_weekday"
+  | "temporary_end_local_date"
+> | null {
+  if (g.temporary_duration_kind == null) {
+    // Older fixtures omit duration fields; default unspecified.
+  } else if (!isTemporaryDurationKind(g.temporary_duration_kind)) {
+    return null;
+  }
+
+  if (
+    g.temporary_duration_days != null &&
+    (typeof g.temporary_duration_days !== "number" ||
+      !Number.isInteger(g.temporary_duration_days))
+  ) {
+    return null;
+  }
+
+  if (g.temporary_weekday != null && !isTemporaryWeekday(g.temporary_weekday)) {
+    return null;
+  }
+
+  if (g.temporary_end_local_date != null && typeof g.temporary_end_local_date !== "string") {
+    return null;
+  }
+
+  const dateRaw =
+    typeof g.temporary_end_local_date === "string"
+      ? g.temporary_end_local_date.trim() || null
+      : null;
+
+  return {
+    temporary_duration_kind: isTemporaryDurationKind(g.temporary_duration_kind)
+      ? g.temporary_duration_kind
+      : "unspecified",
+    temporary_duration_days:
+      typeof g.temporary_duration_days === "number" ? g.temporary_duration_days : null,
+    temporary_weekday: isTemporaryWeekday(g.temporary_weekday) ? g.temporary_weekday : null,
+    temporary_end_local_date: dateRaw,
   };
 }
 
@@ -351,7 +585,10 @@ function parseRawShape(raw: unknown): SolGoalChangeSemanticResult | null {
     return null;
   }
 
-  return {
+  const duration = parseTemporaryDurationFields(g);
+  if (!duration) return null;
+
+  return normalizeSolGoalChangeTemporaryDuration({
     version: SOL_GOAL_CHANGE_SEMANTIC_VERSION,
     goal_change: {
       intent: g.intent,
@@ -368,12 +605,13 @@ function parseRawShape(raw: unknown): SolGoalChangeSemanticResult | null {
         g.member_meaning_summary,
         SOL_GOAL_CHANGE_MEANING_SUMMARY_MAX_CHARS
       ),
+      ...duration,
     },
     concurrent_meaning: {
       planned_interruption: interruption,
       accountability_update: accountability,
     },
-  };
+  });
 }
 
 /**
@@ -417,7 +655,7 @@ export function applySolGoalChangeSemanticAuthorityLaws(
       next.goal_change.requires_confirmation = false;
       next.goal_change.needs_clarification = false;
     }
-    return next;
+    return normalizeSolGoalChangeTemporaryDuration(next);
   }
 
   if (!confirmable) {
@@ -448,7 +686,7 @@ export function applySolGoalChangeSemanticAuthorityLaws(
       pending.candidate_behavior_statement.trim();
   }
 
-  return next;
+  return normalizeSolGoalChangeTemporaryDuration(next);
 }
 
 export function parseSolGoalChangeSemanticResult(

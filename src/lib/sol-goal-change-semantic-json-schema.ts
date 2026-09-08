@@ -6,6 +6,10 @@
 import {
   SOL_GOAL_CHANGE_INTENTS,
   SOL_GOAL_CHANGE_SEMANTIC_VERSION,
+  SOL_GOAL_CHANGE_TEMPORARY_DURATION_DAYS_MAX,
+  SOL_GOAL_CHANGE_TEMPORARY_DURATION_DAYS_MIN,
+  SOL_GOAL_CHANGE_TEMPORARY_DURATION_KINDS,
+  SOL_GOAL_CHANGE_TEMPORARY_WEEKDAYS,
 } from "@/lib/sol-goal-change-semantic";
 
 export const SOL_GOAL_CHANGE_SEMANTIC_JSON_SCHEMA_NAME =
@@ -32,6 +36,10 @@ export const SOL_GOAL_CHANGE_SEMANTIC_OPENAI_JSON_SCHEMA_V1 = {
         "rejects_existing_pending",
         "modifies_existing_pending_candidate",
         "member_meaning_summary",
+        "temporary_duration_kind",
+        "temporary_duration_days",
+        "temporary_weekday",
+        "temporary_end_local_date",
       ],
       properties: {
         intent: { type: "string", enum: [...SOL_GOAL_CHANGE_INTENTS] },
@@ -44,6 +52,29 @@ export const SOL_GOAL_CHANGE_SEMANTIC_OPENAI_JSON_SCHEMA_V1 = {
         rejects_existing_pending: { type: "boolean" },
         modifies_existing_pending_candidate: { type: "boolean" },
         member_meaning_summary: {
+          anyOf: [{ type: "string" }, { type: "null" }],
+        },
+        temporary_duration_kind: {
+          type: "string",
+          enum: [...SOL_GOAL_CHANGE_TEMPORARY_DURATION_KINDS],
+        },
+        temporary_duration_days: {
+          anyOf: [
+            {
+              type: "integer",
+              minimum: SOL_GOAL_CHANGE_TEMPORARY_DURATION_DAYS_MIN,
+              maximum: SOL_GOAL_CHANGE_TEMPORARY_DURATION_DAYS_MAX,
+            },
+            { type: "null" },
+          ],
+        },
+        temporary_weekday: {
+          anyOf: [
+            { type: "string", enum: [...SOL_GOAL_CHANGE_TEMPORARY_WEEKDAYS] },
+            { type: "null" },
+          ],
+        },
+        temporary_end_local_date: {
           anyOf: [{ type: "string" }, { type: "null" }],
         },
       },
@@ -73,7 +104,7 @@ export function buildSolGoalChangeSemanticExactContractPromptAppendix(): string 
   return [
     "EXACT SCHEMA CONTRACT (field names + enums only — do not invent synonyms):",
     `version must be "${SOL_GOAL_CHANGE_SEMANTIC_VERSION}".`,
-    "Use ONLY these field names. Do not invent keys like body, sms_body, reply, should_apply, mutate, pending_created.",
+    "Use ONLY these field names. Do not invent keys like body, sms_body, reply, should_apply, mutate, pending_created, adaptive_ask_expires_at, expires_at, expires_at_utc.",
     `goal_change.intent: ${SOL_GOAL_CHANGE_INTENTS.join(" | ")}`,
     "goal_change.candidate_behavior_statement: string | null — proposed durable saved bar when known; otherwise null.",
     "goal_change.needs_clarification: boolean",
@@ -82,6 +113,12 @@ export function buildSolGoalChangeSemanticExactContractPromptAppendix(): string 
     "goal_change.rejects_existing_pending: boolean",
     "goal_change.modifies_existing_pending_candidate: boolean",
     "goal_change.member_meaning_summary: string | null — short description of member meaning, not SMS copy.",
+    `goal_change.temporary_duration_kind: ${SOL_GOAL_CHANGE_TEMPORARY_DURATION_KINDS.join(" | ")}`,
+    "goal_change.temporary_duration_days: integer 1–14 | null — only when kind is days.",
+    `goal_change.temporary_weekday: ${SOL_GOAL_CHANGE_TEMPORARY_WEEKDAYS.join(" | ")} | null — only when kind is through_weekday or until_weekday.`,
+    "goal_change.temporary_end_local_date: YYYY-MM-DD string | null — only when kind is through_local_date or until_local_date. Never UTC. Never a timestamp.",
+    "Temporary duration fields are meaningful ONLY when intent is temporary_adjustment. For every other intent: temporary_duration_kind=unspecified and the three detail fields null.",
+    "Never output UTC timestamps. Never output adaptive_ask_expires_at. Server owns expiry calendar math.",
     "concurrent_meaning.planned_interruption: boolean",
     "concurrent_meaning.accountability_update: boolean",
     "Never output user-visible SMS. Never include body / sms_body / message / reply.",

@@ -60,23 +60,52 @@ Hard rules:
 - planned_interruption_known is a deterministic server signal already detected for this turn. You may also set concurrent_meaning.planned_interruption from the newest text. Interruption and saved replace are NOT mutually exclusive.
 - Do not automatically treat every temporary disruption (travel, illness, one night out) as saved Goal Change.
 - Do not invent a candidate bar that the member did not propose.
-- Never include keys: body, sms_body, message, final_message, reply.
+- Never include keys: body, sms_body, message, final_message, reply, adaptive_ask_expires_at, expires_at, expires_at_utc.
+- Never output UTC timestamps. Never compute expiry. Duration meaning is structured fields only.
 - Never mutate state.
 
 INTENTS
 - none: no Goal Change meaning (ordinary chat, miss, travel-only, life update).
 - possible_saved_replace: they want a durable saved-goal change but the new bar is missing or too vague ("make it harder", "I need a change"). needs_clarification true. candidate_behavior_statement null unless a partial bar is clearly stated.
 - saved_replace: they want the saved Current Goal replaced going forward, with a concrete proposed bar (clock, days/week, named behavior). requires_confirmation true unless they are confirming existing pending.
-- temporary_adjustment: this-week / tonight / while traveling lower or different bar, while keeping the normal saved goal. Not saved_replace.
+- temporary_adjustment: a non-durable overlay bar (tonight / this week / N days / through or until a weekday or local date / "for now"), while keeping the normal saved goal. Not saved_replace.
+
+TEMPORARY DURATION (intent === temporary_adjustment only):
+You own English duration meaning. Output structured fields only. Do not output UTC. Do not output adaptive_ask_expires_at.
+- remaining_local_day: tonight / today only / rest of today. Detail fields null.
+- days: "for the next N days" with N in 1–14. temporary_duration_days = N. weekday and date null.
+- local_week: this week / for the week. Detail fields null.
+- through_weekday: "through Friday" — that weekday is INCLUDED. temporary_weekday required. days/date null.
+- until_weekday: "until Friday" — that weekday is EXCLUDED. temporary_weekday required. days/date null.
+- through_local_date: "through September 12" — that local date is INCLUDED. temporary_end_local_date = YYYY-MM-DD. days/weekday null.
+- until_local_date: "until September 12" — that local date is EXCLUDED. temporary_end_local_date = YYYY-MM-DD. days/weekday null.
+- unspecified: duration is not representable ("for now", "while traveling" with no explicit end). Detail fields null. needs_clarification true.
+If intent is not temporary_adjustment: temporary_duration_kind = unspecified and all detail fields null.
+"Through" vs "until" are distinct. Do not collapse them. Do not guess a calendar date the member did not state.
 
 SAVED REPLACEMENT examples:
 - "I need to change my goal to 10:30"
 - "I think I need to revise it to 10:30"
 - "9:30 isn't realistic anymore. Let's do 10:30"
 - "Make my goal 10:30"
+- "Change my goal to 10:30"
+- "Going forward, make it 10:30" → saved_replace; temporary duration fields unspecified/null
 - "I want to work out three days instead of five"
 
 TEMPORARY ADJUSTMENT examples:
+- "Just tonight, hold me to 10:30." → temporary_adjustment, remaining_local_day
+- "Today only, 10:30." → temporary_adjustment, remaining_local_day
+- "This week, hold me to 10:30." → temporary_adjustment, local_week
+- "For the next 3 days, hold me to 10:30." → temporary_adjustment, days=3
+- "Through Friday, hold me to 10:30." → temporary_adjustment, through_weekday=friday
+- "Until Friday, hold me to 10:30." → temporary_adjustment, until_weekday=friday
+- "Through September 12, hold me to 10:30." → temporary_adjustment, through_local_date=2026-09-12
+- "Until September 12, hold me to 10:30." → temporary_adjustment, until_local_date=2026-09-12
+- "For now, make it 10:30." → temporary_adjustment, unspecified, needs_clarification true
+- "While I'm traveling, make it 10:30." → temporary_adjustment, unspecified unless an explicit end is also stated; concurrent planned_interruption may be true; needs_clarification true if no representable end
+- "While I'm traveling, through Friday hold me to 10:30." → temporary_adjustment + planned_interruption + through_weekday=friday
+- "Make it harder this week." → temporary_adjustment, local_week — not automatically saved_replace
+- "Make it easier this week." → temporary_adjustment, local_week
 - "I'm traveling this week so let's just aim for twice"
 - "Can we lower the bar this week?"
 - "I still want five days normally, but three this week"

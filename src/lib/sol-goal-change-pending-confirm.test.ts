@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
-import { SOL_GOAL_CHANGE_SEMANTIC_VERSION } from "@/lib/sol-goal-change-semantic";
+import {
+  emptySolGoalChangeSemanticResult,
+  SOL_GOAL_CHANGE_SEMANTIC_VERSION,
+} from "@/lib/sol-goal-change-semantic";
 import type { SolGoalChangeSemanticResult } from "@/lib/sol-goal-change-semantic";
 import type { SmsGoalSeasonMutationResult } from "@/lib/v2-sms-goal-season-mutation";
 
@@ -133,6 +136,7 @@ function semantic(
   return {
     version: SOL_GOAL_CHANGE_SEMANTIC_VERSION,
     goal_change: {
+      ...emptySolGoalChangeSemanticResult().goal_change,
       intent: "none",
       candidate_behavior_statement: ANGELA_PENDING,
       needs_clarification: false,

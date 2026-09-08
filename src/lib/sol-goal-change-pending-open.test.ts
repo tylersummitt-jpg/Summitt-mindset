@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ActiveV2CommitmentRow } from "@/lib/v2-commitment";
-import { SOL_GOAL_CHANGE_SEMANTIC_VERSION } from "@/lib/sol-goal-change-semantic";
+import {
+  emptySolGoalChangeSemanticResult,
+  SOL_GOAL_CHANGE_SEMANTIC_VERSION,
+} from "@/lib/sol-goal-change-semantic";
 import type { SolGoalChangeSemanticResult } from "@/lib/sol-goal-change-semantic";
 
 const getActiveCommitment = vi.hoisted(() => vi.fn());
@@ -110,6 +113,7 @@ function semantic(
   return {
     version: SOL_GOAL_CHANGE_SEMANTIC_VERSION,
     goal_change: {
+      ...emptySolGoalChangeSemanticResult().goal_change,
       intent: "saved_replace",
       candidate_behavior_statement: "10:30",
       needs_clarification: false,

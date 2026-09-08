@@ -8,12 +8,15 @@ vi.mock("@/lib/supabase-server", () => ({
 import {
   applySolGoalChangeSemanticAuthorityLaws,
   buildSolGoalChangeSemanticInput,
+  emptySolGoalChangeSemanticResult,
   hasCanonicalGoalChangeMutationAuthority,
   inboundHasMaterialGoalChangeConfirmationQualification,
   parseSolGoalChangeSemanticJson,
   parseSolGoalChangeSemanticResult,
   SOL_GOAL_CHANGE_INTENTS,
   SOL_GOAL_CHANGE_SEMANTIC_VERSION,
+  SOL_GOAL_CHANGE_TEMPORARY_DURATION_KINDS,
+  SOL_GOAL_CHANGE_TEMPORARY_WEEKDAYS,
   type SolGoalChangeAuthoritativePending,
   type SolGoalChangeSemanticResult,
 } from "@/lib/sol-goal-change-semantic";
@@ -56,14 +59,7 @@ function modelJson(
   return {
     version: SOL_GOAL_CHANGE_SEMANTIC_VERSION,
     goal_change: {
-      intent: "none",
-      candidate_behavior_statement: null,
-      needs_clarification: false,
-      requires_confirmation: false,
-      confirms_existing_pending: false,
-      rejects_existing_pending: false,
-      modifies_existing_pending_candidate: false,
-      member_meaning_summary: null,
+      ...emptySolGoalChangeSemanticResult().goal_change,
       ...goal,
     },
     concurrent_meaning: {
@@ -89,8 +85,25 @@ describe("sol goal change semantic schema", () => {
         "rejects_existing_pending",
         "modifies_existing_pending_candidate",
         "candidate_behavior_statement",
+        "temporary_duration_kind",
+        "temporary_duration_days",
+        "temporary_weekday",
+        "temporary_end_local_date",
       ])
     );
+    expect(schema.properties.goal_change.properties.temporary_duration_kind.enum).toEqual(
+      [...SOL_GOAL_CHANGE_TEMPORARY_DURATION_KINDS]
+    );
+    expect(
+      schema.properties.goal_change.properties.temporary_weekday.anyOf[0].enum
+    ).toEqual([...SOL_GOAL_CHANGE_TEMPORARY_WEEKDAYS]);
+    expect(
+      schema.properties.goal_change.properties.temporary_duration_days.anyOf[0].minimum
+    ).toBe(1);
+    expect(
+      schema.properties.goal_change.properties.temporary_duration_days.anyOf[0].maximum
+    ).toBe(14);
+    expect(schema.properties.goal_change.additionalProperties).toBe(false);
     expect(schema.properties.concurrent_meaning.required).toEqual([
       "planned_interruption",
       "accountability_update",
@@ -103,6 +116,9 @@ describe("sol goal change semantic schema", () => {
     const appendix = buildSolGoalChangeSemanticExactContractPromptAppendix();
     expect(appendix).toContain("Do not invent keys like body, sms_body");
     expect(appendix).toContain(`version must be "${SOL_GOAL_CHANGE_SEMANTIC_VERSION}"`);
+    expect(appendix).toContain("Never output UTC timestamps");
+    expect(appendix).toContain("Never output adaptive_ask_expires_at");
+    expect(appendix).not.toContain("adaptive_ask_expires_at:");
   });
 });
 
@@ -132,6 +148,10 @@ describe("sol goal change semantic prompt laws", () => {
     expect(prompt).toContain("Do not drop saved replace because travel is present");
     expect(prompt).toContain("I think I need to revise it to 10:30");
     expect(prompt).toContain("Keep my normal goal, but this week let's do 10:30");
+    expect(prompt).toContain("Never output UTC timestamps");
+    expect(prompt).toContain("Just tonight, hold me to 10:30.");
+    expect(prompt).toContain("Make it harder this week.");
+    expect(prompt).toContain("Going forward, make it 10:30");
   });
 
   it("awaiting_candidate hallway is not a yes/no confirmation question", () => {
@@ -574,6 +594,7 @@ describe("sol goal change semantic module isolation", () => {
       "sol-goal-change-semantic.ts",
       "sol-goal-change-semantic-json-schema.ts",
       "sol-goal-change-semantic-interpreter.ts",
+      "sol-goal-change-temporary-duration.ts",
     ];
     for (const file of files) {
       const src = readFileSync(path.join(dir, file), "utf8");
