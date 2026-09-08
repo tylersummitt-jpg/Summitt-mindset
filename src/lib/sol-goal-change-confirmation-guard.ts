@@ -25,6 +25,8 @@ export type SolGoalChangeConfirmationAuthorization = {
   temporary_adjustment_confirmation_authorized?: boolean;
   /** Slice 7C — overlay apply proven. Distinct from saved goal_change_apply_authorized. */
   temporary_adjustment_apply_authorized?: boolean;
+  /** Slice 7F-1 — live temporary overlay cleared and reload-proved. */
+  temporary_adjustment_reverted?: boolean;
   temporary_candidate_behavior_statement?: string | null;
   temporary_last_included_local_date?: string | null;
   temporary_expires_at?: string | null;
@@ -153,6 +155,13 @@ export function bodyClaimsSavedGoalChangeAlreadyApplied(body: string): boolean {
   return FALSE_APPLIED_SAVED_GOAL_CHANGE_RES.some((re) => re.test(t));
 }
 
+/** Outbound-only. Claims the saved goal was rewritten by ending the temp overlay. */
+export function bodyClaimsCanonicalMutationAfterTemporaryRevert(body: string): boolean {
+  const t = body.trim();
+  if (!t) return false;
+  return /\bchanged\s+your\s+(?:(?:saved|current|permanent)\s+)?goal\s+back\b/i.test(t);
+}
+
 export function bodyClaimsFalsePermanentAfterTemporaryApply(body: string): boolean {
   const t = body.trim();
   if (!t) return false;
@@ -199,6 +208,16 @@ export function buildAuthorizedTemporaryRejectedAck(
     return `Okay — I won't apply that temporary adjustment. Your Current Goal stays ${canon}.`;
   }
   return "Okay — I won't apply that temporary adjustment. Your Current Goal is unchanged.";
+}
+
+export function buildAuthorizedTemporaryRevertedAck(
+  authorization: SolGoalChangeConfirmationAuthorization
+): string {
+  const canon = (authorization.canonical_behavior_statement ?? "").trim().replace(/\.+$/, "");
+  if (canon) {
+    return `You're back to your regular goal: ${canon}.`;
+  }
+  return "You're back to your regular goal.";
 }
 
 /** Written HH:MM tokens only — do not convert am/pm, so "10:30" matches "10:30 pm". */
@@ -341,6 +360,9 @@ export function tryBuildAuthorizedGoalChangeWriterFailureFallback(
 ): string | null {
   if (authorization.goal_change_apply_authorized === true) {
     return buildAuthorizedAppliedGoalAck(authorization);
+  }
+  if (authorization.temporary_adjustment_reverted === true) {
+    return buildAuthorizedTemporaryRevertedAck(authorization);
   }
   if (authorization.temporary_adjustment_apply_authorized === true) {
     return buildAuthorizedTemporaryAppliedAck(authorization);
@@ -488,6 +510,31 @@ export function applyGoalChangeMachineBodySafety(args: {
     ...SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
   };
   const applyAuthorized = authorization.goal_change_apply_authorized === true;
+
+  if (authorization.temporary_adjustment_reverted === true) {
+    const body = args.body.trim();
+    if (
+      bodyClaimsSavedGoalChangeAlreadyApplied(body) ||
+      bodyAsksBindingSavedGoalChangeConfirmation(body) ||
+      bodyClaimsFalsePermanentAfterTemporaryApply(body) ||
+      bodyClaimsTemporaryPendingAlreadyApplied(body) ||
+      bodyClaimsCanonicalMutationAfterTemporaryRevert(body)
+    ) {
+      return {
+        body: buildAuthorizedTemporaryRevertedAck(authorization),
+        blocked: true,
+        reason: "temporary_reverted_false_saved_or_new_overlay_claim",
+      };
+    }
+    if (bodyLeaksGoalChangeInternalMechanics(body)) {
+      return {
+        body: buildAuthorizedTemporaryRevertedAck(authorization),
+        blocked: true,
+        reason: "goal_change_internal_mechanics_leak",
+      };
+    }
+    return { body, blocked: false, reason: null };
+  }
 
   if (authorization.temporary_adjustment_apply_authorized === true) {
     const body = args.body.trim();

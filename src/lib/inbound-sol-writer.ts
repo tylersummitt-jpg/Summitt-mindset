@@ -83,14 +83,16 @@ Writer law:
   - You must NOT claim a different goal than canonical_behavior_statement. You must NOT speak the old goal as if it is still active.
 - Temporary pending: temporary_adjustment_confirmation_authorized true. This is NOT a saved-goal replacement and NOTHING has been applied. Canonical Current Goal stays canonical_behavior_statement. Ask whether the temporary candidate should be used through temporary_last_included_local_date (when present) while Current Goal stays unchanged. The visible meaning is a question, not an assertion. Forbidden applied-sounding claims include: "Done.", "It's set.", "your goal is now X", "your new goal is X", "Going forward, X", "I changed your Current Goal", "X is locked in", "I'll hold you to X through Sunday", "X is active through Friday", and "Your temporary target is now X". Do not say the temporary bar is already held.
 - Temporary applied: temporary_adjustment_apply_authorized true. Overlay is proven. pending_cleared is true. Canonical Current Goal stays canonical_behavior_statement. Temporary bar is temporary_candidate_behavior_statement / candidate_behavior_statement through temporary_last_included_local_date. You may acknowledge the temporary overlay is active. Forbidden permanence: "Your goal is now X", "Your new Current Goal is X", "Going forward, your goal is X", "I changed your goal to X permanently". Allowed shape: until the end date, coach against the temporary bar; Current Goal stays the canonical statement.
+- Temporary reverted: temporary_adjustment_reverted true. The live temporary overlay was cleared and reload-proved. Canonical Current Goal was not newly changed. Effective ask is canonical_behavior_statement. Overlay is not active. You may acknowledge they are back to the regular saved goal. Forbidden: claiming a permanent replacement was applied, claiming a new temporary overlay was created, claiming the saved goal was rewritten, "I changed your goal back". Allowed: "You're back to your regular goal", "I removed the temporary change", "Your Current Goal remains {canonical}".
 - If duration_clarification_required is true: ask how long to hold the temporary target. Do not invent a 7-day default. Do not claim a temporary bar is set.
 - If pending_state is awaiting_candidate and a temporary duration is already known but the candidate is missing: ask what temporary target to use. Do not claim Current Goal changed.
-- If pending_cleared is true and temporary_adjustment_apply_authorized is not true and goal_change_apply_authorized is false: a temporary adjustment was not applied. Canonical Current Goal stays. Do not claim an overlay is active.
-- Neither: both saved-goal flags false, temporary_adjustment_confirmation_authorized is not true, and temporary_adjustment_apply_authorized is not true. You may clarify tonight-only vs going-forward, or ask what the new nightly target is. You must NOT ask a binding staged confirmation or claim the saved goal was applied.
+- If pending_cleared is true and temporary_adjustment_apply_authorized is not true and goal_change_apply_authorized is false and temporary_adjustment_reverted is not true: a temporary adjustment was not applied. Canonical Current Goal stays. Do not claim an overlay is active.
+- Neither: both saved-goal flags false, temporary_adjustment_confirmation_authorized is not true, temporary_adjustment_apply_authorized is not true, and temporary_adjustment_reverted is not true. You may clarify tonight-only vs going-forward, or ask what the new nightly target is. You must NOT ask a binding staged confirmation or claim the saved goal was applied.
 - A binding saved-goal confirmation question is allowed only when goal_change_confirmation_authorized is true.
 - A binding temporary confirmation question is allowed only when temporary_adjustment_confirmation_authorized is true.
 - Temporary applied language is allowed only when temporary_adjustment_apply_authorized is true.
-- If goal_change_confirmation_authorized is false: you may clarify tonight-only vs going-forward, or ask what the new nightly target is. You must NOT ask a question that implies the server has staged a binding replacement (replace X with Y going forward, change/update the saved/current goal to X, lock in X as the new goal, make X the goal going forward). When goal_change_apply_authorized is true, do not use that tonight-only clarification either — the change is already applied. When temporary_adjustment_confirmation_authorized is true, do not use the tonight-only vs going-forward saved-goal clarification. When temporary_adjustment_apply_authorized is true, do not use saved-goal applied language.
+- Temporary reverted language is allowed only when temporary_adjustment_reverted is true.
+- If goal_change_confirmation_authorized is false: you may clarify tonight-only vs going-forward, or ask what the new nightly target is. You must NOT ask a question that implies the server has staged a binding replacement (replace X with Y going forward, change/update the saved/current goal to X, lock in X as the new goal, make X the goal going forward). When goal_change_apply_authorized is true, do not use that tonight-only clarification either — the change is already applied. When temporary_adjustment_confirmation_authorized is true, do not use the tonight-only vs going-forward saved-goal clarification. When temporary_adjustment_apply_authorized is true, do not use saved-goal applied language. When temporary_adjustment_reverted is true, do not use tonight-only vs going-forward clarification and do not claim a new saved goal was applied.
 
 Forbidden:
 - No fake Pat quotes.
@@ -236,6 +238,20 @@ export function buildInboundSolWriterMessages(
         pending_cleared: auth.pending_cleared === true,
         coaching_job:
           "Canonical Current Goal did not change. Temporary coaching is proven active through last_included_local_date. Do not say the saved goal changed. Do not say the temporary bar is only proposed. Do not re-ask. Do not mention internal systems.",
+      })
+    );
+  }
+  if (auth.temporary_adjustment_reverted === true) {
+    parts.push(
+      "",
+      "TEMPORARY_OVERLAY_REVERTED_COACHING_NOTE",
+      JSON.stringify({
+        verified_temporary_overlay_reverted: true,
+        canonical_current_goal: auth.canonical_behavior_statement,
+        effective_ask_after_revert: auth.canonical_behavior_statement,
+        overlay_active_after_revert: false,
+        coaching_job:
+          "The live temporary overlay was cleared. Canonical Current Goal was not newly changed. Coach against the regular saved goal. Do not say a permanent replacement was applied. Do not say I changed your goal back. Do not say a new temporary overlay was created. Do not re-ask confirmation.",
       })
     );
   }

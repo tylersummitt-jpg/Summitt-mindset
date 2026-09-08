@@ -139,6 +139,33 @@ describe("runSolGoalChangeSemanticInterpreter", () => {
     expect(result.result.goal_change.confirms_existing_pending).toBe(false);
     expect(hasCanonicalGoalChangeMutationAuthority(result.result)).toBe(false);
     expect(result.result.goal_change.intent).toBe("none");
+    expect(result.result.goal_change.reverts_active_temporary_overlay).toBe(false);
+  });
+
+  it("clamps revert when the model sets the flag without an active overlay", async () => {
+    const lyingModel = JSON.stringify({
+      version: SOL_GOAL_CHANGE_SEMANTIC_VERSION,
+      goal_change: {
+        intent: "none",
+        candidate_behavior_statement: null,
+        needs_clarification: false,
+        requires_confirmation: false,
+        confirms_existing_pending: false,
+        rejects_existing_pending: false,
+        modifies_existing_pending_candidate: false,
+        reverts_active_temporary_overlay: true,
+        member_meaning_summary: "Wants the temporary overlay ended.",
+      },
+      concurrent_meaning: { planned_interruption: false, accountability_update: false },
+    });
+    const client = mockClient([lyingModel]);
+    const result = await runSolGoalChangeSemanticInterpreter({
+      input: angelaInput,
+      client,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.result.goal_change.reverts_active_temporary_overlay).toBe(false);
   });
 
   it("messages are interpreter-only: Sol system prompt, compact input, no SMS instruction to write", () => {

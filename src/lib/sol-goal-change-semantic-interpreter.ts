@@ -44,6 +44,10 @@ A previous Coach message such as "Do you want 10:30 to replace 9:30 every night 
 Only authoritative_pending on the input is binding Goal Change pending.
 confirms_existing_pending = true REQUIRES authoritative_pending.actionable = true with a confirmable candidate (typically sms_state awaiting_confirmation).
 If authoritative_pending is null or not actionable: confirms_existing_pending, rejects_existing_pending, and modifies_existing_pending_candidate MUST all be false.
+reverts_active_temporary_overlay = true REQUIRES authoritative_active_overlay.active = true AND no actionable Goal Change pending.
+If authoritative_active_overlay is null or active is not true: reverts_active_temporary_overlay MUST be false.
+If authoritative_pending is actionable: reverts_active_temporary_overlay MUST be false. Pending confirm/reject/modify owns that turn.
+reverts_active_temporary_overlay MUST be false if intent is saved_replace, possible_saved_replace, or temporary_adjustment, or if needs_clarification / a candidate / pending confirm-reject-modify is also set. Exclusive revert uses intent none with those flags false.
 Exact thread alone may never create that authority.
 You do not mutate Current Goal. You do not write pending. You do not send SMS.`;
 
@@ -57,6 +61,7 @@ Hard rules:
 - CODE DOES NOT UNDERSTAND GENERAL ENGLISH. You are the semantic brain for Goal Change on this turn.
 - newest inbound (latest_inbound_text) is the center of gravity. recent_exact_thread explains short answers; it does not create server pending.
 - canonical_saved_behavior_statement is the saved Current Goal. effective_coaching_ask is today's check-in bar when different; it is not a second saved goal.
+- authoritative_active_overlay is the live applied temporary overlay when present. It is not pending. It is not a proposal. It is not a second saved goal.
 - planned_interruption_known is a deterministic server signal already detected for this turn. You may also set concurrent_meaning.planned_interruption from the newest text. Interruption and saved replace are NOT mutually exclusive.
 - Do not automatically treat every temporary disruption (travel, illness, one night out) as saved Goal Change.
 - Do not invent a candidate bar that the member did not propose.
@@ -110,6 +115,15 @@ TEMPORARY ADJUSTMENT examples:
 - "Can we lower the bar this week?"
 - "I still want five days normally, but three this week"
 - "Keep my normal goal, but this week let's do 10:30"
+
+ACTIVE TEMPORARY OVERLAY (authoritative_active_overlay only):
+If authoritative_active_overlay.active is true, the member already has a live temporary bar (overlay_behavior_statement) while canonical_saved_behavior_statement stays the saved Current Goal.
+- Member wants that live temporary overlay ended and canonical coaching restored → reverts_active_temporary_overlay true AND intent none. Do not invent a saved_replace candidate from this meaning.
+- Examples of that meaning (not saved_replace, not pending reject): ending the live temporary overlay so the saved Current Goal is the coaching bar again.
+- This is NOT rejects_existing_pending (that flag is pending-only).
+- This is NOT saved_replace and NOT temporary_adjustment. Do not set reverts_active_temporary_overlay together with those intents.
+- If overlay is inactive/null: reverts_active_temporary_overlay MUST be false.
+- If authoritative_pending is actionable: reverts_active_temporary_overlay MUST be false.
 
 DUAL MEANING (required capability):
 "I'm out of town tonight, so 9:30 won't happen. Also I think I need to revise the goal to 10:30."
@@ -185,6 +199,7 @@ export function buildSolGoalChangeSemanticInterpreterUserPayload(
     canonical_saved_behavior_statement: input.canonical_saved_behavior_statement,
     effective_coaching_ask: input.effective_coaching_ask,
     authoritative_pending: input.authoritative_pending,
+    authoritative_active_overlay: input.authoritative_active_overlay,
     planned_interruption_known: input.planned_interruption_known,
     latest_inbound_text: input.latest_inbound_text,
     recent_exact_thread: input.recent_exact_thread,
@@ -193,6 +208,7 @@ export function buildSolGoalChangeSemanticInterpreterUserPayload(
     authority: {
       conversation_cannot_manufacture_server_state: true,
       confirms_existing_pending_requires_authoritative_pending: true,
+      reverts_active_temporary_overlay_requires_active_overlay: true,
       prior_coach_confirmation_question_is_not_pending: true,
     },
   };

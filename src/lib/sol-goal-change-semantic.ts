@@ -97,11 +97,25 @@ export type SolGoalChangeAuthoritativePending = {
   source?: "sms_inbound" | null;
 };
 
+/**
+ * Server-owned live temporary overlay snapshot. Proposal columns are never this.
+ * Exact thread never substitutes. `active` must already reflect
+ * isV2AdaptiveOverlayActive at semantic turn time.
+ */
+export type SolGoalChangeAuthoritativeActiveOverlay = {
+  active: boolean;
+  overlay_behavior_statement: string | null;
+  overlay_expires_at: string | null;
+  overlay_last_included_local_date: string | null;
+};
+
 export type SolGoalChangeSemanticInput = {
   canonical_saved_behavior_statement: string;
   /** Effective coaching ask when it differs from canonical; otherwise null. */
   effective_coaching_ask: string | null;
   authoritative_pending: SolGoalChangeAuthoritativePending | null;
+  /** Live applied overlay only. Null when overlay is inactive or absent. */
+  authoritative_active_overlay: SolGoalChangeAuthoritativeActiveOverlay | null;
   latest_inbound_text: string;
   recent_exact_thread: SolGoalChangeSemanticThreadMessage[];
   /** Deterministic PI already known to the server for this turn, if any. */
@@ -118,6 +132,12 @@ export type SolGoalChangeSemanticGoalChange = {
   confirms_existing_pending: boolean;
   rejects_existing_pending: boolean;
   modifies_existing_pending_candidate: boolean;
+  /**
+   * Slice 7F-1 — member wants the live temporary overlay ended and canonical
+   * coaching restored. Authority-gated: requires authoritative_active_overlay.active,
+   * no actionable Goal Change pending, and no simultaneous saved/temp transition.
+   */
+  reverts_active_temporary_overlay: boolean;
   member_meaning_summary: string | null;
   /**
    * Structured temporary duration. Meaningful only when intent is
@@ -412,10 +432,28 @@ export function hasCanonicalGoalChangeMutationAuthority(
   return result.goal_change.confirms_existing_pending === true;
 }
 
+/**
+ * Revert may authorize only as an exclusive overlay-restore meaning.
+ * Any simultaneous saved-replace, temporary-adjustment, pending, or
+ * clarification transition fails closed. Structured fields only.
+ */
+export function isExclusiveActiveOverlayRevertMeaning(
+  g: SolGoalChangeSemanticGoalChange
+): boolean {
+  if (g.intent !== "none") return false;
+  if (g.confirms_existing_pending) return false;
+  if (g.rejects_existing_pending) return false;
+  if (g.modifies_existing_pending_candidate) return false;
+  if (g.needs_clarification) return false;
+  if (g.candidate_behavior_statement?.trim()) return false;
+  return true;
+}
+
 export function buildSolGoalChangeSemanticInput(args: {
   canonicalSavedBehaviorStatement: string;
   effectiveCoachingAsk?: string | null;
   authoritativePending?: SolGoalChangeAuthoritativePending | null;
+  authoritativeActiveOverlay?: SolGoalChangeAuthoritativeActiveOverlay | null;
   latestInboundText: string;
   recentExactThread?: SolGoalChangeSemanticThreadMessage[] | null;
   plannedInterruptionKnown?: boolean;
@@ -424,11 +462,22 @@ export function buildSolGoalChangeSemanticInput(args: {
 }): SolGoalChangeSemanticInput {
   const canonical = args.canonicalSavedBehaviorStatement.trim();
   const effective = (args.effectiveCoachingAsk ?? "").trim();
+  const overlay = args.authoritativeActiveOverlay ?? null;
   return {
     canonical_saved_behavior_statement: canonical,
     effective_coaching_ask:
       effective && effective !== canonical ? effective : null,
     authoritative_pending: args.authoritativePending ?? null,
+    authoritative_active_overlay:
+      overlay?.active === true
+        ? {
+            active: true,
+            overlay_behavior_statement: overlay.overlay_behavior_statement?.trim() || null,
+            overlay_expires_at: overlay.overlay_expires_at?.trim() || null,
+            overlay_last_included_local_date:
+              overlay.overlay_last_included_local_date?.trim() || null,
+          }
+        : null,
     latest_inbound_text: args.latestInboundText.trim(),
     recent_exact_thread: capThread(args.recentExactThread),
     planned_interruption_known: args.plannedInterruptionKnown === true,
@@ -488,6 +537,7 @@ function emptyResult(): SolGoalChangeSemanticResult {
       confirms_existing_pending: false,
       rejects_existing_pending: false,
       modifies_existing_pending_candidate: false,
+      reverts_active_temporary_overlay: false,
       member_meaning_summary: null,
       ...clearedTemporaryDurationFields(),
     },
@@ -564,6 +614,10 @@ function parseRawShape(raw: unknown): SolGoalChangeSemanticResult | null {
   const confirms = asBoolean(g.confirms_existing_pending);
   const rejects = asBoolean(g.rejects_existing_pending);
   const modifies = asBoolean(g.modifies_existing_pending_candidate);
+  const revertsOverlay =
+    g.reverts_active_temporary_overlay == null
+      ? false
+      : asBoolean(g.reverts_active_temporary_overlay);
   const interruption = asBoolean(c.planned_interruption);
   const accountability = asBoolean(c.accountability_update);
   if (
@@ -572,6 +626,7 @@ function parseRawShape(raw: unknown): SolGoalChangeSemanticResult | null {
     confirms == null ||
     rejects == null ||
     modifies == null ||
+    revertsOverlay == null ||
     interruption == null ||
     accountability == null
   ) {
@@ -601,6 +656,7 @@ function parseRawShape(raw: unknown): SolGoalChangeSemanticResult | null {
       confirms_existing_pending: confirms,
       rejects_existing_pending: rejects,
       modifies_existing_pending_candidate: modifies,
+      reverts_active_temporary_overlay: revertsOverlay,
       member_meaning_summary: trimOrNull(
         g.member_meaning_summary,
         SOL_GOAL_CHANGE_MEANING_SUMMARY_MAX_CHARS
@@ -640,6 +696,12 @@ export function applySolGoalChangeSemanticAuthorityLaws(
       accountability_update: parsed.concurrent_meaning.accountability_update,
     },
   };
+
+  next.goal_change.reverts_active_temporary_overlay =
+    next.goal_change.reverts_active_temporary_overlay === true &&
+    input.authoritative_active_overlay?.active === true &&
+    !hasPending &&
+    isExclusiveActiveOverlayRevertMeaning(next.goal_change);
 
   if (!hasPending) {
     next.goal_change.confirms_existing_pending = false;

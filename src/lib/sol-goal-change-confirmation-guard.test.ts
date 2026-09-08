@@ -482,3 +482,58 @@ describe("Slice 7C temporary applied body safety", () => {
     expect(body).toContain("2026-09-13");
   });
 });
+
+describe("Slice 7F-1 temporary reverted body safety", () => {
+  const revertedAuth: SolGoalChangeConfirmationAuthorization = {
+    ...noneAuth,
+    temporary_adjustment_reverted: true,
+    active_commitment_id: "cmt_angela",
+  };
+
+  it("blocks saved-goal applied claims, new-temp claims, and binding asks", () => {
+    for (const body of [
+      "Your goal is now 10:30.",
+      "I've changed your goal.",
+      "I changed your goal back to 9:30.",
+      "I changed your current goal back to 9:30.",
+      "Your temporary target is now 10:30.",
+      "10:30 is active through Friday.",
+      BINDING,
+    ]) {
+      const r = applyGoalChangeMachineBodySafety({ body, authorization: revertedAuth });
+      expect(r.blocked).toBe(true);
+      expect(r.body).toMatch(/regular goal/i);
+      expect(r.body).not.toBe(UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION);
+    }
+  });
+
+  it("allows truthful restore language that does not claim canonical mutation", () => {
+    for (const body of [
+      "We're back to your regular goal: 9:30.",
+      "I removed the temporary change.",
+      "Your regular goal is still 9:30.",
+      "Your Current Goal remains 9:30.",
+      "You're back to your regular goal: I will be in bed by 9:30 pm nightly.",
+    ]) {
+      const r = applyGoalChangeMachineBodySafety({ body, authorization: revertedAuth });
+      expect(r.blocked).toBe(false);
+    }
+  });
+
+  it("allows truthful back-to-regular-goal language and writer fallback", () => {
+    const allowed = applyGoalChangeMachineBodySafety({
+      body: "You're back to your regular goal: I will be in bed by 9:30 pm nightly.",
+      authorization: revertedAuth,
+    });
+    expect(allowed.blocked).toBe(false);
+    const fallback = tryBuildAuthorizedGoalChangeWriterFailureFallback(revertedAuth);
+    expect(fallback).toMatch(/regular goal/i);
+    expect(fallback).toContain("9:30");
+    expect(fallback).not.toMatch(/going forward\?/i);
+    const guarded = applyGoalChangeMachineBodySafety({
+      body: fallback!,
+      authorization: revertedAuth,
+    });
+    expect(guarded.blocked).toBe(false);
+  });
+});

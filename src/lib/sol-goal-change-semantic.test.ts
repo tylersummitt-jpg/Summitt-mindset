@@ -84,6 +84,7 @@ describe("sol goal change semantic schema", () => {
         "confirms_existing_pending",
         "rejects_existing_pending",
         "modifies_existing_pending_candidate",
+        "reverts_active_temporary_overlay",
         "candidate_behavior_statement",
         "temporary_duration_kind",
         "temporary_duration_days",
@@ -171,8 +172,10 @@ describe("sol goal change semantic prompt laws", () => {
     expect(payload.authority).toEqual({
       conversation_cannot_manufacture_server_state: true,
       confirms_existing_pending_requires_authoritative_pending: true,
+      reverts_active_temporary_overlay_requires_active_overlay: true,
       prior_coach_confirmation_question_is_not_pending: true,
     });
+    expect(payload.authoritative_active_overlay).toBeNull();
     expect(payload.planned_interruption_known).toBe(true);
     expect(payload.latest_inbound_text).toBe(ANGELA_TURN_1);
   });
@@ -432,6 +435,142 @@ describe("sol goal change semantic cases", () => {
     );
     expect(applied.goal_change.intent).toBe("saved_replace");
     expect(applied.concurrent_meaning.planned_interruption).toBe(true);
+  });
+
+  it("omitted reverts_active_temporary_overlay defaults false", () => {
+    const parsed = parseSolGoalChangeSemanticJson(
+      JSON.stringify({
+        version: SOL_GOAL_CHANGE_SEMANTIC_VERSION,
+        goal_change: {
+          intent: "none",
+          candidate_behavior_statement: null,
+          needs_clarification: false,
+          requires_confirmation: false,
+          confirms_existing_pending: false,
+          rejects_existing_pending: false,
+          modifies_existing_pending_candidate: false,
+          member_meaning_summary: "Ordinary coaching.",
+        },
+        concurrent_meaning: { planned_interruption: false, accountability_update: false },
+      }),
+      input({ latestInboundText: "I had a great workout" })
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.result.goal_change.reverts_active_temporary_overlay).toBe(false);
+  });
+
+  it("authority clamps revert unless live overlay is active and no pending owns the turn", () => {
+    const overlay = {
+      active: true as const,
+      overlay_behavior_statement: "I will be in bed by 10:30 pm nightly.",
+      overlay_expires_at: "2026-09-14T04:00:00.000Z",
+      overlay_last_included_local_date: "2026-09-13",
+    };
+    const live = applySolGoalChangeSemanticAuthorityLaws(
+      modelJson({ reverts_active_temporary_overlay: true, intent: "none" }),
+      input({
+        latestInboundText: "Use my regular goal again.",
+        authoritativeActiveOverlay: overlay,
+      })
+    );
+    expect(live.goal_change.reverts_active_temporary_overlay).toBe(true);
+
+    const noOverlay = applySolGoalChangeSemanticAuthorityLaws(
+      modelJson({ reverts_active_temporary_overlay: true, intent: "none" }),
+      input({ latestInboundText: "Use my regular goal again." })
+    );
+    expect(noOverlay.goal_change.reverts_active_temporary_overlay).toBe(false);
+
+    const pending = applySolGoalChangeSemanticAuthorityLaws(
+      modelJson({ reverts_active_temporary_overlay: true, intent: "none" }),
+      input({
+        latestInboundText: "Use my regular goal again.",
+        authoritativeActiveOverlay: overlay,
+        authoritativePending: PENDING_1030,
+      })
+    );
+    expect(pending.goal_change.reverts_active_temporary_overlay).toBe(false);
+  });
+
+  it("A: revert + saved_replace is not exclusive — revert is not authorized", () => {
+    const overlay = {
+      active: true as const,
+      overlay_behavior_statement: "I will be in bed by 10:30 pm nightly.",
+      overlay_expires_at: "2026-09-14T04:00:00.000Z",
+      overlay_last_included_local_date: "2026-09-13",
+    };
+    const applied = applySolGoalChangeSemanticAuthorityLaws(
+      modelJson({
+        intent: "saved_replace",
+        candidate_behavior_statement: "10:30",
+        requires_confirmation: true,
+        reverts_active_temporary_overlay: true,
+      }),
+      input({
+        latestInboundText: "Change my real goal to 10:30.",
+        authoritativeActiveOverlay: overlay,
+      })
+    );
+    expect(applied.goal_change.reverts_active_temporary_overlay).toBe(false);
+    expect(applied.goal_change.intent).toBe("saved_replace");
+  });
+
+  it("B: revert + temporary_adjustment is not exclusive — revert is not authorized", () => {
+    const overlay = {
+      active: true as const,
+      overlay_behavior_statement: "I will be in bed by 10:30 pm nightly.",
+      overlay_expires_at: "2026-09-14T04:00:00.000Z",
+      overlay_last_included_local_date: "2026-09-13",
+    };
+    const applied = applySolGoalChangeSemanticAuthorityLaws(
+      modelJson({
+        intent: "temporary_adjustment",
+        candidate_behavior_statement: "11:00",
+        reverts_active_temporary_overlay: true,
+        temporary_duration_kind: "local_week",
+      }),
+      input({
+        latestInboundText: "This week make it 11:00 instead.",
+        authoritativeActiveOverlay: overlay,
+      })
+    );
+    expect(applied.goal_change.reverts_active_temporary_overlay).toBe(false);
+    expect(applied.goal_change.intent).toBe("temporary_adjustment");
+  });
+
+  it("C: clean overlay revert remains authorized", () => {
+    const overlay = {
+      active: true as const,
+      overlay_behavior_statement: "I will be in bed by 10:30 pm nightly.",
+      overlay_expires_at: "2026-09-14T04:00:00.000Z",
+      overlay_last_included_local_date: "2026-09-13",
+    };
+    const applied = applySolGoalChangeSemanticAuthorityLaws(
+      modelJson({
+        intent: "none",
+        reverts_active_temporary_overlay: true,
+      }),
+      input({
+        latestInboundText: "Use my regular goal again.",
+        authoritativeActiveOverlay: overlay,
+      })
+    );
+    expect(applied.goal_change.reverts_active_temporary_overlay).toBe(true);
+    expect(applied.goal_change.intent).toBe("none");
+  });
+
+  it("inactive overlay snapshots are not exposed as authoritative_active_overlay", () => {
+    const built = input({
+      latestInboundText: "I had a great workout",
+      authoritativeActiveOverlay: {
+        active: false,
+        overlay_behavior_statement: "I will be in bed by 10:30 pm nightly.",
+        overlay_expires_at: "2026-09-14T04:00:00.000Z",
+        overlay_last_included_local_date: "2026-09-13",
+      },
+    });
+    expect(built.authoritative_active_overlay).toBeNull();
   });
 
   it("invalid JSON is classified without calling OpenAI", () => {

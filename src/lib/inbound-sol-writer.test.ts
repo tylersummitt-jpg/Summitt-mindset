@@ -318,6 +318,17 @@ describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
     expect(INBOUND_SOL_WRITER_JSON_REMINDER).toContain("needs_manual_pat_answer");
   });
 
+  it("authorizes temporary overlay revert copy only from structured proof", () => {
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("temporary_adjustment_reverted");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "The live temporary overlay was cleared and reload-proved"
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "Temporary reverted language is allowed only when temporary_adjustment_reverted is true"
+    );
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("I changed your goal back");
+  });
+
   it("names unsupported vs supported fixture questions without requiring one SMS sentence", () => {
     void unrelatedEvidence;
     void confidenceEvidence;

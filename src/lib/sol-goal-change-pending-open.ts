@@ -27,6 +27,7 @@ import {
 } from "@/lib/v2-sms-pending-resolution-complete";
 import {
   buildSolGoalChangeSemanticInput,
+  isExclusiveActiveOverlayRevertMeaning,
   type SolGoalChangeAuthoritativePending,
   type SolGoalChangeSemanticInput,
   type SolGoalChangeSemanticResult,
@@ -53,6 +54,10 @@ import {
   shouldAttemptSolTemporaryPendingOpen,
   temporaryConfirmationAuthorizationFromReloadedCommitment,
 } from "@/lib/sol-goal-change-temporary-pending";
+import {
+  applySolActiveTemporaryOverlayRevert,
+  buildAuthoritativeActiveOverlaySnapshot,
+} from "@/lib/sol-goal-change-temporary-revert";
 
 export type { SolGoalChangeConfirmationAuthorization };
 export { SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED };
@@ -76,6 +81,9 @@ export type SolGoalChangePendingOpenForensics = {
   reload_authorized: boolean;
   candidate_normalize_ok: boolean | null;
   hallway_opened: boolean;
+  overlay_revert_attempted?: boolean;
+  overlay_revert_proved?: boolean | null;
+  overlay_revert_reason?: string | null;
 };
 
 export type SolGoalChangePendingOpenResult = {
@@ -305,10 +313,13 @@ export async function runSolGoalChangePendingOpenForInbound(args: {
   plannedInterruptionKnown: boolean;
   timezone?: string | null;
   now?: Date;
+  /** Wall-clock for overlay revert mutation/proof. Never use stale job.created_at. */
+  mutationClock?: () => number;
   recentExactThread?: SolGoalChangeSemanticThreadMessage[] | null;
   client?: OpenAI | null;
 }): Promise<SolGoalChangePendingOpenResult> {
   const now = args.now ?? new Date();
+  const mutationClock = args.mutationClock ?? Date.now;
   const liveStart = (await getActiveCommitment(args.clerkUserId)) ?? args.commitment;
 
   const existing = existingAwaitingConfirmationReplace(liveStart);
@@ -363,8 +374,13 @@ export async function runSolGoalChangePendingOpenForInbound(args: {
 
   const semanticInput: SolGoalChangeSemanticInput = buildSolGoalChangeSemanticInput({
     canonicalSavedBehaviorStatement: liveStart.behavior_statement ?? "",
-    effectiveCoachingAsk: getEffectiveCoachingAsk(liveStart),
+    effectiveCoachingAsk: getEffectiveCoachingAsk(liveStart, now.getTime()),
     authoritativePending: pendingSnapshotFromCommitment(liveStart),
+    authoritativeActiveOverlay: buildAuthoritativeActiveOverlaySnapshot(
+      liveStart,
+      now.getTime(),
+      args.timezone ?? null
+    ),
     latestInboundText: args.inboundRaw,
     recentExactThread: args.recentExactThread,
     plannedInterruptionKnown: args.plannedInterruptionKnown,
@@ -393,6 +409,37 @@ export async function runSolGoalChangePendingOpenForInbound(args: {
   }
 
   const semantic = interpreted.result;
+  if (
+    semantic.goal_change.reverts_active_temporary_overlay === true &&
+    isExclusiveActiveOverlayRevertMeaning(semantic.goal_change)
+  ) {
+    const reverted = await applySolActiveTemporaryOverlayRevert({
+      clerkUserId: args.clerkUserId,
+      commitment: liveStart,
+      inboundMessageSid: args.messageSid,
+      mutationClock,
+    });
+    return {
+      commitment: reverted.commitment,
+      authorization: reverted.authorization,
+      forensics: {
+        interpreter_ok: true,
+        interpreter_error: null,
+        semantic_intent: semantic.goal_change.intent,
+        pending_attempted: false,
+        pending_write_applied: false,
+        pending_skip_reason: reverted.forensics.overlay_revert_reason,
+        bootstrap_promoted: null,
+        reload_authorized: reverted.authorization.temporary_adjustment_reverted === true,
+        candidate_normalize_ok: null,
+        hallway_opened: false,
+        overlay_revert_attempted: reverted.forensics.overlay_revert_attempted,
+        overlay_revert_proved: reverted.forensics.overlay_revert_proved,
+        overlay_revert_reason: reverted.forensics.overlay_revert_reason,
+      },
+    };
+  }
+
   if (shouldAttemptSolSavedReplaceAwaitingCandidateHallway(semantic)) {
     return writeSavedReplacePending({
       clerkUserId: args.clerkUserId,

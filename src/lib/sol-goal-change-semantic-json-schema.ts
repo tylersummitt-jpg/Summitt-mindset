@@ -35,6 +35,7 @@ export const SOL_GOAL_CHANGE_SEMANTIC_OPENAI_JSON_SCHEMA_V1 = {
         "confirms_existing_pending",
         "rejects_existing_pending",
         "modifies_existing_pending_candidate",
+        "reverts_active_temporary_overlay",
         "member_meaning_summary",
         "temporary_duration_kind",
         "temporary_duration_days",
@@ -51,6 +52,7 @@ export const SOL_GOAL_CHANGE_SEMANTIC_OPENAI_JSON_SCHEMA_V1 = {
         confirms_existing_pending: { type: "boolean" },
         rejects_existing_pending: { type: "boolean" },
         modifies_existing_pending_candidate: { type: "boolean" },
+        reverts_active_temporary_overlay: { type: "boolean" },
         member_meaning_summary: {
           anyOf: [{ type: "string" }, { type: "null" }],
         },
@@ -112,6 +114,7 @@ export function buildSolGoalChangeSemanticExactContractPromptAppendix(): string 
     "goal_change.confirms_existing_pending: boolean",
     "goal_change.rejects_existing_pending: boolean",
     "goal_change.modifies_existing_pending_candidate: boolean",
+    "goal_change.reverts_active_temporary_overlay: boolean — true ONLY when authoritative_active_overlay.active is true AND the member wants that live temporary overlay ended so canonical coaching is restored AND intent is none with no saved_replace/temporary_adjustment/pending/clarification/candidate. False when overlay is inactive/null. False when authoritative_pending is actionable. False when any other Goal Change transition is also set. False for ordinary coaching.",
     "goal_change.member_meaning_summary: string | null — short description of member meaning, not SMS copy.",
     `goal_change.temporary_duration_kind: ${SOL_GOAL_CHANGE_TEMPORARY_DURATION_KINDS.join(" | ")}`,
     "goal_change.temporary_duration_days: integer 1–14 | null — only when kind is days.",
