@@ -177,6 +177,37 @@ export async function ensureCurrentTtoDraftFreshForSend(args: {
     });
     return { ok: false, reason: "generation_effective_ask_unproven" };
   }
+
+  let liveAsk: string;
+  try {
+    const liveCommitment = await getActiveCommitment(clerkUserId);
+    if (!liveCommitment) {
+      warnFresh("relationship_unproven_after_regen", { clerk_user_id: clerkUserId });
+      return { ok: false, reason: "relationship_unproven" };
+    }
+    liveAsk = getEffectiveCoachingAsk(liveCommitment, args.now.getTime()).trim();
+    if (!liveAsk) {
+      warnFresh("relationship_unproven_empty_ask_after_regen", {
+        clerk_user_id: clerkUserId,
+      });
+      return { ok: false, reason: "relationship_unproven" };
+    }
+  } catch (error) {
+    warnFresh("relationship_load_threw_after_regen", {
+      clerk_user_id: clerkUserId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { ok: false, reason: "relationship_unproven" };
+  }
+
+  if (normalizeEffectiveAskBar(rereadAsk) !== normalizeEffectiveAskBar(liveAsk)) {
+    warnFresh("generation_effective_ask_mismatch_after_regen", {
+      clerk_user_id: clerkUserId,
+      draft_id: reread.draft.id,
+      send_slot: args.sendSlot,
+    });
+    return settleUnusable(reread.draft.id);
+  }
   return okResult("regenerated", reread.draft);
 }
 

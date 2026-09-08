@@ -208,6 +208,16 @@ describe("normalizeSemanticSavedReplaceCandidate", () => {
     });
     expect(n).toEqual({ ok: true, candidate: WORKOUT_FOUR });
   });
+
+  it("uses Sol's complete candidate even when inbound English contains a different clock", () => {
+    const solCandidate = "I will be in bed by 10:15 pm on weekdays.";
+    const n = normalizeSemanticSavedReplaceCandidate({
+      semanticCandidate: solCandidate,
+      canonicalBehaviorStatement: ANGELA_CANONICAL,
+      inboundRaw: "Yes, but make it 10:30 tonight actually wait 10:15 on weekdays",
+    });
+    expect(n).toEqual({ ok: true, candidate: solCandidate });
+  });
 });
 
 describe("shouldAttemptSolSavedReplacePendingOpen", () => {

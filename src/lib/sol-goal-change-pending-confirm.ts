@@ -39,7 +39,6 @@ import {
 } from "@/lib/v2-guided-resolution";
 import { applyCanonicalGoalChangeWithSeasonMutation } from "@/lib/v2-apply-canonical-goal-change";
 import type { SmsGoalSeasonMutationResult } from "@/lib/v2-sms-goal-season-mutation";
-import { tryMergeWeekdaysIntoCandidate } from "@/lib/v2-sms-pending-resolution-complete";
 import {
   buildSolGoalChangeSemanticInput,
   inboundHasMaterialGoalChangeConfirmationQualification,
@@ -52,7 +51,6 @@ import { runSolGoalChangeSemanticInterpreter } from "@/lib/sol-goal-change-seman
 import {
   confirmationAuthorizationFromReloadedCommitment,
   normalizeSemanticSavedReplaceCandidate,
-  trySubstituteClockFragmentIntoCanonical,
 } from "@/lib/sol-goal-change-pending-open";
 import {
   AUTHORIZED_AWAITING_CANDIDATE_ELICITATION_ASK,
@@ -65,7 +63,6 @@ import {
 import { refreshUnsentTtoDraftsAfterRelationshipChange } from "@/lib/sol-goal-change-tto-draft-refresh";
 
 const RAW_LOG_MAX = 280;
-const CLOCK_IN_TEXT_RE = /\b(\d{1,2}):(\d{2})(?:\s*(a\.?m\.?|p\.?m\.?))?\b/gi;
 /** Exact protocol confirm to an authoritative pending yes/no ask. Not NLP. */
 const EXACT_PROTOCOL_YES_RE = /^(yes|y)\.?!?$/i;
 /** Exact protocol reject to an authoritative pending yes/no ask. Not NLP. */
@@ -205,12 +202,11 @@ export function isDeterministicPendingReject(raw: string): boolean {
   return isExactPendingProtocolNo(raw);
 }
 
-function extractSingleClockFragment(raw: string): string | null {
-  const matches = [...raw.matchAll(new RegExp(CLOCK_IN_TEXT_RE.source, "gi"))];
-  if (matches.length !== 1) return null;
-  return matches[0]![0]!.trim();
-}
-
+/**
+ * Sol owns modify-candidate English. Code does not scan inbound for a clock
+ * or weekday fragment. If Sol returned a candidate, normalize that candidate
+ * only. Whole-message clock fill belongs exclusively to awaiting_candidate.
+ */
 export function resolveModifiedPendingCandidate(args: {
   inboundRaw: string;
   canonicalBehaviorStatement: string;
@@ -218,46 +214,15 @@ export function resolveModifiedPendingCandidate(args: {
   semanticCandidate: string | null;
 }): string | null {
   const currentKey = normalizeBarKey(args.currentCandidate);
-  const inboundClock = extractSingleClockFragment(args.inboundRaw);
-
-  const acceptIfDifferent = (candidate: string | null): string | null => {
-    if (!candidate?.trim()) return null;
-    if (normalizeBarKey(candidate) === currentKey) return null;
-    const normalized = normalizeSemanticSavedReplaceCandidate({
-      semanticCandidate: candidate,
-      canonicalBehaviorStatement: args.canonicalBehaviorStatement,
-      inboundRaw: args.inboundRaw,
-    });
-    if (!normalized.ok) return null;
-    if (normalizeBarKey(normalized.candidate) === currentKey) return null;
-    return normalized.candidate;
-  };
-
-  if (inboundClock) {
-    const fromCanon = trySubstituteClockFragmentIntoCanonical(
-      args.canonicalBehaviorStatement,
-      inboundClock
-    );
-    const acceptedCanon = acceptIfDifferent(fromCanon ?? inboundClock);
-    if (acceptedCanon) return acceptedCanon;
-    const fromPending = trySubstituteClockFragmentIntoCanonical(
-      args.currentCandidate,
-      inboundClock
-    );
-    const acceptedPending = acceptIfDifferent(fromPending ?? inboundClock);
-    if (acceptedPending) return acceptedPending;
-  }
-
-  const weekdays = tryMergeWeekdaysIntoCandidate(args.currentCandidate, args.inboundRaw);
-  const acceptedDays = acceptIfDifferent(weekdays);
-  if (acceptedDays) return acceptedDays;
-
-  if (args.semanticCandidate?.trim()) {
-    const acceptedSemantic = acceptIfDifferent(args.semanticCandidate);
-    if (acceptedSemantic) return acceptedSemantic;
-  }
-
-  return null;
+  if (!args.semanticCandidate?.trim()) return null;
+  const normalized = normalizeSemanticSavedReplaceCandidate({
+    semanticCandidate: args.semanticCandidate,
+    canonicalBehaviorStatement: args.canonicalBehaviorStatement,
+    inboundRaw: args.inboundRaw,
+  });
+  if (!normalized.ok) return null;
+  if (normalizeBarKey(normalized.candidate) === currentKey) return null;
+  return normalized.candidate;
 }
 
 export function resolveSolGoalChangePendingConfirmMeaning(args: {

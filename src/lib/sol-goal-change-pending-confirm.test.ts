@@ -294,6 +294,32 @@ describe("Slice 3 confirmation meaning helpers", () => {
     expect(next).toBe("I will work out four days per week.");
   });
 
+  it("F: Sol complete MODIFY candidate wins even when inbound contains a clock", () => {
+    const solCandidate = "I will be in bed by 10:15 pm on weekdays.";
+    const next = resolveModifiedPendingCandidate({
+      inboundRaw: "Yes, but make it 10:15 on weekdays",
+      canonicalBehaviorStatement: ANGELA_CANONICAL,
+      currentCandidate: ANGELA_PENDING,
+      semanticCandidate: solCandidate,
+    });
+    expect(next).toBe(solCandidate);
+    expect(next).not.toBe(ANGELA_1015);
+  });
+
+  it("G: Sol additional constraints are preserved and not clock-stripped", () => {
+    const solCandidate =
+      "I will be in bed by 10:15 pm on weekdays but later on weekends.";
+    const next = resolveModifiedPendingCandidate({
+      inboundRaw: "Actually 10:15 makes more sense because weekdays are brutal",
+      canonicalBehaviorStatement: ANGELA_CANONICAL,
+      currentCandidate: ANGELA_PENDING,
+      semanticCandidate: solCandidate,
+    });
+    expect(next).toBe(solCandidate);
+    expect(next).toContain("weekdays");
+    expect(next).toContain("weekends");
+  });
+
   it("qualification vetoes clean confirm even if Sol said confirms", () => {
     const r = resolveSolGoalChangePendingConfirmMeaning({
       inboundRaw: "Yes, but make it 10:15",
@@ -487,6 +513,39 @@ describe("runSolGoalChangePendingConfirmForInbound", () => {
     expect(applyCanonicalGoalChangeWithSeasonMutation).not.toHaveBeenCalled();
     expect(r.consequence).toBe("modified");
     expect(r.authorization.candidate_behavior_statement).toBe(ANGELA_1015);
+  });
+
+  it("F: modify restages Sol's full candidate, not an inbound clock extract", async () => {
+    const solCandidate = "I will be in bed by 10:15 pm on weekdays.";
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(
+        semantic({
+          modifies_existing_pending_candidate: true,
+          candidate_behavior_statement: solCandidate,
+        })
+      )
+    );
+    const r = await run("Yes, but make it 10:15 on weekdays");
+    expect(applyCanonicalGoalChangeWithSeasonMutation).not.toHaveBeenCalled();
+    expect(r.consequence).toBe("modified");
+    expect(r.authorization.candidate_behavior_statement).toBe(solCandidate);
+    expect(r.authorization.candidate_behavior_statement).not.toBe(ANGELA_1015);
+  });
+
+  it("G: modify preserves Sol constraints beyond a clock", async () => {
+    const solCandidate =
+      "I will be in bed by 10:15 pm on weekdays but later on weekends.";
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(
+        semantic({
+          modifies_existing_pending_candidate: true,
+          candidate_behavior_statement: solCandidate,
+        })
+      )
+    );
+    const r = await run("Actually 10:15 makes more sense because weekdays are brutal");
+    expect(r.consequence).toBe("modified");
+    expect(r.authorization.candidate_behavior_statement).toBe(solCandidate);
   });
 
   it("6: No does not apply and clears pending", async () => {
@@ -887,5 +946,24 @@ describe("provePostMutationGoalChangeReload", () => {
       rpc: rpcApplied(),
     });
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("K: modify path has no inbound clock/weekday English classifier", () => {
+  const confirm = fs.readFileSync(
+    path.join(process.cwd(), "src/lib/sol-goal-change-pending-confirm.ts"),
+    "utf8"
+  );
+  const open = fs.readFileSync(
+    path.join(process.cwd(), "src/lib/sol-goal-change-pending-open.ts"),
+    "utf8"
+  );
+
+  it("does not extract clocks or weekdays from inbound English", () => {
+    expect(confirm).not.toContain("extractSingleClockFragment");
+    expect(confirm).not.toContain("CLOCK_IN_TEXT_RE");
+    expect(confirm).not.toContain("tryMergeWeekdaysIntoCandidate");
+    expect(confirm).not.toContain("trySubstituteClockFragmentIntoCanonical");
+    expect(open).not.toContain("extractDeterministicDailyBarCandidate");
   });
 });

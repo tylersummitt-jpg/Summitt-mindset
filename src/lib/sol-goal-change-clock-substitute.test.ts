@@ -48,4 +48,23 @@ describe("sol-goal-change-clock-substitute", () => {
       })
     ).toEqual({ status: "unchanged" });
   });
+
+  it("I/J: sentences containing a time are not whole-message clock fills", () => {
+    for (const inbound of [
+      "I think 10:30 would be better because mornings are hard",
+      "Maybe change it to 10:15.",
+      "Had a great workout at 10:30",
+      "See you at 10:30 pm",
+      "Yes, but make it 10:15.",
+    ]) {
+      expect(isSolGoalChangeClockOnlyFragment(inbound)).toBe(false);
+      expect(
+        resolveReplaceHallwayClockCandidate({
+          canonicalBehaviorStatement: CANONICAL,
+          extracted: null,
+          inboundRaw: inbound,
+        })
+      ).toEqual({ status: "unchanged" });
+    }
+  });
 });

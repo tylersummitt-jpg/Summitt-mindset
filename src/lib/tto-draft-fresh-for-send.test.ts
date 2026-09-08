@@ -327,10 +327,15 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
         adaptive_ask_expires_at: "2026-09-15T00:00:00.000Z",
       })
     );
+    generateTylerTextOverviewDraftForUser.mockImplementation(async () => {
+      persistFreshBody("morning", "FRESH TEMP REPLACE", ASK_B2);
+      return { ok: true };
+    });
     const result = await freshFor("morning");
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.status).toBe("regenerated");
+    expect(result.currentBodyToSend).toBe("FRESH TEMP REPLACE");
     expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
   });
 
@@ -450,6 +455,67 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
     });
     const result = await freshFor("morning");
     expect(result).toEqual({ ok: false, reason: "generation_effective_ask_unproven" });
+    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("A. post-regen: stale B generator stamps A and live remains A is proven", async () => {
+    seedMachineDraft({ sendSlot: "morning", body: "STALE B", generationAsk: ASK_B });
+    const result = await freshFor("morning");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("regenerated");
+    expect(result.currentBodyToSend).toBe("FRESH MORNING");
+    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
+    expect(markCurrentTtoDraftUnusable).not.toHaveBeenCalled();
+  });
+
+  it("B. post-regen: generator stamps A then live becomes C fails closed", async () => {
+    seedMachineDraft({ sendSlot: "morning", body: "STALE B", generationAsk: ASK_B });
+    getActiveCommitment
+      .mockResolvedValueOnce(commitment())
+      .mockResolvedValueOnce(commitment({ behavior_statement: ASK_C }));
+    const result = await freshFor("morning");
+    expect(result).toEqual({ ok: false, reason: "stale_draft_disabled" });
+    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
+    expect(markCurrentTtoDraftUnusable).toHaveBeenCalledTimes(1);
+  });
+
+  it("C. post-regen mismatch does not trigger a second generator call", async () => {
+    seedMachineDraft({ sendSlot: "morning", body: "STALE B", generationAsk: ASK_B });
+    getActiveCommitment
+      .mockResolvedValueOnce(commitment())
+      .mockResolvedValueOnce(commitment({ behavior_statement: ASK_C }));
+    await freshFor("morning");
+    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
+    expect(generateTylerTextOverviewEveningPreviewForUser).not.toHaveBeenCalled();
+    expect(generateTylerTextOverviewWeeklyDraftForUser).not.toHaveBeenCalled();
+  });
+
+  it("D. Tyler-protected remains unchanged through post-regen proof", async () => {
+    seedMachineDraft({
+      sendSlot: "morning",
+      body: "TYLER EXACT DRAFT",
+      generationAsk: ASK_B,
+      editedByTyler: true,
+      currentBodySource: "tyler_edit",
+    });
+    const result = await freshFor("morning");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("tyler_protected");
+    expect(result.currentBodyToSend).toBe("TYLER EXACT DRAFT");
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
+    expect(markCurrentTtoDraftUnusable).not.toHaveBeenCalled();
+  });
+
+  it("E. post-regen mismatch disable failure stays unresolved with no send", async () => {
+    seedMachineDraft({ sendSlot: "morning", body: "STALE B", generationAsk: ASK_B });
+    getActiveCommitment
+      .mockResolvedValueOnce(commitment())
+      .mockResolvedValueOnce(commitment({ behavior_statement: ASK_C }));
+    markCurrentTtoDraftUnusable.mockResolvedValue(false);
+    const result = await freshFor("morning");
+    expect(result).toEqual({ ok: false, reason: "stale_draft_could_not_be_disabled" });
     expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
   });
 

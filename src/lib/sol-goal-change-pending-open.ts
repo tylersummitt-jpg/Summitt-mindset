@@ -22,7 +22,6 @@ import {
 import { isUnsafeSmsGoalCandidateText } from "@/lib/sms-inbound-safety";
 import {
   bootstrapSmsPendingConfirmationFromInbound,
-  extractDeterministicDailyBarCandidate,
   isVagueOrInvalidCandidateBar,
 } from "@/lib/v2-sms-pending-resolution-complete";
 import {
@@ -224,6 +223,11 @@ export function isStructuralIncompleteReplacementCandidate(text: string): boolea
   return false;
 }
 
+/**
+ * Normalize Sol's saved-replace candidate. inboundRaw is not inspected.
+ * A Sol clock-only fragment may expand into canonical via the structural
+ * clock helper; member English is never mined for a substitute bar.
+ */
 export function normalizeSemanticSavedReplaceCandidate(args: {
   semanticCandidate: string;
   canonicalBehaviorStatement: string;
@@ -239,13 +243,6 @@ export function normalizeSemanticSavedReplaceCandidate(args: {
   );
   if (substituted) {
     candidate = substituted.trim().replace(/\s+/g, " ");
-  } else if (isSolGoalChangeClockOnlyFragment(semantic)) {
-    const extracted = extractDeterministicDailyBarCandidate(args.inboundRaw);
-    if (extracted?.trim()) {
-      candidate = extracted.trim().replace(/\s+/g, " ");
-    } else {
-      return { ok: false, reason: "clock_fragment_unnormalizable" };
-    }
   }
 
   if (isSolGoalChangeClockOnlyFragment(candidate)) {
