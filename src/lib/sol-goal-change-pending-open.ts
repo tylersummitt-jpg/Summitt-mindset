@@ -50,9 +50,11 @@ import {
   freezeTemporaryDurationFromSemantic,
   isSolOwnedTemporaryOverlayPending,
   normalizeSemanticTemporaryCandidate,
+  resolveActiveOverlayReplacementFill,
   SOL_TEMPORARY_OVERLAY_PENDING_MARKER,
   shouldAttemptSolTemporaryPendingOpen,
   temporaryConfirmationAuthorizationFromReloadedCommitment,
+  type SolTemporaryReplacementSnapshot,
 } from "@/lib/sol-goal-change-temporary-pending";
 import {
   applySolActiveTemporaryOverlayRevert,
@@ -481,6 +483,13 @@ export async function runSolGoalChangePendingOpenForInbound(args: {
   }
 
   if (shouldAttemptSolTemporaryPendingOpen(semantic)) {
+    if (semantic.goal_change.reverts_active_temporary_overlay === true) {
+      return unauthorized(liveStart, {
+        interpreter_ok: true,
+        semantic_intent: semantic.goal_change.intent,
+        pending_skip_reason: "revert_temporary_dual_intent",
+      });
+    }
     return writeSolTemporaryPending({
       clerkUserId: args.clerkUserId,
       liveStart,
@@ -615,42 +624,77 @@ async function writeSolTemporaryPending(args: {
 }): Promise<SolGoalChangePendingOpenResult> {
   const { liveStart, semantic } = args;
   const semanticIntent = semantic.goal_change.intent;
+  const overlay = buildAuthoritativeActiveOverlaySnapshot(
+    liveStart,
+    args.now.getTime(),
+    args.timezone
+  );
+  const replacingLiveOverlay = overlay?.active === true;
 
-  if (activeOverlayBlocksTemporaryPending(liveStart, args.now.getTime())) {
-    return unauthorized(liveStart, {
-      interpreter_ok: true,
-      semantic_intent: semanticIntent,
-      pending_skip_reason: "active_overlay_blocks_temporary_pending",
+  let candidate: string | null = null;
+  let frozen: ReturnType<typeof freezeTemporaryDurationFromSemantic>["frozen"];
+  let replacement: SolTemporaryReplacementSnapshot | null = null;
+
+  if (replacingLiveOverlay && overlay) {
+    const fill = resolveActiveOverlayReplacementFill({
+      semantic,
+      overlay,
+      canonicalBehaviorStatement: liveStart.behavior_statement ?? "",
+      timezone: args.timezone,
+      now: args.now,
     });
+    if (!fill.ok) {
+      return unauthorized(liveStart, {
+        interpreter_ok: true,
+        semantic_intent: semanticIntent,
+        pending_skip_reason: fill.reason,
+      });
+    }
+    candidate = fill.candidate;
+    frozen = fill.frozen;
+    replacement = {
+      replaces_active_temporary_overlay: true,
+      replaced_overlay_behavior_statement: overlay.overlay_behavior_statement!.trim(),
+      replaced_overlay_expires_at: overlay.overlay_expires_at!.trim(),
+    };
+  } else {
+    if (activeOverlayBlocksTemporaryPending(liveStart, args.now.getTime())) {
+      return unauthorized(liveStart, {
+        interpreter_ok: true,
+        semantic_intent: semanticIntent,
+        pending_skip_reason: "active_overlay_blocks_temporary_pending",
+      });
+    }
+
+    const freezeResult = freezeTemporaryDurationFromSemantic({
+      semantic,
+      timezone: args.timezone,
+      now: args.now,
+    });
+    if (freezeResult.resolver_threw) {
+      return unauthorized(liveStart, {
+        interpreter_ok: true,
+        semantic_intent: semanticIntent,
+        pending_skip_reason: "temporary_duration_resolver_threw",
+      });
+    }
+    frozen = freezeResult.frozen;
+
+    const normalized = normalizeSemanticTemporaryCandidate({
+      semanticCandidate: semantic.goal_change.candidate_behavior_statement,
+      canonicalBehaviorStatement: liveStart.behavior_statement ?? "",
+    });
+    if (!normalized.ok && normalized.reason === "unsafe") {
+      return unauthorized(liveStart, {
+        interpreter_ok: true,
+        semantic_intent: semanticIntent,
+        candidate_normalize_ok: false,
+        pending_skip_reason: "unsafe_goal_content",
+      });
+    }
+    candidate = normalized.ok ? normalized.candidate : null;
   }
 
-  const freezeResult = freezeTemporaryDurationFromSemantic({
-    semantic,
-    timezone: args.timezone,
-    now: args.now,
-  });
-  if (freezeResult.resolver_threw) {
-    return unauthorized(liveStart, {
-      interpreter_ok: true,
-      semantic_intent: semanticIntent,
-      pending_skip_reason: "temporary_duration_resolver_threw",
-    });
-  }
-  const frozen = freezeResult.frozen;
-
-  const normalized = normalizeSemanticTemporaryCandidate({
-    semanticCandidate: semantic.goal_change.candidate_behavior_statement,
-    canonicalBehaviorStatement: liveStart.behavior_statement ?? "",
-  });
-  if (!normalized.ok && normalized.reason === "unsafe") {
-    return unauthorized(liveStart, {
-      interpreter_ok: true,
-      semantic_intent: semanticIntent,
-      candidate_normalize_ok: false,
-      pending_skip_reason: "unsafe_goal_content",
-    });
-  }
-  const candidate = normalized.ok ? normalized.candidate : null;
   const mode = classifySolTemporaryPendingMode({
     candidate,
     frozen,
@@ -713,6 +757,7 @@ async function writeSolTemporaryPending(args: {
         canonicalBehaviorStatement: liveStart.behavior_statement ?? "",
         inboundRaw: args.inboundRaw,
         messageSid: args.messageSid,
+        replacement,
       }),
   });
   if (!merged.ok) {
@@ -769,7 +814,10 @@ async function writeSolTemporaryPending(args: {
       pending_skip_reason: "canonical_changed_before_reload",
     });
   }
-  if (activeOverlayBlocksTemporaryPending(reloaded, args.now.getTime())) {
+  if (
+    !replacingLiveOverlay &&
+    activeOverlayBlocksTemporaryPending(reloaded, args.now.getTime())
+  ) {
     return unauthorized(reloaded, {
       interpreter_ok: true,
       semantic_intent: semanticIntent,

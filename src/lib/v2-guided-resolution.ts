@@ -100,6 +100,10 @@ export type V2SmsPendingResolutionPayload = {
    * JSON-only; no migration. Leftover tighten must skip when this is true.
    */
   sol_temporary_overlay?: true;
+  /** Slice 7F-2 — tagged temp pending will replace the live overlay, not stack. */
+  replaces_active_temporary_overlay?: true;
+  replaced_overlay_behavior_statement?: string | null;
+  replaced_overlay_expires_at?: string | null;
   temporary_duration_kind?: string | null;
   temporary_duration_days?: number | null;
   temporary_weekday?: string | null;
@@ -240,6 +244,15 @@ function parsePayload(raw: unknown): V2PendingResolutionPayload | null {
         ? { season_mode_set_at: o.season_mode_set_at }
         : {}),
       ...(o.sol_temporary_overlay === true ? { sol_temporary_overlay: true as const } : {}),
+      ...(o.replaces_active_temporary_overlay === true
+        ? { replaces_active_temporary_overlay: true as const }
+        : {}),
+      ...(typeof o.replaced_overlay_behavior_statement === "string"
+        ? { replaced_overlay_behavior_statement: o.replaced_overlay_behavior_statement }
+        : {}),
+      ...(typeof o.replaced_overlay_expires_at === "string"
+        ? { replaced_overlay_expires_at: o.replaced_overlay_expires_at }
+        : {}),
       ...(typeof o.temporary_duration_kind === "string"
         ? { temporary_duration_kind: o.temporary_duration_kind }
         : {}),

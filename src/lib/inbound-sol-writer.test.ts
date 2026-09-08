@@ -327,6 +327,10 @@ describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
       "Temporary reverted language is allowed only when temporary_adjustment_reverted is true"
     );
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("I changed your goal back");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("replaces_active_temporary_overlay");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "you may say the temporary goal/target was updated"
+    );
   });
 
   it("names unsupported vs supported fixture questions without requiring one SMS sentence", () => {

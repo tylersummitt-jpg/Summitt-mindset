@@ -43,6 +43,10 @@ import {
   type SolGoalChangeSemanticResult,
   type SolGoalChangeSemanticThreadMessage,
 } from "@/lib/sol-goal-change-semantic";
+import {
+  liveOverlayMatchesReplacementSnapshot,
+  replaceActiveTemporaryOverlay,
+} from "@/lib/sol-goal-change-temporary-replace";
 import { runSolGoalChangeSemanticInterpreter } from "@/lib/sol-goal-change-semantic-interpreter";
 import { confirmationAuthorizationFromReloadedCommitment } from "@/lib/sol-goal-change-pending-open";
 import {
@@ -183,6 +187,10 @@ function smsTempPayload(commitment: ActiveV2CommitmentRow): V2SmsPendingResoluti
   if (pending.kind !== "commitment_tighten") return null;
   if (pending.payload.sol_temporary_overlay !== true) return null;
   return pending.payload;
+}
+
+function isReplacementPending(payload: V2SmsPendingResolutionPayload): boolean {
+  return payload.replaces_active_temporary_overlay === true;
 }
 
 function tempCandidate(payload: V2SmsPendingResolutionPayload): string | null {
@@ -326,6 +334,10 @@ export function proveTemporaryOverlayApply(args: {
   if (!isV2AdaptiveOverlayActive(args.after, args.nowMs)) {
     return { ok: false, reason: "reload_overlay_not_active" };
   }
+  const effective = getEffectiveCoachingAsk(args.after, args.nowMs);
+  if (normalizeBarKey(effective) !== normalizeBarKey(args.expectedCandidate)) {
+    return { ok: false, reason: "reload_effective_ask_mismatch" };
+  }
   return { ok: true };
 }
 
@@ -334,6 +346,7 @@ export function buildTemporaryAppliedAuthorization(args: {
   candidate: string;
   expiresAt: string;
   lastIncludedLocalDate: string | null;
+  replacesActiveTemporaryOverlay?: boolean;
 }): SolGoalChangeConfirmationAuthorization {
   const canonical = (args.commitment.behavior_statement ?? "").trim();
   return {
@@ -352,6 +365,9 @@ export function buildTemporaryAppliedAuthorization(args: {
     pending_cleared: true,
     temporary_expires_at: args.expiresAt,
     temporary_last_included_local_date: args.lastIncludedLocalDate,
+    ...(args.replacesActiveTemporaryOverlay === true
+      ? { replaces_active_temporary_overlay: true }
+      : {}),
   };
 }
 
@@ -366,6 +382,35 @@ function overlayAlreadyMatchesConfirmedTemp(args: {
     return false;
   }
   return overlayExpiryMatches(args.commitment.adaptive_ask_expires_at, args.expiresAt);
+}
+
+function replacementAlreadyMatchesConfirmed(args: {
+  expectedCommitmentId: string;
+  commitment: ActiveV2CommitmentRow;
+  candidate: string;
+  expiresAt: string;
+  canonicalSnapshot: string;
+  nowMs: number;
+}): boolean {
+  if (args.commitment.id !== args.expectedCommitmentId) return false;
+  if (args.commitment.status !== "active") return false;
+  if ((args.commitment.behavior_statement ?? "").trim() !== args.canonicalSnapshot.trim()) {
+    return false;
+  }
+  if (
+    !overlayAlreadyMatchesConfirmedTemp({
+      commitment: args.commitment,
+      candidate: args.candidate,
+      expiresAt: args.expiresAt,
+      nowMs: args.nowMs,
+    })
+  ) {
+    return false;
+  }
+  return (
+    normalizeBarKey(getEffectiveCoachingAsk(args.commitment, args.nowMs)) ===
+    normalizeBarKey(args.candidate)
+  );
 }
 
 function conflictingActiveOverlay(args: {
@@ -408,6 +453,9 @@ function preApplyTempOverlayReady(args: {
     nowMs: args.nowMs,
   })) {
     return { ok: false, reason: "not_promotable" };
+  }
+  if (isReplacementPending(args.payload)) {
+    return { ok: true, candidate, expiresAt };
   }
   if (conflictingActiveOverlay({
     commitment: args.commitment,
@@ -799,6 +847,221 @@ export async function runSolTemporaryOverlayConfirmForInbound(args: {
   });
 }
 
+async function applyConfirmedTemporaryOverlayReplacement(args: {
+  clerkUserId: string;
+  liveStart: ActiveV2CommitmentRow;
+  startPayload: V2SmsPendingResolutionPayload;
+  inboundSid: string;
+  mutationClock: () => number;
+  baseForensics: SolTemporaryConfirmForensics;
+}): Promise<SolTemporaryConfirmResult> {
+  const handledBase = { handled: true as const };
+  const mutationClock = args.mutationClock;
+  const liveBefore = (await getActiveCommitment(args.clerkUserId)) ?? args.liveStart;
+  const payload = smsTempPayload(liveBefore) ?? args.startPayload;
+  const lastIncluded = payload.temporary_last_included_local_date ?? null;
+  const mutationNowMs = mutationClock();
+
+  const ready = preApplyTempOverlayReady({
+    commitment: liveBefore,
+    payload,
+    nowMs: mutationNowMs,
+    inboundSid: args.inboundSid,
+  });
+  if (!ready.ok) {
+    if (ready.reason === "expiry_not_future" || ready.reason === "canonical_snapshot_mismatch") {
+      try {
+        const cleared = await clearPendingKeepCurrent({
+          commitment: liveBefore,
+          reasonCode: "sol_temporary_overlay_replace_fail_closed",
+        });
+        return {
+          ...handledBase,
+          commitment: cleared,
+          authorization: neitherAuth(cleared),
+          consequence: "ambiguous",
+          forensics: {
+            ...args.baseForensics,
+            reload_proved: false,
+            reload_fail_reason: ready.reason,
+            pending_cleared: !isSmsInboundPendingResolutionActionable(cleared),
+          },
+        };
+      } catch {
+        return {
+          ...handledBase,
+          commitment: liveBefore,
+          authorization: pendingAuthFromLive(liveBefore, mutationNowMs),
+          consequence: "ambiguous",
+          forensics: {
+            ...args.baseForensics,
+            reload_fail_reason: ready.reason,
+          },
+        };
+      }
+    }
+    return {
+      ...handledBase,
+      commitment: liveBefore,
+      authorization: pendingAuthFromLive(liveBefore, mutationNowMs),
+      consequence: "ambiguous",
+      forensics: {
+        ...args.baseForensics,
+        reload_proved: false,
+        reload_fail_reason: ready.reason,
+      },
+    };
+  }
+
+  const { candidate, expiresAt } = ready;
+  const snapshot = (payload.canonical_behavior_snapshot ?? liveBefore.behavior_statement ?? "").trim();
+  const expectedOverlayText = (payload.replaced_overlay_behavior_statement ?? "").trim();
+  const expectedOverlayExpiresAt = (payload.replaced_overlay_expires_at ?? "").trim();
+  if (
+    replacementAlreadyMatchesConfirmed({
+      expectedCommitmentId: args.liveStart.id,
+      commitment: liveBefore,
+      candidate,
+      expiresAt,
+      canonicalSnapshot: snapshot,
+      nowMs: mutationNowMs,
+    })
+  ) {
+    return finishProvenOverlay({
+      clerkUserId: args.clerkUserId,
+      before: liveBefore,
+      candidate,
+      expiresAt,
+      lastIncluded,
+      snapshot,
+      mutationClock,
+      baseForensics: {
+        ...args.baseForensics,
+        mutation_attempted: false,
+        rpc_ok: true,
+        rpc_code: "already_applied_state",
+        overlay_expires_at_passed: expiresAt,
+      },
+      skipRpc: true,
+      replacesActiveTemporaryOverlay: true,
+    });
+  }
+
+  const snapshotMatch = liveOverlayMatchesReplacementSnapshot({
+    commitment: liveBefore,
+    expectedCanonical: snapshot,
+    expectedOverlayText,
+    expectedOverlayExpiresAt,
+    nowMs: mutationNowMs,
+  });
+  if (!snapshotMatch.ok) {
+    try {
+      const cleared = await clearPendingKeepCurrent({
+        commitment: liveBefore,
+        reasonCode: "sol_temporary_overlay_replace_fail_closed",
+      });
+      return {
+        ...handledBase,
+        commitment: cleared,
+        authorization: neitherAuth(cleared),
+        consequence: "ambiguous",
+        forensics: {
+          ...args.baseForensics,
+          reload_proved: false,
+          reload_fail_reason: snapshotMatch.reason,
+          pending_cleared: !isSmsInboundPendingResolutionActionable(cleared),
+        },
+      };
+    } catch {
+      return {
+        ...handledBase,
+        commitment: liveBefore,
+        authorization: pendingAuthFromLive(liveBefore, mutationNowMs),
+        consequence: "ambiguous",
+        forensics: {
+          ...args.baseForensics,
+          reload_fail_reason: snapshotMatch.reason,
+        },
+      };
+    }
+  }
+
+  const replaced = await replaceActiveTemporaryOverlay({
+    commitmentId: liveBefore.id,
+    expectedUpdatedAt: liveBefore.updated_at,
+    expectedCanonical: snapshot,
+    expectedOverlayText,
+    expectedOverlayExpiresAt,
+    nextOverlayText: candidate,
+    nextOverlayExpiresAt: expiresAt,
+    nowMs: mutationNowMs,
+  });
+  if (!replaced.ok) {
+    const afterFail = (await getActiveCommitment(args.clerkUserId)) ?? liveBefore;
+    if (
+      replacementAlreadyMatchesConfirmed({
+        expectedCommitmentId: args.liveStart.id,
+        commitment: afterFail,
+        candidate,
+        expiresAt,
+        canonicalSnapshot: snapshot,
+        nowMs: mutationNowMs,
+      })
+    ) {
+      return finishProvenOverlay({
+        clerkUserId: args.clerkUserId,
+        before: liveBefore,
+        candidate,
+        expiresAt,
+        lastIncluded,
+        snapshot,
+        mutationClock,
+        baseForensics: {
+          ...args.baseForensics,
+          mutation_attempted: true,
+          rpc_ok: true,
+          rpc_code: "already_applied_state",
+          overlay_expires_at_passed: expiresAt,
+        },
+        skipRpc: true,
+        replacesActiveTemporaryOverlay: true,
+      });
+    }
+    return {
+      ...handledBase,
+      commitment: afterFail,
+      authorization: pendingAuthFromLive(afterFail, mutationNowMs),
+      consequence: "rpc_failed",
+      forensics: {
+        ...args.baseForensics,
+        mutation_attempted: true,
+        rpc_ok: false,
+        rpc_code: replaced.error,
+        overlay_expires_at_passed: expiresAt,
+      },
+    };
+  }
+
+  return finishProvenOverlay({
+    clerkUserId: args.clerkUserId,
+    before: liveBefore,
+    candidate,
+    expiresAt,
+    lastIncluded,
+    snapshot,
+    mutationClock,
+    baseForensics: {
+      ...args.baseForensics,
+      mutation_attempted: true,
+      rpc_ok: true,
+      rpc_code: "replaced",
+      overlay_expires_at_passed: expiresAt,
+    },
+    skipRpc: true,
+    replacesActiveTemporaryOverlay: true,
+  });
+}
+
 async function applyConfirmedTemporaryOverlay(args: {
   clerkUserId: string;
   liveStart: ActiveV2CommitmentRow;
@@ -807,6 +1070,10 @@ async function applyConfirmedTemporaryOverlay(args: {
   mutationClock: () => number;
   baseForensics: SolTemporaryConfirmForensics;
 }): Promise<SolTemporaryConfirmResult> {
+  if (isReplacementPending(args.startPayload)) {
+    return applyConfirmedTemporaryOverlayReplacement(args);
+  }
+
   const handledBase = { handled: true as const };
   const mutationClock = args.mutationClock;
   await clearStaleAdaptiveContractColumns(args.liveStart.id);
@@ -1049,6 +1316,7 @@ async function finishProvenOverlay(args: {
   mutationClock: () => number;
   baseForensics: SolTemporaryConfirmForensics;
   skipRpc: boolean;
+  replacesActiveTemporaryOverlay?: boolean;
 }): Promise<SolTemporaryConfirmResult> {
   const handledBase = { handled: true as const };
   let live = (await getActiveCommitment(args.clerkUserId)) ?? args.before;
@@ -1107,6 +1375,7 @@ async function finishProvenOverlay(args: {
       candidate: args.candidate,
       expiresAt: args.expiresAt,
       lastIncludedLocalDate: args.lastIncluded,
+      replacesActiveTemporaryOverlay: args.replacesActiveTemporaryOverlay === true,
     }),
     consequence: "applied",
     forensics: {

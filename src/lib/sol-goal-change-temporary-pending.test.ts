@@ -484,19 +484,47 @@ describe("Slice 7B pending-open", () => {
     }
   });
 
-  it("active overlay blocks a second temp pending", async () => {
+  it("active overlay + temporary_adjustment stages replacement pending, not a second overlay", async () => {
     const overlaid = commitment({
       adaptive_ask_text: "Be in bed by 11:00 pm tonight.",
       adaptive_ask_expires_at: "2099-01-01T00:00:00.000Z",
     });
-    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
-      interpreterOk(semantic({ temporary_duration_kind: "local_week" }))
+    const reloaded = withPending(
+      overlaid,
+      tempPayload({
+        replaces_active_temporary_overlay: true,
+        replaced_overlay_behavior_statement: "Be in bed by 11:00 pm tonight.",
+        replaced_overlay_expires_at: "2099-01-01T00:00:00.000Z",
+        candidate_behavior_statement: CANDIDATE,
+        candidate_tightened_bar: CANDIDATE,
+      })
     );
-    getActiveCommitment.mockResolvedValue(overlaid);
-    const r = await run({ commitment: overlaid });
-    expect(applyWave4SmsCommitmentPendingResolution).not.toHaveBeenCalled();
-    expect(r.forensics.pending_skip_reason).toBe("active_overlay_blocks_temporary_pending");
-    expect(r.authorization.temporary_adjustment_confirmation_authorized).not.toBe(true);
+    runSolGoalChangeSemanticInterpreter.mockResolvedValue(
+      interpreterOk(semantic({ temporary_duration_kind: "unspecified", candidate_behavior_statement: "10:30" }))
+    );
+    getActiveCommitment.mockResolvedValueOnce(overlaid).mockResolvedValue(reloaded);
+    const r = await run({ commitment: overlaid, inboundRaw: "Make it 10:30 instead." });
+    expect(applyWave4SmsCommitmentPendingResolution).toHaveBeenCalled();
+    expect(r.authorization.temporary_adjustment_confirmation_authorized).toBe(true);
+    expect(r.authorization.replaces_active_temporary_overlay).toBe(true);
+    expect(r.authorization.goal_change_confirmation_authorized).toBe(false);
+    expect(reloaded.adaptive_ask_text).toBe("Be in bed by 11:00 pm tonight.");
+    const mergeFn = mergeSmsPendingResolutionPayload.mock.calls[0]?.[0]?.merge;
+    expect(typeof mergeFn).toBe("function");
+    if (typeof mergeFn === "function") {
+      const merged = mergeFn({
+        source: "sms_inbound",
+        detected_intent: "sms_tighten_request",
+        raw_user_text: "x",
+        inbound_message_sid: "SMtemp",
+        ai_confidence: null,
+      });
+      expect(merged.replaces_active_temporary_overlay).toBe(true);
+      expect(merged.replaced_overlay_behavior_statement).toBe("Be in bed by 11:00 pm tonight.");
+      expect(merged.replaced_overlay_expires_at).toBe("2099-01-01T00:00:00.000Z");
+      expect(merged.temporary_expires_at).toBe("2099-01-01T00:00:00.000Z");
+      expect(merged.candidate_behavior_statement).toBe(CANDIDATE);
+    }
   });
 
   it("active overlay does not block saved replace", async () => {

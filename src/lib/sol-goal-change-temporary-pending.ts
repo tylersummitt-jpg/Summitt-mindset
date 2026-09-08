@@ -29,12 +29,18 @@ import {
   type SolGoalChangeConfirmationAuthorization,
 } from "@/lib/sol-goal-change-confirmation-guard";
 import type { SolGoalChangeSemanticResult } from "@/lib/sol-goal-change-semantic";
+import type { SolGoalChangeAuthoritativeActiveOverlay } from "@/lib/sol-goal-change-semantic";
 import {
   resolveTemporaryOverlayExpiry,
   type TemporaryOverlayExpiryResult,
 } from "@/lib/sol-goal-change-temporary-duration";
 
 export const SOL_TEMPORARY_OVERLAY_PENDING_MARKER = true as const;
+export const SOL_TEMPORARY_OVERLAY_REPLACEMENT_MARKER = true as const;
+
+function normalizeBarKey(text: string): string {
+  return text.trim().replace(/\s+/g, " ").toLowerCase();
+}
 
 export type SolTemporaryPendingMode =
   | "awaiting_confirmation"
@@ -216,6 +222,114 @@ export function semanticSuppliesTemporaryDuration(
   return semantic.goal_change.temporary_duration_kind !== "unspecified";
 }
 
+export type ActiveOverlayReplacementFill =
+  | { ok: true; candidate: string; frozen: SolTemporaryFrozenDuration }
+  | { ok: false; reason: string };
+
+/**
+ * Fill rules for replacing a live overlay. Sol supplies structured candidate
+ * and/or duration; omitted fields keep the current overlay values.
+ */
+export function resolveActiveOverlayReplacementFill(args: {
+  semantic: SolGoalChangeSemanticResult;
+  overlay: SolGoalChangeAuthoritativeActiveOverlay;
+  canonicalBehaviorStatement: string;
+  timezone: string | null;
+  now: Date;
+}): ActiveOverlayReplacementFill {
+  const nowMs = args.now.getTime();
+  if (args.overlay.active !== true) {
+    return { ok: false, reason: "overlay_not_active" };
+  }
+  const overlayText = args.overlay.overlay_behavior_statement?.trim() || "";
+  const overlayExpires = args.overlay.overlay_expires_at?.trim() || "";
+  if (!overlayText || !overlayExpires) {
+    return { ok: false, reason: "overlay_snapshot_incomplete" };
+  }
+  if (!isTemporaryExpiryStillConfirmable(overlayExpires, nowMs)) {
+    return { ok: false, reason: "overlay_expired_not_live" };
+  }
+
+  let candidate: string | null = null;
+  if (args.semantic.goal_change.candidate_behavior_statement?.trim()) {
+    const normalized = normalizeSemanticTemporaryCandidate({
+      semanticCandidate: args.semantic.goal_change.candidate_behavior_statement,
+      canonicalBehaviorStatement: args.canonicalBehaviorStatement,
+    });
+    if (!normalized.ok && normalized.reason === "unsafe") {
+      return { ok: false, reason: "unsafe_goal_content" };
+    }
+    if (normalized.ok) candidate = normalized.candidate;
+  }
+  if (!candidate) {
+    const fromOverlay = normalizeSemanticTemporaryCandidate({
+      semanticCandidate: overlayText,
+      canonicalBehaviorStatement: args.canonicalBehaviorStatement,
+    });
+    if (!fromOverlay.ok) {
+      return { ok: false, reason: "overlay_candidate_unusable" };
+    }
+    candidate = fromOverlay.candidate;
+  }
+
+  let frozen: SolTemporaryFrozenDuration;
+  if (semanticSuppliesTemporaryDuration(args.semantic)) {
+    const freezeResult = freezeTemporaryDurationFromSemantic({
+      semantic: args.semantic,
+      timezone: args.timezone,
+      now: args.now,
+    });
+    if (freezeResult.resolver_threw) {
+      return { ok: false, reason: "temporary_duration_resolver_threw" };
+    }
+    if (
+      !freezeResult.frozen.duration_supported ||
+      !freezeResult.frozen.temporary_expires_at?.trim()
+    ) {
+      return { ok: false, reason: "temporary_duration_needs_clarification" };
+    }
+    frozen = freezeResult.frozen;
+  } else {
+    const interpretedAt = args.now.toISOString();
+    const interpretedLocalDate = getDateKeyInTimezone(
+      args.now,
+      resolveUserTimezone(args.timezone)
+    );
+    frozen = {
+      temporary_duration_kind: args.semantic.goal_change.temporary_duration_kind,
+      temporary_duration_days: args.semantic.goal_change.temporary_duration_days,
+      temporary_weekday: args.semantic.goal_change.temporary_weekday,
+      temporary_end_local_date: args.semantic.goal_change.temporary_end_local_date,
+      temporary_expires_at: overlayExpires,
+      temporary_last_included_local_date:
+        args.overlay.overlay_last_included_local_date ?? null,
+      temporary_interpreted_local_date: interpretedLocalDate,
+      temporary_interpreted_at: interpretedAt,
+      duration_supported: true,
+      duration_clarification_required: false,
+    };
+  }
+
+  if (!isTemporaryExpiryStillConfirmable(frozen.temporary_expires_at, nowMs)) {
+    return { ok: false, reason: "replacement_expiry_not_future" };
+  }
+
+  const sameText = normalizeBarKey(candidate) === normalizeBarKey(overlayText);
+  const sameExpiry =
+    Date.parse(frozen.temporary_expires_at ?? "") === Date.parse(overlayExpires);
+  if (sameText && sameExpiry) {
+    return { ok: false, reason: "replacement_matches_current_overlay" };
+  }
+
+  return { ok: true, candidate, frozen };
+}
+
+export type SolTemporaryReplacementSnapshot = {
+  replaces_active_temporary_overlay: true;
+  replaced_overlay_behavior_statement: string;
+  replaced_overlay_expires_at: string;
+};
+
 export function classifySolTemporaryPendingMode(args: {
   candidate: string | null;
   frozen: SolTemporaryFrozenDuration;
@@ -247,10 +361,12 @@ export function buildSolTemporaryPendingPayloadMerge(args: {
   canonicalBehaviorStatement: string;
   inboundRaw: string;
   messageSid: string;
+  replacement?: SolTemporaryReplacementSnapshot | null;
 }): V2SmsPendingResolutionPayload {
   const smsState =
     args.mode === "awaiting_confirmation" ? "awaiting_confirmation" : "awaiting_candidate";
   const candidate = args.candidate?.trim() || null;
+  const replacement = args.replacement ?? null;
   return {
     ...args.prev,
     sol_temporary_overlay: SOL_TEMPORARY_OVERLAY_PENDING_MARKER,
@@ -272,6 +388,13 @@ export function buildSolTemporaryPendingPayloadMerge(args: {
     canonical_behavior_snapshot: args.canonicalBehaviorStatement.trim(),
     temporary_interpreted_local_date: args.frozen.temporary_interpreted_local_date,
     temporary_interpreted_at: args.frozen.temporary_interpreted_at,
+    ...(replacement
+      ? {
+          replaces_active_temporary_overlay: SOL_TEMPORARY_OVERLAY_REPLACEMENT_MARKER,
+          replaced_overlay_behavior_statement: replacement.replaced_overlay_behavior_statement,
+          replaced_overlay_expires_at: replacement.replaced_overlay_expires_at,
+        }
+      : {}),
   };
 }
 
@@ -346,6 +469,14 @@ export function applySolTemporaryHallwayMerge(args: {
     canonical_behavior_snapshot: snapshot,
     temporary_interpreted_local_date: args.frozen.temporary_interpreted_local_date,
     temporary_interpreted_at: args.frozen.temporary_interpreted_at,
+    ...(args.prev.replaces_active_temporary_overlay === true
+      ? {
+          replaces_active_temporary_overlay: SOL_TEMPORARY_OVERLAY_REPLACEMENT_MARKER,
+          replaced_overlay_behavior_statement:
+            args.prev.replaced_overlay_behavior_statement ?? null,
+          replaced_overlay_expires_at: args.prev.replaced_overlay_expires_at ?? null,
+        }
+      : {}),
   };
 }
 
@@ -536,6 +667,9 @@ export function temporaryConfirmationAuthorizationFromReloadedCommitment(
     temporary_expires_at: payload.temporary_expires_at,
     duration_clarification_required: false,
     pending_cleared: false,
+    ...(payload.replaces_active_temporary_overlay === true
+      ? { replaces_active_temporary_overlay: true }
+      : {}),
   };
 }
 

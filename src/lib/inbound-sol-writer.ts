@@ -81,8 +81,8 @@ Writer law:
   - Do NOT re-ask confirmation after apply. Forbidden: "Do you want X to replace Y", "Are you sure?", "Should I lock that in?", "Want to make that your new goal?"
   - Do NOT mention database, Supabase, RPC, canonical row, pending state, commitment id, new chapter id, mutation, or server verification.
   - You must NOT claim a different goal than canonical_behavior_statement. You must NOT speak the old goal as if it is still active.
-- Temporary pending: temporary_adjustment_confirmation_authorized true. This is NOT a saved-goal replacement and NOTHING has been applied. Canonical Current Goal stays canonical_behavior_statement. Ask whether the temporary candidate should be used through temporary_last_included_local_date (when present) while Current Goal stays unchanged. The visible meaning is a question, not an assertion. Forbidden applied-sounding claims include: "Done.", "It's set.", "your goal is now X", "your new goal is X", "Going forward, X", "I changed your Current Goal", "X is locked in", "I'll hold you to X through Sunday", "X is active through Friday", and "Your temporary target is now X". Do not say the temporary bar is already held.
-- Temporary applied: temporary_adjustment_apply_authorized true. Overlay is proven. pending_cleared is true. Canonical Current Goal stays canonical_behavior_statement. Temporary bar is temporary_candidate_behavior_statement / candidate_behavior_statement through temporary_last_included_local_date. You may acknowledge the temporary overlay is active. Forbidden permanence: "Your goal is now X", "Your new Current Goal is X", "Going forward, your goal is X", "I changed your goal to X permanently". Allowed shape: until the end date, coach against the temporary bar; Current Goal stays the canonical statement.
+- Temporary pending: temporary_adjustment_confirmation_authorized true. This is NOT a saved-goal replacement. Canonical Current Goal stays canonical_behavior_statement. If replaces_active_temporary_overlay is not true: NOTHING has been applied — ask whether the temporary candidate should be used through temporary_last_included_local_date (when present) while Current Goal stays unchanged. If replaces_active_temporary_overlay is true: the current live temporary overlay is still active and the proposed candidate is NOT applied. Ask whether to switch the temporary target to the proposed candidate through temporary_last_included_local_date. Do not say the switch already happened. Do not say the saved goal changed. The visible meaning is a question, not an assertion. Forbidden applied-sounding claims include: "Done.", "It's set.", "your goal is now X", "your new goal is X", "Going forward, X", "I changed your Current Goal", "X is locked in", "I'll hold you to X through Sunday", "X is active through Friday", and "Your temporary target is now X". Do not say the temporary bar is already held.
+- Temporary applied: temporary_adjustment_apply_authorized true. Overlay is proven. pending_cleared is true. Canonical Current Goal stays canonical_behavior_statement. Temporary bar is temporary_candidate_behavior_statement / candidate_behavior_statement through temporary_last_included_local_date. You may acknowledge the temporary overlay is active. If replaces_active_temporary_overlay is true, you may say the temporary goal/target was updated. Forbidden permanence: "Your goal is now X", "Your new Current Goal is X", "Going forward, your goal is X", "I changed your goal to X permanently". Allowed shape: until the end date, coach against the temporary bar; Current Goal stays the canonical statement.
 - Temporary reverted: temporary_adjustment_reverted true. The live temporary overlay was cleared and reload-proved. Canonical Current Goal was not newly changed. Effective ask is canonical_behavior_statement. Overlay is not active. You may acknowledge they are back to the regular saved goal. Forbidden: claiming a permanent replacement was applied, claiming a new temporary overlay was created, claiming the saved goal was rewritten, "I changed your goal back". Allowed: "You're back to your regular goal", "I removed the temporary change", "Your Current Goal remains {canonical}".
 - If duration_clarification_required is true: ask how long to hold the temporary target. Do not invent a 7-day default. Do not claim a temporary bar is set.
 - If pending_state is awaiting_candidate and a temporary duration is already known but the candidate is missing: ask what temporary target to use. Do not claim Current Goal changed.
@@ -237,7 +237,29 @@ export function buildInboundSolWriterMessages(
         expires_at: auth.temporary_expires_at ?? null,
         pending_cleared: auth.pending_cleared === true,
         coaching_job:
-          "Canonical Current Goal did not change. Temporary coaching is proven active through last_included_local_date. Do not say the saved goal changed. Do not say the temporary bar is only proposed. Do not re-ask. Do not mention internal systems.",
+          auth.replaces_active_temporary_overlay === true
+            ? "Canonical Current Goal did not change. The temporary overlay was replaced and is proven active through last_included_local_date. You may say the temporary target was updated. Do not say the saved goal changed. Do not re-ask. Do not mention internal systems."
+            : "Canonical Current Goal did not change. Temporary coaching is proven active through last_included_local_date. Do not say the saved goal changed. Do not say the temporary bar is only proposed. Do not re-ask. Do not mention internal systems.",
+      })
+    );
+  }
+  if (
+    auth.temporary_adjustment_confirmation_authorized === true &&
+    auth.replaces_active_temporary_overlay === true
+  ) {
+    parts.push(
+      "",
+      "TEMPORARY_OVERLAY_PENDING_COACHING_NOTE",
+      JSON.stringify({
+        verified_temporary_overlay_pending: true,
+        replaces_active_temporary_overlay: auth.replaces_active_temporary_overlay === true,
+        canonical_current_goal: auth.canonical_behavior_statement,
+        proposed_temporary_target: auth.candidate_behavior_statement,
+        last_included_local_date: auth.temporary_last_included_local_date ?? null,
+        coaching_job:
+          auth.replaces_active_temporary_overlay === true
+            ? "The live temporary overlay is still active. The proposed replacement is not applied. Ask to switch the temporary target. Do not say the saved goal changed. Do not say the switch already happened."
+            : "Nothing has been applied. Ask whether the temporary candidate should be used. Canonical Current Goal is unchanged. Do not say the temporary bar is already held.",
       })
     );
   }

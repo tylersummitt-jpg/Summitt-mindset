@@ -27,6 +27,8 @@ export type SolGoalChangeConfirmationAuthorization = {
   temporary_adjustment_apply_authorized?: boolean;
   /** Slice 7F-1 — live temporary overlay cleared and reload-proved. */
   temporary_adjustment_reverted?: boolean;
+  /** Slice 7F-2 — pending/applied replacement of a still-live temporary overlay. */
+  replaces_active_temporary_overlay?: boolean;
   temporary_candidate_behavior_statement?: string | null;
   temporary_last_included_local_date?: string | null;
   temporary_expires_at?: string | null;
@@ -188,6 +190,12 @@ export function buildAuthorizedTemporaryAppliedAck(
     .replace(/\.+$/, "");
   const canon = (authorization.canonical_behavior_statement ?? "").trim().replace(/\.+$/, "");
   const through = (authorization.temporary_last_included_local_date ?? "").trim();
+  if (authorization.replaces_active_temporary_overlay === true && cand && canon && through) {
+    return `I'll update the temporary target to ${cand} through ${through}. Your Current Goal stays ${canon}.`;
+  }
+  if (authorization.replaces_active_temporary_overlay === true && cand && canon) {
+    return `I'll update the temporary target to ${cand}. Your Current Goal stays ${canon}.`;
+  }
   if (cand && canon && through) {
     return `For now I'll coach you against ${cand} through ${through}. Your Current Goal stays ${canon}.`;
   }
@@ -435,6 +443,12 @@ export function buildAuthorizedTemporaryConfirmationAsk(
   const cand = (authorization.candidate_behavior_statement ?? "").trim().replace(/\.+$/, "");
   const canon = (authorization.canonical_behavior_statement ?? "").trim().replace(/\.+$/, "");
   const through = (authorization.temporary_last_included_local_date ?? "").trim();
+  if (authorization.replaces_active_temporary_overlay === true && cand && through) {
+    return `Do you want to switch the temporary target to ${cand} through ${through}?`;
+  }
+  if (authorization.replaces_active_temporary_overlay === true && cand) {
+    return `Do you want to switch the temporary target to ${cand}?`;
+  }
   if (cand && canon && through) {
     return `Do you want ${cand} to be your temporary target through ${through} while your Current Goal stays ${canon}?`;
   }
