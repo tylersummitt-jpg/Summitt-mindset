@@ -333,6 +333,10 @@ import {
   type SolGoalChangeAwaitingCandidateResult,
 } from "@/lib/sol-goal-change-awaiting-candidate";
 import {
+  isSolOwnedTemporaryOverlayPending,
+  runSolTemporaryOverlayHoldingForInbound,
+} from "@/lib/sol-goal-change-temporary-pending";
+import {
   applyGoalChangeMachineBodySafety,
   SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
   tryBuildAuthorizedGoalChangeWriterFailureFallback,
@@ -5381,6 +5385,7 @@ async function processV2NormalInboundOutcome(
         messageSid: job.message_sid,
         plannedInterruptionKnown: plannedInterruptionActionable,
         timezone,
+        now: job.created_at ? new Date(job.created_at) : new Date(),
         recentExactThread,
       });
       commitment = solGoalChangePendingOpen.commitment;
@@ -10282,8 +10287,11 @@ async function sendSolGoalChangeOwnedPendingInboundReply(args: {
   laneTag: string;
 }): Promise<void> {
   const { job, userId, timezone, inboundRaw, commitment, authorization } = args;
+  const fallbackRaw =
+    tryBuildAuthorizedGoalChangeWriterFailureFallback(authorization) ??
+    buildSolGoalChangePendingConfirmFallbackBody(authorization);
   const fallbackGuarded = applyGoalChangeMachineBodySafety({
-    body: buildSolGoalChangePendingConfirmFallbackBody(authorization),
+    body: fallbackRaw,
     authorization,
   });
   let body = fallbackGuarded.body;
@@ -10432,6 +10440,45 @@ async function sendSolGoalChangeAwaitingCandidateInboundReply(args: {
 }
 
 /**
+ * Slice 7B correction — exclusive holding owner for tagged temp overlay pending
+ * that Slice 3 (replace-only) and the temp awaiting-candidate hallway did not
+ * consume. Consumes the turn. No overlay apply. No canonical mutation. No 7C.
+ */
+async function sendSolTemporaryOverlayHoldingInboundReply(args: {
+  job: JobRow;
+  userId: string;
+  timezone: string;
+  inboundRaw: string;
+  held: {
+    commitment: ActiveV2CommitmentRow;
+    authorization: SolGoalChangeConfirmationAuthorization;
+    demoted: boolean;
+  };
+}): Promise<void> {
+  await sendSolGoalChangeOwnedPendingInboundReply({
+    job: args.job,
+    userId: args.userId,
+    timezone: args.timezone,
+    inboundRaw: args.inboundRaw,
+    commitment: args.held.commitment,
+    authorization: args.held.authorization,
+    forensics: {
+      leftover_saved_replace_english: false,
+      leftover_candidate_ai_invoked: false,
+      parse_sms_confirmation_used: false,
+      leftover_tighten_english: false,
+      exclusive_temp_holding: true,
+      demoted: args.held.demoted,
+    },
+    consequence: args.held.demoted ? "hold_demote" : "hold",
+    decisionReason: "sol_temporary_overlay_holding",
+    coachingMoveSource: "sol_temporary_overlay_holding",
+    branchName: "sol_temporary_overlay_holding",
+    laneTag: "sol_temporary_overlay_holding",
+  });
+}
+
+/**
  * Slice 6 — malformed saved-replace pending that Sol hallway / Slice 3 cannot own.
  * No English interpretation, no leftover apply, no synonym confirmation.
  */
@@ -10550,6 +10597,7 @@ async function processV2SmsInboundPendingResolution(
     inboundRaw: rawPrEarly,
     messageSid: job.message_sid,
     timezone,
+    now: job.created_at ? new Date(job.created_at) : new Date(),
   });
   console.info("[sol-goal-change-awaiting-candidate]", {
     message_sid: job.message_sid,
@@ -10584,6 +10632,32 @@ async function processV2SmsInboundPendingResolution(
       timezone,
       inboundRaw: rawPrEarly,
       commitment: c,
+    });
+    return true;
+  }
+
+  const nowMsPending = job.created_at ? new Date(job.created_at).getTime() : Date.now();
+  if (isSolOwnedTemporaryOverlayPending(c)) {
+    const held = await runSolTemporaryOverlayHoldingForInbound({
+      commitment: c,
+      nowMs: nowMsPending,
+    });
+    console.info("[sol-temporary-overlay-holding]", {
+      message_sid: job.message_sid,
+      commitment_id: held.commitment.id,
+      handled: true,
+      demoted: held.demoted,
+      apply_authorized: held.authorization.goal_change_apply_authorized,
+      confirmation_authorized: held.authorization.goal_change_confirmation_authorized,
+      temporary_confirmation_authorized:
+        held.authorization.temporary_adjustment_confirmation_authorized === true,
+    });
+    await sendSolTemporaryOverlayHoldingInboundReply({
+      job,
+      userId,
+      timezone,
+      inboundRaw: rawPrEarly,
+      held,
     });
     return true;
   }

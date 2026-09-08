@@ -55,6 +55,17 @@ import {
   isSolGoalChangeClockOnlyFragment,
   trySubstituteClockFragmentIntoCanonical,
 } from "@/lib/sol-goal-change-clock-substitute";
+import {
+  applySolTemporaryHallwayMerge,
+  frozenDurationFromExistingPayload,
+  isSolOwnedTemporaryAwaitingCandidatePending,
+  isTemporaryExpiryStillConfirmable,
+  normalizeSemanticTemporaryCandidate,
+  resolveSolTemporaryHallwayFrozenDuration,
+  semanticSuppliesTemporaryDuration,
+  temporaryConfirmationAuthorizationFromReloadedCommitment,
+  type SolTemporaryFrozenDuration,
+} from "@/lib/sol-goal-change-temporary-pending";
 
 const RAW_LOG_MAX = 280;
 
@@ -253,17 +264,348 @@ function semanticSuppliesCandidate(semantic: SolGoalChangeSemanticResult): strin
   return candidate;
 }
 
+async function mergeSolTemporaryHallwayState(args: {
+  commitment: ActiveV2CommitmentRow;
+  nextCandidate: string | null;
+  frozen: SolTemporaryFrozenDuration;
+  inboundRaw: string;
+  messageSid: string;
+  nowMs: number;
+}): Promise<ActiveV2CommitmentRow> {
+  const liveCanonical = (args.commitment.behavior_statement ?? "").trim();
+  const merged = await mergeSmsPendingResolutionPayload({
+    commitmentId: args.commitment.id,
+    merge: (prev) =>
+      applySolTemporaryHallwayMerge({
+        prev,
+        nextCandidate: args.nextCandidate,
+        frozen: args.frozen,
+        inboundRaw: args.inboundRaw,
+        messageSid: args.messageSid,
+        liveCanonical,
+        nowMs: args.nowMs,
+      }),
+  });
+  if (merged.ok) {
+    await recomputeV2CoachingMemory(args.commitment.id, {
+      reasonCode: "sms_pending_resolution_candidate_refined",
+    });
+  }
+  return (await getActiveCommitment(args.commitment.clerk_user_id)) ?? args.commitment;
+}
+
+function semanticSuppliesTemporaryCandidate(
+  semantic: SolGoalChangeSemanticResult
+): string | null {
+  const g = semantic.goal_change;
+  if (g.rejects_existing_pending) return null;
+  const candidate = g.candidate_behavior_statement?.trim() ?? "";
+  if (!candidate) return null;
+  if (
+    g.intent === "temporary_adjustment" ||
+    g.intent === "saved_replace" ||
+    g.intent === "possible_saved_replace" ||
+    g.modifies_existing_pending_candidate
+  ) {
+    return candidate;
+  }
+  return null;
+}
+
+async function runSolTemporaryAwaitingCandidateForInbound(args: {
+  clerkUserId: string;
+  liveStart: ActiveV2CommitmentRow;
+  inboundRaw: string;
+  messageSid: string;
+  timezone?: string | null;
+  nowMs: number;
+  recentExactThread?: SolGoalChangeSemanticThreadMessage[] | null;
+  client?: OpenAI | null;
+}): Promise<SolGoalChangeAwaitingCandidateResult> {
+  const inbound = args.inboundRaw.trim();
+  const liveStart = args.liveStart;
+  const canonical = (liveStart.behavior_statement ?? "").trim();
+  const now = new Date(args.nowMs);
+  const pendingStart = getPendingResolutionOrNull(liveStart);
+  const prevPayload =
+    pendingStart?.payload && pendingStart.payload.source === "sms_inbound"
+      ? pendingStart.payload
+      : null;
+
+  function stayTemp(
+    commitment: ActiveV2CommitmentRow,
+    forensics: Partial<SolGoalChangeAwaitingCandidateForensics>
+  ): SolGoalChangeAwaitingCandidateResult {
+    return {
+      handled: true,
+      commitment,
+      authorization: temporaryConfirmationAuthorizationFromReloadedCommitment(
+        commitment,
+        null,
+        args.nowMs
+      ),
+      consequence: "stay_hallway",
+      forensics: emptyForensics(forensics),
+    };
+  }
+
+  async function maybeNullExpiredExpiry(
+    forensics: Partial<SolGoalChangeAwaitingCandidateForensics>
+  ): Promise<SolGoalChangeAwaitingCandidateResult> {
+    if (
+      prevPayload?.temporary_expires_at?.trim() &&
+      !isTemporaryExpiryStillConfirmable(prevPayload.temporary_expires_at, args.nowMs)
+    ) {
+      const staged = await mergeSolTemporaryHallwayState({
+        commitment: liveStart,
+        nextCandidate:
+          prevPayload.candidate_behavior_statement?.trim() ||
+          prevPayload.candidate_tightened_bar?.trim() ||
+          null,
+        frozen: frozenDurationFromExistingPayload(prevPayload, args.nowMs),
+        inboundRaw: inbound,
+        messageSid: args.messageSid,
+        nowMs: args.nowMs,
+      });
+      return stayTemp(staged, forensics);
+    }
+    return stayTemp(liveStart, forensics);
+  }
+
+  async function mergeTemp(argsMerge: {
+    nextCandidate: string | null;
+    frozen: SolTemporaryFrozenDuration;
+    clock: boolean;
+    forensics: Partial<SolGoalChangeAwaitingCandidateForensics>;
+    consequence: "staged" | "stay_hallway";
+  }): Promise<SolGoalChangeAwaitingCandidateResult> {
+    const staged = await mergeSolTemporaryHallwayState({
+      commitment: liveStart,
+      nextCandidate: argsMerge.nextCandidate,
+      frozen: argsMerge.frozen,
+      inboundRaw: inbound,
+      messageSid: args.messageSid,
+      nowMs: args.nowMs,
+    });
+    return {
+      handled: true,
+      commitment: staged,
+      authorization: temporaryConfirmationAuthorizationFromReloadedCommitment(
+        staged,
+        argsMerge.nextCandidate,
+        args.nowMs
+      ),
+      consequence: argsMerge.consequence,
+      forensics: emptyForensics({
+        clock_structural_used: argsMerge.clock,
+        interpreter_invoked: !argsMerge.clock,
+        ...argsMerge.forensics,
+      }),
+    };
+  }
+
+  if (isSolGoalChangeClockOnlyFragment(inbound)) {
+    const substituted = trySubstituteClockFragmentIntoCanonical(canonical, inbound);
+    const semanticCandidate = substituted?.trim() || inbound;
+    const complete = normalizeSemanticTemporaryCandidate({
+      semanticCandidate,
+      canonicalBehaviorStatement: canonical,
+    });
+    if (!prevPayload) {
+      return stayTemp(liveStart, {
+        clock_structural_used: true,
+        interpreter_invoked: false,
+        candidate_complete: complete.ok,
+        skip_reason: complete.ok ? "missing_temp_payload" : complete.reason,
+      });
+    }
+    const resolved = resolveSolTemporaryHallwayFrozenDuration({
+      prev: prevPayload,
+      semantic: null,
+      timezone: args.timezone ?? null,
+      now,
+    });
+    if (complete.ok) {
+      return mergeTemp({
+        nextCandidate: complete.candidate,
+        frozen: resolved.frozen,
+        clock: true,
+        consequence: "staged",
+        forensics: { candidate_complete: true },
+      });
+    }
+    return maybeNullExpiredExpiry({
+      clock_structural_used: true,
+      interpreter_invoked: false,
+      candidate_complete: false,
+      skip_reason: complete.reason,
+    });
+  }
+
+  const semanticInput = buildSolGoalChangeSemanticInput({
+    canonicalSavedBehaviorStatement: canonical,
+    effectiveCoachingAsk: getEffectiveCoachingAsk(liveStart),
+    authoritativePending: pendingSnapshotFromCommitment(liveStart),
+    latestInboundText: inbound,
+    recentExactThread: args.recentExactThread,
+    plannedInterruptionKnown: false,
+    timezone: args.timezone,
+    localDaypart: "inbound",
+  });
+
+  let semantic: SolGoalChangeSemanticResult | null = null;
+  let interpreterOk = false;
+  let interpreterError: string | null = null;
+  try {
+    const interpreted = await runSolGoalChangeSemanticInterpreter({
+      input: semanticInput,
+      client: args.client,
+    });
+    interpreterOk = interpreted.ok;
+    if (interpreted.ok) {
+      semantic = interpreted.result;
+    } else {
+      interpreterError = interpreted.error;
+    }
+  } catch (e) {
+    interpreterOk = false;
+    interpreterError = e instanceof Error ? e.message : "interpreter_threw";
+  }
+
+  const baseForensics: Partial<SolGoalChangeAwaitingCandidateForensics> = {
+    interpreter_invoked: true,
+    interpreter_ok: interpreterOk,
+    interpreter_error: interpreterError,
+    clock_structural_used: false,
+    semantic_intent: semantic?.goal_change.intent ?? null,
+    semantic_rejects: semantic?.goal_change.rejects_existing_pending ?? null,
+  };
+
+  if (!interpreterOk || !semantic) {
+    return maybeNullExpiredExpiry({
+      ...baseForensics,
+      skip_reason: interpreterError ?? "interpreter_unavailable",
+    });
+  }
+
+  if (semantic.goal_change.rejects_existing_pending) {
+    const cleared = await clearPendingKeepCurrent({ commitment: liveStart });
+    return {
+      handled: true,
+      commitment: cleared,
+      authorization: {
+        ...SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+        canonical_behavior_statement: (cleared.behavior_statement ?? "").trim(),
+        active_commitment_id: cleared.id,
+        pending_cleared: true,
+      },
+      consequence: "rejected",
+      forensics: emptyForensics({
+        ...baseForensics,
+        candidate_complete: false,
+      }),
+    };
+  }
+
+  if (!prevPayload) {
+    return stayTemp(liveStart, {
+      ...baseForensics,
+      candidate_complete: false,
+      skip_reason: "missing_temp_payload",
+    });
+  }
+
+  const supplied = semanticSuppliesTemporaryCandidate(semantic);
+  const durationSupplied = semanticSuppliesTemporaryDuration(semantic);
+  let nextCandidate: string | null =
+    prevPayload.candidate_behavior_statement?.trim() ||
+    prevPayload.candidate_tightened_bar?.trim() ||
+    null;
+  if (supplied) {
+    const complete = normalizeSemanticTemporaryCandidate({
+      semanticCandidate: supplied,
+      canonicalBehaviorStatement: canonical,
+    });
+    if (!complete.ok) {
+      if (!durationSupplied) {
+        return maybeNullExpiredExpiry({
+          ...baseForensics,
+          candidate_complete: false,
+          skip_reason: complete.reason,
+        });
+      }
+    } else {
+      nextCandidate = complete.candidate;
+    }
+  }
+
+  if (!supplied && !durationSupplied) {
+    return maybeNullExpiredExpiry({
+      ...baseForensics,
+      candidate_complete: Boolean(nextCandidate),
+      skip_reason: semantic.goal_change.needs_clarification
+        ? "needs_clarification"
+        : "no_usable_candidate_or_duration",
+    });
+  }
+
+  const resolved = resolveSolTemporaryHallwayFrozenDuration({
+    prev: prevPayload,
+    semantic,
+    timezone: args.timezone ?? null,
+    now,
+  });
+  const frozen = resolved.resolver_threw
+    ? frozenDurationFromExistingPayload(prevPayload, args.nowMs)
+    : resolved.frozen;
+
+  if (resolved.resolver_threw && !supplied) {
+    return stayTemp(liveStart, {
+      ...baseForensics,
+      candidate_complete: Boolean(nextCandidate),
+      skip_reason: "temporary_duration_resolver_threw",
+    });
+  }
+
+  return mergeTemp({
+    nextCandidate,
+    frozen,
+    clock: false,
+    consequence: supplied || durationSupplied ? "staged" : "stay_hallway",
+    forensics: {
+      ...baseForensics,
+      candidate_complete: Boolean(nextCandidate),
+      skip_reason: resolved.resolver_threw ? "temporary_duration_resolver_threw" : null,
+    },
+  });
+}
+
 export async function runSolGoalChangeAwaitingCandidateForInbound(args: {
   clerkUserId: string;
   commitment: ActiveV2CommitmentRow;
   inboundRaw: string;
   messageSid: string;
   timezone?: string | null;
+  now?: Date;
   recentExactThread?: SolGoalChangeSemanticThreadMessage[] | null;
   client?: OpenAI | null;
 }): Promise<SolGoalChangeAwaitingCandidateResult> {
   const inbound = args.inboundRaw.trim();
   const liveStart = (await getActiveCommitment(args.clerkUserId)) ?? args.commitment;
+  const nowMs = (args.now ?? new Date()).getTime();
+
+  if (isSolOwnedTemporaryAwaitingCandidatePending(liveStart)) {
+    return runSolTemporaryAwaitingCandidateForInbound({
+      clerkUserId: args.clerkUserId,
+      liveStart,
+      inboundRaw: inbound,
+      messageSid: args.messageSid,
+      timezone: args.timezone,
+      nowMs,
+      recentExactThread: args.recentExactThread,
+      client: args.client,
+    });
+  }
 
   if (!isSolOwnedReplaceAwaitingCandidatePending(liveStart)) {
     return {

@@ -350,6 +350,63 @@ describe("Slice 6 leftover tighten still works", () => {
       expect(r.pendingResolutionKind).toBe("commitment_tighten");
     }
   });
+
+  it("sol_temporary_overlay tighten is skipped by leftover (Sol-owned, no overlay apply)", async () => {
+    const { persistContractOverlayProposed, activateAdaptiveOverlayFromProposal } = await import(
+      "@/lib/v2-adaptive-contract"
+    );
+    vi.mocked(persistContractOverlayProposed).mockClear();
+    vi.mocked(activateAdaptiveOverlayFromProposal).mockClear();
+    const pending = commitmentTightenConfirm({
+      sol_temporary_overlay: true,
+      temporary_duration_kind: "local_week",
+      temporary_expires_at: "2099-01-01T05:00:00.000Z",
+    });
+    getActiveCommitmentMock.mockResolvedValue(pending);
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMsoltemp", raw_body: "yes" },
+      clerkUserId: "user_pr",
+      commitment: pending,
+    });
+    expect(r.handled).toBe(false);
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(persistContractOverlayProposed).not.toHaveBeenCalled();
+    expect(activateAdaptiveOverlayFromProposal).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "Yes",
+    "Y",
+    "No",
+    "N",
+    "Absolutely",
+    "Sounds good",
+    "Never mind",
+    "Actually make it 10:15",
+    "Keep my normal goal",
+    "Had a long day at work, traffic was brutal",
+  ])("tagged temp leftover never semantically owns inbound %s", async (raw) => {
+    const { persistContractOverlayProposed, activateAdaptiveOverlayFromProposal } = await import(
+      "@/lib/v2-adaptive-contract"
+    );
+    vi.mocked(persistContractOverlayProposed).mockClear();
+    vi.mocked(activateAdaptiveOverlayFromProposal).mockClear();
+    const pending = commitmentTightenConfirm({
+      sol_temporary_overlay: true,
+      temporary_duration_kind: "local_week",
+      temporary_expires_at: "2099-01-01T05:00:00.000Z",
+    });
+    getActiveCommitmentMock.mockResolvedValue(pending);
+    const r = await tryHandleSmsInboundPendingResolution({
+      job: { message_sid: "SMsoltemp2", raw_body: raw },
+      clerkUserId: "user_pr",
+      commitment: pending,
+    });
+    expect(r.handled).toBe(false);
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(persistContractOverlayProposed).not.toHaveBeenCalled();
+    expect(activateAdaptiveOverlayFromProposal).not.toHaveBeenCalled();
+  });
 });
 
 describe("parseSmsConfirmation — pending goal confirm language", () => {

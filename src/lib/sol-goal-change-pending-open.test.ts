@@ -11,6 +11,8 @@ const recomputeV2CoachingMemory = vi.hoisted(() => vi.fn());
 const applyWave4SmsCommitmentPendingResolution = vi.hoisted(() => vi.fn());
 const bootstrapSmsPendingConfirmationFromInbound = vi.hoisted(() => vi.fn());
 const runSolGoalChangeSemanticInterpreter = vi.hoisted(() => vi.fn());
+const mergeSmsPendingResolutionPayload = vi.hoisted(() => vi.fn());
+const clearPendingResolution = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: { from: vi.fn() },
@@ -40,6 +42,11 @@ vi.mock("@/lib/sol-goal-change-semantic-interpreter", async (importOriginal) => 
   const actual =
     await importOriginal<typeof import("@/lib/sol-goal-change-semantic-interpreter")>();
   return { ...actual, runSolGoalChangeSemanticInterpreter };
+});
+
+vi.mock("@/lib/v2-guided-resolution", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/v2-guided-resolution")>();
+  return { ...actual, mergeSmsPendingResolutionPayload, clearPendingResolution };
 });
 
 import {
@@ -264,6 +271,8 @@ describe("runSolGoalChangePendingOpenForInbound", () => {
     applyWave4SmsCommitmentPendingResolution.mockReset();
     bootstrapSmsPendingConfirmationFromInbound.mockReset();
     runSolGoalChangeSemanticInterpreter.mockReset();
+    mergeSmsPendingResolutionPayload.mockReset();
+    clearPendingResolution.mockReset();
     recomputeV2CoachingMemory.mockResolvedValue(undefined);
     getActiveCommitment.mockResolvedValue(base);
     runSolGoalChangeSemanticInterpreter.mockResolvedValue(interpreterOk(semantic()));
@@ -277,6 +286,8 @@ describe("runSolGoalChangePendingOpenForInbound", () => {
       candidate: ANGELA_NORMALIZED,
       skipReason: null,
     });
+    mergeSmsPendingResolutionPayload.mockResolvedValue({ ok: true, updatedAt: base.updated_at });
+    clearPendingResolution.mockResolvedValue(undefined);
   });
 
   async function run(
@@ -723,13 +734,46 @@ describe("runSolGoalChangePendingOpenForInbound", () => {
     expect(r.forensics.pending_skip_reason).toBe("existing_pending_not_confirmable");
   });
 
-  it("9: semantic temporary_adjustment → no saved-replace pending", async () => {
+  it("9: semantic temporary_adjustment with unspecified duration opens temp hallway, not saved replace", async () => {
+    const tempPending = {
+      ...base,
+      pending_resolution_kind: "commitment_tighten" as const,
+      pending_resolution_created_at: "2026-09-07T12:00:00.000Z",
+      pending_resolution_expires_at: "2027-09-07T12:00:00.000Z",
+      pending_resolution_payload: {
+        source: "sms_inbound",
+        sms_state: "awaiting_candidate",
+        detected_intent: "sms_tighten_request",
+        sol_temporary_overlay: true,
+        candidate_behavior_statement: ANGELA_NORMALIZED,
+        candidate_tightened_bar: ANGELA_NORMALIZED,
+        inbound_message_sid: "SMangela",
+        raw_user_text: ANGELA_INBOUND,
+        temporary_duration_kind: "unspecified",
+        temporary_duration_days: null,
+        temporary_expires_at: null,
+        canonical_behavior_snapshot: ANGELA_CANONICAL,
+      },
+    };
     runSolGoalChangeSemanticInterpreter.mockResolvedValue(
       interpreterOk(semantic({ intent: "temporary_adjustment" }))
     );
+    applyWave4SmsCommitmentPendingResolution.mockResolvedValue({
+      pendingApplied: true,
+      pendingKind: "commitment_tighten",
+      skipReason: null,
+    });
+    getActiveCommitment.mockResolvedValueOnce(base).mockResolvedValue(tempPending);
     const r = await run();
-    expect(applyWave4SmsCommitmentPendingResolution).not.toHaveBeenCalled();
+    expect(applyWave4SmsCommitmentPendingResolution).toHaveBeenCalledTimes(1);
+    expect(applyWave4SmsCommitmentPendingResolution.mock.calls[0]?.[0]?.intentPack).toMatchObject({
+      intent: "sms_tighten_request",
+    });
     expect(r.authorization.goal_change_confirmation_authorized).toBe(false);
+    expect(r.authorization.temporary_adjustment_confirmation_authorized).not.toBe(true);
+    expect(r.authorization.pending_state).toBe("awaiting_candidate");
+    expect(r.authorization.duration_clarification_required).toBe(true);
+    expect(r.forensics.pending_write_applied).toBe(true);
   });
 
   it("10: interpreter unavailable → no unbound binding confirmation", async () => {

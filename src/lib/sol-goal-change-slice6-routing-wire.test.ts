@@ -110,7 +110,18 @@ describe("Slice 6 — dead saved Goal Change routing retired", () => {
   it("10: leftover tighten path still exists after the saved-replace early exit", () => {
     expect(leftover).toContain('kind === "commitment_tighten"');
     expect(leftover).toContain("applySmsTightenMutation");
+    expect(leftover).toContain("payload.sol_temporary_overlay === true");
     expect(pendingBlock).toContain("await tryHandleSmsInboundPendingResolution");
+  });
+
+  it("tagged temp awaiting_confirmation has exclusive holding owner before leftover", () => {
+    const hallway = pendingBlock.indexOf("await runSolGoalChangeAwaitingCandidateForInbound");
+    const holder = pendingBlock.indexOf("await runSolTemporaryOverlayHoldingForInbound");
+    const leftoverCall = pendingBlock.indexOf("await tryHandleSmsInboundPendingResolution");
+    expect(holder).toBeGreaterThan(hallway);
+    expect(leftoverCall).toBeGreaterThan(holder);
+    expect(pendingBlock).toContain("sendSolTemporaryOverlayHoldingInboundReply");
+    expect(pendingBlock).toContain("isSolOwnedTemporaryOverlayPending");
   });
 
   it("Sol pending-open still uses the Wave4-named structural writer helper", () => {

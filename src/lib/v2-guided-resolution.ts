@@ -94,6 +94,21 @@ export type V2SmsPendingResolutionPayload = {
   accepted_invite_source?: string | null;
   accepted_invite_sent_at?: string | null;
   accepted_invite_evidence_summary?: string | null;
+
+  /**
+   * Slice 7B — Sol-owned temporary overlay pending (kind remains commitment_tighten).
+   * JSON-only; no migration. Leftover tighten must skip when this is true.
+   */
+  sol_temporary_overlay?: true;
+  temporary_duration_kind?: string | null;
+  temporary_duration_days?: number | null;
+  temporary_weekday?: string | null;
+  temporary_end_local_date?: string | null;
+  temporary_expires_at?: string | null;
+  temporary_last_included_local_date?: string | null;
+  canonical_behavior_snapshot?: string | null;
+  temporary_interpreted_local_date?: string | null;
+  temporary_interpreted_at?: string | null;
 };
 
 /** In-app proactive goal change (sets commitment_replace pending before canonical RPC). */
@@ -223,6 +238,49 @@ function parsePayload(raw: unknown): V2PendingResolutionPayload | null {
         : {}),
       ...(typeof o.season_mode_set_at === "string"
         ? { season_mode_set_at: o.season_mode_set_at }
+        : {}),
+      ...(o.sol_temporary_overlay === true ? { sol_temporary_overlay: true as const } : {}),
+      ...(typeof o.temporary_duration_kind === "string"
+        ? { temporary_duration_kind: o.temporary_duration_kind }
+        : {}),
+      ...(typeof o.temporary_duration_days === "number" &&
+      Number.isInteger(o.temporary_duration_days)
+        ? { temporary_duration_days: o.temporary_duration_days }
+        : o.temporary_duration_days === null
+          ? { temporary_duration_days: null }
+          : {}),
+      ...(typeof o.temporary_weekday === "string" || o.temporary_weekday === null
+        ? { temporary_weekday: typeof o.temporary_weekday === "string" ? o.temporary_weekday : null }
+        : {}),
+      ...(typeof o.temporary_end_local_date === "string" || o.temporary_end_local_date === null
+        ? {
+            temporary_end_local_date:
+              typeof o.temporary_end_local_date === "string" ? o.temporary_end_local_date : null,
+          }
+        : {}),
+      ...(typeof o.temporary_expires_at === "string" || o.temporary_expires_at === null
+        ? {
+            temporary_expires_at:
+              typeof o.temporary_expires_at === "string" ? o.temporary_expires_at : null,
+          }
+        : {}),
+      ...(typeof o.temporary_last_included_local_date === "string" ||
+      o.temporary_last_included_local_date === null
+        ? {
+            temporary_last_included_local_date:
+              typeof o.temporary_last_included_local_date === "string"
+                ? o.temporary_last_included_local_date
+                : null,
+          }
+        : {}),
+      ...(typeof o.canonical_behavior_snapshot === "string"
+        ? { canonical_behavior_snapshot: o.canonical_behavior_snapshot }
+        : {}),
+      ...(typeof o.temporary_interpreted_local_date === "string"
+        ? { temporary_interpreted_local_date: o.temporary_interpreted_local_date }
+        : {}),
+      ...(typeof o.temporary_interpreted_at === "string"
+        ? { temporary_interpreted_at: o.temporary_interpreted_at }
         : {}),
     };
   }

@@ -21,6 +21,12 @@ export type SolGoalChangeConfirmationAuthorization = {
   previous_commitment_id: string | null;
   active_commitment_id: string | null;
   pending_cleared: boolean;
+  /** Slice 7B — omit on saved-replace path so saved tests stay exact. */
+  temporary_adjustment_confirmation_authorized?: boolean;
+  temporary_last_included_local_date?: string | null;
+  temporary_expires_at?: string | null;
+  temporary_duration_kind?: string | null;
+  duration_clarification_required?: boolean;
 };
 
 export const SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED: SolGoalChangeConfirmationAuthorization =
@@ -42,6 +48,33 @@ export const UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION =
 /** Renders proven awaiting_candidate state. Not English interpretation. */
 export const AUTHORIZED_AWAITING_CANDIDATE_ELICITATION_ASK =
   "What do you want your new goal to be?";
+
+export const AUTHORIZED_TEMPORARY_DURATION_CLARIFICATION_ASK =
+  "How long do you want me to hold you to that temporary target?";
+
+export const AUTHORIZED_TEMPORARY_CANDIDATE_ELICITATION_ASK =
+  "What temporary target should I hold you to?";
+
+const BARE_DONE_SMS_RE = /^\s*done[.!]?\s*$/i;
+
+const TEMP_PENDING_PERMANENCE_CLAIM_RES: RegExp[] = [
+  /\bi\s+changed\s+your\s+current\s+goal\b/i,
+  /\bgoing\s+forward\s+your\s+goal\s+is\b/i,
+  /\bgoing\s+forward[,.]?\s+\d{1,2}:\d{2}\b/i,
+  /\bi(?:['’]ll|\s+will)\s+hold\s+you\s+to\b/i,
+  /\bis\s+locked\s+in\b/i,
+];
+
+export function bodyIsBareDoneSms(body: string): boolean {
+  return BARE_DONE_SMS_RE.test(body.trim());
+}
+
+export function bodyClaimsTemporaryPendingAlreadyApplied(body: string): boolean {
+  const t = body.trim();
+  if (!t) return false;
+  if (bodyIsBareDoneSms(t)) return true;
+  return TEMP_PENDING_PERMANENCE_CLAIM_RES.some((re) => re.test(t));
+}
 
 const UNAUTHORIZED_BINDING_CONFIRMATION_RES: RegExp[] = [
   /\breplace\b[\s\S]{0,80}\bgoing\s+forward\b/i,
@@ -255,6 +288,26 @@ export function tryBuildAuthorizedGoalChangeWriterFailureFallback(
   if (authorization.goal_change_apply_authorized === true) {
     return buildAuthorizedAppliedGoalAck(authorization);
   }
+  if (authorization.temporary_adjustment_confirmation_authorized === true) {
+    return buildAuthorizedTemporaryConfirmationAsk(authorization);
+  }
+  if (
+    authorization.duration_clarification_required === true &&
+    authorization.pending_state === "awaiting_candidate" &&
+    authorization.goal_change_confirmation_authorized !== true &&
+    authorization.goal_change_apply_authorized !== true
+  ) {
+    return AUTHORIZED_TEMPORARY_DURATION_CLARIFICATION_ASK;
+  }
+  if (
+    authorization.pending_state === "awaiting_candidate" &&
+    authorization.goal_change_confirmation_authorized !== true &&
+    authorization.goal_change_apply_authorized !== true &&
+    authorization.temporary_duration_kind != null &&
+    !(authorization.candidate_behavior_statement ?? "").trim()
+  ) {
+    return AUTHORIZED_TEMPORARY_CANDIDATE_ELICITATION_ASK;
+  }
   if (
     authorization.goal_change_confirmation_authorized === true &&
     authorization.pending_state === "awaiting_confirmation" &&
@@ -286,6 +339,24 @@ export function buildAuthorizedPendingConfirmationAsk(
     return `Do you want ${cand} to replace your current saved goal going forward?`;
   }
   return UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION;
+}
+
+export function buildAuthorizedTemporaryConfirmationAsk(
+  authorization: SolGoalChangeConfirmationAuthorization
+): string {
+  const cand = (authorization.candidate_behavior_statement ?? "").trim().replace(/\.+$/, "");
+  const canon = (authorization.canonical_behavior_statement ?? "").trim().replace(/\.+$/, "");
+  const through = (authorization.temporary_last_included_local_date ?? "").trim();
+  if (cand && canon && through) {
+    return `Do you want ${cand} to be your temporary target through ${through} while your Current Goal stays ${canon}?`;
+  }
+  if (cand && canon) {
+    return `Do you want ${cand} to be your temporary target while your Current Goal stays ${canon}?`;
+  }
+  if (cand) {
+    return `Do you want ${cand} to be your temporary target while your Current Goal stays unchanged?`;
+  }
+  return AUTHORIZED_TEMPORARY_DURATION_CLARIFICATION_ASK;
 }
 
 export function applyUnauthorizedGoalChangeBindingConfirmationGuard(args: {
@@ -351,6 +422,42 @@ export function applyGoalChangeMachineBodySafety(args: {
     ...SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
   };
   const applyAuthorized = authorization.goal_change_apply_authorized === true;
+
+  if (authorization.temporary_adjustment_confirmation_authorized === true) {
+    const body = args.body.trim();
+    if (
+      bodyClaimsSavedGoalChangeAlreadyApplied(body) ||
+      bodyAsksBindingSavedGoalChangeConfirmation(body) ||
+      bodyClaimsTemporaryPendingAlreadyApplied(body)
+    ) {
+      return {
+        body: buildAuthorizedTemporaryConfirmationAsk(authorization),
+        blocked: true,
+        reason: "temporary_pending_permanence_or_saved_binding_claim",
+      };
+    }
+    return { body, blocked: false, reason: null };
+  }
+
+  if (
+    authorization.duration_clarification_required === true &&
+    authorization.pending_state === "awaiting_candidate" &&
+    !applyAuthorized
+  ) {
+    const body = args.body.trim();
+    if (
+      bodyClaimsSavedGoalChangeAlreadyApplied(body) ||
+      bodyAsksBindingSavedGoalChangeConfirmation(body) ||
+      bodyClaimsTemporaryPendingAlreadyApplied(body)
+    ) {
+      return {
+        body: AUTHORIZED_TEMPORARY_DURATION_CLARIFICATION_ASK,
+        blocked: true,
+        reason: "temporary_duration_clarification_permanence_claim",
+      };
+    }
+  }
+
   if (applyAuthorized) {
     if (bodyAsksPostApplyGoalChangeReconfirmation(args.body)) {
       return {

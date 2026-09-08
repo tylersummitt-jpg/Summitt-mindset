@@ -357,3 +357,51 @@ describe("Slice 5 correction — writer-failure fallback renders proven state on
     expect(tryBuildAuthorizedGoalChangeWriterFailureFallback(noCand)).toBeNull();
   });
 });
+
+describe("Slice 7B temporary confirmation body safety", () => {
+  const tempAuth: SolGoalChangeConfirmationAuthorization = {
+    ...pendingAuth,
+    goal_change_confirmation_authorized: false,
+    temporary_adjustment_confirmation_authorized: true,
+    temporary_last_included_local_date: "2026-09-13",
+    temporary_expires_at: "2026-09-14T04:00:00.000Z",
+    temporary_duration_kind: "local_week",
+  };
+
+  it("blocks permanence claims and saved-binding questions; canned ask is temporary", () => {
+    for (const body of [
+      "Your goal is now 10:30.",
+      "Your new goal is 10:30.",
+      "I changed your Current Goal.",
+      "Going forward your goal is 10:30.",
+      "Going forward, 10:30.",
+      "Done.",
+      "10:30 is locked in.",
+      "I'll hold you to 10:30 through Sunday.",
+      BINDING,
+    ]) {
+      const r = applyGoalChangeMachineBodySafety({ body, authorization: tempAuth });
+      expect(r.blocked).toBe(true);
+      expect(r.body).toMatch(/temporary target/i);
+      expect(r.body).not.toMatch(/going forward\?/i);
+      expect(r.body).not.toBe(UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION);
+    }
+  });
+
+  it("writer failure fallback is a temporary ask, not a saved-replace ask", () => {
+    const body = tryBuildAuthorizedGoalChangeWriterFailureFallback(tempAuth);
+    expect(body).toMatch(/temporary target/i);
+    expect(body).toContain("2026-09-13");
+    expect(body).not.toMatch(/going forward\?/i);
+    const guarded = applyGoalChangeMachineBodySafety({ body: body!, authorization: tempAuth });
+    expect(guarded.blocked).toBe(false);
+  });
+
+  it("allows a truthful temporary confirmation question", () => {
+    const r = applyGoalChangeMachineBodySafety({
+      body: "Do you want 10:30 to be your temporary target through Sunday while your Current Goal stays 9:30?",
+      authorization: tempAuth,
+    });
+    expect(r.blocked).toBe(false);
+  });
+});

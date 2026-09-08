@@ -1039,6 +1039,13 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     return { handled: false };
   }
 
+  // Slice 7B: Sol-owned temporary overlay pending. Leftover must not extract,
+  // confirm, or apply overlay. Legacy commitment_tighten rows without this
+  // marker remain leftover-owned.
+  if (payload.sol_temporary_overlay === true) {
+    return { handled: false };
+  }
+
   if (looksLikeCancellation(rawFull) && smsState === "awaiting_candidate") {
     await clearPendingResolution(c.id, { expectedUpdatedAt: c.updated_at });
     await recomputeV2CoachingMemory(c.id, { reasonCode: "sms_pending_resolution_cancelled" });

@@ -10,8 +10,10 @@ import { getActiveCommitment } from "@/lib/v2-commitment";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { recomputeV2CoachingMemory } from "@/lib/v2-coaching-memory";
 import {
+  clearPendingResolution,
   getPendingResolutionOrNull,
   isSmsInboundPendingResolutionActionable,
+  mergeSmsPendingResolutionPayload,
 } from "@/lib/v2-guided-resolution";
 import {
   applyWave4SmsCommitmentPendingResolution,
@@ -40,6 +42,16 @@ import {
   isSolGoalChangeClockOnlyFragment,
   trySubstituteClockFragmentIntoCanonical,
 } from "@/lib/sol-goal-change-clock-substitute";
+import {
+  activeOverlayBlocksTemporaryPending,
+  buildSolTemporaryPendingPayloadMerge,
+  classifySolTemporaryPendingMode,
+  freezeTemporaryDurationFromSemantic,
+  isSolOwnedTemporaryOverlayPending,
+  normalizeSemanticTemporaryCandidate,
+  shouldAttemptSolTemporaryPendingOpen,
+  temporaryConfirmationAuthorizationFromReloadedCommitment,
+} from "@/lib/sol-goal-change-temporary-pending";
 
 export type { SolGoalChangeConfirmationAuthorization };
 export { SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED };
@@ -291,9 +303,11 @@ export async function runSolGoalChangePendingOpenForInbound(args: {
   messageSid: string;
   plannedInterruptionKnown: boolean;
   timezone?: string | null;
+  now?: Date;
   recentExactThread?: SolGoalChangeSemanticThreadMessage[] | null;
   client?: OpenAI | null;
 }): Promise<SolGoalChangePendingOpenResult> {
+  const now = args.now ?? new Date();
   const liveStart = (await getActiveCommitment(args.clerkUserId)) ?? args.commitment;
 
   const existing = existingAwaitingConfirmationReplace(liveStart);
@@ -310,6 +324,30 @@ export async function runSolGoalChangePendingOpenForInbound(args: {
         pending_skip_reason: "existing_pending",
         bootstrap_promoted: null,
         reload_authorized: true,
+        candidate_normalize_ok: null,
+        hallway_opened: false,
+      },
+    };
+  }
+
+  if (isSolOwnedTemporaryOverlayPending(liveStart)) {
+    const authorization = temporaryConfirmationAuthorizationFromReloadedCommitment(
+      liveStart,
+      null,
+      now.getTime()
+    );
+    return {
+      commitment: liveStart,
+      authorization,
+      forensics: {
+        interpreter_ok: null,
+        interpreter_error: null,
+        semantic_intent: null,
+        pending_attempted: false,
+        pending_write_applied: false,
+        pending_skip_reason: "existing_pending",
+        bootstrap_promoted: null,
+        reload_authorized: authorization.temporary_adjustment_confirmation_authorized === true,
         candidate_normalize_ok: null,
         hallway_opened: false,
       },
@@ -367,37 +405,49 @@ export async function runSolGoalChangePendingOpenForInbound(args: {
     });
   }
 
-  if (!shouldAttemptSolSavedReplacePendingOpen(semantic)) {
-    return unauthorized(liveStart, {
-      interpreter_ok: true,
-      semantic_intent: semantic.goal_change.intent,
-      pending_skip_reason: "semantic_not_saved_replace_open",
+  if (shouldAttemptSolSavedReplacePendingOpen(semantic)) {
+    const normalized = normalizeSemanticSavedReplaceCandidate({
+      semanticCandidate: semantic.goal_change.candidate_behavior_statement!,
+      canonicalBehaviorStatement: liveStart.behavior_statement ?? "",
+      inboundRaw: args.inboundRaw,
+    });
+    if (!normalized.ok) {
+      return unauthorized(liveStart, {
+        interpreter_ok: true,
+        semantic_intent: semantic.goal_change.intent,
+        candidate_normalize_ok: false,
+        pending_skip_reason: normalized.reason,
+      });
+    }
+
+    return writeSavedReplacePending({
+      clerkUserId: args.clerkUserId,
+      liveStart,
+      inboundRaw: args.inboundRaw,
+      messageSid: args.messageSid,
+      semanticIntent: semantic.goal_change.intent,
+      candidateNewBar: normalized.candidate,
+      openedAsAwaitingCandidateShell: false,
+      expectedCandidate: normalized.candidate,
     });
   }
 
-  const normalized = normalizeSemanticSavedReplaceCandidate({
-    semanticCandidate: semantic.goal_change.candidate_behavior_statement!,
-    canonicalBehaviorStatement: liveStart.behavior_statement ?? "",
-    inboundRaw: args.inboundRaw,
-  });
-  if (!normalized.ok) {
-    return unauthorized(liveStart, {
-      interpreter_ok: true,
-      semantic_intent: semantic.goal_change.intent,
-      candidate_normalize_ok: false,
-      pending_skip_reason: normalized.reason,
+  if (shouldAttemptSolTemporaryPendingOpen(semantic)) {
+    return writeSolTemporaryPending({
+      clerkUserId: args.clerkUserId,
+      liveStart,
+      inboundRaw: args.inboundRaw,
+      messageSid: args.messageSid,
+      timezone: args.timezone ?? null,
+      now,
+      semantic,
     });
   }
 
-  return writeSavedReplacePending({
-    clerkUserId: args.clerkUserId,
-    liveStart,
-    inboundRaw: args.inboundRaw,
-    messageSid: args.messageSid,
-    semanticIntent: semantic.goal_change.intent,
-    candidateNewBar: normalized.candidate,
-    openedAsAwaitingCandidateShell: false,
-    expectedCandidate: normalized.candidate,
+  return unauthorized(liveStart, {
+    interpreter_ok: true,
+    semantic_intent: semantic.goal_change.intent,
+    pending_skip_reason: "semantic_not_saved_replace_open",
   });
 }
 
@@ -502,6 +552,206 @@ async function writeSavedReplacePending(args: {
       reload_authorized: authorization.goal_change_confirmation_authorized,
       candidate_normalize_ok: args.candidateNewBar != null,
       hallway_opened: args.openedAsAwaitingCandidateShell,
+    },
+  };
+}
+
+async function writeSolTemporaryPending(args: {
+  clerkUserId: string;
+  liveStart: ActiveV2CommitmentRow;
+  inboundRaw: string;
+  messageSid: string;
+  timezone: string | null;
+  now: Date;
+  semantic: SolGoalChangeSemanticResult;
+}): Promise<SolGoalChangePendingOpenResult> {
+  const { liveStart, semantic } = args;
+  const semanticIntent = semantic.goal_change.intent;
+
+  if (activeOverlayBlocksTemporaryPending(liveStart, args.now.getTime())) {
+    return unauthorized(liveStart, {
+      interpreter_ok: true,
+      semantic_intent: semanticIntent,
+      pending_skip_reason: "active_overlay_blocks_temporary_pending",
+    });
+  }
+
+  const freezeResult = freezeTemporaryDurationFromSemantic({
+    semantic,
+    timezone: args.timezone,
+    now: args.now,
+  });
+  if (freezeResult.resolver_threw) {
+    return unauthorized(liveStart, {
+      interpreter_ok: true,
+      semantic_intent: semanticIntent,
+      pending_skip_reason: "temporary_duration_resolver_threw",
+    });
+  }
+  const frozen = freezeResult.frozen;
+
+  const normalized = normalizeSemanticTemporaryCandidate({
+    semanticCandidate: semantic.goal_change.candidate_behavior_statement,
+    canonicalBehaviorStatement: liveStart.behavior_statement ?? "",
+  });
+  if (!normalized.ok && normalized.reason === "unsafe") {
+    return unauthorized(liveStart, {
+      interpreter_ok: true,
+      semantic_intent: semanticIntent,
+      candidate_normalize_ok: false,
+      pending_skip_reason: "unsafe_goal_content",
+    });
+  }
+  const candidate = normalized.ok ? normalized.candidate : null;
+  const mode = classifySolTemporaryPendingMode({
+    candidate,
+    frozen,
+    nowMs: args.now.getTime(),
+    liveCanonical: (liveStart.behavior_statement ?? "").trim(),
+  });
+
+  let pendingApplied = false;
+  let skipReason: string | null = null;
+  try {
+    const wave4 = await applyWave4SmsCommitmentPendingResolution({
+      commitmentId: liveStart.id,
+      clerkUserId: args.clerkUserId,
+      commitment: liveStart,
+      messageSid: args.messageSid,
+      rawBody: args.inboundRaw,
+      intentPack: {
+        intent: "sms_tighten_request",
+        candidateTightenedBar: candidate,
+        candidateNewBar: null,
+        aiConfidence: null,
+      },
+    });
+    pendingApplied = wave4.pendingApplied === true;
+    skipReason = wave4.skipReason;
+    if (!pendingApplied) {
+      return unauthorized(liveStart, {
+        interpreter_ok: true,
+        semantic_intent: semanticIntent,
+        candidate_normalize_ok: candidate != null,
+        pending_attempted: true,
+        pending_write_applied: false,
+        pending_skip_reason: skipReason ?? "wave4_not_applied",
+      });
+    }
+    await recomputeV2CoachingMemory(liveStart.id, {
+      reasonCode: "sol_temporary_overlay_pending_open",
+    });
+  } catch (err) {
+    return unauthorized(liveStart, {
+      interpreter_ok: true,
+      semantic_intent: semanticIntent,
+      candidate_normalize_ok: candidate != null,
+      pending_attempted: true,
+      pending_write_applied: false,
+      pending_skip_reason: err instanceof Error ? err.message.slice(0, 120) : "pending_write_threw",
+    });
+  }
+
+  const afterWrite = (await getActiveCommitment(args.clerkUserId)) ?? liveStart;
+  const merged = await mergeSmsPendingResolutionPayload({
+    commitmentId: liveStart.id,
+    merge: (prev) =>
+      buildSolTemporaryPendingPayloadMerge({
+        prev,
+        mode,
+        candidate,
+        frozen,
+        canonicalBehaviorStatement: liveStart.behavior_statement ?? "",
+        inboundRaw: args.inboundRaw,
+        messageSid: args.messageSid,
+      }),
+  });
+  if (!merged.ok) {
+    try {
+      await clearPendingResolution(liveStart.id, { expectedUpdatedAt: afterWrite.updated_at });
+    } catch {
+      /* fail closed: untagged tighten must not remain confirmable */
+    }
+    return unauthorized(afterWrite, {
+      interpreter_ok: true,
+      semantic_intent: semanticIntent,
+      candidate_normalize_ok: candidate != null,
+      pending_attempted: true,
+      pending_write_applied: false,
+      pending_skip_reason: `temp_payload_merge_failed:${merged.error}`,
+    });
+  }
+
+  let bootstrapPromoted: boolean | null = null;
+  try {
+    const boot = await bootstrapSmsPendingConfirmationFromInbound({
+      commitment: (await getActiveCommitment(args.clerkUserId)) ?? afterWrite,
+      rawBody: args.inboundRaw,
+      openedAsAwaitingCandidateShell: true,
+    });
+    bootstrapPromoted = boot.promoted;
+  } catch (err) {
+    return unauthorized(afterWrite, {
+      interpreter_ok: true,
+      semantic_intent: semanticIntent,
+      candidate_normalize_ok: candidate != null,
+      pending_attempted: true,
+      pending_write_applied: true,
+      bootstrap_promoted: false,
+      hallway_opened: mode !== "awaiting_confirmation",
+      pending_skip_reason:
+        err instanceof Error ? err.message.slice(0, 120) : "bootstrap_threw",
+    });
+  }
+
+  const reloaded = (await getActiveCommitment(args.clerkUserId)) ?? afterWrite;
+  if (
+    (reloaded.behavior_statement ?? "").trim() !==
+    (liveStart.behavior_statement ?? "").trim()
+  ) {
+    return unauthorized(reloaded, {
+      interpreter_ok: true,
+      semantic_intent: semanticIntent,
+      candidate_normalize_ok: candidate != null,
+      pending_attempted: true,
+      pending_write_applied: true,
+      bootstrap_promoted: bootstrapPromoted,
+      hallway_opened: mode !== "awaiting_confirmation",
+      pending_skip_reason: "canonical_changed_before_reload",
+    });
+  }
+  if (activeOverlayBlocksTemporaryPending(reloaded, args.now.getTime())) {
+    return unauthorized(reloaded, {
+      interpreter_ok: true,
+      semantic_intent: semanticIntent,
+      candidate_normalize_ok: candidate != null,
+      pending_attempted: true,
+      pending_write_applied: true,
+      bootstrap_promoted: bootstrapPromoted,
+      hallway_opened: mode !== "awaiting_confirmation",
+      pending_skip_reason: "active_overlay_blocks_temporary_pending",
+    });
+  }
+
+  const authorization = temporaryConfirmationAuthorizationFromReloadedCommitment(
+    reloaded,
+    mode === "awaiting_confirmation" ? candidate : null,
+    args.now.getTime()
+  );
+  return {
+    commitment: reloaded,
+    authorization,
+    forensics: {
+      interpreter_ok: true,
+      interpreter_error: null,
+      semantic_intent: semanticIntent,
+      pending_attempted: true,
+      pending_write_applied: true,
+      pending_skip_reason: skipReason,
+      bootstrap_promoted: bootstrapPromoted,
+      reload_authorized: authorization.temporary_adjustment_confirmation_authorized === true,
+      candidate_normalize_ok: candidate != null,
+      hallway_opened: mode !== "awaiting_confirmation",
     },
   };
 }
