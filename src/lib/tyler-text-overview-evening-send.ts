@@ -828,7 +828,7 @@ export async function sendEveningTtoAuthoritativeCronSend(args: {
   });
   if (!authority.ok) return authority.result;
 
-  const draft = authority.draft;
+  let draft = authority.draft;
 
   if (await hasAwaitingManualPatAnswer(args.clerkUserId)) {
     console.log("[evening-sms] skip awaiting_manual_pat_answer", {
@@ -881,6 +881,13 @@ export async function sendEveningTtoAuthoritativeCronSend(args: {
       { ...base, draftId: draft.draftId }
     );
   }
+
+  const postFreshAuthority = await assertEveningTtoDraftAuthoritativeForCronSend({
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: dayKey,
+  });
+  if (!postFreshAuthority.ok) return postFreshAuthority.result;
+  draft = postFreshAuthority.draft;
 
   if (!isTwilioReady()) {
     return refuse("twilio_not_configured", "Twilio is not configured", {

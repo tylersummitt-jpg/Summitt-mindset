@@ -299,10 +299,18 @@ describe("Evening lane fixed window [19:00, 21:00)", () => {
   });
 });
 
-describe("Evening authoritative gate + cron send", () => {
+  describe("Evening authoritative gate + cron send", () => {
   beforeEach(() => {
     sendSMS.mockClear();
     isTwilioReady.mockReturnValue(true);
+    ensureCurrentTtoDraftFreshForSend.mockReset();
+    ensureCurrentTtoDraftFreshForSend.mockResolvedValue({
+      ok: true as const,
+      status: "fresh" as const,
+      draftId: "draft-e",
+      currentBodyToSend: "Have a good evening.",
+      currentGenerationId: "gen-e",
+    });
     seedEveningDraft();
   });
 
@@ -420,6 +428,8 @@ describe("Evening authoritative gate + cron send", () => {
     }
     expect(sendSMS).toHaveBeenCalledTimes(1);
     expect(sendSMS.mock.calls[0]?.[0]?.body).toBe("Current A");
+    expect(ensureCurrentTtoDraftFreshForSend).toHaveBeenCalledTimes(1);
+    expect((db.sendEvents[0]?.metadata as Record<string, unknown>).tto_generation_id).toBe("gen-e");
     expect(db.sendEvents[0]?.send_slot).toBe("evening_checkin");
     expect(db.sendEvents[0]?.day_key).toBe("2026-06-27");
     expect(db.sendEvents[0]?.status).toBe("sent");
@@ -478,6 +488,96 @@ describe("Evening authoritative gate + cron send", () => {
     expect(sendSMS.mock.calls[0]?.[0]?.body).toBe("FRESH EVENING");
     expect(sendSMS.mock.calls[0]?.[0]?.body).not.toBe("STALE EVENING");
     expect(db.sendEvents[0]?.sms_body).toBe("FRESH EVENING");
+    expect((db.sendEvents[0]?.metadata as Record<string, unknown>).tto_generation_id).toBe(
+      "gen-e-fresh"
+    );
+    expect(ensureCurrentTtoDraftFreshForSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("post-fresh regeneration with machine_should_send=false does not send", async () => {
+    seedEveningDraft({
+      draft_for_day_key: "2026-06-27",
+      current_body_to_send: "STALE EVENING",
+    });
+    ensureCurrentTtoDraftFreshForSend.mockImplementationOnce(async () => {
+      const row = db.drafts[0];
+      if (row) {
+        row.current_body_to_send = "NO SEND EVENING";
+        row.current_generation_id = "gen-e-nosend";
+      }
+      db.generations = [
+        {
+          id: "gen-e-nosend",
+          commitment_id: "c1",
+          machine_should_send: false,
+          send_slot: "evening_checkin",
+          generated_at: "2026-06-27T23:00:00.000Z",
+          generation_metadata: {
+            preview_only: true,
+            coaching_stack: "shared_sol_v1",
+            generation_effective_ask: "I will be in bed by 10:30 pm nightly.",
+          },
+        },
+      ];
+      return {
+        ok: true as const,
+        status: "regenerated" as const,
+        draftId: "draft-e",
+        currentBodyToSend: "NO SEND EVENING",
+        currentGenerationId: "gen-e-nosend",
+      };
+    });
+    const result = await sendEveningTtoAuthoritativeCronSend({
+      clerkUserId: "user_e5",
+      phoneNumber: "+15551234567",
+      timezone: "America/New_York",
+      now: new Date("2026-06-27T23:05:00.000Z"),
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("tto_machine_should_send_false");
+    expect(sendSMS).not.toHaveBeenCalled();
+    expect(db.sendEvents).toHaveLength(0);
+    expect(ensureCurrentTtoDraftFreshForSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("Tyler-protected draft still sends after freshness without a second freshness call", async () => {
+    seedEveningDraft({
+      draft_for_day_key: "2026-06-27",
+      current_body_to_send: "Tyler evening body",
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+    });
+    db.generations[0].machine_should_send = false;
+    const result = await sendEveningTtoAuthoritativeCronSend({
+      clerkUserId: "user_e5",
+      phoneNumber: "+15551234567",
+      timezone: "America/New_York",
+      now: new Date("2026-06-27T23:05:00.000Z"),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.finalBodySent).toBe("Tyler evening body");
+    expect(sendSMS).toHaveBeenCalledTimes(1);
+    expect(sendSMS.mock.calls[0]?.[0]?.body).toBe("Tyler evening body");
+    expect(ensureCurrentTtoDraftFreshForSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("dry-run does not call freshness or Twilio", async () => {
+    seedEveningDraft({
+      draft_for_day_key: "2026-06-27",
+      current_body_to_send: "Current A",
+    });
+    const result = await sendEveningTtoAuthoritativeCronSend({
+      clerkUserId: "user_e5",
+      phoneNumber: "+15551234567",
+      timezone: "America/New_York",
+      now: new Date("2026-06-27T23:05:00.000Z"),
+      dryRun: true,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("dry_run");
+    expect(ensureCurrentTtoDraftFreshForSend).not.toHaveBeenCalled();
+    expect(sendSMS).not.toHaveBeenCalled();
+    expect(db.sendEvents).toHaveLength(0);
   });
 
   it("pending manual Pat answer blocks Evening SMS and leaves the draft", async () => {
@@ -725,12 +825,20 @@ describe("Evening cron wiring", () => {
     const fn = sendSrc.slice(fnStart);
     const dryIdx = fn.indexOf("if (args.dryRun)");
     const freshIdx = fn.indexOf("ensureCurrentTtoDraftFreshForSend");
+    const postFreshAssertIdx = fn.indexOf(
+      "assertEveningTtoDraftAuthoritativeForCronSend",
+      freshIdx
+    );
+    const reserveIdx = fn.indexOf("reserveEveningSmsSendEvent");
     const revalIdx = fn.indexOf("revalidateEveningTtoBodyBeforeTwilio");
     expect(dryIdx).toBeGreaterThan(-1);
     expect(freshIdx).toBeGreaterThan(dryIdx);
-    expect(revalIdx).toBeGreaterThan(freshIdx);
+    expect(postFreshAssertIdx).toBeGreaterThan(freshIdx);
+    expect(reserveIdx).toBeGreaterThan(postFreshAssertIdx);
+    expect(revalIdx).toBeGreaterThan(reserveIdx);
     const twilioIdx = fn.indexOf("await sendSMS(");
     expect(twilioIdx).toBeGreaterThan(revalIdx);
+    expect(fn.split("ensureCurrentTtoDraftFreshForSend").length - 1).toBe(1);
   });
 
   it("daily-sms is not branched for Evening", () => {
