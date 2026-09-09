@@ -7,6 +7,8 @@ const SUBSCRIBE_PATH = "/subscribe";
 
 const ALLOWED_FROM = new Set(["onboarding", "post-sign-in", "ask-pat"]);
 
+const SUBSCRIBE_SUCCESS_PATH = "/subscribe/success";
+
 const INTERNAL_PATH_ALLOWLIST = new Set([
   "/post-sign-in",
   "/onboarding",
@@ -15,7 +17,7 @@ const INTERNAL_PATH_ALLOWLIST = new Set([
   "/onboarding/review",
   "/onboarding/sms",
   "/onboarding/complete",
-  "/subscribe/success",
+  SUBSCRIBE_SUCCESS_PATH,
   "/checkout/start",
   "/ask-pat",
   "/film-room",
@@ -24,6 +26,9 @@ const INTERNAL_PATH_ALLOWLIST = new Set([
   "/coach/setup",
   "/coach/complete",
 ]);
+
+/** Stripe Checkout Session ids (cs_test_… / cs_live_…). */
+const STRIPE_CHECKOUT_SESSION_ID_RE = /^cs_[a-zA-Z0-9_]+$/;
 
 function trimAndRejectSchemes(raw: string): string | null {
   const s = raw.trim();
@@ -110,7 +115,27 @@ export function isCoachSubscribeRedirectUrl(raw: string | null | undefined): boo
 }
 
 /**
- * Subscribe-safe URLs plus a tight allowlist of other internal paths (no query).
+ * Narrow exception: /subscribe/success, optionally with session_id=cs_…
+ */
+function sanitizeSubscribeSuccessRedirectUrl(u: URL): string | null {
+  if (u.pathname !== SUBSCRIBE_SUCCESS_PATH) return null;
+  if (u.hash) return null;
+
+  const keys = [...u.searchParams.keys()];
+  const uniqueKeys = [...new Set(keys)];
+  if (uniqueKeys.length === 0) return SUBSCRIBE_SUCCESS_PATH;
+  if (uniqueKeys.length !== 1 || uniqueKeys[0] !== "session_id") return null;
+  if (u.searchParams.getAll("session_id").length !== 1) return null;
+
+  const sessionId = u.searchParams.get("session_id");
+  if (!sessionId || !STRIPE_CHECKOUT_SESSION_ID_RE.test(sessionId)) return null;
+
+  return `${SUBSCRIBE_SUCCESS_PATH}?session_id=${sessionId}`;
+}
+
+/**
+ * Subscribe-safe URLs plus a tight allowlist of other internal paths (no query),
+ * except /subscribe/success?session_id=<Stripe checkout session id>.
  */
 export function sanitizeInternalRedirectUrl(
   raw: string | null | undefined
@@ -131,6 +156,10 @@ export function sanitizeInternalRedirectUrl(
 
   const u = parseAsSameOriginPath(decoded);
   if (!u) return null;
+
+  const success = sanitizeSubscribeSuccessRedirectUrl(u);
+  if (success != null) return success;
+  if (u.pathname === SUBSCRIBE_SUCCESS_PATH) return null;
 
   if (u.search !== "" && u.search !== "?") return null;
 

@@ -9,6 +9,7 @@ import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
+import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
 import SubscribeCheckoutPanel from "./subscribe-checkout-panel";
 
 async function resolveSubscribeSearchParams(
@@ -59,6 +60,10 @@ export default async function SubscribePage({
   const isNativeApp = await isNativeSummittMindsetAppRequest();
   if (isNativeApp) {
     redirect(APP_MEMBERSHIP_PATH);
+  }
+
+  if (user && isSubscribedFromPublicMetadata(user.publicMetadata)) {
+    redirect("/post-sign-in");
   }
 
   if (

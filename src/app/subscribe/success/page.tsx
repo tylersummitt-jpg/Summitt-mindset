@@ -45,7 +45,12 @@ function SubscribeSuccessInner() {
       });
 
       if (isLoaded && !isSignedIn) {
-        router.push("/sign-in?redirect_url=/subscribe/success");
+        const successReturn = sessionId
+          ? `/subscribe/success?session_id=${sessionId}`
+          : "/subscribe/success";
+        router.push(
+          `/sign-in?redirect_url=${encodeURIComponent(successReturn)}`
+        );
         return;
       }
 

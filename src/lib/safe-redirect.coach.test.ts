@@ -55,3 +55,82 @@ describe("sanitizeInternalRedirectUrl checkout hop", () => {
     expect(signInUrlPreservingInternalRedirect(null)).toBe("/sign-in");
   });
 });
+
+describe("sanitizeInternalRedirectUrl subscribe success session_id", () => {
+  it("allows /subscribe/success?session_id=cs_test_abc", () => {
+    expect(
+      sanitizeInternalRedirectUrl("/subscribe/success?session_id=cs_test_abc")
+    ).toBe("/subscribe/success?session_id=cs_test_abc");
+  });
+
+  it("allows encoded /subscribe/success?session_id=cs_test_abc", () => {
+    expect(
+      sanitizeInternalRedirectUrl(
+        encodeURIComponent("/subscribe/success?session_id=cs_test_abc")
+      )
+    ).toBe("/subscribe/success?session_id=cs_test_abc");
+  });
+
+  it("allows live-style cs_ session ids", () => {
+    expect(
+      sanitizeInternalRedirectUrl("/subscribe/success?session_id=cs_live_ABC123")
+    ).toBe("/subscribe/success?session_id=cs_live_ABC123");
+  });
+
+  it("allows bare /subscribe/success", () => {
+    expect(sanitizeInternalRedirectUrl("/subscribe/success")).toBe(
+      "/subscribe/success"
+    );
+  });
+
+  it("rejects extra query params", () => {
+    expect(
+      sanitizeInternalRedirectUrl(
+        "/subscribe/success?session_id=cs_test_abc&from=onboarding"
+      )
+    ).toBeNull();
+    expect(
+      sanitizeInternalRedirectUrl("/subscribe/success?session_id=cs_test_abc&src=coach")
+    ).toBeNull();
+  });
+
+  it("rejects empty session_id", () => {
+    expect(sanitizeInternalRedirectUrl("/subscribe/success?session_id=")).toBeNull();
+    expect(sanitizeInternalRedirectUrl("/subscribe/success?session_id")).toBeNull();
+  });
+
+  it("rejects session_id values that are not Stripe checkout ids", () => {
+    expect(
+      sanitizeInternalRedirectUrl("/subscribe/success?session_id=https://evil.example")
+    ).toBeNull();
+    expect(
+      sanitizeInternalRedirectUrl("/subscribe/success?session_id=cs_test_abc/../../../etc")
+    ).toBeNull();
+    expect(
+      sanitizeInternalRedirectUrl("/subscribe/success?session_id=not_a_session")
+    ).toBeNull();
+  });
+
+  it("rejects protocol-relative and open-redirect forms", () => {
+    expect(
+      sanitizeInternalRedirectUrl("//evil.example/subscribe/success?session_id=cs_test_abc")
+    ).toBeNull();
+    expect(
+      sanitizeInternalRedirectUrl(
+        "https://evil.example/subscribe/success?session_id=cs_test_abc"
+      )
+    ).toBeNull();
+    expect(
+      sanitizeInternalRedirectUrl("/subscribe/success?session_id=//evil.example")
+    ).toBeNull();
+  });
+
+  it("does not allow session_id on other allowlisted paths", () => {
+    expect(
+      sanitizeInternalRedirectUrl("/post-sign-in?session_id=cs_test_abc")
+    ).toBeNull();
+    expect(
+      sanitizeInternalRedirectUrl("/checkout/start?session_id=cs_test_abc")
+    ).toBeNull();
+  });
+});
