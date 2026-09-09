@@ -131,7 +131,7 @@ describe("subscriber growth auth architecture", () => {
     expect(dashboard).toContain("Platform");
     expect(dashboard).toContain("Post / Link");
     expect(dashboard).toContain("Accounts");
-    expect(dashboard).toContain("md:hidden");
+    expect(dashboard).toContain("TrackingLinkBuilder");
     expect(dashboard).not.toContain("Specific advertisement");
     expect(dashboard).not.toMatch(/\bCAC\b/);
     expect(dashboard).toContain("Selected period · Stripe only");

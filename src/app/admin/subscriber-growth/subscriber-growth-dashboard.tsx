@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-subscriber-growth-pure";
 
 import { SubscriberGrowthAdSpend } from "./subscriber-growth-ad-spend";
+import { TrackingLinkBuilder } from "./tracking-link-builder";
 
 const DATE_RANGE_OPTIONS: Array<{ id: GrowthDateRange; label: string }> = [
   { id: "today", label: "Today" },
@@ -398,6 +399,9 @@ export default function SubscriberGrowthDashboard({
         <h2 className="mb-1.5 text-sm font-semibold text-gray-900">
           Traffic source
         </h2>
+        <div className="mb-2">
+          <TrackingLinkBuilder />
+        </div>
         {snapshot.notes.sourceTrackingUnavailable ? (
           <>
             <div className="hidden overflow-hidden rounded-lg border border-gray-200 bg-white md:block">

@@ -93,6 +93,7 @@ describe("subscriber growth organic platform table", () => {
     expect(screen.getByText("Platform")).toBeTruthy();
     expect(screen.getByText("Post / Link")).toBeTruthy();
     expect(screen.getAllByText("Accounts").length).toBeGreaterThan(0);
+    expect(screen.getByText("Tracking Link Builder")).toBeTruthy();
     expect(screen.getAllByText("Instagram").length).toBeGreaterThan(0);
     expect(screen.getAllByText("story_psm047").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Facebook").length).toBeGreaterThan(0);
