@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
 
+import { SOCIAL_BIO_REDIRECTS } from "./src/lib/social-bio-redirects";
+
 const nextConfig: NextConfig = {
-  // leave empty for now
+  async redirects() {
+    return [...SOCIAL_BIO_REDIRECTS];
+  },
 };
 
 export default nextConfig;
