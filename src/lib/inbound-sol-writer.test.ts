@@ -350,4 +350,10 @@ describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
       /Did you struggle with confidence early in coaching\?[\s\S]*normal body/
     );
   });
+
+  it("does not inherit the Morning/Evening first-person next-turn line", () => {
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).not.toContain(
+      "The message should feel like the next human turn from Coach Pat: speak naturally in first person when it fits, as a real coach texting this member."
+    );
+  });
 });

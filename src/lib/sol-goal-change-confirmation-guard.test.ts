@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "fs";
+import path from "path";
 import {
   applyFalseAppliedGoalChangeGuard,
   applyGoalChangeMachineBodySafety,
@@ -535,5 +537,17 @@ describe("Slice 7F-1 temporary reverted body safety", () => {
       authorization: revertedAuth,
     });
     expect(guarded.blocked).toBe(false);
+  });
+});
+
+describe("Goal Change state files stay outside Morning/Evening first-person line", () => {
+  it("confirmation guard source does not contain the Morning next-turn sentence", () => {
+    const src = readFileSync(
+      path.join(process.cwd(), "src/lib/sol-goal-change-confirmation-guard.ts"),
+      "utf8"
+    );
+    expect(src).not.toContain(
+      "The message should feel like the next human turn from Coach Pat: speak naturally in first person when it fits, as a real coach texting this member."
+    );
   });
 });

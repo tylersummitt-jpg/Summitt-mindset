@@ -200,6 +200,44 @@ describe("morning-tto-writer Phase 2D", () => {
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/post-writer|repair pass/i);
   });
 
+  it("shared Morning/Evening writer uses the first-person next-turn line; other lanes do not", () => {
+    const nextTurn =
+      "The message should feel like the next human turn from Coach Pat: speak naturally in first person when it fits, as a real coach texting this member.";
+    const oldNextTurn = "The message should feel like the next human turn in the relationship.";
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain(nextTurn);
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain(oldNextTurn);
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("I AM PAT");
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("I want you to...");
+
+    const generateSrc = readFileSync(
+      path.join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"),
+      "utf8"
+    );
+    const eveningFn = generateSrc.slice(
+      generateSrc.indexOf("export async function generateTylerTextOverviewEveningPreviewForUser")
+    );
+    expect(eveningFn).toContain("writeMorningTtoBody");
+
+    const weeklyPrompt = readFileSync(
+      path.join(process.cwd(), "src/lib/weekly-tto-writer.ts"),
+      "utf8"
+    );
+    expect(weeklyPrompt).not.toContain(nextTurn);
+    expect(weeklyPrompt).toContain("Write the next natural human text in this relationship.");
+
+    const inboundPrompt = readFileSync(
+      path.join(process.cwd(), "src/lib/inbound-sol-writer.ts"),
+      "utf8"
+    );
+    expect(inboundPrompt).not.toContain(nextTurn);
+
+    const goalChangeGuard = readFileSync(
+      path.join(process.cwd(), "src/lib/sol-goal-change-confirmation-guard.ts"),
+      "utf8"
+    );
+    expect(goalChangeGuard).not.toContain(nextTurn);
+  });
+
   it("Thursday generation / Friday message_for keeps Friday morning in exact writer input", () => {
     const packet = samplePacket({
       message_for: {
