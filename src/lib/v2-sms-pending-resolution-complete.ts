@@ -1172,120 +1172,6 @@ export async function tryHandleSmsInboundPendingResolution(args: {
 
     const conf = parseSmsConfirmation(rawFull);
     if (conf === "ambiguous") {
-      const refined =
-        kind === "commitment_replace"
-          ? tryMergeWeekdaysIntoCandidate(cand, rawFull)
-          : null;
-      if (refined && refined !== cand) {
-        const mergedDays = await mergeSmsPendingResolutionPayload({
-          commitmentId: c.id,
-          merge: (prev) => ({
-            ...prev,
-            sms_state: "awaiting_confirmation",
-            candidate_behavior_statement: refined,
-            candidate_new_bar: refined,
-            raw_user_text: rawFull.slice(0, RAW_LOG_MAX),
-            confirmation_prompt_sent_at: new Date().toISOString(),
-          }),
-        });
-        if (mergedDays.ok) {
-          const daysAsk = buildReplaceConfirmationAskDraft(refined);
-          logSmsPending({
-            pending_resolution_sms_state: "awaiting_confirmation",
-            detected_candidate: refined,
-            confirmation: "prompted",
-            mutation_attempted: false,
-            mutation_success: false,
-            rpc: null,
-            old_commitment_id: c.id,
-            new_commitment_id: null,
-            message_sid: args.job.message_sid,
-            raw_text_preview: rawPreview,
-            weekday_refine: true,
-          });
-          return pendingHandled(
-            await phase1PendingReply({
-              machineDraft: daysAsk,
-              brainCase: "pending_resolution_confirmation_prompt",
-              allowVictoryRoomPhrase: false,
-              currentBarSummary,
-              safeFallback: daysAsk,
-            }),
-            {
-              pendingNoSendPolicyBranch: "pending_active_clarify",
-              pendingResolutionKind: kind,
-              pendingStateMutatedBeforeSms: true,
-              pendingClearedBeforeSms: false,
-              pendingStillActiveAfterPhase1: true,
-              pendingResolutionApplied: false,
-              pendingProgressed: true,
-              stateTransitionSummary:
-                "Weekday clarification merged into candidate; pending remains awaiting_confirmation before visible SMS.",
-            }
-          );
-        }
-      }
-
-      // "Yes, but change it to <concrete>" — keep awaiting_confirmation with the new candidate.
-      if (kind === "commitment_replace") {
-        const altRaw =
-          extractAwaitingCandidateHallwayBar(rawFull) ||
-          extractDeterministicDailyBarCandidate(rawFull);
-        const altClamped =
-          altRaw && !isVagueOrInvalidCandidateBar(altRaw)
-            ? clampCandidateForKind(kind, altRaw)
-            : null;
-        if (altClamped && altClamped.trim().toLowerCase() !== cand.trim().toLowerCase()) {
-          const mergedAlt = await mergeSmsPendingResolutionPayload({
-            commitmentId: c.id,
-            merge: (prev) => ({
-              ...prev,
-              sms_state: "awaiting_confirmation",
-              candidate_behavior_statement: altClamped,
-              candidate_new_bar: altClamped,
-              raw_user_text: rawFull.slice(0, RAW_LOG_MAX),
-              confirmation_prompt_sent_at: new Date().toISOString(),
-            }),
-          });
-          if (mergedAlt.ok) {
-            const altAsk = buildReplaceConfirmationAskDraft(altClamped);
-            logSmsPending({
-              pending_resolution_sms_state: "awaiting_confirmation",
-              detected_candidate: altClamped,
-              confirmation: "prompted",
-              mutation_attempted: false,
-              mutation_success: false,
-              rpc: null,
-              old_commitment_id: c.id,
-              new_commitment_id: null,
-              message_sid: args.job.message_sid,
-              raw_text_preview: rawPreview,
-              candidate_refined_on_ambiguous_confirm: true,
-            });
-            return pendingHandled(
-              await phase1PendingReply({
-                machineDraft: altAsk,
-                brainCase: "pending_resolution_confirmation_prompt",
-                allowVictoryRoomPhrase: false,
-                currentBarSummary,
-                safeFallback: altAsk,
-              }),
-              {
-                pendingNoSendPolicyBranch: "pending_active_clarify",
-                pendingResolutionKind: kind,
-                pendingStateMutatedBeforeSms: true,
-                pendingClearedBeforeSms: false,
-                pendingStillActiveAfterPhase1: true,
-                pendingResolutionApplied: false,
-                pendingProgressed: true,
-                stateTransitionSummary:
-                  "Ambiguous confirm offered a concrete alternative; pending remains awaiting_confirmation before visible SMS.",
-              }
-            );
-          }
-        }
-      }
-
       logSmsPending({
         pending_resolution_sms_state: "awaiting_confirmation",
         detected_candidate: cand,
@@ -1391,134 +1277,6 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     }
 
     c = (await getActiveCommitment(args.clerkUserId)) ?? c;
-
-    if (kind === "commitment_replace") {
-      // Product law: ignore stored/heuristic season_mode; always new_chapter for saved goal replace.
-      const seasonResolved = resolveSeasonModeForPendingReplace({
-        payload,
-        candidateBar: cand,
-        currentBehaviorStatement: c.behavior_statement,
-      });
-      logSmsPending({
-        pending_resolution_sms_state: "awaiting_confirmation",
-        detected_candidate: cand,
-        confirmation: "yes",
-        mutation_attempted: true,
-        mutation_success: false,
-        rpc: "v2_apply_sms_goal_change_with_season_mutation",
-        season_mode: "new_chapter",
-        season_mode_requested: seasonResolved.mode,
-        old_commitment_id: c.id,
-        new_commitment_id: null,
-        message_sid: args.job.message_sid,
-        raw_text_preview: rawPreview,
-      });
-      const rep = await applySmsGoalChangeWithSeasonMutation({
-        clerkUserId: args.clerkUserId,
-        commitment: c,
-        behaviorStatement: cand,
-        seasonMode: "new_chapter",
-        messageSid: args.job.message_sid,
-      });
-      if (!rep.ok) {
-        logSmsPending({
-          pending_resolution_sms_state: "awaiting_confirmation",
-          detected_candidate: cand,
-          confirmation: "yes",
-          mutation_attempted: true,
-          mutation_success: false,
-          rpc: "v2_apply_sms_goal_change_with_season_mutation",
-          season_mode: "new_chapter",
-          old_commitment_id: c.id,
-          new_commitment_id: null,
-          message_sid: args.job.message_sid,
-          raw_text_preview: rawPreview,
-          error: rep.code,
-        });
-        const rpcHoldDraft = buildSmsPendingRpcHoldPreviewDraft(cand);
-        return pendingHandled(
-          await phase1PendingReply({
-            machineDraft: rpcHoldDraft,
-            brainCase: "pending_resolution_rpc_error_hold",
-            allowVictoryRoomPhrase: false,
-            currentBarSummary,
-            safeFallback: rpcHoldDraft,
-          }),
-          {
-            pendingNoSendPolicyBranch: "pending_active_clarify",
-            pendingResolutionKind: kind,
-            pendingStateMutatedBeforeSms: false,
-            pendingClearedBeforeSms: false,
-            pendingStillActiveAfterPhase1: true,
-            pendingResolutionApplied: false,
-            stateTransitionSummary: `Replace RPC failed (${rep.code}); pending still awaiting_confirmation before visible SMS.`,
-          }
-        );
-      }
-      logSmsPending({
-        pending_resolution_sms_state: "confirmed",
-        detected_candidate: cand,
-        confirmation: "yes",
-        mutation_attempted: true,
-        mutation_success: true,
-        rpc: "v2_apply_sms_goal_change_with_season_mutation",
-        season_mode: rep.seasonMode,
-        season_transition_applied: rep.seasonTransitionApplied,
-        old_commitment_id: rep.oldCommitmentId,
-        new_commitment_id: rep.newCommitmentId,
-        message_sid: args.job.message_sid,
-        raw_text_preview: rawPreview,
-      });
-      const replaceProof = buildProofMomentCommitmentReplaced();
-      const recentReplace = await getRecentV2EventsForAi(rep.newCommitmentId);
-      const replaceCallout = decideVictoryRoomSmsCallout({
-        proofMeta: replaceProof,
-        eventsNewestFirst: recentReplace,
-      });
-      let vrAppend = replaceCallout.appendToReply;
-      const thinReplace =
-        kind === "commitment_replace" &&
-        isThinCommitmentBarForVictoryCallout(cand) &&
-        !isV2PendingResolutionVictoryCalloutAllowed();
-      if (thinReplace) {
-        vrAppend = null;
-      }
-      // Existing new-chapter machine draft (no same-season "Updated bar" path).
-      const replaceReply = `Done. New commitment: ${cand}. I’ll hold you to that tomorrow.`;
-      let replaceReplyFinal = replaceReply;
-      const proofInserted = !rep.idempotentReplay;
-      if (proofInserted && vrAppend) {
-        const beforeReplaceCallout = replaceReplyFinal;
-        replaceReplyFinal = appendSmsParagraphIfUnderCap(replaceReplyFinal, vrAppend);
-        if (replaceReplyFinal !== beforeReplaceCallout) {
-          await patchVictoryCalloutOnSpineEventBestEffort({
-            idempotencyKey: `v2_sms_commitment_change_proof:commitment_replaced:${args.job.message_sid}`,
-            spineExtras: replaceCallout.eventPayloadExtras,
-          });
-        }
-      }
-      const allowVrReplace = /\bvictory room\b/i.test(replaceReplyFinal);
-      const replaceSafeFallback = replaceReply;
-      return pendingHandled(
-        await phase1PendingReply({
-          machineDraft: replaceReplyFinal,
-          brainCase: "pending_resolution_replace_applied",
-          allowVictoryRoomPhrase: allowVrReplace,
-          currentBarSummary,
-          safeFallback: replaceSafeFallback,
-        }),
-        {
-          pendingNoSendPolicyBranch: "mutation_applied",
-          pendingResolutionKind: kind,
-          pendingStateMutatedBeforeSms: true,
-          pendingClearedBeforeSms: true,
-          pendingStillActiveAfterPhase1: false,
-          pendingResolutionApplied: true,
-          stateTransitionSummary: `SMS pending-resolution replace applied (season_mode=${rep.seasonMode}); pending cleared before visible SMS.`,
-        },
-        rep
-      );
-    }
 
     const normalized = normalizeShrinkProposalBindingText(cand);
     if (!normalized) {
@@ -1674,25 +1432,6 @@ export async function tryHandleSmsInboundPendingResolution(args: {
   let meaningInterpreterAcceptedBar: string | null = null;
   let skipAiCandidateExtraction = false;
   let clockNormalizedCandidate: string | null = null;
-  if (smsState === "awaiting_candidate" && kind === "commitment_replace") {
-    // Production Turn 2 for this hallway is owned by
-    // runSolGoalChangeAwaitingCandidateForInbound (Sol interpreter / clock slot).
-    // Slice 6: leftover returns handled:false for healthy saved replace before
-    // this block. Tighten leftover may still reach candidate extraction.
-    const clock = resolveReplaceHallwayClockCandidate({
-      canonicalBehaviorStatement: c.behavior_statement ?? "",
-      extracted: null,
-      inboundRaw: rawFull,
-    });
-    if (clock.status === "normalized") {
-      clockNormalizedCandidate = clock.candidate;
-      skipAiCandidateExtraction = true;
-    } else if (clock.status === "unnormalizable") {
-      // Clock fragment cannot be expanded into the canonical sentence.
-      // Do not persist raw `10:30` or let leftover AI invent a bar.
-      skipAiCandidateExtraction = true;
-    }
-  }
 
   if (
     !clockNormalizedCandidate &&
@@ -1775,42 +1514,12 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     }
   }
 
-  let extracted =
-    smsState === "awaiting_candidate" && kind === "commitment_replace"
-      ? extractAwaitingCandidateHallwayBar(rawFull)
-      : extractDeterministicDailyBarCandidate(rawFull);
-  if (
-    !extracted &&
-    smsState === "awaiting_candidate" &&
-    kind === "commitment_replace" &&
-    isMostlyWeekdayClarification(rawFull)
-  ) {
-    const priorCand =
-      payload.candidate_behavior_statement?.trim() ||
-      payload.candidate_new_bar?.trim() ||
-      "";
-    if (priorCand) {
-      extracted = tryMergeWeekdaysIntoCandidate(priorCand, rawFull);
-    }
-  }
+  let extracted = extractDeterministicDailyBarCandidate(rawFull);
   if (!meaningInterpreterAcceptedBar && preferRichTextOverBareDuration(rawFull, extracted)) {
     extracted = null;
   }
   if (clockNormalizedCandidate) {
     extracted = clockNormalizedCandidate;
-  } else if (smsState === "awaiting_candidate" && kind === "commitment_replace") {
-    const clock = resolveReplaceHallwayClockCandidate({
-      canonicalBehaviorStatement: c.behavior_statement ?? "",
-      extracted,
-      inboundRaw: rawFull,
-    });
-    if (clock.status === "normalized") {
-      extracted = clock.candidate;
-      skipAiCandidateExtraction = true;
-    } else if (clock.status === "unnormalizable") {
-      extracted = null;
-      skipAiCandidateExtraction = true;
-    }
   }
 
   // Never fall back to raw inbound as the candidate — only structured extract, meaning interpreter, or AI.
@@ -1929,9 +1638,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
       ai_candidate_extraction: aiMeta,
     });
     const vagueDraft =
-      kind === "commitment_replace"
-        ? buildAwaitingCandidateVagueHallwayDraft(rawFull)
-        : "I need one clear daily action. What exactly should I hold you to tomorrow?";
+      "I need one clear daily action. What exactly should I hold you to tomorrow?";
     return pendingHandled(
       await phase1PendingReply({
         machineDraft: vagueDraft,
@@ -1956,9 +1663,7 @@ export async function tryHandleSmsInboundPendingResolution(args: {
   const clamped = clampCandidateForKind(kind, candidateRaw!);
   if (!clamped) {
     const clampDraft =
-      kind === "commitment_tighten"
-        ? "That’s too long or unclear for a tightened bar here—what’s one shorter honest version?"
-        : "That text doesn’t fit as a commitment here—try one clear daily-action sentence.";
+      "That’s too long or unclear for a tightened bar here—what’s one shorter honest version?";
     return pendingHandled(
       await phase1PendingReply({
         machineDraft: clampDraft,
@@ -2009,22 +1714,13 @@ export async function tryHandleSmsInboundPendingResolution(args: {
   const mergedOk = await mergeSmsPendingResolutionPayload({
     commitmentId: c.id,
     merge: (prev) => {
-      const season =
-        kind === "commitment_replace"
-          ? resolveSeasonModeForPendingReplace({
-              payload: prev,
-              candidateBar: clamped,
-              currentBehaviorStatement: c.behavior_statement,
-            })
-          : null;
       return {
         ...prev,
         sms_state: "awaiting_confirmation",
         candidate_behavior_statement: clamped,
-        candidate_tightened_bar: kind === "commitment_tighten" ? clamped : prev.candidate_tightened_bar,
-        candidate_new_bar: kind === "commitment_replace" ? clamped : prev.candidate_new_bar,
+        candidate_tightened_bar: clamped,
+        candidate_new_bar: prev.candidate_new_bar,
         confirmation_prompt_sent_at: new Date().toISOString(),
-        ...(season ? seasonModePayloadMerge(prev, season.mode, season.reason) : {}),
         ...(aiMeta?.accepted
           ? {
               ai_candidate_extraction_used: true,
@@ -2081,37 +1777,14 @@ export async function tryHandleSmsInboundPendingResolution(args: {
     ai_candidate_extraction: aiMeta,
   });
 
-  if (kind === "commitment_tighten") {
-    const tightenPromptDraft = `I can tighten it to: ${clamped}. Should I make that the new goal?`;
-    return pendingHandled(
-      await phase1PendingReply({
-        machineDraft: tightenPromptDraft,
-        brainCase: "pending_resolution_confirmation_prompt",
-        allowVictoryRoomPhrase: false,
-        currentBarSummary,
-        safeFallback: tightenPromptDraft,
-      }),
-      {
-        pendingNoSendPolicyBranch: "pending_active_clarify",
-        pendingResolutionKind: kind,
-        pendingStateMutatedBeforeSms: true,
-        pendingClearedBeforeSms: false,
-        pendingStillActiveAfterPhase1: true,
-        pendingResolutionApplied: false,
-        pendingProgressed: true,
-        stateTransitionSummary:
-          "Candidate saved; pending advanced to awaiting_confirmation before visible SMS.",
-      }
-    );
-  }
-  const replacePromptDraft = buildReplaceConfirmationAskDraft(clamped);
+  const tightenPromptDraft = `I can tighten it to: ${clamped}. Should I make that the new goal?`;
   return pendingHandled(
     await phase1PendingReply({
-      machineDraft: replacePromptDraft,
+      machineDraft: tightenPromptDraft,
       brainCase: "pending_resolution_confirmation_prompt",
       allowVictoryRoomPhrase: false,
       currentBarSummary,
-      safeFallback: replacePromptDraft,
+      safeFallback: tightenPromptDraft,
     }),
     {
       pendingNoSendPolicyBranch: "pending_active_clarify",

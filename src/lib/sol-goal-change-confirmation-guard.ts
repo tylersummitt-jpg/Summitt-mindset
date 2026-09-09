@@ -390,15 +390,13 @@ export function tryBuildAuthorizedGoalChangeWriterFailureFallback(
   if (
     authorization.duration_clarification_required === true &&
     authorization.pending_state === "awaiting_candidate" &&
-    authorization.goal_change_confirmation_authorized !== true &&
-    authorization.goal_change_apply_authorized !== true
+    authorization.goal_change_confirmation_authorized !== true
   ) {
     return AUTHORIZED_TEMPORARY_DURATION_CLARIFICATION_ASK;
   }
   if (
     authorization.pending_state === "awaiting_candidate" &&
     authorization.goal_change_confirmation_authorized !== true &&
-    authorization.goal_change_apply_authorized !== true &&
     authorization.temporary_duration_kind != null &&
     !(authorization.candidate_behavior_statement ?? "").trim()
   ) {
@@ -415,7 +413,6 @@ export function tryBuildAuthorizedGoalChangeWriterFailureFallback(
   if (
     authorization.pending_state === "awaiting_candidate" &&
     authorization.goal_change_confirmation_authorized !== true &&
-    authorization.goal_change_apply_authorized !== true &&
     !(authorization.candidate_behavior_statement ?? "").trim()
   ) {
     return AUTHORIZED_AWAITING_CANDIDATE_ELICITATION_ASK;

@@ -10489,7 +10489,10 @@ async function sendDegenerateSavedReplacePendingSafetyReply(args: {
   commitment: ActiveV2CommitmentRow;
 }): Promise<void> {
   const pending = getPendingResolutionOrNull(args.commitment);
-  const payload = pending?.payload;
+  const payload =
+    pending?.payload && pending.payload.source === "sms_inbound"
+      ? pending.payload
+      : null;
   const smsState = payload?.sms_state ?? "awaiting_candidate";
   const candidate =
     payload?.candidate_behavior_statement?.trim() ||
@@ -10511,9 +10514,13 @@ async function sendDegenerateSavedReplacePendingSafetyReply(args: {
     consequence = "degenerate_empty_candidate_regress";
   }
 
+  const livePayload = getPendingResolutionOrNull(live)?.payload;
+  const liveSmsState =
+    livePayload && livePayload.source === "sms_inbound"
+      ? livePayload.sms_state ?? "awaiting_candidate"
+      : "awaiting_candidate";
   const authorization =
-    (getPendingResolutionOrNull(live)?.payload?.sms_state ?? "awaiting_candidate") ===
-    "awaiting_candidate"
+    liveSmsState === "awaiting_candidate"
       ? awaitingCandidateAuthorizationFromReloadedCommitment(live)
       : confirmationAuthorizationFromReloadedCommitment(live);
 
