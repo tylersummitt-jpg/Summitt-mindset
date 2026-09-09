@@ -3,8 +3,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
+import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
 import {
   marketingAcquisitionHref,
   marketingSubscribeCtaLabel,
@@ -12,18 +14,6 @@ import {
   marketingTrialCtaLabelLong,
   shouldShowMarketingPricingCopy,
 } from "@/lib/native-app/native-safe-marketing-cta";
-
-function isSubscribedFromMetadata(md: Record<string, any>) {
-  const subscribedRaw = md?.summittSubscribed;
-  const plan = md?.summittPlan;
-
-  return (
-    subscribedRaw === true ||
-    subscribedRaw === "true" ||
-    plan === "monthly" ||
-    plan === "annual"
-  );
-}
 
 /** Hero primary CTA — matches coach kit ring offset on dark hero */
 const ctaHeroPrimaryClass =
@@ -116,11 +106,16 @@ const howItWorksStepCardClass =
 
 export default async function HomePage() {
   const user = await currentUser();
+
+  if (user && isSubscribedFromPublicMetadata(user.publicMetadata)) {
+    redirect("/post-sign-in");
+  }
+
   const isNativeApp = await isNativeSummittMindsetAppRequest();
-  const md = (user?.publicMetadata ?? {}) as Record<string, any>;
+  const md = (user?.publicMetadata ?? {}) as Record<string, unknown>;
 
   const onboardingCompleted = md?.onboardingCompleted === true;
-  const isSubscribed = isSubscribedFromMetadata(md);
+  const isSubscribed = isSubscribedFromPublicMetadata(md);
 
   const showContinue =
     !!user && onboardingCompleted === true && isSubscribed === true;
