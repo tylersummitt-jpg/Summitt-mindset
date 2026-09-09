@@ -81,7 +81,7 @@ describe("subscriber growth page authorization", () => {
 });
 
 describe("subscriber growth auth architecture", () => {
-  it("uses requireTylerAdmin and does not add Brooke-specific auth", () => {
+  it("uses requireTylerAdmin; helper may allow Brooke by Clerk user ID only", () => {
     const page = readFileSync(PAGE, "utf8");
     const layout = readFileSync(LAYOUT, "utf8");
     const auth = readFileSync(AUTH, "utf8");
@@ -104,6 +104,7 @@ describe("subscriber growth auth architecture", () => {
     expect(loader).not.toMatch(/meta_capi_web_identifiers/);
     expect(loader).toContain("listAdSpendInRange");
     expect(auth).toContain("TYLER_CLERK_USER_ID");
+    expect(auth).toContain("BROOKE_CLERK_USER_ID");
     expect(auth).not.toMatch(/BrooklynSummitt@gmail\.com/i);
     expect(combined).not.toMatch(/BrooklynSummitt@gmail\.com/i);
     expect(combined).not.toMatch(/growth-admin/i);

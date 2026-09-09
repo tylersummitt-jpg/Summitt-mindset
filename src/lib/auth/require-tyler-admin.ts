@@ -4,9 +4,10 @@ import { auth } from "@clerk/nextjs/server";
  * ======================================================
  * requireTylerAdmin
  * ------------------------------------------------------
- * Hard admin gate for Tyler only.
- * - Uses Clerk auth()
- * - Compares to TYLER_CLERK_USER_ID env var
+ * Hard admin gate for Tyler, plus optional Brooke.
+ * - Uses Clerk auth() session userId only
+ * - Tyler: required TYLER_CLERK_USER_ID
+ * - Brooke: optional BROOKE_CLERK_USER_ID (unset/malformed = ignore)
  * - Throws structured errors for API routes
  * ======================================================
  */
@@ -31,9 +32,9 @@ export async function requireTylerAdmin() {
     throw err;
   }
 
-  const adminId = normalizeUserId(process.env.TYLER_CLERK_USER_ID);
+  const tylerId = normalizeUserId(process.env.TYLER_CLERK_USER_ID);
 
-  if (!adminId) {
+  if (!tylerId) {
     const err: any = new Error(
       "SERVER_MISCONFIG_TYLER_CLERK_USER_ID"
     );
@@ -41,11 +42,13 @@ export async function requireTylerAdmin() {
     throw err;
   }
 
-  if (userId !== adminId) {
-    const err: any = new Error("FORBIDDEN");
-    err.status = 403;
-    throw err;
+  const brookeId = normalizeUserId(process.env.BROOKE_CLERK_USER_ID);
+
+  if (userId === tylerId || (brookeId && userId === brookeId)) {
+    return { userId };
   }
 
-  return { userId };
+  const err: any = new Error("FORBIDDEN");
+  err.status = 403;
+  throw err;
 }
