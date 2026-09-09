@@ -62,6 +62,7 @@ function samplePacket(
       local_date: "2026-08-07",
       local_weekday: "Friday",
       daypart: "morning",
+      intended_receive_time_local: "07:00",
     },
     last_user_response: {
       at_utc: "2026-08-06T15:00:00.000Z",
@@ -240,6 +241,7 @@ describe("morning-tto-brief-canonical-load-v1", () => {
     expect(JSON.stringify(packet)).toBe(before);
     expect(input).not.toHaveProperty("ok");
     if ("ok" in input) throw new Error("unexpected");
+    expect(input.message_for.intended_receive_time_local).toBe("07:00");
     expect(input.canonical_goal.text).toBe("Dictate one story before noon");
     expect(input.historical_evidence).toBe(packet.historical_evidence);
     expect(input.historical_evidence).toEqual([]);

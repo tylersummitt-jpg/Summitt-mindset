@@ -183,6 +183,17 @@ function localWallParts(
 }
 
 /**
+ * Member-local wall clock as HH:MM (24-hour). Invalid TZ falls back via resolveUserTimezone.
+ */
+export function formatLocalHourMinute(at: Date, timeZone: unknown): string {
+  const tz = resolveUserTimezone(timeZone);
+  const wall = localWallParts(at, tz);
+  const h = Number.isFinite(wall.h) ? Math.max(0, Math.min(23, wall.h)) : 0;
+  const min = Number.isFinite(wall.min) ? Math.max(0, Math.min(59, wall.min)) : 0;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+/**
  * UTC instant for local calendar-day midnight in `timeZone`.
  * Invalid date or unresolvable local midnight → null (fail closed).
  * Invalid timezone falls back via resolveUserTimezone.

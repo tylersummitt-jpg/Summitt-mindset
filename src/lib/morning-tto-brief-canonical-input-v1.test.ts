@@ -1,4 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+
 import {
   assembleMorningBriefInterpreterInputV1,
   deriveConsistencySupportedFromSpine,
@@ -97,6 +102,7 @@ describe("morning-tto-brief-canonical-input-v1", () => {
     if ("ok" in result) throw new Error("unexpected failure");
     expect(result.version).toBe(MORNING_BRIEF_INTERPRETER_INPUT_VERSION);
     expect(result.message_for.daypart).toBe("morning");
+    expect(result.message_for.intended_receive_time_local).toBe("07:00");
     expect(result.canonical_goal.text).toBe("Dictate one story before noon");
     expect(result.available_identity).toEqual({
       text: "I am a father who keeps his word",
@@ -117,6 +123,14 @@ describe("morning-tto-brief-canonical-input-v1", () => {
     expect(result.thread_memory_hint?.authority).toBe("non_authoritative_projection");
     expect(result.historical_evidence).toEqual([]);
     expect(result.answered_user_message_links).toEqual([]);
+  });
+
+  it("Evening assembler exposes intended_receive_time_local 19:00", () => {
+    const result = assembleMorningBriefInterpreterInputV1(baseArgs({ daypart: "evening" }));
+    expect(result).not.toHaveProperty("ok");
+    if ("ok" in result) throw new Error("unexpected failure");
+    expect(result.message_for.daypart).toBe("evening");
+    expect(result.message_for.intended_receive_time_local).toBe("19:00");
   });
 
   it("includes quotable identity and excludes non-quotable identity", () => {

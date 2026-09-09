@@ -18,6 +18,7 @@ import {
 } from "@/lib/morning-tto-coaching-brief-json-schema-v1";
 import {
   mapSpineOutcomeToBriefOutcome,
+  type MorningBriefCanonicalMergeInput,
   type MorningBriefInterpreterInputV1,
 } from "@/lib/morning-tto-brief-canonical-input-v1";
 import {
@@ -263,7 +264,7 @@ export function buildFixedMorningBriefBoundaries(args: {
  * Does not infer thread alignment. No pending → unknown (not aligned).
  */
 export function buildFailSoftGoalAlignmentFromCanonical(
-  input: MorningBriefInterpreterInputV1
+  input: MorningBriefCanonicalMergeInput
 ): MorningBriefGoalAlignment {
   if (input.pending_goal_change) return "pending_confirmation";
   return "unknown";
@@ -273,7 +274,7 @@ export function buildFailSoftGoalAlignmentFromCanonical(
  * Fail-soft Brief: canonical truth + semantic unknowns. No English guessing.
  */
 export function buildLowConfidenceUnknownBriefFromCanonical(
-  input: MorningBriefInterpreterInputV1
+  input: MorningBriefCanonicalMergeInput
 ): MorningCoachingBriefV1 {
   const outcome = mapSpineOutcomeToBriefOutcome(input.truth_spine.latest_outcome);
   const latestTruth =
@@ -353,7 +354,7 @@ function selectedPersonMatchesCanonical(
  */
 export function mergeMorningBriefWithCanonicalTruth(args: {
   parsed: MorningCoachingBriefV1;
-  input: MorningBriefInterpreterInputV1;
+  input: MorningBriefCanonicalMergeInput;
 }): MorningCoachingBriefV1 {
   const { parsed, input } = args;
   const spineOutcome = mapSpineOutcomeToBriefOutcome(input.truth_spine.latest_outcome);
@@ -457,7 +458,7 @@ export function buildMorningBriefInterpreterMessages(
  */
 export function parseAndMergeMorningBriefInterpreterResponse(args: {
   raw: string;
-  input: MorningBriefInterpreterInputV1;
+  input: MorningBriefCanonicalMergeInput;
 }): MorningCoachingBriefV1 | null {
   let json: unknown;
   try {

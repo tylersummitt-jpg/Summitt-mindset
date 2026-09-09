@@ -11,6 +11,7 @@ import {
 } from "@/lib/sms-recent-exact-thread-72h";
 import { requireTylerTextOverviewDraftDayKey } from "@/lib/tyler-text-overview-draft-day-key";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
+import { formatLaneWindowStartHhMm } from "@/lib/daily-sms-scheduling";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { wholeCalendarDaysBetweenDayKeys } from "@/lib/v2-cadence";
 import { getActiveCommitment, type ActiveV2CommitmentRow } from "@/lib/v2-commitment";
@@ -44,6 +45,8 @@ export type MorningRelationshipPacket = {
     local_date: string;
     local_weekday: string;
     daypart: TtoMessageDaypart;
+    /** Inclusive lane-window start HH:MM. Not send eligibility and not actual Twilio time. */
+    intended_receive_time_local: string;
   };
   last_user_response: {
     at_utc: string | null;
@@ -94,6 +97,19 @@ export type MorningRelationshipPacket = {
    * Not inferred from exact_thread wording, adjacency, or timestamps.
    */
   answered_user_message_links: AnsweredUserMessageLink[];
+};
+
+/** Shared-assembler view: live Morning packets include slot time; Weekly compatibility omits it. */
+export type MorningRelationshipPacketAssemblerView = Omit<
+  MorningRelationshipPacket,
+  "message_for"
+> & {
+  message_for: Omit<
+    MorningRelationshipPacket["message_for"],
+    "intended_receive_time_local"
+  > & {
+    intended_receive_time_local?: string;
+  };
 };
 
 const PERSONAL_CONTEXT_PROFILE_FIELDS = [
@@ -153,11 +169,13 @@ export function buildMorningMessageFor(args: {
   daypart?: TtoMessageDaypart;
 }): MorningRelationshipPacket["message_for"] {
   const local_date = args.draftForDayKey.trim();
+  const daypart = args.daypart ?? "morning";
   return {
     timezone: resolveUserTimezone(args.timezone),
     local_date,
     local_weekday: weekdayLongFromLocalDayKey(local_date),
-    daypart: args.daypart ?? "morning",
+    daypart,
+    intended_receive_time_local: formatLaneWindowStartHhMm(daypart),
   };
 }
 

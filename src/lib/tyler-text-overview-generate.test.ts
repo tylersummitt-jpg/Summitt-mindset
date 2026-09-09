@@ -372,9 +372,10 @@ const MORNING_PACKET = {
     timezone: "America/New_York",
     local_date: "2026-07-03",
     local_weekday: "Friday",
-    daypart: "morning" as const,
-  },
-  last_user_response: {
+      daypart: "morning" as const,
+      intended_receive_time_local: "07:00" as const,
+    },
+    last_user_response: {
     at_utc: "2026-07-01T12:00:00.000Z",
     at_local: "Jul 1, 8:00 AM",
     days_since: 2,
@@ -2030,7 +2031,11 @@ describe("canonical batch persists one day across US timezones", () => {
       ok: true,
       packet: {
         ...quietPacket(14),
-        message_for: { ...MORNING_PACKET.message_for, daypart: "evening" as const },
+        message_for: {
+          ...MORNING_PACKET.message_for,
+          daypart: "evening" as const,
+          intended_receive_time_local: "19:00" as const,
+        },
       },
       commitmentId: "cmt-phase3",
     });
@@ -2057,6 +2062,7 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
         local_date: dayKey,
         local_weekday: "Friday",
         daypart: "evening" as const,
+        intended_receive_time_local: "19:00" as const,
       },
     };
   }

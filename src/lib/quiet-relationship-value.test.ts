@@ -317,6 +317,7 @@ describe("quiet relationship value — prompt law + clamp + writer skip", () => 
           local_date: "2026-08-07",
           local_weekday: "Friday",
           daypart: "morning",
+          intended_receive_time_local: "07:00",
         },
         last_user_response: {
           at_utc: null,

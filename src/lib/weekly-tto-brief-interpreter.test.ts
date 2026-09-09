@@ -45,6 +45,7 @@ function samplePacket(
       daypart: "weekly",
       week_start_local_date: "2026-07-06",
       week_end_local_date: "2026-07-12",
+      intended_receive_time_local: "12:00",
     },
     last_user_response: {
       at_utc: "2026-07-10T16:00:00.000Z",
@@ -191,6 +192,12 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(assembled.message_for.local_weekday).toBe("Sunday");
     expect(assembled.message_for.week_start_local_date).toBe("2026-07-06");
     expect(assembled.message_for.week_end_local_date).toBe("2026-07-12");
+    expect(assembled.message_for.intended_receive_time_local).toBe("12:00");
+    const interpreterUser = String(
+      buildWeeklyBriefInterpreterMessages(assembled)[1]?.content
+    );
+    expect(interpreterUser).toContain('"intended_receive_time_local":"12:00"');
+    expect(interpreterUser).not.toContain('"intended_receive_time_local":"07:00"');
     expect(assembled.canonical_goal.text).toBe("Walk 20 minutes after dinner");
     expect(assembled.truth_spine.consistency_supported).toBe(false);
     expect(assembled.truth_spine.latest_outcome).toBe("user_yes");

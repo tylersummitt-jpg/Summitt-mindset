@@ -31,6 +31,7 @@ function packet(latest: string, threadBodies: string[]): InboundRelationshipPack
       local_date: "2026-08-18",
       local_weekday: "Tuesday",
       daypart: "inbound",
+      current_local_time: "11:00",
     },
     preferred_name: "Robin",
     current_goal: { text: "Lift 30 minutes" },

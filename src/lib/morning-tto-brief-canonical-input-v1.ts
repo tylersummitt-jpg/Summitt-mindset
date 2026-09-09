@@ -15,6 +15,7 @@ import type {
   MorningBriefEvidenceStrength,
   MorningBriefProofClaimsAllowed,
 } from "@/lib/morning-tto-coaching-brief-v1";
+import { formatLaneWindowStartHhMm } from "@/lib/daily-sms-scheduling";
 
 export const MORNING_BRIEF_INTERPRETER_INPUT_VERSION =
   "morning_brief_interpreter_input_v1" as const;
@@ -44,6 +45,7 @@ export type MorningBriefInterpreterInputV1 = {
     local_date: string;
     local_weekday: string;
     daypart: "morning" | "evening";
+    intended_receive_time_local: string;
   };
   mechanical: {
     days_since_last_user_response: number | null;
@@ -106,6 +108,17 @@ export type MorningBriefInterpreterInputV1 = {
    * Outranks thread_memory_hint for whether a user message was answered.
    */
   answered_user_message_links: AnsweredUserMessageLink[];
+};
+
+/** Canonical merge/fail-soft input. Slot time is unused here; Weekly views omit it. */
+export type MorningBriefCanonicalMergeInput = Omit<
+  MorningBriefInterpreterInputV1,
+  "message_for"
+> & {
+  message_for: Omit<
+    MorningBriefInterpreterInputV1["message_for"],
+    "intended_receive_time_local"
+  >;
 };
 
 export const MORNING_BRIEF_LIFE_CONTEXT_TYPES = [
@@ -247,6 +260,11 @@ export type AssembleMorningBriefInterpreterInputArgs = {
   historicalEvidence?: HistoricalEvidenceSlice;
   /** Copied from packet.answered_user_message_links. Do not infer. */
   answeredUserMessageLinks?: AnsweredUserMessageLink[];
+  /**
+   * Live Morning/Evening: omit to derive from lane-window start, or pass packet HH:MM.
+   * `false` omits the field (Weekly compatibility views — do not invent Morning 07:00).
+   */
+  intendedReceiveTimeLocal?: string | false;
 };
 
 /**
@@ -254,8 +272,17 @@ export type AssembleMorningBriefInterpreterInputArgs = {
  * Does not interpret English, choose moves, pressure, or goal role.
  */
 export function assembleMorningBriefInterpreterInputV1(
+  args: AssembleMorningBriefInterpreterInputArgs & { intendedReceiveTimeLocal: false }
+): MorningBriefCanonicalMergeInput | { ok: false; error: string };
+export function assembleMorningBriefInterpreterInputV1(
+  args: AssembleMorningBriefInterpreterInputArgs & { intendedReceiveTimeLocal?: string }
+): MorningBriefInterpreterInputV1 | { ok: false; error: string };
+export function assembleMorningBriefInterpreterInputV1(
   args: AssembleMorningBriefInterpreterInputArgs
-): MorningBriefInterpreterInputV1 | { ok: false; error: string } {
+):
+  | MorningBriefInterpreterInputV1
+  | MorningBriefCanonicalMergeInput
+  | { ok: false; error: string } {
   const goalText = trimOrNull(args.canonicalGoalText);
   if (!goalText) {
     return { ok: false, error: "missing_canonical_goal" };
@@ -364,14 +391,10 @@ export function assembleMorningBriefInterpreterInputV1(
     });
   }
 
-  return {
+  const daypart: "morning" | "evening" =
+    args.daypart === "evening" ? "evening" : "morning";
+  const assembled = {
     version: MORNING_BRIEF_INTERPRETER_INPUT_VERSION,
-    message_for: {
-      timezone,
-      local_date: localDate,
-      local_weekday: localWeekday,
-      daypart: args.daypart === "evening" ? "evening" : "morning",
-    },
     mechanical: {
       days_since_last_user_response:
         args.daysSinceLastUserResponse == null
@@ -408,6 +431,30 @@ export function assembleMorningBriefInterpreterInputV1(
     answered_user_message_links: Array.isArray(args.answeredUserMessageLinks)
       ? args.answeredUserMessageLinks
       : [],
+  };
+  if (args.intendedReceiveTimeLocal === false) {
+    return {
+      ...assembled,
+      message_for: {
+        timezone,
+        local_date: localDate,
+        local_weekday: localWeekday,
+        daypart,
+      },
+    };
+  }
+  return {
+    ...assembled,
+    message_for: {
+      timezone,
+      local_date: localDate,
+      local_weekday: localWeekday,
+      daypart,
+      intended_receive_time_local:
+        typeof args.intendedReceiveTimeLocal === "string"
+          ? args.intendedReceiveTimeLocal
+          : formatLaneWindowStartHhMm(daypart),
+    },
   };
 }
 

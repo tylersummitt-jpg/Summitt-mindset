@@ -38,6 +38,7 @@ function samplePacket(
       local_date: "2026-06-22",
       local_weekday: "Monday",
       daypart: "morning",
+      intended_receive_time_local: "07:00",
     },
     last_user_response: {
       at_utc: "2026-06-21T16:00:00.000Z",
@@ -162,6 +163,7 @@ describe("morning-tto-writer Phase 2D", () => {
     expect(user).toContain("MORNING_RELATIONSHIP_PACKET_V1");
     expect(user).toContain(JSON.stringify(brief));
     expect(user).toContain(JSON.stringify(packet));
+    expect(user).toContain('"intended_receive_time_local":"07:00"');
     expect(user).toMatch(/Return JSON only/);
     expect(user).not.toMatch(/DAILY_SMS_WRITING_BRIEF|slot_coaching|hallway|notebook/i);
     expect(JSON.stringify(packet)).toBe(beforePacket);
@@ -205,6 +207,7 @@ describe("morning-tto-writer Phase 2D", () => {
         local_date: "2026-08-07",
         local_weekday: "Friday",
         daypart: "morning",
+        intended_receive_time_local: "07:00",
       },
       current_goal: { text: "Stretch before bed tonight" },
     });
@@ -212,6 +215,7 @@ describe("morning-tto-writer Phase 2D", () => {
     expect(user).toContain('"local_date":"2026-08-07"');
     expect(user).toContain('"local_weekday":"Friday"');
     expect(user).toContain('"daypart":"morning"');
+    expect(user).toContain('"intended_receive_time_local":"07:00"');
     expect(user).toContain("Stretch before bed tonight");
     // No deterministic completion assertion tables in source
     const src = readFileSync(
@@ -223,6 +227,21 @@ describe("morning-tto-writer Phase 2D", () => {
     expect(src).not.toMatch(/days_since.*reconnect/);
   });
 
+  it("Evening packet carries intended_receive_time_local 19:00 into writer JSON", () => {
+    const packet = samplePacket({
+      message_for: {
+        timezone: "America/New_York",
+        local_date: "2026-08-07",
+        local_weekday: "Friday",
+        daypart: "evening",
+        intended_receive_time_local: "19:00",
+      },
+    });
+    const user = buildMorningWriterMessages(packet, sampleBrief())[1]?.content as string;
+    expect(user).toContain('"daypart":"evening"');
+    expect(user).toContain('"intended_receive_time_local":"19:00"');
+  });
+
   it("weekday-specific goal fixture does not add deterministic rule tables", () => {
     const packet = samplePacket({
       message_for: {
@@ -230,6 +249,7 @@ describe("morning-tto-writer Phase 2D", () => {
         local_date: "2026-08-07",
         local_weekday: "Friday",
         daypart: "morning",
+        intended_receive_time_local: "07:00",
       },
       current_goal: { text: "Tuesday/Thursday gym session" },
     });

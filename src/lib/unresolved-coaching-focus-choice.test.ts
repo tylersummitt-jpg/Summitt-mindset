@@ -246,6 +246,7 @@ function weeklyPacket(
       daypart: "weekly",
       week_start_local_date: "2026-08-24",
       week_end_local_date: "2026-08-30",
+      intended_receive_time_local: "12:00",
     },
     last_user_response: {
       at_utc: null,

@@ -116,6 +116,7 @@ function morningPacket(
       local_date: "2026-08-25",
       local_weekday: "Tuesday",
       daypart: "evening",
+      intended_receive_time_local: "19:00",
     },
     last_user_response: {
       at_utc: "2026-08-22T23:01:00.000Z",
@@ -154,6 +155,7 @@ function weeklyPacket(
       daypart: "weekly",
       week_start_local_date: "2026-08-17",
       week_end_local_date: "2026-08-23",
+      intended_receive_time_local: "12:00",
     },
     last_user_response: {
       at_utc: "2026-08-20T16:00:00.000Z",
@@ -475,6 +477,7 @@ describe("brief uncertainty writer contract", () => {
         local_date: "2026-08-24",
         local_weekday: "Monday",
         daypart: "morning",
+        intended_receive_time_local: "07:00",
       },
       historical_evidence: [],
       exact_thread: {

@@ -90,6 +90,7 @@ function packet(): WeeklyRelationshipPacket {
       daypart: "weekly",
       week_start_local_date: "2026-07-06",
       week_end_local_date: "2026-07-12",
+      intended_receive_time_local: "12:00",
     },
     last_user_response: {
       at_utc: "2026-07-10T16:00:00.000Z",

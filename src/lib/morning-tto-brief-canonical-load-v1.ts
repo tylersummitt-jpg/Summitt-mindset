@@ -7,6 +7,7 @@ import { supabaseServer } from "@/lib/supabase-server";
 import {
   assembleMorningBriefInterpreterInputV1,
   type AssembleMorningBriefInterpreterInputArgs,
+  type MorningBriefCanonicalMergeInput,
   type MorningBriefExactThreadMessage,
   type MorningBriefInterpreterInputV1,
   type MorningBriefLifeContextType,
@@ -14,7 +15,10 @@ import {
   MORNING_BRIEF_IMPORTANT_PEOPLE_MAX,
   MORNING_BRIEF_LIFE_CONTEXT_TYPES,
 } from "@/lib/morning-tto-brief-canonical-input-v1";
-import type { MorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
+import type {
+  MorningRelationshipPacket,
+  MorningRelationshipPacketAssemblerView,
+} from "@/lib/morning-tto-relationship-packet";
 import { loadV2CommitmentSmsThreadMemory } from "@/lib/v2-commitment-sms-thread-memory";
 
 const OUTCOME_EVENT_TYPES = ["user_yes", "user_no", "user_partial"] as const;
@@ -225,7 +229,7 @@ export async function loadMorningBriefCanonicalExtrasV1(args: {
 }
 
 function lifeContextFromPacket(
-  packet: MorningRelationshipPacket
+  packet: MorningRelationshipPacketAssemblerView
 ): Partial<Record<MorningBriefLifeContextType, string | null | undefined>> {
   const out: Partial<Record<MorningBriefLifeContextType, string | null | undefined>> = {};
   const allowed = new Set<string>(MORNING_BRIEF_LIFE_CONTEXT_TYPES);
@@ -248,7 +252,22 @@ export function assembleMorningBriefInterpreterInputFromPacket(args: {
   extras: MorningBriefCanonicalExtrasV1;
   messageRequiredToday?: boolean;
   quietRelationshipEligible?: boolean;
-}): MorningBriefInterpreterInputV1 | { ok: false; error: string } {
+}): MorningBriefInterpreterInputV1 | { ok: false; error: string };
+export function assembleMorningBriefInterpreterInputFromPacket(args: {
+  packet: MorningRelationshipPacketAssemblerView;
+  extras: MorningBriefCanonicalExtrasV1;
+  messageRequiredToday?: boolean;
+  quietRelationshipEligible?: boolean;
+}): MorningBriefCanonicalMergeInput | { ok: false; error: string };
+export function assembleMorningBriefInterpreterInputFromPacket(args: {
+  packet: MorningRelationshipPacketAssemblerView;
+  extras: MorningBriefCanonicalExtrasV1;
+  messageRequiredToday?: boolean;
+  quietRelationshipEligible?: boolean;
+}):
+  | MorningBriefInterpreterInputV1
+  | MorningBriefCanonicalMergeInput
+  | { ok: false; error: string } {
   const { packet, extras } = args;
   const identityText = packet.current_identity.text;
   const exactThreadMessages: MorningBriefExactThreadMessage[] = packet.exact_thread.messages.map(
@@ -263,7 +282,7 @@ export function assembleMorningBriefInterpreterInputFromPacket(args: {
     })
   );
 
-  return assembleMorningBriefInterpreterInputV1({
+  const shared = {
     timezone: packet.message_for.timezone,
     localDate: packet.message_for.local_date,
     localWeekday: packet.message_for.local_weekday,
@@ -276,7 +295,7 @@ export function assembleMorningBriefInterpreterInputFromPacket(args: {
     pendingGoalChange: packet.hard_state.pending_goal_change,
     identityAnchorText: identityText,
     identitySource: null,
-    identityAlreadyQuotableGated: true,
+    identityAlreadyQuotableGated: true as const,
     importantPeople: extras.importantPeople,
     lifeContextProfile: lifeContextFromPacket(packet),
     latestOutcome: extras.outcomeSpine.latestOutcome,
@@ -291,5 +310,16 @@ export function assembleMorningBriefInterpreterInputFromPacket(args: {
     quietRelationshipEligible: args.quietRelationshipEligible === true,
     historicalEvidence: packet.historical_evidence,
     answeredUserMessageLinks: packet.answered_user_message_links ?? [],
+  };
+  const packetSlot = packet.message_for.intended_receive_time_local;
+  if (typeof packetSlot === "string" && packetSlot.length > 0) {
+    return assembleMorningBriefInterpreterInputV1({
+      ...shared,
+      intendedReceiveTimeLocal: packetSlot,
+    });
+  }
+  return assembleMorningBriefInterpreterInputV1({
+    ...shared,
+    intendedReceiveTimeLocal: false,
   });
 }

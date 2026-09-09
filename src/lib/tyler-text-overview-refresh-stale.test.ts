@@ -252,6 +252,7 @@ vi.mock("@/lib/morning-tto-brief-canonical-load-v1", () => ({
       local_date: "2026-07-03",
       local_weekday: "Friday",
       daypart: "morning",
+      intended_receive_time_local: "07:00",
     },
     mechanical: {
       days_since_last_user_response: 1,
@@ -538,10 +539,22 @@ function setupHappyPath() {
     ok: true,
     packet: {
       version: "morning_relationship_v1",
+      message_for: {
+        timezone: "America/New_York",
+        local_date: "2026-07-03",
+        local_weekday: "Friday",
+        daypart: "morning",
+        intended_receive_time_local: "07:00",
+      },
+      last_user_response: { never_replied: false, days_since: 1, at_utc: null, at_local: null },
+      preferred_name: "Pat",
+      current_goal: { text: "Two hours deep work" },
+      current_identity: { text: null },
+      personal_context: [],
+      hard_state: { pending_goal_change: null },
       historical_evidence: [],
       exact_thread: { window_days: 21, max_messages: 30, omitted_older_turn_count: 0, messages: [] },
-      last_user_response: { never_replied: false, days_since: 1, at_utc: null, at_local: null },
-      hard_state: { pending_goal_change: null },
+      answered_user_message_links: [],
     },
     commitmentId: "cmt-stale",
   });

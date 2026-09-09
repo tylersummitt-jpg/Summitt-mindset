@@ -9,7 +9,10 @@ import {
   assembleMorningBriefInterpreterInputFromPacket,
   loadMorningBriefCanonicalExtrasV1,
 } from "@/lib/morning-tto-brief-canonical-load-v1";
-import type { MorningBriefInterpreterInputV1 } from "@/lib/morning-tto-brief-canonical-input-v1";
+import type {
+  MorningBriefCanonicalMergeInput,
+  MorningBriefInterpreterInputV1,
+} from "@/lib/morning-tto-brief-canonical-input-v1";
 import {
   ANSWERED_USER_MESSAGE_LINKS_INTERPRETER_LAW,
   MORNING_BRIEF_INTERPRETER_MAX_COMPLETION_TOKENS,
@@ -157,7 +160,7 @@ export type WeeklyBriefInterpreterResultV1 =
 
 function weeklyInputAsMorningMergeView(
   input: WeeklyBriefInterpreterInputV1
-): MorningBriefInterpreterInputV1 {
+): MorningBriefCanonicalMergeInput {
   return {
     ...input,
     message_for: {

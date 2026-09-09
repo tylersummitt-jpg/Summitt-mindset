@@ -3,6 +3,7 @@ import type OpenAI from "openai";
 import {
   INBOUND_SOL_WRITER_JSON_REMINDER,
   INBOUND_SOL_WRITER_SYSTEM_PROMPT,
+  buildInboundSolWriterMessages,
   parseInboundSolWriterJson,
   writeInboundSolBody,
 } from "@/lib/inbound-sol-writer";
@@ -19,6 +20,7 @@ function packet(latest: string): InboundRelationshipPacket {
       local_date: "2026-08-18",
       local_weekday: "Tuesday",
       daypart: "inbound",
+      current_local_time: "11:00",
     },
     preferred_name: "Brooke",
     current_goal: { text: "Lift 30 minutes" },
@@ -300,6 +302,11 @@ describe("writer contract via writeInboundSolBody", () => {
 });
 
 describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
+  it("writer packet JSON includes inbound current_local_time from message_for", () => {
+    const user = String(buildInboundSolWriterMessages(packet("Need a 5 passenger SUV"), brief())[1]?.content);
+    expect(user).toContain('"current_local_time":"11:00"');
+    expect(user).not.toContain("intended_receive_time_local");
+  });
   it("instructs manual handoff only when PAT_SOURCE_EVIDENCE cannot support the fact", () => {
     const p = INBOUND_SOL_WRITER_SYSTEM_PROMPT;
     expect(p).toContain("Did you set alarms at night?");

@@ -53,6 +53,7 @@ vi.mock("@/lib/victory-media/inbound-mms-d2c-pending-context", async (importOrig
 });
 
 import { loadInboundRelationshipPacket } from "@/lib/inbound-relationship-packet";
+import { buildInboundSolInterpreterMessages } from "@/lib/inbound-sol-brief-interpreter";
 
 const commitment = {
   id: "c1",
@@ -193,6 +194,10 @@ describe("inbound relationship packet", () => {
     expect(loaded.ok).toBe(true);
     if (!loaded.ok) return;
     expect(loaded.packet.message_for.daypart).toBe("inbound");
+    expect(loaded.packet.message_for.current_local_time).toBe("11:30");
+    expect(String(buildInboundSolInterpreterMessages(loaded.packet)[1]?.content)).toContain(
+      '"current_local_time":"11:30"'
+    );
     expect(loaded.packet.latest_inbound_text).toBe("Need a 5 passenger SUV");
     expect(loaded.packet.latest_inbound_message_sid).toBe("SMangel");
     expect(loaded.packet.preferred_name).toBe("Angel");
@@ -215,6 +220,21 @@ describe("inbound relationship packet", () => {
       now: new Date("2026-08-18T16:30:00.000Z"),
     });
     expect(buildRecentExactThread72h).toHaveBeenCalled();
+  });
+
+  it("exposes member-local current_local_time from the inbound receive clock", async () => {
+    const evening = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Need a 5 passenger SUV",
+      latestInboundMessageSid: "SMangel",
+      receivedAt: new Date("2026-08-19T01:43:00.000Z"),
+    });
+    expect(evening.ok).toBe(true);
+    if (!evening.ok) return;
+    expect(evening.packet.message_for.current_local_time).toBe("20:43");
+    expect(evening.packet.message_for).not.toHaveProperty("intended_receive_time_local");
   });
 
   it("loads durable user evidence not present in surviving exact-thread SIDs", async () => {

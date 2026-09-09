@@ -1119,12 +1119,7 @@ function failSoftInterpreterInputFromPacket(
 ) {
   return {
     version: "morning_brief_interpreter_input_v1" as const,
-    message_for: {
-      timezone: packet.message_for.timezone,
-      local_date: packet.message_for.local_date,
-      local_weekday: packet.message_for.local_weekday,
-      daypart: packet.message_for.daypart,
-    },
+    message_for: packet.message_for,
     mechanical: {
       days_since_last_user_response: packet.last_user_response.days_since,
       never_replied: packet.last_user_response.never_replied,

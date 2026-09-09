@@ -8,6 +8,7 @@ import {
   loadMorningRelationshipPacket,
   weekdayLongFromLocalDayKey,
   type MorningRelationshipPacket,
+  type MorningRelationshipPacketAssemblerView,
 } from "@/lib/morning-tto-relationship-packet";
 import { loadRecentPlannedInterruptionSignalForCommitment } from "@/lib/sms-planned-interruption";
 import {
@@ -20,6 +21,12 @@ export const WEEKLY_RELATIONSHIP_PACKET_VERSION = "weekly_relationship_v1" as co
 export const WEEKLY_RELATIONSHIP_ROUTE_KIND = "weekly_relationship" as const;
 export const WEEKLY_BRIEF_WRITER_RAN_VERDICT_REASON = "weekly_brief_writer_ran" as const;
 
+/**
+ * Sunday-noon Sol slot context. Weekly cron hour=12 was not extracted (would require
+ * changing the cron route). Keep this aligned with Sunday 12:00–12:14 send.
+ */
+export const WEEKLY_INTENDED_RECEIVE_TIME_LOCAL = "12:00" as const;
+
 export type WeeklyTtoMessageFor = {
   timezone: string;
   /** Intended Sunday local date (week_end). */
@@ -28,6 +35,8 @@ export type WeeklyTtoMessageFor = {
   daypart: "weekly";
   week_start_local_date: string;
   week_end_local_date: string;
+  /** Immutable Sunday-noon slot clock for Sol. Not the 12:00–12:14 send window. */
+  intended_receive_time_local: typeof WEEKLY_INTENDED_RECEIVE_TIME_LOCAL;
 };
 
 export type WeeklyPlannedInterruptionHardState = {
@@ -140,6 +149,7 @@ export async function loadWeeklyRelationshipPacket(
       daypart: "weekly",
       week_start_local_date: weekStart,
       week_end_local_date: weekEnd,
+      intended_receive_time_local: WEEKLY_INTENDED_RECEIVE_TIME_LOCAL,
     },
     hard_state: {
       ...loaded.packet.hard_state,
@@ -155,7 +165,7 @@ export async function loadWeeklyRelationshipPacket(
 /** Type-compatible Morning packet view for shared Brief assemblers (daypart morning for types only). */
 export function weeklyPacketAsMorningAssemblerView(
   packet: WeeklyRelationshipPacket
-): MorningRelationshipPacket {
+): MorningRelationshipPacketAssemblerView {
   const { planned_interruption: _ignored, ...morningHardState } = packet.hard_state;
   return {
     ...packet,

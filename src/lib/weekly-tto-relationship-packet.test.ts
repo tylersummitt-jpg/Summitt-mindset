@@ -52,6 +52,7 @@ function morningPacket(overrides: Partial<MorningRelationshipPacket> = {}): Morn
       local_date: "2026-07-12",
       local_weekday: "Sunday",
       daypart: "morning",
+      intended_receive_time_local: "07:00",
     },
     last_user_response: {
       at_utc: "2026-07-10T16:00:00.000Z",
@@ -126,6 +127,7 @@ describe("weekly-tto-relationship-packet", () => {
       daypart: "weekly",
       week_start_local_date: "2026-07-06",
       week_end_local_date: "2026-07-12",
+      intended_receive_time_local: "12:00",
     });
     expect(result.packet.message_for.local_date).not.toBe("2026-07-10");
     expect(loadMorningRelationshipPacket).toHaveBeenCalledWith(
@@ -263,6 +265,10 @@ describe("weekly-tto-relationship-packet", () => {
     const view = weeklyPacketAsMorningAssemblerView(result.packet);
     expect(view.version).toBe("morning_relationship_v1");
     expect(view.message_for.daypart).toBe("morning");
+    expect(view.message_for).not.toHaveProperty("intended_receive_time_local");
+    expect(JSON.stringify(view.message_for)).not.toContain("intended_receive_time_local");
+    expect(JSON.stringify(view.message_for)).not.toContain("07:00");
+    expect(result.packet.message_for.intended_receive_time_local).toBe("12:00");
     expect(view.message_for.local_date).toBe("2026-07-12");
     expect(view.historical_evidence).toEqual([]);
     expect(view.historical_evidence).toBe(result.packet.historical_evidence);

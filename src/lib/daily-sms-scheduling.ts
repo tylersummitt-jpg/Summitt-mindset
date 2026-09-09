@@ -20,6 +20,22 @@ export const EVENING_LANE_WINDOW_START_MINUTE = 19 * 60;
 /** Exclusive end of Evening lane eligibility (21:00 local). */
 export const EVENING_LANE_WINDOW_END_MINUTE_EXCLUSIVE = 21 * 60;
 
+/** Format minute-of-day as 24-hour HH:MM. Does not affect send eligibility. */
+export function formatMinuteOfDayAsHhMm(minuteOfDay: number): string {
+  const h = Math.floor(minuteOfDay / 60);
+  const min = minuteOfDay - h * 60;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+/** Inclusive lane-window start as HH:MM for Morning/Evening Sol slot context. */
+export function formatLaneWindowStartHhMm(daypart: "morning" | "evening"): string {
+  return formatMinuteOfDayAsHhMm(
+    daypart === "evening"
+      ? EVENING_LANE_WINDOW_START_MINUTE
+      : MORNING_LANE_WINDOW_START_MINUTE
+  );
+}
+
 /**
  * Minimum age before a reserved/no-SID row may be marked unknown.
  * Fresh rows are treated as in-flight and must not be reclaimed by the next five-minute cron tick.

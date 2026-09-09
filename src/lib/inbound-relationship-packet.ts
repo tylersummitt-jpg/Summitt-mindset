@@ -15,7 +15,7 @@ import {
   MORNING_TTO_THREAD_WINDOW_HOURS,
   MORNING_TTO_THREAD_MAX_MESSAGES,
 } from "@/lib/sms-recent-exact-thread-72h";
-import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
+import { getDateKeyInTimezone, formatLocalHourMinute, resolveUserTimezone } from "@/lib/timezone";
 import { weekdayLongFromLocalDayKey } from "@/lib/morning-tto-relationship-packet";
 import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { type ActiveV2CommitmentRow } from "@/lib/v2-commitment";
@@ -57,6 +57,8 @@ export type InboundRelationshipPacket = {
     local_date: string;
     local_weekday: string;
     daypart: "inbound";
+    /** Member-local HH:MM from the inbound receive clock (job.created_at / receivedAt). */
+    current_local_time: string;
   };
   preferred_name: string | null;
   current_goal: {
@@ -422,6 +424,7 @@ export async function loadInboundRelationshipPacket(args: {
       local_date,
       local_weekday: weekdayLongFromLocalDayKey(local_date),
       daypart: "inbound",
+      current_local_time: formatLocalHourMinute(receivedAt, tz),
     },
     preferred_name: trimOrNull(profile?.preferred_name),
     current_goal: { text: goalText || "(none)" },

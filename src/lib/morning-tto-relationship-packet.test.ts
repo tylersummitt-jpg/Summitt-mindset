@@ -191,6 +191,7 @@ describe("loadMorningRelationshipPacket", () => {
       local_date: "2026-08-03",
       local_weekday: "Monday",
       daypart: "morning",
+      intended_receive_time_local: "07:00",
     });
     expect(JSON.stringify(result.packet)).not.toContain("current_local");
   });
@@ -211,6 +212,7 @@ describe("loadMorningRelationshipPacket", () => {
       local_date: "2026-08-07",
       local_weekday: "Friday",
       daypart: "evening",
+      intended_receive_time_local: "19:00",
     });
     expect(result.packet.historical_evidence).toEqual([]);
   });
@@ -296,6 +298,7 @@ describe("loadMorningRelationshipPacket", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.packet.message_for.daypart).toBe("evening");
+    expect(result.packet.message_for.intended_receive_time_local).toBe("19:00");
     expect(result.packet.historical_evidence).toEqual([
       {
         source: "user_message",
@@ -337,6 +340,22 @@ describe("loadMorningRelationshipPacket", () => {
         draftForDayKey: "2026-08-05",
       }).local_weekday
     ).toBe("Wednesday");
+  });
+
+  it("Boo-like Wednesday Morning packet exposes intended 07:00 Chicago slot time", async () => {
+    const { buildMorningMessageFor } = await import("@/lib/morning-tto-relationship-packet");
+    expect(
+      buildMorningMessageFor({
+        timezone: "America/Chicago",
+        draftForDayKey: "2026-09-09",
+      })
+    ).toEqual({
+      timezone: "America/Chicago",
+      local_date: "2026-09-09",
+      local_weekday: "Wednesday",
+      daypart: "morning",
+      intended_receive_time_local: "07:00",
+    });
   });
 
   it("uses adaptive overlay for current_goal when active", async () => {
@@ -717,6 +736,7 @@ describe("loadMorningRelationshipPacket", () => {
       local_date: "2026-08-03",
       local_weekday: "Monday",
       daypart: "morning",
+      intended_receive_time_local: "07:00",
     });
     const turn = result.packet.exact_thread.messages.find((m) => m.body === quote);
     expect(turn).toBeTruthy();
@@ -973,6 +993,7 @@ describe("loadMorningRelationshipPacket", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.packet.message_for.daypart).toBe("evening");
+    expect(result.packet.message_for.intended_receive_time_local).toBe("19:00");
     expect(result.packet.historical_evidence).toEqual([
       {
         source: "win",

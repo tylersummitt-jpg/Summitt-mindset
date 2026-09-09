@@ -47,6 +47,7 @@ function packet(latest: string, currentGoal: string): InboundRelationshipPacket 
       local_date: "2026-09-07",
       local_weekday: "Monday",
       daypart: "inbound",
+      current_local_time: "11:00",
     },
     preferred_name: "Angela",
     current_goal: { text: currentGoal },
