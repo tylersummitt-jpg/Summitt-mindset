@@ -207,6 +207,46 @@ describe("first-touch merge", () => {
     expect(still.first_touch_at).toBe(now);
   });
 
+  it("captures real fbclid without changing a Google first-touch source", () => {
+    const first = mergeFirstTouch(
+      null,
+      touch({ utm_source: "google", utm_medium: "cpc" }),
+      now
+    );
+    const resolved = resolveMarketingCookies({
+      pathname: "/",
+      search: "fbclid=AbCdEf123",
+      existingVisitor: "3b241101-e2bb-4255-8caf-4136c566a962",
+      existingAcqRaw: serializeAcquisitionCookie(first),
+      nowIso: "2026-09-02T12:00:00.000Z",
+      generatedVisitorId: "3b241101-e2bb-4255-8caf-4136c566a962",
+    });
+    expect(resolved?.payload.source_normalized).toBe("google");
+    expect(resolved?.payload.is_paid_acquisition).toBe(true);
+    expect(resolved?.payload.meta_fbclid).toBe("AbCdEf123");
+    expect(resolved?.payload.meta_fbclid_observed_at).toBe("2026-09-02T12:00:00.000Z");
+  });
+
+  it("keeps the first observed fbclid timestamp on later requests", () => {
+    const first = resolveMarketingCookies({
+      pathname: "/",
+      search: "fbclid=FirstClickId",
+      nowIso: now,
+      generatedVisitorId: "3b241101-e2bb-4255-8caf-4136c566a962",
+    });
+    const later = resolveMarketingCookies({
+      pathname: "/",
+      search: "fbclid=SecondClickId",
+      existingVisitor: first?.visitorId,
+      existingAcqRaw: serializeAcquisitionCookie(first!.payload),
+      nowIso: "2026-09-08T12:00:00.000Z",
+      generatedVisitorId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    });
+    expect(later?.payload.meta_fbclid).toBe("FirstClickId");
+    expect(later?.payload.meta_fbclid_observed_at).toBe(now);
+    expect(later?.payload.source_normalized).toBe("meta");
+  });
+
   it("round-trips cookie JSON without PII fields", () => {
     const payload: AcquisitionCookiePayload = mergeFirstTouch(
       null,

@@ -4,8 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { rpcMock } = vi.hoisted(() => ({
+const { rpcMock, purgeMetaMock, presenceMock } = vi.hoisted(() => ({
   rpcMock: vi.fn(),
+  purgeMetaMock: vi.fn(),
+  presenceMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase-server", () => ({
@@ -13,6 +15,13 @@ vi.mock("@/lib/supabase-server", () => ({
     from: vi.fn(),
     rpc: rpcMock,
   },
+}));
+
+vi.mock("@/lib/meta-capi-web-identifiers", () => ({
+  purgeMetaCapiWebIdentifiersForUser: (...args: unknown[]) =>
+    purgeMetaMock(...args),
+  metaCapiWebIdentifiersPresenceForUser: (...args: unknown[]) =>
+    presenceMock(...args),
 }));
 
 import {
@@ -257,6 +266,10 @@ describe("purgeAppDataForDeletion repository helper", () => {
   beforeEach(() => {
     useInMemoryAccountDeletionStoreForTests();
     rpcMock.mockReset();
+    purgeMetaMock.mockReset();
+    presenceMock.mockReset();
+    purgeMetaMock.mockResolvedValue(undefined);
+    presenceMock.mockResolvedValue("absent");
   });
 
   it("17. accepts purged with empty limitations", async () => {
@@ -542,5 +555,124 @@ describe("Commit 2 — v2_durable_user_evidence purge extension (static)", () =>
     expect(evidenceIdx).toBeGreaterThan(-1);
     expect(winIdx).toBeGreaterThan(-1);
     expect(evidenceIdx).toBeLessThan(winIdx);
+  });
+});
+
+describe("account deletion Meta CAPI identifier cleanup", () => {
+  const TABLE_MIGRATION = join(
+    process.cwd(),
+    "supabase/migrations/20260908220000_meta_capi_web_identifiers.sql"
+  );
+  const PURGE_SNIPPET_MIGRATION = join(
+    process.cwd(),
+    "supabase/migrations/20260909110000_meta_capi_web_identifiers_purge_rpc_snippet.sql"
+  );
+
+  beforeEach(() => {
+    rpcMock.mockReset();
+    purgeMetaMock.mockReset();
+    presenceMock.mockReset();
+    purgeMetaMock.mockResolvedValue(undefined);
+    presenceMock.mockResolvedValue("absent");
+  });
+
+  it("documents canonical RPC DELETE without replacing the live purge function", () => {
+    const helper = readFileSync(
+      join(process.cwd(), "src/lib/account-deletion/purge-app-data.ts"),
+      "utf8"
+    );
+    const tableSql = readFileSync(TABLE_MIGRATION, "utf8");
+    const snippetSql = readFileSync(PURGE_SNIPPET_MIGRATION, "utf8");
+    expect(helper).toContain("purgeMetaCapiWebIdentifiersForUser");
+    expect(helper).toContain("metaCapiWebIdentifiersPresenceForUser");
+    expect(helper).toContain("meta_capi_web_identifiers_purge_incomplete");
+    expect(tableSql).not.toContain(
+      "CREATE OR REPLACE FUNCTION public.purge_app_data_for_account_deletion("
+    );
+    expect(snippetSql).not.toContain(
+      "CREATE OR REPLACE FUNCTION public.purge_app_data_for_account_deletion("
+    );
+    expect(snippetSql).toContain(
+      "DELETE FROM public.meta_capi_web_identifiers WHERE clerk_user_id = v_clerk"
+    );
+    expect(snippetSql).toContain(
+      "jsonb_build_object('meta_capi_web_identifiers', v_n)"
+    );
+    expect(snippetSql).toContain("v_total := v_total + v_n");
+    expect(snippetSql).toContain(
+      "DELETE FROM public.v2_win WHERE clerk_user_id = v_clerk"
+    );
+  });
+
+  it("app-layer delete runs as backup after a successful RPC", async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: [{ outcome: "purged", counts: { journal_entries: 1 }, limitations: [] }],
+      error: null,
+    });
+    const result = await purgeAppDataForDeletion({
+      requestId: "11111111-1111-1111-1111-111111111111",
+      clerkUserId: "user_abc",
+      expectedOrchestrationVersion: 1,
+      lockOwner: "worker-1",
+    });
+    expect(result.ok).toBe(true);
+    expect(purgeMetaMock).toHaveBeenCalledWith("user_abc");
+    expect(presenceMock).toHaveBeenCalledWith("user_abc");
+  });
+
+  it("does not complete deletion while an identifier row remains", async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: [{ outcome: "purged", counts: { journal_entries: 1 }, limitations: [] }],
+      error: null,
+    });
+    presenceMock.mockResolvedValueOnce("present");
+    const result = await purgeAppDataForDeletion({
+      requestId: "11111111-1111-1111-1111-111111111111",
+      clerkUserId: "user_abc",
+      expectedOrchestrationVersion: 1,
+      lockOwner: "worker-1",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe("internal_error");
+      expect(result.message).toBe("meta_capi_web_identifiers_purge_incomplete");
+    }
+    expect(purgeMetaMock).toHaveBeenCalledWith("user_abc");
+  });
+
+  it("does not complete deletion when identifier presence is unknown", async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: [{ outcome: "already_absent", counts: {}, limitations: [] }],
+      error: null,
+    });
+    presenceMock.mockResolvedValueOnce("unknown");
+    const result = await purgeAppDataForDeletion({
+      requestId: "11111111-1111-1111-1111-111111111111",
+      clerkUserId: "user_abc",
+      expectedOrchestrationVersion: 1,
+      lockOwner: "worker-1",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toBe("meta_capi_web_identifiers_purge_incomplete");
+    }
+  });
+
+  it("does not complete deletion if identifier cleanup throws", async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: [{ outcome: "purged", counts: { journal_entries: 1 }, limitations: [] }],
+      error: null,
+    });
+    purgeMetaMock.mockRejectedValueOnce(new Error("meta store down"));
+    const result = await purgeAppDataForDeletion({
+      requestId: "11111111-1111-1111-1111-111111111111",
+      clerkUserId: "user_abc",
+      expectedOrchestrationVersion: 1,
+      lockOwner: "worker-1",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toBe("meta_capi_web_identifiers_purge_incomplete");
+    }
   });
 });

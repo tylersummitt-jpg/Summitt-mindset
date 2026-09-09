@@ -1,5 +1,6 @@
 /**
- * Meta Conversions API — server-only, fail-open, no PII beyond hashed external_id.
+ * Meta Conversions API — server-only, fail-open, no PII beyond hashed external_id
+ * plus optional unhashed website match identifiers (fbc/fbp/IP/UA) when present.
  */
 
 import "server-only";
@@ -7,6 +8,12 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import { getMetaPixelId, isMetaPixelEnabled } from "@/lib/meta-pixel";
+import {
+  sanitizeMetaClientIp,
+  sanitizeMetaClientUserAgent,
+  sanitizeMetaFbc,
+  sanitizeMetaFbp,
+} from "@/lib/meta-capi-web-identifier-validation";
 
 export const META_CAPI_GRAPH_VERSION = "v21.0" as const;
 export const META_CAPI_TIMEOUT_MS = 2000 as const;
@@ -22,6 +29,10 @@ export type MetaCapiSendInput = {
   externalIdHash?: string | null;
   value?: number | null;
   currency?: string | null;
+  fbc?: string | null;
+  fbp?: string | null;
+  clientIpAddress?: string | null;
+  clientUserAgent?: string | null;
 };
 
 export type MetaCapiSendResult =
@@ -31,6 +42,25 @@ export type MetaCapiSendResult =
 function getCapiAccessToken(): string | null {
   const raw = process.env.META_CAPI_ACCESS_TOKEN?.trim();
   return raw ? raw : null;
+}
+
+/**
+ * Meta Test Events code for the Graph body.
+ * Never attached when VERCEL_ENV is production.
+ * When VERCEL_ENV is unset (local/vitest), a non-empty env value is allowed.
+ */
+export function resolveMetaCapiTestEventCode(env?: {
+  META_CAPI_TEST_EVENT_CODE?: string;
+  VERCEL_ENV?: string;
+}): string | null {
+  const source = env ?? process.env;
+  const code =
+    typeof source.META_CAPI_TEST_EVENT_CODE === "string"
+      ? source.META_CAPI_TEST_EVENT_CODE.trim()
+      : "";
+  if (!code) return null;
+  if (source.VERCEL_ENV === "production") return null;
+  return code;
 }
 
 export function isMetaCapiConfigured(): boolean {
@@ -49,6 +79,14 @@ export function buildMetaCapiEventPayload(input: MetaCapiSendInput): Record<stri
   if (input.externalIdHash && /^[a-f0-9]{64}$/.test(input.externalIdHash)) {
     userData.external_id = input.externalIdHash;
   }
+  const fbc = sanitizeMetaFbc(input.fbc);
+  if (fbc) userData.fbc = fbc;
+  const fbp = sanitizeMetaFbp(input.fbp);
+  if (fbp) userData.fbp = fbp;
+  const ip = sanitizeMetaClientIp(input.clientIpAddress);
+  if (ip) userData.client_ip_address = ip;
+  const ua = sanitizeMetaClientUserAgent(input.clientUserAgent);
+  if (ua) userData.client_user_agent = ua;
 
   const event: Record<string, unknown> = {
     event_name: input.eventName,
@@ -99,7 +137,7 @@ export async function sendMetaCapiEvent(
       return { ok: false, reason: "invalid_event_time" };
     }
 
-    const body = {
+    const body: Record<string, unknown> = {
       data: [
         buildMetaCapiEventPayload({
           ...input,
@@ -108,6 +146,10 @@ export async function sendMetaCapiEvent(
       ],
       access_token: token,
     };
+    const testEventCode = resolveMetaCapiTestEventCode();
+    if (testEventCode) {
+      body.test_event_code = testEventCode;
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), META_CAPI_TIMEOUT_MS);

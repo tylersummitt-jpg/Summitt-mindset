@@ -10,10 +10,12 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 - **`META_CAPI_ACCESS_TOKEN`** — server-only. Required for Meta Conversions API StartTrial / Subscribe. Never `NEXT_PUBLIC_`. If missing, CAPI skips; Stripe membership is unchanged.
 
+- **`META_CAPI_TEST_EVENT_CODE`** — server-only, optional. When set **and** `VERCEL_ENV` is not `production`, Graph API requests include Meta’s `test_event_code` so Events Manager Test Events can show StartTrial and Subscribe. **Ignored on Vercel production** even if the env var is set. Unset `VERCEL_ENV` (local/vitest) allows the code if present. Never `NEXT_PUBLIC_`. Never commit a real code.
+
 **Behavior:**
 
 - **PageView (browser only)** fires on selected public marketing routes (home, about, daily-practice, previews, subscribe, sign-in/sign-up, coach kit, Pat Summitt SEO pages, challenge). Legal/support pages, member product, admin, and `/subscribe/success` are **blocked**.
-- **StartTrial (server CAPI only)** fires from the Stripe webhook after `checkout.session.completed` membership projection succeeds and the subscription is actually trialing. Not on CTA, signup, subscribe view, or Checkout session creation. Apple IAP is excluded.
+- **StartTrial (server CAPI only)** fires from the Stripe webhook after `checkout.session.completed` membership projection succeeds and the subscription is actually trialing. Not on CTA, signup, subscribe view, or Checkout session creation. Apple IAP is excluded. When available from the website visitor, StartTrial `user_data` may also include unhashed `fbc` / `fbp` / `client_ip_address` / `client_user_agent` captured on web Stripe checkout. Missing values are omitted, never fabricated.
 - **Subscribe (server CAPI only)** fires from the Stripe webhook after `invoice.paid` membership projection succeeds, only for the **first** paid invoice (`amount_paid > 0`, USD) on that subscription. Trial $0 invoices, renewals, manual invoices, and Apple IAP do not fire Subscribe.
 - **Native app (iOS or Android UA markers):** when the request User-Agent contains exact `SummittMindsetiOS` or `SummittMindsetAndroid`, `MetaPixelRoot` is **not rendered** (no `fbevents.js` / `fbq`). Website/browser Pixel unchanged. Detection is via the canonical `detectSummittMindsetPlatform` helper (`none` | `ios` | `android`).
 - Sensitive URLs (`/subscribe/success`, `/pulse`, `/winback`, `/internal`, …) and denylisted query keys (`session_id`, `t`, `token`, …) never receive PageView.

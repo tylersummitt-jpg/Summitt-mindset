@@ -14,10 +14,12 @@ describe("meta-capi", () => {
     process.env.META_CAPI_ACCESS_TOKEN = "test_capi_token";
   });
 
-  afterEach(() => {
+    afterEach(() => {
     delete process.env.NEXT_PUBLIC_META_PIXEL_ID;
     delete process.env.NEXT_PUBLIC_META_PIXEL_ENABLED;
     delete process.env.META_CAPI_ACCESS_TOKEN;
+    delete process.env.META_CAPI_TEST_EVENT_CODE;
+    delete process.env.VERCEL_ENV;
   });
 
   it("hashes Clerk user id as lowercase SHA-256 hex and never returns the raw id", async () => {
@@ -46,6 +48,50 @@ describe("meta-capi", () => {
     const json = JSON.stringify(payload);
     expect(json).not.toMatch(/email|phone|@|user_abc123/i);
     expect((payload.user_data as { external_id: string }).external_id).toBe(externalIdHash);
+  });
+
+  it("StartTrial user_data may include unhashed fbc/fbp/IP/UA and never email/phone/name", async () => {
+    const { buildMetaCapiEventPayload, hashMetaExternalId } = await import("./meta-capi");
+    const externalIdHash = hashMetaExternalId("user_abc123")!;
+    const payload = buildMetaCapiEventPayload({
+      eventName: "StartTrial",
+      eventTime: 1700000000,
+      eventId: "start_trial:sub_1",
+      externalIdHash,
+      fbc: "fb.1.1700000000000.AbCdEf",
+      fbp: "fb.1.1700000000000.1234567890",
+      clientIpAddress: "8.8.8.8",
+      clientUserAgent: "Mozilla/5.0 TestBrowser",
+    });
+    const userData = payload.user_data as Record<string, string>;
+    expect(userData.external_id).toBe(externalIdHash);
+    expect(userData.fbc).toBe("fb.1.1700000000000.AbCdEf");
+    expect(userData.fbp).toBe("fb.1.1700000000000.1234567890");
+    expect(userData.client_ip_address).toBe("8.8.8.8");
+    expect(userData.client_user_agent).toBe("Mozilla/5.0 TestBrowser");
+    expect(payload.event_source_url).toBe("https://www.summittmindset.com/subscribe");
+    expect(payload.event_name).toBe("StartTrial");
+    expect(payload.action_source).toBe("website");
+    const json = JSON.stringify(payload);
+    expect(json).not.toMatch(/email|phone|@|user_abc123/i);
+    expect(json).not.toMatch(/Ask Pat|Victory Room|SMS|card/i);
+  });
+
+  it("omits missing fbc/fbp/IP/UA and never fabricates fbp", async () => {
+    const { buildMetaCapiEventPayload } = await import("./meta-capi");
+    const payload = buildMetaCapiEventPayload({
+      eventName: "StartTrial",
+      eventTime: 1700000000,
+      eventId: "start_trial:sub_1",
+      externalIdHash: "a".repeat(64),
+    });
+    const userData = payload.user_data as Record<string, string>;
+    expect(userData.external_id).toBe("a".repeat(64));
+    expect(userData.fbc).toBeUndefined();
+    expect(userData.fbp).toBeUndefined();
+    expect(userData.client_ip_address).toBeUndefined();
+    expect(userData.client_user_agent).toBeUndefined();
+    expect(JSON.stringify(payload)).not.toMatch(/fb\.1\.\d+\.\d+/);
   });
 
   it("builds Subscribe custom_data from actual amount_paid/100 and USD", async () => {
@@ -149,5 +195,88 @@ describe("meta-capi", () => {
     expect(dumped).not.toContain("test_capi_token");
     expect(dumped).not.toContain("META_CAPI_ACCESS_TOKEN");
     warn.mockRestore();
+  });
+
+  it("includes test_event_code only when META_CAPI_TEST_EVENT_CODE is set", async () => {
+    fetchMock.mockResolvedValue({ ok: true, status: 200 });
+    const { sendMetaCapiEvent } = await import("./meta-capi");
+    await sendMetaCapiEvent({
+      eventName: "StartTrial",
+      eventTime: 1700000000,
+      eventId: "start_trial:sub_1",
+    });
+    const init = fetchMock.mock.calls[0]?.[1] as { body: string };
+    expect(JSON.parse(init.body).test_event_code).toBeUndefined();
+
+    vi.resetModules();
+    process.env.META_CAPI_TEST_EVENT_CODE = "TEST12345";
+    fetchMock.mockClear();
+    fetchMock.mockResolvedValue({ ok: true, status: 200 });
+    const capi = await import("./meta-capi");
+    await capi.sendMetaCapiEvent({
+      eventName: "StartTrial",
+      eventTime: 1700000000,
+      eventId: "start_trial:sub_1",
+    });
+    const withCode = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as { body: string }).body
+    ) as { test_event_code?: string; access_token: string };
+    expect(withCode.test_event_code).toBe("TEST12345");
+    delete process.env.META_CAPI_TEST_EVENT_CODE;
+  });
+
+  it("production VERCEL_ENV ignores test_event_code for StartTrial and Subscribe", async () => {
+    process.env.META_CAPI_TEST_EVENT_CODE = "TEST12345";
+    process.env.VERCEL_ENV = "production";
+    fetchMock.mockResolvedValue({ ok: true, status: 200 });
+    const { sendMetaCapiEvent, resolveMetaCapiTestEventCode } = await import(
+      "./meta-capi"
+    );
+    expect(
+      resolveMetaCapiTestEventCode({
+        META_CAPI_TEST_EVENT_CODE: "TEST12345",
+        VERCEL_ENV: "production",
+      })
+    ).toBeNull();
+
+    for (const eventName of ["StartTrial", "Subscribe"] as const) {
+      fetchMock.mockClear();
+      await sendMetaCapiEvent({
+        eventName,
+        eventTime: 1700000000,
+        eventId:
+          eventName === "StartTrial" ? "start_trial:sub_1" : "subscribe:sub_1",
+        value: eventName === "Subscribe" ? 29 : null,
+        currency: eventName === "Subscribe" ? "USD" : null,
+      });
+      const body = JSON.parse(
+        (fetchMock.mock.calls[0]?.[1] as { body: string }).body
+      ) as { test_event_code?: string };
+      expect(body.test_event_code).toBeUndefined();
+    }
+  });
+
+  it("preview VERCEL_ENV allows test_event_code", async () => {
+    process.env.META_CAPI_TEST_EVENT_CODE = "TEST12345";
+    process.env.VERCEL_ENV = "preview";
+    fetchMock.mockResolvedValue({ ok: true, status: 200 });
+    const { sendMetaCapiEvent, resolveMetaCapiTestEventCode } = await import(
+      "./meta-capi"
+    );
+    expect(
+      resolveMetaCapiTestEventCode({
+        META_CAPI_TEST_EVENT_CODE: "TEST12345",
+        VERCEL_ENV: "preview",
+      })
+    ).toBe("TEST12345");
+    await sendMetaCapiEvent({
+      eventName: "StartTrial",
+      eventTime: 1700000000,
+      eventId: "start_trial:sub_1",
+    });
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as { body: string }).body
+    ) as { test_event_code?: string };
+    expect(body.test_event_code).toBe("TEST12345");
   });
 });

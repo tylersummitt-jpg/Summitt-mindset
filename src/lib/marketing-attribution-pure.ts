@@ -3,6 +3,8 @@
  * helpers. No I/O. Safe to import from middleware, client, and tests.
  */
 
+import { sanitizeMetaFbclid } from "@/lib/meta-capi-web-identifier-validation";
+
 export const SM_VISITOR_COOKIE = "sm_visitor";
 export const SM_ACQ_COOKIE = "sm_acq";
 export const SM_COOKIE_MAX_AGE_SEC = 90 * 24 * 60 * 60;
@@ -33,6 +35,10 @@ export type AcquisitionTouch = {
 export type AcquisitionCookiePayload = AcquisitionTouch & {
   v: typeof SM_ACQ_VERSION;
   first_touch_at: string;
+  /** Raw Meta click id. Not used for source classification. Fill-if-null. */
+  meta_fbclid: string | null;
+  /** ISO timestamp when meta_fbclid was first observed. */
+  meta_fbclid_observed_at: string | null;
 };
 
 export const CTA_SURFACES = [
@@ -394,12 +400,42 @@ export function mergeFirstTouch(
   nowIso: string
 ): AcquisitionCookiePayload {
   if (!existing) {
-    return { v: SM_ACQ_VERSION, first_touch_at: nowIso, ...incoming };
+    return {
+      v: SM_ACQ_VERSION,
+      first_touch_at: nowIso,
+      meta_fbclid: null,
+      meta_fbclid_observed_at: null,
+      ...incoming,
+    };
   }
   if (isPureDirectTouch(existing) && isMeaningfulTouch(incoming)) {
-    return { v: SM_ACQ_VERSION, first_touch_at: nowIso, ...incoming };
+    return {
+      v: SM_ACQ_VERSION,
+      first_touch_at: nowIso,
+      meta_fbclid: existing.meta_fbclid ?? null,
+      meta_fbclid_observed_at: existing.meta_fbclid_observed_at ?? null,
+      ...incoming,
+    };
   }
   return existing;
+}
+
+/**
+ * Preserve the first real fbclid + observation time without changing source.
+ */
+export function fillMetaFbclidIfNull(
+  payload: AcquisitionCookiePayload,
+  rawFbclid: string | null | undefined,
+  nowIso: string
+): AcquisitionCookiePayload {
+  if (payload.meta_fbclid) return payload;
+  const id = sanitizeMetaFbclid(rawFbclid);
+  if (!id) return payload;
+  return {
+    ...payload,
+    meta_fbclid: id,
+    meta_fbclid_observed_at: nowIso,
+  };
 }
 
 export function parseAcquisitionCookie(
@@ -433,6 +469,14 @@ export function parseAcquisitionCookie(
       source_normalized: parsed.source_normalized,
       is_paid_acquisition: parsed.is_paid_acquisition === true,
       source_detail: parsed.source_detail === "coach" ? "coach" : null,
+      meta_fbclid: sanitizeMetaFbclid(
+        typeof parsed.meta_fbclid === "string" ? parsed.meta_fbclid : null
+      ),
+      meta_fbclid_observed_at:
+        typeof parsed.meta_fbclid_observed_at === "string" &&
+        parsed.meta_fbclid_observed_at.trim()
+          ? parsed.meta_fbclid_observed_at
+          : null,
     };
   } catch {
     return null;
@@ -579,7 +623,11 @@ export function resolveMarketingCookies(args: {
   const existing = parseAcquisitionCookie(args.existingAcqRaw);
   return {
     visitorId,
-    payload: mergeFirstTouch(existing, incoming, args.nowIso),
+    payload: fillMetaFbclidIfNull(
+      mergeFirstTouch(existing, incoming, args.nowIso),
+      params.fbclid,
+      args.nowIso
+    ),
   };
 }
 

@@ -18,6 +18,11 @@ import {
   markMetaConversionSent,
   type MetaConversionClaimRow,
 } from "@/lib/meta-conversion-ledger";
+import { failOpenWithTimeout } from "@/lib/meta-capi-fail-open-timeout";
+import {
+  loadMetaCapiWebIdentifiersForUser,
+  type MetaCapiWebMatch,
+} from "@/lib/meta-capi-web-identifiers";
 import {
   getRecognizedSummittPriceIds,
   isRecognizedSummittPriceId,
@@ -132,7 +137,12 @@ export async function checkFirstPaidInvoiceForSubscription(args: {
   }
 }
 
-async function sendClaimedRow(row: MetaConversionClaimRow): Promise<void> {
+async function sendClaimedRow(
+  row: MetaConversionClaimRow,
+  webMatch?: MetaCapiWebMatch | null
+): Promise<void> {
+  const startTrialMatch =
+    row.event_name === "StartTrial" && webMatch ? webMatch : null;
   const send = await sendMetaCapiEvent({
     eventName: row.event_name,
     eventTime: row.event_time,
@@ -140,6 +150,10 @@ async function sendClaimedRow(row: MetaConversionClaimRow): Promise<void> {
     externalIdHash: row.external_id_hash,
     value: row.value,
     currency: row.currency,
+    fbc: startTrialMatch?.fbc,
+    fbp: startTrialMatch?.fbp,
+    clientIpAddress: startTrialMatch?.clientIpAddress,
+    clientUserAgent: startTrialMatch?.clientUserAgent,
   });
 
   if (send.ok) {
@@ -157,6 +171,7 @@ async function claimAndSend(args: {
   value?: number | null;
   currency?: string | null;
   externalIdHash: string | null;
+  webMatch?: MetaCapiWebMatch | null;
 }): Promise<void> {
   const claim = await claimMetaConversionEvent({
     eventName: args.eventName,
@@ -169,7 +184,7 @@ async function claimAndSend(args: {
   });
 
   if (claim.status === "already_sent" || claim.status === "unavailable") return;
-  await sendClaimedRow(claim.row);
+  await sendClaimedRow(claim.row, args.webMatch);
 }
 
 async function retryPendingClaims(subscriptionId: string): Promise<void> {
@@ -199,12 +214,23 @@ export async function maybeEmitMetaStartTrialFromCheckout(args: {
         ? Math.floor(args.eventCreatedUnix)
         : Math.floor(Date.now() / 1000);
 
+    let webMatch: MetaCapiWebMatch | null = null;
+    try {
+      webMatch = await failOpenWithTimeout(
+        loadMetaCapiWebIdentifiersForUser(args.userId),
+        null
+      );
+    } catch {
+      webMatch = null;
+    }
+
     await claimAndSend({
       eventName: "StartTrial",
       subscriptionId,
       eventId: metaStartTrialEventId(subscriptionId),
       eventTime,
       externalIdHash: hashMetaExternalId(args.userId),
+      webMatch,
     });
   } catch {
     console.warn("[meta-capi] StartTrial unexpected");

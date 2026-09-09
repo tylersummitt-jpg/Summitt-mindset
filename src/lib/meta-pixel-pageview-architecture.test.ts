@@ -47,6 +47,31 @@ describe("StartTrial/Subscribe are not browser or checkout-open events", () => {
       const src = readSrc(rel);
       expect(src, rel).not.toMatch(/StartTrial|maybeEmitMetaStartTrial|sendMetaCapiEvent/);
     }
+    const checkout = readSrc("src/app/api/stripe/create-checkout-session/route.ts");
+    const postIdx = checkout.indexOf("export async function POST");
+    expect(postIdx).toBeGreaterThan(-1);
+    const nativeIdx = checkout.indexOf(
+      "isNativeSummittMindsetAppRequestFromRequest",
+      postIdx
+    );
+    const deletionIdx = checkout.indexOf(
+      "assertEntitlementMutationAllowedForAccountDeletion",
+      postIdx
+    );
+    const appleIdx = checkout.indexOf(
+      "resolveAppleMembershipGrantForUser",
+      postIdx
+    );
+    const persistIdx = checkout.indexOf(
+      "persistMetaCapiWebIdentifiersFromCheckoutRequest",
+      postIdx
+    );
+    const createIdx = checkout.indexOf("checkout.sessions.create", postIdx);
+    expect(nativeIdx).toBeGreaterThan(postIdx);
+    expect(nativeIdx).toBeLessThan(deletionIdx);
+    expect(deletionIdx).toBeLessThan(appleIdx);
+    expect(appleIdx).toBeLessThan(persistIdx);
+    expect(persistIdx).toBeLessThan(createIdx);
   });
 
   it("coach InitiateCheckout remains browser InitiateCheckout only", () => {
@@ -63,6 +88,8 @@ describe("StartTrial/Subscribe are not browser or checkout-open events", () => {
     expect(apple).not.toMatch(/meta-capi|StartTrial|Subscribe/);
     const notifications = readSrc("src/lib/apple-iap/notifications.ts");
     expect(notifications).not.toMatch(/meta-capi|StartTrial/);
+    expect(apple).not.toMatch(/meta_capi_web_identifiers/);
+    expect(notifications).not.toMatch(/meta_capi_web_identifiers/);
   });
 
   it("first-party marketing tables are not reused as the Meta ledger", () => {
@@ -80,6 +107,9 @@ describe("StartTrial/Subscribe are not browser or checkout-open events", () => {
     expect(capi).not.toContain("NEXT_PUBLIC_META_CAPI");
     const example = readSrc(".env.example");
     expect(example).toContain("META_CAPI_ACCESS_TOKEN=");
+    expect(example).toContain("META_CAPI_TEST_EVENT_CODE=");
     expect(example).not.toMatch(/NEXT_PUBLIC_META_CAPI/);
+    expect(capi).toContain("META_CAPI_TEST_EVENT_CODE");
+    expect(capi).not.toContain("NEXT_PUBLIC_META_CAPI_TEST");
   });
 });

@@ -31,6 +31,8 @@ const ATTR = {
   source_normalized: "google" as const,
   is_paid_acquisition: true,
   source_detail: null,
+  meta_fbclid: null,
+  meta_fbclid_observed_at: null,
 };
 
 describe("linkMarketingVisitorToClerkUser", () => {

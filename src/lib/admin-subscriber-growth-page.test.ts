@@ -101,6 +101,7 @@ describe("subscriber growth auth architecture", () => {
     expect(loader).not.toMatch(/summittSubscribed/);
     expect(loader).toMatch(/marketing_events/);
     expect(loader).toMatch(/marketing_attribution/);
+    expect(loader).not.toMatch(/meta_capi_web_identifiers/);
     expect(loader).toContain("listAdSpendInRange");
     expect(auth).toContain("TYLER_CLERK_USER_ID");
     expect(auth).not.toMatch(/BrooklynSummitt@gmail\.com/i);

@@ -33,6 +33,8 @@ const ATTR = {
   source_normalized: "direct" as const,
   is_paid_acquisition: false,
   source_detail: null,
+  meta_fbclid: null,
+  meta_fbclid_observed_at: null,
 };
 
 function req(body: unknown) {

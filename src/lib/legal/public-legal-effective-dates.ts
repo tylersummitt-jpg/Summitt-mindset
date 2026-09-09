@@ -7,6 +7,6 @@
  */
 
 export const PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE =
-  "July 28, 2026" as const;
+  "September 8, 2026" as const;
 
 export const TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE = "July 21, 2026" as const;

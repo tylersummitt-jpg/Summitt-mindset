@@ -12,6 +12,11 @@ vi.mock("@/lib/meta-capi", async () => {
   };
 });
 
+const loadWebIdsMock = vi.fn();
+vi.mock("@/lib/meta-capi-web-identifiers", () => ({
+  loadMetaCapiWebIdentifiersForUser: (...args: unknown[]) => loadWebIdsMock(...args),
+}));
+
 const claimMock = vi.fn();
 const markSentMock = vi.fn();
 const markErrorMock = vi.fn();
@@ -53,6 +58,8 @@ describe("meta-capi-stripe-conversions", () => {
   beforeEach(() => {
     vi.resetModules();
     sendMock.mockReset();
+    loadWebIdsMock.mockReset();
+    loadWebIdsMock.mockResolvedValue(null);
     claimMock.mockReset();
     markSentMock.mockReset();
     markErrorMock.mockReset();
@@ -103,6 +110,81 @@ describe("meta-capi-stripe-conversions", () => {
       })
     );
     expect(markSentMock).toHaveBeenCalledWith("row-1");
+  });
+
+  it("StartTrial appends stored fbc/fbp/IP/UA without changing event identity", async () => {
+    loadWebIdsMock.mockResolvedValue({
+      fbc: "fb.1.1700000000000.AbCdEf",
+      fbp: "fb.1.1700000000000.1234567890",
+      clientIpAddress: "8.8.8.8",
+      clientUserAgent: "Mozilla/5.0 TestBrowser",
+    });
+    const { maybeEmitMetaStartTrialFromCheckout } = await import(
+      "./meta-capi-stripe-conversions"
+    );
+    await maybeEmitMetaStartTrialFromCheckout({
+      subscription: sub(),
+      userId: "user_abc",
+      eventCreatedUnix: 1700000000,
+    });
+    expect(loadWebIdsMock).toHaveBeenCalledWith("user_abc");
+    expect(sendMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: "StartTrial",
+        eventId: "start_trial:sub_1",
+        eventTime: 1700000000,
+        fbc: "fb.1.1700000000000.AbCdEf",
+        fbp: "fb.1.1700000000000.1234567890",
+        clientIpAddress: "8.8.8.8",
+        clientUserAgent: "Mozilla/5.0 TestBrowser",
+      })
+    );
+  });
+
+  it("StartTrial identifier lookup failure still sends external_id-only event", async () => {
+    loadWebIdsMock.mockRejectedValue(new Error("db down"));
+    const { maybeEmitMetaStartTrialFromCheckout } = await import(
+      "./meta-capi-stripe-conversions"
+    );
+    await maybeEmitMetaStartTrialFromCheckout({
+      subscription: sub(),
+      userId: "user_abc",
+      eventCreatedUnix: 1700000000,
+    });
+    expect(sendMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: "StartTrial",
+        eventId: "start_trial:sub_1",
+        eventTime: 1700000000,
+      })
+    );
+    const sent = sendMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(sent.fbc).toBeUndefined();
+    expect(sent.fbp).toBeUndefined();
+  });
+
+  it("StartTrial identifier lookup timeout still sends external_id-only event", async () => {
+    loadWebIdsMock.mockImplementation(() => new Promise(() => {}));
+    const { maybeEmitMetaStartTrialFromCheckout } = await import(
+      "./meta-capi-stripe-conversions"
+    );
+    await maybeEmitMetaStartTrialFromCheckout({
+      subscription: sub(),
+      userId: "user_abc",
+      eventCreatedUnix: 1700000000,
+    });
+    expect(sendMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: "StartTrial",
+        eventId: "start_trial:sub_1",
+        eventTime: 1700000000,
+      })
+    );
+    const sent = sendMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(sent.fbc).toBeUndefined();
+    expect(sent.fbp).toBeUndefined();
+    expect(sent.clientIpAddress).toBeUndefined();
+    expect(sent.clientUserAgent).toBeUndefined();
   });
 
   it("StartTrial does not fire without a trial", async () => {
@@ -206,6 +288,12 @@ describe("meta-capi-stripe-conversions", () => {
         currency: "USD",
       })
     );
+    const sent = sendMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(sent.fbc).toBeUndefined();
+    expect(sent.fbp).toBeUndefined();
+    expect(sent.clientIpAddress).toBeUndefined();
+    expect(sent.clientUserAgent).toBeUndefined();
+    expect(loadWebIdsMock).not.toHaveBeenCalled();
   });
 
   it("later monthly renewal does not Subscribe", async () => {

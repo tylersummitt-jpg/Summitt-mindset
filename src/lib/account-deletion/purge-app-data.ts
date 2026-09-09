@@ -233,6 +233,32 @@ export async function purgeAppDataForDeletion(
 
     // incomplete is a successful RPC with residual deferred work — ok:true so
     // callers can read limitations, but C3 must not CAS app_data_purged.
+    if (row.outcome === "purged" || row.outcome === "already_absent" || row.outcome === "incomplete") {
+      try {
+        const {
+          purgeMetaCapiWebIdentifiersForUser,
+          metaCapiWebIdentifiersPresenceForUser,
+        } = await import("@/lib/meta-capi-web-identifiers");
+        await purgeMetaCapiWebIdentifiersForUser(clerkUserId);
+        const presence = await metaCapiWebIdentifiersPresenceForUser(clerkUserId);
+        if (presence !== "absent") {
+          console.warn("[purgeAppDataForDeletion] meta identifier row still present");
+          return {
+            ok: false,
+            code: "internal_error",
+            message: "meta_capi_web_identifiers_purge_incomplete",
+          };
+        }
+      } catch {
+        console.warn("[purgeAppDataForDeletion] meta identifier cleanup failed");
+        return {
+          ok: false,
+          code: "internal_error",
+          message: "meta_capi_web_identifiers_purge_incomplete",
+        };
+      }
+    }
+
     return {
       ok: true,
       value: {

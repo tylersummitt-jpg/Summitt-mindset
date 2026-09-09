@@ -1,0 +1,32 @@
+-- Account deletion: meta_capi_web_identifiers.
+-- Additive documentation only. Does NOT CREATE OR REPLACE
+-- public.purge_app_data_for_account_deletion.
+--
+-- The live production function body is not reconstructable from git.
+-- 20260810140000_v2_win_media.sql was the last full REPLACE in this repo.
+-- Production was later patched (see 20260827120000_v2_durable_user_evidence.sql).
+-- Replacing the function from any historical copy would clobber live purge
+-- behavior. Do not guess the full body.
+--
+-- Tyler: insert the snippet below into the LIVE function definition
+-- (Dashboard → Database → Functions, or pg_get_functiondef), using the
+-- live variable names. In every historical copy they are:
+--   v_clerk TEXT, v_n BIGINT, v_counts JSONB, v_total BIGINT
+--
+-- Placement: with the other clerk-keyed DELETEs. Preferred: immediately
+-- before `DELETE FROM public.v2_win WHERE clerk_user_id = v_clerk;`
+-- (same placement convention as v2_durable_user_evidence). If v2_win is
+-- not present in the live body, insert with the other user-owned DELETEs
+-- before outcome is assigned.
+--
+-- Production-verified snippet:
+--   DELETE FROM public.meta_capi_web_identifiers WHERE clerk_user_id = v_clerk;
+--   GET DIAGNOSTICS v_n = ROW_COUNT;
+--   v_counts := v_counts || jsonb_build_object('meta_capi_web_identifiers', v_n);
+--   v_total := v_total + v_n;
+--
+-- Apply AFTER 20260908220000_meta_capi_web_identifiers.sql (table exists).
+-- App-layer JS still DELETEs by clerk_user_id as backup and refuses to
+-- complete deletion while a row remains.
+
+SELECT 1;

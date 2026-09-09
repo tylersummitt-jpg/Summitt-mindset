@@ -80,6 +80,10 @@ describe("privacy policy Meta Pixel website disclosure", () => {
     expect(privacy).toMatch(/trial start/i);
     expect(privacy).toMatch(/first successful paid subscription payment/i);
     expect(privacy).not.toMatch(/We do not operate a separate server-side Meta Conversions API/i);
+    expect(privacy).toMatch(/hashed internal account\s+identifier/i);
+    expect(privacy).toMatch(/advertising click or browser identifiers/i);
+    expect(privacy).toMatch(/those server-side events may include[\s\S]*IP address/i);
+    expect(privacy).toMatch(/browser or device information/i);
     expect(privacy).toMatch(/We do not send\s+email address, phone number, or name with those server-side events/i);
     expect(privacy).toMatch(/Victory Room/i);
   });

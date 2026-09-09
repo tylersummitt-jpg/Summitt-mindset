@@ -40,6 +40,12 @@ vi.mock("@/lib/sms-audience-sync", () => ({
   syncSmsAudience: vi.fn(async () => undefined),
 }));
 
+const persistMetaMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/meta-capi-web-identifiers", () => ({
+  persistMetaCapiWebIdentifiersFromCheckoutRequest: (...args: unknown[]) =>
+    persistMetaMock(...args),
+}));
+
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {
     from: (table: string) => {
@@ -187,6 +193,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     appleLookup.data = [];
     appleLookup.error = null;
     updateClerkPublicMetadataMock.mockResolvedValue(undefined);
+    persistMetaMock.mockResolvedValue(undefined);
     updateCustomerMock.mockResolvedValue({});
     createCustomerMock.mockResolvedValue({ id: "cus_created" });
     createSessionMock.mockResolvedValue({
@@ -238,6 +245,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(authMock).not.toHaveBeenCalled();
     expect(createSessionMock).not.toHaveBeenCalled();
     expect(retrieveMock).not.toHaveBeenCalled();
+    expect(persistMetaMock).not.toHaveBeenCalled();
   });
 
   it("rejects native Android User-Agent before calling Stripe", async () => {
@@ -260,6 +268,60 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(authMock).not.toHaveBeenCalled();
     expect(createSessionMock).not.toHaveBeenCalled();
     expect(retrieveMock).not.toHaveBeenCalled();
+    expect(persistMetaMock).not.toHaveBeenCalled();
+  });
+
+  it("persists Meta web identifiers after native, deletion, and Apple gates", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({});
+    retrieveMock.mockRejectedValue(new Error("no sub"));
+    const { POST } = await import("./route");
+    const req = new Request("http://localhost/api/stripe/create-checkout-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh) Chrome/120.0.0.0",
+        "x-forwarded-for": "8.8.8.8",
+      },
+      body: JSON.stringify({ plan: "monthly" }),
+    });
+    await POST(req);
+    expect(persistMetaMock).toHaveBeenCalledTimes(1);
+    expect(persistMetaMock.mock.calls[0]?.[0]).toMatchObject({
+      userId: "user_1",
+      req,
+    });
+  });
+
+  it("Meta identifier persist throw does not block Checkout", async () => {
+    persistMetaMock.mockRejectedValue(new Error("meta store down"));
+    getClerkPublicMetadataMock.mockResolvedValue({});
+    retrieveMock.mockRejectedValue(new Error("no sub"));
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(createSessionMock).toHaveBeenCalled();
+  });
+
+  it("Meta identifier persist timeout does not block Checkout", async () => {
+    persistMetaMock.mockImplementation(() => new Promise(() => {}));
+    getClerkPublicMetadataMock.mockResolvedValue({});
+    retrieveMock.mockRejectedValue(new Error("no sub"));
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(createSessionMock).toHaveBeenCalled();
   });
 
   it("Path A: active → already_subscribed", async () => {
@@ -613,6 +675,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(createSessionMock).not.toHaveBeenCalled();
     expect(retrieveMock).not.toHaveBeenCalled();
     expect(listSubsMock).not.toHaveBeenCalled();
+    expect(persistMetaMock).not.toHaveBeenCalled();
   });
 
   it("B3b: deletion lookup failure → 500 fail closed, no Stripe", async () => {
@@ -629,6 +692,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     );
     expect(res.status).toBe(500);
     expect(createSessionMock).not.toHaveBeenCalled();
+    expect(persistMetaMock).not.toHaveBeenCalled();
   });
 
   it("Apple granting membership → 409 already_subscribed, no session reuse or create", async () => {
@@ -671,6 +735,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(createSessionMock).not.toHaveBeenCalled();
     expect(listCheckoutSessionsMock).not.toHaveBeenCalled();
     expect(retrieveCheckoutSessionMock).not.toHaveBeenCalled();
+    expect(persistMetaMock).not.toHaveBeenCalled();
   });
 
   it("Apple lookup error → 500 fail closed, no Stripe session", async () => {
@@ -691,6 +756,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(listCheckoutSessionsMock).not.toHaveBeenCalled();
     expect(retrieveCheckoutSessionMock).not.toHaveBeenCalled();
     expect(listSubsMock).not.toHaveBeenCalled();
+    expect(persistMetaMock).not.toHaveBeenCalled();
     expect(retrieveMock).not.toHaveBeenCalled();
   });
 

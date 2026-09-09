@@ -76,7 +76,7 @@ describe("store-facing account deletion disclosures", () => {
     const dates = readSrc("src/lib/legal/public-legal-effective-dates.ts");
 
     expect(PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE).toBe(
-      "July 28, 2026"
+      "September 8, 2026"
     );
     expect(TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE).toBe("July 21, 2026");
     expect(PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE).not.toBe(
@@ -95,7 +95,7 @@ describe("store-facing account deletion disclosures", () => {
     );
 
     expect(dates).toMatch(
-      /PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE\s*=\s*"July 28, 2026"/
+      /PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE\s*=\s*"September 8, 2026"/
     );
     expect(dates).toMatch(
       /TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE\s*=\s*"July 21, 2026"/

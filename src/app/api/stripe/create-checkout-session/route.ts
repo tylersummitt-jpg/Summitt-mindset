@@ -19,6 +19,8 @@ import {
 } from "@/lib/account-deletion/deletion-guards";
 import { isNativeSummittMindsetAppRequestFromRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { NATIVE_APP_CHECKOUT_UNAVAILABLE_ERROR } from "@/lib/native-app/membership-paths";
+import { failOpenWithTimeout } from "@/lib/meta-capi-fail-open-timeout";
+import { persistMetaCapiWebIdentifiersFromCheckoutRequest } from "@/lib/meta-capi-web-identifiers";
 import {
   isSmsReplicaFailureAfterClerkSuccess,
   recomputeMembershipFromAuthoritativeStripeSubscription,
@@ -372,6 +374,15 @@ export async function POST(req: Request) {
         appleErr
       );
       return new NextResponse("Internal Server Error", { status: 500 });
+    }
+
+    try {
+      await failOpenWithTimeout(
+        persistMetaCapiWebIdentifiersFromCheckoutRequest({ req, userId }),
+        undefined
+      );
+    } catch {
+      // fail-open: Meta identifiers must never block Stripe Checkout
     }
 
     // 🔎 Check if we already have a Stripe customer ID saved

@@ -270,7 +270,10 @@ export default function PrivacyPage() {
         <p className="text-base leading-7 text-[var(--muted)]">
           We may also send limited server-side conversion events to Meta through
           Meta’s Conversions API. Those events are used to measure trial start
-          and the first successful paid subscription payment. We do not send
+          and the first successful paid subscription payment. When available,
+          those server-side events may include a hashed internal account
+          identifier, advertising click or browser identifiers, IP address, and
+          browser or device information. We do not send
           email address, phone number, or name with those server-side events.
           We do not send SMS content, goals, journal or Victory Room content,
           Ask Pat conversations, or payment-card data. Meta remains a third
