@@ -211,7 +211,7 @@ export default function SubscriberGrowthDashboard({
                   href={sourceHref(option.id, source)}
                   className={`rounded-md border px-2.5 py-1 text-xs ${
                     active
-                      ? "border-gray-800 bg-gray-800 text-white"
+                      ? "border-gray-700 bg-gray-700 text-white"
                       : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
                   }`}
                 >
@@ -229,7 +229,7 @@ export default function SubscriberGrowthDashboard({
                   href={sourceHref(range, option.id)}
                   className={`rounded-md border px-2.5 py-1 text-xs ${
                     active
-                      ? "border-gray-800 bg-gray-800 text-white"
+                      ? "border-gray-700 bg-gray-700 text-white"
                       : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
                   }`}
                 >
