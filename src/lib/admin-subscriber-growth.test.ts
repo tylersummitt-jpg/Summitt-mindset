@@ -11,9 +11,12 @@ import {
   growthPeriodUtcMs,
   isStripePaidActive,
   mrrCentsFromStripePriceAmount,
+  organicSocialPlatformLabel,
   UNKNOWN_METRIC,
   type GrowthAppleRow,
   type GrowthStripeSubscription,
+  type MarketingAttributionRow,
+  type MarketingEventRow,
 } from "@/lib/admin-subscriber-growth-pure";
 import { APPLE_IAP_MONTHLY_PRODUCT_ID } from "@/lib/summitt-membership-entitlement";
 import { getDateKeyInTimezone } from "@/lib/timezone";
@@ -547,6 +550,7 @@ describe("CPS and traffic rows", () => {
           occurred_at: "2026-09-01T00:00:00.000Z",
           source_normalized: "meta",
           is_paid_acquisition: true,
+          utm_source: "facebook",
           utm_campaign: "spring",
           utm_content: "ad1",
           clerk_user_id: null,
@@ -559,6 +563,7 @@ describe("CPS and traffic rows", () => {
           source_normalized: "meta",
           is_paid_acquisition: true,
           source_detail: null,
+          utm_source: "facebook",
           utm_campaign: "spring",
           utm_content: "ad1",
         },
@@ -571,6 +576,7 @@ describe("CPS and traffic rows", () => {
     });
     const content = rows.find((r) => r.utmContent === "ad1");
     const campaign = rows.find((r) => r.utmContent === "" && r.utmCampaign === "spring");
+    expect(content?.platform).toBe("");
     expect(content?.advertisingSpendCents).toBeNull();
     expect(content?.costPerPaidCents).toBeNull();
     expect(campaign?.advertisingSpendCents).toBe(5000);
@@ -620,5 +626,356 @@ describe("privacy of dashboard snapshot output", () => {
     expect(json).not.toMatch(/phone/i);
     expect(json).not.toMatch(/sms/i);
     expect(json).not.toMatch(/Victory Room/i);
+  });
+});
+
+describe("organic social platform grain", () => {
+  function pageView(partial: Partial<MarketingEventRow> & { visitor_id: string }): MarketingEventRow {
+    return {
+      event_type: "page_viewed",
+      occurred_at: "2026-09-01T00:00:00.000Z",
+      source_normalized: "organic_social",
+      is_paid_acquisition: false,
+      utm_source: null,
+      utm_campaign: "organic",
+      utm_content: "bio",
+      clerk_user_id: null,
+      ...partial,
+    };
+  }
+
+  function accountCreated(
+    partial: Partial<MarketingEventRow> & { visitor_id: string; clerk_user_id: string }
+  ): MarketingEventRow {
+    return {
+      event_type: "account_created",
+      occurred_at: "2026-09-01T01:00:00.000Z",
+      source_normalized: "organic_social",
+      is_paid_acquisition: false,
+      utm_source: null,
+      utm_campaign: "organic",
+      utm_content: "bio",
+      ...partial,
+    };
+  }
+
+  function attr(
+    partial: Partial<MarketingAttributionRow> & { clerk_user_id: string; visitor_id: string }
+  ): MarketingAttributionRow {
+    return {
+      source_normalized: "organic_social",
+      is_paid_acquisition: false,
+      source_detail: null,
+      utm_source: null,
+      utm_campaign: "organic",
+      utm_content: "bio",
+      ...partial,
+    };
+  }
+
+  it("maps organic aliases to display platforms only", () => {
+    expect(organicSocialPlatformLabel("organic_social", "instagram")).toBe("Instagram");
+    expect(organicSocialPlatformLabel("organic_social", "ig")).toBe("Instagram");
+    expect(organicSocialPlatformLabel("organic_social", "facebook")).toBe("Facebook");
+    expect(organicSocialPlatformLabel("organic_social", "fb")).toBe("Facebook");
+    expect(organicSocialPlatformLabel("organic_social", "tiktok")).toBe("TikTok");
+    expect(organicSocialPlatformLabel("organic_social", "x")).toBe("X");
+    expect(organicSocialPlatformLabel("organic_social", "twitter")).toBe("X");
+    expect(organicSocialPlatformLabel("organic_social", null)).toBe("");
+    expect(organicSocialPlatformLabel("organic_social", "<script>")).toBe("");
+    expect(organicSocialPlatformLabel("meta", "facebook")).toBe("");
+    expect(organicSocialPlatformLabel("google", "google")).toBe("");
+    expect(organicSocialPlatformLabel("direct", null)).toBe("");
+    expect(organicSocialPlatformLabel("referral", "instagram")).toBe("");
+  });
+
+  it("keeps Instagram and Facebook organic bio as separate rows", () => {
+    const rows = aggregateTrafficSourceRows({
+      events: [
+        pageView({ visitor_id: "v_ig", utm_source: "instagram" }),
+        pageView({ visitor_id: "v_fb", utm_source: "facebook" }),
+        pageView({
+          visitor_id: "v_ig_story",
+          utm_source: "instagram",
+          utm_content: "story_psm047",
+        }),
+        pageView({ visitor_id: "v_tt", utm_source: "tiktok" }),
+        pageView({ visitor_id: "v_x", utm_source: "x" }),
+        pageView({ visitor_id: "v_tw", utm_source: "twitter" }),
+        pageView({ visitor_id: "v_ig_alias", utm_source: "ig" }),
+        pageView({ visitor_id: "v_fb_alias", utm_source: "fb" }),
+        pageView({ visitor_id: "v_old", utm_source: null }),
+        accountCreated({
+          visitor_id: "v_ig",
+          clerk_user_id: "u_ig",
+          utm_source: "instagram",
+        }),
+        accountCreated({
+          visitor_id: "v_ig2",
+          clerk_user_id: "u_ig2",
+          utm_source: "instagram",
+        }),
+        accountCreated({
+          visitor_id: "v_fb",
+          clerk_user_id: "u_fb",
+          utm_source: "facebook",
+        }),
+        accountCreated({
+          visitor_id: "v_ig",
+          clerk_user_id: "u_ig",
+          utm_source: "instagram",
+        }),
+      ],
+      attributions: [
+        attr({ clerk_user_id: "u_ig", visitor_id: "v_ig", utm_source: "instagram" }),
+        attr({ clerk_user_id: "u_ig2", visitor_id: "v_ig2", utm_source: "instagram" }),
+        attr({ clerk_user_id: "u_fb", visitor_id: "v_fb", utm_source: "facebook" }),
+        attr({
+          clerk_user_id: "u_ig_story",
+          visitor_id: "v_ig_story",
+          utm_source: "instagram",
+          utm_content: "story_psm047",
+        }),
+        attr({ clerk_user_id: "u_tt", visitor_id: "v_tt", utm_source: "tiktok" }),
+        attr({ clerk_user_id: "u_x", visitor_id: "v_x", utm_source: "x" }),
+        attr({ clerk_user_id: "u_old", visitor_id: "v_old", utm_source: null }),
+      ],
+      trialClerkIds: ["u_ig", "u_fb", "u_ig_story"],
+      activatedClerkIds: ["u_ig", "u_fb"],
+      paidConversionClerkIds: ["u_ig"],
+      adSpend: [],
+      sourceFilter: "all",
+    });
+
+    const igBio = rows.find(
+      (r) => r.platform === "Instagram" && r.utmContent === "bio"
+    );
+    const fbBio = rows.find(
+      (r) => r.platform === "Facebook" && r.utmContent === "bio"
+    );
+    const igStory = rows.find(
+      (r) => r.platform === "Instagram" && r.utmContent === "story_psm047"
+    );
+    const tiktok = rows.find((r) => r.platform === "TikTok");
+    const xRow = rows.find((r) => r.platform === "X" && r.utmContent === "bio");
+    const oldOrganic = rows.find(
+      (r) => r.sourceNormalized === "organic_social" && r.platform === "" && r.utmContent === "bio"
+    );
+
+    expect(igBio).toMatchObject({
+      sourceNormalized: "organic_social",
+      platform: "Instagram",
+      utmCampaign: "organic",
+      utmContent: "bio",
+      visitors: 2,
+      accounts: 2,
+      trialsStarted: 1,
+      activated: 1,
+      paidConversions: 1,
+    });
+    expect(fbBio).toMatchObject({
+      sourceNormalized: "organic_social",
+      platform: "Facebook",
+      utmCampaign: "organic",
+      utmContent: "bio",
+      visitors: 2,
+      accounts: 1,
+      trialsStarted: 1,
+      activated: 1,
+      paidConversions: 0,
+    });
+    expect(igStory).toMatchObject({
+      platform: "Instagram",
+      utmCampaign: "organic",
+      utmContent: "story_psm047",
+      visitors: 1,
+      accounts: 0,
+      trialsStarted: 1,
+    });
+    expect(tiktok).toMatchObject({
+      platform: "TikTok",
+      utmCampaign: "organic",
+      utmContent: "bio",
+      visitors: 1,
+    });
+    expect(xRow).toMatchObject({
+      platform: "X",
+      utmCampaign: "organic",
+      utmContent: "bio",
+      visitors: 2,
+    });
+    expect(oldOrganic).toMatchObject({
+      sourceNormalized: "organic_social",
+      platform: "",
+      utmCampaign: "organic",
+      utmContent: "bio",
+      visitors: 1,
+      accounts: 0,
+    });
+    expect(igBio).not.toEqual(fbBio);
+  });
+
+  it("leaves paid Meta, Google, and Direct platform blank and does not reclassify them", () => {
+    const rows = aggregateTrafficSourceRows({
+      events: [
+        pageView({
+          visitor_id: "v_meta",
+          source_normalized: "meta",
+          is_paid_acquisition: true,
+          utm_source: "facebook",
+          utm_campaign: "spring",
+          utm_content: "ad1",
+        }),
+        pageView({
+          visitor_id: "v_google",
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "ad-a",
+        }),
+        pageView({
+          visitor_id: "v_direct",
+          source_normalized: "direct",
+          utm_source: null,
+          utm_campaign: null,
+          utm_content: null,
+        }),
+        pageView({
+          visitor_id: "v_coach",
+          source_normalized: "referral",
+          utm_source: "instagram",
+          utm_campaign: null,
+          utm_content: null,
+        }),
+        accountCreated({
+          visitor_id: "v_meta",
+          clerk_user_id: "u_meta",
+          source_normalized: "meta",
+          is_paid_acquisition: true,
+          utm_source: "facebook",
+          utm_campaign: "spring",
+          utm_content: "ad1",
+        }),
+      ],
+      attributions: [
+        attr({
+          clerk_user_id: "u_meta",
+          visitor_id: "v_meta",
+          source_normalized: "meta",
+          is_paid_acquisition: true,
+          utm_source: "facebook",
+          utm_campaign: "spring",
+          utm_content: "ad1",
+        }),
+        attr({
+          clerk_user_id: "u_google",
+          visitor_id: "v_google",
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "ad-a",
+        }),
+        attr({
+          clerk_user_id: "u_direct",
+          visitor_id: "v_direct",
+          source_normalized: "direct",
+          is_paid_acquisition: false,
+          utm_source: null,
+          utm_campaign: null,
+          utm_content: null,
+        }),
+        attr({
+          clerk_user_id: "u_coach",
+          visitor_id: "v_coach",
+          source_normalized: "referral",
+          source_detail: "coach",
+          utm_source: "instagram",
+          utm_campaign: null,
+          utm_content: null,
+        }),
+      ],
+      trialClerkIds: ["u_meta", "u_google", "u_direct", "u_coach"],
+      activatedClerkIds: ["u_meta", "u_google"],
+      paidConversionClerkIds: ["u_meta"],
+      adSpend: [],
+      sourceFilter: "all",
+    });
+
+    const meta = rows.find((r) => r.sourceNormalized === "meta" && r.utmContent === "ad1");
+    const google = rows.find((r) => r.sourceNormalized === "google");
+    const direct = rows.find((r) => r.sourceNormalized === "direct");
+    const coach = rows.find((r) => r.sourceNormalized === "referral");
+
+    expect(meta).toMatchObject({
+      sourceNormalized: "meta",
+      platform: "",
+      utmCampaign: "spring",
+      utmContent: "ad1",
+      visitors: 1,
+      accounts: 1,
+      trialsStarted: 1,
+      activated: 1,
+      paidConversions: 1,
+    });
+    expect(google).toMatchObject({
+      sourceNormalized: "google",
+      platform: "",
+      utmCampaign: "brand",
+      visitors: 1,
+      trialsStarted: 1,
+      activated: 1,
+    });
+    expect(direct).toMatchObject({
+      sourceNormalized: "direct",
+      platform: "",
+      visitors: 1,
+      trialsStarted: 1,
+    });
+    expect(coach).toMatchObject({
+      sourceNormalized: "referral",
+      platform: "",
+      visitors: 1,
+      trialsStarted: 1,
+    });
+  });
+
+  it("counts distinct visitors and clerk accounts on first-touch grain only", () => {
+    const rows = aggregateTrafficSourceRows({
+      events: [
+        pageView({ visitor_id: "same", utm_source: "instagram" }),
+        pageView({ visitor_id: "same", utm_source: "instagram" }),
+        accountCreated({
+          visitor_id: "v1",
+          clerk_user_id: "u_ig",
+          utm_source: "instagram",
+        }),
+        accountCreated({
+          visitor_id: "v1b",
+          clerk_user_id: "u_ig",
+          utm_source: "instagram",
+        }),
+        accountCreated({
+          visitor_id: "orphan",
+          clerk_user_id: "u_missing",
+          utm_source: "instagram",
+        }),
+      ],
+      attributions: [
+        attr({ clerk_user_id: "u_ig", visitor_id: "v1", utm_source: "instagram" }),
+      ],
+      trialClerkIds: ["u_ig", "u_missing"],
+      activatedClerkIds: ["u_ig"],
+      paidConversionClerkIds: ["u_ig"],
+      adSpend: [],
+      sourceFilter: "all",
+    });
+    const ig = rows.find((r) => r.platform === "Instagram");
+    expect(ig?.visitors).toBe(1);
+    expect(ig?.accounts).toBe(1);
+    expect(ig?.trialsStarted).toBe(1);
+    expect(ig?.activated).toBe(1);
+    expect(ig?.paidConversions).toBe(1);
   });
 });

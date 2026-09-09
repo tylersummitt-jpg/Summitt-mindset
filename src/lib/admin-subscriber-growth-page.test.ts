@@ -128,6 +128,11 @@ describe("subscriber growth auth architecture", () => {
     expect(dashboard).toContain("UNKNOWN_METRIC");
     expect(dashboard).toContain("Attribution tracking has not started yet.");
     expect(dashboard).toContain("Cost per paid subscriber");
+    expect(dashboard).toContain("Platform");
+    expect(dashboard).toContain("Post / Link");
+    expect(dashboard).toContain("Accounts");
+    expect(dashboard).toContain("md:hidden");
+    expect(dashboard).not.toContain("Specific advertisement");
     expect(dashboard).not.toMatch(/\bCAC\b/);
     expect(dashboard).toContain("Selected period · Stripe only");
     expect(dashboard).not.toMatch(/email/i);
@@ -135,6 +140,14 @@ describe("subscriber growth auth architecture", () => {
     expect(dashboard).not.toMatch(/clerkUserId/);
     expect(dashboard).not.toMatch(/customerId/);
     expect(pureSourceHasNoPeopleArrays()).toBe(true);
+  });
+
+  it("loader selects existing utm_source without schema or capture changes", () => {
+    const loader = readFileSync(LOADER, "utf8");
+    expect(loader).toContain("utm_source, utm_campaign, utm_content");
+    expect(loader).toContain("typeof raw.utm_source === \"string\" ? raw.utm_source : null");
+    expect(loader).not.toMatch(/create table/i);
+    expect(loader).not.toMatch(/sm_acq|sm_visitor|normalizeAcquisition|mergeFirstTouch/);
   });
 });
 

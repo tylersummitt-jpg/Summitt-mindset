@@ -41,6 +41,35 @@ function displaySource(raw: string): string {
   return raw;
 }
 
+function displayPlatform(raw: string): string {
+  return raw || UNKNOWN_METRIC;
+}
+
+function trafficRowKey(row: {
+  sourceNormalized: string;
+  platform: string;
+  utmCampaign: string;
+  utmContent: string;
+}): string {
+  return `${row.sourceNormalized}|${row.platform}|${row.utmCampaign}|${row.utmContent}`;
+}
+
+const TRAFFIC_TABLE_HEADINGS = [
+  "Source",
+  "Platform",
+  "Campaign",
+  "Post / Link",
+  "Visitors",
+  "Accounts",
+  "Trials",
+  "Activated",
+  "Paid",
+  "Advertising spend",
+  "Cost per paid subscriber",
+] as const;
+
+const TRAFFIC_TABLE_COLSPAN = TRAFFIC_TABLE_HEADINGS.length;
+
 function MetricCard({
   label,
   value,
@@ -375,17 +404,7 @@ export default function SubscriberGrowthDashboard({
               <table className="w-full table-fixed text-left text-[11px]">
                 <thead className="bg-gray-50 text-gray-500">
                   <tr>
-                    {[
-                      "Source",
-                      "Campaign",
-                      "Specific advertisement",
-                      "Website visitors",
-                      "Trials started",
-                      "Activated trials",
-                      "Paid conversions",
-                      "Advertising spend",
-                      "Cost per paid subscriber",
-                    ].map((heading) => (
+                    {TRAFFIC_TABLE_HEADINGS.map((heading) => (
                       <th key={heading} className="px-2 py-1.5 font-medium">
                         {heading}
                       </th>
@@ -394,7 +413,7 @@ export default function SubscriberGrowthDashboard({
                 </thead>
                 <tbody>
                   <tr className="text-gray-700">
-                    <td className="px-2 py-2" colSpan={9}>
+                    <td className="px-2 py-2" colSpan={TRAFFIC_TABLE_COLSPAN}>
                       Attribution tracking has not started yet. {UNKNOWN_METRIC}
                     </td>
                   </tr>
@@ -410,20 +429,10 @@ export default function SubscriberGrowthDashboard({
         ) : (
           <>
             <div className="hidden overflow-x-auto rounded-lg border border-gray-200 bg-white md:block">
-              <table className="min-w-[860px] w-full text-left text-[11px]">
+              <table className="min-w-[960px] w-full text-left text-[11px]">
                 <thead className="bg-gray-50 text-gray-500">
                   <tr>
-                    {[
-                      "Source",
-                      "Campaign",
-                      "Specific advertisement",
-                      "Website visitors",
-                      "Trials started",
-                      "Activated trials",
-                      "Paid conversions",
-                      "Advertising spend",
-                      "Cost per paid subscriber",
-                    ].map((heading) => (
+                    {TRAFFIC_TABLE_HEADINGS.map((heading) => (
                       <th key={heading} className="px-2 py-1.5 font-medium">
                         {heading}
                       </th>
@@ -433,21 +442,25 @@ export default function SubscriberGrowthDashboard({
                 <tbody>
                   {snapshot.trafficRows.length === 0 ? (
                     <tr className="text-gray-700">
-                      <td className="px-2 py-2" colSpan={9}>
+                      <td className="px-2 py-2" colSpan={TRAFFIC_TABLE_COLSPAN}>
                         No measured traffic in this range.
                       </td>
                     </tr>
                   ) : (
                     snapshot.trafficRows.map((row) => (
                       <tr
-                        key={`${row.sourceNormalized}|${row.utmCampaign}|${row.utmContent}`}
+                        key={trafficRowKey(row)}
                         className="border-t border-gray-100 text-gray-800"
                       >
                         <td className="px-2 py-1.5">{displaySource(row.sourceNormalized)}</td>
+                        <td className="px-2 py-1.5">{displayPlatform(row.platform)}</td>
                         <td className="px-2 py-1.5">{row.utmCampaign || UNKNOWN_METRIC}</td>
                         <td className="px-2 py-1.5">{row.utmContent || UNKNOWN_METRIC}</td>
                         <td className="px-2 py-1.5 tabular-nums">
                           {formatUnknownableCount(row.visitors)}
+                        </td>
+                        <td className="px-2 py-1.5 tabular-nums">
+                          {formatUnknownableCount(row.accounts)}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums">
                           {formatUnknownableCount(row.trialsStarted)}
@@ -476,63 +489,65 @@ export default function SubscriberGrowthDashboard({
                   No measured traffic in this range.
                 </div>
               ) : (
-                snapshot.trafficRows.map((row) => (
-                  <div
-                    key={`${row.sourceNormalized}|${row.utmCampaign}|${row.utmContent}`}
-                    className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px]"
-                  >
-                    <dl className="grid grid-cols-2 gap-x-2 gap-y-1">
-                      <div>
-                        <dt className="text-gray-500">Source</dt>
-                        <dd>{displaySource(row.sourceNormalized)}</dd>
+                snapshot.trafficRows.map((row) => {
+                  const title = row.platform || displaySource(row.sourceNormalized);
+                  return (
+                    <div
+                      key={trafficRowKey(row)}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px]"
+                    >
+                      <div className="font-medium text-gray-900">{title}</div>
+                      <div className="text-gray-700">
+                        {row.utmContent || UNKNOWN_METRIC}
                       </div>
-                      <div>
-                        <dt className="text-gray-500">Campaign</dt>
-                        <dd>{row.utmCampaign || UNKNOWN_METRIC}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500">Specific advertisement</dt>
-                        <dd>{row.utmContent || UNKNOWN_METRIC}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500">Website visitors</dt>
-                        <dd className="tabular-nums">
-                          {formatUnknownableCount(row.visitors)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500">Trials started</dt>
-                        <dd className="tabular-nums">
-                          {formatUnknownableCount(row.trialsStarted)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500">Activated trials</dt>
-                        <dd className="tabular-nums">
-                          {formatUnknownableCount(row.activated)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500">Paid conversions</dt>
-                        <dd className="tabular-nums">
-                          {formatUnknownableCount(row.paidConversions)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500">Advertising spend</dt>
-                        <dd className="tabular-nums">
+                      <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                        <div>
+                          <dt className="text-gray-500">Visitors</dt>
+                          <dd className="tabular-nums">
+                            {formatUnknownableCount(row.visitors)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Accounts</dt>
+                          <dd className="tabular-nums">
+                            {formatUnknownableCount(row.accounts)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Trials</dt>
+                          <dd className="tabular-nums">
+                            {formatUnknownableCount(row.trialsStarted)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Activated</dt>
+                          <dd className="tabular-nums">
+                            {formatUnknownableCount(row.activated)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Paid</dt>
+                          <dd className="tabular-nums">
+                            {formatUnknownableCount(row.paidConversions)}
+                          </dd>
+                        </div>
+                      </dl>
+                      <p className="mt-1 text-gray-500">
+                        Campaign: {row.utmCampaign || UNKNOWN_METRIC}
+                      </p>
+                      {row.advertisingSpendCents != null &&
+                      row.advertisingSpendCents > 0 ? (
+                        <p className="text-gray-500">
+                          Spend:{" "}
                           {formatUnknownableUsdFromCents(row.advertisingSpendCents)}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-gray-500">Cost per paid subscriber</dt>
-                        <dd className="tabular-nums">
-                          {formatUnknownableUsdFromCents(row.costPerPaidCents)}
-                        </dd>
-                      </div>
-                    </dl>
-                  </div>
-                ))
+                          {row.costPerPaidCents != null
+                            ? ` · CPS ${formatUnknownableUsdFromCents(row.costPerPaidCents)}`
+                            : ""}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })
               )}
             </div>
           </>

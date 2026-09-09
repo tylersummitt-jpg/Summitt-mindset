@@ -359,7 +359,7 @@ async function loadMarketingAttribution(): Promise<MarketingAttributionRow[]> {
   const { data, error } = await supabaseServer
     .from("marketing_attribution")
     .select(
-      "clerk_user_id, visitor_id, source_normalized, is_paid_acquisition, source_detail, utm_campaign, utm_content"
+      "clerk_user_id, visitor_id, source_normalized, is_paid_acquisition, source_detail, utm_source, utm_campaign, utm_content"
     );
   if (error) {
     console.warn("[subscriber-growth] attribution query failed", error.message);
@@ -377,6 +377,7 @@ async function loadMarketingAttribution(): Promise<MarketingAttributionRow[]> {
       source_normalized: raw.source_normalized,
       is_paid_acquisition: raw.is_paid_acquisition === true,
       source_detail: typeof raw.source_detail === "string" ? raw.source_detail : null,
+      utm_source: typeof raw.utm_source === "string" ? raw.utm_source : null,
       utm_campaign: typeof raw.utm_campaign === "string" ? raw.utm_campaign : null,
       utm_content: typeof raw.utm_content === "string" ? raw.utm_content : null,
     });
@@ -395,7 +396,7 @@ async function loadMarketingEvents(args: {
     let q = supabaseServer
       .from("marketing_events")
       .select(
-        "event_type, visitor_id, occurred_at, source_normalized, is_paid_acquisition, utm_campaign, utm_content, clerk_user_id"
+        "event_type, visitor_id, occurred_at, source_normalized, is_paid_acquisition, utm_source, utm_campaign, utm_content, clerk_user_id"
       )
       .lt("occurred_at", new Date(args.endMs).toISOString())
       .order("occurred_at", { ascending: true })
@@ -421,6 +422,7 @@ async function loadMarketingEvents(args: {
         source_normalized:
           typeof raw.source_normalized === "string" ? raw.source_normalized : null,
         is_paid_acquisition: raw.is_paid_acquisition === true,
+        utm_source: typeof raw.utm_source === "string" ? raw.utm_source : null,
         utm_campaign: typeof raw.utm_campaign === "string" ? raw.utm_campaign : null,
         utm_content: typeof raw.utm_content === "string" ? raw.utm_content : null,
         clerk_user_id: typeof raw.clerk_user_id === "string" ? raw.clerk_user_id : null,

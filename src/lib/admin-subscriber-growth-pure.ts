@@ -410,9 +410,11 @@ export function reactivatedIdentityCount(args: {
 
 export type TrafficSourceRow = {
   sourceNormalized: string;
+  platform: string;
   utmCampaign: string;
   utmContent: string;
   visitors: MetricNumber;
+  accounts: MetricNumber;
   trialsStarted: MetricNumber;
   activated: MetricNumber;
   paidConversions: MetricNumber;
@@ -426,6 +428,7 @@ export type MarketingAttributionRow = {
   source_normalized: string;
   is_paid_acquisition: boolean;
   source_detail: string | null;
+  utm_source: string | null;
   utm_campaign: string | null;
   utm_content: string | null;
 };
@@ -436,6 +439,7 @@ export type MarketingEventRow = {
   occurred_at: string;
   source_normalized: string | null;
   is_paid_acquisition: boolean;
+  utm_source: string | null;
   utm_campaign: string | null;
   utm_content: string | null;
   clerk_user_id: string | null;
@@ -447,8 +451,35 @@ export type AdSpendAggregateRow = {
   amount_cents: number;
 };
 
-function grainKey(source: string, campaign: string, content: string): string {
-  return `${source}\u0000${campaign}\u0000${content}`;
+const ORGANIC_PLATFORM_SAFE_RAW = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+
+/**
+ * Display-only organic platform. Does not change source_normalized or paid Meta.
+ * Empty string means the dashboard should show "—".
+ */
+export function organicSocialPlatformLabel(
+  sourceNormalized: string | null | undefined,
+  utmSource: string | null | undefined
+): string {
+  if (sourceNormalized !== "organic_social") return "";
+  if (typeof utmSource !== "string") return "";
+  const raw = utmSource.trim().toLowerCase();
+  if (!raw) return "";
+  if (raw === "instagram" || raw === "ig") return "Instagram";
+  if (raw === "facebook" || raw === "fb") return "Facebook";
+  if (raw === "tiktok") return "TikTok";
+  if (raw === "x" || raw === "twitter") return "X";
+  if (ORGANIC_PLATFORM_SAFE_RAW.test(raw)) return raw;
+  return "";
+}
+
+function grainKey(
+  source: string,
+  platform: string,
+  campaign: string,
+  content: string
+): string {
+  return `${source}\u0000${platform}\u0000${campaign}\u0000${content}`;
 }
 
 export function aggregateTrafficSourceRows(args: {
@@ -476,7 +507,8 @@ export function aggregateTrafficSourceRows(args: {
     if (!matches(source)) continue;
     const campaign = ev.utm_campaign ?? "";
     const content = ev.utm_content ?? "";
-    const key = grainKey(source, campaign, content);
+    const platform = organicSocialPlatformLabel(source, ev.utm_source);
+    const key = grainKey(source, platform, campaign, content);
     const set = visitors.get(key) ?? new Set();
     set.add(ev.visitor_id);
     visitors.set(key, set);
@@ -492,6 +524,7 @@ export function aggregateTrafficSourceRows(args: {
       if (!matches(attr.source_normalized)) continue;
       const key = grainKey(
         attr.source_normalized,
+        organicSocialPlatformLabel(attr.source_normalized, attr.utm_source),
         attr.utm_campaign ?? "",
         attr.utm_content ?? ""
       );
@@ -501,9 +534,20 @@ export function aggregateTrafficSourceRows(args: {
     }
   };
 
+  const accountClerkIds = args.events
+    .filter(
+      (ev): ev is MarketingEventRow & { clerk_user_id: string } =>
+        ev.event_type === "account_created" &&
+        typeof ev.clerk_user_id === "string" &&
+        ev.clerk_user_id.trim().length > 0
+    )
+    .map((ev) => ev.clerk_user_id);
+
+  const accounts = new Map<string, Set<string>>();
   const trials = new Map<string, Set<string>>();
   const activated = new Map<string, Set<string>>();
   const paid = new Map<string, Set<string>>();
+  countByGrain(accountClerkIds, accounts);
   countByGrain(args.trialClerkIds, trials);
   countByGrain([...args.activatedClerkIds], activated);
   countByGrain(args.paidConversionClerkIds, paid);
@@ -514,12 +558,13 @@ export function aggregateTrafficSourceRows(args: {
       continue;
     }
     if (!matches(row.source_normalized)) continue;
-    const key = grainKey(row.source_normalized, row.utm_campaign, "");
+    const key = grainKey(row.source_normalized, "", row.utm_campaign, "");
     spendByGrain.set(key, (spendByGrain.get(key) ?? 0) + row.amount_cents);
   }
 
   const keys = new Set([
     ...visitors.keys(),
+    ...accounts.keys(),
     ...trials.keys(),
     ...activated.keys(),
     ...paid.keys(),
@@ -528,7 +573,7 @@ export function aggregateTrafficSourceRows(args: {
 
   const rows: TrafficSourceRow[] = [];
   for (const key of keys) {
-    const [sourceNormalized, utmCampaign, utmContent] = key.split("\u0000");
+    const [sourceNormalized, platform, utmCampaign, utmContent] = key.split("\u0000");
     const contentSpecific = utmContent.length > 0;
     const spend = contentSpecific ? null : (spendByGrain.get(key) ?? 0);
     const paidCount = paid.get(key)?.size ?? 0;
@@ -537,9 +582,11 @@ export function aggregateTrafficSourceRows(args: {
       : paidCount;
     rows.push({
       sourceNormalized,
+      platform,
       utmCampaign,
       utmContent,
       visitors: visitors.get(key)?.size ?? 0,
+      accounts: accounts.get(key)?.size ?? 0,
       trialsStarted: trials.get(key)?.size ?? 0,
       activated: activated.get(key)?.size ?? 0,
       paidConversions: paidCount,
@@ -554,6 +601,9 @@ export function aggregateTrafficSourceRows(args: {
   rows.sort((a, b) => {
     if (a.sourceNormalized !== b.sourceNormalized) {
       return a.sourceNormalized.localeCompare(b.sourceNormalized);
+    }
+    if (a.platform !== b.platform) {
+      return a.platform.localeCompare(b.platform);
     }
     if (a.utmCampaign !== b.utmCampaign) {
       return a.utmCampaign.localeCompare(b.utmCampaign);
