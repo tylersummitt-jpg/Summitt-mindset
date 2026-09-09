@@ -190,6 +190,12 @@ describe("morning-tto-brief-interpreter-v1", () => {
     );
     expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).toMatch(/may outrank Current Goal/);
     expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).toMatch(/Do not manufacture engagement/);
+    expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "Choose the one coaching move that best advances the relationship from where the recent conversation actually stands. Treat recent Coach questions, lessons, tactics, reframes, and challenges as moves already made; return to them only when new evidence, timing, or context makes doing so useful."
+    );
+    expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).not.toContain(
+      "Choose one primary coaching move."
+    );
     expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).not.toMatch(/set_today_rep|hallway/);
   });
 
@@ -578,6 +584,12 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(writerSrc).toMatch(/MORNING_COACHING_BRIEF_V1/);
     expect(writerSrc).toMatch(/MORNING_TTO_WRITER_MODEL = "gpt-5\.6-sol"/);
     expect(writerSrc).not.toMatch(/runLaneOpenAiJsonWithOneRetry/);
+    expect(writerSrc).not.toContain(
+      "advances the relationship from where the recent conversation actually stands"
+    );
+    expect(generateSrc).toContain("runObservationalMorningBriefInterpreter");
+    expect(generateSrc).toContain('daypart: "evening"');
+    expect(generateSrc).not.toMatch(/runObservationalEveningBriefInterpreter/);
   });
 });
 
