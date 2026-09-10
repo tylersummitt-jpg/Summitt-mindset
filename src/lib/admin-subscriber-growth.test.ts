@@ -8,6 +8,7 @@ import {
   computeGrowthSnapshot,
   conversionRate,
   countActivePaidMembers,
+  countCurrentFreeTrials,
   countStripeWeekMovement,
   formatAdvertisingSpendDisplay,
   formatCostPerPaidDisplay,
@@ -30,6 +31,9 @@ import {
   ROAD_TO_500_DEADLINE_DATE_KEY,
   ROAD_TO_500_TARGET,
   selectLatestTrialSeeds,
+  addDaysToDateKey,
+  isStripeFreeWeekRunning,
+  SUBSCRIBER_GROWTH_TZ,
   NO_LABEL,
   NOT_AVAILABLE,
   SPEND_NOT_ENTERED,
@@ -41,7 +45,7 @@ import {
   type MarketingEventRow,
 } from "@/lib/admin-subscriber-growth-pure";
 import { APPLE_IAP_MONTHLY_PRODUCT_ID } from "@/lib/summitt-membership-entitlement";
-import { getDateKeyInTimezone } from "@/lib/timezone";
+import { getDateKeyInTimezone, utcInstantForLocalMidnight } from "@/lib/timezone";
 
 const NOW = new Date("2026-09-01T16:00:00.000Z");
 const NOW_UNIX = Math.floor(NOW.getTime() / 1000);
@@ -1499,6 +1503,242 @@ describe("this week on Stripe movement", () => {
     expect(formatSignedNet(0)).toBe("0");
     expect(formatSignedNet(-2)).toBe("-2");
     expect(formatSignedNet(null)).toBe("Not available");
+  });
+});
+
+describe("current free trial pipeline", () => {
+  const todayKey = "2026-09-01";
+
+  function easternBounds(dateKey: string) {
+    const todayStart = utcInstantForLocalMidnight(dateKey, SUBSCRIBER_GROWTH_TZ);
+    const tomorrowStart = utcInstantForLocalMidnight(
+      addDaysToDateKey(dateKey, 1),
+      SUBSCRIBER_GROWTH_TZ
+    );
+    const next7End = utcInstantForLocalMidnight(
+      addDaysToDateKey(dateKey, 7),
+      SUBSCRIBER_GROWTH_TZ
+    );
+    if (!todayStart || !tomorrowStart || !next7End) {
+      throw new Error("could not resolve Eastern bounds");
+    }
+    return {
+      todayStartMs: todayStart.getTime(),
+      tomorrowStartMs: tomorrowStart.getTime(),
+      next7EndMs: next7End.getTime(),
+    };
+  }
+
+  function countTrials(
+    subs: GrowthStripeSubscription[],
+    extra?: Partial<Parameters<typeof countCurrentFreeTrials>[0]>
+  ) {
+    return countCurrentFreeTrials({
+      stripeSubs: subs,
+      recognizedPriceIds: RECOGNIZED,
+      stripeListComplete: true,
+      nowUnix: NOW_UNIX,
+      ...easternBounds(todayKey),
+      ...extra,
+    });
+  }
+
+  function runningTrial(
+    partial: Partial<GrowthStripeSubscription> & { id: string }
+  ): GrowthStripeSubscription {
+    const bounds = easternBounds(todayKey);
+    return stripeSub({
+      status: "trialing",
+      trial_start: Math.floor(bounds.todayStartMs / 1000) - 2 * 86_400,
+      trial_end: NOW_UNIX + 3 * 86_400,
+      ...partial,
+    });
+  }
+
+  it("counts a live trialing subscription", () => {
+    expect(countTrials([runningTrial({ id: "t1" })]).onFreeWeekNow).toBe(1);
+  });
+
+  it("requires trial_end after now", () => {
+    expect(
+      isStripeFreeWeekRunning(
+        runningTrial({ id: "ended", trial_end: NOW_UNIX }),
+        NOW_UNIX
+      )
+    ).toBe(false);
+    expect(
+      countTrials([runningTrial({ id: "ended", trial_end: NOW_UNIX })]).onFreeWeekNow
+    ).toBe(0);
+  });
+
+  it("excludes paused, incomplete, incomplete_expired, and canceled", () => {
+    expect(
+      countTrials([
+        runningTrial({
+          id: "paused",
+          pause_collection: { behavior: "void" },
+        }),
+        runningTrial({ id: "inc", status: "incomplete" }),
+        runningTrial({ id: "exp", status: "incomplete_expired" }),
+        runningTrial({ id: "can", status: "canceled" }),
+      ]).onFreeWeekNow
+    ).toBe(0);
+  });
+
+  it("still counts cancel_at_period_end while status is trialing", () => {
+    expect(
+      countTrials([
+        runningTrial({ id: "cap", cancel_at_period_end: true }),
+      ]).onFreeWeekNow
+    ).toBe(1);
+  });
+
+  it("uses Eastern midnight bounds for started today", () => {
+    const { todayStartMs, tomorrowStartMs } = easternBounds(todayKey);
+    const justBefore = stripeSub({
+      id: "before",
+      status: "trialing",
+      trial_start: Math.floor(todayStartMs / 1000) - 1,
+      trial_end: NOW_UNIX + 86_400,
+    });
+    const onMidnight = stripeSub({
+      id: "on",
+      status: "trialing",
+      trial_start: Math.floor(todayStartMs / 1000),
+      trial_end: NOW_UNIX + 86_400,
+    });
+    const justBeforeTomorrow = stripeSub({
+      id: "end",
+      status: "trialing",
+      trial_start: Math.floor(tomorrowStartMs / 1000) - 1,
+      trial_end: NOW_UNIX + 86_400,
+    });
+    const atTomorrow = stripeSub({
+      id: "after",
+      status: "trialing",
+      trial_start: Math.floor(tomorrowStartMs / 1000),
+      trial_end: NOW_UNIX + 2 * 86_400,
+    });
+    expect(countTrials([justBefore]).startedToday).toBe(0);
+    expect(countTrials([onMidnight]).startedToday).toBe(1);
+    expect(countTrials([justBeforeTomorrow]).startedToday).toBe(1);
+    expect(countTrials([atTomorrow]).startedToday).toBe(0);
+  });
+
+  it("uses Eastern midnight bounds for ends today", () => {
+    const { todayStartMs, tomorrowStartMs } = easternBounds(todayKey);
+    const laterToday = runningTrial({
+      id: "today",
+      trial_end: NOW_UNIX + 3600,
+    });
+    const yesterday = runningTrial({
+      id: "yday",
+      trial_end: Math.floor(todayStartMs / 1000) - 1,
+    });
+    const tomorrow = runningTrial({
+      id: "tmw",
+      trial_end: Math.floor(tomorrowStartMs / 1000),
+    });
+    expect(countTrials([laterToday]).endsToday).toBe(1);
+    expect(countTrials([yesterday]).endsToday).toBe(0);
+    expect(countTrials([tomorrow]).endsToday).toBe(0);
+  });
+
+  it("includes today in the next 7 days and excludes day 8", () => {
+    const { next7EndMs } = easternBounds(todayKey);
+    const laterToday = runningTrial({
+      id: "today",
+      trial_end: NOW_UNIX + 3600,
+    });
+    const lastIncluded = runningTrial({
+      id: "day7",
+      trial_end: Math.floor(next7EndMs / 1000) - 1,
+    });
+    const day8 = runningTrial({
+      id: "day8",
+      trial_end: Math.floor(next7EndMs / 1000),
+    });
+    expect(countTrials([laterToday]).endsNext7Days).toBe(1);
+    expect(countTrials([lastIncluded]).endsNext7Days).toBe(1);
+    expect(countTrials([day8]).endsNext7Days).toBe(0);
+  });
+
+  it("uses DST-safe Eastern civil-day windows, not 24-hour multiples", () => {
+    const spring = easternBounds("2026-03-08");
+    const fall = easternBounds("2026-11-01");
+    expect((spring.next7EndMs - spring.todayStartMs) / 3_600_000).toBe(167);
+    expect((fall.next7EndMs - fall.todayStartMs) / 3_600_000).toBe(169);
+    const dstNow = Math.floor((spring.todayStartMs + 12 * 3_600_000) / 1000);
+    const duringSpring = countCurrentFreeTrials({
+      stripeSubs: [
+        stripeSub({
+          id: "dst",
+          status: "trialing",
+          trial_start: Math.floor(spring.todayStartMs / 1000),
+          trial_end: dstNow + 6 * 3600,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+      stripeListComplete: true,
+      nowUnix: dstNow,
+      ...spring,
+    });
+    expect(duringSpring.startedToday).toBe(1);
+    expect(duringSpring.endsToday).toBe(1);
+    expect(duringSpring.endsNext7Days).toBe(1);
+  });
+
+  it("counts a duplicate Clerk person once", () => {
+    const result = countTrials([
+      runningTrial({ id: "a", metadata: { userId: "same_person" } }),
+      runningTrial({ id: "b", metadata: { userId: "same_person" } }),
+    ]);
+    expect(result.onFreeWeekNow).toBe(1);
+  });
+
+  it("does not drop a live trial that is missing Clerk metadata", () => {
+    const noClerk = runningTrial({
+      id: "noclerk",
+      metadata: {},
+    });
+    expect(countTrials([noClerk]).onFreeWeekNow).toBe(1);
+  });
+
+  it("does not take date or source filters as inputs", () => {
+    const src = countCurrentFreeTrials.toString();
+    expect(src).not.toMatch(/sourceFilter|sourceFiltered|GrowthDateRange/);
+  });
+
+  it("returns Not available for all four cards when the Stripe list is incomplete", () => {
+    expect(
+      countTrials([runningTrial({ id: "t1" })], { stripeListComplete: false })
+    ).toEqual({
+      onFreeWeekNow: null,
+      startedToday: null,
+      endsToday: null,
+      endsNext7Days: null,
+    });
+  });
+
+  it("returns 0, not null, when the complete list has no trials", () => {
+    expect(countTrials([])).toEqual({
+      onFreeWeekNow: 0,
+      startedToday: 0,
+      endsToday: 0,
+      endsNext7Days: 0,
+    });
+  });
+
+  it("returns Not available for day-bound cards when Eastern midnight cannot be resolved", () => {
+    const result = countTrials([runningTrial({ id: "t1" })], {
+      todayStartMs: null,
+      tomorrowStartMs: null,
+      next7EndMs: null,
+    });
+    expect(result.onFreeWeekNow).toBe(1);
+    expect(result.startedToday).toBeNull();
+    expect(result.endsToday).toBeNull();
+    expect(result.endsNext7Days).toBeNull();
   });
 });
 

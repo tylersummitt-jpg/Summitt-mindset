@@ -76,6 +76,12 @@ function dashboardData(
       ended: null,
       net: null,
     },
+    currentFreeTrials: {
+      onFreeWeekNow: null,
+      startedToday: null,
+      endsToday: null,
+      endsNext7Days: null,
+    },
   };
 }
 
@@ -265,7 +271,7 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "These filters change the historical reports below. They do not change Company right now, growth goals, or This week on Stripe."
+        "These filters change the historical reports below. They do not change Company right now, growth goals, This week on Stripe, or Current free trials."
       )
     ).toBeTruthy();
     expect(screen.getByText("Company right now")).toBeTruthy();
@@ -335,6 +341,7 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     expect(screen.getAllByText("Road to 500").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Road to 2,500").length).toBeGreaterThan(0);
     expect(screen.getByText("This week on Stripe")).toBeTruthy();
+    expect(screen.getByText("Current free trials")).toBeTruthy();
     expect(screen.getByText("Growth funnel")).toBeTruthy();
     expect(screen.getByText("Subscribers & retention")).toBeTruthy();
     expect(screen.getByText("Revenue")).toBeTruthy();
@@ -456,6 +463,55 @@ describe("subscriber growth slice 2 goals and weekly stripe", () => {
     missing.stripeWeek = { newPaid: null, ended: null, net: null };
     render(<SubscriberGrowthDashboard data={missing} />);
     expect(screen.getAllByText("Not available").length).toBeGreaterThan(0);
+  });
+});
+
+describe("subscriber growth slice 3 current free trials", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("renders the section, four labels, Apple copy, and cancel clarification", () => {
+    const data = dashboardData([]);
+    data.currentFreeTrials = {
+      onFreeWeekNow: 0,
+      startedToday: 0,
+      endsToday: 0,
+      endsNext7Days: 0,
+    };
+    render(<SubscriberGrowthDashboard data={data} />);
+    expect(screen.getByText("Current free trials")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Stripe free weeks happening now. Apple has no free trial. Filters do not change these numbers."
+      )
+    ).toBeTruthy();
+    expect(screen.getAllByText("On a free week right now").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Started a free week today").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Free week ends today").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Free week ends in the next 7 days").length
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "Their 7-day trial finishes today. This does not mean they cancelled today."
+      )
+    ).toBeTruthy();
+    expect(screen.getAllByText(/Apple has no free trial/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Active free trial").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("0").length).toBeGreaterThan(0);
+  });
+
+  it("shows Not available on all four cards when the pipeline is incomplete", () => {
+    const data = dashboardData([]);
+    data.currentFreeTrials = {
+      onFreeWeekNow: null,
+      startedToday: null,
+      endsToday: null,
+      endsNext7Days: null,
+    };
+    render(<SubscriberGrowthDashboard data={data} />);
+    expect(screen.getAllByText("Not available").length).toBeGreaterThan(3);
   });
 });
 

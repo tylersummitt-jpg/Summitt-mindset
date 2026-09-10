@@ -266,6 +266,10 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
       "Paying members on a yearly plan right now. Stripe only. Apple does not have a yearly plan.",
   },
   {
+    term: "Active free trial",
+    meaning: "See On a free week right now.",
+  },
+  {
     term: "Active monthly subscribers",
     meaning:
       "Paying members on a monthly plan right now. Includes Stripe monthly members and Apple members.",
@@ -328,6 +332,16 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
     meaning: "Stripe 7-day free weeks that began during the selected dates. Apple has no free trial.",
   },
   {
+    term: "Free week ends in the next 7 days",
+    meaning:
+      "Stripe trials scheduled to finish today or during the next six Eastern calendar days. Only currently running free weeks. Apple has no free trial.",
+  },
+  {
+    term: "Free week ends today",
+    meaning:
+      "A Stripe trial whose 7-day trial finishes today. It does not mean the person cancelled. Apple has no free trial.",
+  },
+  {
     term: "Google",
     meaning: "Includes both Google Ads and Google Search. The table does not split them yet.",
   },
@@ -357,6 +371,11 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
   {
     term: "Not available",
     meaning: "The system could not calculate this number reliably. Do not treat it as zero.",
+  },
+  {
+    term: "On a free week right now",
+    meaning:
+      "A person whose 7-day Stripe trial is still running. Apple currently has no free trial. Also called Active free trial.",
   },
   {
     term: "Organic social",
@@ -413,6 +432,11 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
   {
     term: "Spend not entered",
     meaning: "No Meta or Google ad spend has been saved for this view. Type it in Add Ad Spend.",
+  },
+  {
+    term: "Started a free week today",
+    meaning:
+      "A Stripe trial whose free week began today in Eastern Time. Apple has no free trial.",
   },
   {
     term: "Stripe cash collected",
@@ -540,8 +564,8 @@ export default function SubscriberGrowthDashboard({
             <ul className="mt-1 list-disc space-y-0.5 pl-4">
               <li>&quot;Right now&quot; numbers show the whole company.</li>
               <li>
-                Growth goals and This week on Stripe also ignore date and source
-                filters.
+                Growth goals, This week on Stripe, and Current free trials also
+                ignore date and source filters.
               </li>
               <li>Date and source filters change the historical reports below.</li>
               <li>
@@ -597,7 +621,8 @@ export default function SubscriberGrowthDashboard({
           </p>
           <p className="text-[10px] text-gray-600">
             These filters change the historical reports below. They do not
-            change Company right now, growth goals, or This week on Stripe.
+            change Company right now, growth goals, This week on Stripe, or
+            Current free trials.
           </p>
         </div>
       </div>
@@ -710,6 +735,50 @@ export default function SubscriberGrowthDashboard({
           plus/minus because historical Apple membership cannot currently be
           reconstructed reliably.
         </p>
+      </section>
+
+      <section>
+        <h2 className="mb-0.5 text-sm font-semibold text-gray-900">
+          Current free trials
+        </h2>
+        <p className="mb-1.5 text-[10px] text-gray-500">
+          Stripe free weeks happening now. Apple has no free trial. Filters do
+          not change these numbers.
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            label="On a free week right now"
+            value={formatMaybeAvailableCount(
+              data.currentFreeTrials.onFreeWeekNow,
+              data.currentFreeTrials.onFreeWeekNow != null
+            )}
+            scope="Their 7-day Stripe trial is still running."
+          />
+          <MetricCard
+            label="Started a free week today"
+            value={formatMaybeAvailableCount(
+              data.currentFreeTrials.startedToday,
+              data.currentFreeTrials.startedToday != null
+            )}
+            scope="Their Stripe free trial started today, Eastern Time."
+          />
+          <MetricCard
+            label="Free week ends today"
+            value={formatMaybeAvailableCount(
+              data.currentFreeTrials.endsToday,
+              data.currentFreeTrials.endsToday != null
+            )}
+            scope="Their 7-day trial finishes today. This does not mean they cancelled today."
+          />
+          <MetricCard
+            label="Free week ends in the next 7 days"
+            value={formatMaybeAvailableCount(
+              data.currentFreeTrials.endsNext7Days,
+              data.currentFreeTrials.endsNext7Days != null
+            )}
+            scope="Includes today through the next 6 Eastern days."
+          />
+        </div>
       </section>
 
       <section>
@@ -1161,8 +1230,8 @@ export default function SubscriberGrowthDashboard({
                   &quot;Company right now&quot; shows live whole-company numbers.
                 </li>
                 <li>
-                  Growth goals and This week on Stripe ignore the date and source
-                  filters.
+                  Growth goals, This week on Stripe, and Current free trials ignore
+                  the date and source filters.
                 </li>
                 <li>&quot;This period&quot; reports use the date/source filters.</li>
                 <li>

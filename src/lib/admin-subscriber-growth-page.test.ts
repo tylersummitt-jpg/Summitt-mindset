@@ -49,6 +49,12 @@ describe("subscriber growth page authorization", () => {
       adSpendQueryComplete: true,
       todayDateKey: "2026-09-01",
       stripeWeek: { newPaid: null, ended: null, net: null },
+      currentFreeTrials: {
+        onFreeWeekNow: null,
+        startedToday: null,
+        endsToday: null,
+        endsNext7Days: null,
+      },
     });
   });
 
@@ -199,7 +205,11 @@ describe("subscriber growth auth architecture", () => {
     expect(dashboard).toContain("Road to 500");
     expect(dashboard).toContain("This week on Stripe");
     expect(dashboard).toContain(
-      "They do not\n            change Company right now, growth goals, or This week on Stripe."
+      "They do not\n            change Company right now, growth goals, This week on Stripe, or\n            Current free trials."
+    );
+    expect(loader).toContain("countCurrentFreeTrials");
+    expect(loader).not.toContain(
+      "countCurrentFreeTrials({\n    stripeSubs: sourceFilteredSubs"
     );
   });
 

@@ -15,7 +15,9 @@ import {
   clerkUserIdFromStripeSub,
   computeGrowthSnapshot,
   countActivePaidMembers,
+  countCurrentFreeTrials,
   countStripeWeekMovement,
+  emptyCurrentFreeTrials,
   emptyStripeWeekMovement,
   emptyUnknownSnapshot,
   mondayDateKeyFromDateKey,
@@ -589,6 +591,7 @@ export async function loadSubscriberGrowthDashboard(args: {
       adSpendQueryComplete: false,
       todayDateKey: todayKey,
       stripeWeek: emptyStripeWeekMovement(),
+      currentFreeTrials: emptyCurrentFreeTrials(),
     };
   }
 
@@ -915,6 +918,25 @@ export async function loadSubscriberGrowthDashboard(args: {
       })
     : emptyStripeWeekMovement();
 
+  const todayStart = utcInstantForLocalMidnight(todayKey, SUBSCRIBER_GROWTH_TZ);
+  const tomorrowStart = utcInstantForLocalMidnight(
+    addDaysToDateKey(todayKey, 1),
+    SUBSCRIBER_GROWTH_TZ
+  );
+  const next7End = utcInstantForLocalMidnight(
+    addDaysToDateKey(todayKey, 7),
+    SUBSCRIBER_GROWTH_TZ
+  );
+  const currentFreeTrials = countCurrentFreeTrials({
+    stripeSubs,
+    recognizedPriceIds: recognized,
+    stripeListComplete,
+    nowUnix: Math.floor(now.getTime() / 1000),
+    todayStartMs: todayStart?.getTime() ?? null,
+    tomorrowStartMs: tomorrowStart?.getTime() ?? null,
+    next7EndMs: next7End?.getTime() ?? null,
+  });
+
   let latestTrials: LatestTrialRow[] = [];
   let latestTrialsActivationComplete = false;
   try {
@@ -943,5 +965,6 @@ export async function loadSubscriberGrowthDashboard(args: {
     adSpendQueryComplete,
     todayDateKey: todayKey,
     stripeWeek,
+    currentFreeTrials,
   };
 }

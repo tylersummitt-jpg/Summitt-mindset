@@ -413,6 +413,102 @@ export function countStripeWeekMovement(args: {
   };
 }
 
+export type CurrentFreeTrialsCounts = {
+  onFreeWeekNow: MetricNumber;
+  startedToday: MetricNumber;
+  endsToday: MetricNumber;
+  endsNext7Days: MetricNumber;
+};
+
+export function emptyCurrentFreeTrials(): CurrentFreeTrialsCounts {
+  return {
+    onFreeWeekNow: null,
+    startedToday: null,
+    endsToday: null,
+    endsNext7Days: null,
+  };
+}
+
+/**
+ * Live Stripe free week: still trialing, trial_end in the future, not paused.
+ * cancel_at_period_end still counts while status remains trialing.
+ */
+export function isStripeFreeWeekRunning(
+  sub: GrowthStripeSubscription,
+  nowUnix: number
+): boolean {
+  if (sub.status !== "trialing") return false;
+  if (sub.trial_end == null || !Number.isFinite(sub.trial_end)) return false;
+  if (sub.trial_end <= nowUnix) return false;
+  if (hasPauseCollection(sub)) return false;
+  return true;
+}
+
+/**
+ * Global current-trial pipeline. Ignores date/source filters.
+ * Person-dedupes with stripeSubscriberIdentity (Clerk userId, else customer, else sub id).
+ * Missing Clerk metadata is not dropped. Incomplete Stripe lists return all null.
+ */
+export function countCurrentFreeTrials(args: {
+  stripeSubs: readonly GrowthStripeSubscription[];
+  recognizedPriceIds: ReadonlySet<string>;
+  stripeListComplete: boolean;
+  nowUnix: number;
+  todayStartMs: number | null;
+  tomorrowStartMs: number | null;
+  next7EndMs: number | null;
+}): CurrentFreeTrialsCounts {
+  if (!args.stripeListComplete) return emptyCurrentFreeTrials();
+  const todayStartMs = args.todayStartMs;
+  const tomorrowStartMs = args.tomorrowStartMs;
+  const next7EndMs = args.next7EndMs;
+  const todayOk = todayStartMs != null && tomorrowStartMs != null;
+  const next7Ok = todayStartMs != null && next7EndMs != null;
+  const onNow = new Set<string>();
+  const startedToday = new Set<string>();
+  const endsToday = new Set<string>();
+  const endsNext7 = new Set<string>();
+
+  for (const sub of args.stripeSubs) {
+    if (!isLikelySummittStripeSubscription(sub, args.recognizedPriceIds)) continue;
+    const identity = stripeSubscriberIdentity(sub);
+    const running = isStripeFreeWeekRunning(sub, args.nowUnix);
+    if (running) {
+      onNow.add(identity);
+      if (
+        todayStartMs != null &&
+        tomorrowStartMs != null &&
+        unixSecondsInPeriod(sub.trial_end, todayStartMs, tomorrowStartMs)
+      ) {
+        endsToday.add(identity);
+      }
+      if (
+        todayStartMs != null &&
+        next7EndMs != null &&
+        unixSecondsInPeriod(sub.trial_end, todayStartMs, next7EndMs)
+      ) {
+        endsNext7.add(identity);
+      }
+    }
+    if (
+      todayStartMs != null &&
+      tomorrowStartMs != null &&
+      sub.status !== "incomplete" &&
+      sub.status !== "incomplete_expired" &&
+      unixSecondsInPeriod(sub.trial_start, todayStartMs, tomorrowStartMs)
+    ) {
+      startedToday.add(identity);
+    }
+  }
+
+  return {
+    onFreeWeekNow: onNow.size,
+    startedToday: todayOk ? startedToday.size : null,
+    endsToday: todayOk ? endsToday.size : null,
+    endsNext7Days: next7Ok ? endsNext7.size : null,
+  };
+}
+
 export function stripeInterval(
   sub: GrowthStripeSubscription
 ): "month" | "year" | null {
@@ -1007,6 +1103,7 @@ export type SubscriberGrowthDashboardData = {
   adSpendQueryComplete: boolean;
   todayDateKey: string;
   stripeWeek: StripeWeekMovement;
+  currentFreeTrials: CurrentFreeTrialsCounts;
 };
 
 export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {
