@@ -4,7 +4,7 @@
  */
 
 import { hasPauseCollection } from "@/lib/summitt-subscription-membership";
-import { utcInstantForLocalMidnight } from "@/lib/timezone";
+import { getDateKeyInTimezone, utcInstantForLocalMidnight } from "@/lib/timezone";
 
 export const SUBSCRIBER_GROWTH_TZ = "America/New_York";
 export const UNKNOWN_METRIC = "—";
@@ -507,6 +507,212 @@ export function countCurrentFreeTrials(args: {
     endsToday: todayOk ? endsToday.size : null,
     endsNext7Days: next7Ok ? endsNext7.size : null,
   };
+}
+
+export const RECENT_ACTIVITY_LIMIT = 25;
+
+export type RecentActivityEventType =
+  | "trial_started"
+  | "became_paid"
+  | "trial_cancelled"
+  | "payment_failed"
+  | "membership_ended";
+
+export const RECENT_ACTIVITY_LABELS: Record<RecentActivityEventType, string> = {
+  trial_started: "Started a free week",
+  became_paid: "Became a paying member",
+  trial_cancelled: "Cancelled during free week",
+  payment_failed: "Payment failed",
+  membership_ended: "Paid membership ended",
+};
+
+export type RecentActivityEvent = {
+  type: RecentActivityEventType;
+  timestampUnix: number;
+  clerkUserId: string;
+  personEmail: string | null;
+  firstTouchLabel: string | null;
+  stableKey: string;
+};
+
+export type RecentActivityFailedInvoice = {
+  invoiceId: string;
+  createdUnix: number;
+  subscriptionId: string | null;
+};
+
+export function growthSourceDisplayLabel(raw: string | null | undefined): string {
+  if (!raw) return UNKNOWN_SOURCE_LABEL;
+  if (raw === "meta") return "Meta ads";
+  if (raw === "organic_social") return "Organic social";
+  if (raw === "google") return "Google";
+  if (raw === "direct") return "Direct";
+  if (raw === "referral") return "Referral";
+  return raw;
+}
+
+export function formatRecentActivityWhen(
+  unixSeconds: number,
+  todayDateKey: string
+): string {
+  if (!Number.isFinite(unixSeconds)) return UNKNOWN_METRIC;
+  const eventDate = new Date(unixSeconds * 1000);
+  const eventKey = getDateKeyInTimezone(eventDate, SUBSCRIBER_GROWTH_TZ);
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: SUBSCRIBER_GROWTH_TZ,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(eventDate);
+  if (eventKey === todayDateKey) return `Today, ${time}`;
+  if (eventKey === addDaysToDateKey(todayDateKey, -1)) return `Yesterday, ${time}`;
+  const date = new Intl.DateTimeFormat("en-US", {
+    timeZone: SUBSCRIBER_GROWTH_TZ,
+    month: "short",
+    day: "numeric",
+  }).format(eventDate);
+  return `${date}, ${time}`;
+}
+
+function recentActivityBase(
+  type: RecentActivityEventType,
+  timestampUnix: number,
+  clerkUserId: string,
+  stableKey: string
+): RecentActivityEvent | null {
+  if (!clerkUserId || !Number.isFinite(timestampUnix)) return null;
+  return {
+    type,
+    timestampUnix,
+    clerkUserId,
+    personEmail: null,
+    firstTouchLabel: null,
+    stableKey,
+  };
+}
+
+/**
+ * Newest-first Stripe membership events. Requires metadata.userId.
+ * Does not emit Stripe IDs into display fields. Apple is not included.
+ */
+export function collectRecentActivityEvents(args: {
+  stripeSubs: readonly GrowthStripeSubscription[];
+  recognizedPriceIds: ReadonlySet<string>;
+  paidInvoiceSubIds?: ReadonlySet<string>;
+  failedInvoices?: readonly RecentActivityFailedInvoice[];
+  includePaymentFailed?: boolean;
+  limit?: number;
+}): RecentActivityEvent[] {
+  const paidInvoiceSubIds = args.paidInvoiceSubIds ?? new Set<string>();
+  const byKey = new Map<string, RecentActivityEvent>();
+  const add = (event: RecentActivityEvent | null) => {
+    if (!event) return;
+    const prev = byKey.get(event.stableKey);
+    if (!prev || event.timestampUnix > prev.timestampUnix) {
+      byKey.set(event.stableKey, event);
+    }
+  };
+
+  for (const sub of args.stripeSubs) {
+    if (!isLikelySummittStripeSubscription(sub, args.recognizedPriceIds)) continue;
+    const clerkUserId = clerkUserIdFromStripeSub(sub);
+    if (!clerkUserId) continue;
+    const hadPaidInvoice = paidInvoiceSubIds.has(sub.id);
+
+    if (sub.trial_start != null) {
+      add(
+        recentActivityBase(
+          "trial_started",
+          sub.trial_start,
+          clerkUserId,
+          `trial_started:${sub.id}`
+        )
+      );
+    }
+
+    const paidAt = paidConversionUnix(sub, hadPaidInvoice);
+    if (paidAt != null) {
+      add(
+        recentActivityBase(
+          "became_paid",
+          paidAt,
+          clerkUserId,
+          `became_paid:${sub.id}`
+        )
+      );
+    }
+
+    if (cancelledDuringFreeTrial(sub) && sub.canceled_at != null) {
+      add(
+        recentActivityBase(
+          "trial_cancelled",
+          sub.canceled_at,
+          clerkUserId,
+          `trial_cancelled:${sub.id}`
+        )
+      );
+    }
+
+    const endedAt = paidTerminalEndUnix(sub, hadPaidInvoice);
+    if (endedAt != null) {
+      add(
+        recentActivityBase(
+          "membership_ended",
+          endedAt,
+          clerkUserId,
+          `membership_ended:${sub.id}`
+        )
+      );
+    }
+  }
+
+  if (args.includePaymentFailed !== false) {
+    const bySubId = new Map(args.stripeSubs.map((sub) => [sub.id, sub] as const));
+    for (const invoice of args.failedInvoices ?? []) {
+      if (!invoice.invoiceId || !Number.isFinite(invoice.createdUnix)) continue;
+      const sub = invoice.subscriptionId
+        ? bySubId.get(invoice.subscriptionId)
+        : undefined;
+      const clerkUserId = sub ? clerkUserIdFromStripeSub(sub) : null;
+      if (!clerkUserId) continue;
+      add(
+        recentActivityBase(
+          "payment_failed",
+          invoice.createdUnix,
+          clerkUserId,
+          `payment_failed:${invoice.invoiceId}`
+        )
+      );
+    }
+  }
+
+  const limit = Number.isFinite(args.limit)
+    ? Math.max(0, Math.floor(args.limit as number))
+    : RECENT_ACTIVITY_LIMIT;
+  return [...byKey.values()]
+    .sort((a, b) => {
+      if (b.timestampUnix !== a.timestampUnix) {
+        return b.timestampUnix - a.timestampUnix;
+      }
+      return a.stableKey.localeCompare(b.stableKey);
+    })
+    .slice(0, limit);
+}
+
+export function attachRecentActivityDetails(args: {
+  events: readonly RecentActivityEvent[];
+  emailsByClerkId: ReadonlyMap<string, string | null>;
+  attributionsByClerkId: ReadonlyMap<string, { source_normalized: string | null }>;
+}): RecentActivityEvent[] {
+  return args.events.map((event) => {
+    const emailRaw = args.emailsByClerkId.get(event.clerkUserId);
+    const personEmail =
+      typeof emailRaw === "string" && emailRaw.trim() ? emailRaw.trim() : null;
+    const attr = args.attributionsByClerkId.get(event.clerkUserId);
+    const firstTouchLabel = attr
+      ? growthSourceDisplayLabel(attr.source_normalized)
+      : UNKNOWN_SOURCE_LABEL;
+    return { ...event, personEmail, firstTouchLabel };
+  });
 }
 
 export function stripeInterval(
@@ -1104,6 +1310,8 @@ export type SubscriberGrowthDashboardData = {
   todayDateKey: string;
   stripeWeek: StripeWeekMovement;
   currentFreeTrials: CurrentFreeTrialsCounts;
+  recentActivity: RecentActivityEvent[] | null;
+  recentActivityPaymentFailedIncluded: boolean;
 };
 
 export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {

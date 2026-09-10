@@ -82,6 +82,8 @@ function dashboardData(
       endsToday: null,
       endsNext7Days: null,
     },
+    recentActivity: [],
+    recentActivityPaymentFailedIncluded: true,
   };
 }
 
@@ -271,7 +273,7 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "These filters change the historical reports below. They do not change Company right now, growth goals, This week on Stripe, or Current free trials."
+        "These filters change the historical reports below. They do not change Company right now, growth goals, This week on Stripe, Current free trials, or Recent activity."
       )
     ).toBeTruthy();
     expect(screen.getByText("Company right now")).toBeTruthy();
@@ -347,6 +349,7 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     expect(screen.getByText("Revenue")).toBeTruthy();
     expect(screen.getByText("Traffic source")).toBeTruthy();
     expect(screen.getByText("Tracking Link Builder")).toBeTruthy();
+    expect(screen.getAllByText("Recent activity").length).toBeGreaterThan(0);
     expect(screen.getByText("Latest Trials")).toBeTruthy();
     expect(screen.getAllByText("Active monthly subscribers").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Active annual subscribers").length).toBeGreaterThan(0);
@@ -512,6 +515,55 @@ describe("subscriber growth slice 3 current free trials", () => {
     };
     render(<SubscriberGrowthDashboard data={data} />);
     expect(screen.getAllByText("Not available").length).toBeGreaterThan(3);
+  });
+});
+
+describe("subscriber growth slice 4 recent activity", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("renders Stripe-only subtitle, events, and definitions without Stripe IDs", () => {
+    const data = dashboardData([]);
+    data.todayDateKey = "2026-09-09";
+    data.recentActivity = [
+      {
+        type: "trial_started",
+        timestampUnix: Math.floor(Date.parse("2026-09-09T12:14:00.000Z") / 1000),
+        clerkUserId: "user_hidden",
+        personEmail: "jane@example.com",
+        firstTouchLabel: "Meta ads",
+        stableKey: "trial_started:hidden",
+      },
+    ];
+    render(<SubscriberGrowthDashboard data={data} />);
+    expect(screen.getAllByText("Recent activity").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "The last 25 Stripe membership events, newest first. Filters do not change this list. Apple activity is not included yet."
+      )
+    ).toBeTruthy();
+    expect(screen.getAllByText("Started a free week").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Became a paying member").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cancelled during free week").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Paid membership ended").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("jane@example.com").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Today, 8:14 AM").length).toBeGreaterThan(0);
+    expect(screen.getByText("Last 20 people who started a free trial")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/user_hidden/);
+    expect(document.body.textContent).not.toMatch(/sub_/);
+    expect(document.body.textContent).not.toMatch(/cus_/);
+    expect(document.body.textContent).not.toMatch(/\+1\d{10}/);
+    expect(document.body.textContent).not.toMatch(/SMS body/i);
+  });
+
+  it("shows Not available when the feed could not be loaded", () => {
+    const data = dashboardData([]);
+    data.recentActivity = null;
+    render(<SubscriberGrowthDashboard data={data} />);
+    expect(
+      screen.getByText("We could not reliably load recent membership activity.")
+    ).toBeTruthy();
   });
 });
 

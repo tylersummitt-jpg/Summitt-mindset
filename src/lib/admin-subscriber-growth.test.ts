@@ -9,11 +9,14 @@ import {
   conversionRate,
   countActivePaidMembers,
   countCurrentFreeTrials,
+  collectRecentActivityEvents,
+  attachRecentActivityDetails,
   countStripeWeekMovement,
   formatAdvertisingSpendDisplay,
   formatCostPerPaidDisplay,
   formatLatestTrialSignedUp,
   formatPersonFlag,
+  formatRecentActivityWhen,
   formatSignedNet,
   formatUnknownableCount,
   formatUnknownablePercent,
@@ -26,6 +29,7 @@ import {
   organicSocialPlatformLabel,
   remainingInclusiveCalendarWeeks,
   computeGrowthGoal,
+  RECENT_ACTIVITY_LIMIT,
   ROAD_TO_2500_DEADLINE_DATE_KEY,
   ROAD_TO_2500_TARGET,
   ROAD_TO_500_DEADLINE_DATE_KEY,
@@ -1739,6 +1743,243 @@ describe("current free trial pipeline", () => {
     expect(result.startedToday).toBeNull();
     expect(result.endsToday).toBeNull();
     expect(result.endsNext7Days).toBeNull();
+  });
+});
+
+describe("recent activity events", () => {
+  const trialStart = NOW_UNIX - 3 * 86_400;
+  const trialEnd = NOW_UNIX - 86_400;
+
+  it("creates trial_started from trial_start", () => {
+    const events = collectRecentActivityEvents({
+      stripeSubs: [
+        stripeSub({
+          id: "sub_trial",
+          status: "trialing",
+          trial_start: trialStart,
+          trial_end: NOW_UNIX + 86_400,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+    });
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "trial_started",
+          timestampUnix: trialStart,
+          clerkUserId: "user_sub_trial",
+          stableKey: "trial_started:sub_trial",
+        }),
+      ])
+    );
+  });
+
+  it("creates became_paid using paidConversionUnix (trial_end for trials)", () => {
+    const events = collectRecentActivityEvents({
+      stripeSubs: [
+        stripeSub({
+          id: "sub_paid",
+          status: "active",
+          trial_start: trialStart,
+          trial_end: trialEnd,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+    });
+    const paid = events.find((e) => e.type === "became_paid");
+    expect(paid?.timestampUnix).toBe(trialEnd);
+    expect(paid?.stableKey).toBe("became_paid:sub_paid");
+  });
+
+  it("creates trial_cancelled from cancelledDuringFreeTrial", () => {
+    const canceledAt = trialStart + 3600;
+    const events = collectRecentActivityEvents({
+      stripeSubs: [
+        stripeSub({
+          id: "sub_cancel",
+          status: "canceled",
+          trial_start: trialStart,
+          trial_end: trialEnd,
+          canceled_at: canceledAt,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+    });
+    const cancelled = events.find((e) => e.type === "trial_cancelled");
+    expect(cancelled?.timestampUnix).toBe(canceledAt);
+    expect(cancelled?.stableKey).toBe("trial_cancelled:sub_cancel");
+    expect(events.some((e) => e.type === "membership_ended")).toBe(false);
+  });
+
+  it("creates payment_failed from loaded invoices and dedupes by invoice id", () => {
+    const sub = stripeSub({
+      id: "sub_fail",
+      status: "past_due",
+      trial_start: trialStart,
+      trial_end: trialEnd,
+    });
+    const events = collectRecentActivityEvents({
+      stripeSubs: [sub],
+      recognizedPriceIds: RECOGNIZED,
+      failedInvoices: [
+        {
+          invoiceId: "in_1",
+          createdUnix: NOW_UNIX - 60,
+          subscriptionId: "sub_fail",
+        },
+        {
+          invoiceId: "in_1",
+          createdUnix: NOW_UNIX - 30,
+          subscriptionId: "sub_fail",
+        },
+      ],
+    });
+    const failed = events.filter((e) => e.type === "payment_failed");
+    expect(failed).toHaveLength(1);
+    expect(failed[0]?.timestampUnix).toBe(NOW_UNIX - 30);
+    expect(failed[0]?.stableKey).toBe("payment_failed:in_1");
+  });
+
+  it("creates membership_ended from paid terminal end and ignores cancel_at_period_end", () => {
+    const endedAt = NOW_UNIX - 120;
+    const ended = collectRecentActivityEvents({
+      stripeSubs: [
+        stripeSub({
+          id: "sub_ended",
+          status: "canceled",
+          trial_start: trialStart,
+          trial_end: trialEnd,
+          canceled_at: endedAt,
+          ended_at: endedAt,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+    });
+    expect(ended.some((e) => e.type === "membership_ended")).toBe(true);
+    const stillActive = collectRecentActivityEvents({
+      stripeSubs: [
+        stripeSub({
+          id: "sub_cap",
+          status: "active",
+          cancel_at_period_end: true,
+          trial_start: trialStart,
+          trial_end: trialEnd,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+    });
+    expect(stillActive.some((e) => e.type === "membership_ended")).toBe(false);
+  });
+
+  it("sorts newest first, caps at 25, and keeps multiple event types for one person", () => {
+    const subs = Array.from({ length: 30 }, (_, i) =>
+      stripeSub({
+        id: `sub_${String(i).padStart(2, "0")}`,
+        status: "trialing",
+        metadata: { userId: "same_person" },
+        trial_start: NOW_UNIX - i,
+        trial_end: NOW_UNIX + 86_400,
+      })
+    );
+    const events = collectRecentActivityEvents({
+      stripeSubs: subs,
+      recognizedPriceIds: RECOGNIZED,
+    });
+    expect(events).toHaveLength(RECENT_ACTIVITY_LIMIT);
+    expect(events[0]?.timestampUnix).toBe(NOW_UNIX);
+    expect(events[24]?.timestampUnix).toBe(NOW_UNIX - 24);
+
+    const onePerson = collectRecentActivityEvents({
+      stripeSubs: [
+        stripeSub({
+          id: "sub_both",
+          status: "canceled",
+          trial_start: trialStart,
+          trial_end: trialEnd,
+          canceled_at: trialStart + 100,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+    });
+    const types = onePerson.map((e) => e.type);
+    expect(types).toContain("trial_started");
+    expect(types).toContain("trial_cancelled");
+  });
+
+  it("skips events without Clerk userId and does not take date/source filters", () => {
+    const events = collectRecentActivityEvents({
+      stripeSubs: [
+        stripeSub({
+          id: "sub_noclerk",
+          status: "trialing",
+          metadata: {},
+          trial_start: NOW_UNIX,
+          trial_end: NOW_UNIX + 86_400,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+    });
+    expect(events).toHaveLength(0);
+    expect(collectRecentActivityEvents.toString()).not.toMatch(
+      /sourceFilter|sourceFiltered|GrowthDateRange/
+    );
+  });
+
+  it("omits payment failed when invoices are not trustworthy", () => {
+    const events = collectRecentActivityEvents({
+      stripeSubs: [
+        stripeSub({
+          id: "sub_fail",
+          status: "past_due",
+          trial_start: trialStart,
+          trial_end: trialEnd,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+      failedInvoices: [
+        {
+          invoiceId: "in_1",
+          createdUnix: NOW_UNIX,
+          subscriptionId: "sub_fail",
+        },
+      ],
+      includePaymentFailed: false,
+    });
+    expect(events.some((e) => e.type === "payment_failed")).toBe(false);
+  });
+
+  it("leaves Person empty when Clerk emails are missing and maps first touch", () => {
+    const events = collectRecentActivityEvents({
+      stripeSubs: [
+        stripeSub({
+          id: "sub_trial",
+          status: "trialing",
+          trial_start: trialStart,
+          trial_end: NOW_UNIX + 86_400,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+    });
+    const attached = attachRecentActivityDetails({
+      events,
+      emailsByClerkId: new Map(),
+      attributionsByClerkId: new Map([
+        ["user_sub_trial", { source_normalized: "meta" }],
+      ]),
+    });
+    expect(attached[0]?.personEmail).toBeNull();
+    expect(attached[0]?.firstTouchLabel).toBe("Meta ads");
+  });
+
+  it("formats Today / Yesterday / calendar day in Eastern Time", () => {
+    const todayUnix = Math.floor(Date.parse("2026-09-09T12:14:00.000Z") / 1000);
+    expect(formatRecentActivityWhen(todayUnix, "2026-09-09")).toBe("Today, 8:14 AM");
+    const yesterdayUnix = Math.floor(Date.parse("2026-09-08T22:32:00.000Z") / 1000);
+    expect(formatRecentActivityWhen(yesterdayUnix, "2026-09-09")).toBe(
+      "Yesterday, 6:32 PM"
+    );
+    const olderUnix = Math.floor(Date.parse("2026-09-08T18:05:00.000Z") / 1000);
+    expect(formatRecentActivityWhen(olderUnix, "2026-09-10")).toBe("Sep 8, 2:05 PM");
   });
 });
 

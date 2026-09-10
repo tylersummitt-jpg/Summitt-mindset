@@ -14,6 +14,8 @@ import {
   buildLatestTrialRows,
   clerkUserIdFromStripeSub,
   computeGrowthSnapshot,
+  attachRecentActivityDetails,
+  collectRecentActivityEvents,
   countActivePaidMembers,
   countCurrentFreeTrials,
   countStripeWeekMovement,
@@ -36,6 +38,8 @@ import {
   type MarketingAttributionRow,
   type MarketingEventRow,
   type MetricNumber,
+  type RecentActivityEvent,
+  type RecentActivityFailedInvoice,
   type SubscriberGrowthDashboardData,
 } from "@/lib/admin-subscriber-growth-pure";
 import { attributionMatchesDashboardSource } from "@/lib/marketing-attribution-pure";
@@ -159,6 +163,15 @@ function invoiceHasRecognizedPrice(
   return false;
 }
 
+function isStripeInvoicePaymentFailed(invoice: Stripe.Invoice): boolean {
+  const attempted = Boolean(
+    (invoice as { attempted?: boolean }).attempted ?? invoice.attempt_count > 0
+  );
+  const failedStatus =
+    invoice.status === "open" || invoice.status === "uncollectible";
+  return attempted && failedStatus && invoice.status !== "paid";
+}
+
 function isSummittInvoice(
   invoice: Stripe.Invoice,
   recognized: ReadonlySet<string>,
@@ -179,10 +192,12 @@ async function listPeriodStripeInvoices(args: {
   revenueCents: MetricNumber;
   paidInvoiceSubIds: Set<string>;
   failedIdentities: Set<string>;
+  failedInvoices: RecentActivityFailedInvoice[];
   complete: boolean;
 }> {
   const paidInvoiceSubIds = new Set<string>();
   const failedIdentities = new Set<string>();
+  const failedInvoices: RecentActivityFailedInvoice[] = [];
   let cents = 0;
   let startingAfter: string | undefined;
   const created: Stripe.RangeQueryParam =
@@ -208,17 +223,25 @@ async function listPeriodStripeInvoices(args: {
         cents += invoice.amount_paid;
         if (subId) paidInvoiceSubIds.add(subId);
       }
-      const attempted = Boolean(
-        (invoice as { attempted?: boolean }).attempted ?? invoice.attempt_count > 0
-      );
-      const failedStatus =
-        invoice.status === "open" || invoice.status === "uncollectible";
-      if (attempted && failedStatus && invoice.status !== "paid") {
+      if (isStripeInvoicePaymentFailed(invoice)) {
         failedIdentities.add(subId ? `sub:${subId}` : `inv:${invoice.id}`);
+        if (typeof invoice.created === "number" && Number.isFinite(invoice.created)) {
+          failedInvoices.push({
+            invoiceId: invoice.id,
+            createdUnix: invoice.created,
+            subscriptionId: subId,
+          });
+        }
       }
     }
     if (!res.has_more) {
-      return { revenueCents: cents, paidInvoiceSubIds, failedIdentities, complete: true };
+      return {
+        revenueCents: cents,
+        paidInvoiceSubIds,
+        failedIdentities,
+        failedInvoices,
+        complete: true,
+      };
     }
     startingAfter = res.data[res.data.length - 1]?.id;
     if (!startingAfter) {
@@ -226,6 +249,7 @@ async function listPeriodStripeInvoices(args: {
         revenueCents: null,
         paidInvoiceSubIds,
         failedIdentities,
+        failedInvoices,
         complete: false,
       };
     }
@@ -234,6 +258,7 @@ async function listPeriodStripeInvoices(args: {
     revenueCents: null,
     paidInvoiceSubIds,
     failedIdentities,
+    failedInvoices,
     complete: false,
   };
 }
@@ -482,6 +507,42 @@ async function loadLatestTrialRows(args: {
   };
 }
 
+async function loadRecentActivityRows(args: {
+  stripeSubs: GrowthStripeSubscription[];
+  recognized: ReadonlySet<string>;
+  paidInvoiceSubIds: ReadonlySet<string>;
+  failedInvoices: RecentActivityFailedInvoice[];
+  includePaymentFailed: boolean;
+  stripeListComplete: boolean;
+  attributionsByClerkId: ReadonlyMap<string, MarketingAttributionRow>;
+}): Promise<RecentActivityEvent[] | null> {
+  if (!args.stripeListComplete) return null;
+  const events = collectRecentActivityEvents({
+    stripeSubs: args.stripeSubs,
+    recognizedPriceIds: args.recognized,
+    paidInvoiceSubIds: args.paidInvoiceSubIds,
+    failedInvoices: args.failedInvoices,
+    includePaymentFailed: args.includePaymentFailed,
+  });
+  const clerkIds = [...new Set(events.map((event) => event.clerkUserId))];
+  let clerkUsers: Awaited<ReturnType<typeof listClerkUsersByIds>> = [];
+  try {
+    clerkUsers = await listClerkUsersByIds(clerkIds);
+  } catch (err) {
+    console.warn("[subscriber-growth] recent-activity Clerk lookup failed", err);
+  }
+  const emailsByClerkId = new Map<string, string | null>();
+  for (const user of clerkUsers) {
+    if (!user?.id) continue;
+    emailsByClerkId.set(user.id, extractPrimaryEmail(user));
+  }
+  return attachRecentActivityDetails({
+    events,
+    emailsByClerkId,
+    attributionsByClerkId: args.attributionsByClerkId,
+  });
+}
+
 async function loadMarketingEvents(args: {
   startMs: number | null;
   endMs: number;
@@ -592,6 +653,8 @@ export async function loadSubscriberGrowthDashboard(args: {
       todayDateKey: todayKey,
       stripeWeek: emptyStripeWeekMovement(),
       currentFreeTrials: emptyCurrentFreeTrials(),
+      recentActivity: null,
+      recentActivityPaymentFailedIncluded: false,
     };
   }
 
@@ -602,6 +665,8 @@ export async function loadSubscriberGrowthDashboard(args: {
   let stripeRevenueCents: MetricNumber = null;
   let paidInvoiceSubIds = new Set<string>();
   let stripeFailedIdentities = new Set<string>();
+  let failedInvoices: RecentActivityFailedInvoice[] = [];
+  let invoiceListComplete = false;
 
   if (!key) {
     warnings.push("Stripe is not configured; Stripe metrics are unavailable.");
@@ -641,6 +706,8 @@ export async function loadSubscriberGrowthDashboard(args: {
       });
       paidInvoiceSubIds = invoices.paidInvoiceSubIds;
       stripeFailedIdentities = invoices.failedIdentities;
+      failedInvoices = invoices.failedInvoices;
+      invoiceListComplete = invoices.complete;
       stripeRevenueCents = invoices.complete ? invoices.revenueCents : null;
       if (!invoices.complete) {
         warnings.push(
@@ -937,18 +1004,36 @@ export async function loadSubscriberGrowthDashboard(args: {
     next7EndMs: next7End?.getTime() ?? null,
   });
 
-  let latestTrials: LatestTrialRow[] = [];
-  let latestTrialsActivationComplete = false;
-  try {
-    const latest = await loadLatestTrialRows({
+  const includePaymentFailed = invoiceListComplete;
+  const [latestResult, activityResult] = await Promise.allSettled([
+    loadLatestTrialRows({
       stripeSubs,
       recognized,
       paidInvoiceSubIds,
-    });
-    latestTrials = latest.rows;
-    latestTrialsActivationComplete = latest.activationComplete;
-  } catch (err) {
-    console.warn("[subscriber-growth] latest trials failed", err);
+    }),
+    loadRecentActivityRows({
+      stripeSubs,
+      recognized,
+      paidInvoiceSubIds,
+      failedInvoices,
+      includePaymentFailed,
+      stripeListComplete,
+      attributionsByClerkId: attrByClerk,
+    }),
+  ]);
+  let latestTrials: LatestTrialRow[] = [];
+  let latestTrialsActivationComplete = false;
+  if (latestResult.status === "fulfilled") {
+    latestTrials = latestResult.value.rows;
+    latestTrialsActivationComplete = latestResult.value.activationComplete;
+  } else {
+    console.warn("[subscriber-growth] latest trials failed", latestResult.reason);
+  }
+  let recentActivity: RecentActivityEvent[] | null = null;
+  if (activityResult.status === "fulfilled") {
+    recentActivity = activityResult.value;
+  } else {
+    console.warn("[subscriber-growth] recent activity failed", activityResult.reason);
   }
 
   return {
@@ -966,5 +1051,7 @@ export async function loadSubscriberGrowthDashboard(args: {
     todayDateKey: todayKey,
     stripeWeek,
     currentFreeTrials,
+    recentActivity,
+    recentActivityPaymentFailedIncluded: includePaymentFailed && recentActivity != null,
   };
 }

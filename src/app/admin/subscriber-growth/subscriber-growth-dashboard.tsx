@@ -9,12 +9,14 @@ import {
   formatLatestTrialSignedUp,
   formatMaybeAvailableCount,
   formatPersonFlag,
+  formatRecentActivityWhen,
   formatSignedNet,
   formatUnknownableCount,
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
   organicSocialPlatformLabel,
   NOT_AVAILABLE,
+  RECENT_ACTIVITY_LABELS,
   ROAD_TO_2500_DEADLINE_DATE_KEY,
   ROAD_TO_2500_TARGET,
   ROAD_TO_500_DEADLINE_DATE_KEY,
@@ -294,9 +296,19 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
     meaning: "See Answered first morning check in 24 hours.",
   },
   {
+    term: "Became a paying member",
+    meaning:
+      "The membership became paid according to the same Stripe conversion logic used by the dashboard. For a 7-day trial, that time is the trial end, not the Stripe invoice paid time.",
+  },
+  {
     term: "Cancelled during free trial",
     meaning:
       "They cancelled their Stripe membership before the 7-day free week ended.",
+  },
+  {
+    term: "Cancelled during free week",
+    meaning:
+      "They cancelled before their Stripe trial ended. This is not a paid member asking to cancel later.",
   },
   {
     term: "Campaign",
@@ -383,6 +395,11 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
       "They came from Instagram, Facebook, TikTok, X, or similar, without a paid-ad marker.",
   },
   {
+    term: "Paid membership ended",
+    meaning:
+      "Paid Stripe access fully ended. A future cancellation request does not count until access actually stops.",
+  },
+  {
     term: "Paid subscriber churn",
     meaning:
       "Of Stripe members who were already paying at the start of the period, the share whose paid access fully ended. Apple is not included. All time is — because there is no starting point.",
@@ -390,7 +407,7 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
   {
     term: "Payment failed",
     meaning:
-      "A billing attempt failed during the selected period. This is not the same as currently past due. Includes Stripe payment failures and Apple failed renewals when available.",
+      "A billing attempt failed during the selected period. This is not the same as currently past due. Includes Stripe payment failures and Apple failed renewals when available. In Recent activity, Payment failed is Stripe-only and uses invoices already loaded for this page.",
   },
   {
     term: "Paying members",
@@ -409,6 +426,11 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
   {
     term: "Reactivated subscriber",
     meaning: "They were a paying Stripe member, fully ended, then paid again.",
+  },
+  {
+    term: "Recent activity",
+    meaning:
+      "The newest 25 Stripe membership events we can identify. This list is not changed by the date/source filters. Apple events are not included in Recent activity yet.",
   },
   {
     term: "Referral",
@@ -432,6 +454,10 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
   {
     term: "Spend not entered",
     meaning: "No Meta or Google ad spend has been saved for this view. Type it in Add Ad Spend.",
+  },
+  {
+    term: "Started a free week",
+    meaning: "A Stripe 7-day trial began. Apple has no free trial.",
   },
   {
     term: "Started a free week today",
@@ -564,8 +590,8 @@ export default function SubscriberGrowthDashboard({
             <ul className="mt-1 list-disc space-y-0.5 pl-4">
               <li>&quot;Right now&quot; numbers show the whole company.</li>
               <li>
-                Growth goals, This week on Stripe, and Current free trials also
-                ignore date and source filters.
+                Growth goals, This week on Stripe, Current free trials, and
+                Recent activity also ignore date and source filters.
               </li>
               <li>Date and source filters change the historical reports below.</li>
               <li>
@@ -621,8 +647,8 @@ export default function SubscriberGrowthDashboard({
           </p>
           <p className="text-[10px] text-gray-600">
             These filters change the historical reports below. They do not
-            change Company right now, growth goals, This week on Stripe, or
-            Current free trials.
+            change Company right now, growth goals, This week on Stripe,
+            Current free trials, or Recent activity.
           </p>
         </div>
       </div>
@@ -1083,6 +1109,105 @@ export default function SubscriberGrowthDashboard({
         )}
       </section>
 
+      <section>
+        <h2 className="mb-0.5 text-sm font-semibold text-gray-900">
+          Recent activity
+        </h2>
+        <p className="mb-1.5 text-[10px] text-gray-500">
+          The last 25 Stripe membership events, newest first. Filters do not
+          change this list. Apple activity is not included yet.
+        </p>
+        {data.recentActivity == null ? (
+          <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-600">
+            <p className="font-medium text-gray-800">{NOT_AVAILABLE}</p>
+            <p>We could not reliably load recent membership activity.</p>
+          </div>
+        ) : (
+          <>
+            {data.recentActivityPaymentFailedIncluded ? null : (
+              <p className="mb-1.5 text-[10px] text-gray-500">
+                Payment failed is not shown because invoices could not be loaded
+                completely.
+              </p>
+            )}
+            <div className="hidden overflow-hidden rounded-lg border border-gray-200 bg-white md:block">
+              <table className="w-full text-left text-[11px]">
+                <thead className="bg-gray-50 text-gray-500">
+                  <tr>
+                    <th className="px-2 py-1.5 font-medium">When</th>
+                    <th className="px-2 py-1.5 font-medium">Person</th>
+                    <th className="px-2 py-1.5 font-medium">What happened</th>
+                    <th className="px-2 py-1.5 font-medium">First touch</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.recentActivity.length === 0 ? (
+                    <tr className="text-gray-700">
+                      <td className="px-2 py-2" colSpan={4}>
+                        No recent Stripe membership events yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    data.recentActivity.map((row) => (
+                      <tr
+                        key={row.stableKey}
+                        className="border-t border-gray-100 text-gray-800"
+                      >
+                        <td className="whitespace-nowrap px-2 py-1.5">
+                          {formatRecentActivityWhen(
+                            row.timestampUnix,
+                            data.todayDateKey
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {row.personEmail || UNKNOWN_METRIC}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {RECENT_ACTIVITY_LABELS[row.type]}
+                        </td>
+                        <td className="px-2 py-1.5 text-gray-500">
+                          {row.firstTouchLabel || UNKNOWN_SOURCE_LABEL}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="space-y-2 md:hidden">
+              {data.recentActivity.length === 0 ? (
+                <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-600">
+                  No recent Stripe membership events yet.
+                </div>
+              ) : (
+                data.recentActivity.map((row) => (
+                  <div
+                    key={row.stableKey}
+                    className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px]"
+                  >
+                    <div className="font-medium text-gray-900">
+                      {formatRecentActivityWhen(
+                        row.timestampUnix,
+                        data.todayDateKey
+                      )}
+                    </div>
+                    <div className="text-gray-800">
+                      {row.personEmail || UNKNOWN_METRIC}
+                    </div>
+                    <div className="text-gray-800">
+                      {RECENT_ACTIVITY_LABELS[row.type]}
+                    </div>
+                    <p className="text-gray-500">
+                      First touch: {row.firstTouchLabel || UNKNOWN_SOURCE_LABEL}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </>
+        )}
+      </section>
+
       <section data-latest-trials>
         <h2 className="mb-0.5 text-sm font-semibold text-gray-900">
           Latest Trials
@@ -1230,8 +1355,8 @@ export default function SubscriberGrowthDashboard({
                   &quot;Company right now&quot; shows live whole-company numbers.
                 </li>
                 <li>
-                  Growth goals, This week on Stripe, and Current free trials ignore
-                  the date and source filters.
+                  Growth goals, This week on Stripe, Current free trials, and
+                  Recent activity ignore the date and source filters.
                 </li>
                 <li>&quot;This period&quot; reports use the date/source filters.</li>
                 <li>

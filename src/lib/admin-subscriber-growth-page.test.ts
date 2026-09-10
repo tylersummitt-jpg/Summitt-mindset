@@ -55,6 +55,8 @@ describe("subscriber growth page authorization", () => {
         endsToday: null,
         endsNext7Days: null,
       },
+      recentActivity: [],
+      recentActivityPaymentFailedIncluded: true,
     });
   });
 
@@ -205,11 +207,16 @@ describe("subscriber growth auth architecture", () => {
     expect(dashboard).toContain("Road to 500");
     expect(dashboard).toContain("This week on Stripe");
     expect(dashboard).toContain(
-      "They do not\n            change Company right now, growth goals, This week on Stripe, or\n            Current free trials."
+      "They do not\n            change Company right now, growth goals, This week on Stripe,\n            Current free trials, or Recent activity."
     );
     expect(loader).toContain("countCurrentFreeTrials");
     expect(loader).not.toContain(
       "countCurrentFreeTrials({\n    stripeSubs: sourceFilteredSubs"
+    );
+    expect(loader).toContain("collectRecentActivityEvents");
+    expect(loader).toContain("loadRecentActivityRows");
+    expect(loader).not.toContain(
+      "collectRecentActivityEvents({\n    stripeSubs: sourceFilteredSubs"
     );
   });
 
