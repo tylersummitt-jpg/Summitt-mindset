@@ -47,6 +47,8 @@ describe("subscriber growth page authorization", () => {
       activationQueryComplete: true,
       latestTrialsActivationComplete: true,
       adSpendQueryComplete: true,
+      todayDateKey: "2026-09-01",
+      stripeWeek: { newPaid: null, ended: null, net: null },
     });
   });
 
@@ -188,6 +190,17 @@ describe("subscriber growth auth architecture", () => {
     expect(loader).not.toContain("countActivePaidMembers({\n    stripeSubs: sourceFilteredSubs");
     expect(loader).toContain("activationQueryComplete");
     expect(loader).toContain("adSpendQueryComplete");
+    expect(loader).toContain("countStripeWeekMovement");
+    expect(loader).toContain("todayDateKey: todayKey");
+    expect(loader).not.toContain(
+      "countStripeWeekMovement({\n        stripeSubs: sourceFilteredSubs"
+    );
+    expect(dashboard).toContain("current: snapshot.asOfNow.activePaid");
+    expect(dashboard).toContain("Road to 500");
+    expect(dashboard).toContain("This week on Stripe");
+    expect(dashboard).toContain(
+      "They do not\n            change Company right now, growth goals, or This week on Stripe."
+    );
   });
 
   it("loader selects existing utm_source without schema or capture changes", () => {

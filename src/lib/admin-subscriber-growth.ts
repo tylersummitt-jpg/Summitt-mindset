@@ -15,7 +15,10 @@ import {
   clerkUserIdFromStripeSub,
   computeGrowthSnapshot,
   countActivePaidMembers,
+  countStripeWeekMovement,
+  emptyStripeWeekMovement,
   emptyUnknownSnapshot,
+  mondayDateKeyFromDateKey,
   growthPeriodUtcMs,
   paidConversionUnix,
   parseGrowthDateRange,
@@ -39,7 +42,7 @@ import { listClerkUsers, listClerkUsersByIds } from "@/lib/clerk-rest";
 import { extractPrimaryEmail } from "@/lib/quotes-book-fulfillment-reminder";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getDateKeyInTimezone } from "@/lib/timezone";
+import { getDateKeyInTimezone, utcInstantForLocalMidnight } from "@/lib/timezone";
 
 const STRIPE_PAGE_SIZE = 100;
 const STRIPE_MAX_PAGES = 80;
@@ -584,6 +587,8 @@ export async function loadSubscriberGrowthDashboard(args: {
       activationQueryComplete: false,
       latestTrialsActivationComplete: false,
       adSpendQueryComplete: false,
+      todayDateKey: todayKey,
+      stripeWeek: emptyStripeWeekMovement(),
     };
   }
 
@@ -895,6 +900,21 @@ export async function loadSubscriberGrowthDashboard(args: {
     appleQueryComplete,
   });
 
+  const weekStart = utcInstantForLocalMidnight(
+    mondayDateKeyFromDateKey(todayKey),
+    SUBSCRIBER_GROWTH_TZ
+  );
+  const stripeWeek = weekStart
+    ? countStripeWeekMovement({
+        stripeSubs,
+        recognizedPriceIds: recognized,
+        paidInvoiceSubIds,
+        startMs: weekStart.getTime(),
+        endMs: now.getTime() + 1,
+        stripeListComplete,
+      })
+    : emptyStripeWeekMovement();
+
   let latestTrials: LatestTrialRow[] = [];
   let latestTrialsActivationComplete = false;
   try {
@@ -921,5 +941,7 @@ export async function loadSubscriberGrowthDashboard(args: {
     activationQueryComplete,
     latestTrialsActivationComplete,
     adSpendQueryComplete,
+    todayDateKey: todayKey,
+    stripeWeek,
   };
 }

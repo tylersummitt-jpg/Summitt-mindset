@@ -70,6 +70,12 @@ function dashboardData(
     activationQueryComplete: true,
     latestTrialsActivationComplete: true,
     adSpendQueryComplete: true,
+    todayDateKey: "2026-09-09",
+    stripeWeek: {
+      newPaid: null,
+      ended: null,
+      net: null,
+    },
   };
 }
 
@@ -259,7 +265,7 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "These filters change the historical reports below. They do not change Company right now."
+        "These filters change the historical reports below. They do not change Company right now, growth goals, or This week on Stripe."
       )
     ).toBeTruthy();
     expect(screen.getByText("Company right now")).toBeTruthy();
@@ -326,6 +332,9 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     expect(screen.getByText("Subscriber Growth Dashboard")).toBeTruthy();
     expect(screen.getByText("Company right now")).toBeTruthy();
     expect(screen.getByText("This period")).toBeTruthy();
+    expect(screen.getAllByText("Road to 500").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Road to 2,500").length).toBeGreaterThan(0);
+    expect(screen.getByText("This week on Stripe")).toBeTruthy();
     expect(screen.getByText("Growth funnel")).toBeTruthy();
     expect(screen.getByText("Subscribers & retention")).toBeTruthy();
     expect(screen.getByText("Revenue")).toBeTruthy();
@@ -344,6 +353,109 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     expect(screen.getAllByText("Reactivated subscriber").length).toBeGreaterThan(0);
     expect(screen.getAllByText("New paid subscribers attributed to advertising").length).toBeGreaterThan(0);
     expect(screen.getByText("Add Ad Spend")).toBeTruthy();
+  });
+});
+
+describe("subscriber growth slice 2 goals and weekly stripe", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("renders both goal cards, progress bars, deadlines, and weekly stripe copy", () => {
+    const data = dashboardData([]);
+    data.snapshot.asOfNow.activePaid = 42;
+    data.todayDateKey = "2026-09-10";
+    data.stripeWeek = { newPaid: 4, ended: 2, net: 2 };
+    render(<SubscriberGrowthDashboard data={data} />);
+
+    expect(screen.getAllByText("Road to 500").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Road to 2,500").length).toBeGreaterThan(0);
+    expect(screen.getByText("500 paying members by December 31, 2026.")).toBeTruthy();
+    expect(screen.getByText("2,500 paying members by December 31, 2027.")).toBeTruthy();
+    expect(screen.getByText("42 of 500 paying members")).toBeTruthy();
+    expect(screen.getByText("42 of 2,500 paying members")).toBeTruthy();
+    expect(screen.getAllByText("458 to go").length).toBe(1);
+    expect(screen.getByText("2,458 to go")).toBeTruthy();
+    expect(
+      screen.getAllByText(/net new paid subscribers needed per week/).length
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByRole("progressbar")).toHaveLength(2);
+    expect(screen.getByText("This week on Stripe")).toBeTruthy();
+    expect(screen.getAllByText("New paid (Stripe)").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Ended (Stripe)").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Stripe net this week").length).toBeGreaterThan(0);
+    expect(screen.getByText("+2")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Monday through today · Eastern Time. Apple is not included in this weekly change because we cannot reliably reconstruct past Apple membership."
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Apple paying members are included in the total Paying Members count and both growth goals/
+      )
+    ).toBeTruthy();
+    expect(screen.getAllByText("Road to 500").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("Road to 2,500").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("New paid (Stripe)").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("Ended (Stripe)").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("Stripe net this week").length).toBeGreaterThan(1);
+    expect(
+      screen.getAllByText("Net new paid subscribers needed per week").length
+    ).toBeGreaterThan(0);
+  });
+
+  it("shows Not available on goal cards when global paying members is missing", () => {
+    const data = dashboardData([]);
+    data.snapshot.asOfNow.activePaid = null;
+    render(<SubscriberGrowthDashboard data={data} />);
+    expect(screen.getAllByText("Not available").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/of 500 paying members/)).toBeNull();
+    expect(screen.queryByText("Goal reached")).toBeNull();
+  });
+
+  it("shows Goal reached instead of weekly pace when the target is met", () => {
+    const data = dashboardData([]);
+    data.snapshot.asOfNow.activePaid = 500;
+    data.todayDateKey = "2026-09-10";
+    render(<SubscriberGrowthDashboard data={data} />);
+    expect(screen.getByText("500 of 500 paying members")).toBeTruthy();
+    expect(screen.getByText("0 to go")).toBeTruthy();
+    expect(screen.getByText("Goal reached")).toBeTruthy();
+  });
+
+  it("shows Deadline passed when the 500 deadline is over and the goal is not met", () => {
+    const data = dashboardData([]);
+    data.snapshot.asOfNow.activePaid = 100;
+    data.todayDateKey = "2027-01-01";
+    render(<SubscriberGrowthDashboard data={data} />);
+    expect(screen.getByText("Deadline passed · 400 to go")).toBeTruthy();
+  });
+
+  it("formats weekly net with sign, zero, and minus, and Not available when incomplete", () => {
+    const positive = dashboardData([]);
+    positive.stripeWeek = { newPaid: 4, ended: 0, net: 4 };
+    const { unmount } = render(<SubscriberGrowthDashboard data={positive} />);
+    expect(screen.getByText("+4")).toBeTruthy();
+    unmount();
+
+    const zero = dashboardData([]);
+    zero.stripeWeek = { newPaid: 1, ended: 1, net: 0 };
+    const second = render(<SubscriberGrowthDashboard data={zero} />);
+    expect(second.getAllByText("Stripe net this week").length).toBeGreaterThan(0);
+    expect(second.getByText("0")).toBeTruthy();
+    second.unmount();
+
+    const negative = dashboardData([]);
+    negative.stripeWeek = { newPaid: 1, ended: 3, net: -2 };
+    const third = render(<SubscriberGrowthDashboard data={negative} />);
+    expect(screen.getByText("-2")).toBeTruthy();
+    third.unmount();
+
+    const missing = dashboardData([]);
+    missing.stripeWeek = { newPaid: null, ended: null, net: null };
+    render(<SubscriberGrowthDashboard data={missing} />);
+    expect(screen.getAllByText("Not available").length).toBeGreaterThan(0);
   });
 });
 

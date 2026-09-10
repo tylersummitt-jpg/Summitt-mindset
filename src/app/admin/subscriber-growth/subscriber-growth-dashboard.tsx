@@ -2,20 +2,28 @@ import Link from "next/link";
 
 import {
   adSpendDisplayStatus,
+  computeGrowthGoal,
   formatAdvertisingSpendDisplay,
   formatCostPerPaidDisplay,
+  formatGoalTarget,
   formatLatestTrialSignedUp,
   formatMaybeAvailableCount,
   formatPersonFlag,
+  formatSignedNet,
   formatUnknownableCount,
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
   organicSocialPlatformLabel,
   NOT_AVAILABLE,
+  ROAD_TO_2500_DEADLINE_DATE_KEY,
+  ROAD_TO_2500_TARGET,
+  ROAD_TO_500_DEADLINE_DATE_KEY,
+  ROAD_TO_500_TARGET,
   SPEND_NOT_ENTERED,
   UNKNOWN_METRIC,
   UNKNOWN_SOURCE_LABEL,
   type GrowthDateRange,
+  type GrowthGoalComputed,
   type GrowthTrafficSource,
   type LatestTrialRow,
   type SubscriberGrowthDashboardData,
@@ -128,6 +136,70 @@ function MetricCard({
   );
 }
 
+function growthGoalPaceCopy(goal: GrowthGoalComputed): string {
+  if (goal.reached) return "Goal reached";
+  if (goal.deadlinePassed) {
+    const remaining =
+      goal.remaining == null ? NOT_AVAILABLE : formatGoalTarget(goal.remaining);
+    return `Deadline passed · ${remaining} to go`;
+  }
+  return `About ${formatUnknownableCount(goal.neededPerWeek)} net new paid subscribers needed per week`;
+}
+
+function GrowthGoalCard({
+  title,
+  subtitle,
+  target,
+  goal,
+}: {
+  title: string;
+  subtitle: string;
+  target: number;
+  goal: GrowthGoalComputed;
+}) {
+  const available = goal.current != null;
+  const barPct = available ? clampProgressPercent(goal.progress) : 0;
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
+      <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+      <p className="text-[10px] text-gray-500">{subtitle}</p>
+      <p className="mt-2 text-lg font-semibold tabular-nums text-gray-900">
+        {available
+          ? `${formatUnknownableCount(goal.current)} of ${formatGoalTarget(target)} paying members`
+          : NOT_AVAILABLE}
+      </p>
+      {available ? (
+        <p className="text-[11px] text-gray-600">
+          {formatGoalTarget(goal.remaining ?? 0)} to go
+        </p>
+      ) : null}
+      <div
+        role="progressbar"
+        aria-label={`${title} progress`}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={barPct}
+        className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100"
+      >
+        <div
+          className="h-full rounded-full bg-gray-800"
+          style={{ width: `${barPct}%` }}
+        />
+      </div>
+      {available ? (
+        <p className="mt-2 text-[11px] leading-snug text-gray-600">
+          {growthGoalPaceCopy(goal)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function clampProgressPercent(progress: number | null): number {
+  if (progress == null || !Number.isFinite(progress)) return 0;
+  return Math.min(100, Math.max(0, progress * 100));
+}
+
 function StatCell({
   label,
   value,
@@ -238,6 +310,11 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
       "We recorded a first visit with no ad click, no social or Google clue, and no other website. This is not the same as Unknown.",
   },
   {
+    term: "Ended (Stripe)",
+    meaning:
+      "Paying Stripe members whose access fully ended from Monday through now. Scheduled cancel at period end is not an end until access actually stops. Apple is not included.",
+  },
+  {
     term: "Finished trial without becoming paid",
     meaning:
       "The 7-day Stripe trial ended and they never became a paying member. They did not cancel in the middle.",
@@ -266,6 +343,16 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
   {
     term: "Monthly value of current Stripe members",
     meaning: "See Monthly recurring revenue equivalent.",
+  },
+  {
+    term: "Net new paid subscribers needed per week",
+    meaning:
+      "The approximate number of additional paying members we need each remaining calendar week to reach the goal by its deadline. Uses the current whole-company Paying Members count.",
+  },
+  {
+    term: "New paid (Stripe)",
+    meaning:
+      "People who became paying Stripe members from Monday through now. Free trials that have not become paid are not counted. Apple is not included.",
   },
   {
     term: "Not available",
@@ -309,6 +396,16 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
     meaning: "Includes Coach referral links and links from other websites.",
   },
   {
+    term: "Road to 2,500",
+    meaning:
+      "Whole-company paying members compared with the goal of 2,500 by December 31, 2027. Apple paying members are included. Date and source filters do not change this.",
+  },
+  {
+    term: "Road to 500",
+    meaning:
+      "Whole-company paying members compared with the goal of 500 by December 31, 2026. Apple paying members are included. Date and source filters do not change this.",
+  },
+  {
     term: "Revenue collected",
     meaning:
       "Successful Stripe payments collected during the selected dates. Apple payments are not included. Refunds later are not subtracted. Also shown as Stripe cash collected.",
@@ -320,6 +417,11 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
   {
     term: "Stripe cash collected",
     meaning: "See Revenue collected.",
+  },
+  {
+    term: "Stripe net this week",
+    meaning:
+      "New paid Stripe members minus ended Stripe members from Monday through now. Apple is not included in this weekly number. Apple is still included in Paying members and both growth goals.",
   },
   {
     term: "Subscription fully ended",
@@ -367,6 +469,19 @@ export default function SubscriberGrowthDashboard({
       : spendStatus === "unavailable"
         ? "We could not load ad spend, so this cost is not available."
         : "Ad spend this period ÷ people from paid ads who became paying members this period. Those people may not be from the same signup week.";
+
+  const roadTo500 = computeGrowthGoal({
+    current: snapshot.asOfNow.activePaid,
+    target: ROAD_TO_500_TARGET,
+    todayDateKey: data.todayDateKey,
+    deadlineDateKey: ROAD_TO_500_DEADLINE_DATE_KEY,
+  });
+  const roadTo2500 = computeGrowthGoal({
+    current: snapshot.asOfNow.activePaid,
+    target: ROAD_TO_2500_TARGET,
+    todayDateKey: data.todayDateKey,
+    deadlineDateKey: ROAD_TO_2500_DEADLINE_DATE_KEY,
+  });
 
   const funnel = [
     {
@@ -424,6 +539,10 @@ export default function SubscriberGrowthDashboard({
             <p className="font-medium text-gray-700">How this page works</p>
             <ul className="mt-1 list-disc space-y-0.5 pl-4">
               <li>&quot;Right now&quot; numbers show the whole company.</li>
+              <li>
+                Growth goals and This week on Stripe also ignore date and source
+                filters.
+              </li>
               <li>Date and source filters change the historical reports below.</li>
               <li>
                 {snapshot.notes.instrumentationStartLabel
@@ -478,7 +597,7 @@ export default function SubscriberGrowthDashboard({
           </p>
           <p className="text-[10px] text-gray-600">
             These filters change the historical reports below. They do not
-            change Company right now.
+            change Company right now, growth goals, or This week on Stripe.
           </p>
         </div>
       </div>
@@ -534,6 +653,63 @@ export default function SubscriberGrowthDashboard({
             note={costPerPaidNote}
           />
         </div>
+      </section>
+
+      <section>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <GrowthGoalCard
+            title="Road to 500"
+            subtitle="500 paying members by December 31, 2026."
+            target={ROAD_TO_500_TARGET}
+            goal={roadTo500}
+          />
+          <GrowthGoalCard
+            title="Road to 2,500"
+            subtitle="2,500 paying members by December 31, 2027."
+            target={ROAD_TO_2500_TARGET}
+            goal={roadTo2500}
+          />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-0.5 text-sm font-semibold text-gray-900">
+          This week on Stripe
+        </h2>
+        <p className="mb-1.5 text-[10px] text-gray-500">
+          Monday through today · Eastern Time. Apple is not included in this
+          weekly change because we cannot reliably reconstruct past Apple
+          membership.
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <MetricCard
+            label="New paid (Stripe)"
+            value={formatMaybeAvailableCount(
+              data.stripeWeek.newPaid,
+              data.stripeWeek.newPaid != null
+            )}
+            scope="Became paying Stripe members from Monday through now"
+          />
+          <MetricCard
+            label="Ended (Stripe)"
+            value={formatMaybeAvailableCount(
+              data.stripeWeek.ended,
+              data.stripeWeek.ended != null
+            )}
+            scope="Paid Stripe access fully ended from Monday through now"
+          />
+          <MetricCard
+            label="Stripe net this week"
+            value={formatSignedNet(data.stripeWeek.net)}
+            scope="New paid minus ended. Stripe only."
+          />
+        </div>
+        <p className="mt-1.5 text-[10px] leading-snug text-gray-500">
+          Apple paying members are included in the total Paying Members count
+          and both growth goals. They are not included in this week&apos;s
+          plus/minus because historical Apple membership cannot currently be
+          reconstructed reliably.
+        </p>
       </section>
 
       <section>
@@ -983,6 +1159,10 @@ export default function SubscriberGrowthDashboard({
               <ul className="mt-1 list-disc space-y-0.5 pl-4">
                 <li>
                   &quot;Company right now&quot; shows live whole-company numbers.
+                </li>
+                <li>
+                  Growth goals and This week on Stripe ignore the date and source
+                  filters.
                 </li>
                 <li>&quot;This period&quot; reports use the date/source filters.</li>
                 <li>

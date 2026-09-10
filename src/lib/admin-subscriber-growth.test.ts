@@ -8,18 +8,27 @@ import {
   computeGrowthSnapshot,
   conversionRate,
   countActivePaidMembers,
+  countStripeWeekMovement,
   formatAdvertisingSpendDisplay,
   formatCostPerPaidDisplay,
   formatLatestTrialSignedUp,
   formatPersonFlag,
+  formatSignedNet,
   formatUnknownableCount,
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
   growthPeriodUtcMs,
   isStripePaidActive,
   LATEST_TRIALS_LIMIT,
+  mondayDateKeyFromDateKey,
   mrrCentsFromStripePriceAmount,
   organicSocialPlatformLabel,
+  remainingInclusiveCalendarWeeks,
+  computeGrowthGoal,
+  ROAD_TO_2500_DEADLINE_DATE_KEY,
+  ROAD_TO_2500_TARGET,
+  ROAD_TO_500_DEADLINE_DATE_KEY,
+  ROAD_TO_500_TARGET,
   selectLatestTrialSeeds,
   NO_LABEL,
   NOT_AVAILABLE,
@@ -1263,6 +1272,233 @@ describe("latest trial seeds and rows", () => {
     const label = formatLatestTrialSignedUp(unix);
     expect(label).toContain("Sep 9, 2026");
     expect(label).toContain("8:43 PM");
+  });
+});
+
+describe("growth goal pacing", () => {
+  it("uses Dec 31 2026 and Dec 31 2027 deadlines", () => {
+    expect(ROAD_TO_500_TARGET).toBe(500);
+    expect(ROAD_TO_500_DEADLINE_DATE_KEY).toBe("2026-12-31");
+    expect(ROAD_TO_2500_TARGET).toBe(2500);
+    expect(ROAD_TO_2500_DEADLINE_DATE_KEY).toBe("2027-12-31");
+  });
+
+  it("treats the Monday of a Thursday as the current week start", () => {
+    expect(mondayDateKeyFromDateKey("2026-09-10")).toBe("2026-09-07");
+  });
+
+  it("counts the current partial week and the deadline week", () => {
+    expect(
+      remainingInclusiveCalendarWeeks({
+        todayDateKey: "2026-09-10",
+        deadlineDateKey: "2026-12-31",
+      })
+    ).toBe(17);
+    expect(
+      remainingInclusiveCalendarWeeks({
+        todayDateKey: "2026-12-31",
+        deadlineDateKey: "2026-12-31",
+      })
+    ).toBe(1);
+    expect(
+      remainingInclusiveCalendarWeeks({
+        todayDateKey: "2026-12-28",
+        deadlineDateKey: "2026-12-31",
+      })
+    ).toBe(1);
+  });
+
+  it("returns 0 weeks the day after the deadline", () => {
+    expect(
+      remainingInclusiveCalendarWeeks({
+        todayDateKey: "2027-01-01",
+        deadlineDateKey: "2026-12-31",
+      })
+    ).toBe(0);
+  });
+
+  it("computes remaining, never-negative remaining, capped progress, and ceil weekly pace", () => {
+    const goal = computeGrowthGoal({
+      current: 42,
+      target: 500,
+      todayDateKey: "2026-09-10",
+      deadlineDateKey: ROAD_TO_500_DEADLINE_DATE_KEY,
+    });
+    expect(goal.remaining).toBe(458);
+    expect(goal.progress).toBe(42 / 500);
+    expect(goal.neededPerWeek).toBe(Math.ceil(458 / 17));
+    expect(Number.isFinite(goal.neededPerWeek ?? NaN)).toBe(true);
+    expect(goal.neededPerWeek).not.toBe(Infinity);
+  });
+
+  it("clamps remaining at 0 and progress at 100% when the target is exceeded", () => {
+    const goal = computeGrowthGoal({
+      current: 600,
+      target: 500,
+      todayDateKey: "2026-09-10",
+      deadlineDateKey: ROAD_TO_500_DEADLINE_DATE_KEY,
+    });
+    expect(goal.remaining).toBe(0);
+    expect(goal.progress).toBe(1);
+    expect(goal.reached).toBe(true);
+    expect(goal.neededPerWeek).toBe(0);
+  });
+
+  it("marks Goal reached when current equals the target", () => {
+    const goal = computeGrowthGoal({
+      current: 500,
+      target: 500,
+      todayDateKey: "2026-09-10",
+      deadlineDateKey: ROAD_TO_500_DEADLINE_DATE_KEY,
+    });
+    expect(goal.reached).toBe(true);
+    expect(goal.remaining).toBe(0);
+    expect(goal.neededPerWeek).toBe(0);
+  });
+
+  it("does not divide after the deadline", () => {
+    const goal = computeGrowthGoal({
+      current: 100,
+      target: 500,
+      todayDateKey: "2027-01-01",
+      deadlineDateKey: ROAD_TO_500_DEADLINE_DATE_KEY,
+    });
+    expect(goal.deadlinePassed).toBe(true);
+    expect(goal.remaining).toBe(400);
+    expect(goal.neededPerWeek).toBeNull();
+    expect(goal.remainingCalendarWeeks).toBe(0);
+  });
+
+  it("does not invent progress when the current count is unavailable", () => {
+    const goal = computeGrowthGoal({
+      current: null,
+      target: 500,
+      todayDateKey: "2026-09-10",
+      deadlineDateKey: ROAD_TO_500_DEADLINE_DATE_KEY,
+    });
+    expect(goal.current).toBeNull();
+    expect(goal.remaining).toBeNull();
+    expect(goal.progress).toBeNull();
+    expect(goal.neededPerWeek).toBeNull();
+    expect(goal.reached).toBe(false);
+  });
+
+  it("uses the same global paying-member count as Company right now", () => {
+    const current = countActivePaidMembers({
+      stripeSubs: [
+        stripeSub({ id: "paid", status: "active" }),
+        stripeSub({ id: "trial", status: "trialing" }),
+      ],
+      appleGranting: [appleGranting({ clerk_user_id: "apple_user" })],
+      recognizedPriceIds: RECOGNIZED,
+      stripeListComplete: true,
+      appleQueryComplete: true,
+    });
+    const goal = computeGrowthGoal({
+      current,
+      target: ROAD_TO_500_TARGET,
+      todayDateKey: "2026-09-10",
+      deadlineDateKey: ROAD_TO_500_DEADLINE_DATE_KEY,
+    });
+    expect(current).toBe(2);
+    expect(goal.current).toBe(2);
+  });
+});
+
+describe("this week on Stripe movement", () => {
+  const mondayMs = Date.parse("2026-09-07T04:00:00.000Z");
+  const nowMs = Date.parse("2026-09-10T16:00:00.000Z");
+
+  it("counts distinct new paid and ended identities from Monday through now", () => {
+    const result = countStripeWeekMovement({
+      stripeSubs: [
+        stripeSub({
+          id: "new",
+          status: "active",
+          trial_end: Math.floor(Date.parse("2026-09-08T12:00:00.000Z") / 1000),
+          trial_start: Math.floor(Date.parse("2026-09-01T12:00:00.000Z") / 1000),
+        }),
+        stripeSub({
+          id: "ended",
+          status: "canceled",
+          trial_end: Math.floor(Date.parse("2026-08-01T12:00:00.000Z") / 1000),
+          canceled_at: Math.floor(Date.parse("2026-09-09T12:00:00.000Z") / 1000),
+          ended_at: Math.floor(Date.parse("2026-09-09T12:00:00.000Z") / 1000),
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+      startMs: mondayMs,
+      endMs: nowMs + 1,
+      stripeListComplete: true,
+    });
+    expect(result.newPaid).toBe(1);
+    expect(result.ended).toBe(1);
+    expect(result.net).toBe(0);
+  });
+
+  it("does not treat cancel_at_period_end alone as ended", () => {
+    const result = countStripeWeekMovement({
+      stripeSubs: [
+        stripeSub({
+          id: "scheduled",
+          status: "active",
+          cancel_at_period_end: true,
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+      startMs: mondayMs,
+      endMs: nowMs + 1,
+      stripeListComplete: true,
+    });
+    expect(result.ended).toBe(0);
+    expect(result.newPaid).toBe(0);
+  });
+
+  it("does not count a still-running free trial as new paid", () => {
+    const result = countStripeWeekMovement({
+      stripeSubs: [
+        stripeSub({
+          id: "trial",
+          status: "trialing",
+          trial_start: Math.floor(Date.parse("2026-09-08T12:00:00.000Z") / 1000),
+          trial_end: Math.floor(Date.parse("2026-09-15T12:00:00.000Z") / 1000),
+        }),
+      ],
+      recognizedPriceIds: RECOGNIZED,
+      startMs: mondayMs,
+      endMs: nowMs + 1,
+      stripeListComplete: true,
+    });
+    expect(result.newPaid).toBe(0);
+  });
+
+  it("returns unavailable when the Stripe list is incomplete", () => {
+    const result = countStripeWeekMovement({
+      stripeSubs: [stripeSub({ id: "paid", status: "active" })],
+      recognizedPriceIds: RECOGNIZED,
+      startMs: mondayMs,
+      endMs: nowMs + 1,
+      stripeListComplete: false,
+    });
+    expect(result).toEqual({ newPaid: null, ended: null, net: null });
+  });
+
+  it("does not add Apple identities into the weekly Stripe counts", () => {
+    const result = countStripeWeekMovement({
+      stripeSubs: [],
+      recognizedPriceIds: RECOGNIZED,
+      startMs: mondayMs,
+      endMs: nowMs + 1,
+      stripeListComplete: true,
+    });
+    expect(result).toEqual({ newPaid: 0, ended: 0, net: 0 });
+  });
+
+  it("formats net with +, 0, minus, and Not available", () => {
+    expect(formatSignedNet(4)).toBe("+4");
+    expect(formatSignedNet(0)).toBe("0");
+    expect(formatSignedNet(-2)).toBe("-2");
+    expect(formatSignedNet(null)).toBe("Not available");
   });
 });
 

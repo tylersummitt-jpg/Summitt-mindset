@@ -262,6 +262,157 @@ export function countActivePaidMembers(args: {
   return identities.size;
 }
 
+export const ROAD_TO_500_TARGET = 500;
+export const ROAD_TO_500_DEADLINE_DATE_KEY = "2026-12-31";
+export const ROAD_TO_2500_TARGET = 2500;
+export const ROAD_TO_2500_DEADLINE_DATE_KEY = "2027-12-31";
+
+export type GrowthGoalComputed = {
+  current: MetricNumber;
+  remaining: MetricNumber;
+  progress: MetricNumber;
+  remainingCalendarWeeks: number;
+  neededPerWeek: MetricNumber;
+  reached: boolean;
+  deadlinePassed: boolean;
+};
+
+export type StripeWeekMovement = {
+  newPaid: MetricNumber;
+  ended: MetricNumber;
+  net: MetricNumber;
+};
+
+export function emptyStripeWeekMovement(): StripeWeekMovement {
+  return { newPaid: null, ended: null, net: null };
+}
+
+/** Monday of the Eastern calendar week for a YYYY-MM-DD civil date. */
+export function mondayDateKeyFromDateKey(dateKey: string): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const daysFromMonday = (weekday + 6) % 7;
+  return addDaysToDateKey(dateKey, -daysFromMonday);
+}
+
+/**
+ * Remaining Eastern calendar weeks from today through the deadline week.
+ * The current partial week counts as one week. The deadline's week counts
+ * even if the deadline is mid-week. After the deadline date: 0.
+ */
+export function remainingInclusiveCalendarWeeks(args: {
+  todayDateKey: string;
+  deadlineDateKey: string;
+}): number {
+  if (args.todayDateKey > args.deadlineDateKey) return 0;
+  const startMonday = mondayDateKeyFromDateKey(args.todayDateKey);
+  const deadlineMonday = mondayDateKeyFromDateKey(args.deadlineDateKey);
+  const startMs = Date.parse(`${startMonday}T00:00:00.000Z`);
+  const deadlineMs = Date.parse(`${deadlineMonday}T00:00:00.000Z`);
+  if (!Number.isFinite(startMs) || !Number.isFinite(deadlineMs)) return 0;
+  const dayDiff = Math.round((deadlineMs - startMs) / 86_400_000);
+  const weeks = Math.floor(dayDiff / 7) + 1;
+  return Number.isFinite(weeks) && weeks > 0 ? weeks : 0;
+}
+
+export function clampUnitInterval(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+
+export function computeGrowthGoal(args: {
+  current: MetricNumber;
+  target: number;
+  todayDateKey: string;
+  deadlineDateKey: string;
+}): GrowthGoalComputed {
+  const deadlinePassed = args.todayDateKey > args.deadlineDateKey;
+  const remainingCalendarWeeks = remainingInclusiveCalendarWeeks({
+    todayDateKey: args.todayDateKey,
+    deadlineDateKey: args.deadlineDateKey,
+  });
+  if (args.current == null || !Number.isFinite(args.current)) {
+    return {
+      current: null,
+      remaining: null,
+      progress: null,
+      remainingCalendarWeeks,
+      neededPerWeek: null,
+      reached: false,
+      deadlinePassed,
+    };
+  }
+  const current = args.current;
+  const remaining = Math.max(0, args.target - current);
+  const progress = clampUnitInterval(current / args.target);
+  const reached = current >= args.target;
+  let neededPerWeek: MetricNumber;
+  if (remaining === 0) {
+    neededPerWeek = 0;
+  } else if (deadlinePassed || remainingCalendarWeeks <= 0) {
+    neededPerWeek = null;
+  } else {
+    neededPerWeek = Math.ceil(remaining / remainingCalendarWeeks);
+  }
+  return {
+    current,
+    remaining,
+    progress,
+    remainingCalendarWeeks,
+    neededPerWeek,
+    reached,
+    deadlinePassed,
+  };
+}
+
+export function formatSignedNet(value: MetricNumber): string {
+  if (value == null || !Number.isFinite(value)) return NOT_AVAILABLE;
+  if (value > 0) return `+${value}`;
+  return String(value);
+}
+
+export function formatGoalTarget(target: number): string {
+  return new Intl.NumberFormat("en-US").format(target);
+}
+
+/**
+ * Distinct Stripe identities that became paid, and whose paid access fully
+ * ended, in [startMs, endMs). Does not use cancel_at_period_end. Apple is not
+ * included. Incomplete Stripe lists return Not-available (null) for all three.
+ */
+export function countStripeWeekMovement(args: {
+  stripeSubs: readonly GrowthStripeSubscription[];
+  recognizedPriceIds: ReadonlySet<string>;
+  paidInvoiceSubIds?: ReadonlySet<string>;
+  startMs: number;
+  endMs: number;
+  stripeListComplete: boolean;
+}): StripeWeekMovement {
+  if (!args.stripeListComplete) return emptyStripeWeekMovement();
+  const paidInvoiceSubIds = args.paidInvoiceSubIds ?? new Set<string>();
+  const newPaid = new Set<string>();
+  const ended = new Set<string>();
+  for (const sub of args.stripeSubs) {
+    if (!isLikelySummittStripeSubscription(sub, args.recognizedPriceIds)) continue;
+    const hadPaidInvoice = paidInvoiceSubIds.has(sub.id);
+    const converted = paidConversionUnix(sub, hadPaidInvoice);
+    if (unixSecondsInPeriod(converted, args.startMs, args.endMs)) {
+      newPaid.add(stripeSubscriberIdentity(sub));
+    }
+    const terminal = paidTerminalEndUnix(sub, hadPaidInvoice);
+    if (unixSecondsInPeriod(terminal, args.startMs, args.endMs)) {
+      ended.add(stripeSubscriberIdentity(sub));
+    }
+  }
+  return {
+    newPaid: newPaid.size,
+    ended: ended.size,
+    net: newPaid.size - ended.size,
+  };
+}
+
 export function stripeInterval(
   sub: GrowthStripeSubscription
 ): "month" | "year" | null {
@@ -854,6 +1005,8 @@ export type SubscriberGrowthDashboardData = {
   activationQueryComplete: boolean;
   latestTrialsActivationComplete: boolean;
   adSpendQueryComplete: boolean;
+  todayDateKey: string;
+  stripeWeek: StripeWeekMovement;
 };
 
 export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {
