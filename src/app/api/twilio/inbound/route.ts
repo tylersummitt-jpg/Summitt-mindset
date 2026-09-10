@@ -192,7 +192,7 @@ function scheduleInboundMediaPipelineKick(insertedCount: number): void {
 
 /** HELP / duplicate-HELP TwiML: SMS-first accountability; not day/progression framing. */
 const HELP_TWIML_BODY =
-  "Summitt Mindset: Pat texts you about your commitment—reply honestly to those check-ins. Reply STOP to opt out.";
+  "Summitt Mindset: Pat texts you about your commitment. Reply honestly to those check-ins. Reply STOP to opt out.";
 
 /** START TwiML after opt-in is restored. */
 const START_TWIML_BODY =

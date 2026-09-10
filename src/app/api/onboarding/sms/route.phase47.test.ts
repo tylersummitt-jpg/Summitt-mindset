@@ -33,6 +33,10 @@ describe("Phase 4.7 — onboarding SMS transactional exception (static)", () => 
     expect(src).toContain("Msg & data rates may apply");
     expect(src).toContain("Reply STOP to opt out");
     expect(src).toContain("Reply HELP for help");
+    expect(src).toContain(
+      "I will text you about your current goal. All you have to do is reply honestly to the check-ins."
+    );
+    expect(src).not.toContain("your current goal — all you have to do");
   });
 
   it("confirmation body avoids obvious internal coaching route jargon", () => {

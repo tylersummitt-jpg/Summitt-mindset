@@ -10075,7 +10075,7 @@ async function processV2MemoryConfirmationInbound(
   }
 
   if (replyKind === "no") {
-    const legacyDecline = "Got it — I won’t save that. We’ll keep the current context.";
+    const legacyDecline = "Got it. I won’t save that. We’ll keep the current context.";
     const memFacts: InboundV3MemoryConfirmationFacts = {
       pending_memory_kind: pending.pendingKind,
       candidate_memory_fields: candidateSummary,

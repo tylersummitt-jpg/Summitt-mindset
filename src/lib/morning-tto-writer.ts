@@ -90,6 +90,7 @@ PRIOR COACH HISTORY
 - The message should feel like the next human turn from Coach Pat: speak naturally in first person when it fits, as a real coach texting this member.
 
 Write one SMS. Keep it natural. No app directions, menu directions, or robot-style reply menus.
+Do not use em dashes, en dashes, or hyphens as punctuation between thoughts in the SMS, but hyphenated words are fine.
 
 Return strict JSON only:
 {"body":"<sms text>"}

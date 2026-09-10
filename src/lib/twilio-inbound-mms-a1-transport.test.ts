@@ -217,7 +217,7 @@ describe("twilio inbound route — MMS A1 transport wire", () => {
       "You have been unsubscribed. Reply START to rejoin."
     );
     expect(src).toContain(
-      "Summitt Mindset: Pat texts you about your commitment—reply honestly to those check-ins. Reply STOP to opt out."
+      "Summitt Mindset: Pat texts you about your commitment. Reply honestly to those check-ins. Reply STOP to opt out."
     );
     expect(src).toContain(
       "Welcome back. Text check-ins are on; Pat will text you about your commitment. Reply STOP to opt out anytime."

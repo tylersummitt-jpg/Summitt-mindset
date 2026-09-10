@@ -278,7 +278,7 @@ export async function POST(req: Request) {
       } else {
         const confirm =
           "So awesome to meet you!\n\n" +
-          "I will text you about your current goal — all you have to do is reply honestly to the check-ins.\n\n" +
+          "I will text you about your current goal. All you have to do is reply honestly to the check-ins.\n\n" +
           "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.\n\n" +
           "Summitt Mindset";
 

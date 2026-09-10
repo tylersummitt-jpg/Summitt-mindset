@@ -112,6 +112,8 @@ describe("PR 2.1b-pr2a memory confirmation unified guard — route wiring", () =
     expect(memoryBlock).toContain('routePurpose: "memory_decline"');
     expect(memoryBlock).toContain('branch: "decline"');
     expect(memoryBlock).toContain("memoryNoSendTruthPolicy:");
+    expect(memoryBlock).toContain("Got it. I won’t save that. We’ll keep the current context.");
+    expect(memoryBlock).not.toContain("Got it — I won’t save that.");
   });
 
   it("3: memory_clarification helper call uses unified guard opt-in", () => {

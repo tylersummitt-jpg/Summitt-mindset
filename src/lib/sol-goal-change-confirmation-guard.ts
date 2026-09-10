@@ -213,9 +213,9 @@ export function buildAuthorizedTemporaryRejectedAck(
 ): string {
   const canon = (authorization.canonical_behavior_statement ?? "").trim().replace(/\.+$/, "");
   if (canon) {
-    return `Okay — I won't apply that temporary adjustment. Your Current Goal stays ${canon}.`;
+    return `Okay. I won't apply that temporary adjustment. Your Current Goal stays ${canon}.`;
   }
-  return "Okay — I won't apply that temporary adjustment. Your Current Goal is unchanged.";
+  return "Okay. I won't apply that temporary adjustment. Your Current Goal is unchanged.";
 }
 
 export function buildAuthorizedTemporaryRevertedAck(

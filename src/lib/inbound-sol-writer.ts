@@ -109,7 +109,7 @@ Forbidden:
 HISTORICAL EVIDENCE
 ${HISTORICAL_EVIDENCE_HISTORY_LAW}
 
-Write one SMS when a member-visible reply is appropriate. Return strict JSON only, one of:
+Write one SMS when a member-visible reply is appropriate. Do not use em dashes, en dashes, or hyphens as punctuation between thoughts in the SMS, but hyphenated words are fine. Return strict JSON only, one of:
 {"body":"<nonempty sms text>","needs_manual_pat_answer":false}
 {"body":"","needs_manual_pat_answer":true}
 On a normal reply the flag may be omitted (treated as false). Body must be nonempty unless needs_manual_pat_answer is true.`;

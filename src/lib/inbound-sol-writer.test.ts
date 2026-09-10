@@ -319,6 +319,7 @@ describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
     expect(p).toContain('I don\'t remember');
     expect(p).toContain("I won't make it up");
     expect(p).toContain("Never set needs_manual_pat_answer true");
+    expect(p).toContain("Do not use em dashes, en dashes, or hyphens as punctuation between thoughts in the SMS, but hyphenated words are fine.");
     expect(p).toContain("ordinary coaching-judgment uncertainty");
     expect(p).toContain("Exact wording match is NOT required");
     expect(p).not.toContain("decline a favorite-team");

@@ -10,6 +10,7 @@ import {
   bodyClaimsSavedGoalChangeAlreadyApplied,
   bodyConflictsWithAuthoritativeAppliedGoal,
   buildAuthorizedPendingConfirmationAsk,
+  buildAuthorizedTemporaryRejectedAck,
   tryBuildAuthorizedGoalChangeWriterFailureFallback,
   SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
   UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION,
@@ -537,6 +538,20 @@ describe("Slice 7F-1 temporary reverted body safety", () => {
       authorization: revertedAuth,
     });
     expect(guarded.blocked).toBe(false);
+  });
+});
+
+describe("temporary-reject fallback punctuation", () => {
+  it("uses a period instead of an em dash", () => {
+    expect(buildAuthorizedTemporaryRejectedAck(noneAuth)).toBe(
+      "Okay. I won't apply that temporary adjustment. Your Current Goal stays I will be in bed by 9:30 pm nightly."
+    );
+    expect(
+      buildAuthorizedTemporaryRejectedAck({
+        ...noneAuth,
+        canonical_behavior_statement: "",
+      })
+    ).toBe("Okay. I won't apply that temporary adjustment. Your Current Goal is unchanged.");
   });
 });
 

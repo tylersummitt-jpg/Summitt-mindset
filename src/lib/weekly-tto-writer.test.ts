@@ -195,6 +195,7 @@ describe("weekly-tto-writer", () => {
     expect(p).toContain("little more room than a Morning or Evening text");
     expect(p).toContain("still a text message, not an essay");
     expect(p).toContain("Do not write a compliance footer");
+    expect(p).toContain("Do not use em dashes, en dashes, or hyphens as punctuation between thoughts in the SMS, but hyphenated words are fine.");
     expect(p).toContain("Do not use Pat Pause openers");
     expect(p).toContain("fake Pat quotes");
     expect(p).toContain("No should_send");
