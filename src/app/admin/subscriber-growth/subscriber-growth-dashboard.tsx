@@ -1,12 +1,20 @@
 import Link from "next/link";
 
 import {
+  adSpendDisplayStatus,
+  formatAdvertisingSpendDisplay,
+  formatCostPerPaidDisplay,
   formatLatestTrialSignedUp,
+  formatMaybeAvailableCount,
+  formatPersonFlag,
   formatUnknownableCount,
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
   organicSocialPlatformLabel,
+  NOT_AVAILABLE,
+  SPEND_NOT_ENTERED,
   UNKNOWN_METRIC,
+  UNKNOWN_SOURCE_LABEL,
   type GrowthDateRange,
   type GrowthTrafficSource,
   type LatestTrialRow,
@@ -85,28 +93,23 @@ const LATEST_TRIALS_HEADINGS = [
   "Paid",
 ] as const;
 
-function flagMark(value: boolean): string {
-  return value ? "✓" : UNKNOWN_METRIC;
-}
-
-function latestTrialRowKey(row: LatestTrialRow, index: number): string {
-  return [
-    String(row.trialStartUnix),
-    row.personEmail ?? "",
-    row.sourceNormalized ?? "",
-    row.utmContent ?? "",
-    String(index),
-  ].join("|");
+function activatedMark(value: boolean, available: boolean): string {
+  if (!available) return NOT_AVAILABLE;
+  return formatPersonFlag(value);
 }
 
 function MetricCard({
   label,
   value,
   scope,
+  alsoCalled,
+  note,
 }: {
   label: string;
   value: string;
   scope: string;
+  alsoCalled?: string;
+  note?: string;
 }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
@@ -117,6 +120,10 @@ function MetricCard({
         {value}
       </div>
       <div className="mt-0.5 text-[10px] text-gray-500">{scope}</div>
+      {alsoCalled ? (
+        <p className="mt-0.5 text-[10px] text-gray-500">{alsoCalled}</p>
+      ) : null}
+      {note ? <p className="mt-1 text-[10px] leading-snug text-gray-500">{note}</p> : null}
     </div>
   );
 }
@@ -149,25 +156,192 @@ function FunnelStep({
   label,
   count,
   conversion,
+  alsoCalled,
+  note,
 }: {
   step: number;
   label: string;
   count: string;
   conversion: string;
+  alsoCalled?: string;
+  note?: string;
 }) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-2.5 py-2">
       <div className="text-[10px] text-gray-400">{step}</div>
       <div className="text-[11px] font-medium leading-snug text-gray-700">{label}</div>
+      {alsoCalled ? <p className="text-[10px] text-gray-500">{alsoCalled}</p> : null}
       <div className="mt-0.5 text-lg font-semibold tabular-nums text-gray-900">
         {count}
       </div>
       <div className="text-[10px] text-gray-500">
         from prior: {conversion}
       </div>
+      {note ? <p className="mt-1 text-[10px] leading-snug text-gray-500">{note}</p> : null}
     </div>
   );
 }
+
+const GLOSSARY: Array<{ term: string; meaning: string }> = [
+  {
+    term: "Accounts created",
+    meaning:
+      "People who created a Summitt account during the selected dates. When source is All, this is every new account, not only people we can tie to a tracking link.",
+  },
+  {
+    term: "Active annual subscribers",
+    meaning:
+      "Paying members on a yearly plan right now. Stripe only. Apple does not have a yearly plan.",
+  },
+  {
+    term: "Active monthly subscribers",
+    meaning:
+      "Paying members on a monthly plan right now. Includes Stripe monthly members and Apple members.",
+  },
+  {
+    term: "Active paid subscribers",
+    meaning:
+      "People who currently have paid Summitt Mindset access. Free trials are not included. Also shown as Paying members. Includes Stripe and Apple.",
+  },
+  {
+    term: "Advertising spend",
+    meaning:
+      "The Meta or Google ad money typed into Add Ad Spend for the selected dates. If nothing is saved, this says Spend not entered — not $0.",
+  },
+  {
+    term: "Answered first morning check in 24 hours",
+    meaning:
+      "A strict yes: they finished onboarding, set a current goal, received Coach Pat’s morning check, and replied, all within 24 hours of starting the trial. Also called Activated within 24 hours. Many engaged members will be No.",
+  },
+  {
+    term: "Activated within 24 hours",
+    meaning: "See Answered first morning check in 24 hours.",
+  },
+  {
+    term: "Cancelled during free trial",
+    meaning:
+      "They cancelled their Stripe membership before the 7-day free week ended.",
+  },
+  {
+    term: "Campaign",
+    meaning:
+      "The campaign name on the tracking link. To attach ad spend to a campaign row, type this name exactly.",
+  },
+  {
+    term: "Cost per paid subscriber",
+    meaning:
+      "Ad spend in this period divided by people from paid ads who became paying members in this period. The spend and those people may not be from the same signup week.",
+  },
+  {
+    term: "Direct",
+    meaning:
+      "We recorded a first visit with no ad click, no social or Google clue, and no other website. This is not the same as Unknown.",
+  },
+  {
+    term: "Finished trial without becoming paid",
+    meaning:
+      "The 7-day Stripe trial ended and they never became a paying member. They did not cancel in the middle.",
+  },
+  {
+    term: "Free-trial button clicks",
+    meaning: "How many times someone clicked a start-trial button. This is clicks, not people.",
+  },
+  {
+    term: "Free trials started",
+    meaning: "Stripe 7-day free weeks that began during the selected dates. Apple has no free trial.",
+  },
+  {
+    term: "Google",
+    meaning: "Includes both Google Ads and Google Search. The table does not split them yet.",
+  },
+  {
+    term: "Meta ads",
+    meaning: "Paid Facebook or Instagram ads (and related Meta ads).",
+  },
+  {
+    term: "Monthly recurring revenue equivalent",
+    meaning:
+      "Current monthly value of Stripe memberships. Yearly plans are divided by 12. This is not cash collected. Apple is not included. Also shown as Monthly value of current Stripe members.",
+  },
+  {
+    term: "Monthly value of current Stripe members",
+    meaning: "See Monthly recurring revenue equivalent.",
+  },
+  {
+    term: "Not available",
+    meaning: "The system could not calculate this number reliably. Do not treat it as zero.",
+  },
+  {
+    term: "Organic social",
+    meaning:
+      "They came from Instagram, Facebook, TikTok, X, or similar, without a paid-ad marker.",
+  },
+  {
+    term: "Paid subscriber churn",
+    meaning:
+      "Of Stripe members who were already paying at the start of the period, the share whose paid access fully ended. Apple is not included. All time is — because there is no starting point.",
+  },
+  {
+    term: "Payment failed",
+    meaning:
+      "A billing attempt failed during the selected period. This is not the same as currently past due. Includes Stripe payment failures and Apple failed renewals when available.",
+  },
+  {
+    term: "Paying members",
+    meaning: "See Active paid subscribers.",
+  },
+  {
+    term: "Platform",
+    meaning:
+      "Which social app we can name from the tracking link, when we know it. A dash means we do not have a platform name.",
+  },
+  {
+    term: "Post / Link",
+    meaning:
+      "The bio, story, reel, or ad name on the tracking link. A dash means none was stored.",
+  },
+  {
+    term: "Reactivated subscriber",
+    meaning: "They were a paying Stripe member, fully ended, then paid again.",
+  },
+  {
+    term: "Referral",
+    meaning: "Includes Coach referral links and links from other websites.",
+  },
+  {
+    term: "Revenue collected",
+    meaning:
+      "Successful Stripe payments collected during the selected dates. Apple payments are not included. Refunds later are not subtracted. Also shown as Stripe cash collected.",
+  },
+  {
+    term: "Spend not entered",
+    meaning: "No Meta or Google ad spend has been saved for this view. Type it in Add Ad Spend.",
+  },
+  {
+    term: "Stripe cash collected",
+    meaning: "See Revenue collected.",
+  },
+  {
+    term: "Subscription fully ended",
+    meaning:
+      "A paying member’s access fully ended during the selected dates. Stripe, plus Apple expirations when we have them.",
+  },
+  {
+    term: "Trial-to-paid conversion",
+    meaning:
+      "Of Stripe free trials whose 7-day trial ended during this period, the share that became paid. Trials still running are not included.",
+  },
+  {
+    term: "Unique website visitors",
+    meaning:
+      "Distinct website visitors we counted, not named people. Only after marketing tracking started.",
+  },
+  {
+    term: "Unknown",
+    meaning:
+      "We never saved a first visit for this person. This is not Direct.",
+  },
+];
 
 export default function SubscriberGrowthDashboard({
   data,
@@ -175,30 +349,55 @@ export default function SubscriberGrowthDashboard({
   data: SubscriberGrowthDashboardData;
 }) {
   const { snapshot, range, source } = data;
+  const spendStatus = adSpendDisplayStatus({
+    queryComplete: data.adSpendQueryComplete,
+    entryCount: data.adSpendEntries.length,
+  });
+  const spendValue = formatAdvertisingSpendDisplay(
+    snapshot.period.advertisingSpend,
+    spendStatus
+  );
+  const costPerPaidValue = formatCostPerPaidDisplay(
+    snapshot.period.costPerPaid,
+    spendStatus
+  );
+  const costPerPaidNote =
+    spendStatus === "empty"
+      ? "Enter ad spend below to calculate."
+      : spendStatus === "unavailable"
+        ? "We could not load ad spend, so this cost is not available."
+        : "Ad spend this period ÷ people from paid ads who became paying members this period. Those people may not be from the same signup week.";
+
   const funnel = [
     {
       label: "Unique website visitors",
-      count: snapshot.period.uniqueVisitors,
+      count: formatUnknownableCount(snapshot.period.uniqueVisitors),
     },
     {
       label: "Free-trial button clicks",
-      count: snapshot.period.freeTrialButtonClicks,
+      count: formatUnknownableCount(snapshot.period.freeTrialButtonClicks),
     },
     {
       label: "Accounts created",
-      count: snapshot.period.accountsCreated,
+      count: formatUnknownableCount(snapshot.period.accountsCreated),
     },
     {
       label: "Free trials started",
-      count: snapshot.period.freeTrialsStarted,
+      count: formatUnknownableCount(snapshot.period.freeTrialsStarted),
     },
     {
-      label: "Activated within 24 hours",
-      count: snapshot.period.activatedWithin24h,
+      label: "Answered first morning check in 24 hours",
+      count: formatMaybeAvailableCount(
+        snapshot.period.activatedWithin24h,
+        data.activationQueryComplete
+      ),
+      alsoCalled: "Also called: Activated within 24 hours",
+      note: "They finished onboarding, set a current goal, received Coach Pat's morning check, and replied — all within 24 hours of starting the trial. This is a strict test. A member can be engaged and still not meet it.",
     },
     {
       label: "Trials converted to paid",
-      count: snapshot.period.trialsConvertedToPaid,
+      count: formatUnknownableCount(snapshot.period.trialsConvertedToPaid),
+      note: "Paid conversion uses finished trials, not the same 24-hour check group, so this step does not show a from-prior percentage.",
     },
   ];
 
@@ -220,14 +419,20 @@ export default function SubscriberGrowthDashboard({
           <h1 className="text-2xl font-bold text-gray-900">
             Subscriber Growth Dashboard
           </h1>
-          <p className="mt-1 text-xs text-gray-500">
-            Unknown values are {UNKNOWN_METRIC}. Snapshot metrics are as of
-            now ({data.timezone}); period metrics use the selected range.
-            Latest Trials is a person feed and is not filtered by date or
-            source.
-          </p>
           <p className="text-[11px] text-gray-500">As of {data.asOfNowLabel}</p>
-          <p className="text-[11px] text-gray-500">{trackingNote}</p>
+          <div className="mt-2 text-[11px] text-gray-600">
+            <p className="font-medium text-gray-700">How this page works</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+              <li>&quot;Right now&quot; numbers show the whole company.</li>
+              <li>Date and source filters change the historical reports below.</li>
+              <li>
+                {snapshot.notes.instrumentationStartLabel
+                  ? `Marketing source tracking is only available from ${snapshot.notes.instrumentationStartLabel}.`
+                  : "Marketing source tracking has not started yet."}
+              </li>
+            </ul>
+          </div>
+          <p className="mt-1 text-[11px] text-gray-500">{trackingNote}</p>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -249,6 +454,7 @@ export default function SubscriberGrowthDashboard({
               );
             })}
           </div>
+          <p className="text-[10px] text-gray-500">Last 7 days includes today.</p>
           <div className="flex flex-wrap gap-1">
             {SOURCE_OPTIONS.map((option) => {
               const active = option.id === source;
@@ -268,8 +474,11 @@ export default function SubscriberGrowthDashboard({
             })}
           </div>
           <p className="text-[10px] text-gray-500">
-            Traffic uses immutable first-touch. Google includes ads + organic.
-            Ad metrics use paid acquisition only.
+            Google includes Google ads and Google search. Referral includes Coach links and other websites.
+          </p>
+          <p className="text-[10px] text-gray-600">
+            These filters change the historical reports below. They do not
+            change Company right now.
           </p>
         </div>
       </div>
@@ -283,26 +492,46 @@ export default function SubscriberGrowthDashboard({
       ) : null}
 
       <section>
+        <h2 className="mb-0.5 text-sm font-semibold text-gray-900">
+          Company right now
+        </h2>
+        <p className="mb-1.5 text-[10px] text-gray-500">
+          Whole company. Filters do not change these numbers.
+        </p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
-            label="Active paid subscribers"
-            value={formatUnknownableCount(snapshot.asOfNow.activePaid)}
-            scope="As of now"
+            label="Paying members"
+            value={formatMaybeAvailableCount(
+              snapshot.asOfNow.activePaid,
+              snapshot.asOfNow.activePaid != null
+            )}
+            scope="Right now · Stripe + Apple · free trials not included"
+            alsoCalled="Also called: Active paid subscribers"
           />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-0.5 text-sm font-semibold text-gray-900">This period</h2>
+        <p className="mb-1.5 text-[10px] text-gray-500">
+          Uses the date and source you selected above.
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
             label="Trial-to-paid conversion rate"
             value={formatUnknownablePercent(snapshot.period.trialToPaidRate)}
-            scope="Selected period · Stripe mature trials"
+            scope="Of free trials whose 7-day trial ended during this period, this percentage became paid. Stripe only. Trials still running are not included."
           />
           <MetricCard
             label="Paid subscriber churn rate"
             value={formatUnknownablePercent(snapshot.period.paidChurnRate)}
-            scope="Selected period · Stripe only"
+            scope="Of Stripe members who were already paying at the start of this period, this percentage fully lost access during the period. Apple is not included."
           />
           <MetricCard
             label="Cost per paid subscriber"
-            value={formatUnknownableUsdFromCents(snapshot.period.costPerPaid)}
+            value={costPerPaidValue}
             scope="Selected period · blended period CPS"
+            note={costPerPaidNote}
           />
         </div>
       </section>
@@ -319,7 +548,9 @@ export default function SubscriberGrowthDashboard({
               key={step.label}
               step={index + 1}
               label={step.label}
-              count={formatUnknownableCount(step.count)}
+              count={step.count}
+              alsoCalled={step.alsoCalled}
+              note={step.note}
               conversion={
                 index === 0
                   ? "—"
@@ -366,6 +597,7 @@ export default function SubscriberGrowthDashboard({
             label="Payment failed"
             value={formatUnknownableCount(snapshot.period.paymentFailed)}
             scope={`Selected period · ${snapshot.notes.paymentFailedScope}`}
+            note="A billing attempt failed during the selected period. This is not the same as 'currently past due.' Includes Stripe payment failures and Apple failed renewals when available."
           />
           <StatCell
             label="Paid cancellation requested but access is still active"
@@ -390,23 +622,35 @@ export default function SubscriberGrowthDashboard({
 
       <section>
         <h2 className="mb-1.5 text-sm font-semibold text-gray-900">Revenue</h2>
+        <p className="mb-1.5 text-[10px] text-gray-500">
+          These two numbers are different on purpose: one is actual Stripe cash
+          collected during the period; the other is the current monthly value of
+          Stripe subscriptions.
+        </p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <StatCell
-            label="Revenue collected"
+            label="Stripe cash collected"
             value={formatUnknownableUsdFromCents(snapshot.period.stripeRevenueCents)}
-            scope="Selected period · Stripe only"
-            note="Gross paid invoices; later refunds not netted. Apple collected revenue is not available and is not estimated."
+            scope="Successful Stripe payments collected during the selected dates. Apple payments are not included. Refunds later are not subtracted."
+            note="Also called: Revenue collected"
           />
           <StatCell
-            label="Monthly recurring revenue equivalent"
+            label="Monthly value of current Stripe members"
             value={formatUnknownableUsdFromCents(snapshot.asOfNow.stripeMrrCents)}
-            scope="As of now · Stripe list prices · Apple —"
-            note="Apple MRR is unavailable. Annual = Price unit_amount / 12. Legacy and current prices use live Stripe amounts."
+            scope="Current monthly value of Stripe memberships. Annual plans are divided by 12. This is not cash collected. Apple is not included."
+            note="Also called: Monthly recurring revenue equivalent"
           />
           <StatCell
             label="Advertising spend"
-            value={formatUnknownableUsdFromCents(snapshot.period.advertisingSpend)}
+            value={spendValue}
             scope="Selected period · Meta ads + Google"
+            note={
+              spendStatus === "empty"
+                ? "Add Meta or Google spend below to calculate advertising costs."
+                : spendStatus === "unavailable"
+                  ? "Ad spend could not be loaded."
+                  : undefined
+            }
           />
           <StatCell
             label="New paid subscribers attributed to advertising"
@@ -415,8 +659,9 @@ export default function SubscriberGrowthDashboard({
           />
           <StatCell
             label="Cost per paid subscriber"
-            value={formatUnknownableUsdFromCents(snapshot.period.costPerPaid)}
+            value={costPerPaidValue}
             scope="Selected period · blended period CPS"
+            note={costPerPaidNote}
           />
         </div>
         <div className="mt-2">
@@ -505,10 +750,16 @@ export default function SubscriberGrowthDashboard({
                           {formatUnknownableCount(row.paidConversions)}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums">
-                          {formatUnknownableUsdFromCents(row.advertisingSpendCents)}
+                          {row.advertisingSpendCents == null
+                            ? UNKNOWN_METRIC
+                            : spendStatus === "empty" && row.advertisingSpendCents === 0
+                              ? SPEND_NOT_ENTERED
+                              : spendStatus === "unavailable"
+                                ? NOT_AVAILABLE
+                                : formatUnknownableUsdFromCents(row.advertisingSpendCents)}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums">
-                          {formatUnknownableUsdFromCents(row.costPerPaidCents)}
+                          {formatCostPerPaidDisplay(row.costPerPaidCents, spendStatus)}
                         </td>
                       </tr>
                     ))
@@ -627,7 +878,7 @@ export default function SubscriberGrowthDashboard({
                     <td className="px-2 py-1.5">
                       {row.sourceNormalized
                         ? displaySource(row.sourceNormalized)
-                        : UNKNOWN_METRIC}
+                        : UNKNOWN_SOURCE_LABEL}
                     </td>
                     <td className="px-2 py-1.5">
                       {displayPlatform(
@@ -643,8 +894,10 @@ export default function SubscriberGrowthDashboard({
                     <td className="px-2 py-1.5">
                       {row.utmContent || UNKNOWN_METRIC}
                     </td>
-                    <td className="px-2 py-1.5">{flagMark(row.activated)}</td>
-                    <td className="px-2 py-1.5">{flagMark(row.paid)}</td>
+                    <td className="px-2 py-1.5">
+                      {activatedMark(row.activated, data.latestTrialsActivationComplete)}
+                    </td>
+                    <td className="px-2 py-1.5">{formatPersonFlag(row.paid)}</td>
                   </tr>
                 ))
               )}
@@ -683,7 +936,7 @@ export default function SubscriberGrowthDashboard({
                     <div className="mt-1.5 text-gray-700">{headline}</div>
                   ) : (
                     <div className="mt-1.5 text-gray-700">
-                      Source {UNKNOWN_METRIC}
+                      Source {UNKNOWN_SOURCE_LABEL}
                     </div>
                   )}
                   {row.sourceNormalized ? (
@@ -706,15 +959,81 @@ export default function SubscriberGrowthDashboard({
                     </>
                   )}
                   <p className="mt-1 text-gray-700">
-                    Activated {flagMark(row.activated)}
+                    Activated{" "}
+                    {activatedMark(row.activated, data.latestTrialsActivationComplete)}
                   </p>
-                  <p className="text-gray-700">Paid {flagMark(row.paid)}</p>
+                  <p className="text-gray-700">Paid {formatPersonFlag(row.paid)}</p>
                 </div>
               );
             })
           )}
         </div>
       </section>
+
+      <section>
+        <details className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+          <summary className="cursor-pointer text-sm font-semibold text-gray-900">
+            Definitions &amp; how this dashboard works
+          </summary>
+          <div className="mt-2 space-y-3 text-[11px] text-gray-700">
+            <div>
+              <h3 className="text-xs font-semibold text-gray-900">
+                How to use this page
+              </h3>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                <li>
+                  &quot;Company right now&quot; shows live whole-company numbers.
+                </li>
+                <li>&quot;This period&quot; reports use the date/source filters.</li>
+                <li>
+                  Marketing source tracking only exists from the instrumentation
+                  start date
+                  {snapshot.notes.instrumentationStartLabel
+                    ? ` (${snapshot.notes.instrumentationStartLabel})`
+                    : ""}
+                  .
+                </li>
+                <li>
+                  Stripe and Apple do not always provide the same types of data.
+                </li>
+                <li>Ad spend is entered manually.</li>
+                <li>
+                  {UNKNOWN_METRIC} means there is no usable answer, not zero.
+                </li>
+                <li>
+                  {NOT_AVAILABLE} means the system could not calculate the metric
+                  reliably.
+                </li>
+                <li>
+                  {SPEND_NOT_ENTERED} means ad spend has not been saved.
+                </li>
+                <li>No means a person did not do that thing.</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-xs font-semibold text-gray-900">Definitions</h3>
+              <dl className="mt-1 space-y-2">
+                {GLOSSARY.map((row) => (
+                  <div key={row.term}>
+                    <dt className="font-medium text-gray-900">{row.term}</dt>
+                    <dd className="text-gray-600">{row.meaning}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </div>
+        </details>
+      </section>
     </div>
   );
+}
+
+function latestTrialRowKey(row: LatestTrialRow, index: number): string {
+  return [
+    String(row.trialStartUnix),
+    row.personEmail ?? "",
+    row.sourceNormalized ?? "",
+    row.utmContent ?? "",
+    String(index),
+  ].join("|");
 }

@@ -76,6 +76,10 @@ export function TrackingLinkBuilder() {
           <p className="text-[11px] text-gray-500">
             Create a trackable link for any social post or ad.
           </p>
+          <p className="text-[10px] text-gray-500">
+            Use the same Campaign name later in Add Ad Spend. Copy utm_campaign
+            exactly.
+          </p>
         </div>
         <button
           type="button"

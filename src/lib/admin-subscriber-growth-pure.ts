@@ -8,6 +8,52 @@ import { utcInstantForLocalMidnight } from "@/lib/timezone";
 
 export const SUBSCRIBER_GROWTH_TZ = "America/New_York";
 export const UNKNOWN_METRIC = "—";
+export const YES_LABEL = "Yes";
+export const NO_LABEL = "No";
+export const NOT_AVAILABLE = "Not available";
+export const SPEND_NOT_ENTERED = "Spend not entered";
+export const UNKNOWN_SOURCE_LABEL = "Unknown";
+
+export type AdSpendDisplayStatus = "entered" | "empty" | "unavailable";
+
+export function formatPersonFlag(value: boolean): string {
+  return value ? YES_LABEL : NO_LABEL;
+}
+
+export function formatMaybeAvailableCount(
+  value: MetricNumber,
+  available: boolean
+): string {
+  if (!available) return NOT_AVAILABLE;
+  return formatUnknownableCount(value);
+}
+
+export function adSpendDisplayStatus(args: {
+  queryComplete: boolean;
+  entryCount: number;
+}): AdSpendDisplayStatus {
+  if (!args.queryComplete) return "unavailable";
+  if (args.entryCount <= 0) return "empty";
+  return "entered";
+}
+
+export function formatAdvertisingSpendDisplay(
+  cents: MetricNumber,
+  status: AdSpendDisplayStatus
+): string {
+  if (status === "unavailable") return NOT_AVAILABLE;
+  if (status === "empty") return SPEND_NOT_ENTERED;
+  return formatUnknownableUsdFromCents(cents);
+}
+
+export function formatCostPerPaidDisplay(
+  cents: MetricNumber,
+  status: AdSpendDisplayStatus
+): string {
+  if (status === "unavailable") return NOT_AVAILABLE;
+  if (status === "empty") return UNKNOWN_METRIC;
+  return formatUnknownableUsdFromCents(cents);
+}
 
 export type GrowthDateRange = "today" | "last_7" | "last_30" | "all_time";
 export type GrowthTrafficSource =
@@ -193,6 +239,27 @@ export function isStripePaidActive(sub: GrowthStripeSubscription): boolean {
   if (sub.status !== "active") return false;
   if (hasPauseCollection(sub)) return false;
   return true;
+}
+
+/** Stripe paid-active + Apple granting identities. Null if either list is incomplete. */
+export function countActivePaidMembers(args: {
+  stripeSubs: GrowthStripeSubscription[];
+  appleGranting: GrowthAppleRow[];
+  recognizedPriceIds: ReadonlySet<string>;
+  stripeListComplete: boolean;
+  appleQueryComplete: boolean;
+}): MetricNumber {
+  if (!args.stripeListComplete || !args.appleQueryComplete) return null;
+  const identities = new Set<string>();
+  for (const sub of args.stripeSubs) {
+    if (!isLikelySummittStripeSubscription(sub, args.recognizedPriceIds)) continue;
+    if (!isStripePaidActive(sub)) continue;
+    identities.add(stripeSubscriberIdentity(sub));
+  }
+  for (const row of args.appleGranting) {
+    identities.add(appleSubscriberIdentity(row));
+  }
+  return identities.size;
 }
 
 export function stripeInterval(
@@ -784,6 +851,9 @@ export type SubscriberGrowthDashboardData = {
     utm_campaign: string;
     amount_cents: number;
   }>;
+  activationQueryComplete: boolean;
+  latestTrialsActivationComplete: boolean;
+  adSpendQueryComplete: boolean;
 };
 
 export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {
@@ -934,6 +1004,13 @@ export function computeGrowthSnapshot(input: {
     ...paidStripeByIdentity.keys(),
     ...appleGrantingByIdentity.keys(),
   ]);
+  const countedActivePaid = countActivePaidMembers({
+    stripeSubs: input.stripeSubs,
+    appleGranting: input.appleGranting,
+    recognizedPriceIds: input.recognizedPriceIds,
+    stripeListComplete: input.stripeListComplete,
+    appleQueryComplete: input.appleQueryComplete,
+  });
 
   let activeMonthly = 0;
   let activeAnnual = 0;
@@ -1088,7 +1165,7 @@ export function computeGrowthSnapshot(input: {
 
   return {
     asOfNow: {
-      activePaid: unknownIfIncomplete(activeIdentities.size, snapshotOk),
+      activePaid: countedActivePaid,
       activeMonthly: unknownIfIncomplete(activeMonthly, snapshotOk),
       activeAnnual: unknownIfIncomplete(activeAnnual, snapshotOk),
       monthlyShare: unknownIfIncomplete(mix.monthlyShare, snapshotOk),

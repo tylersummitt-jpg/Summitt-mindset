@@ -85,7 +85,7 @@ export async function deleteAdSpend(id: string): Promise<boolean> {
 export async function listAdSpendInRange(args: {
   startDate: string | null;
   endDateExclusive: string;
-}): Promise<AdSpendRow[]> {
+}): Promise<{ rows: AdSpendRow[]; complete: boolean }> {
   let q = supabaseServer
     .from("ad_spend")
     .select("id, spend_date, source_normalized, utm_campaign, amount_cents, currency")
@@ -97,12 +97,12 @@ export async function listAdSpendInRange(args: {
   const { data, error } = await q;
   if (error) {
     console.warn("[ad-spend] list failed", error.message);
-    return [];
+    return { rows: [], complete: false };
   }
   const rows: AdSpendRow[] = [];
   for (const raw of data ?? []) {
     const mapped = mapAdSpendRow(raw);
     if (mapped) rows.push(mapped);
   }
-  return rows;
+  return { rows, complete: true };
 }

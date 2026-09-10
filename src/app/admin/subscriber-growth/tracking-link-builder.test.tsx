@@ -20,6 +20,11 @@ describe("TrackingLinkBuilder", () => {
     });
 
     render(<TrackingLinkBuilder />);
+    expect(
+      screen.getByText(
+        "Use the same Campaign name later in Add Ad Spend. Copy utm_campaign exactly."
+      )
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Open" }));
     expect(
       screen.getByText(

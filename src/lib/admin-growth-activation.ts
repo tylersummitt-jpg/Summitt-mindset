@@ -9,14 +9,20 @@ export type TrialActivationSeed = {
   trialStartUnix: number;
 };
 
+export type ActivationLookupResult = {
+  clerkIds: Set<string>;
+  complete: boolean;
+};
+
 /**
  * Stripe trials only. Requires onboarding timestamp, goal started_at, check_sent,
  * and a non-compliance inbound after that check_sent — all within 24h of trial_start.
  * Batched queries. raw_body is read only to classify; never returned.
+ * `complete: false` means the lookup failed; callers must not treat an empty set as zero.
  */
 export async function clerkIdsActivatedWithin24h(
   seeds: TrialActivationSeed[]
-): Promise<Set<string>> {
+): Promise<ActivationLookupResult> {
   const out = new Set<string>();
   const unique = new Map<string, number>();
   for (const seed of seeds) {
@@ -24,7 +30,7 @@ export async function clerkIdsActivatedWithin24h(
     if (!id || !Number.isFinite(seed.trialStartUnix)) continue;
     unique.set(id, seed.trialStartUnix);
   }
-  if (unique.size === 0) return out;
+  if (unique.size === 0) return { clerkIds: out, complete: true };
 
   const clerkIds = [...unique.keys()];
   const starts = clerkIds.map((id) => unique.get(id)!);
@@ -68,7 +74,7 @@ export async function clerkIdsActivatedWithin24h(
         checks: checksRes.error?.message,
         inbound: inboundRes.error?.message,
       });
-      return out;
+      return { clerkIds: out, complete: false };
     }
 
     const onboardedAt = new Map<string, number>();
@@ -124,11 +130,11 @@ export async function clerkIdsActivatedWithin24h(
       });
       if (activated) out.add(clerkUserId);
     }
+    return { clerkIds: out, complete: true };
   } catch (err) {
     console.warn("[admin-growth-activation] threw", err);
+    return { clerkIds: out, complete: false };
   }
-
-  return out;
 }
 
 export function activationSeedsFromTrials(

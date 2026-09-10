@@ -44,6 +44,9 @@ describe("subscriber growth page authorization", () => {
       latestTrials: [],
       warnings: [],
       adSpendEntries: [],
+      activationQueryComplete: true,
+      latestTrialsActivationComplete: true,
+      adSpendQueryComplete: true,
     });
   });
 
@@ -143,6 +146,19 @@ describe("subscriber growth auth architecture", () => {
     expect(dashboard).toContain("TrackingLinkBuilder");
     expect(dashboard).toContain("Latest Trials");
     expect(dashboard).toContain("Last 20 people who started a free trial");
+    expect(dashboard).toContain("Company right now");
+    expect(dashboard).toContain("Paying members");
+    expect(dashboard).toContain("Also called: Active paid subscribers");
+    expect(dashboard).toContain("This period");
+    expect(dashboard).toContain("Answered first morning check in 24 hours");
+    expect(dashboard).toContain("Also called: Activated within 24 hours");
+    expect(dashboard).toContain("Stripe cash collected");
+    expect(dashboard).toContain("Also called: Revenue collected");
+    expect(dashboard).toContain("Spend not entered");
+    expect(dashboard).toContain("Definitions &amp; how this dashboard works");
+    expect(dashboard).toContain("Google includes Google ads and Google search");
+    expect(dashboard).toContain("Referral includes Coach links and other websites");
+    expect(dashboard).toContain("formatPersonFlag");
     expect(dashboard).not.toContain("Specific advertisement");
     expect(dashboard).not.toMatch(/\bCAC\b/);
     expect(dashboard).toContain("Selected period · Stripe only");
@@ -156,7 +172,7 @@ describe("subscriber growth auth architecture", () => {
 
     const headingsBlock = dashboard.slice(
       dashboard.indexOf("LATEST_TRIALS_HEADINGS"),
-      dashboard.indexOf("function flagMark")
+      dashboard.indexOf("function activatedMark")
     );
     expect(headingsBlock).toContain("Signed Up");
     expect(headingsBlock).toContain("Person");
@@ -166,7 +182,12 @@ describe("subscriber growth auth architecture", () => {
     expect(headingsBlock).not.toMatch(/"Trial"/);
     expect(headingsBlock).not.toContain("Visitors");
 
-    expect(loader).toContain("extractPrimaryEmail");
+    expect(loader).toContain("countActivePaidMembers");
+    expect(loader).toContain("stripeSubs,");
+    expect(loader).toContain("appleGranting,");
+    expect(loader).not.toContain("countActivePaidMembers({\n    stripeSubs: sourceFilteredSubs");
+    expect(loader).toContain("activationQueryComplete");
+    expect(loader).toContain("adSpendQueryComplete");
   });
 
   it("loader selects existing utm_source without schema or capture changes", () => {

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -67,6 +67,9 @@ function dashboardData(
     latestTrials,
     warnings: [],
     adSpendEntries: [],
+    activationQueryComplete: true,
+    latestTrialsActivationComplete: true,
+    adSpendQueryComplete: true,
   };
 }
 
@@ -208,7 +211,9 @@ describe("latest trials person feed", () => {
     expect(table.getByText("Instagram")).toBeTruthy();
     expect(table.getByText("organic")).toBeTruthy();
     expect(table.getByText("story_psm047")).toBeTruthy();
-    expect(table.getByText("✓")).toBeTruthy();
+    expect(table.getByText("Yes")).toBeTruthy();
+    expect(table.getAllByText("No").length).toBeGreaterThan(0);
+    expect(table.getByText("Unknown")).toBeTruthy();
     expect(table.getAllByText("—").length).toBeGreaterThan(0);
     expect(section?.textContent).not.toMatch(/user_[a-z0-9]+/i);
     expect(section?.textContent).not.toMatch(/phoneNumber/);
@@ -230,10 +235,115 @@ describe("latest trials person feed", () => {
     expect(cardRoot.getByText("Instagram · Organic social")).toBeTruthy();
     expect(cardRoot.getByText("Campaign: organic")).toBeTruthy();
     expect(cardRoot.getByText("Post: story_psm047")).toBeTruthy();
-    expect(cardRoot.getByText("Activated ✓")).toBeTruthy();
-    expect(cardRoot.getAllByText("Paid —").length).toBeGreaterThan(0);
-    expect(cardRoot.getByText("Source —")).toBeTruthy();
+    expect(cardRoot.getByText("Activated Yes")).toBeTruthy();
+    expect(cardRoot.getAllByText("Paid No").length).toBeGreaterThan(0);
+    expect(cardRoot.getByText("Source Unknown")).toBeTruthy();
     expect(cardRoot.getByText("Post / Link —")).toBeTruthy();
+  });
+});
+
+describe("subscriber growth slice 1 self-explanatory copy", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("explains filters, company right now, this period, google, and referral", () => {
+    render(<SubscriberGrowthDashboard data={dashboardData([])} />);
+    expect(screen.getByText("How this page works")).toBeTruthy();
+    expect(screen.getAllByText(/Right now/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Last 7 days includes today.")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Google includes Google ads and Google search. Referral includes Coach links and other websites."
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "These filters change the historical reports below. They do not change Company right now."
+      )
+    ).toBeTruthy();
+    expect(screen.getByText("Company right now")).toBeTruthy();
+    expect(screen.getAllByText("Paying members").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Also called: Active paid subscribers").length).toBeGreaterThan(0);
+    expect(screen.getByText("This period")).toBeTruthy();
+    expect(screen.getAllByText("Trial-to-paid conversion rate").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Paid subscriber churn rate").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cost per paid subscriber").length).toBeGreaterThan(0);
+    expect(screen.getByText("Growth funnel")).toBeTruthy();
+    expect(screen.getAllByText("Answered first morning check in 24 hours").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Also called: Activated within 24 hours").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Stripe cash collected").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Also called: Revenue collected").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Monthly value of current Stripe members").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Also called: Monthly recurring revenue equivalent").length
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Spend not entered").length).toBeGreaterThan(0);
+    expect(screen.getByText("Definitions & how this dashboard works")).toBeTruthy();
+  });
+
+  it("shows Not available for activation when the lookup failed", () => {
+    const data = dashboardData([]);
+    data.activationQueryComplete = false;
+    data.snapshot.period.activatedWithin24h = 0;
+    render(<SubscriberGrowthDashboard data={data} />);
+    expect(screen.getAllByText("Not available").length).toBeGreaterThan(0);
+  });
+
+  it("shows ad spend dollars when rows exist", () => {
+    const data = dashboardData([]);
+    data.adSpendEntries = [
+      {
+        id: "spend_1",
+        spend_date: "2026-09-09",
+        source_normalized: "meta",
+        utm_campaign: "fall_challenge",
+        amount_cents: 1250,
+      },
+    ];
+    data.snapshot.period.advertisingSpend = 1250;
+    data.snapshot.period.costPerPaid = 1250;
+    data.snapshot.period.newPaidAttributedToAds = 1;
+    render(<SubscriberGrowthDashboard data={data} />);
+    expect(screen.getAllByText("$12.50").length).toBeGreaterThan(0);
+  });
+
+  it("renders Add Ad Spend instructions when opened", () => {
+    render(<SubscriberGrowthDashboard data={dashboardData([])} />);
+    const openButtons = screen.getAllByRole("button", { name: "Open" });
+    fireEvent.click(openButtons[0]);
+    expect(screen.getByText("How to add ad spend")).toBeTruthy();
+    expect(screen.getByText("Campaign names must match exactly.")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "This is entered by hand. We do not automatically import spend from Meta or Google."
+      )
+    ).toBeTruthy();
+  });
+
+  it("keeps every current major section on the page", () => {
+    render(<SubscriberGrowthDashboard data={dashboardData([])} />);
+    expect(screen.getByText("Subscriber Growth Dashboard")).toBeTruthy();
+    expect(screen.getByText("Company right now")).toBeTruthy();
+    expect(screen.getByText("This period")).toBeTruthy();
+    expect(screen.getByText("Growth funnel")).toBeTruthy();
+    expect(screen.getByText("Subscribers & retention")).toBeTruthy();
+    expect(screen.getByText("Revenue")).toBeTruthy();
+    expect(screen.getByText("Traffic source")).toBeTruthy();
+    expect(screen.getByText("Tracking Link Builder")).toBeTruthy();
+    expect(screen.getByText("Latest Trials")).toBeTruthy();
+    expect(screen.getAllByText("Active monthly subscribers").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Active annual subscribers").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cancelled during the free trial").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Finished the trial without becoming paid").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Payment failed").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Paid cancellation requested but access is still active").length
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Paid subscription fully ended").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Reactivated subscriber").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("New paid subscribers attributed to advertising").length).toBeGreaterThan(0);
+    expect(screen.getByText("Add Ad Spend")).toBeTruthy();
   });
 });
 

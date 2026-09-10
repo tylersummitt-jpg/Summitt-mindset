@@ -14,6 +14,7 @@ import {
   buildLatestTrialRows,
   clerkUserIdFromStripeSub,
   computeGrowthSnapshot,
+  countActivePaidMembers,
   emptyUnknownSnapshot,
   growthPeriodUtcMs,
   paidConversionUnix,
@@ -431,12 +432,12 @@ async function loadLatestTrialRows(args: {
   stripeSubs: GrowthStripeSubscription[];
   recognized: ReadonlySet<string>;
   paidInvoiceSubIds: ReadonlySet<string>;
-}): Promise<LatestTrialRow[]> {
+}): Promise<{ rows: LatestTrialRow[]; activationComplete: boolean }> {
   const seeds = selectLatestTrialSeeds(args.stripeSubs, args.recognized);
-  if (seeds.length === 0) return [];
+  if (seeds.length === 0) return { rows: [], activationComplete: true };
 
   const clerkIds = seeds.map((seed) => seed.clerkUserId);
-  const [attributions, activatedIds, clerkUsers] = await Promise.all([
+  const [attributions, activationLookup, clerkUsers] = await Promise.all([
     loadMarketingAttributionByClerkIds(clerkIds),
     clerkIdsActivatedWithin24h(
       activationSeedsFromTrials(
@@ -447,7 +448,7 @@ async function loadLatestTrialRows(args: {
       )
     ).catch((err) => {
       console.warn("[subscriber-growth] latest-trials activation query failed", err);
-      return new Set<string>();
+      return { clerkIds: new Set<string>(), complete: false };
     }),
     listClerkUsersByIds(clerkIds).catch((err) => {
       console.warn("[subscriber-growth] latest-trials Clerk lookup failed", err);
@@ -464,13 +465,16 @@ async function loadLatestTrialRows(args: {
     emailsByClerkId.set(user.id, extractPrimaryEmail(user));
   }
 
-  return buildLatestTrialRows({
-    seeds,
-    attributionsByClerkId,
-    emailsByClerkId,
-    activatedClerkIds: activatedIds,
-    paidInvoiceSubIds: args.paidInvoiceSubIds,
-  });
+  return {
+    rows: buildLatestTrialRows({
+      seeds,
+      attributionsByClerkId,
+      emailsByClerkId,
+      activatedClerkIds: activationLookup.clerkIds,
+      paidInvoiceSubIds: args.paidInvoiceSubIds,
+    }),
+    activationComplete: activationLookup.complete,
+  };
 }
 
 async function loadMarketingEvents(args: {
@@ -577,6 +581,9 @@ export async function loadSubscriberGrowthDashboard(args: {
       latestTrials: [],
       warnings,
       adSpendEntries: [],
+      activationQueryComplete: false,
+      latestTrialsActivationComplete: false,
+      adSpendQueryComplete: false,
     };
   }
 
@@ -740,8 +747,9 @@ export async function loadSubscriberGrowthDashboard(args: {
     .filter((id): id is string => Boolean(id));
 
   let activatedIds = new Set<string>();
+  let activationQueryComplete = stripeListComplete;
   try {
-    activatedIds = await clerkIdsActivatedWithin24h(
+    const activationLookup = await clerkIdsActivatedWithin24h(
       activationSeedsFromTrials(
         trialSubs.map((s) => ({
           clerkUserId: clerkUserIdFromStripeSub(s),
@@ -749,8 +757,11 @@ export async function loadSubscriberGrowthDashboard(args: {
         }))
       )
     );
+    activatedIds = activationLookup.clerkIds;
+    activationQueryComplete = stripeListComplete && activationLookup.complete;
   } catch (err) {
     console.warn("[subscriber-growth] activation query failed", err);
+    activationQueryComplete = false;
   }
 
   const paidConversionClerkIds: string[] = [];
@@ -766,10 +777,12 @@ export async function loadSubscriberGrowthDashboard(args: {
     period.startMs == null
       ? null
       : getDateKeyInTimezone(new Date(period.startMs), SUBSCRIBER_GROWTH_TZ);
-  const adSpendEntries = await listAdSpendInRange({
+  const adSpendListed = await listAdSpendInRange({
     startDate: startDateKey,
     endDateExclusive: tomorrowKey,
   });
+  const adSpendQueryComplete = adSpendListed.complete;
+  const adSpendEntries = adSpendListed.rows;
   const spendForFilter = adSpendEntries.filter((row) => {
     if (source === "all") return true;
     if (source === "meta_ads") return row.source_normalized === "meta";
@@ -808,9 +821,7 @@ export async function loadSubscriberGrowthDashboard(args: {
       ? failedStripeDistinct + appleFailed
       : null;
   const paymentFailedScope =
-    appleFailed > 0
-      ? "Stripe invoices + linked Apple DID_FAIL_TO_RENEW"
-      : "Stripe invoices in selected period";
+    "Includes Stripe payment failures and Apple failed renewals when available.";
 
   const appleEndedCount = appleEndedClerkIds.size;
   const paidEndedScope =
@@ -856,7 +867,7 @@ export async function loadSubscriberGrowthDashboard(args: {
     paidInvoiceSubIds,
     uniqueVisitors,
     freeTrialButtonClicks: ctaClicks,
-    activatedWithin24h: stripeListComplete ? activatedIds.size : null,
+    activatedWithin24h: activationQueryComplete ? activatedIds.size : null,
     advertisingSpend,
     newPaidAttributedToAds,
     paymentFailedPeriod,
@@ -876,13 +887,24 @@ export async function loadSubscriberGrowthDashboard(args: {
     snapshot.period.paidFullyEnded += appleEndedCount;
   }
 
+  snapshot.asOfNow.activePaid = countActivePaidMembers({
+    stripeSubs,
+    appleGranting,
+    recognizedPriceIds: recognized,
+    stripeListComplete,
+    appleQueryComplete,
+  });
+
   let latestTrials: LatestTrialRow[] = [];
+  let latestTrialsActivationComplete = false;
   try {
-    latestTrials = await loadLatestTrialRows({
+    const latest = await loadLatestTrialRows({
       stripeSubs,
       recognized,
       paidInvoiceSubIds,
     });
+    latestTrials = latest.rows;
+    latestTrialsActivationComplete = latest.activationComplete;
   } catch (err) {
     console.warn("[subscriber-growth] latest trials failed", err);
   }
@@ -896,5 +918,8 @@ export async function loadSubscriberGrowthDashboard(args: {
     latestTrials,
     warnings,
     adSpendEntries: spendForFilter,
+    activationQueryComplete,
+    latestTrialsActivationComplete,
+    adSpendQueryComplete,
   };
 }

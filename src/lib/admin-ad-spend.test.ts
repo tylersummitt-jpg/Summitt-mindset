@@ -99,6 +99,8 @@ describe("ad spend production schema alignment", () => {
   it("upserts on spend_date,source_normalized,utm_campaign", () => {
     const src = readFileSync(join(process.cwd(), "src/lib/admin-ad-spend.ts"), "utf8");
     expect(src).toContain('onConflict: "spend_date,source_normalized,utm_campaign"');
+    expect(src).toContain("return { rows, complete: true }");
+    expect(src).toContain("complete: false");
     expect(src).not.toContain("COALESCE");
   });
 });

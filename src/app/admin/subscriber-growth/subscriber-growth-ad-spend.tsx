@@ -83,7 +83,13 @@ export function SubscriberGrowthAdSpend({
   return (
     <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-[11px] font-medium text-gray-700">Add Ad Spend</div>
+        <div>
+          <div className="text-[11px] font-medium text-gray-700">Add Ad Spend</div>
+          <p className="text-[10px] text-gray-500">
+            This is entered by hand. We do not automatically import spend from Meta
+            or Google.
+          </p>
+        </div>
         <button
           type="button"
           className="rounded border border-gray-300 px-2 py-0.5 text-[11px] text-gray-700 hover:border-gray-500"
@@ -94,6 +100,39 @@ export function SubscriberGrowthAdSpend({
       </div>
       {open ? (
         <form className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2" onSubmit={onSubmit}>
+          <div className="sm:col-span-2 space-y-1 text-[11px] text-gray-600">
+            <p className="font-medium text-gray-800">How to add ad spend</p>
+            <ol className="list-decimal space-y-0.5 pl-4">
+              <li>
+                Copy the amount actually spent from Meta Ads Manager or Google Ads
+                for that day.
+              </li>
+              <li>Date = the day the money was spent.</li>
+              <li>
+                Source = Meta ads or Google. Facebook/Instagram ads count as Meta
+                ads.
+              </li>
+              <li>
+                Campaign = copy the exact campaign name from the tracking link.
+              </li>
+              <li>
+                Example: if the link contains utm_campaign=fall_challenge, enter
+                fall_challenge.
+              </li>
+              <li>
+                Leave Campaign blank only if you want the spend counted at the
+                overall source level.
+              </li>
+              <li>
+                Saving the same date + source + campaign again replaces the old
+                amount.
+              </li>
+              <li>Use Delete to remove an entry.</li>
+            </ol>
+            <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-950">
+              Campaign names must match exactly.
+            </p>
+          </div>
           <label className="text-[11px] text-gray-600">
             Date
             <input

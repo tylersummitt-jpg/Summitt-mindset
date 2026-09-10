@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   aggregateTrafficSourceRows,
+  adSpendDisplayStatus,
   blendedCostPerPaidCents,
   buildLatestTrialRows,
   computeGrowthSnapshot,
   conversionRate,
+  countActivePaidMembers,
+  formatAdvertisingSpendDisplay,
+  formatCostPerPaidDisplay,
   formatLatestTrialSignedUp,
+  formatPersonFlag,
   formatUnknownableCount,
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
@@ -16,7 +21,11 @@ import {
   mrrCentsFromStripePriceAmount,
   organicSocialPlatformLabel,
   selectLatestTrialSeeds,
+  NO_LABEL,
+  NOT_AVAILABLE,
+  SPEND_NOT_ENTERED,
   UNKNOWN_METRIC,
+  YES_LABEL,
   type GrowthAppleRow,
   type GrowthStripeSubscription,
   type MarketingAttributionRow,
@@ -104,6 +113,82 @@ describe("unknown metrics render as em dash, not 0", () => {
     expect(conversionRate(4, null)).toBeNull();
     expect(conversionRate(0, 0)).toBeNull();
     expect(conversionRate(2, 4)).toBe(0.5);
+  });
+});
+
+describe("slice 1 display language", () => {
+  it("uses Yes/No for person flags, not —", () => {
+    expect(formatPersonFlag(true)).toBe(YES_LABEL);
+    expect(formatPersonFlag(false)).toBe(NO_LABEL);
+    expect(formatPersonFlag(false)).not.toBe(UNKNOWN_METRIC);
+  });
+
+  it("shows Spend not entered only when the spend list is complete and empty", () => {
+    expect(adSpendDisplayStatus({ queryComplete: true, entryCount: 0 })).toBe("empty");
+    expect(adSpendDisplayStatus({ queryComplete: false, entryCount: 0 })).toBe(
+      "unavailable"
+    );
+    expect(adSpendDisplayStatus({ queryComplete: true, entryCount: 2 })).toBe("entered");
+    expect(formatAdvertisingSpendDisplay(0, "empty")).toBe(SPEND_NOT_ENTERED);
+    expect(formatAdvertisingSpendDisplay(0, "unavailable")).toBe(NOT_AVAILABLE);
+    expect(formatAdvertisingSpendDisplay(1250, "entered")).toBe("$12.50");
+    expect(formatCostPerPaidDisplay(5000, "empty")).toBe(UNKNOWN_METRIC);
+    expect(formatCostPerPaidDisplay(5000, "unavailable")).toBe(NOT_AVAILABLE);
+    expect(formatCostPerPaidDisplay(5000, "entered")).toBe("$50.00");
+  });
+
+  it("does not change blended cost-per-paid math", () => {
+    expect(blendedCostPerPaidCents(10000, 2)).toBe(5000);
+    expect(blendedCostPerPaidCents(0, 2)).toBe(0);
+    expect(blendedCostPerPaidCents(10000, 0)).toBeNull();
+  });
+});
+
+describe("global active paid helper", () => {
+  it("counts Stripe paid + Apple granting and ignores trials", () => {
+    expect(
+      countActivePaidMembers({
+        stripeSubs: [
+          stripeSub({ id: "paid", status: "active" }),
+          stripeSub({ id: "trial", status: "trialing" }),
+        ],
+        appleGranting: [appleGranting({ clerk_user_id: "apple_user" })],
+        recognizedPriceIds: RECOGNIZED,
+        stripeListComplete: true,
+        appleQueryComplete: true,
+      })
+    ).toBe(2);
+  });
+
+  it("returns null when Stripe or Apple lists are incomplete", () => {
+    expect(
+      countActivePaidMembers({
+        stripeSubs: [stripeSub({ id: "paid", status: "active" })],
+        appleGranting: [],
+        recognizedPriceIds: RECOGNIZED,
+        stripeListComplete: false,
+        appleQueryComplete: true,
+      })
+    ).toBeNull();
+  });
+
+  it("stays global even when a source-filtered snapshot is smaller", () => {
+    const all = [
+      stripeSub({ id: "paid", status: "active", metadata: { userId: "a" } }),
+      stripeSub({ id: "other", status: "active", metadata: { userId: "b" } }),
+    ];
+    const filtered = [all[0]!];
+    const filteredSnap = snapshot({ stripeSubs: filtered });
+    expect(filteredSnap.asOfNow.activePaid).toBe(1);
+    expect(
+      countActivePaidMembers({
+        stripeSubs: all,
+        appleGranting: [],
+        recognizedPriceIds: RECOGNIZED,
+        stripeListComplete: true,
+        appleQueryComplete: true,
+      })
+    ).toBe(2);
   });
 });
 
