@@ -11,6 +11,7 @@ import {
   addDaysToDateKey,
   aggregateTrafficSourceRows,
   appleSubscriberIdentity,
+  buildLatestTrialRows,
   clerkUserIdFromStripeSub,
   computeGrowthSnapshot,
   emptyUnknownSnapshot,
@@ -18,12 +19,14 @@ import {
   paidConversionUnix,
   parseGrowthDateRange,
   parseGrowthTrafficSource,
+  selectLatestTrialSeeds,
   stripeSubscriberIdentity,
   SUBSCRIBER_GROWTH_TZ,
   unixSecondsInPeriod,
   type GrowthAppleRow,
   type GrowthStripeSubscription,
   type GrowthTrafficSource,
+  type LatestTrialRow,
   type MarketingAttributionRow,
   type MarketingEventRow,
   type MetricNumber,
@@ -31,7 +34,8 @@ import {
 } from "@/lib/admin-subscriber-growth-pure";
 import { attributionMatchesDashboardSource } from "@/lib/marketing-attribution-pure";
 import { isAppleRowCurrentlyGranting } from "@/lib/summitt-membership-entitlement";
-import { listClerkUsers } from "@/lib/clerk-rest";
+import { listClerkUsers, listClerkUsersByIds } from "@/lib/clerk-rest";
+import { extractPrimaryEmail } from "@/lib/quotes-book-fulfillment-reminder";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getDateKeyInTimezone } from "@/lib/timezone";
@@ -355,34 +359,118 @@ async function loadAppleNotificationClerkIds(args: {
   return out;
 }
 
+const MARKETING_ATTRIBUTION_SELECT =
+  "clerk_user_id, visitor_id, source_normalized, is_paid_acquisition, source_detail, utm_source, utm_campaign, utm_content";
+
+function parseMarketingAttributionRow(raw: {
+  clerk_user_id?: unknown;
+  visitor_id?: unknown;
+  source_normalized?: unknown;
+  is_paid_acquisition?: unknown;
+  source_detail?: unknown;
+  utm_source?: unknown;
+  utm_campaign?: unknown;
+  utm_content?: unknown;
+}): MarketingAttributionRow | null {
+  if (typeof raw.clerk_user_id !== "string" || typeof raw.visitor_id !== "string") {
+    return null;
+  }
+  if (typeof raw.source_normalized !== "string") return null;
+  return {
+    clerk_user_id: raw.clerk_user_id,
+    visitor_id: raw.visitor_id,
+    source_normalized: raw.source_normalized,
+    is_paid_acquisition: raw.is_paid_acquisition === true,
+    source_detail: typeof raw.source_detail === "string" ? raw.source_detail : null,
+    utm_source: typeof raw.utm_source === "string" ? raw.utm_source : null,
+    utm_campaign: typeof raw.utm_campaign === "string" ? raw.utm_campaign : null,
+    utm_content: typeof raw.utm_content === "string" ? raw.utm_content : null,
+  };
+}
+
 async function loadMarketingAttribution(): Promise<MarketingAttributionRow[]> {
   const { data, error } = await supabaseServer
     .from("marketing_attribution")
-    .select(
-      "clerk_user_id, visitor_id, source_normalized, is_paid_acquisition, source_detail, utm_source, utm_campaign, utm_content"
-    );
+    .select(MARKETING_ATTRIBUTION_SELECT);
   if (error) {
     console.warn("[subscriber-growth] attribution query failed", error.message);
     return [];
   }
   const rows: MarketingAttributionRow[] = [];
   for (const raw of data ?? []) {
-    if (typeof raw.clerk_user_id !== "string" || typeof raw.visitor_id !== "string") {
-      continue;
-    }
-    if (typeof raw.source_normalized !== "string") continue;
-    rows.push({
-      clerk_user_id: raw.clerk_user_id,
-      visitor_id: raw.visitor_id,
-      source_normalized: raw.source_normalized,
-      is_paid_acquisition: raw.is_paid_acquisition === true,
-      source_detail: typeof raw.source_detail === "string" ? raw.source_detail : null,
-      utm_source: typeof raw.utm_source === "string" ? raw.utm_source : null,
-      utm_campaign: typeof raw.utm_campaign === "string" ? raw.utm_campaign : null,
-      utm_content: typeof raw.utm_content === "string" ? raw.utm_content : null,
-    });
+    const parsed = parseMarketingAttributionRow(raw);
+    if (parsed) rows.push(parsed);
   }
   return rows;
+}
+
+async function loadMarketingAttributionByClerkIds(
+  clerkIds: string[]
+): Promise<MarketingAttributionRow[]> {
+  if (clerkIds.length === 0) return [];
+  const { data, error } = await supabaseServer
+    .from("marketing_attribution")
+    .select(MARKETING_ATTRIBUTION_SELECT)
+    .in("clerk_user_id", clerkIds);
+  if (error) {
+    console.warn(
+      "[subscriber-growth] latest-trials attribution query failed",
+      error.message
+    );
+    return [];
+  }
+  const rows: MarketingAttributionRow[] = [];
+  for (const raw of data ?? []) {
+    const parsed = parseMarketingAttributionRow(raw);
+    if (parsed) rows.push(parsed);
+  }
+  return rows;
+}
+
+async function loadLatestTrialRows(args: {
+  stripeSubs: GrowthStripeSubscription[];
+  recognized: ReadonlySet<string>;
+  paidInvoiceSubIds: ReadonlySet<string>;
+}): Promise<LatestTrialRow[]> {
+  const seeds = selectLatestTrialSeeds(args.stripeSubs, args.recognized);
+  if (seeds.length === 0) return [];
+
+  const clerkIds = seeds.map((seed) => seed.clerkUserId);
+  const [attributions, activatedIds, clerkUsers] = await Promise.all([
+    loadMarketingAttributionByClerkIds(clerkIds),
+    clerkIdsActivatedWithin24h(
+      activationSeedsFromTrials(
+        seeds.map((seed) => ({
+          clerkUserId: seed.clerkUserId,
+          trialStartUnix: seed.trialStartUnix,
+        }))
+      )
+    ).catch((err) => {
+      console.warn("[subscriber-growth] latest-trials activation query failed", err);
+      return new Set<string>();
+    }),
+    listClerkUsersByIds(clerkIds).catch((err) => {
+      console.warn("[subscriber-growth] latest-trials Clerk lookup failed", err);
+      return [];
+    }),
+  ]);
+
+  const attributionsByClerkId = new Map(
+    attributions.map((row) => [row.clerk_user_id, row] as const)
+  );
+  const emailsByClerkId = new Map<string, string | null>();
+  for (const user of clerkUsers) {
+    if (!user?.id) continue;
+    emailsByClerkId.set(user.id, extractPrimaryEmail(user));
+  }
+
+  return buildLatestTrialRows({
+    seeds,
+    attributionsByClerkId,
+    emailsByClerkId,
+    activatedClerkIds: activatedIds,
+    paidInvoiceSubIds: args.paidInvoiceSubIds,
+  });
 }
 
 async function loadMarketingEvents(args: {
@@ -486,6 +574,7 @@ export async function loadSubscriberGrowthDashboard(args: {
       timezone: SUBSCRIBER_GROWTH_TZ,
       asOfNowLabel,
       snapshot: emptyUnknownSnapshot(),
+      latestTrials: [],
       warnings,
       adSpendEntries: [],
     };
@@ -787,12 +876,24 @@ export async function loadSubscriberGrowthDashboard(args: {
     snapshot.period.paidFullyEnded += appleEndedCount;
   }
 
+  let latestTrials: LatestTrialRow[] = [];
+  try {
+    latestTrials = await loadLatestTrialRows({
+      stripeSubs,
+      recognized,
+      paidInvoiceSubIds,
+    });
+  } catch (err) {
+    console.warn("[subscriber-growth] latest trials failed", err);
+  }
+
   return {
     range,
     source,
     timezone: SUBSCRIBER_GROWTH_TZ,
     asOfNowLabel,
     snapshot,
+    latestTrials,
     warnings,
     adSpendEntries: spendForFilter,
   };

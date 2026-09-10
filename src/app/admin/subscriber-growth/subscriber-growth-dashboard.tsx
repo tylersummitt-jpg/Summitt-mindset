@@ -1,12 +1,15 @@
 import Link from "next/link";
 
 import {
+  formatLatestTrialSignedUp,
   formatUnknownableCount,
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
+  organicSocialPlatformLabel,
   UNKNOWN_METRIC,
   type GrowthDateRange,
   type GrowthTrafficSource,
+  type LatestTrialRow,
   type SubscriberGrowthDashboardData,
 } from "@/lib/admin-subscriber-growth-pure";
 
@@ -70,6 +73,31 @@ const TRAFFIC_TABLE_HEADINGS = [
 ] as const;
 
 const TRAFFIC_TABLE_COLSPAN = TRAFFIC_TABLE_HEADINGS.length;
+
+const LATEST_TRIALS_HEADINGS = [
+  "Signed Up",
+  "Person",
+  "Source",
+  "Platform",
+  "Campaign",
+  "Post / Link",
+  "Activated",
+  "Paid",
+] as const;
+
+function flagMark(value: boolean): string {
+  return value ? "✓" : UNKNOWN_METRIC;
+}
+
+function latestTrialRowKey(row: LatestTrialRow, index: number): string {
+  return [
+    String(row.trialStartUnix),
+    row.personEmail ?? "",
+    row.sourceNormalized ?? "",
+    row.utmContent ?? "",
+    String(index),
+  ].join("|");
+}
 
 function MetricCard({
   label,
@@ -193,9 +221,10 @@ export default function SubscriberGrowthDashboard({
             Subscriber Growth Dashboard
           </h1>
           <p className="mt-1 text-xs text-gray-500">
-            Aggregates only. Unknown values are {UNKNOWN_METRIC}. Snapshot
-            metrics are as of now ({data.timezone}); period metrics use the
-            selected range.
+            Unknown values are {UNKNOWN_METRIC}. Snapshot metrics are as of
+            now ({data.timezone}); period metrics use the selected range.
+            Latest Trials is a person feed and is not filtered by date or
+            source.
           </p>
           <p className="text-[11px] text-gray-500">As of {data.asOfNowLabel}</p>
           <p className="text-[11px] text-gray-500">{trackingNote}</p>
@@ -556,6 +585,135 @@ export default function SubscriberGrowthDashboard({
             </div>
           </>
         )}
+      </section>
+
+      <section data-latest-trials>
+        <h2 className="mb-0.5 text-sm font-semibold text-gray-900">
+          Latest Trials
+        </h2>
+        <p className="mb-1.5 text-[10px] text-gray-500">
+          Last 20 people who started a free trial
+        </p>
+        <div className="hidden overflow-x-auto rounded-lg border border-gray-200 bg-white md:block">
+          <table className="w-full text-left text-[11px]">
+            <thead className="bg-gray-50 text-gray-500">
+              <tr>
+                {LATEST_TRIALS_HEADINGS.map((heading) => (
+                  <th key={heading} className="px-2 py-1.5 font-medium">
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.latestTrials.length === 0 ? (
+                <tr className="text-gray-700">
+                  <td className="px-2 py-2" colSpan={LATEST_TRIALS_HEADINGS.length}>
+                    No trial signups found.
+                  </td>
+                </tr>
+              ) : (
+                data.latestTrials.map((row, index) => (
+                  <tr
+                    key={latestTrialRowKey(row, index)}
+                    className="border-t border-gray-100 text-gray-800"
+                  >
+                    <td className="whitespace-nowrap px-2 py-1.5">
+                      {formatLatestTrialSignedUp(row.trialStartUnix)}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {row.personEmail || UNKNOWN_METRIC}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {row.sourceNormalized
+                        ? displaySource(row.sourceNormalized)
+                        : UNKNOWN_METRIC}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {displayPlatform(
+                        organicSocialPlatformLabel(
+                          row.sourceNormalized,
+                          row.utmSource
+                        )
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {row.utmCampaign || UNKNOWN_METRIC}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      {row.utmContent || UNKNOWN_METRIC}
+                    </td>
+                    <td className="px-2 py-1.5">{flagMark(row.activated)}</td>
+                    <td className="px-2 py-1.5">{flagMark(row.paid)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="space-y-2 md:hidden">
+          {data.latestTrials.length === 0 ? (
+            <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-600">
+              No trial signups found.
+            </div>
+          ) : (
+            data.latestTrials.map((row, index) => {
+              const sourceLabel = row.sourceNormalized
+                ? displaySource(row.sourceNormalized)
+                : null;
+              const platformLabel = organicSocialPlatformLabel(
+                row.sourceNormalized,
+                row.utmSource
+              );
+              const headline = platformLabel
+                ? `${platformLabel} · ${sourceLabel}`
+                : sourceLabel;
+              return (
+                <div
+                  key={latestTrialRowKey(row, index)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px]"
+                >
+                  <div className="font-medium text-gray-900">
+                    {formatLatestTrialSignedUp(row.trialStartUnix)}
+                  </div>
+                  <div className="text-gray-800">
+                    {row.personEmail || UNKNOWN_METRIC}
+                  </div>
+                  {headline ? (
+                    <div className="mt-1.5 text-gray-700">{headline}</div>
+                  ) : (
+                    <div className="mt-1.5 text-gray-700">
+                      Source {UNKNOWN_METRIC}
+                    </div>
+                  )}
+                  {row.sourceNormalized ? (
+                    <>
+                      <p className="text-gray-500">
+                        Campaign: {row.utmCampaign || UNKNOWN_METRIC}
+                      </p>
+                      <p className="text-gray-500">
+                        Post: {row.utmContent || UNKNOWN_METRIC}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-gray-500">
+                        Campaign: {UNKNOWN_METRIC}
+                      </p>
+                      <p className="text-gray-500">
+                        Post / Link {UNKNOWN_METRIC}
+                      </p>
+                    </>
+                  )}
+                  <p className="mt-1 text-gray-700">
+                    Activated {flagMark(row.activated)}
+                  </p>
+                  <p className="text-gray-700">Paid {flagMark(row.paid)}</p>
+                </div>
+              );
+            })
+          )}
+        </div>
       </section>
     </div>
   );

@@ -41,6 +41,7 @@ describe("subscriber growth page authorization", () => {
       timezone: "America/New_York",
       asOfNowLabel: "Sep 1, 2026",
       snapshot: emptyUnknownSnapshot(),
+      latestTrials: [],
       warnings: [],
       adSpendEntries: [],
     });
@@ -103,6 +104,11 @@ describe("subscriber growth auth architecture", () => {
     expect(loader).toMatch(/marketing_attribution/);
     expect(loader).not.toMatch(/meta_capi_web_identifiers/);
     expect(loader).toContain("listAdSpendInRange");
+    expect(loader).toContain("selectLatestTrialSeeds(args.stripeSubs, args.recognized)");
+    expect(loader).toContain("listClerkUsersByIds");
+    expect(loader).toContain("clerkIdsActivatedWithin24h");
+    expect(loader).not.toContain("selectLatestTrialSeeds(sourceFilteredSubs");
+    expect(loader).not.toContain("getClerkUser(");
     expect(auth).toContain("TYLER_CLERK_USER_ID");
     expect(auth).toContain("BROOKE_CLERK_USER_ID");
     expect(auth).not.toMatch(/BrooklynSummitt@gmail\.com/i);
@@ -124,8 +130,10 @@ describe("subscriber growth auth architecture", () => {
     expect(readFileSync(WEBHOOK, "utf8")).toContain("constructEvent");
   });
 
-  it("dashboard markup is aggregate-only and uses — for unknown values", () => {
+  it("dashboard markup uses — for unknown values and keeps Latest Trials behind Person email only", () => {
     const dashboard = readFileSync(DASHBOARD, "utf8");
+    const loader = readFileSync(LOADER, "utf8");
+    const pure = readFileSync(PURE, "utf8");
     expect(dashboard).toContain("UNKNOWN_METRIC");
     expect(dashboard).toContain("Attribution tracking has not started yet.");
     expect(dashboard).toContain("Cost per paid subscriber");
@@ -133,14 +141,32 @@ describe("subscriber growth auth architecture", () => {
     expect(dashboard).toContain("Post / Link");
     expect(dashboard).toContain("Accounts");
     expect(dashboard).toContain("TrackingLinkBuilder");
+    expect(dashboard).toContain("Latest Trials");
+    expect(dashboard).toContain("Last 20 people who started a free trial");
     expect(dashboard).not.toContain("Specific advertisement");
     expect(dashboard).not.toMatch(/\bCAC\b/);
     expect(dashboard).toContain("Selected period · Stripe only");
-    expect(dashboard).not.toMatch(/email/i);
     expect(dashboard).not.toMatch(/phoneNumber/);
     expect(dashboard).not.toMatch(/clerkUserId/);
     expect(dashboard).not.toMatch(/customerId/);
     expect(pureSourceHasNoPeopleArrays()).toBe(true);
+    expect(pure).toContain("latestTrials: LatestTrialRow[]");
+    expect(pure).toContain("becamePaidAfterTrial");
+    expect(pure).not.toMatch(/GrowthDashboardSnapshot = \{[^}]*latestTrials/s);
+
+    const headingsBlock = dashboard.slice(
+      dashboard.indexOf("LATEST_TRIALS_HEADINGS"),
+      dashboard.indexOf("function flagMark")
+    );
+    expect(headingsBlock).toContain("Signed Up");
+    expect(headingsBlock).toContain("Person");
+    expect(headingsBlock).toContain("Activated");
+    expect(headingsBlock).toContain("Paid");
+    expect(headingsBlock).not.toContain("Account");
+    expect(headingsBlock).not.toMatch(/"Trial"/);
+    expect(headingsBlock).not.toContain("Visitors");
+
+    expect(loader).toContain("extractPrimaryEmail");
   });
 
   it("loader selects existing utm_source without schema or capture changes", () => {

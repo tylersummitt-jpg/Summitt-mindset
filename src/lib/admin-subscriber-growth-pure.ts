@@ -349,6 +349,98 @@ export function clerkUserIdFromStripeSub(
   return uid || null;
 }
 
+export const LATEST_TRIALS_LIMIT = 20;
+
+export type LatestTrialSeed = {
+  clerkUserId: string;
+  trialStartUnix: number;
+  sub: GrowthStripeSubscription;
+};
+
+export type LatestTrialRow = {
+  trialStartUnix: number;
+  personEmail: string | null;
+  sourceNormalized: string | null;
+  utmSource: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  activated: boolean;
+  paid: boolean;
+};
+
+/**
+ * Unique Clerk people with a Summitt Stripe trial_start, newest first.
+ * Ignores date/source filters. People without metadata.userId are skipped.
+ */
+export function selectLatestTrialSeeds(
+  subs: readonly GrowthStripeSubscription[],
+  recognizedPriceIds: ReadonlySet<string>,
+  limit = LATEST_TRIALS_LIMIT
+): LatestTrialSeed[] {
+  const best = new Map<string, LatestTrialSeed>();
+  for (const sub of subs) {
+    if (!isLikelySummittStripeSubscription(sub, recognizedPriceIds)) continue;
+    const trialStartUnix = sub.trial_start;
+    if (trialStartUnix == null || !Number.isFinite(trialStartUnix)) continue;
+    const clerkUserId = clerkUserIdFromStripeSub(sub);
+    if (!clerkUserId) continue;
+    const prev = best.get(clerkUserId);
+    if (
+      !prev ||
+      trialStartUnix > prev.trialStartUnix ||
+      (trialStartUnix === prev.trialStartUnix && sub.id > prev.sub.id)
+    ) {
+      best.set(clerkUserId, { clerkUserId, trialStartUnix, sub });
+    }
+  }
+  const cap = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : LATEST_TRIALS_LIMIT;
+  return [...best.values()]
+    .sort((a, b) => {
+      if (b.trialStartUnix !== a.trialStartUnix) {
+        return b.trialStartUnix - a.trialStartUnix;
+      }
+      return b.sub.id.localeCompare(a.sub.id);
+    })
+    .slice(0, cap);
+}
+
+export function buildLatestTrialRows(args: {
+  seeds: readonly LatestTrialSeed[];
+  attributionsByClerkId: ReadonlyMap<string, MarketingAttributionRow>;
+  emailsByClerkId: ReadonlyMap<string, string | null>;
+  activatedClerkIds: ReadonlySet<string>;
+  paidInvoiceSubIds: ReadonlySet<string>;
+}): LatestTrialRow[] {
+  return args.seeds.map((seed) => {
+    const attr = args.attributionsByClerkId.get(seed.clerkUserId);
+    const emailRaw = args.emailsByClerkId.get(seed.clerkUserId);
+    const personEmail =
+      typeof emailRaw === "string" && emailRaw.trim() ? emailRaw.trim() : null;
+    return {
+      trialStartUnix: seed.trialStartUnix,
+      personEmail,
+      sourceNormalized: attr?.source_normalized ?? null,
+      utmSource: attr?.utm_source ?? null,
+      utmCampaign: attr?.utm_campaign ?? null,
+      utmContent: attr?.utm_content ?? null,
+      activated: args.activatedClerkIds.has(seed.clerkUserId),
+      paid: becamePaidAfterTrial(
+        seed.sub,
+        args.paidInvoiceSubIds.has(seed.sub.id)
+      ),
+    };
+  });
+}
+
+export function formatLatestTrialSignedUp(unixSeconds: number): string {
+  if (!Number.isFinite(unixSeconds)) return UNKNOWN_METRIC;
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: SUBSCRIBER_GROWTH_TZ,
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(unixSeconds * 1000));
+}
+
 export function stripeChurnRate(args: {
   subs: GrowthStripeSubscription[];
   periodStartUnix: number | null;
@@ -683,6 +775,7 @@ export type SubscriberGrowthDashboardData = {
   timezone: typeof SUBSCRIBER_GROWTH_TZ;
   asOfNowLabel: string;
   snapshot: GrowthDashboardSnapshot;
+  latestTrials: LatestTrialRow[];
   warnings: string[];
   adSpendEntries: Array<{
     id: string;

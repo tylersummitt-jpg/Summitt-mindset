@@ -3,15 +3,19 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateTrafficSourceRows,
   blendedCostPerPaidCents,
+  buildLatestTrialRows,
   computeGrowthSnapshot,
   conversionRate,
+  formatLatestTrialSignedUp,
   formatUnknownableCount,
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
   growthPeriodUtcMs,
   isStripePaidActive,
+  LATEST_TRIALS_LIMIT,
   mrrCentsFromStripePriceAmount,
   organicSocialPlatformLabel,
+  selectLatestTrialSeeds,
   UNKNOWN_METRIC,
   type GrowthAppleRow,
   type GrowthStripeSubscription,
@@ -979,3 +983,201 @@ describe("organic social platform grain", () => {
     expect(ig?.paidConversions).toBe(1);
   });
 });
+
+describe("latest trial seeds and rows", () => {
+  const recognized = RECOGNIZED;
+
+  it("keeps the 20 newest unique people and newest-first order", () => {
+    const subs = Array.from({ length: 21 }, (_, i) =>
+      stripeSub({
+        id: `sub_${i}`,
+        status: "trialing",
+        metadata: { userId: `user_${i}` },
+        trial_start: 1_700_000_000 + i,
+        trial_end: 1_700_000_000 + i + 7 * 86_400,
+      })
+    );
+    const seeds = selectLatestTrialSeeds(subs, recognized);
+    expect(LATEST_TRIALS_LIMIT).toBe(20);
+    expect(seeds).toHaveLength(20);
+    expect(seeds.map((s) => s.clerkUserId)).toEqual(
+      Array.from({ length: 20 }, (_, i) => `user_${20 - i}`)
+    );
+    expect(seeds[0]?.trialStartUnix).toBeGreaterThan(seeds[19]?.trialStartUnix ?? 0);
+  });
+
+  it("shows a repeated Clerk user once using the newest trial_start", () => {
+    const seeds = selectLatestTrialSeeds(
+      [
+        stripeSub({
+          id: "older",
+          status: "canceled",
+          metadata: { userId: "user_same" },
+          trial_start: 1_700_000_100,
+          trial_end: 1_700_600_100,
+        }),
+        stripeSub({
+          id: "newer",
+          status: "trialing",
+          metadata: { userId: "user_same" },
+          trial_start: 1_700_900_100,
+          trial_end: 1_701_500_100,
+        }),
+        stripeSub({
+          id: "other",
+          status: "trialing",
+          metadata: { userId: "user_other" },
+          trial_start: 1_700_800_100,
+          trial_end: 1_701_400_100,
+        }),
+      ],
+      recognized
+    );
+    expect(seeds).toHaveLength(2);
+    expect(seeds[0]).toMatchObject({
+      clerkUserId: "user_same",
+      trialStartUnix: 1_700_900_100,
+      sub: expect.objectContaining({ id: "newer" }),
+    });
+    expect(seeds[1]?.clerkUserId).toBe("user_other");
+  });
+
+  it("skips Apple-only people, missing Clerk ids, and subscriptions without trial_start", () => {
+    const seeds = selectLatestTrialSeeds(
+      [
+        stripeSub({
+          id: "no_trial",
+          status: "active",
+          metadata: { userId: "user_paid" },
+        }),
+        stripeSub({
+          id: "no_clerk",
+          status: "trialing",
+          metadata: {},
+          trial_start: NOW_UNIX,
+          trial_end: NOW_UNIX + 7 * 86_400,
+        }),
+      ],
+      recognized
+    );
+    expect(seeds).toEqual([]);
+  });
+
+  it("does not apply a date or source filter", () => {
+    const oldStart = NOW_UNIX - 400 * 86_400;
+    const seeds = selectLatestTrialSeeds(
+      [
+        stripeSub({
+          id: "ancient",
+          status: "trialing",
+          metadata: { userId: "user_old" },
+          trial_start: oldStart,
+          trial_end: oldStart + 7 * 86_400,
+        }),
+      ],
+      recognized
+    );
+    expect(seeds).toHaveLength(1);
+    expect(seeds[0]?.clerkUserId).toBe("user_old");
+  });
+
+  it("maps first-touch attribution, emails, 24h activation set, and person-level paid", () => {
+    const trialing = stripeSub({
+      id: "still_trial",
+      status: "trialing",
+      metadata: { userId: "user_ig" },
+      trial_start: NOW_UNIX - 3600,
+      trial_end: NOW_UNIX + 6 * 86_400,
+    });
+    const converted = stripeSub({
+      id: "converted",
+      status: "active",
+      metadata: { userId: "user_paid" },
+      trial_start: NOW_UNIX - 10 * 86_400,
+      trial_end: NOW_UNIX - 3 * 86_400,
+    });
+    const canceledTrial = stripeSub({
+      id: "canceled_trial",
+      status: "canceled",
+      metadata: { userId: "user_cancel" },
+      trial_start: NOW_UNIX - 5 * 86_400,
+      trial_end: NOW_UNIX + 2 * 86_400,
+      canceled_at: NOW_UNIX - 86_400,
+    });
+    const unattributed = stripeSub({
+      id: "unknown",
+      status: "trialing",
+      metadata: { userId: "user_none" },
+      trial_start: NOW_UNIX - 120,
+      trial_end: NOW_UNIX + 7 * 86_400,
+    });
+    const seeds = selectLatestTrialSeeds(
+      [trialing, converted, canceledTrial, unattributed],
+      recognized
+    );
+    const rows = buildLatestTrialRows({
+      seeds,
+      attributionsByClerkId: new Map([
+        [
+          "user_ig",
+          {
+            clerk_user_id: "user_ig",
+            visitor_id: "v_ig",
+            source_normalized: "organic_social",
+            is_paid_acquisition: false,
+            source_detail: null,
+            utm_source: "instagram",
+            utm_campaign: "organic",
+            utm_content: "story_psm047",
+          },
+        ],
+      ]),
+      emailsByClerkId: new Map([
+        ["user_ig", "jane@example.com"],
+        ["user_paid", "paid@example.com"],
+        ["user_cancel", "cancel@example.com"],
+      ]),
+      activatedClerkIds: new Set(["user_ig"]),
+      paidInvoiceSubIds: new Set<string>(),
+    });
+
+    const ig = rows.find((r) => r.personEmail === "jane@example.com");
+    expect(ig).toMatchObject({
+      sourceNormalized: "organic_social",
+      utmSource: "instagram",
+      utmCampaign: "organic",
+      utmContent: "story_psm047",
+      activated: true,
+      paid: false,
+    });
+    expect(organicSocialPlatformLabel(ig?.sourceNormalized, ig?.utmSource)).toBe(
+      "Instagram"
+    );
+
+    const paid = rows.find((r) => r.personEmail === "paid@example.com");
+    expect(paid?.activated).toBe(false);
+    expect(paid?.paid).toBe(true);
+
+    const canceled = rows.find((r) => r.personEmail === "cancel@example.com");
+    expect(canceled?.paid).toBe(false);
+
+    const missing = rows.find((r) => r.trialStartUnix === NOW_UNIX - 120);
+    expect(missing).toMatchObject({
+      personEmail: null,
+      sourceNormalized: null,
+      utmSource: null,
+      utmCampaign: null,
+      utmContent: null,
+      activated: false,
+      paid: false,
+    });
+  });
+
+  it("formats Signed Up in America/New_York", () => {
+    const unix = Math.floor(Date.parse("2026-09-10T00:43:00.000Z") / 1000);
+    const label = formatLatestTrialSignedUp(unix);
+    expect(label).toContain("Sep 9, 2026");
+    expect(label).toContain("8:43 PM");
+  });
+});
+

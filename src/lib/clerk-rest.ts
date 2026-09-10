@@ -107,3 +107,43 @@ export async function listClerkUsers(args?: {
 
   return (await res.json()) as ClerkUserListResponse;
 }
+
+const CLERK_USERS_BY_IDS_MAX = 100;
+
+/**
+ * One Clerk Backend GET /v1/users filtered by user_id.
+ * For small admin lookups (e.g. 20 trial starters). Not a full user scan.
+ */
+export async function listClerkUsersByIds(
+  userIds: readonly string[]
+): Promise<ClerkUserResponse[]> {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of userIds) {
+    const id = typeof raw === "string" ? raw.trim() : "";
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    unique.push(id);
+    if (unique.length >= CLERK_USERS_BY_IDS_MAX) break;
+  }
+  if (unique.length === 0) return [];
+
+  const key = getClerkSecretKey();
+  const url = new URL("https://api.clerk.com/v1/users");
+  url.searchParams.set("limit", String(unique.length));
+  for (const id of unique) {
+    url.searchParams.append("user_id", id);
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${key}` },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to list Clerk users by id: ${text}`);
+  }
+
+  return (await res.json()) as ClerkUserListResponse;
+}

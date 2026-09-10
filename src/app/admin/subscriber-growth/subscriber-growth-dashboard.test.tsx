@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   emptyUnknownSnapshot,
   SUBSCRIBER_GROWTH_TZ,
+  type LatestTrialRow,
   type SubscriberGrowthDashboardData,
   type TrafficSourceRow,
 } from "@/lib/admin-subscriber-growth-pure";
@@ -46,7 +47,8 @@ function organicRow(
 }
 
 function dashboardData(
-  trafficRows: TrafficSourceRow[]
+  trafficRows: TrafficSourceRow[],
+  latestTrials: LatestTrialRow[] = []
 ): SubscriberGrowthDashboardData {
   const snapshot = emptyUnknownSnapshot();
   return {
@@ -62,6 +64,7 @@ function dashboardData(
         sourceTrackingUnavailable: false,
       },
     },
+    latestTrials,
     warnings: [],
     adSpendEntries: [],
   };
@@ -90,8 +93,8 @@ describe("subscriber growth organic platform table", () => {
       />
     );
 
-    expect(screen.getByText("Platform")).toBeTruthy();
-    expect(screen.getByText("Post / Link")).toBeTruthy();
+    expect(screen.getAllByText("Platform").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Post / Link").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Accounts").length).toBeGreaterThan(0);
     expect(screen.getByText("Tracking Link Builder")).toBeTruthy();
     expect(screen.getAllByText("Instagram").length).toBeGreaterThan(0);
@@ -148,3 +151,89 @@ describe("subscriber growth organic platform table", () => {
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 });
+
+describe("latest trials person feed", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  const signedUpUnix = Math.floor(Date.parse("2026-09-10T00:43:00.000Z") / 1000);
+
+  const attributed: LatestTrialRow = {
+    trialStartUnix: signedUpUnix,
+    personEmail: "jane@example.com",
+    sourceNormalized: "organic_social",
+    utmSource: "instagram",
+    utmCampaign: "organic",
+    utmContent: "story_psm047",
+    activated: true,
+    paid: false,
+  };
+
+  const unattributed: LatestTrialRow = {
+    trialStartUnix: signedUpUnix - 60,
+    personEmail: null,
+    sourceNormalized: null,
+    utmSource: null,
+    utmCampaign: null,
+    utmContent: null,
+    activated: false,
+    paid: false,
+  };
+
+  it("renders desktop columns without Account or Trial and shows email", () => {
+    render(
+      <SubscriberGrowthDashboard data={dashboardData([], [attributed, unattributed])} />
+    );
+
+    const section = document.querySelector("[data-latest-trials]");
+    expect(section).toBeTruthy();
+    const desktop = section?.querySelector(".hidden.md\\:block") as HTMLElement;
+    expect(desktop).toBeTruthy();
+    const table = within(desktop);
+    expect(table.getByText("Signed Up")).toBeTruthy();
+    expect(table.getByText("Person")).toBeTruthy();
+    expect(table.getByText("Source")).toBeTruthy();
+    expect(table.getByText("Platform")).toBeTruthy();
+    expect(table.getByText("Campaign")).toBeTruthy();
+    expect(table.getByText("Post / Link")).toBeTruthy();
+    expect(table.getByText("Activated")).toBeTruthy();
+    expect(table.getByText("Paid")).toBeTruthy();
+    expect(table.queryByText("Account")).toBeNull();
+    expect(table.queryByText("Trial", { exact: true })).toBeNull();
+    expect(table.queryByText("Visitors")).toBeNull();
+
+    expect(table.getByText("jane@example.com")).toBeTruthy();
+    expect(table.getByText("Organic social")).toBeTruthy();
+    expect(table.getByText("Instagram")).toBeTruthy();
+    expect(table.getByText("organic")).toBeTruthy();
+    expect(table.getByText("story_psm047")).toBeTruthy();
+    expect(table.getByText("✓")).toBeTruthy();
+    expect(table.getAllByText("—").length).toBeGreaterThan(0);
+    expect(section?.textContent).not.toMatch(/user_[a-z0-9]+/i);
+    expect(section?.textContent).not.toMatch(/phoneNumber/);
+  });
+
+  it("keeps mobile cards compact and degrades missing identity/attribution", () => {
+    render(
+      <SubscriberGrowthDashboard data={dashboardData([], [attributed, unattributed])} />
+    );
+
+    const section = document.querySelector("[data-latest-trials]") as HTMLElement;
+    expect(section).toBeTruthy();
+    expect(within(section).getByText("Last 20 people who started a free trial")).toBeTruthy();
+    const mobile = section.querySelector(".md\\:hidden") as HTMLElement;
+    expect(mobile).toBeTruthy();
+    expect(mobile.querySelector("table")).toBeNull();
+    const cardRoot = within(mobile);
+    expect(cardRoot.getByText("jane@example.com")).toBeTruthy();
+    expect(cardRoot.getByText("Instagram · Organic social")).toBeTruthy();
+    expect(cardRoot.getByText("Campaign: organic")).toBeTruthy();
+    expect(cardRoot.getByText("Post: story_psm047")).toBeTruthy();
+    expect(cardRoot.getByText("Activated ✓")).toBeTruthy();
+    expect(cardRoot.getAllByText("Paid —").length).toBeGreaterThan(0);
+    expect(cardRoot.getByText("Source —")).toBeTruthy();
+    expect(cardRoot.getByText("Post / Link —")).toBeTruthy();
+  });
+});
+
