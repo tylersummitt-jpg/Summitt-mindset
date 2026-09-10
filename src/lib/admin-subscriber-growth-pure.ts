@@ -3,6 +3,7 @@
  * Unknown metrics stay `null` and must render as "—", never a guessed 0.
  */
 
+import { attributionMatchesDashboardSource } from "@/lib/marketing-attribution-pure";
 import { hasPauseCollection } from "@/lib/summitt-subscription-membership";
 import { getDateKeyInTimezone, utcInstantForLocalMidnight } from "@/lib/timezone";
 
@@ -53,6 +54,18 @@ export function formatCostPerPaidDisplay(
   if (status === "unavailable") return NOT_AVAILABLE;
   if (status === "empty") return UNKNOWN_METRIC;
   return formatUnknownableUsdFromCents(cents);
+}
+
+export function formatCostPerTrialDisplay(args: {
+  cents: MetricNumber;
+  spendStatus: AdSpendDisplayStatus;
+  paidAdTrialsStarted: MetricNumber;
+}): string {
+  if (args.spendStatus === "unavailable") return NOT_AVAILABLE;
+  if (args.spendStatus === "empty") return UNKNOWN_METRIC;
+  if (args.paidAdTrialsStarted == null) return NOT_AVAILABLE;
+  if (args.paidAdTrialsStarted === 0) return UNKNOWN_METRIC;
+  return formatUnknownableUsdFromCents(args.cents);
 }
 
 export type GrowthDateRange = "today" | "last_7" | "last_30" | "all_time";
@@ -701,16 +714,15 @@ export function collectRecentActivityEvents(args: {
 export function attachRecentActivityDetails(args: {
   events: readonly RecentActivityEvent[];
   emailsByClerkId: ReadonlyMap<string, string | null>;
-  attributionsByClerkId: ReadonlyMap<string, { source_normalized: string | null }>;
+  attributionsByClerkId: ReadonlyMap<string, HumanFirstTouchFields | null | undefined>;
 }): RecentActivityEvent[] {
   return args.events.map((event) => {
     const emailRaw = args.emailsByClerkId.get(event.clerkUserId);
     const personEmail =
       typeof emailRaw === "string" && emailRaw.trim() ? emailRaw.trim() : null;
-    const attr = args.attributionsByClerkId.get(event.clerkUserId);
-    const firstTouchLabel = attr
-      ? growthSourceDisplayLabel(attr.source_normalized)
-      : UNKNOWN_SOURCE_LABEL;
+    const firstTouchLabel = humanFirstTouchLabel(
+      args.attributionsByClerkId.get(event.clerkUserId)
+    );
     return { ...event, personEmail, firstTouchLabel };
   });
 }
@@ -881,6 +893,9 @@ export type LatestTrialRow = {
   trialStartUnix: number;
   personEmail: string | null;
   sourceNormalized: string | null;
+  isPaidAcquisition: boolean;
+  sourceDetail: string | null;
+  referrerHost: string | null;
   utmSource: string | null;
   utmCampaign: string | null;
   utmContent: string | null;
@@ -940,6 +955,9 @@ export function buildLatestTrialRows(args: {
       trialStartUnix: seed.trialStartUnix,
       personEmail,
       sourceNormalized: attr?.source_normalized ?? null,
+      isPaidAcquisition: attr?.is_paid_acquisition === true,
+      sourceDetail: attr?.source_detail ?? null,
+      referrerHost: attr?.referrer_host ?? null,
       utmSource: attr?.utm_source ?? null,
       utmCampaign: attr?.utm_campaign ?? null,
       utmContent: attr?.utm_content ?? null,
@@ -1023,6 +1041,11 @@ export function reactivatedIdentityCount(args: {
 export type TrafficSourceRow = {
   sourceNormalized: string;
   platform: string;
+  firstTouchLabel: string;
+  isPaidAcquisition: boolean;
+  sourceDetail: string | null;
+  referrerHost: string | null;
+  utmSource: string | null;
   utmCampaign: string;
   utmContent: string;
   visitors: MetricNumber;
@@ -1040,6 +1063,7 @@ export type MarketingAttributionRow = {
   source_normalized: string;
   is_paid_acquisition: boolean;
   source_detail: string | null;
+  referrer_host: string | null;
   utm_source: string | null;
   utm_campaign: string | null;
   utm_content: string | null;
@@ -1051,10 +1075,19 @@ export type MarketingEventRow = {
   occurred_at: string;
   source_normalized: string | null;
   is_paid_acquisition: boolean;
+  referrer_host: string | null;
   utm_source: string | null;
   utm_campaign: string | null;
   utm_content: string | null;
   clerk_user_id: string | null;
+};
+
+export type HumanFirstTouchFields = {
+  source_normalized?: string | null;
+  is_paid_acquisition?: boolean;
+  source_detail?: string | null;
+  referrer_host?: string | null;
+  utm_source?: string | null;
 };
 
 export type AdSpendAggregateRow = {
@@ -1065,6 +1098,16 @@ export type AdSpendAggregateRow = {
 
 const ORGANIC_PLATFORM_SAFE_RAW = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 
+function knownOrganicUtmLabel(utmSource: string | null | undefined): string {
+  if (typeof utmSource !== "string") return "";
+  const raw = utmSource.trim().toLowerCase();
+  if (raw === "instagram" || raw === "ig") return "Instagram";
+  if (raw === "facebook" || raw === "fb") return "Facebook";
+  if (raw === "tiktok") return "TikTok";
+  if (raw === "x" || raw === "twitter") return "X";
+  return "";
+}
+
 /**
  * Display-only organic platform. Does not change source_normalized or paid Meta.
  * Empty string means the dashboard should show "—".
@@ -1074,24 +1117,125 @@ export function organicSocialPlatformLabel(
   utmSource: string | null | undefined
 ): string {
   if (sourceNormalized !== "organic_social") return "";
+  const known = knownOrganicUtmLabel(utmSource);
+  if (known) return known;
   if (typeof utmSource !== "string") return "";
   const raw = utmSource.trim().toLowerCase();
   if (!raw) return "";
-  if (raw === "instagram" || raw === "ig") return "Instagram";
-  if (raw === "facebook" || raw === "fb") return "Facebook";
-  if (raw === "tiktok") return "TikTok";
-  if (raw === "x" || raw === "twitter") return "X";
   if (ORGANIC_PLATFORM_SAFE_RAW.test(raw)) return raw;
   return "";
+}
+
+export function cleanReferrerHost(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  let host = raw.trim().toLowerCase();
+  if (!host) return null;
+  host = host.replace(/^https?:\/\//, "");
+  host = host.split("/")[0] ?? "";
+  host = host.split(":")[0] ?? "";
+  host = host.replace(/^www\./, "");
+  if (!host || host === "localhost") return null;
+  if (!/^[a-z0-9][a-z0-9.-]*[a-z0-9]$|^[a-z0-9]$/.test(host)) return null;
+  return host;
+}
+
+function organicSocialFromReferrerHost(host: string): string {
+  if (
+    host === "facebook.com" ||
+    host.endsWith(".facebook.com")
+  ) {
+    return "Facebook";
+  }
+  if (host === "instagram.com" || host.endsWith(".instagram.com")) {
+    return "Instagram";
+  }
+  if (host === "tiktok.com" || host.endsWith(".tiktok.com")) {
+    return "TikTok";
+  }
+  if (
+    host === "x.com" ||
+    host === "twitter.com" ||
+    host === "t.co" ||
+    host.endsWith(".x.com") ||
+    host.endsWith(".twitter.com")
+  ) {
+    return "X";
+  }
+  return "";
+}
+
+/**
+ * Display-only first-touch label. Does not write source_normalized.
+ */
+export function humanFirstTouchLabel(
+  attr: HumanFirstTouchFields | null | undefined
+): string {
+  if (!attr || typeof attr.source_normalized !== "string" || !attr.source_normalized) {
+    return UNKNOWN_SOURCE_LABEL;
+  }
+  const source = attr.source_normalized;
+  if (source === "direct") return "Direct";
+  if (source === "meta") return "Meta ads";
+  if (source === "google") {
+    return attr.is_paid_acquisition === true ? "Google ads" : "Google search";
+  }
+  if (source === "referral") {
+    if (attr.source_detail === "coach") return "Coach referral";
+    const host = cleanReferrerHost(attr.referrer_host);
+    if (host) return `Website referral · ${host}`;
+    return "Referral · unknown site";
+  }
+  if (source === "organic_social") {
+    const fromUtm = knownOrganicUtmLabel(attr.utm_source);
+    if (fromUtm) return fromUtm;
+    const host = cleanReferrerHost(attr.referrer_host);
+    if (host) {
+      const fromHost = organicSocialFromReferrerHost(host);
+      if (fromHost) return fromHost;
+    }
+    return "Organic social";
+  }
+  return growthSourceDisplayLabel(source);
+}
+
+export function latestTrialFirstTouchLabel(row: LatestTrialRow): string {
+  return humanFirstTouchLabel({
+    source_normalized: row.sourceNormalized,
+    is_paid_acquisition: row.isPaidAcquisition,
+    source_detail: row.sourceDetail,
+    referrer_host: row.referrerHost,
+    utm_source: row.utmSource,
+  });
+}
+
+function spendFirstTouchLabel(sourceNormalized: string): string {
+  if (sourceNormalized === "google") return "Google ads";
+  return humanFirstTouchLabel({
+    source_normalized: sourceNormalized,
+    is_paid_acquisition: true,
+  });
 }
 
 function grainKey(
   source: string,
   platform: string,
   campaign: string,
-  content: string
+  content: string,
+  firstTouch: string
 ): string {
-  return `${source}\u0000${platform}\u0000${campaign}\u0000${content}`;
+  return `${source}\u0000${platform}\u0000${campaign}\u0000${content}\u0000${firstTouch}`;
+}
+
+function trafficFieldsFromEvent(ev: MarketingEventRow): HumanFirstTouchFields & {
+  source_normalized: string;
+} {
+  return {
+    source_normalized: ev.source_normalized ?? "direct",
+    is_paid_acquisition: ev.is_paid_acquisition === true,
+    source_detail: null,
+    referrer_host: ev.referrer_host,
+    utm_source: ev.utm_source,
+  };
 }
 
 export function aggregateTrafficSourceRows(args: {
@@ -1112,15 +1256,60 @@ export function aggregateTrafficSourceRows(args: {
     return source === args.sourceFilter;
   };
 
+  const grainMeta = new Map<
+    string,
+    {
+      sourceNormalized: string;
+      platform: string;
+      utmCampaign: string;
+      utmContent: string;
+      utmSource: string | null;
+      isPaidAcquisition: boolean;
+      sourceDetail: string | null;
+      referrerHost: string | null;
+      firstTouchLabel: string;
+    }
+  >();
+
+  const rememberGrain = (
+    source: string,
+    fields: HumanFirstTouchFields,
+    campaign: string,
+    content: string
+  ): string => {
+    const platform = organicSocialPlatformLabel(source, fields.utm_source);
+    const firstTouch = humanFirstTouchLabel({
+      ...fields,
+      source_normalized: source,
+    });
+    const key = grainKey(source, platform, campaign, content, firstTouch);
+    if (!grainMeta.has(key)) {
+      grainMeta.set(key, {
+        sourceNormalized: source,
+        platform,
+        utmCampaign: campaign,
+        utmContent: content,
+        utmSource: fields.utm_source ?? null,
+        isPaidAcquisition: fields.is_paid_acquisition === true,
+        sourceDetail: fields.source_detail ?? null,
+        referrerHost: fields.referrer_host ?? null,
+        firstTouchLabel: firstTouch,
+      });
+    }
+    return key;
+  };
+
   const visitors = new Map<string, Set<string>>();
   for (const ev of args.events) {
     if (ev.event_type !== "page_viewed") continue;
     const source = ev.source_normalized ?? "direct";
     if (!matches(source)) continue;
-    const campaign = ev.utm_campaign ?? "";
-    const content = ev.utm_content ?? "";
-    const platform = organicSocialPlatformLabel(source, ev.utm_source);
-    const key = grainKey(source, platform, campaign, content);
+    const key = rememberGrain(
+      source,
+      trafficFieldsFromEvent(ev),
+      ev.utm_campaign ?? "",
+      ev.utm_content ?? ""
+    );
     const set = visitors.get(key) ?? new Set();
     set.add(ev.visitor_id);
     visitors.set(key, set);
@@ -1134,9 +1323,9 @@ export function aggregateTrafficSourceRows(args: {
       const attr = attrByClerk.get(clerkId);
       if (!attr) continue;
       if (!matches(attr.source_normalized)) continue;
-      const key = grainKey(
+      const key = rememberGrain(
         attr.source_normalized,
-        organicSocialPlatformLabel(attr.source_normalized, attr.utm_source),
+        attr,
         attr.utm_campaign ?? "",
         attr.utm_content ?? ""
       );
@@ -1170,7 +1359,23 @@ export function aggregateTrafficSourceRows(args: {
       continue;
     }
     if (!matches(row.source_normalized)) continue;
-    const key = grainKey(row.source_normalized, "", row.utm_campaign, "");
+    const firstTouch = spendFirstTouchLabel(row.source_normalized);
+    const key = grainKey(
+      row.source_normalized,
+      "",
+      row.utm_campaign,
+      "",
+      firstTouch
+    );
+    rememberGrain(
+      row.source_normalized,
+      {
+        source_normalized: row.source_normalized,
+        is_paid_acquisition: true,
+      },
+      row.utm_campaign,
+      ""
+    );
     spendByGrain.set(key, (spendByGrain.get(key) ?? 0) + row.amount_cents);
   }
 
@@ -1185,16 +1390,25 @@ export function aggregateTrafficSourceRows(args: {
 
   const rows: TrafficSourceRow[] = [];
   for (const key of keys) {
-    const [sourceNormalized, platform, utmCampaign, utmContent] = key.split("\u0000");
+    const meta = grainMeta.get(key);
+    const parts = key.split("\u0000");
+    const sourceNormalized = meta?.sourceNormalized ?? parts[0] ?? "";
+    const platform = meta?.platform ?? parts[1] ?? "";
+    const utmCampaign = meta?.utmCampaign ?? parts[2] ?? "";
+    const utmContent = meta?.utmContent ?? parts[3] ?? "";
+    const firstTouchLabel = meta?.firstTouchLabel ?? parts[4] ?? UNKNOWN_SOURCE_LABEL;
     const contentSpecific = utmContent.length > 0;
     const spend = contentSpecific ? null : (spendByGrain.get(key) ?? 0);
     const paidCount = paid.get(key)?.size ?? 0;
-    const paidForCps = contentSpecific
-      ? null
-      : paidCount;
+    const paidForCps = contentSpecific ? null : paidCount;
     rows.push({
       sourceNormalized,
       platform,
+      firstTouchLabel,
+      isPaidAcquisition: meta?.isPaidAcquisition ?? false,
+      sourceDetail: meta?.sourceDetail ?? null,
+      referrerHost: meta?.referrerHost ?? null,
+      utmSource: meta?.utmSource ?? null,
       utmCampaign,
       utmContent,
       visitors: visitors.get(key)?.size ?? 0,
@@ -1211,6 +1425,9 @@ export function aggregateTrafficSourceRows(args: {
   }
 
   rows.sort((a, b) => {
+    if (a.firstTouchLabel !== b.firstTouchLabel) {
+      return a.firstTouchLabel.localeCompare(b.firstTouchLabel);
+    }
     if (a.sourceNormalized !== b.sourceNormalized) {
       return a.sourceNormalized.localeCompare(b.sourceNormalized);
     }
@@ -1234,6 +1451,36 @@ export function blendedCostPerPaidCents(
   return Math.round(spendCents / newPaidAttributed);
 }
 
+export function blendedCostPerTrialCents(
+  spendCents: MetricNumber,
+  paidAdTrialsStarted: MetricNumber
+): MetricNumber {
+  if (spendCents == null || paidAdTrialsStarted == null) return null;
+  if (paidAdTrialsStarted === 0) return null;
+  return Math.round(spendCents / paidAdTrialsStarted);
+}
+
+export function countDistinctPaidAdTrialsStarted(args: {
+  trialClerkIds: readonly string[];
+  attributions: readonly MarketingAttributionRow[];
+  sourceFilter: GrowthTrafficSource;
+}): number {
+  const attrByClerk = new Map(
+    args.attributions.map((a) => [a.clerk_user_id, a] as const)
+  );
+  const seen = new Set<string>();
+  for (const clerk of args.trialClerkIds) {
+    if (!clerk || seen.has(clerk)) continue;
+    const attr = attrByClerk.get(clerk);
+    if (!attr || attr.is_paid_acquisition !== true) continue;
+    if (!attributionMatchesDashboardSource(attr.source_normalized, args.sourceFilter)) {
+      continue;
+    }
+    seen.add(clerk);
+  }
+  return seen.size;
+}
+
 export type GrowthDashboardSnapshot = {
   asOfNow: {
     activePaid: MetricNumber;
@@ -1250,6 +1497,8 @@ export type GrowthDashboardSnapshot = {
     trialToPaidRate: MetricNumber;
     paidChurnRate: MetricNumber;
     costPerPaid: MetricNumber;
+    costPerTrial: MetricNumber;
+    paidAdTrialsStarted: MetricNumber;
     accountsCreated: MetricNumber;
     uniqueVisitors: MetricNumber;
     freeTrialButtonClicks: MetricNumber;
@@ -1319,6 +1568,8 @@ export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {
     trialToPaidRate: null,
     paidChurnRate: null,
     costPerPaid: null,
+    costPerTrial: null,
+    paidAdTrialsStarted: null,
     accountsCreated: null,
     uniqueVisitors: null,
     freeTrialButtonClicks: null,
@@ -1402,6 +1653,7 @@ export function computeGrowthSnapshot(input: {
   activatedWithin24h?: MetricNumber;
   advertisingSpend?: MetricNumber;
   newPaidAttributedToAds?: MetricNumber;
+  paidAdTrialsStarted?: MetricNumber;
   paymentFailedPeriod?: MetricNumber;
   paidFullyEnded?: MetricNumber;
   trafficRows?: TrafficSourceRow[];
@@ -1592,6 +1844,11 @@ export function computeGrowthSnapshot(input: {
       input.advertisingSpend ?? null,
       input.newPaidAttributedToAds ?? null
     ),
+    costPerTrial: blendedCostPerTrialCents(
+      input.advertisingSpend ?? null,
+      input.paidAdTrialsStarted ?? null
+    ),
+    paidAdTrialsStarted: input.paidAdTrialsStarted ?? null,
     accountsCreated: input.accountsCreated,
     uniqueVisitors: input.uniqueVisitors ?? null,
     freeTrialButtonClicks: input.freeTrialButtonClicks ?? null,

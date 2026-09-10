@@ -150,8 +150,8 @@ describe("subscriber growth auth architecture", () => {
     expect(dashboard).toContain("UNKNOWN_METRIC");
     expect(dashboard).toContain("Attribution tracking has not started yet.");
     expect(dashboard).toContain("Cost per paid subscriber");
-    expect(dashboard).toContain("Platform");
-    expect(dashboard).toContain("Post / Link");
+    expect(dashboard).toContain("First touch");
+    expect(dashboard).toContain("Post / ad");
     expect(dashboard).toContain("Accounts");
     expect(dashboard).toContain("TrackingLinkBuilder");
     expect(dashboard).toContain("Latest Trials");
@@ -186,7 +186,8 @@ describe("subscriber growth auth architecture", () => {
     );
     expect(headingsBlock).toContain("Signed Up");
     expect(headingsBlock).toContain("Person");
-    expect(headingsBlock).toContain("Activated");
+    expect(headingsBlock).toContain("First touch");
+    expect(headingsBlock).toContain("Answered morning check");
     expect(headingsBlock).toContain("Paid");
     expect(headingsBlock).not.toContain("Account");
     expect(headingsBlock).not.toMatch(/"Trial"/);
@@ -207,7 +208,7 @@ describe("subscriber growth auth architecture", () => {
     expect(dashboard).toContain("Road to 500");
     expect(dashboard).toContain("This week on Stripe");
     expect(dashboard).toContain(
-      "They do not\n            change Company right now, growth goals, This week on Stripe,\n            Current free trials, or Recent activity."
+      "They do not\n            change Company right now, growth goals, This week on Stripe, or\n            Current free trials."
     );
     expect(loader).toContain("countCurrentFreeTrials");
     expect(loader).not.toContain(
@@ -223,6 +224,8 @@ describe("subscriber growth auth architecture", () => {
   it("loader selects existing utm_source without schema or capture changes", () => {
     const loader = readFileSync(LOADER, "utf8");
     expect(loader).toContain("utm_source, utm_campaign, utm_content");
+    expect(loader).toContain("referrer_host");
+    expect(loader).toContain("typeof raw.utm_source === \"string\" ? raw.utm_source : null");
     expect(loader).toContain("typeof raw.utm_source === \"string\" ? raw.utm_source : null");
     expect(loader).not.toMatch(/create table/i);
     expect(loader).not.toMatch(/sm_acq|sm_visitor|normalizeAcquisition|mergeFirstTouch/);

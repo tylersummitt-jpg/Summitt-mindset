@@ -32,6 +32,9 @@ import SubscriberGrowthDashboard from "./subscriber-growth-dashboard";
 function organicRow(
   partial: Partial<TrafficSourceRow> & { platform: string; utmContent: string }
 ): TrafficSourceRow {
+  const firstTouchLabel =
+    partial.firstTouchLabel ??
+    (partial.platform ? partial.platform : "Organic social");
   return {
     sourceNormalized: "organic_social",
     utmCampaign: "organic",
@@ -42,6 +45,11 @@ function organicRow(
     paidConversions: 2,
     advertisingSpendCents: 0,
     costPerPaidCents: null,
+    isPaidAcquisition: false,
+    sourceDetail: null,
+    referrerHost: null,
+    utmSource: null,
+    firstTouchLabel,
     ...partial,
   };
 }
@@ -92,7 +100,7 @@ describe("subscriber growth organic platform table", () => {
     cleanup();
   });
 
-  it("renders desktop columns including Platform and Accounts", () => {
+  it("renders desktop columns including First touch and Accounts", () => {
     render(
       <SubscriberGrowthDashboard
         data={dashboardData([
@@ -110,8 +118,8 @@ describe("subscriber growth organic platform table", () => {
       />
     );
 
-    expect(screen.getAllByText("Platform").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Post / Link").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("First touch").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Post / ad").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Accounts").length).toBeGreaterThan(0);
     expect(screen.getByText("Tracking Link Builder")).toBeTruthy();
     expect(screen.getAllByText("Instagram").length).toBeGreaterThan(0);
@@ -141,13 +149,18 @@ describe("subscriber growth organic platform table", () => {
     expect(card.getByText("Campaign: organic")).toBeTruthy();
   });
 
-  it("shows — for non-organic and missing organic platforms", () => {
+  it("shows Meta ads and Organic social first-touch labels", () => {
     render(
       <SubscriberGrowthDashboard
         data={dashboardData([
           {
             sourceNormalized: "meta",
             platform: "",
+            firstTouchLabel: "Meta ads",
+            isPaidAcquisition: true,
+            sourceDetail: null,
+            referrerHost: null,
+            utmSource: "facebook",
             utmCampaign: "spring",
             utmContent: "ad1",
             visitors: 3,
@@ -165,7 +178,6 @@ describe("subscriber growth organic platform table", () => {
 
     expect(screen.getAllByText("Meta ads").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Organic social").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
   });
 });
 
@@ -180,6 +192,9 @@ describe("latest trials person feed", () => {
     trialStartUnix: signedUpUnix,
     personEmail: "jane@example.com",
     sourceNormalized: "organic_social",
+    isPaidAcquisition: false,
+    sourceDetail: null,
+    referrerHost: null,
     utmSource: "instagram",
     utmCampaign: "organic",
     utmContent: "story_psm047",
@@ -191,6 +206,9 @@ describe("latest trials person feed", () => {
     trialStartUnix: signedUpUnix - 60,
     personEmail: null,
     sourceNormalized: null,
+    isPaidAcquisition: false,
+    sourceDetail: null,
+    referrerHost: null,
     utmSource: null,
     utmCampaign: null,
     utmContent: null,
@@ -210,18 +228,16 @@ describe("latest trials person feed", () => {
     const table = within(desktop);
     expect(table.getByText("Signed Up")).toBeTruthy();
     expect(table.getByText("Person")).toBeTruthy();
-    expect(table.getByText("Source")).toBeTruthy();
-    expect(table.getByText("Platform")).toBeTruthy();
+    expect(table.getByText("First touch")).toBeTruthy();
     expect(table.getByText("Campaign")).toBeTruthy();
-    expect(table.getByText("Post / Link")).toBeTruthy();
-    expect(table.getByText("Activated")).toBeTruthy();
+    expect(table.getByText("Post / ad")).toBeTruthy();
+    expect(table.getByText("Answered morning check")).toBeTruthy();
     expect(table.getByText("Paid")).toBeTruthy();
     expect(table.queryByText("Account")).toBeNull();
     expect(table.queryByText("Trial", { exact: true })).toBeNull();
     expect(table.queryByText("Visitors")).toBeNull();
 
     expect(table.getByText("jane@example.com")).toBeTruthy();
-    expect(table.getByText("Organic social")).toBeTruthy();
     expect(table.getByText("Instagram")).toBeTruthy();
     expect(table.getByText("organic")).toBeTruthy();
     expect(table.getByText("story_psm047")).toBeTruthy();
@@ -246,13 +262,13 @@ describe("latest trials person feed", () => {
     expect(mobile.querySelector("table")).toBeNull();
     const cardRoot = within(mobile);
     expect(cardRoot.getByText("jane@example.com")).toBeTruthy();
-    expect(cardRoot.getByText("Instagram · Organic social")).toBeTruthy();
+    expect(cardRoot.getByText("Instagram")).toBeTruthy();
     expect(cardRoot.getByText("Campaign: organic")).toBeTruthy();
-    expect(cardRoot.getByText("Post: story_psm047")).toBeTruthy();
-    expect(cardRoot.getByText("Activated Yes")).toBeTruthy();
+    expect(cardRoot.getByText("Post / ad story_psm047")).toBeTruthy();
+    expect(cardRoot.getByText("Answered morning check Yes")).toBeTruthy();
     expect(cardRoot.getAllByText("Paid No").length).toBeGreaterThan(0);
-    expect(cardRoot.getByText("Source Unknown")).toBeTruthy();
-    expect(cardRoot.getByText("Post / Link —")).toBeTruthy();
+    expect(cardRoot.getByText("Unknown")).toBeTruthy();
+    expect(cardRoot.getByText("Post / ad —")).toBeTruthy();
   });
 });
 
@@ -273,7 +289,7 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "These filters change the historical reports below. They do not change Company right now, growth goals, This week on Stripe, Current free trials, or Recent activity."
+        "These filters change the historical reports below. They do not change Company right now, growth goals, This week on Stripe, or Current free trials."
       )
     ).toBeTruthy();
     expect(screen.getByText("Company right now")).toBeTruthy();
@@ -283,7 +299,7 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     expect(screen.getAllByText("Trial-to-paid conversion rate").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Paid subscriber churn rate").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Cost per paid subscriber").length).toBeGreaterThan(0);
-    expect(screen.getByText("Growth funnel")).toBeTruthy();
+    expect(screen.getByText("From website visit to paid member")).toBeTruthy();
     expect(screen.getAllByText("Answered first morning check in 24 hours").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Also called: Activated within 24 hours").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Stripe cash collected").length).toBeGreaterThan(0);
@@ -344,10 +360,11 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     expect(screen.getAllByText("Road to 2,500").length).toBeGreaterThan(0);
     expect(screen.getByText("This week on Stripe")).toBeTruthy();
     expect(screen.getByText("Current free trials")).toBeTruthy();
-    expect(screen.getByText("Growth funnel")).toBeTruthy();
+    expect(screen.getByText("From website visit to paid member")).toBeTruthy();
     expect(screen.getByText("Subscribers & retention")).toBeTruthy();
-    expect(screen.getByText("Revenue")).toBeTruthy();
-    expect(screen.getByText("Traffic source")).toBeTruthy();
+    expect(screen.getByText("Money")).toBeTruthy();
+    expect(screen.getByText("Advertising")).toBeTruthy();
+    expect(screen.getByText("Where new members come from")).toBeTruthy();
     expect(screen.getByText("Tracking Link Builder")).toBeTruthy();
     expect(screen.getAllByText("Recent activity").length).toBeGreaterThan(0);
     expect(screen.getByText("Latest Trials")).toBeTruthy();
@@ -363,6 +380,8 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     expect(screen.getAllByText("Reactivated subscriber").length).toBeGreaterThan(0);
     expect(screen.getAllByText("New paid subscribers attributed to advertising").length).toBeGreaterThan(0);
     expect(screen.getByText("Add Ad Spend")).toBeTruthy();
+    expect(screen.getByText("Tracking notes")).toBeTruthy();
+    expect(screen.getAllByText("Cost per trial").length).toBeGreaterThan(0);
   });
 });
 
@@ -540,7 +559,12 @@ describe("subscriber growth slice 4 recent activity", () => {
     expect(screen.getAllByText("Recent activity").length).toBeGreaterThan(0);
     expect(
       screen.getByText(
-        "The last 25 Stripe membership events, newest first. Filters do not change this list. Apple activity is not included yet."
+        "The newest Stripe membership events we can load. Trial, paid, cancellation and ended events are whole-company. Payment-failed events come from the selected invoice period. Apple is not included yet."
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Payment-failed history is limited to the invoice period currently loaded."
       )
     ).toBeTruthy();
     expect(screen.getAllByText("Started a free week").length).toBeGreaterThan(0);
@@ -563,6 +587,59 @@ describe("subscriber growth slice 4 recent activity", () => {
     render(<SubscriberGrowthDashboard data={data} />);
     expect(
       screen.getByText("We could not reliably load recent membership activity.")
+    ).toBeTruthy();
+  });
+});
+
+describe("subscriber growth CMO completion copy", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("shows cost per trial empty and zero-trial states without Infinity", () => {
+    const empty = dashboardData([]);
+    render(<SubscriberGrowthDashboard data={empty} />);
+    expect(screen.getAllByText("Cost per trial").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "Ad spend in this period ÷ free trials that started from paid ads in this period."
+      )
+    ).toBeTruthy();
+    expect(screen.getAllByText("Enter ad spend to calculate.").length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toMatch(/Infinity|NaN/);
+    cleanup();
+
+    const noTrials = dashboardData([]);
+    noTrials.adSpendEntries = [
+      {
+        id: "spend_1",
+        spend_date: "2026-09-09",
+        source_normalized: "meta",
+        utm_campaign: "fall_challenge",
+        amount_cents: 5000,
+      },
+    ];
+    noTrials.snapshot.period.advertisingSpend = 5000;
+    noTrials.snapshot.period.paidAdTrialsStarted = 0;
+    noTrials.snapshot.period.costPerTrial = null;
+    render(<SubscriberGrowthDashboard data={noTrials} />);
+    expect(
+      screen.getByText("No paid-ad trials started in this period.")
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/Infinity|NaN/);
+  });
+
+  it("says cash vs spend is not profit or ROAS and first landing page is not tracked yet", () => {
+    render(<SubscriberGrowthDashboard data={dashboardData([])} />);
+    expect(
+      screen.getByText(
+        "Shown together for the same selected dates. This is not profit or ROAS. Stripe cash includes customers from all sources."
+      )
+    ).toBeTruthy();
+    expect(document.body.textContent).toMatch(/First landing page is not tracked reliably yet/);
+    expect(screen.getByText("Tracking notes")).toBeTruthy();
+    expect(
+      screen.getByText("This is NOT a general engagement score.", { exact: false })
     ).toBeTruthy();
   });
 });

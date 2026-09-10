@@ -4,16 +4,19 @@ import {
   aggregateTrafficSourceRows,
   adSpendDisplayStatus,
   blendedCostPerPaidCents,
+  blendedCostPerTrialCents,
   buildLatestTrialRows,
   computeGrowthSnapshot,
   conversionRate,
   countActivePaidMembers,
   countCurrentFreeTrials,
+  countDistinctPaidAdTrialsStarted,
   collectRecentActivityEvents,
   attachRecentActivityDetails,
   countStripeWeekMovement,
   formatAdvertisingSpendDisplay,
   formatCostPerPaidDisplay,
+  formatCostPerTrialDisplay,
   formatLatestTrialSignedUp,
   formatPersonFlag,
   formatRecentActivityWhen,
@@ -22,8 +25,10 @@ import {
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
   growthPeriodUtcMs,
+  humanFirstTouchLabel,
   isStripePaidActive,
   LATEST_TRIALS_LIMIT,
+  latestTrialFirstTouchLabel,
   mondayDateKeyFromDateKey,
   mrrCentsFromStripePriceAmount,
   organicSocialPlatformLabel,
@@ -660,6 +665,7 @@ describe("CPS and traffic rows", () => {
           utm_campaign: "spring",
           utm_content: "ad1",
           clerk_user_id: null,
+          referrer_host: null,
         },
       ],
       attributions: [
@@ -672,6 +678,7 @@ describe("CPS and traffic rows", () => {
           utm_source: "facebook",
           utm_campaign: "spring",
           utm_content: "ad1",
+          referrer_host: null,
         },
       ],
       trialClerkIds: ["u1"],
@@ -746,6 +753,7 @@ describe("organic social platform grain", () => {
       utm_campaign: "organic",
       utm_content: "bio",
       clerk_user_id: null,
+      referrer_host: null,
       ...partial,
     };
   }
@@ -761,6 +769,7 @@ describe("organic social platform grain", () => {
       utm_source: null,
       utm_campaign: "organic",
       utm_content: "bio",
+      referrer_host: null,
       ...partial,
     };
   }
@@ -772,6 +781,7 @@ describe("organic social platform grain", () => {
       source_normalized: "organic_social",
       is_paid_acquisition: false,
       source_detail: null,
+      referrer_host: null,
       utm_source: null,
       utm_campaign: "organic",
       utm_content: "bio",
@@ -1012,11 +1022,15 @@ describe("organic social platform grain", () => {
     const meta = rows.find((r) => r.sourceNormalized === "meta" && r.utmContent === "ad1");
     const google = rows.find((r) => r.sourceNormalized === "google");
     const direct = rows.find((r) => r.sourceNormalized === "direct");
-    const coach = rows.find((r) => r.sourceNormalized === "referral");
+    const coach = rows.find((r) => r.firstTouchLabel === "Coach referral");
+    const unknownReferral = rows.find(
+      (r) => r.firstTouchLabel === "Referral · unknown site"
+    );
 
     expect(meta).toMatchObject({
       sourceNormalized: "meta",
       platform: "",
+      firstTouchLabel: "Meta ads",
       utmCampaign: "spring",
       utmContent: "ad1",
       visitors: 1,
@@ -1028,6 +1042,7 @@ describe("organic social platform grain", () => {
     expect(google).toMatchObject({
       sourceNormalized: "google",
       platform: "",
+      firstTouchLabel: "Google ads",
       utmCampaign: "brand",
       visitors: 1,
       trialsStarted: 1,
@@ -1036,14 +1051,19 @@ describe("organic social platform grain", () => {
     expect(direct).toMatchObject({
       sourceNormalized: "direct",
       platform: "",
+      firstTouchLabel: "Direct",
       visitors: 1,
       trialsStarted: 1,
     });
     expect(coach).toMatchObject({
       sourceNormalized: "referral",
-      platform: "",
-      visitors: 1,
+      firstTouchLabel: "Coach referral",
       trialsStarted: 1,
+    });
+    expect(unknownReferral).toMatchObject({
+      sourceNormalized: "referral",
+      firstTouchLabel: "Referral · unknown site",
+      visitors: 1,
     });
   });
 
@@ -1231,6 +1251,7 @@ describe("latest trial seeds and rows", () => {
             utm_source: "instagram",
             utm_campaign: "organic",
             utm_content: "story_psm047",
+            referrer_host: null,
           },
         ],
       ]),
@@ -1255,6 +1276,7 @@ describe("latest trial seeds and rows", () => {
     expect(organicSocialPlatformLabel(ig?.sourceNormalized, ig?.utmSource)).toBe(
       "Instagram"
     );
+    expect(ig && latestTrialFirstTouchLabel(ig)).toBe("Instagram");
 
     const paid = rows.find((r) => r.personEmail === "paid@example.com");
     expect(paid?.activated).toBe(false);
@@ -1980,6 +2002,283 @@ describe("recent activity events", () => {
     );
     const olderUnix = Math.floor(Date.parse("2026-09-08T18:05:00.000Z") / 1000);
     expect(formatRecentActivityWhen(olderUnix, "2026-09-10")).toBe("Sep 8, 2:05 PM");
+  });
+});
+
+describe("human first-touch labels", () => {
+  it("covers the Brooke-facing first-touch cases without inventing Meta platforms", () => {
+    expect(humanFirstTouchLabel(null)).toBe("Unknown");
+    expect(humanFirstTouchLabel({ source_normalized: "direct" })).toBe("Direct");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "meta", is_paid_acquisition: true, utm_source: "instagram" })
+    ).toBe("Meta ads");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "google", is_paid_acquisition: true })
+    ).toBe("Google ads");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "google", is_paid_acquisition: false })
+    ).toBe("Google search");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "referral", source_detail: "coach" })
+    ).toBe("Coach referral");
+    expect(
+      humanFirstTouchLabel({
+        source_normalized: "referral",
+        referrer_host: "www.example.com",
+      })
+    ).toBe("Website referral · example.com");
+    expect(humanFirstTouchLabel({ source_normalized: "referral" })).toBe(
+      "Referral · unknown site"
+    );
+    expect(
+      humanFirstTouchLabel({
+        source_normalized: "organic_social",
+        utm_source: "instagram",
+      })
+    ).toBe("Instagram");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "organic_social", utm_source: "ig" })
+    ).toBe("Instagram");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "organic_social", utm_source: "facebook" })
+    ).toBe("Facebook");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "organic_social", utm_source: "fb" })
+    ).toBe("Facebook");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "organic_social", utm_source: "tiktok" })
+    ).toBe("TikTok");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "organic_social", utm_source: "x" })
+    ).toBe("X");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "organic_social", utm_source: "twitter" })
+    ).toBe("X");
+    expect(
+      humanFirstTouchLabel({
+        source_normalized: "organic_social",
+        referrer_host: "m.facebook.com",
+      })
+    ).toBe("Facebook");
+    expect(
+      humanFirstTouchLabel({
+        source_normalized: "organic_social",
+        referrer_host: "www.instagram.com",
+      })
+    ).toBe("Instagram");
+    expect(
+      humanFirstTouchLabel({
+        source_normalized: "organic_social",
+        referrer_host: "vm.tiktok.com",
+      })
+    ).toBe("TikTok");
+    expect(
+      humanFirstTouchLabel({ source_normalized: "organic_social", referrer_host: "t.co" })
+    ).toBe("X");
+    expect(humanFirstTouchLabel({ source_normalized: "organic_social" })).toBe(
+      "Organic social"
+    );
+    expect(
+      humanFirstTouchLabel({
+        source_normalized: "meta",
+        is_paid_acquisition: true,
+        utm_source: "facebook",
+        referrer_host: "instagram.com",
+      })
+    ).toBe("Meta ads");
+  });
+});
+
+describe("cost per trial", () => {
+  it("uses trial_start paid-acquisition people and never Infinity", () => {
+    expect(blendedCostPerTrialCents(10000, 2)).toBe(5000);
+    expect(blendedCostPerTrialCents(10000, 0)).toBeNull();
+    expect(blendedCostPerTrialCents(null, 2)).toBeNull();
+    expect(formatCostPerTrialDisplay({
+      cents: 5000,
+      spendStatus: "empty",
+      paidAdTrialsStarted: 0,
+    })).toBe(UNKNOWN_METRIC);
+    expect(formatCostPerTrialDisplay({
+      cents: 5000,
+      spendStatus: "entered",
+      paidAdTrialsStarted: 0,
+    })).toBe(UNKNOWN_METRIC);
+    expect(formatCostPerTrialDisplay({
+      cents: 5000,
+      spendStatus: "unavailable",
+      paidAdTrialsStarted: 2,
+    })).toBe(NOT_AVAILABLE);
+    expect(formatCostPerTrialDisplay({
+      cents: 5000,
+      spendStatus: "entered",
+      paidAdTrialsStarted: 2,
+    })).toBe("$50.00");
+
+    const count = countDistinctPaidAdTrialsStarted({
+      trialClerkIds: ["u1", "u1", "u2", "u3", "u4"],
+      attributions: [
+        {
+          clerk_user_id: "u1",
+          visitor_id: "v1",
+          source_normalized: "meta",
+          is_paid_acquisition: true,
+          source_detail: null,
+          referrer_host: null,
+          utm_source: "facebook",
+          utm_campaign: "spring",
+          utm_content: "ad1",
+        },
+        {
+          clerk_user_id: "u2",
+          visitor_id: "v2",
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          source_detail: null,
+          referrer_host: null,
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: null,
+        },
+        {
+          clerk_user_id: "u3",
+          visitor_id: "v3",
+          source_normalized: "google",
+          is_paid_acquisition: false,
+          source_detail: null,
+          referrer_host: null,
+          utm_source: "google",
+          utm_campaign: null,
+          utm_content: null,
+        },
+        {
+          clerk_user_id: "u4",
+          visitor_id: "v4",
+          source_normalized: "organic_social",
+          is_paid_acquisition: false,
+          source_detail: null,
+          referrer_host: null,
+          utm_source: "instagram",
+          utm_campaign: "organic",
+          utm_content: "bio",
+        },
+      ],
+      sourceFilter: "all",
+    });
+    expect(count).toBe(2);
+  });
+
+  it("keeps CPS formula unchanged while adding CPT on the snapshot", () => {
+    const result = computeGrowthSnapshot({
+      stripeSubs: [stripeSub({ id: "paid", status: "active" })],
+      appleGranting: [],
+      appleCancelRequestedStillActive: [],
+      recognizedPriceIds: RECOGNIZED,
+      nowUnix: NOW_UNIX,
+      startMs: 0,
+      endMs: NOW.getTime() + 86_400_000,
+      accountsCreated: null,
+      stripeRevenueCents: 0,
+      stripeListComplete: true,
+      appleQueryComplete: true,
+      advertisingSpend: 9900,
+      newPaidAttributedToAds: 2,
+      paidAdTrialsStarted: 3,
+    });
+    expect(result.period.costPerPaid).toBe(4950);
+    expect(result.period.costPerTrial).toBe(3300);
+    expect(result.period.paidAdTrialsStarted).toBe(3);
+  });
+});
+
+describe("google ads vs search and website referral grains", () => {
+  it("splits Google ads from Google search and website referral hosts", () => {
+    const rows = aggregateTrafficSourceRows({
+      events: [
+        {
+          event_type: "page_viewed",
+          visitor_id: "v_ads",
+          occurred_at: "2026-09-01T00:00:00.000Z",
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          referrer_host: null,
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "",
+          clerk_user_id: null,
+        },
+        {
+          event_type: "page_viewed",
+          visitor_id: "v_search",
+          occurred_at: "2026-09-01T00:00:00.000Z",
+          source_normalized: "google",
+          is_paid_acquisition: false,
+          referrer_host: "www.google.com",
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "",
+          clerk_user_id: null,
+        },
+        {
+          event_type: "page_viewed",
+          visitor_id: "v_site",
+          occurred_at: "2026-09-01T00:00:00.000Z",
+          source_normalized: "referral",
+          is_paid_acquisition: false,
+          referrer_host: "partner.example.org",
+          utm_source: null,
+          utm_campaign: null,
+          utm_content: null,
+          clerk_user_id: null,
+        },
+      ],
+      attributions: [
+        {
+          clerk_user_id: "u_ads",
+          visitor_id: "v_ads",
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          source_detail: null,
+          referrer_host: null,
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "",
+        },
+        {
+          clerk_user_id: "u_search",
+          visitor_id: "v_search",
+          source_normalized: "google",
+          is_paid_acquisition: false,
+          source_detail: null,
+          referrer_host: "www.google.com",
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "",
+        },
+        {
+          clerk_user_id: "u_site",
+          visitor_id: "v_site",
+          source_normalized: "referral",
+          is_paid_acquisition: false,
+          source_detail: null,
+          referrer_host: "partner.example.org",
+          utm_source: null,
+          utm_campaign: null,
+          utm_content: null,
+        },
+      ],
+      trialClerkIds: ["u_ads", "u_search", "u_site"],
+      activatedClerkIds: [],
+      paidConversionClerkIds: ["u_ads"],
+      adSpend: [],
+      sourceFilter: "all",
+    });
+    expect(rows.find((r) => r.firstTouchLabel === "Google ads")?.trialsStarted).toBe(1);
+    expect(rows.find((r) => r.firstTouchLabel === "Google search")?.trialsStarted).toBe(1);
+    expect(
+      rows.find((r) => r.firstTouchLabel === "Website referral · partner.example.org")
+        ?.visitors
+    ).toBe(1);
   });
 });
 

@@ -18,6 +18,7 @@ import {
   collectRecentActivityEvents,
   countActivePaidMembers,
   countCurrentFreeTrials,
+  countDistinctPaidAdTrialsStarted,
   countStripeWeekMovement,
   emptyCurrentFreeTrials,
   emptyStripeWeekMovement,
@@ -391,7 +392,7 @@ async function loadAppleNotificationClerkIds(args: {
 }
 
 const MARKETING_ATTRIBUTION_SELECT =
-  "clerk_user_id, visitor_id, source_normalized, is_paid_acquisition, source_detail, utm_source, utm_campaign, utm_content";
+  "clerk_user_id, visitor_id, source_normalized, is_paid_acquisition, source_detail, referrer_host, utm_source, utm_campaign, utm_content";
 
 function parseMarketingAttributionRow(raw: {
   clerk_user_id?: unknown;
@@ -399,6 +400,7 @@ function parseMarketingAttributionRow(raw: {
   source_normalized?: unknown;
   is_paid_acquisition?: unknown;
   source_detail?: unknown;
+  referrer_host?: unknown;
   utm_source?: unknown;
   utm_campaign?: unknown;
   utm_content?: unknown;
@@ -413,6 +415,7 @@ function parseMarketingAttributionRow(raw: {
     source_normalized: raw.source_normalized,
     is_paid_acquisition: raw.is_paid_acquisition === true,
     source_detail: typeof raw.source_detail === "string" ? raw.source_detail : null,
+    referrer_host: typeof raw.referrer_host === "string" ? raw.referrer_host : null,
     utm_source: typeof raw.utm_source === "string" ? raw.utm_source : null,
     utm_campaign: typeof raw.utm_campaign === "string" ? raw.utm_campaign : null,
     utm_content: typeof raw.utm_content === "string" ? raw.utm_content : null,
@@ -554,7 +557,7 @@ async function loadMarketingEvents(args: {
     let q = supabaseServer
       .from("marketing_events")
       .select(
-        "event_type, visitor_id, occurred_at, source_normalized, is_paid_acquisition, utm_source, utm_campaign, utm_content, clerk_user_id"
+        "event_type, visitor_id, occurred_at, source_normalized, is_paid_acquisition, referrer_host, utm_source, utm_campaign, utm_content, clerk_user_id"
       )
       .lt("occurred_at", new Date(args.endMs).toISOString())
       .order("occurred_at", { ascending: true })
@@ -580,6 +583,7 @@ async function loadMarketingEvents(args: {
         source_normalized:
           typeof raw.source_normalized === "string" ? raw.source_normalized : null,
         is_paid_acquisition: raw.is_paid_acquisition === true,
+        referrer_host: typeof raw.referrer_host === "string" ? raw.referrer_host : null,
         utm_source: typeof raw.utm_source === "string" ? raw.utm_source : null,
         utm_campaign: typeof raw.utm_campaign === "string" ? raw.utm_campaign : null,
         utm_content: typeof raw.utm_content === "string" ? raw.utm_content : null,
@@ -877,6 +881,15 @@ export async function loadSubscriberGrowthDashboard(args: {
       }).length
     : null;
 
+  const paidAdTrialsStarted =
+    trackingAvailable && stripeListComplete
+      ? countDistinctPaidAdTrialsStarted({
+          trialClerkIds,
+          attributions,
+          sourceFilter: source,
+        })
+      : null;
+
   const failedStripeDistinct = (() => {
     const identities = new Set<string>();
     const bySubId = new Map(stripeSubs.map((sub) => [sub.id, sub] as const));
@@ -945,6 +958,7 @@ export async function loadSubscriberGrowthDashboard(args: {
     activatedWithin24h: activationQueryComplete ? activatedIds.size : null,
     advertisingSpend,
     newPaidAttributedToAds,
+    paidAdTrialsStarted,
     paymentFailedPeriod,
     paidFullyEnded:
       stripeListComplete

@@ -100,7 +100,7 @@ export function SubscriberGrowthAdSpend({
       </div>
       {open ? (
         <form className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2" onSubmit={onSubmit}>
-          <div className="sm:col-span-2 space-y-1 text-[11px] text-gray-600">
+          <div className="sm:col-span-2 space-y-1 break-words text-[11px] text-gray-600">
             <p className="font-medium text-gray-800">How to add ad spend</p>
             <ol className="list-decimal space-y-0.5 pl-4">
               <li>
@@ -113,7 +113,8 @@ export function SubscriberGrowthAdSpend({
                 ads.
               </li>
               <li>
-                Campaign = copy the exact campaign name from the tracking link.
+                Campaign must match utm_campaign exactly for campaign-level spend.
+                Copy the exact campaign name from the tracking link.
               </li>
               <li>
                 Example: if the link contains utm_campaign=fall_challenge, enter
