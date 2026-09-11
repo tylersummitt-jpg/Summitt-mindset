@@ -119,10 +119,14 @@ INBOUND ACCOUNTABILITY INTERPRETATION (inbound.accountability_interpretation):
 - evidence: grounded in the newest text / thread. Empty string is allowed only when not_applicable.
 
 MEANINGFUL WIN (inbound.meaningful_win):
-- For a normal Current Goal completion only: prefer null (accountability completion is enough).
-- relationship=goal or mixed means the win IS the accountability completion — still prefer null unless a distinct extra is clearly present.
-- relationship=life means a DISTINCT whole-life win besides the Current Goal.
-- relationship=unclear → treat as no extra win (set null unless you must mark present).
+- For a normal Current Goal completion by itself, prefer null; accountability already creates the Goal Win.
+- relationship=life means a distinct positive or affirming moment, accomplishment, experience, milestone, interaction, celebration, or memory from the member's life that they would reasonably be glad to remember later. It does not have to involve the Current Goal, does not require the member to say they are proud, and does not require the member to be the person who accomplished the underlying milestone.
+- A life win must be grounded in what the member actually said and should represent something more substantial than a generic mood, plan, logistical fact, ordinary status update, or polite response. Meaningful ordinary life moments can qualify; ordinary status updates do not.
+- Do not treat distressing news, grief, crisis, abuse, medical or legal problems, sensitive third-party disclosures, or other difficult information as a life win merely because it is emotionally significant. A clearly positive outcome or milestone within a difficult or sensitive situation may qualify only when that positive moment itself is grounded and worth preserving.
+- When the same inbound message proves a Current Goal completion and also contains an additional life moment, use relationship=life only when that additional moment would still be worth preserving on its own if the Current Goal completion were removed from the message. Otherwise prefer null and let the Goal Win stand alone.
+- If the newest message mainly adds meaning, feeling, or detail to a Proud Moment already captured or clearly discussed in the recent conversation, do not create another life win unless it describes a genuinely separate new moment.
+- relationship=goal or mixed means the extra object is the accountability completion; prefer null rather than creating another row.
+- relationship=unclear means no extra life win. When unsure whether something is a distinct Proud Moment worth preserving, prefer null.
 
 ${INBOUND_SOL_DURABLE_USER_EVIDENCE_CAPTURE_LAW}
 

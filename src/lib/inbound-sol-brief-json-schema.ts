@@ -164,7 +164,7 @@ export function buildInboundSolBriefExactContractPromptAppendix(): string {
     "accountability_interpretation.confidence: low | medium | high",
     "accountability_interpretation.evidence: short grounded quote or paraphrase of user evidence (not a guess)",
     "meaningful_win: null OR { present: true, grounded_action, relationship: goal | mixed | life | unclear }",
-    "For a normal Current Goal completion only, prefer meaningful_win = null.",
+    "For a normal Current Goal completion by itself, prefer meaningful_win = null; accountability already creates the Goal Win. relationship=life is only for a distinct positive or affirming life moment worth preserving independently of the Goal Win, including meaningful experiences or other-person milestones; it is not for a generic mood, plan, logistical fact, ordinary status update, polite response, distressing news, sensitive third-party disclosure, or merely added detail about a Proud Moment already captured or clearly discussed in the recent conversation. When unsure, prefer null.",
     "Do not rewrite grounded_action to trophy chrome. grounded_action stays evidence language.",
     "win_presentation: required { accountability_trophy_title, life_trophy_title, accountability_supporting_quote, life_supporting_quote } — Victory Room display chrome only.",
     "win_presentation does NOT determine whether a Win exists. It cannot create a Win, change relationship, or replace grounded_action.",

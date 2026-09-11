@@ -184,6 +184,19 @@ describe("inbound Sol win_presentation extras", () => {
     );
   });
 
+  it("inbound extras appendix echoes Phase 2A meaningful_win capture law", () => {
+    const appendix = buildInboundSolBriefExactContractPromptAppendix();
+    expect(appendix).toContain(
+      "meaningful_win: null OR { present: true, grounded_action, relationship: goal | mixed | life | unclear }"
+    );
+    expect(appendix).toContain(
+      "For a normal Current Goal completion by itself, prefer meaningful_win = null; accountability already creates the Goal Win. relationship=life is only for a distinct positive or affirming life moment worth preserving independently of the Goal Win, including meaningful experiences or other-person milestones; it is not for a generic mood, plan, logistical fact, ordinary status update, polite response, distressing news, sensitive third-party disclosure, or merely added detail about a Proud Moment already captured or clearly discussed in the recent conversation. When unsure, prefer null."
+    );
+    expect(appendix).not.toContain(
+      "For a normal Current Goal completion only, prefer meaningful_win = null."
+    );
+  });
+
   it("prompt law is trophy chrome only and includes style goldens", () => {
     const appendix = buildInboundSolBriefExactContractPromptAppendix();
     expect(appendix).toContain("win_presentation");

@@ -177,6 +177,40 @@ describe("inbound Sol contracts", () => {
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).not.toContain("within 24");
   });
 
+  it("MEANINGFUL WIN Phase 2A: life capture broadens; Goal Win completion stays null", () => {
+    const prompt = INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT;
+    expect(prompt).toContain(
+      "relationship=life means a distinct positive or affirming moment, accomplishment, experience, milestone, interaction, celebration, or memory from the member's life that they would reasonably be glad to remember later. It does not have to involve the Current Goal, does not require the member to say they are proud, and does not require the member to be the person who accomplished the underlying milestone."
+    );
+    expect(prompt).toContain(
+      "For a normal Current Goal completion by itself, prefer null; accountability already creates the Goal Win."
+    );
+    expect(prompt).toContain(
+      "does not require the member to be the person who accomplished the underlying milestone"
+    );
+    expect(prompt).toContain(
+      "more substantial than a generic mood, plan, logistical fact, ordinary status update, or polite response"
+    );
+    expect(prompt).toContain(
+      "Do not treat distressing news, grief, crisis, abuse, medical or legal problems, sensitive third-party disclosures, or other difficult information as a life win merely because it is emotionally significant"
+    );
+    expect(prompt).toContain(
+      "use relationship=life only when that additional moment would still be worth preserving on its own if the Current Goal completion were removed from the message"
+    );
+    expect(prompt).toContain(
+      "If the newest message mainly adds meaning, feeling, or detail to a Proud Moment already captured or clearly discussed in the recent conversation, do not create another life win unless it describes a genuinely separate new moment."
+    );
+    expect(prompt).toContain(
+      "relationship=goal or mixed means the extra object is the accountability completion; prefer null rather than creating another row."
+    );
+    expect(prompt).toContain(
+      "relationship=unclear means no extra life win. When unsure whether something is a distinct Proud Moment worth preserving, prefer null."
+    );
+    expect(prompt).not.toContain(
+      "relationship=life means a DISTINCT whole-life win besides the Current Goal."
+    );
+  });
+
   it("D1 pending-photo law: captions may pair without photo nouns; time alone is not authority", () => {
     const prompt = INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT;
     expect(prompt).toContain(
