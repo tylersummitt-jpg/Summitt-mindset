@@ -209,6 +209,19 @@ describe("inbound Sol main-branch wire", () => {
     expect(turn).not.toContain("shadow");
   });
 
+  it("passes fresh v2_win insert proof into the existing writer after persistSolInboundWins", () => {
+    expect(turn).toContain("inboundSolFreshWinInsertProof");
+    expect(turn).toContain("goalWinFreshlyInserted");
+    expect(turn).toContain("lifeWinFreshlyInserted");
+    const persistWinsIdx = turn.indexOf("await persistSolInboundWins");
+    const proofIdx = turn.indexOf("inboundSolFreshWinInsertProof({");
+    const writerIdx = turn.indexOf("await writeInboundSolBody");
+    expect(persistWinsIdx).toBeGreaterThan(0);
+    expect(proofIdx).toBeGreaterThan(persistWinsIdx);
+    expect(writerIdx).toBeGreaterThan(proofIdx);
+    expect(turn.split("writeInboundSolBody({").length - 1).toBe(1);
+  });
+
   it("writer-failure path is unchanged: cancel, no retry, no writer B", () => {
     const start = src.indexOf("if (\n      isInboundSolMainCoachingBranch");
     const sent = src.indexOf("inbound_sol_main_sent", start);

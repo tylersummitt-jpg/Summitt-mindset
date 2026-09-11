@@ -135,7 +135,7 @@ vi.mock("@/lib/openai-win-candidate-equivalence-v1", async (importOriginal) => {
   };
 });
 
-import { runInboundSolRelationshipTurn } from "@/lib/inbound-sol-relationship-turn";
+import { inboundSolFreshWinInsertProof, runInboundSolRelationshipTurn } from "@/lib/inbound-sol-relationship-turn";
 
 const commitment = {
   id: "c1",
@@ -2628,5 +2628,337 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(result.forensics.goal_change_binding_confirmation_block_reason).toBe(
       "post_apply_goal_change_reask"
     );
+  });
+
+  it("passes fresh Goal insert proof to the writer after persist", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.goalWinFreshlyInserted).toBe(true);
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.lifeWinFreshlyInserted).toBe(false);
+  });
+
+  it("passes fresh life insert proof on the life-only persist path", async () => {
+    persistInboundAccountabilityOutcomeEvent.mockResolvedValue({
+      status: "skipped",
+      skipReason: "sol_not_applicable",
+    });
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: "wlife", status: "inserted", idempotency_key: "k" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "Sat on the dock with Dad.",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Sat on the dock with Dad",
+          relationship: "life",
+        },
+      }),
+      capture: { retry_occurred: false },
+    });
+    await runInboundSolRelationshipTurn(turnArgs("SMdock", "Sat on the dock with Dad."));
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.goalWinFreshlyInserted).toBe(false);
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.lifeWinFreshlyInserted).toBe(true);
+  });
+
+  it("does not treat same-SID existing rows as freshly inserted", async () => {
+    persistInboundWinsWithAccountability.mockResolvedValue({
+      attempted: 1,
+      persisted: 0,
+      conflicts: 1,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: "w1", status: "existing", idempotency_key: "k" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    await runInboundSolRelationshipTurn(turnArgs("SMfin", "Got the whole thing finished before lunch."));
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.goalWinFreshlyInserted).toBe(false);
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.lifeWinFreshlyInserted).toBe(false);
+  });
+
+  it("allows a Victory Room add acknowledgment when a life Win was freshly inserted without user_yes", async () => {
+    persistInboundAccountabilityOutcomeEvent.mockResolvedValue({
+      status: "skipped",
+      skipReason: "sol_not_applicable",
+    });
+    persistRecognizedWins.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [{ ordinal: 0, id: "wlife", status: "inserted", idempotency_key: "k" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "Sat on the dock with Dad.",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: "Sat on the dock with Dad",
+          relationship: "life",
+        },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "That's one worth remembering. I added that to your Victory Room.",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(turnArgs("SMdock", "Sat on the dock with Dad."));
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toContain("Victory Room");
+  });
+
+  it("blocks a Victory Room add claim when Goal Win inserted but life Win did not", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "I added that to your Victory Room.",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.goalWinFreshlyInserted).toBe(true);
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.lifeWinFreshlyInserted).toBe(false);
+    expect(result.shouldSend).toBe(false);
+    expect(result.noSendReason).toBe("blocked_victory_saved_logged_without_persist");
+  });
+
+  it("blocks a Victory Room save claim when Goal user_yes persisted but v2_win insert failed", async () => {
+    persistInboundWinsWithAccountability.mockResolvedValue({
+      attempted: 1,
+      persisted: 0,
+      conflicts: 0,
+      failed: 1,
+      allDurable: false,
+      wins: [{ ordinal: 0, id: null, status: "failed", idempotency_key: "k" }],
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "I saved that to your Victory Room.",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(result.shouldSend).toBe(false);
+    expect(result.noSendReason).toBe("blocked_victory_saved_logged_without_persist");
+  });
+});
+
+describe("inboundSolFreshWinInsertProof", () => {
+  const entry = (
+    ordinal: 0 | 1,
+    status: "inserted" | "existing" | "failed",
+    id: string | null
+  ) => ({ ordinal, id, status, idempotency_key: id });
+
+  it("A: life-only inserted → life true", () => {
+    expect(
+      inboundSolFreshWinInsertProof({
+        persistedUserYes: false,
+        winResult: {
+          attempted: 1,
+          persisted: 1,
+          conflicts: 0,
+          failed: 0,
+          allDurable: true,
+          wins: [entry(0, "inserted", "life-1")],
+        },
+      })
+    ).toEqual({ goalWinFreshlyInserted: false, lifeWinFreshlyInserted: true });
+  });
+
+  it("B: life-only failed → life false", () => {
+    expect(
+      inboundSolFreshWinInsertProof({
+        persistedUserYes: false,
+        winResult: {
+          attempted: 1,
+          persisted: 0,
+          conflicts: 0,
+          failed: 1,
+          allDurable: false,
+          wins: [entry(0, "failed", null)],
+        },
+      })
+    ).toEqual({ goalWinFreshlyInserted: false, lifeWinFreshlyInserted: false });
+  });
+
+  it("C: Goal path inserted → goal true", () => {
+    expect(
+      inboundSolFreshWinInsertProof({
+        persistedUserYes: true,
+        winResult: {
+          attempted: 1,
+          persisted: 1,
+          conflicts: 0,
+          failed: 0,
+          allDurable: true,
+          wins: [entry(0, "inserted", "goal-1")],
+        },
+      })
+    ).toEqual({ goalWinFreshlyInserted: true, lifeWinFreshlyInserted: false });
+  });
+
+  it("D: Goal path failed → goal false", () => {
+    expect(
+      inboundSolFreshWinInsertProof({
+        persistedUserYes: true,
+        winResult: {
+          attempted: 1,
+          persisted: 0,
+          conflicts: 0,
+          failed: 1,
+          allDurable: false,
+          wins: [entry(0, "failed", null)],
+        },
+      })
+    ).toEqual({ goalWinFreshlyInserted: false, lifeWinFreshlyInserted: false });
+  });
+
+  it("E: Goal inserted + life failed → goal true / life false", () => {
+    expect(
+      inboundSolFreshWinInsertProof({
+        persistedUserYes: true,
+        winResult: {
+          attempted: 2,
+          persisted: 1,
+          conflicts: 0,
+          failed: 1,
+          allDurable: false,
+          wins: [entry(0, "inserted", "goal-1"), entry(1, "failed", null)],
+        },
+      })
+    ).toEqual({ goalWinFreshlyInserted: true, lifeWinFreshlyInserted: false });
+  });
+
+  it("F: Goal failed + life inserted → goal false / life true", () => {
+    expect(
+      inboundSolFreshWinInsertProof({
+        persistedUserYes: true,
+        winResult: {
+          attempted: 2,
+          persisted: 1,
+          conflicts: 0,
+          failed: 1,
+          allDurable: false,
+          wins: [entry(0, "failed", null), entry(1, "inserted", "life-1")],
+        },
+      })
+    ).toEqual({ goalWinFreshlyInserted: false, lifeWinFreshlyInserted: true });
+  });
+
+  it("G: same-SID existing Goal → fresh goal false", () => {
+    expect(
+      inboundSolFreshWinInsertProof({
+        persistedUserYes: true,
+        winResult: {
+          attempted: 1,
+          persisted: 0,
+          conflicts: 1,
+          failed: 0,
+          allDurable: true,
+          wins: [entry(0, "existing", "goal-1")],
+        },
+      })
+    ).toEqual({ goalWinFreshlyInserted: false, lifeWinFreshlyInserted: false });
+  });
+
+  it("H: same-SID existing life → fresh life false", () => {
+    expect(
+      inboundSolFreshWinInsertProof({
+        persistedUserYes: false,
+        winResult: {
+          attempted: 1,
+          persisted: 0,
+          conflicts: 1,
+          failed: 0,
+          allDurable: true,
+          wins: [entry(0, "existing", "life-1")],
+        },
+      })
+    ).toEqual({ goalWinFreshlyInserted: false, lifeWinFreshlyInserted: false });
+  });
+
+  it("I: winResult null → both false", () => {
+    expect(
+      inboundSolFreshWinInsertProof({ persistedUserYes: true, winResult: null })
+    ).toEqual({ goalWinFreshlyInserted: false, lifeWinFreshlyInserted: false });
+    expect(
+      inboundSolFreshWinInsertProof({ persistedUserYes: false, winResult: null })
+    ).toEqual({ goalWinFreshlyInserted: false, lifeWinFreshlyInserted: false });
+  });
+
+  it("inserted without an id is not fresh proof", () => {
+    expect(
+      inboundSolFreshWinInsertProof({
+        persistedUserYes: true,
+        winResult: {
+          attempted: 1,
+          persisted: 1,
+          conflicts: 0,
+          failed: 0,
+          allDurable: true,
+          wins: [entry(0, "inserted", null)],
+        },
+      })
+    ).toEqual({ goalWinFreshlyInserted: false, lifeWinFreshlyInserted: false });
+  });
+
+  it("both inserted → both true", () => {
+    expect(
+      inboundSolFreshWinInsertProof({
+        persistedUserYes: true,
+        winResult: {
+          attempted: 2,
+          persisted: 2,
+          conflicts: 0,
+          failed: 0,
+          allDurable: true,
+          wins: [entry(0, "inserted", "goal-1"), entry(1, "inserted", "life-1")],
+        },
+      })
+    ).toEqual({ goalWinFreshlyInserted: true, lifeWinFreshlyInserted: true });
   });
 });

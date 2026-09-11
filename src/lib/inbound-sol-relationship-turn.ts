@@ -94,6 +94,44 @@ export type InboundSolRelationshipTurnResult = {
   forensics: Record<string, unknown>;
 };
 
+export type InboundSolFreshWinInsertProof = {
+  goalWinFreshlyInserted: boolean;
+  lifeWinFreshlyInserted: boolean;
+};
+
+function isFreshInsertedWin(
+  entry: PersistRecognizedWinsResult["wins"][number] | undefined
+): boolean {
+  return (
+    entry != null &&
+    entry.status === "inserted" &&
+    typeof entry.id === "string" &&
+    entry.id.length > 0
+  );
+}
+
+/** Database insert proof only. Not English. Not semantic intent. */
+export function inboundSolFreshWinInsertProof(args: {
+  winResult: PersistRecognizedWinsResult | null;
+  persistedUserYes: boolean;
+}): InboundSolFreshWinInsertProof {
+  const winResult = args.winResult;
+  if (!winResult) {
+    return { goalWinFreshlyInserted: false, lifeWinFreshlyInserted: false };
+  }
+  const at = (ordinal: 0 | 1) => winResult.wins.find((w) => w.ordinal === ordinal);
+  if (args.persistedUserYes) {
+    return {
+      goalWinFreshlyInserted: isFreshInsertedWin(at(0)),
+      lifeWinFreshlyInserted: isFreshInsertedWin(at(1)),
+    };
+  }
+  return {
+    goalWinFreshlyInserted: false,
+    lifeWinFreshlyInserted: isFreshInsertedWin(at(0)),
+  };
+}
+
 function skippedPersist(skipReason: InboundOutcomePersistSkipReason): InboundOutcomePersistResult {
   return { status: "skipped", skipReason };
 }
@@ -356,11 +394,18 @@ export async function runInboundSolRelationshipTurn(args: {
     Object.assign(baseForensics, skippedPatSourceEvidenceForensics());
   }
 
+  const { goalWinFreshlyInserted, lifeWinFreshlyInserted } = inboundSolFreshWinInsertProof({
+    winResult,
+    persistedUserYes,
+  });
+
   const written = await writeInboundSolBody({
     packet,
     brief,
     patSourceEvidence,
     goalChangeConfirmationAuthorization: args.goalChangeConfirmationAuthorization ?? null,
+    goalWinFreshlyInserted,
+    lifeWinFreshlyInserted,
   });
   baseForensics.inbound_sol_retry_writer = written.capture.retry_occurred;
   baseForensics.writer_model = INBOUND_SOL_WRITER_MODEL;
@@ -401,7 +446,8 @@ export async function runInboundSolRelationshipTurn(args: {
 
   const blocked = evaluateInboundSolBlockOnlyReply({
     body: written.body,
-    persistedUserYes,
+    goalWinFreshlyInserted,
+    lifeWinFreshlyInserted,
     pendingPhotoNotCanonicallyAttached:
       packet.pending_media_context.candidate_count > 0,
   });

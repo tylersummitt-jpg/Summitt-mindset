@@ -31,6 +31,7 @@ You receive two JSON blocks, and sometimes more:
 2. INBOUND_RELATIONSHIP_PACKET_V1 — canonical facts and the exact real conversation.
 3. PAT_SOURCE_EVIDENCE_V1 — only when this turn requires Pat personal/history knowledge.
 4. GOAL_CHANGE_CONFIRMATION_STATE — server-derived Goal Change confirmation authorization. This is not conversational history.
+5. VICTORY_ROOM_CAPTURE_STATE — server-derived proven facts about whether a Win was freshly inserted this turn. This is not conversational history.
 
 The Brief controls coaching meaning. You control natural language only.
 Do not rediscover the whole relationship from scratch. Do not mechanically translate Brief enum labels into canned sentences. Do not mention internal Brief field names in the SMS.
@@ -88,6 +89,14 @@ Writer law:
 - If pending_state is awaiting_candidate and a temporary duration is already known but the candidate is missing: ask what temporary target to use. Do not claim Current Goal changed.
 - If pending_cleared is true and temporary_adjustment_apply_authorized is not true and goal_change_apply_authorized is false and temporary_adjustment_reverted is not true: a temporary adjustment was not applied. Canonical Current Goal stays. Do not claim an overlay is active.
 - Neither: both saved-goal flags false, temporary_adjustment_confirmation_authorized is not true, temporary_adjustment_apply_authorized is not true, and temporary_adjustment_reverted is not true. You may clarify tonight-only vs going-forward, or ask what the new nightly target is. You must NOT ask a binding staged confirmation or claim the saved goal was applied.
+- VICTORY_ROOM_CAPTURE_STATE is proven persistence for this turn, not a coaching move. State claims require proven state.
+- If goal_win_freshly_inserted is false and life_win_freshly_inserted is false: NEVER claim that something was saved, added, logged, recorded, or is now in the Victory Room.
+- If life_win_freshly_inserted is true: you MAY naturally acknowledge that the meaningful moment was added to / is now in the Victory Room when that improves the human turn. Acknowledgment is optional. Do not mention Victory Room robotically after every captured moment. Do not turn the response into a product notification.
+- Respond to the HUMAN first. A direct question, grief, live issue, support need, or more important coaching move still controls the response.
+- A routine Goal Win does NOT require a Victory Room acknowledgment. goal_win_freshly_inserted true alone is factual context, not a command to mention Victory Room. goal_win_freshly_inserted true by itself does not authorize claiming that something was saved, added, logged, recorded, or is now in the Victory Room. life_win_freshly_inserted true is the proof that may authorize an optional natural Victory Room persistence acknowledgment.
+- If both are true: do not count rows or say "I saved two wins." If acknowledgment is useful, make it one natural human thought.
+- Do not use internal terms: whole_life, v2_win, relationship_type, ordinal. Prefer the user-facing term Victory Room.
+- Win persistence does not prove a photo was saved or attached.
 - A binding saved-goal confirmation question is allowed only when goal_change_confirmation_authorized is true.
 - A binding temporary confirmation question is allowed only when temporary_adjustment_confirmation_authorized is true.
 - Temporary applied language is allowed only when temporary_adjustment_apply_authorized is true.
@@ -182,11 +191,17 @@ export function toWriterFacingInboundCoachingBrief(
   return { ...brief, inbound };
 }
 
+export type InboundSolVictoryRoomCaptureState = {
+  goalWinFreshlyInserted: boolean;
+  lifeWinFreshlyInserted: boolean;
+};
+
 export function buildInboundSolWriterMessages(
   packet: InboundRelationshipPacket,
   brief: InboundCoachingBriefV1,
   patSourceEvidence?: PatSourceEvidencePacketV1 | null,
-  goalChangeConfirmationAuthorization?: SolGoalChangeConfirmationAuthorization | null
+  goalChangeConfirmationAuthorization?: SolGoalChangeConfirmationAuthorization | null,
+  victoryRoomCapture?: InboundSolVictoryRoomCaptureState | null
 ): ChatCompletionMessageParam[] {
   const parts = [
     "INBOUND_COACHING_BRIEF_V1",
@@ -210,6 +225,15 @@ export function buildInboundSolWriterMessages(
     pending_cleared: false,
   };
   parts.push("", "GOAL_CHANGE_CONFIRMATION_STATE", JSON.stringify(auth));
+  parts.push(
+    "",
+    "VICTORY_ROOM_CAPTURE_STATE",
+    JSON.stringify({
+      goal_win_freshly_inserted: victoryRoomCapture?.goalWinFreshlyInserted === true,
+      life_win_freshly_inserted: victoryRoomCapture?.lifeWinFreshlyInserted === true,
+      product_fact: "Persisted Wins are displayed in the member's Victory Room.",
+    })
+  );
   if (auth.goal_change_apply_authorized === true) {
     parts.push(
       "",
@@ -368,6 +392,8 @@ export async function writeInboundSolBody(args: {
   brief: InboundCoachingBriefV1;
   patSourceEvidence?: PatSourceEvidencePacketV1 | null;
   goalChangeConfirmationAuthorization?: SolGoalChangeConfirmationAuthorization | null;
+  goalWinFreshlyInserted?: boolean;
+  lifeWinFreshlyInserted?: boolean;
   client?: OpenAI | null;
 }): Promise<InboundSolWriterResult> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -405,7 +431,11 @@ export async function writeInboundSolBody(args: {
     args.packet,
     args.brief,
     args.patSourceEvidence,
-    args.goalChangeConfirmationAuthorization
+    args.goalChangeConfirmationAuthorization,
+    {
+      goalWinFreshlyInserted: args.goalWinFreshlyInserted === true,
+      lifeWinFreshlyInserted: args.lifeWinFreshlyInserted === true,
+    }
   );
   const solCreate = (msgs: ChatCompletionMessageParam[]) =>
     client.chat.completions.create({

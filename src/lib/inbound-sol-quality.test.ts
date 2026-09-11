@@ -262,6 +262,81 @@ describe("inbound Sol contracts", () => {
       "Do not claim a photo or picture was saved, attached, added, or stored."
     );
   });
+
+  it("Phase 2B: writer may acknowledge Victory Room only from proven fresh insert", () => {
+    const prompt = INBOUND_SOL_WRITER_SYSTEM_PROMPT;
+    expect(prompt).toContain("VICTORY_ROOM_CAPTURE_STATE");
+    expect(prompt).toContain("State claims require proven state.");
+    expect(prompt).toContain(
+      "If goal_win_freshly_inserted is false and life_win_freshly_inserted is false: NEVER claim that something was saved, added, logged, recorded, or is now in the Victory Room."
+    );
+    expect(prompt).toContain(
+      "If life_win_freshly_inserted is true: you MAY naturally acknowledge that the meaningful moment was added to / is now in the Victory Room when that improves the human turn."
+    );
+    expect(prompt).toContain("Acknowledgment is optional.");
+    expect(prompt).toContain("Do not mention Victory Room robotically after every captured moment.");
+    expect(prompt).toContain(
+      "A routine Goal Win does NOT require a Victory Room acknowledgment."
+    );
+    expect(prompt).toContain(
+      "goal_win_freshly_inserted true alone is factual context, not a command to mention Victory Room."
+    );
+    expect(prompt).toContain(
+      "goal_win_freshly_inserted true by itself does not authorize claiming that something was saved, added, logged, recorded, or is now in the Victory Room."
+    );
+    expect(prompt).toContain(
+      "life_win_freshly_inserted true is the proof that may authorize an optional natural Victory Room persistence acknowledgment."
+    );
+    expect(prompt).toContain('do not count rows or say "I saved two wins."');
+    expect(prompt).toContain("Win persistence does not prove a photo was saved or attached.");
+    expect(prompt).toContain("Prefer the user-facing term Victory Room.");
+    const user = String(buildInboundSolWriterMessages(packet("Got the lift in.", []), briefWithInbound({
+      answer_priority: "normal",
+      coaching_after_answer: "yes",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "central",
+        outcome: "completed",
+        confidence: "high",
+        evidence: "Got the lift in.",
+      },
+      meaningful_win: null,
+    })!)[1]?.content ?? "");
+    expect(user).toContain("VICTORY_ROOM_CAPTURE_STATE");
+    expect(user).toContain('"goal_win_freshly_inserted":false');
+    expect(user).toContain('"life_win_freshly_inserted":false');
+    expect(user).toContain("Persisted Wins are displayed in the member's Victory Room.");
+    expect(user).not.toContain("v2_win");
+    expect(user).not.toContain("whole_life");
+    expect(user).not.toContain("idempotency");
+    expect(user).not.toContain("relationship_type");
+    const lifeUser = String(
+      buildInboundSolWriterMessages(
+        packet("Sat on the dock with Dad.", []),
+        briefWithInbound({
+          answer_priority: "normal",
+          coaching_after_answer: "yes",
+          user_is_correcting_coach: false,
+          accountability_interpretation: {
+            relevance: "unrelated",
+            outcome: "not_applicable",
+            confidence: "high",
+            evidence: "Sat on the dock with Dad.",
+          },
+          meaningful_win: {
+            present: true,
+            grounded_action: "Sat on the dock with Dad",
+            relationship: "life",
+          },
+        })!,
+        null,
+        null,
+        { goalWinFreshlyInserted: false, lifeWinFreshlyInserted: true }
+      )[1]?.content ?? ""
+    );
+    expect(lifeUser).toContain('"life_win_freshly_inserted":true');
+    expect(lifeUser).toContain('"goal_win_freshly_inserted":false');
+  });
 });
 
 describe("named inbound quality regressions (prompt + brief contract)", () => {
@@ -400,15 +475,12 @@ describe("named inbound quality regressions (prompt + brief contract)", () => {
 
 describe("block-only validation", () => {
   it("empty body blocks", () => {
-    expect(evaluateInboundSolBlockOnlyReply({ body: "  ", persistedUserYes: false }).ok).toBe(
-      false
-    );
+    expect(evaluateInboundSolBlockOnlyReply({ body: "  " }).ok).toBe(false);
   });
 
   it("internal labels block", () => {
     const r = evaluateInboundSolBlockOnlyReply({
       body: "That's a user_yes today.",
-      persistedUserYes: true,
     });
     expect(r.ok).toBe(false);
   });
@@ -416,7 +488,6 @@ describe("block-only validation", () => {
   it("victory saved without persist blocks", () => {
     const r = evaluateInboundSolBlockOnlyReply({
       body: "Saved this to your Victory Room.",
-      persistedUserYes: false,
     });
     expect(r.ok).toBe(false);
   });
@@ -424,7 +495,6 @@ describe("block-only validation", () => {
   it("natural coaching body passes", () => {
     const r = evaluateInboundSolBlockOnlyReply({
       body: "Proud you finished the lift before lunch.",
-      persistedUserYes: true,
     });
     expect(r.ok).toBe(true);
   });
@@ -432,7 +502,6 @@ describe("block-only validation", () => {
   it("does not block natural logged-win language without Victory Room", () => {
     const r = evaluateInboundSolBlockOnlyReply({
       body: "Glad you logged that win.",
-      persistedUserYes: false,
     });
     expect(r.ok).toBe(true);
   });
@@ -440,9 +509,68 @@ describe("block-only validation", () => {
   it("still blocks Victory Room saved/logged without persist", () => {
     const r = evaluateInboundSolBlockOnlyReply({
       body: "I saved it in Victory Room.",
-      persistedUserYes: false,
     });
     expect(r.ok).toBe(false);
+  });
+
+  it("blocks Victory Room save/log/add claims when no fresh v2_win proof", () => {
+    expect(
+      evaluateInboundSolBlockOnlyReply({
+        body: "I saved that to your Victory Room.",
+      }).ok
+    ).toBe(false);
+    expect(
+      evaluateInboundSolBlockOnlyReply({
+        body: "I logged that in your Victory Room.",
+      }).ok
+    ).toBe(false);
+    expect(
+      evaluateInboundSolBlockOnlyReply({
+        body: "I added that to your Victory Room.",
+      }).ok
+    ).toBe(false);
+  });
+
+  it("does not block a natural Victory Room acknowledgment when a life Win was freshly inserted", () => {
+    const r = evaluateInboundSolBlockOnlyReply({
+      body: "That's one worth remembering. I added that to your Victory Room.",
+      lifeWinFreshlyInserted: true,
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it("blocks generic Victory Room persistence claims when only a Goal Win was freshly inserted", () => {
+    for (const body of [
+      "I added that to your Victory Room.",
+      "I saved that to your Victory Room.",
+      "I logged that in your Victory Room.",
+    ]) {
+      expect(
+        evaluateInboundSolBlockOnlyReply({
+          body,
+          goalWinFreshlyInserted: true,
+          lifeWinFreshlyInserted: false,
+        })
+      ).toEqual({ ok: false, reason: "victory_saved_logged_without_persist" });
+    }
+  });
+
+  it("allows a generic Victory Room acknowledgment when both Goal and life Wins were freshly inserted", () => {
+    const r = evaluateInboundSolBlockOnlyReply({
+      body: "That's one worth remembering. I added that to your Victory Room.",
+      goalWinFreshlyInserted: true,
+      lifeWinFreshlyInserted: true,
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it("blocks Victory Room save claims when user_yes happened but Goal v2_win was not freshly inserted", () => {
+    const r = evaluateInboundSolBlockOnlyReply({
+      body: "I saved that to your Victory Room.",
+      goalWinFreshlyInserted: false,
+      lifeWinFreshlyInserted: false,
+    });
+    expect(r).toEqual({ ok: false, reason: "victory_saved_logged_without_persist" });
   });
 
   it("blocks photo-saved claims when D1 pending photo is not canonically attached", () => {
@@ -456,7 +584,7 @@ describe("block-only validation", () => {
     for (const body of blocked) {
       const r = evaluateInboundSolBlockOnlyReply({
         body,
-        persistedUserYes: true,
+        goalWinFreshlyInserted: true,
         pendingPhotoNotCanonicallyAttached: true,
       });
       expect(r).toEqual({ ok: false, reason: "photo_saved_before_canonical_attach" });
@@ -466,13 +594,12 @@ describe("block-only validation", () => {
   it("still allows Win-saved language when a pending photo is not attached", () => {
     const r = evaluateInboundSolBlockOnlyReply({
       body: "I saved that Win.",
-      persistedUserYes: true,
+      goalWinFreshlyInserted: true,
       pendingPhotoNotCanonicallyAttached: true,
     });
     expect(r.ok).toBe(true);
     const logged = evaluateInboundSolBlockOnlyReply({
       body: "Glad you logged that win.",
-      persistedUserYes: false,
       pendingPhotoNotCanonicallyAttached: true,
     });
     expect(logged.ok).toBe(true);
@@ -725,13 +852,13 @@ describe("writer D1 pending-photo data minimization", () => {
     );
     const queued = evaluateInboundSolBlockOnlyReply({
       body: "I saved your photo to the Victory Room.",
-      persistedUserYes: true,
+      lifeWinFreshlyInserted: true,
       pendingPhotoNotCanonicallyAttached: true,
     });
     expect(queued.ok).toBe(false);
     const winOnly = evaluateInboundSolBlockOnlyReply({
       body: "Proud you took the kids hiking — I saved that Win.",
-      persistedUserYes: true,
+      lifeWinFreshlyInserted: true,
       pendingPhotoNotCanonicallyAttached: true,
     });
     expect(winOnly.ok).toBe(true);

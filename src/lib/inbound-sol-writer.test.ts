@@ -357,4 +357,30 @@ describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
       "The message should feel like the next human turn from Coach Pat: speak naturally in first person when it fits, as a real coach texting this member."
     );
   });
+
+  it("always includes Victory Room capture proven facts, never internal persist terms", async () => {
+    const none = String(buildInboundSolWriterMessages(packet("Got the lift in."), brief())[1]?.content ?? "");
+    expect(none).toContain("VICTORY_ROOM_CAPTURE_STATE");
+    expect(none).toContain('"goal_win_freshly_inserted":false');
+    expect(none).toContain('"life_win_freshly_inserted":false');
+    expect(none).toContain("Persisted Wins are displayed in the member's Victory Room.");
+    expect(none).not.toContain("v2_win");
+    expect(none).not.toContain("whole_life");
+    expect(none).not.toContain("idempotency");
+    const client = mockClient([JSON.stringify({ body: "Proud of that moment." })]);
+    await writeInboundSolBody({
+      packet: packet("Sat on the dock with Dad."),
+      brief: brief(),
+      goalWinFreshlyInserted: false,
+      lifeWinFreshlyInserted: true,
+      client,
+    });
+    const create = client.chat.completions.create as unknown as {
+      mock: { calls: Array<[{ messages: Array<{ content: string }> }]> };
+    };
+    const user = String(create.mock.calls[0]?.[0]?.messages?.[1]?.content ?? "");
+    expect(user).toContain('"life_win_freshly_inserted":true');
+    expect(user).toContain('"goal_win_freshly_inserted":false');
+    expect(client.chat.completions.create).toHaveBeenCalledTimes(1);
+  });
 });
