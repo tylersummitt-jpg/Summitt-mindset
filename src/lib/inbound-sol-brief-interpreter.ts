@@ -126,7 +126,7 @@ MEANINGFUL WIN (inbound.meaningful_win):
 - When the same inbound message proves a Current Goal completion and also contains an additional life moment, use relationship=life only when that additional moment would still be worth preserving on its own if the Current Goal completion were removed from the message. Otherwise prefer null and let the Goal Win stand alone.
 - If the newest message mainly adds meaning, feeling, or detail to a Proud Moment already captured or clearly discussed in the recent conversation, do not create another life win unless it describes a genuinely separate new moment.
 - relationship=goal or mixed means the extra object is the accountability completion; prefer null rather than creating another row.
-- relationship=unclear means no extra life win. When unsure whether something is a distinct Proud Moment worth preserving, prefer null.
+- relationship=unclear means no extra life win. After applying the exclusions above, if a grounded positive or affirming life moment plausibly seems worth preserving and the choice is genuinely close, lean toward relationship=life rather than discarding it merely because the moment is ordinary.
 
 ${INBOUND_SOL_DURABLE_USER_EVIDENCE_CAPTURE_LAW}
 

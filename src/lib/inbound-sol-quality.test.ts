@@ -203,8 +203,12 @@ describe("inbound Sol contracts", () => {
     expect(prompt).toContain(
       "relationship=goal or mixed means the extra object is the accountability completion; prefer null rather than creating another row."
     );
+    expect(prompt).toContain("relationship=unclear means no extra life win");
     expect(prompt).toContain(
-      "relationship=unclear means no extra life win. When unsure whether something is a distinct Proud Moment worth preserving, prefer null."
+      "After applying the exclusions above, if a grounded positive or affirming life moment plausibly seems worth preserving and the choice is genuinely close, lean toward relationship=life rather than discarding it merely because the moment is ordinary."
+    );
+    expect(prompt).not.toContain(
+      "When unsure whether something is a distinct Proud Moment worth preserving, prefer null."
     );
     expect(prompt).not.toContain(
       "relationship=life means a DISTINCT whole-life win besides the Current Goal."

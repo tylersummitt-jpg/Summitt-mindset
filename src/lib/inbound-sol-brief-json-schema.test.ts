@@ -190,8 +190,9 @@ describe("inbound Sol win_presentation extras", () => {
       "meaningful_win: null OR { present: true, grounded_action, relationship: goal | mixed | life | unclear }"
     );
     expect(appendix).toContain(
-      "For a normal Current Goal completion by itself, prefer meaningful_win = null; accountability already creates the Goal Win. relationship=life is only for a distinct positive or affirming life moment worth preserving independently of the Goal Win, including meaningful experiences or other-person milestones; it is not for a generic mood, plan, logistical fact, ordinary status update, polite response, distressing news, sensitive third-party disclosure, or merely added detail about a Proud Moment already captured or clearly discussed in the recent conversation. When unsure, prefer null."
+      "For a normal Current Goal completion by itself, prefer meaningful_win = null; accountability already creates the Goal Win. relationship=life is only for a distinct positive or affirming life moment worth preserving independently of the Goal Win, including meaningful experiences or other-person milestones; it is not for a generic mood, plan, logistical fact, ordinary status update, polite response, distressing news, sensitive third-party disclosure, or merely added detail about a Proud Moment already captured or clearly discussed in the recent conversation. After applying those exclusions, if a grounded positive or affirming life moment plausibly seems worth preserving and the choice is genuinely close, lean toward relationship=life rather than discarding it merely because the moment is ordinary."
     );
+    expect(appendix).not.toContain("When unsure, prefer null.");
     expect(appendix).not.toContain(
       "For a normal Current Goal completion only, prefer meaningful_win = null."
     );
