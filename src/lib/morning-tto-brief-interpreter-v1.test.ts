@@ -199,6 +199,35 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).not.toMatch(/set_today_rep|hallway/);
   });
 
+  it("Gold Question Phase 1A prompt contract: anti-repeat kept; Gold, people, and M/E history doorway exact", () => {
+    const p = MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT;
+    expect(p).toContain(
+      "Choose the one coaching move that best advances the relationship from where the recent conversation actually stands. Treat recent Coach questions, lessons, tactics, reframes, and challenges as moves already made; return to them only when new evidence, timing, or context makes doing so useful."
+    );
+    expect(p).toContain(
+      "Before choosing another tactic, principle, generic encouragement, or standalone perspective, consider whether there is a specific grounded part of the member's Current Goal, recent conversation, historical evidence, identity, important relationships, or life context whose story, meaning, motivation, feeling, or useful detail remains genuinely unexplored. When no more important live coaching responsibility exists, prefer one easy, concrete question that lets the member supply that missing information and deepens the relationship. Do not use this preference to displace a direct question, live or urgent problem, clear-miss accountability, imminent action, pending Goal Change, important open loop, grief or crisis support, or a more useful specific coaching move. Do not ask merely to provoke a reply, repeat or stack unanswered questions, or force pride, family, identity, history, or Victory Room into the conversation."
+    );
+    expect(p).toContain(
+      "Important people may be selected only when naturally relevant to the live conversation or when a specific open question about that known relationship is itself a grounded, useful coaching move. Never infer current events, feelings, or behavior from the person's mere existence."
+    );
+    expect(p).toContain(
+      "Historical evidence is not a prompt to recite old facts or treat them as current. When no stronger live priority exists, a dated historical fact may be a grounded doorway to one new question that meaningfully advances the relationship."
+    );
+    expect(p).toContain("At most one useful question (question_policy none or one_useful_question).");
+    expect(p).toContain("Answer direct user questions when present");
+    expect(p).toContain("Current Goal is context, not a compulsory subject");
+    expect(p).toContain("may outrank Current Goal");
+    expect(p).toContain("Do not manufacture engagement");
+    expect(p).toContain("Prefer honest unknown");
+    expect(p).toContain("Do not invent pending confirmation");
+    expect(p).toContain("pending_goal_change");
+    expect(p).toContain("Identity is context, not proof of action.");
+    expect(p).toContain("Never name-drop people or identity to prove memory.");
+    expect(p).toContain(
+      "selected_person must be null or exactly one person from available_important_people (same name and relationship)."
+    );
+  });
+
   it("shared TEMPORAL POSTURE seals Morning/Evening coaching semantics without phrase tables", () => {
     const p = MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT;
     expect(p).toContain("TEMPORAL POSTURE");
