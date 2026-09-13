@@ -12,6 +12,7 @@ import {
   type ScrubbedOpenAiRequestError,
 } from "@/lib/openai-request-error-scrub";
 import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
+import { COACH_RELATIONSHIP_MEMORY_WRITER_USE_LAW } from "@/lib/coach-relationship-memory";
 
 export const MORNING_TTO_WRITER_MODEL = "gpt-5.6-sol" as const;
 export const MORNING_TTO_WRITER_REASONING_EFFORT = "low" as const;
@@ -75,6 +76,8 @@ IDENTITY + IMPORTANT PEOPLE
 
 HISTORICAL EVIDENCE
 ${HISTORICAL_EVIDENCE_HISTORY_LAW}
+
+${COACH_RELATIONSHIP_MEMORY_WRITER_USE_LAW}
 
 TARGET DATE / TIME
 - packet.message_for (local_date, local_weekday, daypart, timezone) is the authoritative clock for this SMS — not the wall-clock time when the draft was generated.

@@ -331,6 +331,7 @@ describe("quiet relationship value — prompt law + clamp + writer skip", () => 
         personal_context: [],
         hard_state: { pending_goal_change: null },
         historical_evidence: [],
+        coach_relationship_memory: null,
         exact_thread: {
           window_days: 21,
           max_messages: 30,

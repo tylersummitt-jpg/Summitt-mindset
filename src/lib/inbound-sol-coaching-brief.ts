@@ -4,6 +4,11 @@
  */
 
 import {
+  isCoachRelationshipMemoryChangesProposed,
+  parseCoachRelationshipMemoryChanges,
+  type CoachRelationshipMemoryChanges,
+} from "@/lib/coach-relationship-memory";
+import {
   MORNING_COACHING_BRIEF_VERSION,
   parseMorningCoachingBriefV1,
   type MorningCoachingBriefV1,
@@ -130,6 +135,11 @@ export type InboundSolBriefExtras = {
   durable_user_evidence: InboundSolDurableUserEvidence | null;
   /** Display-only. Never Win truth. Parser defaults when missing/malformed. */
   win_presentation: InboundSolWinPresentation;
+  /**
+   * Item-operation F mutations or null. Fail-soft: malformed values become
+   * null and do not invalidate extras.
+   */
+  coach_relationship_memory_changes: CoachRelationshipMemoryChanges | null;
 };
 
 export type InboundCoachingBriefV1 = MorningCoachingBriefV1 & {
@@ -209,6 +219,9 @@ export function parseInboundSolBriefExtras(raw: unknown): InboundSolBriefExtras 
     pending_photo_relation: parsePendingPhotoRelation(o.pending_photo_relation),
     durable_user_evidence: parseDurableUserEvidence(o.durable_user_evidence),
     win_presentation: parseWinPresentation(o.win_presentation),
+    coach_relationship_memory_changes: parseCoachRelationshipMemoryChanges(
+      o.coach_relationship_memory_changes
+    ),
   };
 }
 
@@ -305,6 +318,10 @@ export function compactInboundSolBriefForTelemetry(
       brief.inbound.meaningful_win?.relationship ?? null,
     inbound_sol_durable_user_evidence_returned:
       brief.inbound.durable_user_evidence != null,
+    inbound_sol_coach_relationship_memory_returned:
+      isCoachRelationshipMemoryChangesProposed(
+        brief.inbound.coach_relationship_memory_changes
+      ),
     inbound_sol_pending_photo_relation: brief.inbound.pending_photo_relation.relation,
     inbound_sol_most_alive_preview:
       typeof brief.human_situation.most_alive === "string"

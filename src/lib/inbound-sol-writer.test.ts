@@ -35,6 +35,8 @@ function packet(latest: string): InboundRelationshipPacket {
       recent_wins: [],
     },
     historical_evidence: [],
+    coach_relationship_memory: null,
+    coach_relationship_memory_items: [],
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -382,5 +384,40 @@ describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
     expect(user).toContain('"life_win_freshly_inserted":true');
     expect(user).toContain('"goal_win_freshly_inserted":false');
     expect(client.chat.completions.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("writer OpenAI messages keep OLD rendered F and strip nonempty items/changes", async () => {
+    const memoryId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const oldText = "Quiet one-on-one time with Brooke matters more than elaborate plans.";
+    const newText = "Breck initiating time together is especially meaningful to Tyler.";
+    const p = packet("It means a lot when Breck asks me to do things.");
+    p.coach_relationship_memory = oldText;
+    p.coach_relationship_memory_items = [{ memory_id: memoryId, text: oldText }];
+    const b = brief();
+    b.inbound.coach_relationship_memory_changes = {
+      add: [newText],
+      delete: [],
+    };
+    const assembled = String(buildInboundSolWriterMessages(p, b)[1]?.content ?? "");
+    expect(assembled).toContain(oldText);
+    expect(assembled).not.toContain(memoryId);
+    expect(assembled).not.toContain("coach_relationship_memory_items");
+    expect(assembled).not.toContain("coach_relationship_memory_changes");
+    expect(assembled).not.toContain(newText);
+
+    const client = mockClient([JSON.stringify({ body: "Proud he asked." })]);
+    await writeInboundSolBody({ packet: p, brief: b, client });
+    const create = client.chat.completions.create as unknown as {
+      mock: { calls: Array<[{ messages: Array<{ content: string }> }]> };
+    };
+    const liveUser = String(create.mock.calls[0]?.[0]?.messages?.[1]?.content ?? "");
+    const liveSystem = String(create.mock.calls[0]?.[0]?.messages?.[0]?.content ?? "");
+    expect(liveUser).toContain(oldText);
+    expect(liveUser).not.toContain(memoryId);
+    expect(liveUser).not.toContain("coach_relationship_memory_items");
+    expect(liveUser).not.toContain("coach_relationship_memory_changes");
+    expect(liveUser).not.toContain(newText);
+    expect(liveSystem).not.toContain("coach_relationship_memory_items");
+    expect(liveSystem).not.toContain(memoryId);
   });
 });

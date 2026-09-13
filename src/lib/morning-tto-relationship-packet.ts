@@ -33,6 +33,7 @@ import {
   fetchHistoricalWinEvidenceSource,
   projectHistoricalWinEvidenceCarriers,
 } from "@/lib/historical-win-evidence-load";
+import { fetchCoachRelationshipMemory } from "@/lib/coach-relationship-memory-load";
 
 /** Intended SMS daypart for shared Sol coaching (Morning wrappers always pass "morning"). */
 export type TtoMessageDaypart = "morning" | "evening";
@@ -77,6 +78,11 @@ export type MorningRelationshipPacket = {
    * User-message evidence + bounded Win candidates. One array.
    */
   historical_evidence: HistoricalEvidenceSlice;
+  /**
+   * Standing Coach–member relationship meaning. Null when no row / empty / load fail.
+   * Morning / Evening / Weekly read only. Never write F from proactive lanes.
+   */
+  coach_relationship_memory: string | null;
   exact_thread: {
     window_days: 21;
     max_messages: 30;
@@ -297,6 +303,7 @@ export async function loadMorningRelationshipPacket(args: {
     exactThread,
     evidenceRows,
     winSource,
+    coachRelationshipMemory,
   ] = await Promise.all([
       supabaseServer
         .from("user_profiles")
@@ -319,6 +326,7 @@ export async function loadMorningRelationshipPacket(args: {
       }),
       fetchActiveDurableUserEvidenceRows(args.clerkUserId),
       fetchHistoricalWinEvidenceSource(args.clerkUserId),
+      fetchCoachRelationshipMemory(args.clerkUserId),
     ]);
 
   const identityRaw = trimOrNull(profile?.identity_anchor_text);
@@ -365,6 +373,7 @@ export async function loadMorningRelationshipPacket(args: {
     hard_state: {
       pending_goal_change: pendingGoalChangeFromCommitment(commitment, nowMs),
     },
+    coach_relationship_memory: coachRelationshipMemory,
     historical_evidence: mergeHistoricalEvidenceChronologically(
       projectDurableUserEvidenceCarriers({
         rows: evidenceRows,

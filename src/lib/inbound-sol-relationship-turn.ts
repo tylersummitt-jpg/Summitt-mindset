@@ -39,6 +39,7 @@ import type { SolGoalChangeConfirmationAuthorization } from "@/lib/sol-goal-chan
 import { shouldPersistSolInboundAccountabilityOutcome } from "@/lib/inbound-sol-persist-advice";
 import { persistSolInboundWins } from "@/lib/inbound-sol-wins";
 import { persistSolInboundUserEvidence } from "@/lib/inbound-sol-user-evidence";
+import { persistSolCoachRelationshipMemory } from "@/lib/inbound-sol-coach-relationship-memory";
 import { applySolInboundOutcomeSideEffects } from "@/lib/inbound-sol-outcome-side-effects";
 import { evaluateInboundSolBlockOnlyReply } from "@/lib/inbound-sol-reply-validate";
 import { applySolAnsweredOpenCoachQuestion } from "@/lib/v2-commitment-sms-thread-memory";
@@ -354,6 +355,41 @@ export async function runInboundSolRelationshipTurn(args: {
       error: err instanceof Error ? err.message.slice(0, 120) : "unknown",
     });
     baseForensics.inbound_sol_durable_user_evidence_persist_status = "failed";
+  }
+
+  const oldMemoryItems = packet.coach_relationship_memory_items ?? [];
+  baseForensics.inbound_sol_coach_relationship_memory_old_item_count =
+    oldMemoryItems.length;
+  try {
+    const memoryPersist = await persistSolCoachRelationshipMemory({
+      clerkUserId: args.clerkUserId,
+      changes: brief.inbound.coach_relationship_memory_changes,
+      oldItems: oldMemoryItems,
+    });
+    baseForensics.inbound_sol_coach_relationship_memory_persist_status =
+      memoryPersist.status;
+    baseForensics.inbound_sol_coach_relationship_memory_add_count =
+      memoryPersist.add_count;
+    baseForensics.inbound_sol_coach_relationship_memory_update_count =
+      memoryPersist.update_count;
+    baseForensics.inbound_sol_coach_relationship_memory_delete_count =
+      memoryPersist.delete_count;
+    baseForensics.inbound_sol_coach_relationship_memory_old_total_chars =
+      memoryPersist.old_total_chars;
+    if (memoryPersist.new_item_count != null) {
+      baseForensics.inbound_sol_coach_relationship_memory_new_item_count =
+        memoryPersist.new_item_count;
+    }
+    if (memoryPersist.new_total_chars != null) {
+      baseForensics.inbound_sol_coach_relationship_memory_new_total_chars =
+        memoryPersist.new_total_chars;
+    }
+  } catch (err) {
+    console.warn("[inbound-sol-coach-relationship-memory-persist-failed]", {
+      message_sid: args.messageSid,
+      error: err instanceof Error ? err.message.slice(0, 120) : "unknown",
+    });
+    baseForensics.inbound_sol_coach_relationship_memory_persist_status = "failed";
   }
 
   try {

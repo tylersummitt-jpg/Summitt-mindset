@@ -69,6 +69,7 @@ function setupPacketSupabase(args: {
   winRows?: unknown[];
   priorCommitmentRows?: unknown[];
   winError?: { message: string } | null;
+  memoryRows?: unknown[] | unknown | null;
 }) {
   supabaseFrom.mockImplementation((table: string) => {
     switch (table) {
@@ -105,6 +106,8 @@ function setupPacketSupabase(args: {
         return chain(args.evidenceRows ?? []);
       case "v2_win":
         return chain(args.winRows ?? [], args.winError ?? null);
+      case "v2_coach_relationship_memory":
+        return chain(args.memoryRows ?? null);
       default:
         return chain([]);
     }
@@ -168,6 +171,7 @@ describe("loadMorningRelationshipPacket", () => {
     expect(result.packet.current_identity.text).toBe("I am a steady father.");
     expect(result.packet.personal_context.some((c) => c.type === "responsibility")).toBe(true);
     expect(result.packet.historical_evidence).toEqual([]);
+    expect(result.packet.coach_relationship_memory).toBeNull();
     expect(result.packet.answered_user_message_links).toEqual([]);
     expect(result.packet.exact_thread.window_days).toBe(21);
     expect(result.packet.exact_thread.max_messages).toBe(30);
@@ -215,6 +219,7 @@ describe("loadMorningRelationshipPacket", () => {
       intended_receive_time_local: "19:00",
     });
     expect(result.packet.historical_evidence).toEqual([]);
+    expect(result.packet.coach_relationship_memory).toBeNull();
   });
 
   it("loads active durable user evidence omitted from surviving exact-thread SIDs", async () => {
@@ -1001,6 +1006,35 @@ describe("loadMorningRelationshipPacket", () => {
         evidence: "Then-standard: One hour of focused writing each morning. Win: Completed 40 seconds",
       },
     ]);
+  });
+
+  it("loads Coach Relationship Memory for the requested clerk_user_id only", async () => {
+    setupPacketSupabase({
+      profile: { preferred_name: "Pat" },
+      memoryRows: [
+        {
+          memory_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          memory_text:
+            "Breck initiating time together is especially meaningful to Tyler.",
+          created_at: "2026-06-01T12:00:00.000Z",
+        },
+      ],
+    });
+    const result = await loadMorningRelationshipPacket({
+      clerkUserId: "user_morning",
+      timezone: TZ,
+      now: NOW,
+      draftForDayKey: "2026-06-22",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.coach_relationship_memory).toBe(
+      "Breck initiating time together is especially meaningful to Tyler."
+    );
+    const memoryCalls = supabaseFrom.mock.calls.filter(
+      (c) => c[0] === "v2_coach_relationship_memory"
+    );
+    expect(memoryCalls.length).toBeGreaterThan(0);
   });
 });
 

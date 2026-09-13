@@ -387,6 +387,7 @@ const MORNING_PACKET = {
   personal_context: [],
   hard_state: { pending_goal_change: null },
   historical_evidence: [],
+  coach_relationship_memory: null,
   exact_thread: {
     window_days: 21 as const,
     max_messages: 30,

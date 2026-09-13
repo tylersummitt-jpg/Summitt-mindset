@@ -55,6 +55,7 @@ function samplePacket(
     weekly_accountability_events: [],
     coaching_memory_projection: null,
     historical_evidence: [],
+    coach_relationship_memory: null,
     exact_thread: {
       window_days: 21,
       max_messages: 30,

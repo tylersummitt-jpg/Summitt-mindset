@@ -309,6 +309,7 @@ export function assembleMorningBriefInterpreterInputFromPacket(args: {
     messageRequiredToday: args.messageRequiredToday === true,
     quietRelationshipEligible: args.quietRelationshipEligible === true,
     historicalEvidence: packet.historical_evidence,
+    coachRelationshipMemory: packet.coach_relationship_memory,
     answeredUserMessageLinks: packet.answered_user_message_links ?? [],
   };
   const packetSlot = packet.message_for.intended_receive_time_local;

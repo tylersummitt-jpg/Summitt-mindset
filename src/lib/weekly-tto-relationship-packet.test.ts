@@ -7,7 +7,7 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 const loadWeeklyAccountabilityEventsReadOnly = vi.hoisted(() => vi.fn(async () => []));
-const loadWeeklyCoachingMemoryProjectionReadOnly = vi.hoisted(() => vi.fn(async () => null));
+const loadWeeklyCoachingMemoryProjectionReadOnly = vi.hoisted(() => vi.fn());
 const loadRecentPlannedInterruptionSignalForCommitment = vi.hoisted(() =>
   vi.fn(async () => null)
 );
@@ -66,6 +66,7 @@ function morningPacket(overrides: Partial<MorningRelationshipPacket> = {}): Morn
     personal_context: [{ type: "partner_name", value: "Brooke" }],
     hard_state: { pending_goal_change: null },
     historical_evidence: [],
+    coach_relationship_memory: null,
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -104,6 +105,7 @@ describe("weekly-tto-relationship-packet", () => {
       packet: morningPacket(),
       commitmentId: "cmt_weekly",
     });
+    loadWeeklyCoachingMemoryProjectionReadOnly.mockResolvedValue(null);
   });
 
   it("anchors message_for to the target Sunday, not generation wall clock", async () => {
@@ -225,6 +227,38 @@ describe("weekly-tto-relationship-packet", () => {
     if (!result.ok) return;
     expect(result.packet.answered_user_message_links).toEqual(links);
     expect(result.packet.answered_user_message_links).toBe(links);
+  });
+
+  it("inherits Morning coach_relationship_memory and keeps coaching_summary", async () => {
+    const memory =
+      "Protecting evenings for family matters after periods of heavy work.";
+    loadMorningRelationshipPacket.mockResolvedValue({
+      ok: true,
+      packet: morningPacket({ coach_relationship_memory: memory }),
+      commitmentId: "cmt_weekly",
+    });
+    loadWeeklyCoachingMemoryProjectionReadOnly.mockResolvedValue({
+      authority: "non_authoritative_projection" as const,
+      coaching_summary: "Prefers AM check-ins.",
+    });
+    const src = readFileSync(join(REPO, "src/lib/weekly-tto-relationship-packet.ts"), "utf8");
+    expect(src).not.toContain("v2_coach_relationship_memory");
+    expect(src).toContain("loadWeeklyCoachingMemoryProjectionReadOnly");
+    const result = await loadWeeklyRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/New_York",
+      weekStartLocalDate: "2026-07-06",
+      weekEndLocalDate: "2026-07-12",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.packet.coach_relationship_memory).toBe(memory);
+    expect(result.packet.coaching_memory_projection).toEqual({
+      authority: "non_authoritative_projection",
+      coaching_summary: "Prefers AM check-ins.",
+    });
+    const view = weeklyPacketAsMorningAssemblerView(result.packet);
+    expect(view.coach_relationship_memory).toBe(memory);
   });
 
   it("keeps pending goal separate from current_goal", async () => {

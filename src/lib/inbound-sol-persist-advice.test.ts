@@ -27,6 +27,7 @@ function extras(overrides: Partial<InboundSolBriefExtras> = {}): InboundSolBrief
     pending_photo_relation: { relation: "none", target_win_id: null },
     durable_user_evidence: null,
     win_presentation: EMPTY_INBOUND_SOL_WIN_PRESENTATION,
+    coach_relationship_memory_changes: null,
     ...rest,
   };
 }
@@ -332,6 +333,7 @@ describe("parseInboundCoachingBriefV1 inbound extras", () => {
     expect(parsed).not.toBeNull();
     expect(parsed?.inbound.accountability_interpretation.outcome).toBe("not_applicable");
     expect(parsed?.goal_role_today.role).toBe("do_not_mention");
+    expect(parsed?.inbound.coach_relationship_memory_changes).toBeNull();
   });
 
   it("trophy titles cannot create or suppress accountability persist", () => {

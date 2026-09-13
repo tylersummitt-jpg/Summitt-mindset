@@ -46,6 +46,8 @@ function packet(latest: string, threadBodies: string[]): InboundRelationshipPack
       recent_wins: [],
     },
     historical_evidence: [],
+    coach_relationship_memory: null,
+    coach_relationship_memory_items: [],
     exact_thread: {
       window_days: 21,
       max_messages: 30,

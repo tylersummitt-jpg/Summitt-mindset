@@ -79,6 +79,7 @@ function samplePacket(
     ],
     hard_state: { pending_goal_change: null },
     historical_evidence: [],
+    coach_relationship_memory: null,
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -257,6 +258,7 @@ describe("morning-tto-brief-canonical-load-v1", () => {
     ]);
     expect(input.mechanical.recent_unanswered_outbound_count).toBe(2);
     expect(input.answered_user_message_links).toEqual([]);
+    expect(input.coach_relationship_memory).toBeNull();
     expect(input.truth_spine.latest_outcome).toBe("user_yes");
     expect(input.truth_spine.consistency_supported).toBe(false);
     expect(input.available_life_context.some((x) => x.type === "work_challenge")).toBe(true);
@@ -290,6 +292,34 @@ describe("morning-tto-brief-canonical-load-v1", () => {
     });
     if ("ok" in input) throw new Error("unexpected");
     expect(input.answered_user_message_links).toEqual(links);
+  });
+
+  it("copies coach_relationship_memory from the packet into interpreter input", () => {
+    const memory =
+      "Breck initiating time together is especially meaningful to Tyler.";
+    const packet = samplePacket({ coach_relationship_memory: memory });
+    const input = assembleMorningBriefInterpreterInputFromPacket({
+      packet,
+      extras: {
+        importantPeople: [],
+        outcomeSpine: {
+          latestOutcome: null as const,
+          latestOutcomeAt: null,
+          latestOutcomeMessage: null,
+          matchingOutcomeCount: 0,
+          hasVerifiedProofMetadata: false as const,
+        },
+        threadMemoryHint: null,
+      },
+      messageRequiredToday: false,
+      quietRelationshipEligible: false,
+    });
+    expect(input).not.toHaveProperty("ok");
+    if ("ok" in input) return;
+    expect(input.coach_relationship_memory).toBe(memory);
+    expect(JSON.stringify(input)).not.toContain("coach_relationship_memory_replacement");
+    expect(JSON.stringify(input)).not.toContain("coach_relationship_memory_items");
+    expect(JSON.stringify(input)).not.toContain("memory_id");
   });
 
   it("packet identity null stays null without inventing provenance", () => {

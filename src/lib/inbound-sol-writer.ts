@@ -13,6 +13,7 @@ import {
   type ScrubbedOpenAiRequestError,
 } from "@/lib/openai-request-error-scrub";
 import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
+import { COACH_RELATIONSHIP_MEMORY_WRITER_USE_LAW } from "@/lib/coach-relationship-memory";
 import type { SolGoalChangeConfirmationAuthorization } from "@/lib/sol-goal-change-confirmation-guard";
 
 export const INBOUND_SOL_WRITER_MODEL = "gpt-5.6-sol" as const;
@@ -118,6 +119,8 @@ Forbidden:
 HISTORICAL EVIDENCE
 ${HISTORICAL_EVIDENCE_HISTORY_LAW}
 
+${COACH_RELATIONSHIP_MEMORY_WRITER_USE_LAW}
+
 Write one SMS when a member-visible reply is appropriate. Do not use em dashes, en dashes, or hyphens as punctuation between thoughts in the SMS, but hyphenated words are fine. Return strict JSON only, one of:
 {"body":"<nonempty sms text>","needs_manual_pat_answer":false}
 {"body":"","needs_manual_pat_answer":true}
@@ -158,9 +161,14 @@ export type InboundSolWriterResult = InboundSolWriterSuccess | InboundSolWriterF
  */
 export function toWriterFacingInboundRelationshipPacket(
   packet: InboundRelationshipPacket
-): Omit<InboundRelationshipPacket, "pending_media_context"> {
-  const { pending_media_context, ...rest } = packet;
+): Omit<
+  InboundRelationshipPacket,
+  "pending_media_context" | "coach_relationship_memory_items"
+> {
+  const { pending_media_context, coach_relationship_memory_items, ...rest } =
+    packet;
   void pending_media_context;
+  void coach_relationship_memory_items;
   return rest;
 }
 
@@ -177,17 +185,20 @@ export function toWriterFacingInboundCoachingBrief(
     | "pending_photo_relation"
     | "win_presentation"
     | "requires_pat_personal_knowledge"
+    | "coach_relationship_memory_changes"
   >;
 } {
   const {
     pending_photo_relation,
     win_presentation,
     requires_pat_personal_knowledge,
+    coach_relationship_memory_changes,
     ...inbound
   } = brief.inbound;
   void pending_photo_relation;
   void win_presentation;
   void requires_pat_personal_knowledge;
+  void coach_relationship_memory_changes;
   return { ...brief, inbound };
 }
 

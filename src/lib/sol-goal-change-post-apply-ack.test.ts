@@ -62,6 +62,8 @@ function packet(latest: string, currentGoal: string): InboundRelationshipPacket 
       recent_wins: [],
     },
     historical_evidence: [],
+    coach_relationship_memory: null,
+    coach_relationship_memory_items: [],
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -161,6 +163,7 @@ function brief(): InboundCoachingBriefV1 {
       pending_photo_relation: { relation: "none", target_win_id: null },
       durable_user_evidence: null,
       win_presentation: EMPTY_INBOUND_SOL_WIN_PRESENTATION,
+      coach_relationship_memory_changes: null,
     },
   };
 }

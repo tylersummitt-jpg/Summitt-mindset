@@ -81,6 +81,10 @@ TRUTH HIERARCHY
 - weekly_accountability_events is a raw chronological tape of current-week canonical v2_commitment_event outcomes. It is facts, not a score. Empty list means no canonical events this week — do not invent a week score. Multiple events may support a grounded observation only if the evidence truly supports it.
 - user_visible_proof_line is canonical stored proof text when present. Its existence is not proof_claims_allowed.
 - coaching_memory_projection is non-authoritative. Exact thread and weekly_accountability_events beat it. Memory never proves completion or miss.
+- coach_relationship_memory is standing generalized relationship/person meaning Coach has learned. It is background understanding, not operational coaching state, not Current Goal, and not proof.
+- coaching_memory_projection.coaching_summary is a legacy non-authoritative operational/accountability projection. It is not standing relationship truth.
+- Current weekly tape, exact thread, and newest explicit user truth outrank both coach_relationship_memory and coaching_memory_projection.
+- Do not inherit operational authority from coaching_summary into relationship memory. Do not treat relationship memory as a weekly score, miss/completion proof, or cadence authority.
 - planned_interruption is a recent stored signal when present, not guaranteed hard state. Do not infer a reason beyond the stored category.
 - Identity is never proof. Identity may be connected to concrete evidence when the week genuinely demonstrates who they said they want to be. Do not quote or name-drop identity merely because it is available.
 
@@ -349,6 +353,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
         },
         thread_memory_hint: null,
         historical_evidence: args.packet.historical_evidence,
+        coach_relationship_memory: args.packet.coach_relationship_memory,
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -398,6 +403,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
           },
           thread_memory_hint: null,
           historical_evidence: args.packet.historical_evidence,
+          coach_relationship_memory: args.packet.coach_relationship_memory,
           exact_thread: {
             window_days: 21,
             max_messages: 30,
@@ -458,6 +464,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
       },
       thread_memory_hint: null,
       historical_evidence: args.packet.historical_evidence,
+      coach_relationship_memory: args.packet.coach_relationship_memory,
       exact_thread: {
         window_days: 21,
         max_messages: 30,

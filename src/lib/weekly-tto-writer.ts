@@ -12,6 +12,7 @@ import {
 } from "@/lib/openai-request-error-scrub";
 import type { WeeklyRelationshipPacket } from "@/lib/weekly-tto-relationship-packet";
 import { HISTORICAL_EVIDENCE_HISTORY_LAW } from "@/lib/historical-evidence";
+import { COACH_RELATIONSHIP_MEMORY_WRITER_USE_LAW } from "@/lib/coach-relationship-memory";
 
 export const WEEKLY_TTO_WRITER_MODEL = "gpt-5.6-sol" as const;
 export const WEEKLY_TTO_WRITER_REASONING_EFFORT = "low" as const;
@@ -43,6 +44,8 @@ Do not use em dashes, en dashes, or hyphens as punctuation between thoughts in t
 
 HISTORICAL EVIDENCE
 ${HISTORICAL_EVIDENCE_HISTORY_LAW}
+
+${COACH_RELATIONSHIP_MEMORY_WRITER_USE_LAW}
 
 SUNDAY CLOCK
 packet.message_for is the receive clock (Sunday around noon, daypart=weekly). Ignore generation wall-clock, including Friday/Saturday generation. Sunday is still happening. Monday has not started. Relative-time language must fit that clock. Older relative-time words belong to their original timestamps.

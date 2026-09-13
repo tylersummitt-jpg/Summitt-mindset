@@ -141,6 +141,33 @@ describe("compactInboundTurnTelemetryLaneFields", () => {
       "inbound_sol_durable_user_evidence_persist_status"
     );
     expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
+      "inbound_sol_coach_relationship_memory_returned"
+    );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
+      "inbound_sol_coach_relationship_memory_persist_status"
+    );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
+      "inbound_sol_coach_relationship_memory_add_count"
+    );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
+      "inbound_sol_coach_relationship_memory_update_count"
+    );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
+      "inbound_sol_coach_relationship_memory_delete_count"
+    );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
+      "inbound_sol_coach_relationship_memory_old_item_count"
+    );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
+      "inbound_sol_coach_relationship_memory_new_item_count"
+    );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).not.toContain(
+      "inbound_sol_coach_relationship_memory_old_char_count"
+    );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).not.toContain(
+      "inbound_sol_coach_relationship_memory_new_char_count"
+    );
+    expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain(
       "inbound_sol_requires_pat_personal_knowledge"
     );
     expect(INBOUND_TURN_TELEMETRY_COMPACT_KEYS).toContain("inbound_sol_pat_retrieval_attempted");

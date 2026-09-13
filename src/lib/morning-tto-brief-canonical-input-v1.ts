@@ -97,6 +97,11 @@ export type MorningBriefInterpreterInputV1 = {
    * Copied from packet.historical_evidence. Do not load separately.
    */
   historical_evidence: HistoricalEvidenceSlice;
+  /**
+   * Standing Coach–member relationship meaning copied from the packet.
+   * Read-only on Morning / Evening / Weekly. Null when empty.
+   */
+  coach_relationship_memory: string | null;
   exact_thread: {
     window_days: typeof MORNING_BRIEF_THREAD_WINDOW_DAYS;
     max_messages: typeof MORNING_BRIEF_THREAD_MAX_MESSAGES;
@@ -258,6 +263,8 @@ export type AssembleMorningBriefInterpreterInputArgs = {
   quietRelationshipEligible?: boolean;
   /** Copied from packet.historical_evidence. Do not load separately. */
   historicalEvidence?: HistoricalEvidenceSlice;
+  /** Copied from packet.coach_relationship_memory. Do not load separately. */
+  coachRelationshipMemory?: string | null;
   /** Copied from packet.answered_user_message_links. Do not infer. */
   answeredUserMessageLinks?: AnsweredUserMessageLink[];
   /**
@@ -422,6 +429,11 @@ export function assembleMorningBriefInterpreterInputV1(
     historical_evidence: Array.isArray(args.historicalEvidence)
       ? args.historicalEvidence
       : EMPTY_HISTORICAL_EVIDENCE,
+    coach_relationship_memory:
+      typeof args.coachRelationshipMemory === "string" &&
+      args.coachRelationshipMemory.trim()
+        ? args.coachRelationshipMemory
+        : null,
     exact_thread: {
       window_days: MORNING_BRIEF_THREAD_WINDOW_DAYS,
       max_messages: MORNING_BRIEF_THREAD_MAX_MESSAGES,

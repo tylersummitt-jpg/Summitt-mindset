@@ -21,6 +21,7 @@ const INBOUND_EXTRAS_SCHEMA = {
     "pending_photo_relation",
     "durable_user_evidence",
     "win_presentation",
+    "coach_relationship_memory_changes",
   ],
   properties: {
     answer_priority: { type: "string", enum: ["first", "normal", "unknown"] },
@@ -116,6 +117,20 @@ const INBOUND_EXTRAS_SCHEMA = {
         life_supporting_quote: { anyOf: [{ type: "string" }, { type: "null" }] },
       },
     },
+    coach_relationship_memory_changes: {
+      anyOf: [
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["add", "delete"],
+          properties: {
+            add: { type: "array", items: { type: "string" } },
+            delete: { type: "array", items: { type: "string" } },
+          },
+        },
+        { type: "null" },
+      ],
+    },
   },
 } as const;
 
@@ -191,6 +206,8 @@ export function buildInboundSolBriefExactContractPromptAppendix(): string {
     "If pronounless wording would distort meaning, return null (server will fall back). Do not emit a long explanatory sentence.",
     "durable_user_evidence: null OR { exact_user_evidence } — one verbatim contiguous substring of latest_inbound_text, or null",
     "Do not paraphrase, summarize, or select from exact_thread. When unsure, null.",
+    "coach_relationship_memory_changes: null OR { add: string[], delete: string[] }. There is no UPDATE.",
+    "Most turns must be null. Return only necessary ADD/DELETE operations. Never rewrite the full memory set. Server validation owns IDs, lengths, and caps.",
     "pending_photo_relation: required { relation, target_win_id }",
     "relation: none | uncertain | current_turn_win | existing_win",
     "If pending_media_context.candidate_count is 0 or 2: relation MUST be none and target_win_id MUST be null.",

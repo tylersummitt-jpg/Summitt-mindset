@@ -1149,6 +1149,7 @@ function failSoftInterpreterInputFromPacket(
     },
     thread_memory_hint: null,
     historical_evidence: packet.historical_evidence,
+    coach_relationship_memory: packet.coach_relationship_memory,
     exact_thread: {
       window_days: 21 as const,
       max_messages: 30 as const,

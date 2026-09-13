@@ -226,6 +226,12 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(p).toContain(
       "selected_person must be null or exactly one person from available_important_people (same name and relationship)."
     );
+    expect(p).toContain(
+      "Coach Relationship Memory is background relationship understanding for quieter judgment. It is not a quarry of names, people, or standing memories to search for something to ask about."
+    );
+    expect(p).not.toContain(
+      "Before choosing another tactic, principle, generic encouragement, or standalone perspective, consider whether there is a specific grounded part of the member's Current Goal, recent conversation, historical evidence, identity, important relationships, or life context, or Coach Relationship Memory"
+    );
   });
 
   it("shared TEMPORAL POSTURE seals Morning/Evening coaching semantics without phrase tables", () => {

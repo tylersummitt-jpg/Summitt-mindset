@@ -47,6 +47,8 @@ import {
   fetchHistoricalWinEvidenceSource,
   projectHistoricalWinEvidenceCarriers,
 } from "@/lib/historical-win-evidence-load";
+import { fetchCoachRelationshipMemorySnapshot } from "@/lib/coach-relationship-memory-load";
+import type { CoachRelationshipMemoryItem } from "@/lib/coach-relationship-memory";
 
 export const INBOUND_RELATIONSHIP_PACKET_VERSION = "inbound_relationship_v1" as const;
 
@@ -97,6 +99,17 @@ export type InboundRelationshipPacket = {
    * User-message evidence + bounded Win candidates. One array.
    */
   historical_evidence: HistoricalEvidenceSlice;
+  /**
+   * Standing Coach–member relationship meaning. Null when no row / empty / load fail.
+   * Rendered projection for writers. Same-turn writer must keep this loaded
+   * value even if F mutations persist later in the turn.
+   */
+  coach_relationship_memory: string | null;
+  /**
+   * OLD active item rows with opaque IDs. Inbound interpreter/persist only.
+   * Writer-facing packet must strip this field.
+   */
+  coach_relationship_memory_items: CoachRelationshipMemoryItem[];
   exact_thread: {
     window_days: 21;
     max_messages: 30;
@@ -343,6 +356,7 @@ export async function loadInboundRelationshipPacket(args: {
     timeline,
     evidenceRows,
     winSource,
+    coachRelationshipMemorySnapshot,
   ] = await Promise.all([
       supabaseServer
         .from("user_profiles")
@@ -366,6 +380,7 @@ export async function loadInboundRelationshipPacket(args: {
       }),
       fetchActiveDurableUserEvidenceRows(args.clerkUserId),
       fetchHistoricalWinEvidenceSource(args.clerkUserId),
+      fetchCoachRelationshipMemorySnapshot(args.clerkUserId),
     ]);
 
   const identityRaw = trimOrNull(profile?.identity_anchor_text);
@@ -440,6 +455,8 @@ export async function loadInboundRelationshipPacket(args: {
     latest_inbound_text: latestInboundText,
     latest_inbound_message_sid: latestInboundMessageSid,
     pending_media_context,
+    coach_relationship_memory: coachRelationshipMemorySnapshot.rendered,
+    coach_relationship_memory_items: coachRelationshipMemorySnapshot.items,
     historical_evidence: mergeHistoricalEvidenceChronologically(
       projectDurableUserEvidenceCarriers({
         rows: evidenceRows,

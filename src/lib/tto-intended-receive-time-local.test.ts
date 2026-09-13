@@ -143,6 +143,7 @@ describe("tto intended / current local time contracts", () => {
       personal_context: [],
       hard_state: { pending_goal_change: null },
       historical_evidence: [],
+      coach_relationship_memory: null,
       exact_thread: {
         window_days: 21 as const,
         max_messages: 30 as const,
@@ -232,7 +233,7 @@ describe("tto intended / current local time contracts", () => {
     expect(inboundPacket).toContain("current_local_time: formatLocalHourMinute(receivedAt, tz)");
     expect(inboundPacket).not.toContain("intended_receive_time_local");
     expect(readSrc("src/lib/inbound-sol-brief-interpreter.ts")).toContain(
-      "JSON.stringify(packet)"
+      "JSON.stringify(toInboundInterpreterRelationshipPacket(packet))"
     );
     expect(readSrc("src/lib/inbound-sol-writer.ts")).toContain(
       "JSON.stringify(toWriterFacingInboundRelationshipPacket(packet))"

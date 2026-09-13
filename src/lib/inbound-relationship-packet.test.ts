@@ -164,7 +164,10 @@ describe("inbound relationship packet", () => {
       if (table === "v2_commitment" || table === "v2_win") {
         return thenable([]);
       }
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+      if (table === "v2_coach_relationship_memory") {
+        return thenable([]);
+      }
+      return thenable([]);
     });
     buildRecentExactThread72h.mockResolvedValue({
       messages: [
@@ -309,7 +312,7 @@ describe("inbound relationship packet", () => {
         return builder;
       }
       if (table === "v2_commitment" || table === "v2_win") return thenable([]);
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+      return thenable([]);
     });
     buildRecentExactThread72h.mockClear();
     buildRecentExactThread72h.mockResolvedValue({
@@ -434,7 +437,7 @@ describe("inbound relationship packet", () => {
         };
       }
       if (table === "v2_commitment" || table === "v2_win") return thenable([]);
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+      return thenable([]);
     });
     buildRecentExactThread72h.mockResolvedValue({
       messages,
@@ -674,7 +677,7 @@ describe("inbound relationship packet", () => {
         return builder;
       }
       if (table === "v2_commitment" || table === "v2_win") return thenable([]);
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+      return thenable([]);
     });
 
     const loaded = await loadInboundRelationshipPacket({
@@ -931,7 +934,7 @@ describe("inbound relationship packet", () => {
         };
       }
       if (table === "v2_commitment" || table === "v2_win") return thenable([]);
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+      return thenable([]);
     });
 
     const loaded = await loadInboundRelationshipPacket({
@@ -1039,7 +1042,7 @@ describe("inbound relationship packet", () => {
         };
       }
       if (table === "v2_commitment" || table === "v2_win") return thenable([]);
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+      return thenable([]);
     });
     const loaded = await loadInboundRelationshipPacket({
       clerkUserId: "user_1",
@@ -1121,7 +1124,7 @@ describe("inbound relationship packet", () => {
         };
       }
       if (table === "v2_commitment" || table === "v2_win") return thenable([]);
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+      return thenable([]);
     });
     const loaded = await loadInboundRelationshipPacket({
       clerkUserId: "user_1",
@@ -1210,7 +1213,7 @@ describe("inbound relationship packet", () => {
         };
       }
       if (table === "v2_commitment" || table === "v2_win") return thenable([]);
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) };
+      return thenable([]);
     });
     const loaded = await loadInboundRelationshipPacket({
       clerkUserId: "user_1",
@@ -1230,6 +1233,99 @@ describe("inbound relationship packet", () => {
         user_quote: "Don't sugarcoat it.",
       },
     ]);
+  });
+
+  it("loads Coach Relationship Memory items and rendered projection for the requested clerk_user_id only", async () => {
+    const previous = supabaseFrom.getMockImplementation();
+    const eqs: string[] = [];
+    const orders: Array<[string, { ascending: boolean }]> = [];
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === "v2_coach_relationship_memory") {
+        const rows = [
+          {
+            memory_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            memory_text:
+              "Quiet one-on-one time with Brooke matters more than elaborate plans.",
+            created_at: "2026-08-01T12:00:00.000Z",
+          },
+        ];
+        const result = { data: rows, error: null };
+        const builder = {
+          select: (cols: string) => {
+            expect(cols).toBe("memory_id, memory_text, created_at");
+            return builder;
+          },
+          eq: (col: string, val: string) => {
+            eqs.push(`${col}:${val}`);
+            return builder;
+          },
+          order: (col: string, opts: { ascending: boolean }) => {
+            orders.push([col, opts]);
+            return builder;
+          },
+          then: (resolve: (v: typeof result) => void) => resolve(result),
+        };
+        return builder;
+      }
+      return previous!(table);
+    });
+
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Need a 5 passenger SUV",
+      latestInboundMessageSid: "SMangel",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.coach_relationship_memory).toBe(
+      "Quiet one-on-one time with Brooke matters more than elaborate plans."
+    );
+    expect(loaded.packet.coach_relationship_memory_items).toEqual([
+      {
+        memory_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        text: "Quiet one-on-one time with Brooke matters more than elaborate plans.",
+      },
+    ]);
+    expect(eqs).toEqual(["clerk_user_id:user_1"]);
+    expect(orders).toEqual([
+      ["created_at", { ascending: true }],
+      ["memory_id", { ascending: true }],
+    ]);
+  });
+
+  it("does not fall back to another user's Coach Relationship Memory", async () => {
+    const previous = supabaseFrom.getMockImplementation();
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === "v2_coach_relationship_memory") {
+        const result = { data: [], error: null };
+        const builder = {
+          select: () => builder,
+          eq: (_col: string, val: string) => {
+            expect(val).toBe("user_1");
+            return builder;
+          },
+          order: () => builder,
+          then: (resolve: (v: typeof result) => void) => resolve(result),
+        };
+        return builder;
+      }
+      return previous!(table);
+    });
+    const loaded = await loadInboundRelationshipPacket({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Need a 5 passenger SUV",
+      latestInboundMessageSid: "SMangel",
+      receivedAt: new Date("2026-08-18T16:30:00.000Z"),
+    });
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.packet.coach_relationship_memory).toBeNull();
+    expect(loaded.packet.coach_relationship_memory_items).toEqual([]);
   });
 });
 

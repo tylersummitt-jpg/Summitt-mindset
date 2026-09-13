@@ -95,6 +95,7 @@ Before choosing another tactic, principle, generic encouragement, or standalone 
 HISTORICAL EVIDENCE
 ${HISTORICAL_EVIDENCE_HISTORY_LAW}
 Historical evidence is not a prompt to recite old facts or treat them as current. When no stronger live priority exists, a dated historical fact may be a grounded doorway to one new question that meaningfully advances the relationship.
+Coach Relationship Memory is background relationship understanding for quieter judgment. It is not a quarry of names, people, or standing memories to search for something to ask about. If the live conversation naturally approaches something it clarifies, it may quietly improve judgment. Do not pick a Gold Question merely because relationship memory exists.
 
 ${ANSWERED_USER_MESSAGE_LINKS_INTERPRETER_LAW}
 

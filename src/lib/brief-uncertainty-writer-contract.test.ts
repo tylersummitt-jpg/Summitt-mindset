@@ -132,6 +132,7 @@ function morningPacket(
     personal_context: [],
     hard_state: { pending_goal_change: null },
     historical_evidence: [],
+    coach_relationship_memory: null,
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -173,6 +174,7 @@ function weeklyPacket(
     weekly_accountability_events: [],
     coaching_memory_projection: null,
     historical_evidence: [],
+    coach_relationship_memory: null,
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -231,6 +233,7 @@ describe("brief uncertainty writer contract", () => {
   it("Greg-shaped Brief + packet are included exactly in Morning writer input", () => {
     const packet = morningPacket({
       historical_evidence: [],
+      coach_relationship_memory: null,
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -330,6 +333,7 @@ describe("brief uncertainty writer contract", () => {
   it("Weekly writer input keeps an unclear event as unclear, not a completed recap", () => {
     const packet = weeklyPacket({
       historical_evidence: [],
+      coach_relationship_memory: null,
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -377,6 +381,7 @@ describe("brief uncertainty writer contract", () => {
     const packet = morningPacket({
       preferred_name: "Kerry",
       historical_evidence: [],
+      coach_relationship_memory: null,
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -429,6 +434,7 @@ describe("brief uncertainty writer contract", () => {
   it("B. explicit return may be referenced confidently", () => {
     const packet = morningPacket({
       historical_evidence: [],
+      coach_relationship_memory: null,
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -480,6 +486,7 @@ describe("brief uncertainty writer contract", () => {
         intended_receive_time_local: "07:00",
       },
       historical_evidence: [],
+      coach_relationship_memory: null,
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -525,6 +532,7 @@ describe("brief uncertainty writer contract", () => {
     const packet = morningPacket({
       preferred_name: "Johnny",
       historical_evidence: [],
+      coach_relationship_memory: null,
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -563,6 +571,7 @@ describe("brief uncertainty writer contract", () => {
     const packet = morningPacket({
       preferred_name: "Robin",
       historical_evidence: [],
+      coach_relationship_memory: null,
       exact_thread: {
         window_days: 21,
         max_messages: 30,
@@ -610,6 +619,7 @@ describe("brief uncertainty writer contract", () => {
     const packet = morningPacket({
       preferred_name: "Dara",
       historical_evidence: [],
+      coach_relationship_memory: null,
       exact_thread: {
         window_days: 21,
         max_messages: 30,

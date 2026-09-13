@@ -61,6 +61,7 @@ function samplePacket(
     weekly_accountability_events: [],
     coaching_memory_projection: null,
     historical_evidence: [],
+    coach_relationship_memory: null,
     exact_thread: {
       window_days: 21,
       max_messages: 30,
@@ -203,7 +204,9 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(assembled.truth_spine.latest_outcome).toBe("user_yes");
     expect(assembled.exact_thread.window_days).toBe(21);
     expect(assembled.historical_evidence).toEqual([]);
+    expect(assembled.coach_relationship_memory).toBeNull();
     expect(assembled.weekly_accountability_events).toEqual([]);
+    expect(assembled.coaching_memory_projection).toBeNull();
     expect(JSON.stringify(assembled)).not.toMatch(/strong_week|rough_week|win_hint/);
   });
 
@@ -223,6 +226,31 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(assembled).not.toHaveProperty("ok");
     if ("ok" in assembled) return;
     expect(assembled.historical_evidence).toEqual(evidence);
+  });
+
+  it("copies packet coach_relationship_memory into interpreter input without a write field", () => {
+    const memory =
+      "Quiet one-on-one time with Brooke matters more than elaborate plans.";
+    const assembled = assembleWeeklyBriefInterpreterInputFromPacket({
+      packet: samplePacket({
+        coach_relationship_memory: memory,
+        coaching_memory_projection: {
+          authority: "non_authoritative_projection",
+          coaching_summary: "Prefers AM check-ins.",
+        },
+      }),
+      extras: extras(1),
+    });
+    expect(assembled).not.toHaveProperty("ok");
+    if ("ok" in assembled) return;
+    expect(assembled.coach_relationship_memory).toBe(memory);
+    expect(assembled.coaching_memory_projection).toEqual({
+      authority: "non_authoritative_projection",
+      coaching_summary: "Prefers AM check-ins.",
+    });
+    expect(JSON.stringify(assembled)).not.toContain("coach_relationship_memory_replacement");
+    expect(JSON.stringify(assembled)).not.toContain("coach_relationship_memory_items");
+    expect(JSON.stringify(assembled)).not.toContain("coach_relationship_memory_changes");
   });
 
   it("passes raw current-week events in order without converting counts into prose", () => {
@@ -303,6 +331,7 @@ describe("weekly-tto-brief-interpreter", () => {
           never_replied: true,
         },
         historical_evidence: [],
+        coach_relationship_memory: null,
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -358,6 +387,16 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(p).toContain("One miss is not a pattern");
     expect(p).toContain("A plan is not proof");
     expect(p).toContain("An attempt is not completion");
+    expect(p).toContain(
+      "coach_relationship_memory is standing generalized relationship/person meaning Coach has learned"
+    );
+    expect(p).toContain(
+      "coaching_memory_projection.coaching_summary is a legacy non-authoritative operational/accountability projection"
+    );
+    expect(p).toContain(
+      "Current weekly tape, exact thread, and newest explicit user truth outrank both coach_relationship_memory and coaching_memory_projection"
+    );
+    expect(p).not.toContain("coach_relationship_memory_replacement");
     expect(p).toContain("Coach praise is not user evidence");
     expect(p).toContain("Silence is not avoidance");
     expect(p).toContain("Friday/Saturday generation");

@@ -11,6 +11,7 @@ import type { InboundCoachingBriefV1 } from "@/lib/inbound-sol-coaching-brief";
 import { EMPTY_INBOUND_SOL_WIN_PRESENTATION } from "@/lib/inbound-sol-coaching-brief";
 
 const persistSolInboundUserEvidence = vi.hoisted(() => vi.fn());
+const persistSolCoachRelationshipMemory = vi.hoisted(() => vi.fn());
 const persistInboundAccountabilityOutcomeEvent = vi.hoisted(() => vi.fn());
 const persistInboundWinsWithAccountability = vi.hoisted(() => vi.fn());
 const persistRecognizedWins = vi.hoisted(() => vi.fn());
@@ -28,6 +29,15 @@ const setBlockerCapturePending = vi.hoisted(() => vi.fn());
 const applySolAnsweredOpenCoachQuestion = vi.hoisted(() =>
   vi.fn(async () => ({ ok: true as const, applied: false as const, reason: "no_answered_question" }))
 );
+
+vi.mock("@/lib/inbound-sol-coach-relationship-memory", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/inbound-sol-coach-relationship-memory")>();
+  return {
+    ...actual,
+    persistSolCoachRelationshipMemory,
+  };
+});
 
 vi.mock("@/lib/inbound-sol-user-evidence", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/inbound-sol-user-evidence")>();
@@ -218,6 +228,7 @@ function brief(
       pending_photo_relation: { relation: "none", target_win_id: null },
       durable_user_evidence: null,
       win_presentation: EMPTY_INBOUND_SOL_WIN_PRESENTATION,
+      coach_relationship_memory_changes: null,
       ...overrides,
     },
   };
@@ -227,6 +238,18 @@ describe("runInboundSolRelationshipTurn", () => {
   beforeEach(() => {
     persistSolInboundUserEvidence.mockReset();
     persistSolInboundUserEvidence.mockResolvedValue({ status: "none", reason: "null_capture" });
+    persistSolCoachRelationshipMemory.mockReset();
+    persistSolCoachRelationshipMemory.mockResolvedValue({
+      status: "none",
+      reason: "null_or_empty_changes",
+      add_count: 0,
+      update_count: 0,
+      delete_count: 0,
+      old_item_count: 0,
+      new_item_count: null,
+      old_total_chars: 0,
+      new_total_chars: null,
+    });
     persistInboundAccountabilityOutcomeEvent.mockReset();
     scheduleC1IfWinsDurable.mockReset();
     scheduleInboundMmsD1SemanticClaim.mockReset();
@@ -285,6 +308,8 @@ describe("runInboundSolRelationshipTurn", () => {
           recent_wins: [],
         },
         historical_evidence: [],
+        coach_relationship_memory: null,
+        coach_relationship_memory_items: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -833,6 +858,8 @@ describe("runInboundSolRelationshipTurn", () => {
         latest_inbound_message_sid: "SMhike",
         pending_media_context: onePending,
         historical_evidence: [],
+        coach_relationship_memory: null,
+        coach_relationship_memory_items: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -1054,6 +1081,8 @@ describe("runInboundSolRelationshipTurn", () => {
           recent_wins: [],
         },
         historical_evidence: [],
+        coach_relationship_memory: null,
+        coach_relationship_memory_items: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -1145,6 +1174,8 @@ describe("runInboundSolRelationshipTurn", () => {
           recent_wins: [],
         },
         historical_evidence: [],
+        coach_relationship_memory: null,
+        coach_relationship_memory_items: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -1301,6 +1332,8 @@ describe("runInboundSolRelationshipTurn", () => {
           recent_wins: [],
         },
         historical_evidence: [],
+        coach_relationship_memory: null,
+        coach_relationship_memory_items: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -1423,6 +1456,8 @@ describe("runInboundSolRelationshipTurn", () => {
         latest_inbound_message_sid: overrides.latestInboundMessageSid ?? "SMlake",
         pending_media_context: overrides.pendingMedia ?? d2cPending,
         historical_evidence: [],
+        coach_relationship_memory: null,
+        coach_relationship_memory_items: [],
         exact_thread: {
           window_days: 21,
           max_messages: 30,
@@ -2233,6 +2268,133 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
     expect(result.forensics.inbound_sol_durable_user_evidence_persist_status).toBe(
       "validation_rejected"
+    );
+  });
+
+  it("persists Coach Relationship Memory after interpreter and before writer without reloading the packet", async () => {
+    const oldMemory =
+      "Quiet one-on-one time with Brooke matters more than elaborate plans.";
+    const oldItems = [
+      {
+        memory_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        text: oldMemory,
+      },
+    ];
+    const changes = {
+      add: ["Breck initiating time together is especially meaningful to Tyler."],
+      delete: [] as [],
+    };
+    loadInboundRelationshipPacket.mockImplementation(async (args: { receivedAt?: Date | string | null }) => ({
+      ok: true,
+      receivedAt:
+        args.receivedAt instanceof Date
+          ? args.receivedAt
+          : new Date("2026-08-18T16:00:00.000Z"),
+      packet: {
+        version: "inbound_relationship_v1",
+        message_for: {
+          timezone: "America/Chicago",
+          local_date: "2026-08-18",
+          local_weekday: "Tuesday",
+          daypart: "inbound",
+          current_local_time: "11:00",
+        },
+        preferred_name: "Tyler",
+        current_goal: { text: "Lift 30 minutes" },
+        current_identity: { text: null },
+        personal_context: [],
+        hard_state: { pending_goal_change: null, open_coach_question: null },
+        latest_inbound_text: "It means a lot when Breck asks me to do things.",
+        latest_inbound_message_sid: "SMf",
+        pending_media_context: {
+          candidate_count: 0,
+          candidate: null,
+          recent_wins: [],
+        },
+        historical_evidence: [],
+        coach_relationship_memory: oldMemory,
+        coach_relationship_memory_items: oldItems,
+        exact_thread: {
+          window_days: 21,
+          max_messages: 30,
+          messages: [],
+          omitted_older_turn_count: 0,
+        },
+      },
+    }));
+    const order: string[] = [];
+    persistSolCoachRelationshipMemory.mockImplementation(async () => {
+      order.push("memory");
+      return {
+        status: "applied",
+        reason: null,
+        add_count: 1,
+        update_count: 0,
+        delete_count: 0,
+        old_item_count: 1,
+        new_item_count: 2,
+        old_total_chars: oldMemory.length,
+        new_total_chars: oldMemory.length + changes.add[0].length,
+      };
+    });
+    writeInboundSolBody.mockImplementation(async () => {
+      order.push("writer");
+      return { ok: true, body: "Got it.", capture: { retry_occurred: false } };
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ coach_relationship_memory_changes: changes }),
+      capture: { retry_occurred: false },
+    });
+
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMf", "It means a lot when Breck asks me to do things.")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(loadInboundRelationshipPacket).toHaveBeenCalledTimes(1);
+    expect(persistSolCoachRelationshipMemory).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      changes,
+      oldItems,
+    });
+    expect(order).toEqual(["memory", "writer"]);
+    const writerPacket = writeInboundSolBody.mock.calls[0]?.[0]?.packet;
+    expect(writerPacket.coach_relationship_memory).toBe(oldMemory);
+    expect(writerPacket.coach_relationship_memory).not.toBe(changes.add[0]);
+    expect(result.forensics.inbound_sol_coach_relationship_memory_returned).toBe(true);
+    expect(result.forensics.inbound_sol_coach_relationship_memory_persist_status).toBe(
+      "applied"
+    );
+    expect(result.forensics.inbound_sol_coach_relationship_memory_add_count).toBe(1);
+    expect(result.forensics.inbound_sol_coach_relationship_memory_old_item_count).toBe(1);
+    expect(result.forensics.inbound_sol_coach_relationship_memory_new_item_count).toBe(2);
+  });
+
+  it("Coach Relationship Memory persist throw cannot block Sol Coach send", async () => {
+    persistSolCoachRelationshipMemory.mockRejectedValue(new Error("memory boom"));
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        coach_relationship_memory_changes: {
+          add: ["Breck initiating time together is especially meaningful to Tyler."],
+          delete: [],
+        },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Proud you finished before lunch.",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe("Proud you finished before lunch.");
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    expect(result.forensics.inbound_sol_coach_relationship_memory_persist_status).toBe(
+      "failed"
     );
   });
 

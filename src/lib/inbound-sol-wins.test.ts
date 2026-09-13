@@ -48,6 +48,7 @@ const completed: InboundSolBriefExtras = {
   pending_photo_relation: { relation: "none", target_win_id: null },
   durable_user_evidence: null,
   win_presentation: EMPTY_INBOUND_SOL_WIN_PRESENTATION,
+  coach_relationship_memory_changes: null,
 };
 
 function pres(

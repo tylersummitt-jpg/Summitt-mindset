@@ -25,7 +25,7 @@ import {
 export const INBOUND_SOL_INTERPRETER_MODEL = "gpt-5.6-sol" as const;
 export const INBOUND_SOL_INTERPRETER_REASONING_EFFORT = "low" as const;
 export const INBOUND_SOL_INTERPRETER_TEMPERATURE = null;
-export const INBOUND_SOL_INTERPRETER_MAX_COMPLETION_TOKENS = 2500 as const;
+export const INBOUND_SOL_INTERPRETER_MAX_COMPLETION_TOKENS = 5000 as const;
 export const INBOUND_SOL_INTERPRETER_PROMPT_PATH = "inbound_sol_interpreter_v1" as const;
 
 export const INBOUND_SOL_DURABLE_USER_EVIDENCE_CAPTURE_LAW = `DURABLE USER EVIDENCE
@@ -66,6 +66,65 @@ Do not "improve" grammar.
 
 This is semantic capture by Sol.
 No keyword rules.`;
+
+export const INBOUND_SOL_COACH_RELATIONSHIP_MEMORY_CAPTURE_LAW = `COACH RELATIONSHIP MEMORY
+
+coach_relationship_memory_items is the exact OLD active set of standing relationship/person meaning Coach has learned from prior conversations with this member. Each item has an opaque memory_id used only as an address.
+
+Most turns do not change relationship memory.
+
+Return coach_relationship_memory_changes = null unless the newest conversation explicitly or strongly establishes a genuinely new safe standing meaning, or clearly shows an existing standing truth no longer belongs.
+
+This is not an event archive. A thing that happened belongs in Proud Moments / Win handling, not here merely because it was meaningful.
+
+This is not the member's Identity, Current Goal, profile/life-context facts, important-people roster, or an exact durable coaching instruction. Do not duplicate those domains here.
+
+Stay close to the member's own level of claim. Do not infer deep psychology, wounds, motives, patterns, or sweeping character conclusions from one event.
+
+Store only safe, member-owned standing meaning.
+
+Do not preserve medical, legal, financial-distress, marital-conflict, abuse, suicidal, sexual/private, crisis, grief-detail, children's private medical/school, third-party-secret, inferred-rejection-wound, or negative-psychology material. If safe member-level meaning cannot be separated from sensitive detail, return null.
+
+A single event is not automatically standing meaning.
+
+V1 operations are NULL, ADD, and DELETE only. There is no UPDATE.
+
+Return null when there is no worthy change, the newest message is only another example of an already-accurate memory, an existing item remains substantially true and could merely be phrased more precisely, the newest information is a temporary mood or one bad day, the domain belongs elsewhere, or you are unsure.
+
+Refinement alone is not a reason to mutate. If an existing item remains substantially true, leave it alone.
+
+ADD only when the newest conversation establishes a genuinely new safe standing meaning that is not already accurately represented and can coexist independently with existing memories.
+
+RELATED does not mean SAME MEMORY.
+
+If an existing item can remain fully true as written and the newest meaning independently improves Coach's understanding, ADD the new meaning. Do not delete a related old item merely because it is nearby in meaning.
+
+DELETE only when the member clearly establishes that an existing standing truth is no longer true or no longer belongs. Copy that item's memory_id exactly.
+
+A temporary mood, one bad day, extra nuance, or a related new memory is not DELETE. Never delete merely to make capacity.
+
+After DELETE, do not ADD a negation or history sentence such as "Tyler no longer wants X" or "Tyler used to value X." F is an active standing working set, not a deletion ledger. ADD in the same turn only if the conversation separately establishes a genuinely new standing meaning that deserves its own independent memory.
+
+Do not simulate UPDATE as DELETE plus ADD of a rewritten version of the same item. DELETE + ADD is appropriate only when the old standing truth clearly no longer belongs AND a genuinely new standing truth independently deserves ADD. Do not use DELETE+ADD merely to improve wording.
+
+Never touch unrelated item IDs.
+
+Never invent an ID.
+
+Never return unchanged items.
+
+Never rewrite or reconstruct the full memory set.
+
+A single bad day does not erase a standing truth.
+
+Newest explicit user truth outranks old relationship memory.
+
+Do not delete an older truth merely because today's mood differs.
+
+400 characters per item, 40 items, 4000 total memory characters, and 6 operations per turn are hard ceilings, not targets. The server enforces them.
+
+When unsure:
+null.`;
 
 export const INBOUND_SOL_INTERPRETER_SCHEMA_RETRY_USER =
   `Your previous response did not match inbound_coaching_brief_v1. Return ONLY valid JSON for that exact schema (six Coaching Brief sections plus inbound extras). Do not change coaching meaning — fix structure only. No markdown. No SMS body.`;
@@ -130,6 +189,8 @@ MEANINGFUL WIN (inbound.meaningful_win):
 
 ${INBOUND_SOL_DURABLE_USER_EVIDENCE_CAPTURE_LAW}
 
+${INBOUND_SOL_COACH_RELATIONSHIP_MEMORY_CAPTURE_LAW}
+
 PENDING PHOTO (inbound.pending_photo_relation):
 - pending_media_context is CODE-supplied fact about a parked inbound photo, if any. It is not a photo. You never receive image bytes, URLs, or Storage paths.
 - If candidate_count is 0 or 2: relation MUST be none and target_win_id MUST be null. Do not pair. Never pick among photos.
@@ -192,6 +253,17 @@ export type InboundSolInterpreterResult =
   | InboundSolInterpreterSuccess
   | InboundSolInterpreterFailure;
 
+/**
+ * Inbound interpreter sees OLD items with IDs, never the rendered F string.
+ */
+export function toInboundInterpreterRelationshipPacket(
+  packet: InboundRelationshipPacket
+): Omit<InboundRelationshipPacket, "coach_relationship_memory"> {
+  const { coach_relationship_memory, ...rest } = packet;
+  void coach_relationship_memory;
+  return rest;
+}
+
 export function buildInboundSolInterpreterMessages(
   packet: InboundRelationshipPacket
 ): ChatCompletionMessageParam[] {
@@ -201,7 +273,7 @@ export function buildInboundSolInterpreterMessages(
       role: "user",
       content: [
         "INBOUND_RELATIONSHIP_PACKET_V1",
-        JSON.stringify(packet),
+        JSON.stringify(toInboundInterpreterRelationshipPacket(packet)),
         "",
         "Interpret the newest real inbound text in latest_inbound_text against exact_thread.",
         "Return JSON only. No SMS body.",
