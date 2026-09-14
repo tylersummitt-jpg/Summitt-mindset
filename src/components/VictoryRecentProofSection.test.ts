@@ -36,15 +36,23 @@ describe("VictoryRecentProofSection", () => {
         ],
       })
     );
-    expect(html).toContain("Proud Moments");
+    expect(html).toContain(">Proud Moments &amp; Goal Wins<");
+    expect(html).not.toMatch(/>Proud Moments</);
+    expect(html).toContain("Build your identity one day at a time.");
+    expect(html).not.toContain(
+      "Real moments worth remembering — from your life, not a scoreboard."
+    );
     expect(html).not.toContain("Your Wins");
     expect(html).toContain(">3<");
+    expect(html).toMatch(/text-stone-400">Moments Saved</);
+    expect(html).not.toMatch(/text-stone-400">Moment Saved</);
     expect(html).toContain("Kept walking");
     expect(html).toContain("You finished the loops you promised yourself.");
     expect(html).toContain("two loops done");
     expect(html).toContain("View all Proud Moments");
     expect(html).toContain("/dashboard/victory-room/all-proof");
-    expect(html).toContain("Add a Proud Moment");
+    expect(html).toContain("+ Add a Proud Moment");
+    expect(html).not.toContain("Add a Goal Win");
     expect(html).not.toContain("Add a Win");
     expect(html).toContain('/dashboard/victory-room/add-win"');
     expect(html).toContain('aria-label="Proud Moment actions"');
@@ -58,7 +66,7 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toMatch(/streak|badge|\bXP\b|achievement unlocked|habit tracker|Win detected/i);
   });
 
-  it("uses Proud Moment for a singular count", () => {
+  it("uses Moment Saved for a singular count", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryRecentProofSection, {
         totalActiveWins: 1,
@@ -77,9 +85,10 @@ describe("VictoryRecentProofSection", () => {
         ],
       })
     );
-    expect(html).toMatch(/text-stone-400">Proud Moment</);
-    expect(html).not.toMatch(/text-stone-400">Proud Moments</);
-    expect(html).toContain("Add a Proud Moment");
+    expect(html).toContain(">Proud Moments &amp; Goal Wins<");
+    expect(html).toMatch(/text-stone-400">Moment Saved</);
+    expect(html).not.toMatch(/text-stone-400">Moments Saved</);
+    expect(html).toContain("+ Add a Proud Moment");
   });
 
   it("renders empty state without banned copy", () => {
@@ -90,12 +99,15 @@ describe("VictoryRecentProofSection", () => {
         wins: [],
       })
     );
+    expect(html).toContain(">Proud Moments &amp; Goal Wins<");
+    expect(html).toContain("Build your identity one day at a time.");
+    expect(html).toMatch(/text-stone-400">Moments Saved</);
     expect(html).toContain("No Proud Moments yet.");
     expect(html).toContain(
       "When something real in your life is worth remembering, it will show up here."
     );
     expect(html).toContain("worth remembering");
-    expect(html).toContain("Add a Proud Moment");
+    expect(html).toContain("+ Add a Proud Moment");
     expect(html).not.toContain("No Wins yet.");
     expect(html).not.toContain("Recent Proof");
     expect(html).not.toContain("saved");
