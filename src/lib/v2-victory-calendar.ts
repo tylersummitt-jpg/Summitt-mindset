@@ -220,6 +220,7 @@ export function victoryCalendarDayAccessibleName(args: {
   const date = formatVictoryCalendarLongDate(args.dateKey);
   if (!date) return null;
   const n = Number.isFinite(args.winCount) ? Math.max(0, Math.floor(args.winCount)) : 0;
-  const winPart = n === 0 ? "no Wins" : n === 1 ? "1 Win" : `${n} Wins`;
+  const winPart =
+    n === 0 ? "no Proud Moments" : n === 1 ? "1 Proud Moment" : `${n} Proud Moments`;
   return args.isToday ? `Today, ${date}, ${winPart}` : `${date}, ${winPart}`;
 }

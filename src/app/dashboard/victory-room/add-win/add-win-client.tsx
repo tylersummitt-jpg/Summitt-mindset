@@ -93,7 +93,7 @@ function photoFailureDetail(kind: PhotoFailureKind): string {
     case "network":
       return "A network problem interrupted the upload. You can try again.";
     case "deletion":
-      return "Photo upload is unavailable right now. Your Win is still saved.";
+      return "Photo upload is unavailable right now. Your Proud Moment is still saved.";
     default:
       return "You can try attaching the photo again, or continue without one.";
   }
@@ -167,14 +167,14 @@ export default function AddWinClient(props: Props) {
     if (!mime) {
       clearPhotoSelection({ keepSelectionError: true });
       setPhotoSelectionError(
-        "That image type isn’t supported. Use HEIC, JPEG, PNG, or WebP — or save your Win without a photo."
+        "That image type isn’t supported. Use HEIC, JPEG, PNG, or WebP — or save your Proud Moment without a photo."
       );
       return;
     }
     if (file.size > VICTORY_MEDIA_MAX_UPLOAD_BYTES) {
       clearPhotoSelection({ keepSelectionError: true });
       setPhotoSelectionError(
-        "That image is too large (max 12 MB). Choose a smaller photo, or save your Win without one."
+        "That image is too large (max 12 MB). Choose a smaller photo, or save your Proud Moment without one."
       );
       return;
     }
@@ -331,7 +331,7 @@ export default function AddWinClient(props: Props) {
 
       const winId = typeof data.win_id === "string" ? data.win_id.trim() : "";
       if (!winId) {
-        throw new Error("We couldn’t save this Win. Please try again.");
+        throw new Error("We couldn’t save this Proud Moment. Please try again.");
       }
 
       const dest = resolveNavDest(data.redirect_to);
@@ -387,10 +387,10 @@ export default function AddWinClient(props: Props) {
 
   const submitLabel =
     busyPhase === "creating_win"
-      ? "Saving Win…"
+      ? "Saving Proud Moment…"
       : busyPhase === "uploading_photo" || busyPhase === "finalizing_photo"
         ? "Adding photo…"
-        : "Save Win";
+        : "Save Proud Moment";
 
   return (
     <div className={vrSectionCard}>
@@ -400,7 +400,7 @@ export default function AddWinClient(props: Props) {
         </Link>
       </p>
 
-      <h1 className={vrSectionTitle}>Add a Win</h1>
+      <h1 className={vrSectionTitle}>Add a Proud Moment</h1>
 
       {props.lockedSeason ? (
         <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
@@ -536,7 +536,7 @@ export default function AddWinClient(props: Props) {
               className={inputClass}
               disabled={winLocked || busy}
             >
-              <option value="">Overall only</option>
+              <option value="">Not tied to a season</option>
               {seasonSelectOptions.map((opt) => (
                 <option key={opt.seasonId} value={opt.seasonId}>
                   {opt.pickerLabel.replace(/\n/g, " · ")}
@@ -557,7 +557,7 @@ export default function AddWinClient(props: Props) {
             className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-4"
             role="alert"
           >
-            <p className="text-base font-medium text-stone-100">Your Win was saved.</p>
+            <p className="text-base font-medium text-stone-100">Your Proud Moment was saved.</p>
             <p className="mt-2 text-sm text-stone-300">The photo couldn’t be attached.</p>
             {photoFailure ? (
               <p className={`${vrBodyMuted} mt-2 text-sm`}>

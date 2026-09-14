@@ -78,7 +78,7 @@ describe("VictoryWinCard", () => {
     expect(html).toContain("Aug 1, 2026");
     expect(html).toContain("I lifted weights again today!");
     expect(html).toContain('src="https://signed.example/card.jpg?token=abc"');
-    expect(html).toContain('aria-label="Win actions"');
+    expect(html).toContain('aria-label="Proud Moment actions"');
     const imgIdx = html.indexOf("<img");
     const quoteIdx = html.indexOf("I lifted weights again today!");
     expect(imgIdx).toBeGreaterThan(-1);

@@ -10,8 +10,8 @@ export const dynamic = "force-dynamic";
 const UI_SESSION = "Your session expired. Please sign in again.";
 const UI_GENERIC = "We couldn’t save this photo. Please try again.";
 const UI_MISSING = "We couldn’t find that upload. Please try again.";
-const UI_EXISTS = "This Win already has a photo.";
-const UI_NOT_FOUND = "Win not found.";
+const UI_EXISTS = "This Proud Moment already has a photo.";
+const UI_NOT_FOUND = "Proud Moment not found.";
 const UI_DELETION = "This action is unavailable.";
 
 function statusForCode(code: string): number {

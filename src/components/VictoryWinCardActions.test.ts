@@ -47,7 +47,7 @@ describe("VictoryWinCardActions in-flow menu (overflow clip regression)", () => 
       })
     );
 
-    expect(html).toContain('aria-label="Win actions"');
+    expect(html).toContain('aria-label="Proud Moment actions"');
     expect(html).toContain(">Edit<");
     expect(html).toContain(">Delete<");
     expect(html).toContain("<details");
@@ -67,7 +67,7 @@ describe("VictoryWinCardActions in-flow menu (overflow clip regression)", () => 
     expect(src).not.toMatch(/className="[^"]*\babsolute\b/);
     expect(src).not.toMatch(/className=\{`[^`]*\babsolute\b/);
     expect(src).toContain("In-flow");
-    expect(src).toContain("Delete this Win?");
+    expect(src).toContain("Delete this Proud Moment?");
     // No absolute/left-0/z-20 class utilities remain in this file.
     expect(src).not.toMatch(/\bleft-0\b/);
     expect(src).not.toMatch(/\bz-20\b/);
@@ -106,7 +106,7 @@ describe("VictoryWinCardActions in-flow menu (overflow clip regression)", () => 
       })
     );
     expect(html).toContain("overflow-hidden");
-    expect(html).toContain('aria-label="Win actions"');
+    expect(html).toContain('aria-label="Proud Moment actions"');
     expect(html).toContain("Edit");
     expect(html).toContain("Delete");
     expect(html).not.toMatch(/\babsolute left-0\b/);
@@ -180,10 +180,10 @@ describe("VictoryWinCardActions Remove photo", () => {
     expect(screen.getByText("Remove this photo?")).toBeTruthy();
     expect(
       screen.getByText(
-        /This permanently removes the photo\. Your Win stays in Victory Room\. This can’t be undone\./
+        /This permanently removes the photo\. Your Proud Moment stays in Victory Room\. This can’t be undone\./
       )
     ).toBeTruthy();
-    expect(screen.queryByText("Delete this Win?")).toBeNull();
+    expect(screen.queryByText("Delete this Proud Moment?")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
@@ -324,8 +324,8 @@ describe("VictoryWinCardActions Remove photo", () => {
       screen.getByRole("menuitem", { name: "Edit" }).getAttribute("href")
     ).toBe(`/dashboard/victory-room/wins/${WIN}/edit?from=victory-room`);
     await user.click(screen.getByRole("menuitem", { name: "Delete" }));
-    expect(screen.getByText("Delete this Win?")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Delete Win" }));
+    expect(screen.getByText("Delete this Proud Moment?")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Delete Proud Moment" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(`/api/v2/wins/${WIN}`);

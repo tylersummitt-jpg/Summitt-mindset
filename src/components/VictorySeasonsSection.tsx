@@ -65,7 +65,7 @@ function SeasonCard({
           ) : null}
           {typeof card.winCount === "number" && card.winCount > 0 ? (
             <p className={`${vrBodyMuted} mt-2 text-sm tracking-wide text-stone-400`}>
-              {card.winCount === 1 ? "1 WIN" : `${card.winCount} WINS`}
+              {card.winCount === 1 ? "1 PROUD MOMENT" : `${card.winCount} PROUD MOMENTS`}
             </p>
           ) : null}
           <Link href={card.detailHref} className={`${vrAccentLink} mt-4 inline-block`}>

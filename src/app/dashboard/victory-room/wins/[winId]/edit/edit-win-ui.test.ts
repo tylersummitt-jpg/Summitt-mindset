@@ -30,6 +30,7 @@ describe("Edit Win UI", () => {
       })
     );
     expect(plain).not.toContain("Win actions");
+    expect(plain).not.toContain("Proud Moment actions");
     expect(plain).not.toContain(">Edit<");
     expect(plain).not.toContain(">Delete<");
 
@@ -43,7 +44,7 @@ describe("Edit Win UI", () => {
         editHref: "/dashboard/victory-room/wins/w1/edit?from=victory-room",
       })
     );
-    expect(withActions).toContain('aria-label="Win actions"');
+    expect(withActions).toContain('aria-label="Proud Moment actions"');
     expect(withActions).toContain("Edit");
     expect(withActions).toContain("Delete");
     expect(withActions).toContain("/dashboard/victory-room/wins/w1/edit?from=victory-room");
@@ -61,6 +62,7 @@ describe("Edit Win UI", () => {
       })
     );
     expect(html).not.toContain("Win actions");
+    expect(html).not.toContain("Proud Moment actions");
     expect(html).not.toContain(">Edit<");
   });
 
@@ -72,16 +74,16 @@ describe("Edit Win UI", () => {
     expect(src).toContain('method: "DELETE"');
     expect(src).toContain("expected_updated_at");
     expect(src).toContain("router.refresh()");
-    expect(src).toContain("Delete this Win?");
+    expect(src).toContain("Delete this Proud Moment?");
     expect(src).toContain("accountability history and messages are not");
-    expect(src).toContain("Delete Win");
-    expect(src).toContain("We couldn’t delete this Win");
+    expect(src).toContain("Delete Proud Moment");
+    expect(src).toContain("We couldn’t delete this Proud Moment");
     expect(src).toContain("changed since you opened");
-    // Delete Win copy must not imply permanent/proof deletion; Remove photo may say permanently.
+    // Delete Proud Moment copy must not imply permanent/proof deletion; Remove photo may say permanently.
     expect(src).toContain("This permanently removes the photo");
-    expect(src).toContain("Your Win stays in Victory Room");
+    expect(src).toContain("Your Proud Moment stays in Victory Room");
     const deleteConfirmBlock = src.slice(
-      src.indexOf("Delete this Win?"),
+      src.indexOf("Delete this Proud Moment?"),
       src.indexOf("Remove this photo?")
     );
     expect(deleteConfirmBlock).not.toContain("permanently");
@@ -119,14 +121,15 @@ describe("Edit Win UI", () => {
         media: null,
       })
     );
-    expect(html).toContain("Edit Win");
+    expect(html).toContain("Edit Proud Moment");
     expect(html).toContain("Save Changes");
     expect(html).toContain("Cancel");
     expect(html).toContain('value="Lifted"');
     expect(html).toContain("Felt strong");
     expect(html).toContain('value="2026-08-08"');
     expect(html).toContain('value="s2"');
-    expect(html).toContain("Overall only");
+    expect(html).toContain("Not tied to a season");
+    expect(html).not.toContain("Overall only");
     expect(html).not.toContain("source_type");
     expect(html).not.toContain("recognition_mode");
     expect(html).not.toContain("model_confidence");
@@ -179,7 +182,7 @@ describe("Edit Win UI", () => {
         expectedUpdatedAt: "t1",
       })
     );
-    expect(html).toContain("Win actions");
+    expect(html).toContain("Proud Moment actions");
     expect(html).toContain("Edit");
     expect(html).toContain("Delete");
     expect(html).toContain("min-h-11");

@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const UI_SESSION = "Your session expired. Please sign in again.";
 const UI_GENERIC = "We couldn’t remove this photo. Please try again.";
 const UI_DELETION = "This action is unavailable.";
-const UI_NOT_FOUND = "Win not found.";
+const UI_NOT_FOUND = "Proud Moment not found.";
 const UI_STALE =
   "This photo changed since you opened it. Refresh and try again.";
 

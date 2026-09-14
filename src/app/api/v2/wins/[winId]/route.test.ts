@@ -53,7 +53,7 @@ describe("PATCH /api/v2/wins/[winId]", () => {
 
     applyMock.mockResolvedValue({
       ok: false,
-      error: "This Win changed since you opened it. Refresh and try again.",
+      error: "This Proud Moment changed since you opened it. Refresh and try again.",
       code: "conflict",
     });
     const conflict = await PATCH(
@@ -176,7 +176,7 @@ describe("DELETE /api/v2/wins/[winId]", () => {
 
     deleteMock.mockResolvedValue({
       ok: false,
-      error: "This Win changed since you opened it. Refresh and try again.",
+      error: "This Proud Moment changed since you opened it. Refresh and try again.",
       code: "conflict",
     });
     const conflict = await DELETE(
@@ -192,7 +192,7 @@ describe("DELETE /api/v2/wins/[winId]", () => {
 
     deleteMock.mockResolvedValue({
       ok: false,
-      error: "Win not found.",
+      error: "Proud Moment not found.",
       code: "not_found",
     });
     const missing = await DELETE(

@@ -25,17 +25,17 @@ export function VictoryRecentProofSection({
 }: VictoryRecentProofSectionProps) {
   return (
     <VictoryRoomSectionShell
-      title="Your Wins"
+      title="Proud Moments"
       subtitle="Real moments worth remembering — from your life, not a scoreboard."
     >
       <div className="mt-8 flex flex-col items-center text-center sm:items-start sm:text-left">
         <p className={`${vrEvidenceCount} text-amber-50`}>{totalActiveWins}</p>
         <p className="mt-2 text-sm font-semibold uppercase tracking-[0.14em] text-stone-400">
-          {totalActiveWins === 1 ? "Win" : "Wins"}
+          {totalActiveWins === 1 ? "Proud Moment" : "Proud Moments"}
         </p>
         <p className="mt-4">
           <Link href="/dashboard/victory-room/add-win" className={vrAccentLink}>
-            Add a Win
+            Add a Proud Moment
           </Link>
         </p>
       </div>
@@ -45,7 +45,7 @@ export function VictoryRecentProofSection({
           <div className={`${vrIconCircle} mx-auto mb-4 sm:mx-0`} aria-hidden>
             <VrIconProof />
           </div>
-          <p className="font-medium text-stone-100">No Wins yet.</p>
+          <p className="font-medium text-stone-100">No Proud Moments yet.</p>
           <p className="mt-3">
             When something real in your life is worth remembering, it will show up here.
           </p>
@@ -72,7 +72,7 @@ export function VictoryRecentProofSection({
           </ul>
           <p className="mt-8">
             <Link href="/dashboard/victory-room/all-proof" className={vrAccentLink}>
-              View all Wins
+              View all Proud Moments
             </Link>
           </p>
         </>

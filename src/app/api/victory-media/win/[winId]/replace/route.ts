@@ -11,7 +11,7 @@ const UI_SESSION = "Your session expired. Please sign in again.";
 const UI_GENERIC =
   "We couldn’t replace the photo. Your current photo is still there.";
 const UI_MISSING = "We couldn’t find that upload. Please try again.";
-const UI_NOT_FOUND = "Win not found.";
+const UI_NOT_FOUND = "Proud Moment not found.";
 const UI_DELETION = "This action is unavailable.";
 const UI_STALE =
   "This photo changed since you opened it. Refresh and try again.";

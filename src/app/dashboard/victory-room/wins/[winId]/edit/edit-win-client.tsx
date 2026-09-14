@@ -356,7 +356,7 @@ export default function EditWinClient(props: Props) {
       };
       if (res.status === 409 || data.code === "conflict") {
         throw new Error(
-          data.error || "This Win changed since you opened it. Refresh and try again."
+          data.error || "This Proud Moment changed since you opened it. Refresh and try again."
         );
       }
       if (!res.ok || !data.ok) {
@@ -439,11 +439,11 @@ export default function EditWinClient(props: Props) {
         </Link>
       </p>
 
-      <h1 className={vrSectionTitle}>Edit Win</h1>
+      <h1 className={vrSectionTitle}>Edit Proud Moment</h1>
 
       {props.orphanCommitmentNotice ? (
         <p className={`${vrBodyMuted} mt-4 text-sm`}>
-          This Win’s Season link isn’t on your list. Choosing Overall only will detach it; pick a
+          This Proud Moment’s Season link isn’t on your list. Choosing Not tied to a season will detach it; pick a
           Season to reattach.
         </p>
       ) : null}
@@ -531,7 +531,7 @@ export default function EditWinClient(props: Props) {
               <div className="mt-2">
                 <p className="font-medium text-stone-100">Remove this photo?</p>
                 <p className={`${vrBodyMuted} mt-2 text-sm`}>
-                  This permanently removes the photo. Your Win stays in Victory Room. This
+                  This permanently removes the photo. Your Proud Moment stays in Victory Room. This
                   can’t be undone.
                 </p>
                 {mediaError ? (
@@ -677,7 +677,7 @@ export default function EditWinClient(props: Props) {
             onChange={(e) => setSeasonChoice(e.target.value)}
             className={inputClass}
           >
-            <option value="">Overall only</option>
+            <option value="">Not tied to a season</option>
             {seasonSelectOptions.map((opt) => (
               <option key={opt.seasonId} value={opt.seasonId}>
                 {opt.pickerLabel.replace(/\n/g, " · ")}

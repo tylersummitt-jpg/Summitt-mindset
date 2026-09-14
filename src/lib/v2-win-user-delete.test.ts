@@ -161,7 +161,7 @@ describe("deleteUserVictoryWin", () => {
       winId: "win-1",
       expectedUpdatedAt: UPDATED,
     });
-    expect(r).toEqual({ ok: false, error: "Win not found.", code: "not_found" });
+    expect(r).toEqual({ ok: false, error: "Proud Moment not found.", code: "not_found" });
   });
 
   it("rejects already-hidden Win as not_found", async () => {
@@ -177,7 +177,7 @@ describe("deleteUserVictoryWin", () => {
       winId: "win-1",
       expectedUpdatedAt: UPDATED,
     });
-    expect(r).toEqual({ ok: false, error: "Win not found.", code: "not_found" });
+    expect(r).toEqual({ ok: false, error: "Proud Moment not found.", code: "not_found" });
   });
 
   it("returns conflict on stale updated_at", async () => {
@@ -208,7 +208,7 @@ describe("deleteUserVictoryWin", () => {
       winId: "missing",
       expectedUpdatedAt: UPDATED,
     });
-    expect(r).toEqual({ ok: false, error: "Win not found.", code: "not_found" });
+    expect(r).toEqual({ ok: false, error: "Proud Moment not found.", code: "not_found" });
   });
 
   it("returns conflict when expected_updated_at missing", async () => {

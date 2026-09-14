@@ -49,7 +49,7 @@ const base = {
 describe("VictoryCalendarSection import guards", () => {
   it("adds only the selected-day accent Add Win link and keeps semantic systems out", () => {
     expect(SECTION_SRC).toContain("buildCalendarAddWinHref");
-    expect(SECTION_SRC).toContain("+ Add a Win");
+    expect(SECTION_SRC).toContain("+ Add a Proud Moment");
     expect(SECTION_SRC).toContain("vrAccentLink");
     expect(SECTION_SRC).not.toContain("vrFoundationBtn");
     expect(SECTION_SRC).not.toContain("returnTo");
@@ -73,8 +73,11 @@ describe("VictoryCalendarSection selected-day detail", () => {
       })
     );
     expect(html).toContain("Victory Calendar");
-    expect(html).toContain("Your wins, one day at a time.");
+    expect(html).toContain("Your proud moments, one day at a time.");
+    expect(html).not.toContain("Your wins, one day at a time.");
+    expect(html).not.toContain("No Proud Moments recorded yet.");
     expect(html).not.toContain("No Wins recorded yet.");
+    expect(html).not.toContain("Add a Proud Moment");
     expect(html).not.toContain("Add a Win");
   });
 
@@ -87,9 +90,10 @@ describe("VictoryCalendarSection selected-day detail", () => {
       })
     );
     expect(html).toContain("September 15");
-    expect(html).toContain("No Wins recorded yet.");
-    expect(html).toContain("+ Add a Win");
-    expect(html.split("Add a Win").length - 1).toBe(1);
+    expect(html).toContain("No Proud Moments recorded yet.");
+    expect(html).toContain("+ Add a Proud Moment");
+    expect(html.split("Add a Proud Moment").length - 1).toBe(1);
+    expect(html).not.toContain("Add a Win");
     expect(html).toContain(
       "/dashboard/victory-room/add-win?occurredOn=2026-09-15&amp;from=calendar%3A2026-09%3A2026-09-15"
     );
@@ -104,11 +108,12 @@ describe("VictoryCalendarSection selected-day detail", () => {
       })
     );
     expect(one).toContain("September 14");
-    expect(one).toContain("1 Win");
+    expect(one).toContain("1 Proud Moment");
+    expect(one).not.toContain("1 Win");
     expect(one).toContain("Showed up");
     expect(one).toContain("You did the hard thing.");
-    expect(one).toContain("+ Add a Win");
-    expect(one.split("Add a Win").length - 1).toBe(1);
+    expect(one).toContain("+ Add a Proud Moment");
+    expect(one.split("Add a Proud Moment").length - 1).toBe(1);
     expect(one).toContain(
       "/dashboard/victory-room/add-win?occurredOn=2026-09-14&amp;from=calendar%3A2026-09%3A2026-09-14"
     );
@@ -136,12 +141,13 @@ describe("VictoryCalendarSection selected-day detail", () => {
         ],
       })
     );
-    expect(many).toContain("2 Wins");
+    expect(many).toContain("2 Proud Moments");
+    expect(many).not.toContain("2 Wins");
     expect(many).toContain("Second win");
     expect(many).toContain("Photo win");
     expect(many).toContain("https://signed.example/card.jpg");
-    expect(many).toContain("alt=\"Photo attached to this win\"");
-    expect(many.split("Add a Win").length - 1).toBe(1);
+    expect(many).toContain("alt=\"Photo attached to this proud moment\"");
+    expect(many.split("Add a Proud Moment").length - 1).toBe(1);
     expect(many).toContain(
       "/dashboard/victory-room/wins/w2/edit?from=calendar%3A2026-09%3A2026-09-14"
     );

@@ -10,7 +10,7 @@ describe("Victory Season detail — Wins-only surface", () => {
 
   it("keeps Season header, Add a Win, and Season Wins wiring", () => {
     expect(pageSrc).toContain("VictorySeasonHeader");
-    expect(pageSrc).toContain("Add a Win");
+    expect(pageSrc).toContain("Add a Proud Moment");
     expect(pageSrc).toContain("/dashboard/victory-room/add-win?seasonId=");
     expect(pageSrc).toContain("loadActiveWinsForSeasonCommitment");
     expect(pageSrc).toContain("view.commitmentId");
@@ -48,7 +48,7 @@ describe("VictorySeasonWinsSection source", () => {
       path.join(process.cwd(), "src/components/VictorySeasonWinsSection.tsx"),
       "utf8"
     );
-    expect(src).toContain("Wins from this season");
+    expect(src).toContain("Proud Moments from this season");
     expect(src).toContain("VictoryWinCard");
     expect(src).toContain("wins.length === 0");
     expect(src).toContain("return null");

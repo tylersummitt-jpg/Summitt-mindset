@@ -30,12 +30,16 @@ export function VictoryCalendarSection({
   const heading = selectedDay ? formatVictoryCalendarDayHeading(selectedDay) : null;
   const winCount = selectedWins.length;
   const winCountLabel =
-    winCount === 0 ? "No Wins recorded yet." : winCount === 1 ? "1 Win" : `${winCount} Wins`;
+    winCount === 0
+      ? "No Proud Moments recorded yet."
+      : winCount === 1
+        ? "1 Proud Moment"
+        : `${winCount} Proud Moments`;
 
   return (
     <VictoryRoomSectionShell
       title="Victory Calendar"
-      subtitle="Your wins, one day at a time."
+      subtitle="Your proud moments, one day at a time."
     >
       <VictoryCalendarGrid
         monthKey={monthKey}
@@ -80,7 +84,7 @@ export function VictoryCalendarSection({
               href={buildCalendarAddWinHref(monthKey, selectedDay)}
               className={vrAccentLink}
             >
-              + Add a Win
+              + Add a Proud Moment
             </Link>
           </p>
         </div>

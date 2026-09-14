@@ -23,7 +23,7 @@ export function VictorySeasonWinsSection({
 
   return (
     <div className="mb-10">
-      <VictoryRoomSectionShell title="Wins from this season">
+      <VictoryRoomSectionShell title="Proud Moments from this season">
         <ul className="mt-8 space-y-4">
           {wins.map((w) => (
             <li key={w.id}>

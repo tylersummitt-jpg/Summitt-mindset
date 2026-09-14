@@ -134,7 +134,7 @@ describe("DELETE /api/victory-media/win/[winId]", () => {
     const json = await res.json();
     expect(json).toEqual({
       ok: false,
-      error: "Win not found.",
+      error: "Proud Moment not found.",
       code: "not_found",
     });
     expect(JSON.stringify(json).toLowerCase()).not.toContain("owner");

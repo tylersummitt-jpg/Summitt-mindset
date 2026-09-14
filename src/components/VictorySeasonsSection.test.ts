@@ -69,8 +69,8 @@ describe("VictorySeasonsSection", () => {
     expect(html).toContain("Season 1");
     expect(html).toContain("Lift weights for 30 minutes a day");
     expect(html).toContain("Lift weights for 15 minutes a day");
-    expect(html).toContain("2 WINS");
-    expect(html).toContain("3 WINS");
+    expect(html).toContain("2 PROUD MOMENTS");
+    expect(html).toContain("3 PROUD MOMENTS");
     expect(html).toContain("View season");
     expect(html).not.toContain("View season proof");
     expect(html).not.toContain("Proof is forming");
@@ -118,6 +118,7 @@ describe("VictorySeasonsSection", () => {
     );
     expect(zero).not.toMatch(/\b0 WINS?\b/);
     expect(zero).not.toMatch(/\bWIN\b/);
+    expect(zero).not.toContain("PROUD MOMENT");
 
     const one = renderToStaticMarkup(
       React.createElement(VictorySeasonsSection, {
@@ -126,8 +127,9 @@ describe("VictorySeasonsSection", () => {
         timeZone: "UTC",
       })
     );
-    expect(one).toContain("1 WIN");
-    expect(one).not.toContain("1 WINS");
+    expect(one).toContain("1 PROUD MOMENT");
+    expect(one).not.toContain("1 PROUD MOMENTS");
+    expect(one).not.toContain("1 WIN");
 
     const two = renderToStaticMarkup(
       React.createElement(VictorySeasonsSection, {
@@ -136,6 +138,6 @@ describe("VictorySeasonsSection", () => {
         timeZone: "UTC",
       })
     );
-    expect(two).toContain("2 WINS");
+    expect(two).toContain("2 PROUD MOMENTS");
   });
 });

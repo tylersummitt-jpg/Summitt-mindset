@@ -9,7 +9,7 @@ import {
 export const dynamic = "force-dynamic";
 
 const UI_SESSION = "Your session expired. Please sign in again.";
-const UI_GENERIC = "We couldn’t save this Win. Please try again.";
+const UI_GENERIC = "We couldn’t save this Proud Moment. Please try again.";
 
 export async function POST(req: Request) {
   try {

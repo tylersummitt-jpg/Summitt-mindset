@@ -54,3 +54,59 @@ describe("Victory Room Victory Calendar wiring", () => {
     expect(pageSrc).toContain("Promise.resolve([] as PublicWinDto[])");
   });
 });
+
+describe("Victory Room Proud Moments vocabulary", () => {
+  const files = [
+    "src/components/Navbar.tsx",
+    "src/components/VictoryRoomTopCard.tsx",
+    "src/components/VictoryRecentProofSection.tsx",
+    "src/components/VictoryCalendarSection.tsx",
+    "src/components/VictoryCalendarGrid.tsx",
+    "src/components/VictoryAllProofSection.tsx",
+    "src/components/VictorySeasonWinsSection.tsx",
+    "src/components/VictorySeasonsSection.tsx",
+    "src/components/VictoryWinCard.tsx",
+    "src/components/VictoryWinCardActions.tsx",
+    "src/components/VictoryWinMediaImage.tsx",
+    "src/components/VictoryPatReadSection.tsx",
+    "src/app/dashboard/victory-room/page.tsx",
+    "src/app/dashboard/victory-room/add-win/add-win-client.tsx",
+    "src/app/dashboard/victory-room/wins/[winId]/edit/edit-win-client.tsx",
+    "src/app/dashboard/victory-room/seasons/[seasonId]/page.tsx",
+  ];
+
+  function read(rel: string) {
+    return fs.readFileSync(path.join(process.cwd(), rel), "utf8");
+  }
+
+  it("keeps Victory Room as the product name in nav and H1", () => {
+    expect(read("src/components/Navbar.tsx")).toContain('label: "Victory Room"');
+    expect(read("src/components/VictoryRoomTopCard.tsx")).toContain(">Victory Room<");
+    expect(read("src/components/VictoryPatReadSection.tsx")).toContain("What I'm proud of");
+  });
+
+  it("does not keep retired Win archive labels in production Victory Room UI", () => {
+    const forbidden = [
+      "Your Wins",
+      "Add a Win",
+      "All Wins",
+      "View all Wins",
+      "No Wins yet",
+      "Edit Win",
+      "Delete Win",
+      "Delete this Win?",
+      "Win actions",
+      "Save Win",
+      "Saving Win",
+      "Your Win was saved",
+      "Overall only",
+      "Wins from this season",
+    ];
+    for (const rel of files) {
+      const src = read(rel);
+      for (const phrase of forbidden) {
+        expect(src, `${rel} still contains ${JSON.stringify(phrase)}`).not.toContain(phrase);
+      }
+    }
+  });
+});

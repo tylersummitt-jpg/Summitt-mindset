@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
 import { VictoryAllProofSection } from "@/components/VictoryAllProofSection";
 
 describe("VictoryAllProofSection", () => {
-  it("renders All Wins title and back link without share or old proof language", () => {
+  it("renders All Proud Moments title and back link without share or old proof language", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryAllProofSection, {
         wins: [
@@ -37,14 +37,16 @@ describe("VictoryAllProofSection", () => {
         nextCursor: null,
       })
     );
-    expect(html).toContain("All Wins");
+    expect(html).toContain("All Proud Moments");
+    expect(html).not.toContain("All Wins");
     expect(html).not.toContain("All Proof");
     expect(html).toContain("← Victory Room");
     expect(html).toContain("/dashboard/victory-room");
-    expect(html).toContain("Add a Win");
+    expect(html).toContain("Add a Proud Moment");
+    expect(html).not.toContain("Add a Win");
     expect(html).toContain("/dashboard/victory-room/add-win?from=all-wins");
     expect(html).toContain("Showed up");
-    expect(html).toContain('aria-label="Win actions"');
+    expect(html).toContain('aria-label="Proud Moment actions"');
     expect(html).toContain("Edit");
     expect(html).toContain("Delete");
     expect(html).toContain("/dashboard/victory-room/wins/m1/edit?from=all-wins");
@@ -54,7 +56,7 @@ describe("VictoryAllProofSection", () => {
     expect(html).not.toContain("Kept the goal");
   });
 
-  it("shows View older Wins when hasMore and nextCursor are set", () => {
+  it("shows View older Proud Moments when hasMore and nextCursor are set", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryAllProofSection, {
         wins: [
@@ -74,7 +76,7 @@ describe("VictoryAllProofSection", () => {
         nextCursor: "cursor-token",
       })
     );
-    expect(html).toContain("View older Wins");
+    expect(html).toContain("View older Proud Moments");
     expect(html).toContain("/dashboard/victory-room/all-proof?cursor=");
     expect(html).not.toContain("Showing your most recent saved proof");
   });
@@ -103,5 +105,21 @@ describe("VictoryAllProofSection", () => {
     expect(html).toContain("it was hard and I said so");
     expect(html).not.toContain("Your reply:");
     expect(html).not.toContain("Told the truth");
+  });
+
+  it("shows No Proud Moments yet empty copy", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryAllProofSection, {
+        wins: [],
+        timeZone: "UTC",
+        hasMore: false,
+        nextCursor: null,
+      })
+    );
+    expect(html).toContain("No Proud Moments yet.");
+    expect(html).toContain(
+      "When something real in your life is worth remembering, it will show up here."
+    );
+    expect(html).not.toContain("No Wins yet.");
   });
 });

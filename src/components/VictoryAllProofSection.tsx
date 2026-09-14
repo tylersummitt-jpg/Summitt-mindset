@@ -48,17 +48,17 @@ export function VictoryAllProofSection({
       </p>
 
       <VictoryRoomSectionShell
-        title="All Wins"
+        title="All Proud Moments"
         subtitle="Your archive of real moments — newest first."
       >
         <p className="mt-4">
           <Link href="/dashboard/victory-room/add-win?from=all-wins" className={vrAccentLink}>
-            Add a Win
+            Add a Proud Moment
           </Link>
         </p>
         {wins.length === 0 ? (
           <p className={vrEmptyState}>
-            No Wins yet. When something real in your life is worth remembering, it will show up
+            No Proud Moments yet. When something real in your life is worth remembering, it will show up
             here.
           </p>
         ) : (
@@ -94,7 +94,7 @@ export function VictoryAllProofSection({
             {olderHref ? (
               <p>
                 <Link href={olderHref} className={vrAccentLink}>
-                  View older Wins
+                  View older Proud Moments
                 </Link>
               </p>
             ) : null}

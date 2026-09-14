@@ -69,13 +69,14 @@ function jsonResponse(body: unknown, status = 200) {
 describe("AddWinClient static markup", () => {
   it("Overall form defaults Overall only and shows Season picker", () => {
     const html = renderToStaticMarkup(React.createElement(AddWinClient, baseProps));
-    expect(html).toContain("Add a Win");
+    expect(html).toContain("Add a Proud Moment");
     expect(html).toContain("What happened?");
     expect(html).toContain("Details");
     expect(html).toContain("Add a photo");
     expect(html).toContain("Date");
-    expect(html).toContain("Overall only");
-    expect(html).toContain("Save Win");
+    expect(html).toContain("Not tied to a season");
+    expect(html).not.toContain("Overall only");
+    expect(html).toContain("Save Proud Moment");
     expect(html).not.toMatch(/streak|score|badge|points|achievement/i);
   });
 
@@ -176,7 +177,7 @@ describe("AddWinClient photo flows", () => {
   async function fillRequiredAndSubmit() {
     const user = userEvent.setup();
     await user.type(screen.getByLabelText(/What happened/i), "Owned the apology");
-    await user.click(screen.getByRole("button", { name: "Save Win" }));
+    await user.click(screen.getByRole("button", { name: "Save Proud Moment" }));
     return user;
   }
 
@@ -396,7 +397,7 @@ describe("AddWinClient photo flows", () => {
     expect(
       fetchMock.mock.calls.filter((c) => String(c[0]).includes("victory-media"))
     ).toHaveLength(0);
-    expect(screen.getByRole("button", { name: "Save Win" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save Proud Moment" })).toBeTruthy();
   });
 
   it("media failure after Win: shows saved state; Retry does not re-POST Win", async () => {
@@ -437,7 +438,7 @@ describe("AddWinClient photo flows", () => {
     await fillRequiredAndSubmit();
 
     await waitFor(() => {
-      expect(screen.getByText("Your Win was saved.")).toBeTruthy();
+      expect(screen.getByText("Your Proud Moment was saved.")).toBeTruthy();
     });
     expect(screen.getByText("The photo couldn’t be attached.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry photo" })).toBeTruthy();
@@ -488,7 +489,7 @@ describe("AddWinClient photo flows", () => {
       makeFile("ok.jpg", "image/jpeg", 10)
     );
     await fillRequiredAndSubmit();
-    await waitFor(() => screen.getByText("Your Win was saved."));
+    await waitFor(() => screen.getByText("Your Proud Moment was saved."));
 
     await userEvent.click(screen.getByRole("button", { name: "Continue to Victory Room" }));
     expect(replaceMock).toHaveBeenCalledWith("/dashboard/victory-room/all-proof");
@@ -519,7 +520,7 @@ describe("AddWinClient photo flows", () => {
     );
     expect(createObjectURL).not.toHaveBeenCalled();
     await fillRequiredAndSubmit();
-    await waitFor(() => screen.getByText("Your Win was saved."));
+    await waitFor(() => screen.getByText("Your Proud Moment was saved."));
     expect(screen.getByText(/network problem/i)).toBeTruthy();
   });
 
@@ -584,6 +585,13 @@ describe("AddWinClient source policy", () => {
     expect(clientSrc).toContain("useState(props.initialOccurredOn)");
     expect(clientSrc).toContain("max={props.maxOccurredOn}");
     expect(clientSrc).toContain("/api/v2/wins/manual");
+    expect(clientSrc).toContain("Saving Proud Moment…");
+    expect(clientSrc).toContain("Save Proud Moment");
+    expect(clientSrc).toContain("Add a Proud Moment");
+    expect(clientSrc).toContain("Not tied to a season");
+    expect(clientSrc).not.toContain("Overall only");
+    expect(clientSrc).not.toContain("Add a Win");
+    expect(clientSrc).not.toContain("Save Win");
   });
 
   it("mobile-safe structure uses full-width controls", () => {

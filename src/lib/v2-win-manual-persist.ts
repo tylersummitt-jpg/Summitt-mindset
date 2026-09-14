@@ -403,7 +403,7 @@ export async function persistManualV2Win(args: {
   });
   return {
     ok: false,
-    error: "We couldn’t save this Win. Please try again.",
+    error: "We couldn’t save this Proud Moment. Please try again.",
     code: "persist_failed",
   };
 }

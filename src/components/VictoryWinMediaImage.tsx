@@ -27,7 +27,7 @@ export function VictoryWinMediaImage({
         src={cardUrl}
         width={width}
         height={height}
-        alt="Photo attached to this win"
+        alt="Photo attached to this proud moment"
         className="h-auto w-full"
         onError={() => setFailed(true)}
       />

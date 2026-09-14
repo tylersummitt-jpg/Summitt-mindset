@@ -66,16 +66,16 @@ export function VictoryWinCardActions({
       };
       if (res.status === 409 || data.code === "conflict") {
         throw new Error(
-          data.error || "This Win changed since you opened it. Refresh and try again."
+          data.error || "This Proud Moment changed since you opened it. Refresh and try again."
         );
       }
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "We couldn’t delete this Win. Please try again.");
+        throw new Error(data.error || "We couldn’t delete this Proud Moment. Please try again.");
       }
       setConfirming(null);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn’t delete this Win. Please try again.");
+      setError(err instanceof Error ? err.message : "We couldn’t delete this Proud Moment. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -140,7 +140,7 @@ export function VictoryWinCardActions({
     // In-flow confirmation: expands the card; never absolute (card uses overflow-hidden).
     return (
       <div className="mt-5">
-        <p className="font-medium text-stone-100">Delete this Win?</p>
+        <p className="font-medium text-stone-100">Delete this Proud Moment?</p>
         <p className={`${vrBodyMuted} mt-2 text-sm`}>
           This removes it from your Victory Room. Your accountability history and messages are not
           changed.
@@ -168,7 +168,7 @@ export function VictoryWinCardActions({
             disabled={busy}
             onClick={() => void onConfirmDelete()}
           >
-            {busy ? "Deleting…" : "Delete Win"}
+            {busy ? "Deleting…" : "Delete Proud Moment"}
           </button>
         </div>
       </div>
@@ -180,7 +180,7 @@ export function VictoryWinCardActions({
       <div className="mt-5">
         <p className="font-medium text-stone-100">Remove this photo?</p>
         <p className={`${vrBodyMuted} mt-2 text-sm`}>
-          This permanently removes the photo. Your Win stays in Victory Room. This
+          This permanently removes the photo. Your Proud Moment stays in Victory Room. This
           can’t be undone.
         </p>
         {error ? (
@@ -218,7 +218,7 @@ export function VictoryWinCardActions({
       <details ref={detailsRef} className="group">
         <summary
           className={`${vrAccentLink} inline-flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center px-2 [&::-webkit-details-marker]:hidden`}
-          aria-label="Win actions"
+          aria-label="Proud Moment actions"
           aria-controls={menuId}
         >
           <span aria-hidden className="text-lg leading-none tracking-widest">
@@ -232,7 +232,7 @@ export function VictoryWinCardActions({
         <div
           id={menuId}
           role="menu"
-          aria-label="Win actions"
+          aria-label="Proud Moment actions"
           className="mt-2 w-full rounded-xl border border-white/15 bg-[#0c1018] py-1 shadow-[0_12px_40px_-16px_rgba(0,0,0,0.9)]"
         >
           <Link

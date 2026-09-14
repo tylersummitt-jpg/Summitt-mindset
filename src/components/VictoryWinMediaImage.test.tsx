@@ -24,7 +24,7 @@ describe("VictoryWinCard media display", () => {
     expect(html).toContain("Owned the apology");
     expect(html).toContain("You repaired the moment with honesty.");
     expect(html).not.toContain("<img");
-    expect(html).not.toContain("Photo attached to this win");
+    expect(html).not.toContain("Photo attached to this proud moment");
     expect(html).not.toContain("Replace");
     expect(html).not.toContain("Remove");
     expect(html).not.toContain("storage_card_path");
@@ -49,7 +49,7 @@ describe("VictoryWinCard media display", () => {
     expect(html).toContain('src="https://signed.example/card.jpg?token=abc"');
     expect(html).toContain('width="1280"');
     expect(html).toContain('height="960"');
-    expect(html).toContain('alt="Photo attached to this win"');
+    expect(html).toContain('alt="Photo attached to this proud moment"');
     expect(html).toContain("h-auto w-full");
     expect(html).toContain("rounded-xl");
     expect(html).toContain("Smoke win");
@@ -79,7 +79,7 @@ describe("VictoryWinMediaImage", () => {
     );
     expect(html).toContain("<img");
     expect(html).toContain('src="https://signed.example/x.jpg"');
-    expect(html).toContain('alt="Photo attached to this win"');
+    expect(html).toContain('alt="Photo attached to this proud moment"');
     expect(html).toContain("h-auto w-full");
     expect(html).toContain("rounded-xl");
   });

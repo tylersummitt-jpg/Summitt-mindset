@@ -46,11 +46,11 @@ describe("VictorySeasonWinsSection", () => {
         ],
       })
     );
-    expect(html).toContain("Wins from this season");
+    expect(html).toContain("Proud Moments from this season");
     expect(html).toContain("Done");
     expect(html).toContain("Showed up");
     expect(html).toContain("got it done");
-    expect(html).toContain('aria-label="Win actions"');
+    expect(html).toContain('aria-label="Proud Moment actions"');
     expect(html).toContain("Edit");
     expect(html).toContain("Delete");
     expect(html).toContain("/dashboard/victory-room/wins/win-manual-1/edit?from=season%3A");
@@ -67,7 +67,7 @@ describe("VictorySeasonWinsSection", () => {
       })
     );
     expect(html).toBe("");
-    expect(html).not.toContain("Wins from this season");
+    expect(html).not.toContain("Proud Moments from this season");
     expect(html).not.toContain("0");
   });
 });

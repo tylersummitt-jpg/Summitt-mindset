@@ -61,7 +61,7 @@ export default async function VictorySeasonDetailPage({ params }: PageProps) {
             href={`/dashboard/victory-room/add-win?seasonId=${encodeURIComponent(view.seasonId)}`}
             className={vrAccentLink}
           >
-            Add a Win
+            Add a Proud Moment
           </Link>
         </p>
 

@@ -28,6 +28,7 @@ describe("VictoryCalendarGrid import / timezone guards", () => {
     expect(GRID_SRC).not.toContain("inbound-mms-d2");
     expect(GRID_SRC).not.toContain("add-win");
     expect(GRID_SRC).not.toContain("Add a Win");
+    expect(GRID_SRC).not.toContain("Add a Proud Moment");
     expect(GRID_SRC).toContain("scroll: false");
     expect(GRID_SRC).not.toMatch(/new Date\(/);
   });
@@ -51,12 +52,13 @@ describe("VictoryCalendarGrid", () => {
     );
     expect(container.querySelector("[role='group']")?.children).toHaveLength(7 + 42);
     expect(container.textContent).not.toContain("Add a Win");
-    const one = screen.getByRole("button", { name: "September 14, 2026, 1 Win" });
+    expect(container.textContent).not.toContain("Add a Proud Moment");
+    const one = screen.getByRole("button", { name: "September 14, 2026, 1 Proud Moment" });
     expect(one.textContent).toContain("🏆");
     expect(one.textContent).not.toMatch(/🏆\s*1/);
-    const many = screen.getByRole("button", { name: "September 12, 2026, 2 Wins" });
+    const many = screen.getByRole("button", { name: "September 12, 2026, 2 Proud Moments" });
     expect(many.textContent).toMatch(/🏆\s*2/);
-    expect(screen.getByRole("button", { name: "September 13, 2026, no Wins" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "September 13, 2026, no Proud Moments" })).toBeTruthy();
   });
 
   it("marks today, selected, and keeps future days out of tab order", () => {
@@ -69,7 +71,7 @@ describe("VictoryCalendarGrid", () => {
         counts: { "2026-09-01": 1 },
       })
     );
-    const today = screen.getByRole("button", { name: "Today, September 1, 2026, 1 Win" });
+    const today = screen.getByRole("button", { name: "Today, September 1, 2026, 1 Proud Moment" });
     expect(today.getAttribute("aria-pressed")).toBe("true");
     expect(today.textContent).toContain("🏆");
     expect(screen.queryByRole("button", { name: /September 15, 2026/ })).toBeNull();
@@ -90,7 +92,7 @@ describe("VictoryCalendarGrid", () => {
         counts: { "2026-08-12": 2 },
       })
     );
-    expect(screen.getByRole("button", { name: "August 12, 2026, 2 Wins" }).textContent).toMatch(
+    expect(screen.getByRole("button", { name: "August 12, 2026, 2 Proud Moments" }).textContent).toMatch(
       /🏆\s*2/
     );
     expect(screen.getByText("Back to This Month")).toBeTruthy();
@@ -109,7 +111,7 @@ describe("VictoryCalendarGrid", () => {
         counts: {},
       })
     );
-    fireEvent.click(screen.getByRole("button", { name: "September 14, 2026, no Wins" }));
+    fireEvent.click(screen.getByRole("button", { name: "September 14, 2026, no Proud Moments" }));
     expect(replaceMock).toHaveBeenCalledWith(
       "/dashboard/victory-room?month=2026-09&day=2026-09-14",
       { scroll: false }
