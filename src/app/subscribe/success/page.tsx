@@ -129,7 +129,7 @@ function SubscribeSuccessInner() {
     return (
       <main className="flex min-h-screen items-center justify-center px-6">
         <div className="max-w-lg w-full text-center space-y-4">
-          <h1 className="text-2xl font-semibold">Still finalizing your membership</h1>
+          <h1 className="text-2xl font-semibold">Still starting your trial</h1>
           <p className="text-gray-600 text-sm">
             This is taking longer than expected. Your checkout may still be processing.
           </p>
@@ -138,7 +138,7 @@ function SubscribeSuccessInner() {
               onClick={() => router.push("/post-sign-in")}
               className="rounded-md bg-black text-white px-6 py-3 font-semibold hover:bg-gray-900 transition"
             >
-              Continue to account
+              Set Up Coach Pat →
             </button>
             <button
               onClick={() => {
@@ -161,7 +161,7 @@ function SubscribeSuccessInner() {
     return (
       <main className="flex min-h-screen items-center justify-center px-6">
         <div className="max-w-lg w-full text-center space-y-4">
-          <h1 className="text-2xl font-semibold">Almost there</h1>
+          <h1 className="text-2xl font-semibold">Your trial is started. Next: set up Coach Pat.</h1>
 
           <p className="text-gray-600 text-sm">
             We couldn&apos;t automatically confirm your membership.
@@ -173,7 +173,7 @@ function SubscribeSuccessInner() {
             onClick={() => router.push("/post-sign-in")}
             className="rounded-md bg-black text-white px-6 py-3 font-semibold hover:bg-gray-900 transition"
           >
-            Continue →
+            Set Up Coach Pat →
           </button>
         </div>
       </main>
@@ -184,7 +184,7 @@ function SubscribeSuccessInner() {
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="max-w-lg w-full text-center">
         <p className="text-base text-gray-600">
-          Finalizing your membership…
+          Starting your free trial…
         </p>
       </div>
     </main>

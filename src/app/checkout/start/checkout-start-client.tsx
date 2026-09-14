@@ -124,12 +124,18 @@ export default function CheckoutStartClient() {
           </>
         ) : (
           <>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
+              STEP 2 OF 3
+            </p>
             <h1 className="text-xl font-semibold text-[var(--text)]">
-              Opening secure checkout…
+              Start your free trial
             </h1>
+            <p className="text-sm font-medium text-[var(--text)]">
+              Opening secure checkout…
+            </p>
             <p className="text-sm text-[var(--muted)]">
-              You’ll add a payment method to start your 7-day free trial. $0 due
-              today.
+              $0 due today.
+              After checkout, you&apos;ll set up Coach Pat.
             </p>
           </>
         )}

@@ -278,7 +278,8 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignUp).not.toContain("afterSignUpUrl=");
     expect(websiteSignUp).not.toContain("afterSignInUrl=");
     expect(websiteSignUp).not.toMatch(/display:\s*["']none["']/);
-    expect(websiteSignUp).toContain("STEP 1 OF 2");
+    expect(websiteSignUp).toContain("STEP 1 OF 3");
+    expect(websiteSignUp).not.toContain("STEP 1 OF 2");
     expect(websiteSignUp).toContain("Start your 7-day free trial");
     expect(websiteSignUp).toContain("Create your account");
 
@@ -297,6 +298,12 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignUp).toContain("7 days free · then $29/month");
     expect(websiteSignUp).toContain("$0 DUE TODAY");
     expect(websiteSignUp).toContain(
+      "Next, you&apos;ll securely start your free trial."
+    );
+    expect(websiteSignUp).toContain(
+      "After that, you&apos;ll set up Coach Pat."
+    );
+    expect(websiteSignUp).not.toContain(
       "Next, you&apos;ll securely add a payment method to start your trial."
     );
     expect(websiteSignUp).not.toContain("choose your plan");
@@ -319,6 +326,8 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(coachSignUpSlot).toBeGreaterThan(coachOlStart);
     const coachCopy = websiteSignUp.slice(coachOlStart, coachSignUpSlot);
     expect(coachCopy).not.toContain("STEP 1 OF 2");
+    expect(coachCopy).not.toContain("STEP 1 OF 3");
+    expect(coachCopy).not.toContain("set up Coach Pat");
     expect(coachCopy).not.toContain("$29/month");
     expect(coachCopy).not.toContain("$0 DUE TODAY");
     expect(coachCopy).not.toContain("Start your 7-day free trial");

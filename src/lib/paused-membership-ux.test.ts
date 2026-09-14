@@ -90,9 +90,11 @@ describe("paused membership UX wiring (source)", () => {
     expect(annualOffer).toBeGreaterThan(kathy);
     expect(coachSteps).toBeGreaterThan(-1);
     expect(panel.slice(coachSteps, monthlyOffer)).not.toContain("STEP 2 OF 2");
+    expect(panel.slice(coachSteps, monthlyOffer)).not.toContain("STEP 2 OF 3");
     expect(panel.slice(coachSteps, monthlyOffer)).not.toContain(
       "Add a payment method to start your trial"
     );
+    expect(panel.slice(coachSteps, monthlyOffer)).not.toContain("Set Up Coach Pat");
     expect(panel).toContain('handleCheckout("monthly")');
     expect(panel).toContain('handleCheckout("annual")');
     expect(panel).toContain('fetch("/api/stripe/create-checkout-session"');
@@ -136,20 +138,23 @@ describe("paused membership UX wiring (source)", () => {
     expect(page).toContain("bg-[var(--surface)]");
     expect(page).not.toContain("Founding Member Bonus");
     expect(page).not.toContain('bg-[var(--brand)]');
-    expect(page).toContain("STEP 2 OF 2");
-    expect(page).toContain("Add a payment method to start your trial");
+    expect(page).toContain("STEP 2 OF 3");
+    expect(page).not.toContain("STEP 2 OF 2");
+    expect(page).toContain("Start your free trial");
+    expect(page).not.toContain("Add a payment method to start your trial");
     expect(page).toContain(
-      "Your 7-day trial is free. You won&apos;t be charged today."
+      "$0 due today. After checkout, you&apos;ll set up Coach Pat."
     );
     expect(page).not.toContain("Then $29/month");
     expect(page).not.toContain("You won&apos;t be charged today · Cancel anytime");
     expect(page).toContain("redirect(APP_MEMBERSHIP_PATH)");
-    expect(page).not.toContain("$0 due today");
 
     const heroClose = page.indexOf("</section>");
     const bonusHeading = page.indexOf(FOUNDING_MEMBER_BONUS_HEADING);
-    const finePrint = page.indexOf("You won&apos;t be charged today");
-    const consumerStep = page.indexOf("STEP 2 OF 2");
+    const finePrint = page.indexOf(
+      "$0 due today. After checkout, you&apos;ll set up Coach Pat."
+    );
+    const consumerStep = page.indexOf("STEP 2 OF 3");
     const coachEmptyLeft = page.indexOf("coachSubscribeHero");
     expect(heroClose).toBeGreaterThan(-1);
     expect(bonusHeading).toBeGreaterThan(heroClose);

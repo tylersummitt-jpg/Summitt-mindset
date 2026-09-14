@@ -158,7 +158,7 @@ export default function SmsClient({
             saving ? "cursor-wait bg-gray-400" : "bg-[var(--brand)] hover:opacity-90",
           ].join(" ")}
         >
-          {saving ? "Saving…" : "Continue →"}
+          {saving ? "Saving…" : "Continue to Finish Setup →"}
         </button>
       </div>
 

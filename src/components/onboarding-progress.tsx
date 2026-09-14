@@ -18,7 +18,7 @@ export default function OnboardingProgress({
   return (
     <div className="mb-10">
       <p className="text-xs uppercase tracking-wide text-gray-500 mb-3">
-        Onboarding step {currentStep} of {STEPS.length}
+        PART {currentStep} OF {STEPS.length} — {STEPS[currentStep - 1].label.toUpperCase()}
       </p>
 
       <div className="flex items-center justify-between gap-2">

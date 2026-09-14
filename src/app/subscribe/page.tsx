@@ -146,13 +146,13 @@ export default async function SubscribePage({
             ) : (
               <div className="flex min-w-0 flex-col justify-center gap-2 pt-1 md:gap-4 lg:pt-0">
                 <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
-                  STEP 2 OF 2
+                  STEP 2 OF 3
                 </p>
                 <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-4xl md:leading-tight lg:text-[2.5rem] lg:leading-tight">
-                  Add a payment method to start your trial
+                  Start your free trial
                 </h1>
                 <p className="text-sm leading-snug text-white/85">
-                  Your 7-day trial is free. You won&apos;t be charged today.
+                  $0 due today. After checkout, you&apos;ll set up Coach Pat.
                 </p>
               </div>
             )}

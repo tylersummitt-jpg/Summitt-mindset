@@ -44,7 +44,7 @@ export default function ReviewAcknowledgeButton() {
         disabled={loading}
         className="w-full text-center bg-[var(--brand)] text-white rounded-md py-3 text-sm font-semibold disabled:opacity-50"
       >
-        {loading ? "Saving…" : "Looks right →"}
+        {loading ? "Saving…" : "Looks Right — Next: Daily Texts →"}
       </button>
       {error ? <p className="mt-2 text-sm text-red-600 text-center">{error}</p> : null}
     </div>

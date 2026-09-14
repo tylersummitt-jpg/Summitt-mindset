@@ -62,7 +62,7 @@ export default async function CompletePage(): Promise<ReactElement> {
       <OnboardingProgress currentStep={5} />
 
       <header className="space-y-3">
-        <h1 className="text-4xl font-bold">Almost there.</h1>
+        <h1 className="text-4xl font-bold">Everything is ready.</h1>
         <p className="text-gray-600 text-lg leading-relaxed max-w-lg mx-auto">
           Finish setup to activate your commitment and enter your Victory Room.
         </p>

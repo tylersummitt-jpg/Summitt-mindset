@@ -654,7 +654,7 @@ export async function POST(req: Request) {
       createParams.custom_text = {
         submit: {
           message:
-            "**$0 due today.** 7 days free, then $29/month. Cancel anytime.",
+            "**$0 due today.** 7 days free, then $29/month. Cancel anytime. After checkout, you'll set up Coach Pat.",
         },
       };
     }

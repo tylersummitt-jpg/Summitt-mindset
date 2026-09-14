@@ -491,7 +491,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(createSessionMock.mock.calls[0][0].custom_text).toEqual({
       submit: {
         message:
-          "**$0 due today.** 7 days free, then $29/month. Cancel anytime.",
+          "**$0 due today.** 7 days free, then $29/month. Cancel anytime. After checkout, you'll set up Coach Pat.",
       },
     });
   });

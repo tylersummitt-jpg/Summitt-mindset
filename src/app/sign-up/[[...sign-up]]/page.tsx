@@ -168,9 +168,12 @@ export default function SignUpPage() {
             {isAcquisitionSignUp ? (
               <>
                 <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
-                  STEP 1 OF 2
+                  STEP 1 OF 3
                 </p>
                 <p className="text-lg font-semibold leading-snug text-white drop-shadow-sm sm:text-xl">
+                  Create your account
+                </p>
+                <p className="text-sm font-semibold leading-snug text-white drop-shadow-sm sm:text-[15px]">
                   Start your 7-day free trial
                 </p>
                 <p className="text-sm leading-snug text-white/90 sm:text-[15px] sm:leading-relaxed">
@@ -180,7 +183,8 @@ export default function SignUpPage() {
                   $0 DUE TODAY
                 </p>
                 <p className="text-sm leading-snug text-white/80 sm:text-[15px] sm:leading-relaxed">
-                  Next, you&apos;ll securely add a payment method to start your trial.
+                  Next, you&apos;ll securely start your free trial.
+                  After that, you&apos;ll set up Coach Pat.
                 </p>
               </>
             ) : (

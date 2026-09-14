@@ -29,8 +29,8 @@ export default async function SmsPage(): Promise<ReactElement> {
       <h1 className="text-3xl font-bold mb-4">Daily Accountability Texts</h1>
 
       <p className="text-gray-600 mb-8">
-        This is where Summitt Mindset does its best work — short, direct
-        accountability over text.
+        This is where Summitt Mindset does its best work — daily accountability
+        texts from Coach Pat.
       </p>
 
       <SmsClient

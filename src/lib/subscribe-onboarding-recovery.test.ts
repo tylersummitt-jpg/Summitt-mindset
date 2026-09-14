@@ -20,6 +20,11 @@ describe("subscribe onboarding recovery slice 1", () => {
     );
     expect(src).not.toContain("localStorage");
     expect(src).not.toContain("sessionStorage");
+    expect(src).toContain("Set Up Coach Pat →");
+    expect(src).not.toContain("Continue to account");
+    expect(src).toContain("Still starting your trial");
+    expect(src).toContain("Your trial is started. Next: set up Coach Pat.");
+    expect(src).toContain('router.push("/post-sign-in")');
   });
 
   it("subscribe keeps native membership redirect before entitled /post-sign-in", () => {

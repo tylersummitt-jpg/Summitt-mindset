@@ -112,7 +112,7 @@ describe("CommitmentClient", () => {
     const goalIdx = pageSrc.indexOf("My Current Goal");
     expect(identityIdx).toBeGreaterThanOrEqual(0);
     expect(goalIdx).toBeGreaterThan(identityIdx);
-    expect(pageSrc).toContain("Pick a goal Coach Pat can check regularly");
+    expect(pageSrc).toContain("Give Coach Pat one thing to hold you accountable to.");
   });
 
   it("does not add My Why or life_desires artifacts", () => {

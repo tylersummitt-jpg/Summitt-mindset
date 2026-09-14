@@ -54,8 +54,7 @@ export default async function CommitmentPage(): Promise<ReactElement> {
       <h1 className="text-3xl font-bold mb-3">My Current Goal</h1>
 
       <p className="text-gray-700 mb-2">
-        Pick a goal Coach Pat can check regularly. The best goals are small enough to practice
-        today.
+        Give Coach Pat one thing to hold you accountable to.
       </p>
       <p className="text-sm text-gray-600 mb-10">
         Start small. The goal is not to impress Coach Pat — it is to give her something real to

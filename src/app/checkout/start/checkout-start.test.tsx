@@ -78,6 +78,9 @@ describe("/checkout/start hop", () => {
     await waitFor(() => {
       expect(screen.getByText(/Opening secure checkout/i)).toBeTruthy();
     });
+    expect(screen.getByText("STEP 2 OF 3")).toBeTruthy();
+    expect(screen.getByText("Start your free trial")).toBeTruthy();
+    expect(screen.getByText(/After checkout, you'll set up Coach Pat/i)).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
   });
