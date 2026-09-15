@@ -251,6 +251,10 @@ export default function SignUpPage() {
                       </span>
                     </button>
                   </div>
+                  <p className="w-full text-center text-sm leading-snug text-white drop-shadow-sm sm:text-[15px]">
+                    <span className="font-semibold">Founding Member Bonus:</span>{" "}
+                    $1,000+ in Pat Summitt leadership videos included at no additional cost
+                  </p>
                 </>
               ) : isAcquisitionSignUp ? (
                 <>

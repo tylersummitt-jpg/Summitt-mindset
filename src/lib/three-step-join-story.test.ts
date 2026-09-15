@@ -38,6 +38,13 @@ describe("3-step join story copy alignment", () => {
     expect(checkoutHopCopy).toContain("7 days free");
     expect(checkoutHopCopy).toContain("then $29/month");
     expect(checkoutHopCopy).toContain("then $249/year");
+    expect(checkoutHopCopy).toContain("Founding Member Bonus:");
+    expect(checkoutHopCopy).toContain(
+      "$1,000+ in Pat Summitt leadership videos included at no additional cost"
+    );
+    expect(checkoutHopCopy.indexOf("then $249/year")).toBeLessThan(
+      checkoutHopCopy.indexOf("Founding Member Bonus:")
+    );
     expect(checkoutHopCopy).not.toContain("Create your account");
     expect(consumerCopy).not.toContain("Start your 7-day free trial");
     expect(consumerCopy).not.toContain("7 days free · then $29/month");
@@ -67,6 +74,10 @@ describe("3-step join story copy alignment", () => {
     expect(coachCopy).not.toContain("$29/month");
     expect(coachCopy).not.toContain("Choose your plan");
     expect(coachCopy).not.toContain("FOUNDING MEMBER BONUS");
+    expect(coachCopy).not.toContain("Founding Member Bonus:");
+    expect(coachCopy).not.toContain(
+      "Pat Summitt leadership videos included at no additional cost"
+    );
   });
 
   it("consumer signup appends Founding Member Bonus after Clerk; coach branch does not include it", () => {

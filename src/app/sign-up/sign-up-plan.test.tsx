@@ -72,6 +72,19 @@ describe("consumer sign-up plan selector", () => {
     );
     expect(screen.queryByText("$19.99")).toBeNull();
     expect(screen.queryByText("$120")).toBeNull();
+    const teaser = screen.getByText((_, el) => {
+      if (el?.tagName !== "P") return false;
+      return (
+        el.textContent?.replace(/\s+/g, " ").trim() ===
+        "Founding Member Bonus: $1,000+ in Pat Summitt leadership videos included at no additional cost"
+      );
+    });
+    expect(
+      annual.compareDocumentPosition(teaser) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      teaser.compareDocumentPosition(clerk) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
     expect(screen.getByText("FOUNDING MEMBER BONUS")).toBeTruthy();
     expect(
       screen.getByText(
@@ -151,6 +164,11 @@ describe("consumer sign-up plan selector", () => {
       screen.getByTestId("clerk-signup").getAttribute("data-force-redirect")
     ).toBe("/subscribe?src=coach");
     expect(screen.queryByText("FOUNDING MEMBER BONUS")).toBeNull();
+    expect(
+      screen.queryByText(
+        /Founding Member Bonus: \$1,000\+ in Pat Summitt leadership videos included at no additional cost/
+      )
+    ).toBeNull();
     expect(
       screen.queryByText(
         "$1,000+ in Pat Summitt leadership programs — included with your membership"

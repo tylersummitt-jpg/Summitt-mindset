@@ -294,6 +294,13 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     const hopEnd = consumerCopy.indexOf(") : isAcquisitionSignUp ?");
     const checkoutHopCopy = consumerCopy.slice(hopStart, hopEnd);
     expect(checkoutHopCopy).toContain("Choose your plan");
+    expect(checkoutHopCopy).toContain("Founding Member Bonus:");
+    expect(checkoutHopCopy).toContain(
+      "$1,000+ in Pat Summitt leadership videos included at no additional cost"
+    );
+    expect(checkoutHopCopy.indexOf("then $249/year")).toBeLessThan(
+      checkoutHopCopy.indexOf("Founding Member Bonus:")
+    );
     expect(checkoutHopCopy).not.toContain("Create your account");
     expect(consumerCopy).toContain("isCheckoutStartHop");
     expect(consumerCopy).toContain(
@@ -348,6 +355,10 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(coachCopy).not.toContain("Membership plan");
     expect(coachCopy).not.toContain("Choose your plan");
     expect(coachCopy).not.toContain("FOUNDING MEMBER BONUS");
+    expect(coachCopy).not.toContain("Founding Member Bonus:");
+    expect(coachCopy).not.toContain(
+      "Pat Summitt leadership videos included at no additional cost"
+    );
 
     const layout = readSrc("src/app/layout.tsx");
     expect(layout).toContain("<ClerkProvider");
