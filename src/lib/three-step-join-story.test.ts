@@ -141,20 +141,26 @@ describe("3-step join story copy alignment", () => {
     expect(src).toContain('if (plan === "monthly")');
     expect(src).toContain('} else if (plan === "annual")');
     expect(src).toContain("trial_period_days: 7");
+    expect(src).toContain("resolveStripeCheckoutReturnOrigin");
     expect(src).toContain("success_url: `${appUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`");
   });
 
-  it("success recovery CTAs say Set Up Coach Pat and still route to post-sign-in", () => {
+  it("success recovery CTAs say Set Up Coach Pat for signed-in completion and Sign In for unsigned recovery", () => {
     const src = readSrc("src/app/subscribe/success/page.tsx");
     expect(src).toContain("Starting your free trial…");
     expect(src).toContain("Still starting your trial");
     expect(src).toContain("Your trial is started. Next: set up Coach Pat.");
     expect(src).toContain("Set Up Coach Pat →");
+    expect(src).toContain("Sign In to Finish Setup");
+    expect(src).toContain("signInUrlPreservingInternalRedirect");
     expect(src).not.toContain("Continue to account");
     expect(src).not.toContain(">Continue →<");
     expect(src).toContain('router.push("/post-sign-in")');
     expect(src).toContain("/api/stripe/confirm-checkout");
     expect(src).toContain("await user.reload()");
+    expect(src).not.toMatch(
+      /if \(isLoaded && !isSignedIn\) \{\s*[\s\S]*router\.push\(/
+    );
   });
 
   it("consumer onboarding layout shows STEP 3 OF 3; coach banner does not", () => {

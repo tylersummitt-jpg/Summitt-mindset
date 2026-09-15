@@ -9,12 +9,17 @@ function readSrc(rel: string): string {
 }
 
 describe("subscribe onboarding recovery slice 1", () => {
-  it("success unsigned recovery encodes success URL including session_id", () => {
+  it("unsigned success preserves checkout context and offers secure Sign In recovery", () => {
     const src = readSrc("src/app/subscribe/success/page.tsx");
-    expect(src).toContain("encodeURIComponent(successReturn)");
+    expect(src).toContain("signInUrlPreservingInternalRedirect");
     expect(src).toContain("`/subscribe/success?session_id=${sessionId}`");
-    expect(src).toContain('sessionId');
-    expect(src).toContain(': "/subscribe/success"');
+    expect(src).toContain('return "/subscribe/success"');
+    expect(src).toContain("Sign In to Finish Setup");
+    expect(src).toContain("Your trial is started.");
+    expect(src).toContain("Sign in to finish setting up Coach Pat.");
+    expect(src).not.toMatch(
+      /if \(isLoaded && !isSignedIn\) \{\s*[\s\S]*router\.push\(/
+    );
     expect(src).not.toContain(
       'router.push("/sign-in?redirect_url=/subscribe/success")'
     );
@@ -25,6 +30,8 @@ describe("subscribe onboarding recovery slice 1", () => {
     expect(src).toContain("Still starting your trial");
     expect(src).toContain("Your trial is started. Next: set up Coach Pat.");
     expect(src).toContain('router.push("/post-sign-in")');
+    expect(src).toContain("res.status === 401");
+    expect(src).toContain("res.status === 403");
   });
 
   it("subscribe keeps native membership redirect before entitled /post-sign-in", () => {

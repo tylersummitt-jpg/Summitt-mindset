@@ -1513,3 +1513,193 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(createSessionMock).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/stripe/create-checkout-session trusted return origin", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    assertDeletionMock.mockResolvedValue({ ok: true });
+    process.env.STRIPE_SECRET_KEY = "sk_test_checkout";
+    process.env.STRIPE_PRICE_ID_MONTHLY = "price_1TtRauHP6uKt4BBoupJRggJ2";
+    process.env.STRIPE_PRICE_ID_ANNUAL = "price_1TtRdEHP6uKt4BBo0Ex8Xw8a";
+    process.env.STRIPE_LEGACY_PRICE_IDS =
+      "price_1SzRiNHP6uKt4BBok7FrpmQY,price_1SZY92HP6uKt4BBo9gP2ZMXb";
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+
+    authMock.mockResolvedValue({ userId: "user_1" });
+    currentUserMock.mockResolvedValue({
+      emailAddresses: [{ emailAddress: "a@example.com" }],
+    });
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    listCustomersMock.mockResolvedValue({ data: [] });
+    listSubsMock.mockResolvedValue({ data: [] });
+    listCheckoutSessionsMock.mockResolvedValue({ data: [], has_more: false });
+    retrieveCheckoutSessionMock.mockReset();
+    appleLookup.data = [];
+    appleLookup.error = null;
+    updateClerkPublicMetadataMock.mockResolvedValue(undefined);
+    persistMetaMock.mockResolvedValue(undefined);
+    updateCustomerMock.mockResolvedValue({});
+    createCustomerMock.mockResolvedValue({ id: "cus_created" });
+    createSessionMock.mockResolvedValue({
+      id: "cs_new",
+      status: "open",
+      url: "https://checkout.stripe.test/session",
+      customer: "cus_1",
+    });
+  });
+
+  async function createWith(
+    url: string,
+    headers: Record<string, string> | undefined,
+    body: Record<string, unknown>
+  ) {
+    const { POST } = await import("./route");
+    return POST(
+      new Request(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(headers ?? {}),
+        },
+        body: JSON.stringify(body),
+      })
+    );
+  }
+
+  it("apex request → apex success_url and consumer cancel_url", async () => {
+    const res = await createWith(
+      "https://summittmindset.com/api/stripe/create-checkout-session",
+      {
+        "x-forwarded-host": "summittmindset.com",
+        "x-forwarded-proto": "https",
+      },
+      { plan: "monthly" }
+    );
+    expect(res.status).toBe(200);
+    expect(createSessionMock.mock.calls[0][0].success_url).toBe(
+      "https://summittmindset.com/subscribe/success?session_id={CHECKOUT_SESSION_ID}"
+    );
+    expect(createSessionMock.mock.calls[0][0].cancel_url).toBe(
+      "https://summittmindset.com/subscribe?canceled=1"
+    );
+  });
+
+  it("www request → www success_url", async () => {
+    const res = await createWith(
+      "https://www.summittmindset.com/api/stripe/create-checkout-session",
+      {
+        "x-forwarded-host": "www.summittmindset.com",
+        "x-forwarded-proto": "https",
+      },
+      { plan: "annual" }
+    );
+    expect(res.status).toBe(200);
+    expect(createSessionMock.mock.calls[0][0].success_url).toBe(
+      "https://www.summittmindset.com/subscribe/success?session_id={CHECKOUT_SESSION_ID}"
+    );
+    expect(createSessionMock.mock.calls[0][0].cancel_url).toBe(
+      "https://www.summittmindset.com/subscribe?canceled=1"
+    );
+    expect(createSessionMock.mock.calls[0][0].line_items).toEqual([
+      { price: "price_1TtRdEHP6uKt4BBo0Ex8Xw8a", quantity: 1 },
+    ]);
+  });
+
+  it("localhost dev request → localhost:3000 return URLs", async () => {
+    const res = await createWith(
+      "http://localhost:3000/api/stripe/create-checkout-session",
+      {
+        "x-forwarded-host": "localhost:3000",
+        "x-forwarded-proto": "http",
+      },
+      { plan: "monthly" }
+    );
+    expect(res.status).toBe(200);
+    expect(createSessionMock.mock.calls[0][0].success_url).toBe(
+      "http://localhost:3000/subscribe/success?session_id={CHECKOUT_SESSION_ID}"
+    );
+    expect(createSessionMock.mock.calls[0][0].cancel_url).toBe(
+      "http://localhost:3000/subscribe?canceled=1"
+    );
+  });
+
+  it("spoofed evil x-forwarded-host never reaches Stripe URLs", async () => {
+    const res = await createWith(
+      "http://localhost:3000/api/stripe/create-checkout-session",
+      {
+        "x-forwarded-host": "evil.example",
+        "x-forwarded-proto": "https",
+      },
+      { plan: "monthly" }
+    );
+    expect(res.status).toBe(200);
+    const arg = createSessionMock.mock.calls[0][0];
+    expect(JSON.stringify(arg)).not.toContain("evil.example");
+    expect(arg.success_url).toBe(
+      "http://localhost:3000/subscribe/success?session_id={CHECKOUT_SESSION_ID}"
+    );
+  });
+
+  it("spoofed evil Origin never reaches Stripe URLs", async () => {
+    const res = await createWith(
+      "http://localhost:3000/api/stripe/create-checkout-session",
+      { origin: "https://evil.example" },
+      { plan: "monthly" }
+    );
+    expect(res.status).toBe(200);
+    const arg = createSessionMock.mock.calls[0][0];
+    expect(JSON.stringify(arg)).not.toContain("evil.example");
+    expect(arg.success_url).toBe(
+      "http://localhost:3000/subscribe/success?session_id={CHECKOUT_SESSION_ID}"
+    );
+  });
+
+  it("invalid forwarded host safely falls back to allowlisted env", async () => {
+    const res = await createWith(
+      "http://localhost/api/stripe/create-checkout-session",
+      {
+        "x-forwarded-host": "www.summittmindset.com,evil.example",
+        "x-forwarded-proto": "https",
+      },
+      { plan: "monthly" }
+    );
+    expect(res.status).toBe(200);
+    const arg = createSessionMock.mock.calls[0][0];
+    expect(JSON.stringify(arg)).not.toContain("evil.example");
+    expect(arg.success_url).toBe(
+      "http://localhost:3000/subscribe/success?session_id={CHECKOUT_SESSION_ID}"
+    );
+  });
+
+  it("coach cancel_url preserves src=coach on the trusted origin", async () => {
+    const res = await createWith(
+      "https://www.summittmindset.com/api/stripe/create-checkout-session",
+      {
+        "x-forwarded-host": "www.summittmindset.com",
+        "x-forwarded-proto": "https",
+      },
+      { plan: "monthly", src: "coach" }
+    );
+    expect(res.status).toBe(200);
+    const arg = createSessionMock.mock.calls[0][0];
+    expect(arg.cancel_url).toBe(
+      "https://www.summittmindset.com/subscribe?canceled=1&src=coach"
+    );
+    expect(arg.success_url).toBe(
+      "https://www.summittmindset.com/subscribe/success?session_id={CHECKOUT_SESSION_ID}"
+    );
+    expect(arg.metadata).toEqual({
+      userId: "user_1",
+      plan: "monthly",
+      summittAcquisition: "coach",
+    });
+    expect(arg).not.toHaveProperty("custom_text");
+    expect(createSessionMock.mock.calls[0][1]).toEqual({
+      idempotencyKey: "checkout-subscription-v2:user_1:monthly:coach",
+    });
+  });
+});

@@ -39,13 +39,13 @@ import {
   isUsableOpenCheckoutUrl,
   type PendingCheckoutSessionLike,
 } from "@/lib/stripe-pending-checkout-session";
+import { resolveStripeCheckoutReturnOrigin } from "@/lib/stripe-checkout-return-origin";
 
 export const runtime = "nodejs";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const monthlyPriceId = process.env.STRIPE_PRICE_ID_MONTHLY;
 const annualPriceId = process.env.STRIPE_PRICE_ID_ANNUAL;
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 if (!stripeSecretKey) {
   console.warn("Missing STRIPE_SECRET_KEY in env.");
@@ -631,6 +631,7 @@ export async function POST(req: Request) {
       subscriptionMetadata.summittAcquisition = "coach";
     }
 
+    const appUrl = resolveStripeCheckoutReturnOrigin(req);
     const createParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       client_reference_id: userId,
