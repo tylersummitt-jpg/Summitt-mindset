@@ -282,31 +282,34 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignUp).not.toMatch(/display:\s*["']none["']/);
     expect(websiteSignUp).toContain("STEP 1 OF 3");
     expect(websiteSignUp).not.toContain("STEP 1 OF 2");
-    expect(websiteSignUp).toContain("Start your 7-day free trial");
-    expect(websiteSignUp).toContain("Create your account");
+    expect(websiteSignUp).toContain("Choose your plan");
+    expect(websiteSignUp).not.toContain("Start your 7-day free trial");
 
     const consumerGrid = websiteSignUp.indexOf("lg:grid-cols-2");
     const consumerSignUpSlot = websiteSignUp.indexOf("{signUp}", consumerGrid);
     expect(consumerGrid).toBeGreaterThan(-1);
     expect(consumerSignUpSlot).toBeGreaterThan(consumerGrid);
     const consumerCopy = websiteSignUp.slice(consumerGrid, consumerSignUpSlot);
-    expect(consumerCopy).toContain("Start your 7-day free trial");
-    expect(consumerCopy).toContain("isAcquisitionSignUp");
-    expect(consumerCopy).toContain("Create your account");
+    const hopStart = consumerCopy.indexOf("Choose your plan");
+    const hopEnd = consumerCopy.indexOf(") : isAcquisitionSignUp ?");
+    const checkoutHopCopy = consumerCopy.slice(hopStart, hopEnd);
+    expect(checkoutHopCopy).toContain("Choose your plan");
+    expect(checkoutHopCopy).not.toContain("Create your account");
+    expect(consumerCopy).toContain("isCheckoutStartHop");
     expect(consumerCopy).toContain(
       "After you sign up, we&apos;ll send you to the next step for your"
     );
     expect(websiteSignUp).toContain("$29/month");
-    expect(websiteSignUp).toContain("7 days free · then $29/month");
-    expect(websiteSignUp).toContain("7 days free · then $249/year");
+    expect(websiteSignUp).toContain("then $29/month");
+    expect(websiteSignUp).toContain("then $249/year");
+    expect(websiteSignUp).not.toContain("7 days free · then $29/month");
+    expect(websiteSignUp).not.toContain("7 days free · then $249/year");
     expect(websiteSignUp).toContain("Annual — Save $99");
     expect(websiteSignUp).toContain("$0 DUE TODAY");
-    expect(websiteSignUp).toContain(
+    expect(websiteSignUp).not.toContain(
       "Next, you&apos;ll securely start your free trial."
     );
-    expect(websiteSignUp).toContain(
-      "After that, you&apos;ll set up Coach Pat."
-    );
+    expect(websiteSignUp).not.toContain("After that, you&apos;ll set up Coach Pat.");
     expect(websiteSignUp).not.toContain(
       "Next, you&apos;ll securely add a payment method to start your trial."
     );
@@ -343,6 +346,7 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(coachCopy).not.toContain("Annual — Save $99");
     expect(coachCopy).not.toContain("$249");
     expect(coachCopy).not.toContain("Membership plan");
+    expect(coachCopy).not.toContain("Choose your plan");
 
     const layout = readSrc("src/app/layout.tsx");
     expect(layout).toContain("<ClerkProvider");

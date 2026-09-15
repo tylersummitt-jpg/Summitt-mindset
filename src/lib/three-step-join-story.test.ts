@@ -21,21 +21,29 @@ const SMS_LEGAL_CONSENT = `By checking this box, I agree to receive recurring me
               marketing purposes.`;
 
 describe("3-step join story copy alignment", () => {
-  it("consumer signup is STEP 1 OF 3 and points to Coach Pat setup next", () => {
+  it("consumer signup is STEP 1 OF 3 with two plan cards", () => {
     const src = readSrc("src/app/sign-up/[[...sign-up]]/page.tsx");
     const consumerGrid = src.indexOf("lg:grid-cols-2");
     const consumerSignUpSlot = src.indexOf("{signUp}", consumerGrid);
     const consumerCopy = src.slice(consumerGrid, consumerSignUpSlot);
+    const hopStart = consumerCopy.indexOf("Choose your plan");
+    const hopEnd = consumerCopy.indexOf(") : isAcquisitionSignUp ?");
+    const checkoutHopCopy = consumerCopy.slice(hopStart, hopEnd);
 
     expect(consumerCopy).toContain("STEP 1 OF 3");
-    expect(consumerCopy).toContain("Create your account");
-    expect(consumerCopy).toContain("Start your 7-day free trial");
-    expect(consumerCopy).toContain("After that, you&apos;ll set up Coach Pat.");
-    expect(consumerCopy).toContain("Monthly");
-    expect(consumerCopy).toContain("Annual — Save $99");
-    expect(consumerCopy).toContain("7 days free · then $29/month");
-    expect(consumerCopy).toContain("7 days free · then $249/year");
     expect(consumerCopy).toContain("$0 DUE TODAY");
+    expect(consumerCopy).toContain("Choose your plan");
+    expect(checkoutHopCopy).toContain("Monthly");
+    expect(checkoutHopCopy).toContain("Annual — Save $99");
+    expect(checkoutHopCopy).toContain("7 days free");
+    expect(checkoutHopCopy).toContain("then $29/month");
+    expect(checkoutHopCopy).toContain("then $249/year");
+    expect(checkoutHopCopy).not.toContain("Create your account");
+    expect(consumerCopy).not.toContain("Start your 7-day free trial");
+    expect(consumerCopy).not.toContain("7 days free · then $29/month");
+    expect(consumerCopy).not.toContain("7 days free · then $249/year");
+    expect(consumerCopy).not.toContain("Next, you&apos;ll securely start your free trial.");
+    expect(consumerCopy).not.toContain("After that, you&apos;ll set up Coach Pat.");
     expect(consumerCopy).not.toContain("$19.99");
     expect(consumerCopy).not.toContain("$120");
     expect(consumerCopy).not.toContain("STEP 1 OF 2");
@@ -57,6 +65,7 @@ describe("3-step join story copy alignment", () => {
     expect(coachCopy).not.toContain("Annual — Save $99");
     expect(coachCopy).not.toContain("$249");
     expect(coachCopy).not.toContain("$29/month");
+    expect(coachCopy).not.toContain("Choose your plan");
   });
 
   it("checkout-start happy path is STEP 2 OF 3", () => {

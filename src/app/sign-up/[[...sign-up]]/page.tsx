@@ -75,12 +75,12 @@ const websiteSignUpAppearance = {
   },
 };
 
-const planChipBase =
-  "rounded-full px-3 py-1.5 text-xs font-semibold transition sm:text-sm";
-const planChipSelected =
-  "bg-[var(--brand)] text-white shadow-sm shadow-orange-900/25";
-const planChipIdle =
-  "bg-white/10 text-white/85 ring-1 ring-inset ring-white/20 hover:bg-white/15";
+const planCardBase =
+  "flex min-h-[6.5rem] w-full cursor-pointer flex-col items-start justify-center gap-0.5 rounded-xl px-3 py-3.5 text-left transition sm:min-h-[7rem] sm:px-4 sm:py-4";
+const planCardSelected =
+  "bg-[var(--brand)] text-white shadow-md shadow-orange-900/30";
+const planCardIdle =
+  "bg-white/10 text-white ring-1 ring-inset ring-white/30 hover:bg-white/15";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -195,56 +195,69 @@ export default function SignUpPage() {
       ) : (
         <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-2 lg:items-center lg:gap-14">
           <div className="flex min-w-0 flex-col justify-center gap-2 text-center lg:gap-3 lg:text-left">
-            {isAcquisitionSignUp ? (
+            {isCheckoutStartHop ? (
               <>
                 <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
                   STEP 1 OF 3
                 </p>
-                <p className="text-lg font-semibold leading-snug text-white drop-shadow-sm sm:text-xl">
-                  Create your account
-                </p>
-                <p className="text-sm font-semibold leading-snug text-white drop-shadow-sm sm:text-[15px]">
-                  Start your 7-day free trial
-                </p>
-                {isCheckoutStartHop ? (
-                  <div
-                    className="flex flex-wrap items-center justify-center gap-2 lg:justify-start"
-                    role="group"
-                    aria-label="Membership plan"
-                  >
-                    <button
-                      type="button"
-                      aria-pressed={!isAnnualSelected}
-                      onClick={() => selectCheckoutPlan("monthly")}
-                      className={`${planChipBase} ${
-                        isAnnualSelected ? planChipIdle : planChipSelected
-                      }`}
-                    >
-                      Monthly
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={isAnnualSelected}
-                      onClick={() => selectCheckoutPlan("annual")}
-                      className={`${planChipBase} ${
-                        isAnnualSelected ? planChipSelected : planChipIdle
-                      }`}
-                    >
-                      Annual — Save $99
-                    </button>
-                  </div>
-                ) : null}
-                <p className="text-sm leading-snug text-white/90 sm:text-[15px] sm:leading-relaxed">
-                  {isAnnualSelected
-                    ? "7 days free · then $249/year"
-                    : "7 days free · then $29/month"}
-                </p>
                 <p className="text-sm font-bold uppercase tracking-[0.2em] text-white drop-shadow-sm">
                   $0 DUE TODAY
                 </p>
-                <p className="text-sm leading-snug text-white/80 sm:text-[15px] sm:leading-relaxed">
-                  Next, you&apos;ll securely start your free trial.
-                  After that, you&apos;ll set up Coach Pat.
+                <p className="text-sm font-semibold leading-snug text-white drop-shadow-sm sm:text-[15px]">
+                  Choose your plan
+                </p>
+                <div
+                  className="grid w-full grid-cols-2 gap-2.5"
+                  role="group"
+                  aria-label="Choose your plan"
+                >
+                  <button
+                    type="button"
+                    aria-label="Monthly"
+                    aria-pressed={!isAnnualSelected}
+                    onClick={() => selectCheckoutPlan("monthly")}
+                    className={`${planCardBase} ${
+                      isAnnualSelected ? planCardIdle : planCardSelected
+                    }`}
+                  >
+                    <span className="text-sm font-semibold leading-snug sm:text-[15px]">
+                      Monthly
+                    </span>
+                    <span className="text-xs leading-snug opacity-90 sm:text-sm">
+                      7 days free
+                    </span>
+                    <span className="text-xs leading-snug opacity-90 sm:text-sm">
+                      then $29/month
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Annual — Save $99"
+                    aria-pressed={isAnnualSelected}
+                    onClick={() => selectCheckoutPlan("annual")}
+                    className={`${planCardBase} ${
+                      isAnnualSelected ? planCardSelected : planCardIdle
+                    }`}
+                  >
+                    <span className="text-sm font-semibold leading-snug sm:text-[15px]">
+                      Annual — Save $99
+                    </span>
+                    <span className="text-xs leading-snug opacity-90 sm:text-sm">
+                      7 days free
+                    </span>
+                    <span className="text-xs leading-snug opacity-90 sm:text-sm">
+                      then $249/year
+                    </span>
+                  </button>
+                </div>
+              </>
+            ) : isAcquisitionSignUp ? (
+              <>
+                <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
+                  STEP 1 OF 3
+                </p>
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-white drop-shadow-sm">
+                  $0 DUE TODAY
                 </p>
               </>
             ) : (

@@ -45,17 +45,25 @@ describe("consumer sign-up plan selector", () => {
     params = new URLSearchParams(`redirect_url=${CHECKOUT_REDIRECT}`);
   });
 
-  it("defaults to monthly copy, Clerk hop, and selected Monthly chip", () => {
+  it("defaults to monthly card, Clerk hop, and selected Monthly", () => {
     render(<SignUpPage />);
     expect(screen.getByText("STEP 1 OF 3")).toBeTruthy();
-    expect(screen.getByText("7 days free · then $29/month")).toBeTruthy();
     expect(screen.getByText("$0 DUE TODAY")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Monthly" }).getAttribute("aria-pressed")).toBe(
-      "true"
-    );
+    expect(screen.getAllByText("Choose your plan").length).toBeGreaterThan(0);
+    const monthly = screen.getByRole("button", { name: "Monthly" });
+    const annual = screen.getByRole("button", { name: "Annual — Save $99" });
+    expect(monthly.textContent).toContain("7 days free");
+    expect(monthly.textContent).toContain("then $29/month");
+    expect(annual.textContent).toContain("7 days free");
+    expect(annual.textContent).toContain("then $249/year");
+    expect(monthly.getAttribute("aria-pressed")).toBe("true");
+    expect(annual.getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByText("Create your account")).toBeNull();
+    expect(screen.queryByText("Start your 7-day free trial")).toBeNull();
+    expect(screen.queryByText("7 days free · then $29/month")).toBeNull();
     expect(
-      screen.getByRole("button", { name: "Annual — Save $99" }).getAttribute("aria-pressed")
-    ).toBe("false");
+      screen.queryByText(/Next, you'll securely start your free trial/i)
+    ).toBeNull();
     const clerk = screen.getByTestId("clerk-signup");
     expect(clerk.getAttribute("data-force-redirect")).toBe("/checkout/start");
     expect(clerk.getAttribute("data-fallback-redirect")).toBe("/checkout/start");
@@ -66,17 +74,18 @@ describe("consumer sign-up plan selector", () => {
     expect(screen.queryByText("$120")).toBeNull();
   });
 
-  it("annual sibling plan updates copy and Clerk forceRedirectUrl", () => {
+  it("annual sibling plan updates selected card and Clerk forceRedirectUrl", () => {
     params = new URLSearchParams(
       `plan=annual&redirect_url=${CHECKOUT_REDIRECT}`
     );
     render(<SignUpPage />);
-    expect(screen.getByText("7 days free · then $249/year")).toBeTruthy();
-    expect(screen.getByText("Annual — Save $99")).toBeTruthy();
+    const annual = screen.getByRole("button", { name: "Annual — Save $99" });
+    expect(annual.textContent).toContain("then $249/year");
+    expect(annual.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Monthly" }).getAttribute("aria-pressed")).toBe(
+      "false"
+    );
     expect(screen.getByText("$0 DUE TODAY")).toBeTruthy();
-    expect(
-      screen.getByRole("button", { name: "Annual — Save $99" }).getAttribute("aria-pressed")
-    ).toBe("true");
     const clerk = screen.getByTestId("clerk-signup");
     expect(clerk.getAttribute("data-force-redirect")).toBe(
       "/checkout/start?plan=annual"
@@ -94,9 +103,11 @@ describe("consumer sign-up plan selector", () => {
       `plan=yearly&redirect_url=${CHECKOUT_REDIRECT}`
     );
     render(<SignUpPage />);
-    expect(screen.getByText("7 days free · then $29/month")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Monthly" }).getAttribute("aria-pressed")).toBe(
       "true"
+    );
+    expect(screen.getByRole("button", { name: "Monthly" }).textContent).toContain(
+      "then $29/month"
     );
     expect(screen.getByTestId("clerk-signup").getAttribute("data-force-redirect")).toBe(
       "/checkout/start"
