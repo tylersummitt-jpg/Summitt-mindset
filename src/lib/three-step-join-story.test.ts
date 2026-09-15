@@ -31,6 +31,13 @@ describe("3-step join story copy alignment", () => {
     expect(consumerCopy).toContain("Create your account");
     expect(consumerCopy).toContain("Start your 7-day free trial");
     expect(consumerCopy).toContain("After that, you&apos;ll set up Coach Pat.");
+    expect(consumerCopy).toContain("Monthly");
+    expect(consumerCopy).toContain("Annual — Save $99");
+    expect(consumerCopy).toContain("7 days free · then $29/month");
+    expect(consumerCopy).toContain("7 days free · then $249/year");
+    expect(consumerCopy).toContain("$0 DUE TODAY");
+    expect(consumerCopy).not.toContain("$19.99");
+    expect(consumerCopy).not.toContain("$120");
     expect(consumerCopy).not.toContain("STEP 1 OF 2");
     expect(consumerCopy).not.toContain("Identity");
     expect(consumerCopy).not.toContain("onboarding");
@@ -47,6 +54,9 @@ describe("3-step join story copy alignment", () => {
     expect(coachCopy).not.toContain("STEP 1 OF 3");
     expect(coachCopy).not.toContain("STEP 1 OF 2");
     expect(coachCopy).not.toContain("set up Coach Pat");
+    expect(coachCopy).not.toContain("Annual — Save $99");
+    expect(coachCopy).not.toContain("$249");
+    expect(coachCopy).not.toContain("$29/month");
   });
 
   it("checkout-start happy path is STEP 2 OF 3", () => {
@@ -58,6 +68,9 @@ describe("3-step join story copy alignment", () => {
     expect(src).not.toContain("STEP 2 OF 2");
     expect(src).toContain("Checkout didn’t start");
     expect(src).toContain("Try again");
+    expect(src).toContain("$249/year after your 7-day free trial.");
+    expect(src).not.toContain("$19.99");
+    expect(src).not.toContain("$120");
   });
 
   it("consumer subscribe is STEP 2 OF 3 and coach left column stays empty of that copy", () => {
@@ -79,12 +92,17 @@ describe("3-step join story copy alignment", () => {
     expect(panel.slice(coachSteps, monthlyOffer)).toContain("Start your membership");
   });
 
-  it("Stripe consumer monthly custom_text mentions Coach Pat setup; coach and annual do not get it", () => {
+  it("Stripe consumer monthly and annual custom_text mention Coach Pat; coach does not get them", () => {
     const src = readSrc("src/app/api/stripe/create-checkout-session/route.ts");
     expect(src).toContain(
       "**$0 due today.** 7 days free, then $29/month. Cancel anytime. After checkout, you'll set up Coach Pat."
     );
-    expect(src).toContain("plan === \"monthly\" && channel === \"web\"");
+    expect(src).toContain(
+      "**$0 due today.** 7 days free, then $249/year. Cancel anytime. After checkout, you'll set up Coach Pat."
+    );
+    expect(src).toContain('if (channel === "web")');
+    expect(src).toContain('if (plan === "monthly")');
+    expect(src).toContain('} else if (plan === "annual")');
     expect(src).toContain("trial_period_days: 7");
     expect(src).toContain("success_url: `${appUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`");
   });

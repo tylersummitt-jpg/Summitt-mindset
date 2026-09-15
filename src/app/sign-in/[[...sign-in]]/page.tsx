@@ -5,6 +5,11 @@ import { useSearchParams } from "next/navigation";
 import { AuthMarketingShell } from "@/components/auth-marketing-shell";
 import { CoachAttributionSync } from "@/components/coach-attribution-sync";
 import {
+  checkoutPlanFromUnknown,
+  checkoutStartForceRedirectUrl,
+  signUpHrefForCheckoutStart,
+} from "@/lib/checkout-plan";
+import {
   isCoachSubscribeRedirectUrl,
   sanitizeInternalRedirectUrl,
   sanitizeSubscribeRedirectUrl,
@@ -26,15 +31,21 @@ import {
 export default function SignInPage() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams?.get("redirect_url");
+  const isCheckoutStartHop =
+    sanitizeInternalRedirectUrl(redirectUrl) === "/checkout/start";
+  const selectedCheckoutPlan = isCheckoutStartHop
+    ? checkoutPlanFromUnknown(searchParams?.get("plan"))
+    : "monthly";
 
   const safeSubscribeDestination = sanitizeSubscribeRedirectUrl(redirectUrl);
-  const safeCheckoutStartDestination =
-    sanitizeInternalRedirectUrl(redirectUrl) === "/checkout/start"
-      ? "/checkout/start"
-      : null;
+  const safeCheckoutStartDestination = isCheckoutStartHop
+    ? checkoutStartForceRedirectUrl(selectedCheckoutPlan)
+    : null;
 
   const safeAfterSignInUrl =
-    sanitizeInternalRedirectUrl(redirectUrl) ?? "/post-sign-in";
+    safeCheckoutStartDestination ??
+    sanitizeInternalRedirectUrl(redirectUrl) ??
+    "/post-sign-in";
   const safeAfterSignUpUrl =
     safeSubscribeDestination ?? safeCheckoutStartDestination ?? "/onboarding";
 
@@ -48,7 +59,11 @@ export default function SignInPage() {
         fallbackRedirectUrl={safeAfterSignInUrl}
         signUpForceRedirectUrl={safeAfterSignUpUrl}
         signUpFallbackRedirectUrl={safeAfterSignUpUrl}
-        signUpUrl={signUpUrlPreservingInternalRedirect(redirectUrl)}
+        signUpUrl={
+          isCheckoutStartHop
+            ? signUpHrefForCheckoutStart(selectedCheckoutPlan)
+            : signUpUrlPreservingInternalRedirect(redirectUrl)
+        }
       />
     </AuthMarketingShell>
   );

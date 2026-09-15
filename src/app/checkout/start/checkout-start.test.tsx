@@ -47,12 +47,14 @@ describe("/checkout/start hop", () => {
       page.indexOf("return <CheckoutStartClient")
     );
     expect(page).toContain("fail-open");
-    expect(page).toContain(
-      '`/sign-up?redirect_url=${encodeURIComponent("/checkout/start")}`'
-    );
+    expect(page).toContain("signUpHrefForCheckoutStart");
+    expect(page).toContain("checkoutPlanFromSearchValue");
+    expect(page).toContain("return <CheckoutStartClient plan={plan} />");
     expect(page).not.toContain("src=coach");
     expect(page).not.toContain("Pat");
     expect(page).not.toContain("$249");
+    expect(page).not.toContain("$19.99");
+    expect(page).not.toContain("$120");
   });
 
   it("middleware treats /checkout/start as public so unsigned users can reach Sign Up", () => {
@@ -85,6 +87,19 @@ describe("/checkout/start hop", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it("unsigned annual client bounce preserves sibling plan=annual", async () => {
+    userState = { isLoaded: true, isSignedIn: false };
+    render(<CheckoutStartClient plan="annual" />);
+    await waitFor(() => {
+      expect(replace).toHaveBeenCalledWith(
+        `/sign-up?plan=annual&redirect_url=${encodeURIComponent("/checkout/start")}`
+      );
+    });
+    expect(replace.mock.calls[0][0]).not.toContain(
+      encodeURIComponent("/checkout/start?plan=annual")
+    );
+  });
+
   it("signed-in consumer POSTs monthly only and assigns Stripe URL", async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
@@ -109,6 +124,59 @@ describe("/checkout/start hop", () => {
     );
     await waitFor(() => {
       expect(assign).toHaveBeenCalledWith("https://checkout.stripe.test/cs");
+    });
+    expect(screen.queryByText(/\$249\/year after your 7-day free trial/i)).toBeNull();
+  });
+
+  it("signed-in consumer POSTs annual only when plan is literal annual", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: "https://checkout.stripe.test/cs-annual" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { assign },
+    });
+    render(<CheckoutStartClient plan="annual" />);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/stripe/create-checkout-session",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ plan: "annual" }),
+      })
+    );
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith("https://checkout.stripe.test/cs-annual");
+    });
+    expect(screen.getByText("$249/year after your 7-day free trial.")).toBeTruthy();
+    expect(screen.getByText("STEP 2 OF 3")).toBeTruthy();
+    expect(screen.getByText("Start your free trial")).toBeTruthy();
+  });
+
+  it("invalid plan on the hop still POSTs monthly", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: "https://checkout.stripe.test/cs" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { assign },
+    });
+    render(<CheckoutStartClient plan="yearly" />);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/stripe/create-checkout-session",
+        expect.objectContaining({
+          body: JSON.stringify({ plan: "monthly" }),
+        })
+      );
     });
   });
 

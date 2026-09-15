@@ -1,9 +1,15 @@
 "use client";
 
 import { SignUp } from "@clerk/nextjs";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AuthMarketingShell } from "@/components/auth-marketing-shell";
 import { CoachAttributionSync } from "@/components/coach-attribution-sync";
+import {
+  checkoutPlanFromUnknown,
+  checkoutStartForceRedirectUrl,
+  signInHrefForCheckoutStart,
+  signUpHrefForCheckoutStart,
+} from "@/lib/checkout-plan";
 import {
   isCoachSubscribeRedirectUrl,
   sanitizeInternalRedirectUrl,
@@ -69,24 +75,44 @@ const websiteSignUpAppearance = {
   },
 };
 
+const planChipBase =
+  "rounded-full px-3 py-1.5 text-xs font-semibold transition sm:text-sm";
+const planChipSelected =
+  "bg-[var(--brand)] text-white shadow-sm shadow-orange-900/25";
+const planChipIdle =
+  "bg-white/10 text-white/85 ring-1 ring-inset ring-white/20 hover:bg-white/15";
+
 export default function SignUpPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams?.get("redirect_url");
+  const isCheckoutStartHop =
+    sanitizeInternalRedirectUrl(redirectUrl) === "/checkout/start";
+  const selectedCheckoutPlan = isCheckoutStartHop
+    ? checkoutPlanFromUnknown(searchParams?.get("plan"))
+    : "monthly";
+  const isAnnualSelected = selectedCheckoutPlan === "annual";
 
   const safeSubscribeDestination = sanitizeSubscribeRedirectUrl(redirectUrl);
   const isCoachSignUp = isCoachSubscribeRedirectUrl(redirectUrl);
-  const safeCheckoutStartDestination =
-    sanitizeInternalRedirectUrl(redirectUrl) === "/checkout/start"
-      ? "/checkout/start"
-      : null;
+  const safeCheckoutStartDestination = isCheckoutStartHop
+    ? checkoutStartForceRedirectUrl(selectedCheckoutPlan)
+    : null;
 
   const safeAfterSignInUrl =
-    sanitizeInternalRedirectUrl(redirectUrl) ?? "/post-sign-in";
+    safeCheckoutStartDestination ??
+    sanitizeInternalRedirectUrl(redirectUrl) ??
+    "/post-sign-in";
   const safeAfterSignUpUrl =
     safeSubscribeDestination ?? safeCheckoutStartDestination ?? "/onboarding";
   const isAcquisitionSignUp = Boolean(
     safeSubscribeDestination || safeCheckoutStartDestination
   );
+
+  function selectCheckoutPlan(next: "monthly" | "annual") {
+    if (!isCheckoutStartHop) return;
+    router.replace(signUpHrefForCheckoutStart(next), { scroll: false });
+  }
 
   const signUp = (
     <SignUp
@@ -94,7 +120,11 @@ export default function SignUpPage() {
       fallbackRedirectUrl={safeAfterSignUpUrl}
       signInForceRedirectUrl={safeAfterSignInUrl}
       signInFallbackRedirectUrl={safeAfterSignInUrl}
-      signInUrl={signInUrlPreservingInternalRedirect(redirectUrl)}
+      signInUrl={
+        isCheckoutStartHop
+          ? signInHrefForCheckoutStart(selectedCheckoutPlan)
+          : signInUrlPreservingInternalRedirect(redirectUrl)
+      }
       appearance={websiteSignUpAppearance}
     />
   );
@@ -176,8 +206,38 @@ export default function SignUpPage() {
                 <p className="text-sm font-semibold leading-snug text-white drop-shadow-sm sm:text-[15px]">
                   Start your 7-day free trial
                 </p>
+                {isCheckoutStartHop ? (
+                  <div
+                    className="flex flex-wrap items-center justify-center gap-2 lg:justify-start"
+                    role="group"
+                    aria-label="Membership plan"
+                  >
+                    <button
+                      type="button"
+                      aria-pressed={!isAnnualSelected}
+                      onClick={() => selectCheckoutPlan("monthly")}
+                      className={`${planChipBase} ${
+                        isAnnualSelected ? planChipIdle : planChipSelected
+                      }`}
+                    >
+                      Monthly
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={isAnnualSelected}
+                      onClick={() => selectCheckoutPlan("annual")}
+                      className={`${planChipBase} ${
+                        isAnnualSelected ? planChipSelected : planChipIdle
+                      }`}
+                    >
+                      Annual — Save $99
+                    </button>
+                  </div>
+                ) : null}
                 <p className="text-sm leading-snug text-white/90 sm:text-[15px] sm:leading-relaxed">
-                  7 days free · then $29/month
+                  {isAnnualSelected
+                    ? "7 days free · then $249/year"
+                    : "7 days free · then $29/month"}
                 </p>
                 <p className="text-sm font-bold uppercase tracking-[0.2em] text-white drop-shadow-sm">
                   $0 DUE TODAY

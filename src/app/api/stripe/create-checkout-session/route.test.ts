@@ -496,7 +496,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     });
   });
 
-  it("annual Checkout does not include monthly custom_text", async () => {
+  it("annual Checkout includes $0 due today custom_text for consumer web only", async () => {
     getClerkPublicMetadataMock.mockResolvedValue({
       stripeCustomerId: "cus_1",
       summittSubscribed: false,
@@ -510,8 +510,14 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
       })
     );
     expect(res.status).toBe(200);
-    expect(createSessionMock.mock.calls[0][0]).not.toHaveProperty(
-      "custom_text"
+    expect(createSessionMock.mock.calls[0][0].custom_text).toEqual({
+      submit: {
+        message:
+          "**$0 due today.** 7 days free, then $249/year. Cancel anytime. After checkout, you'll set up Coach Pat.",
+      },
+    });
+    expect(createSessionMock.mock.calls[0][0].subscription_data.trial_period_days).toBe(
+      7
     );
   });
 
@@ -535,6 +541,20 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(createArg.line_items).toEqual([
       { price: "price_1TtRdEHP6uKt4BBo0Ex8Xw8a", quantity: 1 },
     ]);
+    expect(createSessionMock.mock.calls[0][0].subscription_data.trial_period_days).toBe(
+      7
+    );
+    expect(createSessionMock.mock.calls[0][0].success_url).toContain(
+      "/subscribe/success?session_id="
+    );
+    expect(createSessionMock.mock.calls[0][0].cancel_url).toBe(
+      "http://localhost:3000/subscribe?canceled=1"
+    );
+    expect(createSessionMock.mock.calls[0][0].client_reference_id).toBe("user_1");
+    expect(createSessionMock.mock.calls[0][0].metadata).toEqual({
+      userId: "user_1",
+      plan: "annual",
+    });
   });
 
   it("rejects non monthly/annual plan without creating a session", async () => {
@@ -967,6 +987,33 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     );
     expect(createSessionMock.mock.calls[0][1]).toEqual({
       idempotencyKey: "checkout-subscription-v2:user_1:monthly:coach",
+    });
+  });
+
+  it("coach annual Checkout does not include consumer custom_text", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "annual", src: "coach" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(createSessionMock.mock.calls[0][0]).not.toHaveProperty(
+      "custom_text"
+    );
+    expect(createSessionMock.mock.calls[0][0].subscription_data.trial_period_days).toBe(
+      7
+    );
+    expect(createSessionMock.mock.calls[0][0].cancel_url).toBe(
+      "http://localhost:3000/subscribe?canceled=1&src=coach"
+    );
+    expect(createSessionMock.mock.calls[0][1]).toEqual({
+      idempotencyKey: "checkout-subscription-v2:user_1:annual:coach",
     });
   });
 

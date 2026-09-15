@@ -259,6 +259,8 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignIn).toContain("forceRedirectUrl={safeAfterSignInUrl}");
     expect(websiteSignIn).toContain("signUpForceRedirectUrl={safeAfterSignUpUrl}");
     expect(websiteSignIn).toContain("signUpUrlPreservingInternalRedirect");
+    expect(websiteSignIn).toContain("signUpHrefForCheckoutStart");
+    expect(websiteSignIn).toContain("checkoutStartForceRedirectUrl");
     expect(websiteSignIn).not.toContain("AppEmailCodeSignIn");
     expect(websiteSignIn).not.toContain("/app/sign-in");
 
@@ -296,6 +298,8 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     );
     expect(websiteSignUp).toContain("$29/month");
     expect(websiteSignUp).toContain("7 days free · then $29/month");
+    expect(websiteSignUp).toContain("7 days free · then $249/year");
+    expect(websiteSignUp).toContain("Annual — Save $99");
     expect(websiteSignUp).toContain("$0 DUE TODAY");
     expect(websiteSignUp).toContain(
       "Next, you&apos;ll securely start your free trial."
@@ -312,9 +316,12 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignUp).toContain(
       'safeSubscribeDestination ?? safeCheckoutStartDestination ?? "/onboarding"'
     );
+    expect(websiteSignUp).toContain("checkoutStartForceRedirectUrl");
+    expect(websiteSignUp).toContain("signInHrefForCheckoutStart");
     expect(websiteSignUp).not.toContain("You won&apos;t be charged today");
     expect(websiteSignUp).not.toContain("7 days free, then $29/month");
-    expect(websiteSignUp).not.toContain("$249");
+    expect(websiteSignUp).not.toContain("$19.99");
+    expect(websiteSignUp).not.toContain("$120");
     expect(websiteSignUp).not.toContain("Daily accountability");
     expect(websiteSignUp).toContain('aria-label="Coach signup steps"');
 
@@ -333,6 +340,9 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(coachCopy).not.toContain("Start your 7-day free trial");
     expect(coachCopy).not.toContain("7 days free");
     expect(coachCopy).not.toContain("payment method");
+    expect(coachCopy).not.toContain("Annual — Save $99");
+    expect(coachCopy).not.toContain("$249");
+    expect(coachCopy).not.toContain("Membership plan");
 
     const layout = readSrc("src/app/layout.tsx");
     expect(layout).toContain("<ClerkProvider");

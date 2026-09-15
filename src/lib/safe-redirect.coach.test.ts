@@ -39,6 +39,7 @@ describe("sanitizeInternalRedirectUrl checkout hop", () => {
 
   it("rejects checkout start query strings", () => {
     expect(sanitizeInternalRedirectUrl("/checkout/start?src=coach")).toBeNull();
+    expect(sanitizeInternalRedirectUrl("/checkout/start?plan=annual")).toBeNull();
   });
 
   it("preserves checkout hop and coach subscribe on auth toggle URLs", () => {

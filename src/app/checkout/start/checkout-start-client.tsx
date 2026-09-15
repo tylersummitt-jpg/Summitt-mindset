@@ -3,11 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import {
+  checkoutPlanFromUnknown,
+  signUpHrefForCheckoutStart,
+} from "@/lib/checkout-plan";
 
 const CHECKOUT_TIMEOUT_MS = 15000;
-const SIGN_UP_HREF = `/sign-up?redirect_url=${encodeURIComponent("/checkout/start")}`;
 
-export default function CheckoutStartClient() {
+export default function CheckoutStartClient({
+  plan,
+}: {
+  plan?: string;
+}) {
+  const checkoutPlan = checkoutPlanFromUnknown(plan);
+  const signUpHref = signUpHrefForCheckoutStart(checkoutPlan);
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
   const startedRef = useRef(false);
@@ -17,7 +26,7 @@ export default function CheckoutStartClient() {
   useEffect(() => {
     if (!isLoaded) return;
     if (!isSignedIn) {
-      router.replace(SIGN_UP_HREF);
+      router.replace(signUpHref);
       return;
     }
     if (startedRef.current) return;
@@ -32,7 +41,7 @@ export default function CheckoutStartClient() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ plan: "monthly" }),
+          body: JSON.stringify({ plan: checkoutPlan }),
           signal: controller.signal,
         });
 
@@ -72,7 +81,7 @@ export default function CheckoutStartClient() {
             return;
           }
           if (res.status === 401) {
-            router.replace(SIGN_UP_HREF);
+            router.replace(signUpHref);
             return;
           }
           setError("We couldn’t start checkout right now. Please try again.");
@@ -97,7 +106,7 @@ export default function CheckoutStartClient() {
         clearTimeout(timeoutId);
       }
     })();
-  }, [isLoaded, isSignedIn, router, retryNonce]);
+  }, [checkoutPlan, isLoaded, isSignedIn, router, retryNonce, signUpHref]);
 
   function handleRetry() {
     startedRef.current = false;
@@ -137,6 +146,11 @@ export default function CheckoutStartClient() {
               $0 due today.
               After checkout, you&apos;ll set up Coach Pat.
             </p>
+            {checkoutPlan === "annual" ? (
+              <p className="text-sm text-[var(--muted)]">
+                $249/year after your 7-day free trial.
+              </p>
+            ) : null}
           </>
         )}
       </div>
