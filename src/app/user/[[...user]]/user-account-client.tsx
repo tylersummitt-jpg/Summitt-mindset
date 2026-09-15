@@ -12,6 +12,7 @@ import type { ReactNode } from "react";
 
 import ManageMembershipButton from "@/components/manage-membership-button";
 import ResumeMembershipButton from "@/components/resume-membership-button";
+import { SUBSCRIBE_AGAIN_HREF } from "@/lib/subscribe-again-eligibility";
 import {
   ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY,
   ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
@@ -90,7 +91,13 @@ function AccountMembershipRows() {
   );
 }
 
-function AccountTopCard({ dangerZone }: { dangerZone?: ReactNode }) {
+function AccountTopCard({
+  dangerZone,
+  showSubscribeAgain,
+}: {
+  dangerZone?: ReactNode;
+  showSubscribeAgain: boolean;
+}) {
   const { user, isLoaded } = useUser();
   const md = user?.publicMetadata as Record<string, unknown> | undefined;
   const isPaused = isLoaded && md?.summittPlan === "paused";
@@ -121,7 +128,16 @@ function AccountTopCard({ dangerZone }: { dangerZone?: ReactNode }) {
           <Link href="/sign-out" className={utSecondaryBtn}>
             Sign out
           </Link>
-          {!isPaused ? (
+          {showSubscribeAgain ? (
+            <Link
+              href={SUBSCRIBE_AGAIN_HREF}
+              className={utSecondaryBtn}
+              data-testid="subscribe-again"
+            >
+              Subscribe Again
+            </Link>
+          ) : null}
+          {!isPaused && !showSubscribeAgain ? (
             <div className="w-full sm:w-auto [&>div]:w-full sm:[&>div]:w-auto [&_button]:w-full sm:[&_button]:w-auto [&_button]:border-white/20 [&_button]:bg-transparent [&_button]:text-stone-100 [&_button]:hover:bg-white [&_button]:hover:text-gray-900">
               <ManageMembershipButton />
             </div>
@@ -143,8 +159,10 @@ function AccountTopCard({ dangerZone }: { dangerZone?: ReactNode }) {
 
 export default function UserAccountClient({
   dangerZone,
+  showSubscribeAgain = false,
 }: {
   dangerZone?: ReactNode;
+  showSubscribeAgain?: boolean;
 }) {
   return (
     <>
@@ -155,7 +173,10 @@ export default function UserAccountClient({
               <h1 className={utPageTitle}>Account</h1>
             </header>
 
-            <AccountTopCard dangerZone={dangerZone} />
+            <AccountTopCard
+              dangerZone={dangerZone}
+              showSubscribeAgain={showSubscribeAgain}
+            />
 
             <div className="w-full space-y-2">
               <p className={utClerkSectionLabel}>Profile & security</p>

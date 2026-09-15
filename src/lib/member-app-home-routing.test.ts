@@ -213,7 +213,9 @@ describe("member app home routing (Package 5)", () => {
   });
 
   it("Account surfaces static Text Messages compliance, not preferences block", () => {
-    const user = readSrc("src/app/user/[[...user]]/page.tsx");
+    const user =
+      readSrc("src/app/user/[[...user]]/page.tsx") +
+      readSrc("src/app/user/[[...user]]/user-account-client.tsx");
     expect(user).toContain("Text Messages");
     expect(user).toContain("Text STOP to stop text messages");
     expect(user).toContain("Text START to resume text messages");

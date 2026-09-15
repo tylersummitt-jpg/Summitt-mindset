@@ -21,8 +21,10 @@ describe("paused membership UX wiring (source)", () => {
     expect(page).toContain(
       "Your membership is paused. Resume to continue on your existing plan."
     );
-    expect(page).toContain("!isPaused ? (");
+    expect(page).toContain("!isPaused && !showSubscribeAgain ? (");
     expect(page).toContain("ManageMembershipButton");
+    expect(page).toContain("ResumeMembershipButton");
+    expect(page).not.toContain("showSubscribeAgain && isPaused");
   });
 
   it("subscribe shows resume panel for paused and Phase 2 public prices", () => {
