@@ -1,9 +1,17 @@
 import "server-only";
 
+import Stripe from "stripe";
+
 import {
+  clerkStripeSubscriptionId,
   formatSubscriptionLabel,
   formatTextStatusLabel,
   isCurrentSubscribedMember,
+  latestGrantingAppleCreatedAtIso,
+  orderAndPaginateSubscribedCustomers,
+  subscribedAtMsForCustomer,
+  type AppleGrantCreatedAtRow,
+  type StripeSubscriptionTime,
 } from "@/lib/admin-customers-dashboard-pure";
 import { listClerkUsers, type ClerkUserResponse } from "@/lib/clerk-rest";
 import { resolvePreferredName } from "@/lib/resolve-preferred-name";
@@ -14,13 +22,21 @@ import { supabaseServer } from "@/lib/supabase-server";
 import type { V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
 
 export {
+  clerkStripeSubscriptionId,
   formatSubscriptionLabel,
   formatTextStatusLabel,
   isCurrentSubscribedMember,
+  latestGrantingAppleCreatedAtIso,
   normalizeAdminCustomerNotesPatch,
+  orderAndPaginateSubscribedCustomers,
   resolveQuotesBookSentAtPatch,
+  subscribedAtMs,
+  subscribedAtMsForCustomer,
 } from "@/lib/admin-customers-dashboard-pure";
 export type { AdminCustomerNotesPatch } from "@/lib/admin-customers-dashboard-pure";
+
+const STRIPE_RETRIEVE_CHUNK = 10;
+const APPLE_IN_CHUNK = 100;
 
 export const ADMIN_CUSTOMERS_PAGE_SIZE = 50;
 export const CLERK_LIST_BATCH_SIZE = 200;
@@ -72,21 +88,13 @@ function clerkSmsEnabled(metadata: Record<string, unknown> | null | undefined): 
   return metadata?.smsEnabled === true;
 }
 
-export async function listSubscribedClerkUsersPage(args: {
-  page: number;
-  limit: number;
-}): Promise<{ users: ClerkUserResponse[]; hasMore: boolean }> {
-  const page = Math.max(1, Math.floor(args.page));
-  const limit = Math.min(Math.max(1, Math.floor(args.limit)), 100);
-  const skip = (page - 1) * limit;
-  const target = limit + 1;
-
+/** Full currently-subscribed Clerk set. Does not paginate or early-exit. */
+export async function listAllSubscribedClerkUsers(): Promise<ClerkUserResponse[]> {
   const collected: ClerkUserResponse[] = [];
-  let subscribedIndex = 0;
   let clerkOffset = 0;
   let batchesScanned = 0;
 
-  while (collected.length < target && batchesScanned < MAX_CLERK_SCAN_BATCHES) {
+  while (batchesScanned < MAX_CLERK_SCAN_BATCHES) {
     const batch = await listClerkUsers({
       limit: CLERK_LIST_BATCH_SIZE,
       offset: clerkOffset,
@@ -98,23 +106,167 @@ export async function listSubscribedClerkUsersPage(args: {
     for (const user of batch) {
       const md = (user.public_metadata || {}) as Record<string, unknown>;
       if (!isCurrentSubscribedMember(md)) continue;
-
-      if (subscribedIndex < skip) {
-        subscribedIndex += 1;
-        continue;
-      }
-
       collected.push(user);
-      if (collected.length >= target) break;
     }
 
-    if (collected.length >= target) break;
     if (batch.length < CLERK_LIST_BATCH_SIZE) break;
     clerkOffset += CLERK_LIST_BATCH_SIZE;
   }
 
-  const hasMore = collected.length > limit;
-  return { users: collected.slice(0, limit), hasMore };
+  return collected;
+}
+
+async function fetchStripeTimesBySubscriptionId(
+  subscriptionIds: string[]
+): Promise<Map<string, StripeSubscriptionTime>> {
+  const map = new Map<string, StripeSubscriptionTime>();
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of subscriptionIds) {
+    const id = raw.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    unique.push(id);
+  }
+  if (!unique.length) return map;
+
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    console.warn("[admin-customers] missing STRIPE_SECRET_KEY; Stripe timestamps skipped");
+    return map;
+  }
+
+  const stripe = new Stripe(key);
+
+  for (let i = 0; i < unique.length; i += STRIPE_RETRIEVE_CHUNK) {
+    const chunk = unique.slice(i, i + STRIPE_RETRIEVE_CHUNK);
+    const results = await Promise.all(
+      chunk.map(async (id) => {
+        try {
+          const sub = await stripe.subscriptions.retrieve(id);
+          return [
+            id,
+            {
+              startDateUnixSeconds:
+                typeof sub.start_date === "number" ? sub.start_date : null,
+              createdUnixSeconds:
+                typeof sub.created === "number" ? sub.created : null,
+            },
+          ] as const;
+        } catch (err) {
+          console.warn("[admin-customers] stripe retrieve failed", {
+            subscriptionId: id,
+            message: err instanceof Error ? err.message : "unknown_error",
+          });
+          return null;
+        }
+      })
+    );
+    for (const entry of results) {
+      if (entry) map.set(entry[0], entry[1]);
+    }
+  }
+
+  return map;
+}
+
+async function fetchAppleGrantCreatedAtByUserId(
+  clerkUserIds: string[]
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!clerkUserIds.length) return map;
+
+  const now = new Date();
+
+  for (let i = 0; i < clerkUserIds.length; i += APPLE_IN_CHUNK) {
+    const chunk = clerkUserIds.slice(i, i + APPLE_IN_CHUNK);
+    const { data, error } = await supabaseServer
+      .from("apple_subscriptions")
+      .select("clerk_user_id, created_at, product_id, status, expires_at")
+      .in("clerk_user_id", chunk);
+
+    if (error) {
+      console.warn("[admin-customers] apple_subscriptions batch failed", error.message);
+      continue;
+    }
+
+    const byUser = new Map<string, AppleGrantCreatedAtRow[]>();
+    for (const raw of data ?? []) {
+      const clerkUserId =
+        typeof raw.clerk_user_id === "string" ? raw.clerk_user_id : "";
+      if (!clerkUserId) continue;
+      const createdAt =
+        typeof raw.created_at === "string"
+          ? raw.created_at
+          : raw.created_at instanceof Date
+            ? raw.created_at.toISOString()
+            : null;
+      if (typeof raw.product_id !== "string" || typeof raw.status !== "string") {
+        continue;
+      }
+      const row = {
+        product_id: raw.product_id,
+        status: raw.status,
+        expires_at:
+          typeof raw.expires_at === "string"
+            ? raw.expires_at
+            : raw.expires_at instanceof Date
+              ? raw.expires_at
+              : null,
+        created_at: createdAt,
+      };
+      const list = byUser.get(clerkUserId) ?? [];
+      list.push(row);
+      byUser.set(clerkUserId, list);
+    }
+
+    for (const [clerkUserId, rows] of byUser) {
+      const iso = latestGrantingAppleCreatedAtIso(rows, now);
+      if (!iso) continue;
+      const prev = map.get(clerkUserId);
+      if (!prev || Date.parse(iso) > Date.parse(prev)) {
+        map.set(clerkUserId, iso);
+      }
+    }
+  }
+
+  return map;
+}
+
+export async function listSubscribedClerkUsersPage(args: {
+  page: number;
+  limit: number;
+}): Promise<{ users: ClerkUserResponse[]; hasMore: boolean }> {
+  const subscribed = await listAllSubscribedClerkUsers();
+
+  const stripeIds: string[] = [];
+  for (const user of subscribed) {
+    const id = clerkStripeSubscriptionId(
+      (user.public_metadata || {}) as Record<string, unknown>
+    );
+    if (id) stripeIds.push(id);
+  }
+
+  const [stripeTimes, appleCreatedAt] = await Promise.all([
+    fetchStripeTimesBySubscriptionId(stripeIds),
+    fetchAppleGrantCreatedAtByUserId(subscribed.map((u) => u.id)),
+  ]);
+
+  return orderAndPaginateSubscribedCustomers({
+    users: subscribed,
+    page: args.page,
+    limit: args.limit,
+    subscribedAtMsFor: (user) => {
+      const md = (user.public_metadata || {}) as Record<string, unknown>;
+      return subscribedAtMsForCustomer({
+        clerkCreatedAtMs:
+          typeof user.created_at === "number" ? user.created_at : null,
+        stripeSubscriptionId: clerkStripeSubscriptionId(md),
+        stripeTimesBySubscriptionId: stripeTimes,
+        appleGrantCreatedAtIso: appleCreatedAt.get(user.id) ?? null,
+      });
+    },
+  });
 }
 
 async function fetchPreferredNamesByUserId(
