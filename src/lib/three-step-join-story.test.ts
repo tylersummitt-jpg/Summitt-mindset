@@ -66,6 +66,34 @@ describe("3-step join story copy alignment", () => {
     expect(coachCopy).not.toContain("$249");
     expect(coachCopy).not.toContain("$29/month");
     expect(coachCopy).not.toContain("Choose your plan");
+    expect(coachCopy).not.toContain("FOUNDING MEMBER BONUS");
+  });
+
+  it("consumer signup appends Founding Member Bonus after Clerk; coach branch does not include it", () => {
+    const src = readSrc("src/app/sign-up/[[...sign-up]]/page.tsx");
+    const shellClose = src.indexOf("</AuthMarketingShell>");
+    const bonusHeading = src.indexOf("FOUNDING MEMBER BONUS");
+    const bonusHeadline = src.indexOf(
+      "$1,000+ in Pat Summitt leadership programs — included with your membership"
+    );
+    const bonusBody = src.indexOf(
+      "All video content from four Pat Summitt leadership programs, previously sold for over $1,000, is included at no additional cost."
+    );
+    const consumerSignUpSlot = src.lastIndexOf("{signUp}");
+    const coachGate = src.indexOf("{!isCoachSignUp ? (", shellClose - 80);
+
+    expect(shellClose).toBeGreaterThan(-1);
+    expect(bonusHeading).toBeGreaterThan(shellClose);
+    expect(bonusHeadline).toBeGreaterThan(bonusHeading);
+    expect(bonusBody).toBeGreaterThan(bonusHeadline);
+    expect(consumerSignUpSlot).toBeGreaterThan(-1);
+    expect(bonusHeading).toBeGreaterThan(consumerSignUpSlot);
+    expect(src.slice(shellClose, bonusHeading)).toContain("{!isCoachSignUp ? (");
+    expect(src.slice(shellClose, bonusHeading)).toContain(
+      'className="w-full bg-[var(--brand)]"'
+    );
+    expect(coachGate).toBeGreaterThan(shellClose);
+    expect(coachGate).toBeLessThan(bonusHeading);
   });
 
   it("checkout-start happy path is STEP 2 OF 3", () => {

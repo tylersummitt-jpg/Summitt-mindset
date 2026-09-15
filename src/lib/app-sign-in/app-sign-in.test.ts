@@ -347,6 +347,7 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(coachCopy).not.toContain("$249");
     expect(coachCopy).not.toContain("Membership plan");
     expect(coachCopy).not.toContain("Choose your plan");
+    expect(coachCopy).not.toContain("FOUNDING MEMBER BONUS");
 
     const layout = readSrc("src/app/layout.tsx");
     expect(layout).toContain("<ClerkProvider");

@@ -130,153 +130,176 @@ export default function SignUpPage() {
   );
 
   return (
-    <AuthMarketingShell
-      authPage="sign-up"
-      contentClassName={
-        isCoachSignUp ? "w-full max-w-md" : "w-full max-w-md lg:max-w-6xl"
-      }
-    >
-      {isCoachSignUp ? <CoachAttributionSync enabled /> : null}
-      {isCoachSignUp ? (
-        <div className="mx-auto w-full max-w-[min(100%,24rem)] sm:max-w-[25rem]">
-          <div className="mb-6 w-full rounded-xl border border-white/[0.08] bg-black/75 px-3.5 py-3.5 text-white sm:px-4 sm:py-4">
-            <ol
-              className="grid list-none gap-2.5 pt-0.5 sm:gap-3"
-              aria-label="Coach signup steps"
+    <>
+      <AuthMarketingShell
+        authPage="sign-up"
+        contentClassName={
+          isCoachSignUp ? "w-full max-w-md" : "w-full max-w-md lg:max-w-6xl"
+        }
+      >
+        {isCoachSignUp ? <CoachAttributionSync enabled /> : null}
+        {isCoachSignUp ? (
+          <div className="mx-auto w-full max-w-[min(100%,24rem)] sm:max-w-[25rem]">
+            <div className="mb-6 w-full rounded-xl border border-white/[0.08] bg-black/75 px-3.5 py-3.5 text-white sm:px-4 sm:py-4">
+              <ol
+                className="grid list-none gap-2.5 pt-0.5 sm:gap-3"
+                aria-label="Coach signup steps"
+              >
+                <li className="flex gap-3 text-left" aria-current="step">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-sm font-semibold tabular-nums text-white shadow-sm shadow-orange-900/25"
+                    aria-hidden
+                  >
+                    1
+                  </span>
+                  <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-white sm:text-[15px]">
+                    Create your account
+                  </span>
+                </li>
+                <li className="flex gap-3 text-left">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-800/90 text-sm font-semibold tabular-nums text-white/90 ring-1 ring-inset ring-white/10"
+                    aria-hidden
+                  >
+                    2
+                  </span>
+                  <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-white/95 sm:text-[15px]">
+                    Start your membership
+                  </span>
+                </li>
+                <li className="flex gap-3 text-left">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-800/90 text-sm font-semibold tabular-nums text-white/90 ring-1 ring-inset ring-white/10"
+                    aria-hidden
+                  >
+                    3
+                  </span>
+                  <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-white/95 sm:text-[15px]">
+                    Complete onboarding
+                  </span>
+                </li>
+                <li className="flex gap-3 text-left">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-800/90 text-sm font-semibold tabular-nums text-white/90 ring-1 ring-inset ring-white/10"
+                    aria-hidden
+                  >
+                    4
+                  </span>
+                  <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-white/95 sm:text-[15px]">
+                    We reach out to ship your Leadership Kit
+                  </span>
+                </li>
+              </ol>
+            </div>
+            {signUp}
+          </div>
+        ) : (
+          <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-2 lg:items-center lg:gap-14">
+            <div className="flex min-w-0 flex-col justify-center gap-2 text-center lg:gap-3 lg:text-left">
+              {isCheckoutStartHop ? (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
+                    STEP 1 OF 3
+                  </p>
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-white drop-shadow-sm">
+                    $0 DUE TODAY
+                  </p>
+                  <p className="text-sm font-semibold leading-snug text-white drop-shadow-sm sm:text-[15px]">
+                    Choose your plan
+                  </p>
+                  <div
+                    className="grid w-full grid-cols-2 gap-2.5"
+                    role="group"
+                    aria-label="Choose your plan"
+                  >
+                    <button
+                      type="button"
+                      aria-label="Monthly"
+                      aria-pressed={!isAnnualSelected}
+                      onClick={() => selectCheckoutPlan("monthly")}
+                      className={`${planCardBase} ${
+                        isAnnualSelected ? planCardIdle : planCardSelected
+                      }`}
+                    >
+                      <span className="text-sm font-semibold leading-snug sm:text-[15px]">
+                        Monthly
+                      </span>
+                      <span className="text-xs leading-snug opacity-90 sm:text-sm">
+                        7 days free
+                      </span>
+                      <span className="text-xs leading-snug opacity-90 sm:text-sm">
+                        then $29/month
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Annual — Save $99"
+                      aria-pressed={isAnnualSelected}
+                      onClick={() => selectCheckoutPlan("annual")}
+                      className={`${planCardBase} ${
+                        isAnnualSelected ? planCardSelected : planCardIdle
+                      }`}
+                    >
+                      <span className="text-sm font-semibold leading-snug sm:text-[15px]">
+                        Annual — Save $99
+                      </span>
+                      <span className="text-xs leading-snug opacity-90 sm:text-sm">
+                        7 days free
+                      </span>
+                      <span className="text-xs leading-snug opacity-90 sm:text-sm">
+                        then $249/year
+                      </span>
+                    </button>
+                  </div>
+                </>
+              ) : isAcquisitionSignUp ? (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
+                    STEP 1 OF 3
+                  </p>
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-white drop-shadow-sm">
+                    $0 DUE TODAY
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-semibold leading-snug text-white drop-shadow-sm sm:text-xl">
+                    Create your account
+                  </p>
+                  <p className="text-sm leading-snug text-white/80 sm:text-[15px] sm:leading-relaxed">
+                    After you sign up, we&apos;ll send you to the next step for your
+                    account.
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="w-full min-w-0 lg:justify-self-end">
+              <div className="w-full max-w-md lg:ml-auto">{signUp}</div>
+            </div>
+          </div>
+        )}
+      </AuthMarketingShell>
+      {!isCoachSignUp ? (
+        <section
+          className="w-full bg-[var(--brand)]"
+          aria-labelledby="founding-member-bonus-heading"
+        >
+          <div className="mx-auto min-w-0 max-w-3xl px-4 py-10 text-center sm:px-6 sm:py-12 md:py-16">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-white">
+              FOUNDING MEMBER BONUS
+            </p>
+            <h2
+              id="founding-member-bonus-heading"
+              className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl sm:leading-tight md:mt-4 md:text-4xl md:leading-tight"
             >
-              <li className="flex gap-3 text-left" aria-current="step">
-                <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-sm font-semibold tabular-nums text-white shadow-sm shadow-orange-900/25"
-                  aria-hidden
-                >
-                  1
-                </span>
-                <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-white sm:text-[15px]">
-                  Create your account
-                </span>
-              </li>
-              <li className="flex gap-3 text-left">
-                <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-800/90 text-sm font-semibold tabular-nums text-white/90 ring-1 ring-inset ring-white/10"
-                  aria-hidden
-                >
-                  2
-                </span>
-                <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-white/95 sm:text-[15px]">
-                  Start your membership
-                </span>
-              </li>
-              <li className="flex gap-3 text-left">
-                <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-800/90 text-sm font-semibold tabular-nums text-white/90 ring-1 ring-inset ring-white/10"
-                  aria-hidden
-                >
-                  3
-                </span>
-                <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-white/95 sm:text-[15px]">
-                  Complete onboarding
-                </span>
-              </li>
-              <li className="flex gap-3 text-left">
-                <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-800/90 text-sm font-semibold tabular-nums text-white/90 ring-1 ring-inset ring-white/10"
-                  aria-hidden
-                >
-                  4
-                </span>
-                <span className="min-w-0 pt-0.5 text-sm font-semibold leading-snug text-white/95 sm:text-[15px]">
-                  We reach out to ship your Leadership Kit
-                </span>
-              </li>
-            </ol>
+              $1,000+ in Pat Summitt leadership programs — included with your membership
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-white/90 sm:mt-5 sm:text-base">
+              All video content from four Pat Summitt leadership programs, previously sold for over $1,000, is included at no additional cost.
+            </p>
           </div>
-          {signUp}
-        </div>
-      ) : (
-        <div className="grid w-full grid-cols-1 gap-5 lg:grid-cols-2 lg:items-center lg:gap-14">
-          <div className="flex min-w-0 flex-col justify-center gap-2 text-center lg:gap-3 lg:text-left">
-            {isCheckoutStartHop ? (
-              <>
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
-                  STEP 1 OF 3
-                </p>
-                <p className="text-sm font-bold uppercase tracking-[0.2em] text-white drop-shadow-sm">
-                  $0 DUE TODAY
-                </p>
-                <p className="text-sm font-semibold leading-snug text-white drop-shadow-sm sm:text-[15px]">
-                  Choose your plan
-                </p>
-                <div
-                  className="grid w-full grid-cols-2 gap-2.5"
-                  role="group"
-                  aria-label="Choose your plan"
-                >
-                  <button
-                    type="button"
-                    aria-label="Monthly"
-                    aria-pressed={!isAnnualSelected}
-                    onClick={() => selectCheckoutPlan("monthly")}
-                    className={`${planCardBase} ${
-                      isAnnualSelected ? planCardIdle : planCardSelected
-                    }`}
-                  >
-                    <span className="text-sm font-semibold leading-snug sm:text-[15px]">
-                      Monthly
-                    </span>
-                    <span className="text-xs leading-snug opacity-90 sm:text-sm">
-                      7 days free
-                    </span>
-                    <span className="text-xs leading-snug opacity-90 sm:text-sm">
-                      then $29/month
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Annual — Save $99"
-                    aria-pressed={isAnnualSelected}
-                    onClick={() => selectCheckoutPlan("annual")}
-                    className={`${planCardBase} ${
-                      isAnnualSelected ? planCardSelected : planCardIdle
-                    }`}
-                  >
-                    <span className="text-sm font-semibold leading-snug sm:text-[15px]">
-                      Annual — Save $99
-                    </span>
-                    <span className="text-xs leading-snug opacity-90 sm:text-sm">
-                      7 days free
-                    </span>
-                    <span className="text-xs leading-snug opacity-90 sm:text-sm">
-                      then $249/year
-                    </span>
-                  </button>
-                </div>
-              </>
-            ) : isAcquisitionSignUp ? (
-              <>
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
-                  STEP 1 OF 3
-                </p>
-                <p className="text-sm font-bold uppercase tracking-[0.2em] text-white drop-shadow-sm">
-                  $0 DUE TODAY
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-lg font-semibold leading-snug text-white drop-shadow-sm sm:text-xl">
-                  Create your account
-                </p>
-                <p className="text-sm leading-snug text-white/80 sm:text-[15px] sm:leading-relaxed">
-                  After you sign up, we&apos;ll send you to the next step for your
-                  account.
-                </p>
-              </>
-            )}
-          </div>
-          <div className="w-full min-w-0 lg:justify-self-end">
-            <div className="w-full max-w-md lg:ml-auto">{signUp}</div>
-          </div>
-        </div>
-      )}
-    </AuthMarketingShell>
+        </section>
+      ) : null}
+    </>
   );
 }
