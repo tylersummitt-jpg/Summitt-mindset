@@ -25,7 +25,8 @@ export type VictoryProudMomentCardGroup = {
 const toolbarRowClass =
   "flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:gap-6";
 
-const modeToggleClass = `${vrAccentLink} inline-flex min-h-11 items-center`;
+/** Shared Add + Edit/Done chrome. `!` tokens beat global `a { color: inherit; text-decoration: none }`. */
+const toolbarActionClass = `${vrAccentLink} inline-flex min-h-11 items-center !text-amber-300 !underline !decoration-amber-500/50 hover:!text-amber-200 hover:!decoration-amber-400/80`;
 
 type VictoryProudMomentsEditChromeProps = {
   addHref: string;
@@ -56,13 +57,13 @@ export function VictoryProudMomentsEditChrome({
 
   const toolbar = (
     <div className={`${toolbarRowClass} mt-4`}>
-      <Link href={addHref} className={`${vrAccentLink} inline-flex min-h-11 items-center`}>
+      <Link href={addHref} className={toolbarActionClass}>
         {addLabel}
       </Link>
       {showEditToggle ? (
         <button
           type="button"
-          className={modeToggleClass}
+          className={toolbarActionClass}
           aria-pressed={editing}
           onClick={() => setIsEditing((on) => !on)}
         >

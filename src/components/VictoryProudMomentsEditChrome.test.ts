@@ -73,6 +73,18 @@ describe("VictoryProudMomentsEditChrome", () => {
     expect(html).not.toContain("<details");
     expect(html).not.toContain("Remove photo");
     expect(html).not.toContain("/dashboard/victory-room/wins/w1/edit");
+
+    const addClass = html.match(
+      /<a href="\/dashboard\/victory-room\/add-win" class="([^"]+)">\+ Add a Proud Moment<\/a>/
+    )?.[1];
+    const editClass = html.match(
+      /<button type="button" class="([^"]+)" aria-pressed="false">Edit a Proud Moment<\/button>/
+    )?.[1];
+    expect(addClass).toBeTruthy();
+    expect(editClass).toBeTruthy();
+    expect(addClass).toBe(editClass);
+    expect(addClass).toContain("text-amber-300");
+    expect(addClass).toContain("underline");
   });
 
   it("keeps full Done Editing Proud Moments copy in source", () => {
