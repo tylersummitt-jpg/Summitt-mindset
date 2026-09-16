@@ -16,7 +16,13 @@ const BANNED_RELATIONSHIP_IMPORTS = [
   "v3_daily_relationship_lane",
 ];
 
-describe("Phase 4.7 — onboarding SMS transactional exception (static)", () => {
+const REMOVED_WELCOME_COPY = [
+  "So awesome to meet you",
+  "I will text you about your current goal. All you have to do is reply honestly to the check-ins.",
+  "Message frequency varies. Msg & data rates may apply. Reply STOP to opt out. Reply HELP for help.",
+];
+
+describe("Onboarding SMS route — no outbound send (static)", () => {
   it("route source does not reference relationship voice / NS / FVG / refine entrypoints", () => {
     const src = fs.readFileSync(ROUTE_PATH, "utf8");
     for (const needle of BANNED_RELATIONSHIP_IMPORTS) {
@@ -27,35 +33,30 @@ describe("Phase 4.7 — onboarding SMS transactional exception (static)", () => 
     expect(src).not.toMatch(/from\s+["']@\/lib\/v3-sms-voice-ownership["']/);
   });
 
-  it("confirmation body includes frequency, rates, STOP, and HELP language", () => {
+  it("does not send a welcome, confirmation, or replacement onboarding SMS", () => {
     const src = fs.readFileSync(ROUTE_PATH, "utf8");
-    expect(src).toContain("Message frequency varies");
-    expect(src).toContain("Msg & data rates may apply");
-    expect(src).toContain("Reply STOP to opt out");
-    expect(src).toContain("Reply HELP for help");
-    expect(src).toContain(
-      "I will text you about your current goal. All you have to do is reply honestly to the check-ins."
-    );
-    expect(src).not.toContain("your current goal — all you have to do");
+    expect(src).not.toMatch(/\bsendSMS\s*\(/);
+    expect(src).not.toContain("isTwilioReady");
+    expect(src).not.toMatch(/from\s+["']@\/lib\/twilio["']/);
+    for (const needle of REMOVED_WELCOME_COPY) {
+      expect(src).not.toContain(needle);
+    }
+    expect(src).not.toContain("You're all set");
+    expect(src).not.toContain("onboarding_consent_sms_sent");
+    expect(src).not.toContain("buildOnboardingTransactionalSmsDeliverySnapshot");
   });
 
-  it("confirmation body avoids obvious internal coaching route jargon", () => {
+  it("does not write a fake consent-SMS success latch", () => {
     const src = fs.readFileSync(ROUTE_PATH, "utf8");
-    expect(src.toLowerCase()).not.toContain("did the rep happen");
-    expect(src).not.toContain("blocker_captured");
-    expect(src).not.toContain("user_partial");
-    expect(src).not.toMatch(/\bV2\b/);
+    expect(src).not.toContain("onboardingTransactionalConsentLatchFields");
+    expect(src).not.toContain("onboardingTransactionalConsentSmsSentAt");
+    expect(src).not.toContain("onboardingTransactionalConsentSmsPhoneE164");
+    expect(src).not.toContain("shouldSkipOnboardingTransactionalConsentSms");
   });
 
-  it("sendSMS lastOutbound wires transactional kind and deliverySnapshot observability keys", () => {
+  it("does not manually seed sms_last_outbound_context", () => {
     const src = fs.readFileSync(ROUTE_PATH, "utf8");
-    expect(src).toContain('messageKind: "transactional"');
-    expect(src).toContain("deliverySnapshot: buildOnboardingTransactionalSmsDeliverySnapshot()");
-    expect(src).toContain('relationship_lane_bypass_kind: "onboarding_consent_transactional"');
-    expect(src).toContain("transactional_sms: true");
-    expect(src).toContain("v3_relationship_voice_used: false");
-    expect(src).toContain("north_star_used: false");
-    expect(src).toContain("final_voice_gate_used: false");
+    expect(src).not.toContain("sms_last_outbound_context");
   });
 
   it("requires smsDisclosureAccepted when smsEnabled is true", () => {
@@ -74,19 +75,109 @@ describe("Phase 4.7 — onboarding SMS transactional exception (static)", () => 
     expect(src).not.toContain("/api/onboarding/why");
   });
 
-  it("implements onboarding consent SMS dedupe latch via Clerk metadata", () => {
+  it("still persists consent, phone, identity, delivery state, and audience", () => {
     const src = fs.readFileSync(ROUTE_PATH, "utf8");
-    expect(src).toContain("shouldSkipOnboardingTransactionalConsentSms");
-    expect(src).toContain("onboardingTransactionalConsentLatchFields");
-    expect(src).toContain("onboarding_consent_sms_deduped");
-    expect(src).toContain("onboardingConsentSmsDeduped");
-    expect(src).not.toContain("DUPLICATE-SEND RISK");
+    expect(src).toContain("smsEnabled");
+    expect(src).toContain("smsTimePreference");
+    expect(src).toContain("phoneNumber");
+    expect(src).toContain("smsDisclosureAccepted");
+    expect(src).toContain("smsStopHelpDisclosureShownAt");
+    expect(src).toContain("loadOrCreateSmsDeliveryState");
+    expect(src).toContain("sms_identities");
+    expect(src).toContain("syncSmsAudience");
   });
 
   it("does not write v2_commitment_sms_thread_memory or use sms_send_events", () => {
     const src = fs.readFileSync(ROUTE_PATH, "utf8");
     expect(src).not.toContain("v2_commitment_sms_thread_memory");
     expect(src).not.toContain("sms_send_events");
+  });
+
+  it("keeps APP-041B2b second deletion check after identity/phone work", () => {
+    const src = fs.readFileSync(ROUTE_PATH, "utf8");
+    expect(src).toContain("second check after identity/phone work");
+    expect(src).toContain("evaluateOutboundSmsForAccountDeletion");
+    expect(src).toContain("isAccountDeletionOutboundSmsError");
+    const identityUpsertIdx = src.indexOf("stopped_at: null");
+    const deletionCheckIdx = src.indexOf("second check after identity/phone work");
+    const audienceIdx = src.indexOf("await syncSmsAudience");
+    expect(identityUpsertIdx).toBeGreaterThan(-1);
+    expect(deletionCheckIdx).toBeGreaterThan(identityUpsertIdx);
+    expect(audienceIdx).toBeGreaterThan(deletionCheckIdx);
+  });
+
+  it("SMS client still continues to Complete after a successful save", () => {
+    const client = fs.readFileSync(
+      path.join(REPO_ROOT, "src/app/onboarding/sms/sms-client.tsx"),
+      "utf8"
+    );
+    expect(client).toContain('fetch("/api/onboarding/sms"');
+    expect(client).toContain('router.push("/onboarding/complete")');
+  });
+
+  it("Complete still requires SMS consent and still activates onboarding", () => {
+    const complete = fs.readFileSync(
+      path.join(REPO_ROOT, "src/app/api/onboarding/complete/route.ts"),
+      "utf8"
+    );
+    expect(complete).toContain("hasValidSmsConsent");
+    expect(complete).toContain("SMS consent is required before finishing onboarding");
+    expect(complete).toContain("runSobCompleteOnboardingActivation");
+    expect(complete).toContain("onboardingCompleted: true");
+    expect(complete).not.toMatch(/\bsendSMS\s*\(/);
+  });
+
+  it("Morning/Evening/Weekly TTO send paths are unchanged by this slice", () => {
+    const daily = fs.readFileSync(
+      path.join(REPO_ROOT, "src/app/api/cron/daily-sms/route.ts"),
+      "utf8"
+    );
+    const evening = fs.readFileSync(
+      path.join(REPO_ROOT, "src/app/api/cron/evening-sms/route.ts"),
+      "utf8"
+    );
+    const weekly = fs.readFileSync(
+      path.join(REPO_ROOT, "src/app/api/cron/weekly-sms/route.ts"),
+      "utf8"
+    );
+    expect(daily).toContain("[07:00, 09:00)");
+    expect(daily).toMatch(/\bsendSMS\s*\(/);
+    expect(evening).toContain("[19:00, 21:00)");
+    expect(weekly).toContain("weekly-sms is Weekly TTO draft-authoritative");
+    expect(weekly).toContain("sendWeeklyTtoDraftAuthoritative");
+  });
+
+  it("inbound STOP/HELP/START still resolve identity via sms_identities", () => {
+    const inbound = fs.readFileSync(
+      path.join(REPO_ROOT, "src/app/api/twilio/inbound/route.ts"),
+      "utf8"
+    );
+    expect(inbound).toContain("You have been unsubscribed. Reply START to rejoin.");
+    expect(inbound).toContain("HELP_TWIML_BODY");
+    expect(inbound).toContain("START_TWIML_BODY");
+    expect(inbound).toContain("sms_identities");
+  });
+
+  it("inbound Coach can proceed without a prior onboarding last-outbound row", () => {
+    const coach = fs.readFileSync(
+      path.join(REPO_ROOT, "src/app/api/cron/sms-inbound-coach/route.ts"),
+      "utf8"
+    );
+    expect(coach).toContain("sms_last_outbound_context");
+    expect(coach).toContain(".maybeSingle()");
+    expect(coach).toMatch(
+      /typeof lastCtx\?\.full_body === "string" \? lastCtx\.full_body : ""/
+    );
+  });
+
+  it("activation analytics still require check_sent, not onboarding welcome", () => {
+    const activation = fs.readFileSync(
+      path.join(REPO_ROOT, "src/lib/admin-growth-activation.ts"),
+      "utf8"
+    );
+    expect(activation).toContain('.eq("event_type", "check_sent")');
+    expect(activation).not.toContain("onboardingTransactionalConsentSmsSentAt");
+    expect(activation).not.toContain("So awesome to meet you");
   });
 });
 
@@ -121,15 +212,18 @@ vi.mock("@/lib/account-deletion/deletion-guards", async (importOriginal) => {
   };
 });
 
+const loadOrCreateSmsDeliveryStateMock = vi.hoisted(() =>
+  vi.fn(async () => ({ data: {}, error: null }))
+);
 vi.mock("@/lib/sms-daily-delivery-body", () => ({
-  loadOrCreateSmsDeliveryState: vi.fn(async () => ({ data: {}, error: null })),
+  loadOrCreateSmsDeliveryState: (...args: unknown[]) =>
+    loadOrCreateSmsDeliveryStateMock(...args),
 }));
 
-const sendSMSMock = vi.fn();
-const isTwilioReadyMock = vi.fn();
+const sendSMSMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/twilio", () => ({
   sendSMS: (...args: unknown[]) => sendSMSMock(...args),
-  isTwilioReady: () => isTwilioReadyMock(),
+  isTwilioReady: () => true,
 }));
 
 type SupabaseSmsMockOptions = {
@@ -138,6 +232,8 @@ type SupabaseSmsMockOptions = {
   reviewAcknowledgedAt?: string | null;
   intakeMissing?: boolean;
 };
+
+const smsIdentitiesUpsertMock = vi.hoisted(() => vi.fn(async () => ({ error: null })));
 
 function makeSupabaseFrom(options: SupabaseSmsMockOptions = {}) {
   const {
@@ -201,7 +297,7 @@ function makeSupabaseFrom(options: SupabaseSmsMockOptions = {}) {
             maybeSingle: vi.fn(async () => ({ data: null, error: null })),
           }),
         }),
-        upsert: vi.fn(async () => ({ error: null })),
+        upsert: smsIdentitiesUpsertMock,
         update: () => ({
           eq: vi.fn(async () => ({ error: null })),
         }),
@@ -231,7 +327,13 @@ function postOnboardingSms(body: Record<string, unknown>) {
   });
 }
 
-describe("Phase 4.7 — onboarding SMS POST (integration-shaped)", () => {
+const VALID_SMS_BODY = {
+  smsEnabled: true,
+  smsDisclosureAccepted: true,
+  phoneNumber: "5551234567",
+};
+
+describe("Onboarding SMS POST — persist consent, no send", () => {
   beforeEach(async () => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -243,8 +345,9 @@ describe("Phase 4.7 — onboarding SMS POST (integration-shaped)", () => {
       Object.assign(clerkMetadataState.value, fields);
     });
     syncSmsAudienceMock.mockResolvedValue(undefined);
-    sendSMSMock.mockResolvedValue({ sid: "SM_onb_test" });
-    isTwilioReadyMock.mockReturnValue(true);
+    loadOrCreateSmsDeliveryStateMock.mockResolvedValue({ data: {}, error: null });
+    smsIdentitiesUpsertMock.mockResolvedValue({ error: null });
+    sendSMSMock.mockResolvedValue({ sid: "SM_should_not_send" });
     const { evaluateOutboundSmsForAccountDeletion, hasUnresolvedAccountDeletionRequest } =
       await import("@/lib/account-deletion/deletion-guards");
     vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValue({
@@ -253,83 +356,78 @@ describe("Phase 4.7 — onboarding SMS POST (integration-shaped)", () => {
     vi.mocked(hasUnresolvedAccountDeletionRequest).mockResolvedValue(false);
   });
 
-  it("returns 200 without sendSMS when Twilio is not ready (onboarding still succeeds)", async () => {
-    isTwilioReadyMock.mockReturnValue(false);
+  it("returns 200 for valid onboarding SMS setup without sendSMS", async () => {
     const { POST } = await import("./route");
-    const res = await POST(
-      new Request("http://localhost/api/onboarding/sms", {
-        method: "POST",
-        body: JSON.stringify({
-          smsEnabled: true,
-          smsDisclosureAccepted: true,
-          phoneNumber: "5551234567",
-        }),
-        headers: { "Content-Type": "application/json" },
-      })
-    );
+    const res = await POST(postOnboardingSms(VALID_SMS_BODY));
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
     expect(sendSMSMock).not.toHaveBeenCalled();
   });
 
-  it("returns 200 when sendSMS throws (onboarding still succeeds)", async () => {
-    sendSMSMock.mockRejectedValueOnce(new Error("twilio simulated failure"));
+  it("persists phone, smsEnabled, consent, time preference, and disclosure timestamp", async () => {
     const { POST } = await import("./route");
-    const res = await POST(
-      new Request("http://localhost/api/onboarding/sms", {
-        method: "POST",
-        body: JSON.stringify({
-          smsEnabled: true,
-          smsDisclosureAccepted: true,
-          phoneNumber: "5551234567",
-        }),
-        headers: { "Content-Type": "application/json" },
-      })
-    );
+    const res = await POST(postOnboardingSms(VALID_SMS_BODY));
     expect(res.status).toBe(200);
-    expect(sendSMSMock).toHaveBeenCalled();
+
+    const persistCall = updateClerkPublicMetadataMock.mock.calls.find((call) => {
+      const fields = call[1] as Record<string, unknown>;
+      return fields.smsEnabled === true;
+    });
+    expect(persistCall).toBeTruthy();
+    expect(persistCall![1]).toMatchObject({
+      smsEnabled: true,
+      smsTimePreference: "morning",
+      phoneNumber: "+15551234567",
+      smsDisclosureAccepted: true,
+    });
+    const fields = persistCall![1] as Record<string, unknown>;
+    expect(typeof fields.smsStopHelpDisclosureShownAt).toBe("string");
+    expect(String(fields.smsStopHelpDisclosureShownAt).length).toBeGreaterThan(0);
+    expect(fields.onboardingTransactionalConsentSmsSentAt).toBeUndefined();
+    expect(fields.onboardingTransactionalConsentSmsPhoneE164).toBeUndefined();
   });
 
-  it("sendSMS receives transactional deliverySnapshot metadata when Twilio is ready", async () => {
+  it("initializes sms_delivery_state and upserts sms_identities", async () => {
     const { POST } = await import("./route");
-    const res = await POST(
-      new Request("http://localhost/api/onboarding/sms", {
-        method: "POST",
-        body: JSON.stringify({
-          smsEnabled: true,
-          smsDisclosureAccepted: true,
-          phoneNumber: "5551234567",
-        }),
-        headers: { "Content-Type": "application/json" },
-      })
-    );
+    const res = await POST(postOnboardingSms(VALID_SMS_BODY));
     expect(res.status).toBe(200);
-    expect(sendSMSMock).toHaveBeenCalledTimes(1);
-    const arg = sendSMSMock.mock.calls[0]![0] as {
-      lastOutbound?: { messageKind?: string; deliverySnapshot?: Record<string, unknown> };
-    };
-    expect(arg.lastOutbound?.messageKind).toBe("transactional");
-    expect(arg.lastOutbound?.deliverySnapshot?.transactional_sms).toBe(true);
-    expect(arg.lastOutbound?.deliverySnapshot?.relationship_lane_bypass_kind).toBe(
-      "onboarding_consent_transactional"
-    );
-    expect(arg.lastOutbound?.deliverySnapshot?.twilio_send_attempted).toBe(true);
+    expect(loadOrCreateSmsDeliveryStateMock).toHaveBeenCalledWith("user_onb_1");
+    expect(smsIdentitiesUpsertMock).toHaveBeenCalledWith({
+      phone_number: "+15551234567",
+      clerk_user_id: "user_onb_1",
+      sms_enabled: true,
+      stopped_at: null,
+    });
+  });
+
+  it("syncSmsAudience still runs and is not gated on Twilio", async () => {
+    const { POST } = await import("./route");
+    const res = await POST(postOnboardingSms(VALID_SMS_BODY));
+    expect(res.status).toBe(200);
+    expect(syncSmsAudienceMock).toHaveBeenCalledTimes(1);
+    expect(syncSmsAudienceMock).toHaveBeenCalledWith({
+      userId: "user_onb_1",
+      phoneNumber: "+15551234567",
+      smsEnabled: true,
+      timezone: null,
+      smsTimePreference: "morning",
+      summittSubscribed: null,
+    });
   });
 
   it("returns 400 when smsEnabled without smsDisclosureAccepted", async () => {
     const { POST } = await import("./route");
     const res = await POST(
-      new Request("http://localhost/api/onboarding/sms", {
-        method: "POST",
-        body: JSON.stringify({
-          smsEnabled: true,
-          smsDisclosureAccepted: false,
-          phoneNumber: "5551234567",
-        }),
-        headers: { "Content-Type": "application/json" },
+      postOnboardingSms({
+        smsEnabled: true,
+        smsDisclosureAccepted: false,
+        phoneNumber: "5551234567",
       })
     );
     expect(res.status).toBe(400);
     expect(sendSMSMock).not.toHaveBeenCalled();
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(syncSmsAudienceMock).not.toHaveBeenCalled();
   });
 
   it("returns 400 when proposed exists but review_acknowledged_at is null", async () => {
@@ -341,22 +439,13 @@ describe("Phase 4.7 — onboarding SMS POST (integration-shaped)", () => {
       })
     );
     const { POST } = await import("./route");
-    const res = await POST(
-      new Request("http://localhost/api/onboarding/sms", {
-        method: "POST",
-        body: JSON.stringify({
-          smsEnabled: true,
-          smsDisclosureAccepted: true,
-          phoneNumber: "5551234567",
-        }),
-        headers: { "Content-Type": "application/json" },
-      })
-    );
+    const res = await POST(postOnboardingSms(VALID_SMS_BODY));
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toContain("Please review your Identity and Current Goal");
     expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
     expect(sendSMSMock).not.toHaveBeenCalled();
+    expect(syncSmsAudienceMock).not.toHaveBeenCalled();
   });
 
   it("proceeds when proposed exists and review_acknowledged_at is set", async () => {
@@ -368,109 +457,25 @@ describe("Phase 4.7 — onboarding SMS POST (integration-shaped)", () => {
       })
     );
     const { POST } = await import("./route");
-    const res = await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "5551234567",
-      })
-    );
+    const res = await POST(postOnboardingSms(VALID_SMS_BODY));
     expect(res.status).toBe(200);
     expect(updateClerkPublicMetadataMock).toHaveBeenCalled();
-    expect(sendSMSMock).toHaveBeenCalled();
+    expect(syncSmsAudienceMock).toHaveBeenCalledTimes(1);
+    expect(sendSMSMock).not.toHaveBeenCalled();
   });
 
-  it("repeated same normalized phone within 24h does not call sendSMS again", async () => {
+  it("repeated same phone still 200 and never sends", async () => {
     const { POST } = await import("./route");
-    const body = {
-      smsEnabled: true,
-      smsDisclosureAccepted: true,
-      phoneNumber: "5551234567",
-    };
-
-    const res1 = await POST(postOnboardingSms(body));
+    const res1 = await POST(postOnboardingSms(VALID_SMS_BODY));
     expect(res1.status).toBe(200);
-    expect(sendSMSMock).toHaveBeenCalledTimes(1);
-
-    sendSMSMock.mockClear();
-    const res2 = await POST(postOnboardingSms(body));
+    const res2 = await POST(postOnboardingSms(VALID_SMS_BODY));
     expect(res2.status).toBe(200);
-    const json2 = await res2.json();
-    expect(json2.onboardingConsentSmsDeduped).toBe(true);
     expect(sendSMSMock).not.toHaveBeenCalled();
     expect(syncSmsAudienceMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("formatting-only phone difference dedupes to one send", async () => {
-    const { POST } = await import("./route");
-
-    await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "(865) 555-1212",
-      })
-    );
-    expect(sendSMSMock).toHaveBeenCalledTimes(1);
-
-    sendSMSMock.mockClear();
-    const res2 = await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "+18655551212",
-      })
-    );
-    expect(res2.status).toBe(200);
-    expect((await res2.json()).onboardingConsentSmsDeduped).toBe(true);
-    expect(sendSMSMock).not.toHaveBeenCalled();
-  });
-
-  it("genuinely different phone sends again", async () => {
-    const { POST } = await import("./route");
-
-    await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "+18655551212",
-      })
-    );
-    expect(sendSMSMock).toHaveBeenCalledTimes(1);
-
-    sendSMSMock.mockClear();
-    await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "+18655559999",
-      })
-    );
-    expect(sendSMSMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("Twilio failure does not latch; retry with same phone sends again", async () => {
-    sendSMSMock.mockRejectedValueOnce(new Error("twilio simulated failure"));
-    const { POST } = await import("./route");
-    const body = {
-      smsEnabled: true,
-      smsDisclosureAccepted: true,
-      phoneNumber: "5551234567",
-    };
-
-    await POST(postOnboardingSms(body));
-    expect(sendSMSMock).toHaveBeenCalledTimes(1);
     expect(clerkMetadataState.value.onboardingTransactionalConsentSmsSentAt).toBeUndefined();
-
-    sendSMSMock.mockResolvedValue({ sid: "SM_onb_retry" });
-    await POST(postOnboardingSms(body));
-    expect(sendSMSMock).toHaveBeenCalledTimes(2);
-    expect(clerkMetadataState.value.onboardingTransactionalConsentSmsPhoneE164).toBe(
-      "+15551234567"
-    );
   });
 
-  it("APP-041B2b blocked_due_to_deletion → 409, no send, no latch", async () => {
+  it("APP-041B2b blocked_due_to_deletion → 409, no send, no latch, no audience sync", async () => {
     const { evaluateOutboundSmsForAccountDeletion } = await import(
       "@/lib/account-deletion/deletion-guards"
     );
@@ -479,17 +484,12 @@ describe("Phase 4.7 — onboarding SMS POST (integration-shaped)", () => {
       scope: "unresolved",
     });
     const { POST } = await import("./route");
-    const res = await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "5551234567",
-      })
-    );
+    const res = await POST(postOnboardingSms(VALID_SMS_BODY));
     expect(res.status).toBe(409);
     const json = await res.json();
     expect(json.error).toBe("account_deletion_in_progress");
     expect(sendSMSMock).not.toHaveBeenCalled();
+    expect(syncSmsAudienceMock).not.toHaveBeenCalled();
     expect(clerkMetadataState.value.onboardingTransactionalConsentSmsSentAt).toBeUndefined();
   });
 
@@ -501,109 +501,25 @@ describe("Phase 4.7 — onboarding SMS POST (integration-shaped)", () => {
       decision: "lookup_failed",
     });
     const { POST } = await import("./route");
-    const res = await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "5551234567",
-      })
-    );
+    const res = await POST(postOnboardingSms(VALID_SMS_BODY));
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.error).toBe("sms_temporarily_unavailable");
     expect(json.error).not.toBe("account_deletion_in_progress");
     expect(sendSMSMock).not.toHaveBeenCalled();
+    expect(syncSmsAudienceMock).not.toHaveBeenCalled();
     expect(clerkMetadataState.value.onboardingTransactionalConsentSmsSentAt).toBeUndefined();
   });
 
-  it("Twilio not ready first does not latch; second request sends", async () => {
-    isTwilioReadyMock.mockReturnValueOnce(false).mockReturnValue(true);
-    const { POST } = await import("./route");
-    const body = {
-      smsEnabled: true,
-      smsDisclosureAccepted: true,
-      phoneNumber: "5551234567",
-    };
-
-    await POST(postOnboardingSms(body));
-    expect(sendSMSMock).not.toHaveBeenCalled();
-    expect(clerkMetadataState.value.onboardingTransactionalConsentSmsSentAt).toBeUndefined();
-
-    await POST(postOnboardingSms(body));
-    expect(sendSMSMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("old latch outside 24h does not dedupe", async () => {
-    clerkMetadataState.value = {
-      onboardingCompleted: false,
-      onboardingTransactionalConsentSmsSentAt: "2020-01-01T00:00:00.000Z",
-      onboardingTransactionalConsentSmsPhoneE164: "+15551234567",
-    };
-    const { POST } = await import("./route");
-    const res = await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "5551234567",
-      })
-    );
-    expect(res.status).toBe(200);
-    expect(sendSMSMock).toHaveBeenCalledTimes(1);
-    expect((await res.json()).onboardingConsentSmsDeduped).toBeUndefined();
-  });
-
-  it("malformed latch does not dedupe", async () => {
-    clerkMetadataState.value = {
-      onboardingCompleted: false,
-      onboardingTransactionalConsentSmsSentAt: "not-a-date",
-      onboardingTransactionalConsentSmsPhoneE164: "+15551234567",
-    };
-    const { POST } = await import("./route");
-    await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "5551234567",
-      })
-    );
-    expect(sendSMSMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("onboardingCompleted true returns 403 before dedupe", async () => {
+  it("onboardingCompleted true returns 403 before persistence", async () => {
     clerkMetadataState.value = {
       onboardingCompleted: true,
-      onboardingTransactionalConsentSmsSentAt: new Date().toISOString(),
-      onboardingTransactionalConsentSmsPhoneE164: "+15551234567",
     };
     const { POST } = await import("./route");
-    const res = await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "5551234567",
-      })
-    );
+    const res = await POST(postOnboardingSms(VALID_SMS_BODY));
     expect(res.status).toBe(403);
     expect(sendSMSMock).not.toHaveBeenCalled();
-  });
-
-  it("writes latch fields only after successful sendSMS", async () => {
-    const { POST } = await import("./route");
-    await POST(
-      postOnboardingSms({
-        smsEnabled: true,
-        smsDisclosureAccepted: true,
-        phoneNumber: "5551234567",
-      })
-    );
-
-    const latchCalls = updateClerkPublicMetadataMock.mock.calls.filter((call) => {
-      const fields = call[1] as Record<string, unknown>;
-      return fields.onboardingTransactionalConsentSmsSentAt != null;
-    });
-    expect(latchCalls.length).toBe(1);
-    expect(latchCalls[0]![1]).toMatchObject({
-      onboardingTransactionalConsentSmsPhoneE164: "+15551234567",
-    });
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(syncSmsAudienceMock).not.toHaveBeenCalled();
   });
 });

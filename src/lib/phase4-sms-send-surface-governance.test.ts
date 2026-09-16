@@ -29,7 +29,6 @@ export const PRODUCTION_SMS_SEND_CALLER_ALLOWLIST = new Set<string>([
   "src/app/api/cron/weekly-sms/route.ts",
   "src/lib/tyler-text-overview-weekly-send.ts",
   "src/lib/tyler-text-overview-evening-send.ts",
-  "src/app/api/onboarding/sms/route.ts",
   "src/lib/v2-adaptive-contract.ts",
   "src/lib/victory-media/inbound-mms-d2b.ts",
 ]);
@@ -169,16 +168,16 @@ export const SECONDARY_SMS_ROUTE_POLICY = [
   {
     route: "onboarding_sms",
     file: "src/app/api/onboarding/sms/route.ts",
-    classification: "transactional_compliance" as const,
-    canBypassRelationshipLane: true,
+    classification: "deprecated_legacy" as const,
+    canBypassRelationshipLane: false,
     requiresFvg: false,
     requiresFailClosedWhenCoaching: false,
     usesNorthStar: false,
     usesFvg: false,
     normalCoachingPattern:
-      "Phase 4.7: deterministic transactional copy; sendSMS lastOutbound.delivery_snapshot tags onboarding_consent_transactional; no V3/NS/FVG.",
-    notNormalCoachingBypassRisk: "None — relationship lane intentionally not used (file comment).",
-    phase4Action: "accepted_transactional_exception_with_metadata",
+      "Onboarding SMS route stores consent, phone, identity, delivery state, and sms_audience; no sendSMS / NS / FVG.",
+    notNormalCoachingBypassRisk: "N/A — route no longer sends SMS.",
+    phase4Action: "deprecate_outbound_send_keep_consent_config_route",
   },
   {
     route: "guided_contract_shrink_ask",
@@ -356,10 +355,10 @@ describe("Phase 4.1 — secondary FVG normalCoaching policy (fail-closed relatio
     expect(rescue).toContain("resolveUserFullyOnV2ForCutoverMessaging");
   });
 
-  it("onboarding_sms is Phase 4.7 transactional exception (policy matrix + route static)", () => {
+  it("onboarding_sms no longer sends; policy row documents consent-only route", () => {
     const row = SECONDARY_SMS_ROUTE_POLICY.find((r) => r.route === "onboarding_sms");
-    expect(row?.phase4Action).toBe("accepted_transactional_exception_with_metadata");
-    expect(row?.classification).toBe("transactional_compliance");
+    expect(row?.phase4Action).toMatch(/delete|deprecate|migrate/);
+    expect(row?.classification).toBe("deprecated_legacy");
     expect(row?.usesNorthStar).toBe(false);
     expect(row?.usesFvg).toBe(false);
     const onboarding = fs.readFileSync(
@@ -367,7 +366,9 @@ describe("Phase 4.1 — secondary FVG normalCoaching policy (fail-closed relatio
       "utf8"
     );
     expect(onboarding).not.toContain("applyFinalVoiceOwnershipGate");
-    expect(onboarding).toContain("buildOnboardingTransactionalSmsDeliverySnapshot");
+    expect(onboarding).not.toMatch(/\bsendSMS\s*\(/);
+    expect(onboarding).not.toContain("buildOnboardingTransactionalSmsDeliverySnapshot");
+    expect(onboarding).toContain("syncSmsAudience");
   });
 
   it("post-churn-winback is Phase 4.5 deprecated (no send / NS / FVG / signed link)", () => {
@@ -400,12 +401,16 @@ describe("Phase 4.9b — send caller surface authority registry linkage", () => 
     }
   });
 
-  it("onboarding send caller maps to hard_route_deterministic_exception", () => {
+  it("onboarding SMS route is documented as consent/config with no send caller", () => {
     const entries = SMS_SURFACE_AUTHORITY_REGISTRY.filter((e) =>
       e.send_caller_files?.includes("src/app/api/onboarding/sms/route.ts")
     );
-    expect(entries.some((e) => e.id === "hard_onboarding_consent")).toBe(true);
-    expect(entries.every((e) => e.classification !== "active_strategy_card_surface")).toBe(true);
+    expect(entries).toEqual([]);
+    const entry = SMS_SURFACE_AUTHORITY_REGISTRY.find((e) => e.id === "hard_onboarding_consent");
+    expect(entry?.writer_path).toBe("src/app/api/onboarding/sms/route.ts");
+    expect(entry?.visible_sms).toBe(false);
+    expect(entry?.disposition).toBe("never_card");
+    expect(entry?.classification).not.toBe("active_strategy_card_surface");
   });
 
   it("guided shrink maps to app_driven_constrained_exception, not active card", () => {

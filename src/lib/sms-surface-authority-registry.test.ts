@@ -275,10 +275,12 @@ describe("Phase 4.9b — send caller authority coverage", () => {
     }
   });
 
-  it("onboarding consent send caller is hard_route_deterministic_exception", () => {
+  it("onboarding consent surface stores config and does not send SMS", () => {
     const entry = SMS_SURFACE_AUTHORITY_REGISTRY.find((e) => e.id === "hard_onboarding_consent");
     expect(entry?.classification).toBe("hard_route_deterministic_exception");
-    expect(entry?.send_caller_files).toContain("src/app/api/onboarding/sms/route.ts");
+    expect(entry?.visible_sms).toBe(false);
+    expect(entry?.writer_path).toBe("src/app/api/onboarding/sms/route.ts");
+    expect(entry?.send_caller_files ?? []).not.toContain("src/app/api/onboarding/sms/route.ts");
   });
 
   it("guided shrink send caller is app_driven_constrained_exception", () => {

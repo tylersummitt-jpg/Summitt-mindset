@@ -303,17 +303,17 @@ const INTENTIONAL_EXCEPTION_SURFACES: readonly SmsSurfaceAuthorityEntry[] = [
   },
   {
     id: "hard_onboarding_consent",
-    surface_label: "Onboarding / consent templates",
+    surface_label: "Onboarding / consent configuration",
     route_identifiers: ["onboarding_consent", "onboarding_sms"],
     classification: "hard_route_deterministic_exception",
     final_guard_mode: "not_visible",
-    visible_sms: true,
+    visible_sms: false,
     writer_path: "src/app/api/onboarding/sms/route.ts",
     owner: "hard_route",
     disposition: "never_card",
-    reason: "Transactional consent copy; not relationship coaching lane.",
+    reason:
+      "Stores SMS consent, phone, identity, and audience enrollment; no longer emits an outbound SMS.",
     action: "never Strategy Card",
-    send_caller_files: ["src/app/api/onboarding/sms/route.ts"],
   },
   {
     id: "hard_tapback_suppressed",
