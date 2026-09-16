@@ -53,6 +53,28 @@ describe("Victory Room Victory Calendar wiring", () => {
     expect(pageSrc).toContain("calendarState.selectedDay");
     expect(pageSrc).toContain("Promise.resolve([] as PublicWinDto[])");
   });
+
+  it("keeps a single page H1 and subtitle outside the foundation card", () => {
+    const headerMatches = pageSrc.match(/<h1\b/g) ?? [];
+    expect(headerMatches).toHaveLength(1);
+    const h1 = pageSrc.indexOf("<h1");
+    const top = pageSrc.indexOf("<VictoryRoomTopCard");
+    const wins = pageSrc.indexOf("<VictoryRecentProofSection");
+    expect(h1).toBeGreaterThan(-1);
+    expect(top).toBeGreaterThan(h1);
+    expect(wins).toBeGreaterThan(top);
+    expect(pageSrc).toContain(">Victory Room<");
+    expect(pageSrc).toContain("A place to remember who you&apos;re becoming");
+    expect(pageSrc).toContain("saved from your");
+    expect(pageSrc).toContain("real choices.");
+    expect(pageSrc).toContain("mt-1.5 mb-6 max-w-2xl text-sm text-stone-400 sm:mb-8 sm:text-base");
+    const topCard = fs.readFileSync(
+      path.join(process.cwd(), "src/components/VictoryRoomTopCard.tsx"),
+      "utf8"
+    );
+    expect(topCard).not.toContain("<h1");
+    expect(topCard).not.toContain(">Victory Room<");
+  });
 });
 
 describe("Victory Room Proud Moments vocabulary", () => {
@@ -82,7 +104,8 @@ describe("Victory Room Proud Moments vocabulary", () => {
 
   it("keeps Victory Room as the product name in nav and H1", () => {
     expect(read("src/components/Navbar.tsx")).toContain('label: "Victory Room"');
-    expect(read("src/components/VictoryRoomTopCard.tsx")).toContain(">Victory Room<");
+    expect(read("src/app/dashboard/victory-room/page.tsx")).toContain(">Victory Room<");
+    expect(read("src/components/VictoryRoomTopCard.tsx")).not.toContain(">Victory Room<");
     expect(read("src/components/VictoryPatReadSection.tsx")).toContain("What I'm proud of");
   });
 

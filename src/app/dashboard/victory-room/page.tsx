@@ -14,6 +14,7 @@ import {
   vrPageInner,
   vrPageOuter,
   vrSectionCard,
+  vrSectionTitle,
 } from "@/components/victory-room-visual";
 import { loadPatReadForVictoryRoom } from "@/lib/v2-victory-pat-read-persist";
 import { loadPatPrinciplesForVictoryRoom } from "@/lib/v2-victory-principles-persist";
@@ -169,6 +170,13 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
                 </Link>
               </section>
             ) : null}
+
+            <header>
+              <h1 className={vrSectionTitle}>Victory Room</h1>
+              <p className="mt-1.5 mb-6 max-w-2xl text-sm text-stone-400 sm:mb-8 sm:text-base">
+                A place to remember who you&apos;re becoming — saved from your real choices.
+              </p>
+            </header>
 
             {view.commitment ? (
               <VictoryRoomTopCard
