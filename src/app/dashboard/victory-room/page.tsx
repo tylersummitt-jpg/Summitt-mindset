@@ -171,11 +171,8 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
               </section>
             ) : null}
 
-            <header>
+            <header className="mb-5 sm:mb-6">
               <h1 className={vrSectionTitle}>Victory Room</h1>
-              <p className="mt-1.5 mb-6 max-w-2xl text-sm text-stone-400 sm:mb-8 sm:text-base">
-                A place to remember who you&apos;re becoming — saved from your real choices.
-              </p>
             </header>
 
             {view.commitment ? (

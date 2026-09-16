@@ -204,9 +204,9 @@ describe("member app home routing (Package 5)", () => {
     expect(page).not.toContain("Summitt Mindset");
     expect(page).toContain("VictoryRoomTopCard");
     expect(page).toContain("Victory Room");
-    expect(page).toContain("A place to remember who you&apos;re becoming");
-    expect(page).toContain("saved from your");
-    expect(page).toContain("real choices.");
+    expect(page).not.toContain("A place to remember who you&apos;re becoming");
+    expect(page).not.toContain("saved from your");
+    expect(page).not.toContain("real choices.");
     expect(topCard).not.toContain("Victory Room");
     expect(topCard).not.toContain("A place to remember who you&apos;re becoming");
     expect(topCard).not.toContain("calm home for proof");
