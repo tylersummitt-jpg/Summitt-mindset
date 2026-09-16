@@ -1,4 +1,6 @@
 import React from "react";
+import fs from "fs";
+import path from "path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -55,15 +57,29 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toContain("Add a Goal Win");
     expect(html).not.toContain("Add a Win");
     expect(html).toContain('/dashboard/victory-room/add-win"');
-    expect(html).toContain('aria-label="Proud Moment actions"');
-    expect(html).toContain("Edit");
-    expect(html).toContain("Delete");
-    expect(html).toContain("/dashboard/victory-room/wins/w1/edit?from=victory-room");
+    expect(html).toContain("Edit a Proud Moment");
+    expect(html).not.toContain('aria-label="Proud Moment actions"');
+    expect(html).not.toContain(">Edit<");
+    expect(html).not.toContain(">Delete<");
+    expect(html).not.toContain("···");
+    expect(html).not.toContain("<details");
     expect(html).not.toContain("permanently delete");
     expect(html).not.toContain("See all proof");
     expect(html).not.toContain("Kept the goal");
     expect(html).not.toContain("Share");
     expect(html).not.toMatch(/streak|badge|\bXP\b|achievement unlocked|habit tracker|Win detected/i);
+  });
+
+  it("wires bounded edit origin for home cards", () => {
+    const src = fs.readFileSync(
+      path.join(process.cwd(), "src/components/VictoryRecentProofSection.tsx"),
+      "utf8"
+    );
+    expect(src).toContain("buildEditWinHref");
+    expect(src).toContain('kind: "victory-room"');
+    expect(src).toContain("VictoryProudMomentsEditChrome");
+    expect(src).toContain("winId: w.id");
+    expect(src).toContain("expectedUpdatedAt: w.updatedAt");
   });
 
   it("uses Moment Saved for a singular count", () => {
@@ -108,6 +124,7 @@ describe("VictoryRecentProofSection", () => {
     );
     expect(html).toContain("worth remembering");
     expect(html).toContain("+ Add a Proud Moment");
+    expect(html).not.toContain("Edit a Proud Moment");
     expect(html).not.toContain("No Wins yet.");
     expect(html).not.toContain("Recent Proof");
     expect(html).not.toContain("saved");

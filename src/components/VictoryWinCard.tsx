@@ -1,9 +1,11 @@
+"use client";
+
 import { VictoryWinCardActions } from "@/components/VictoryWinCardActions";
 import { VictoryWinMediaImage } from "@/components/VictoryWinMediaImage";
 import { vrMomentCardBase } from "@/components/victory-room-visual";
 import type { PublicWinMediaDto } from "@/lib/v2-win-public-read";
 
-type VictoryWinCardProps = {
+export type VictoryWinCardProps = {
   displayTitle: string;
   displayBody: string;
   dateLabel: string;
@@ -12,16 +14,14 @@ type VictoryWinCardProps = {
   /** Optional signed card photo from server enrichment. */
   media?: PublicWinMediaDto | null;
   /**
-   * When all three are set, shows More menu (Edit + Delete).
-   * Omitted → card has no actions (unchanged visual).
+   * When all three are set AND showEditingControls, shows Edit + Delete.
+   * Omitted or showEditingControls false → card has no actions.
    */
   winId?: string | null;
   editHref?: string | null;
   expectedUpdatedAt?: string | null;
-  /** When true with actions, show Remove photo (caller passes Boolean(w.media)). */
-  hasMedia?: boolean;
-  /** Displayed media id for Remove concurrency (expectedMediaId). */
-  mediaId?: string | null;
+  /** Parent edit-mode flag. Default false — clean viewing card. */
+  showEditingControls?: boolean;
 };
 
 /**
@@ -37,8 +37,7 @@ export function VictoryWinCard({
   winId = null,
   editHref = null,
   expectedUpdatedAt = null,
-  hasMedia = false,
-  mediaId = null,
+  showEditingControls = false,
 }: VictoryWinCardProps) {
   const quiet = celebrationAppropriate === false;
   const border = quiet ? "border-white/12" : "border-amber-500/30";
@@ -61,6 +60,7 @@ export function VictoryWinCard({
   const body = displayBody.trim();
 
   const actionsReady =
+    showEditingControls &&
     Boolean(winId?.trim()) &&
     Boolean(editHref?.trim()) &&
     Boolean(expectedUpdatedAt?.trim());
@@ -110,8 +110,6 @@ export function VictoryWinCard({
           winId={winId!.trim()}
           editHref={editHref!.trim()}
           expectedUpdatedAt={expectedUpdatedAt!.trim()}
-          hasMedia={hasMedia}
-          mediaId={mediaId ?? media?.id ?? null}
         />
       ) : null}
     </article>

@@ -21,7 +21,7 @@ import { VictoryWinCardActions } from "@/components/VictoryWinCardActions";
 import EditWinClient from "@/app/dashboard/victory-room/wins/[winId]/edit/edit-win-client";
 
 describe("Edit Win UI", () => {
-  it("VictoryWinCard shows More menu with Edit+Delete when actions wired", () => {
+  it("VictoryWinCard shows Edit+Delete only when showEditingControls is on", () => {
     const plain = renderToStaticMarkup(
       React.createElement(VictoryWinCard, {
         displayTitle: "Done",
@@ -34,7 +34,7 @@ describe("Edit Win UI", () => {
     expect(plain).not.toContain(">Edit<");
     expect(plain).not.toContain(">Delete<");
 
-    const withActions = renderToStaticMarkup(
+    const wiredButHidden = renderToStaticMarkup(
       React.createElement(VictoryWinCard, {
         displayTitle: "Done",
         displayBody: "Done",
@@ -44,12 +44,28 @@ describe("Edit Win UI", () => {
         editHref: "/dashboard/victory-room/wins/w1/edit?from=victory-room",
       })
     );
-    expect(withActions).toContain('aria-label="Proud Moment actions"');
+    expect(wiredButHidden).not.toContain(">Edit<");
+    expect(wiredButHidden).not.toContain(">Delete<");
+    expect(wiredButHidden).not.toContain("mt-5");
+
+    const withActions = renderToStaticMarkup(
+      React.createElement(VictoryWinCard, {
+        displayTitle: "Done",
+        displayBody: "Done",
+        dateLabel: "Aug 8, 2026",
+        winId: "w1",
+        expectedUpdatedAt: "2026-08-09T12:00:00.000Z",
+        editHref: "/dashboard/victory-room/wins/w1/edit?from=victory-room",
+        showEditingControls: true,
+      })
+    );
     expect(withActions).toContain("Edit");
     expect(withActions).toContain("Delete");
     expect(withActions).toContain("/dashboard/victory-room/wins/w1/edit?from=victory-room");
     expect(withActions).not.toContain("permanently delete");
     expect(withActions).not.toContain("user_deleted");
+    expect(withActions).not.toContain("···");
+    expect(withActions).not.toContain("<details");
   });
 
   it("Edit-only without expectedUpdatedAt stays actionless (safe)", () => {
@@ -79,13 +95,11 @@ describe("Edit Win UI", () => {
     expect(src).toContain("Delete Proud Moment");
     expect(src).toContain("We couldn’t delete this Proud Moment");
     expect(src).toContain("changed since you opened");
-    // Delete Proud Moment copy must not imply permanent/proof deletion; Remove photo may say permanently.
-    expect(src).toContain("This permanently removes the photo");
-    expect(src).toContain("Your Proud Moment stays in Victory Room");
-    const deleteConfirmBlock = src.slice(
-      src.indexOf("Delete this Proud Moment?"),
-      src.indexOf("Remove this photo?")
-    );
+    expect(src).not.toContain("This permanently removes the photo");
+    expect(src).not.toContain("Remove this photo?");
+    expect(src).not.toContain("<details");
+    expect(src).not.toContain("···");
+    const deleteConfirmBlock = src.slice(src.indexOf("Delete this Proud Moment?"));
     expect(deleteConfirmBlock).not.toContain("permanently");
     expect(src).not.toContain("openai");
     // Clip regression: open panel must not use absolute positioning.
@@ -173,8 +187,17 @@ describe("Edit Win UI", () => {
     expect(pageSrc).toContain("editWinOriginHref(origin)");
   });
 
+  it("edit page still owns photo remove/replace", () => {
+    const clientSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/app/dashboard/victory-room/wins/[winId]/edit/edit-win-client.tsx"),
+      "utf8"
+    );
+    expect(clientSrc).toContain("Remove photo");
+    expect(clientSrc).toContain("Replace photo");
+    expect(clientSrc).toContain("/api/victory-media/win/");
+  });
+
   it("confirm UI copy is available from actions component", () => {
-    // Initial render is menu; confirm copy lives in source (stateful).
     const html = renderToStaticMarkup(
       React.createElement(VictoryWinCardActions, {
         winId: "w1",
@@ -182,9 +205,10 @@ describe("Edit Win UI", () => {
         expectedUpdatedAt: "t1",
       })
     );
-    expect(html).toContain("Proud Moment actions");
     expect(html).toContain("Edit");
     expect(html).toContain("Delete");
     expect(html).toContain("min-h-11");
+    expect(html).not.toContain("Proud Moment actions");
+    expect(html).not.toContain("Remove photo");
   });
 });

@@ -52,7 +52,7 @@ describe("VictoryWinCard", () => {
     expect(html).not.toContain("&ldquo;");
   });
 
-  it("omits empty system body while still showing title, date, quote, photo, and menu", () => {
+  it("omits empty system body while still showing title, date, quote, and photo without actions", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryWinCard, {
         displayTitle: "Consistent Weight Lifting",
@@ -69,8 +69,6 @@ describe("VictoryWinCard", () => {
         winId: "win-1",
         editHref: "/dashboard/victory-room/wins/win-1/edit",
         expectedUpdatedAt: "2026-08-01T12:05:00.000Z",
-        hasMedia: true,
-        mediaId: "media-1",
       })
     );
 
@@ -78,7 +76,10 @@ describe("VictoryWinCard", () => {
     expect(html).toContain("Aug 1, 2026");
     expect(html).toContain("I lifted weights again today!");
     expect(html).toContain('src="https://signed.example/card.jpg?token=abc"');
-    expect(html).toContain('aria-label="Proud Moment actions"');
+    expect(html).not.toContain('aria-label="Proud Moment actions"');
+    expect(html).not.toContain(">Edit<");
+    expect(html).not.toContain(">Delete<");
+    expect(html).not.toContain("mt-5");
     const imgIdx = html.indexOf("<img");
     const quoteIdx = html.indexOf("I lifted weights again today!");
     expect(imgIdx).toBeGreaterThan(-1);

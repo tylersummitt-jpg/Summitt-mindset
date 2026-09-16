@@ -46,10 +46,13 @@ describe("VictoryAllProofSection", () => {
     expect(html).not.toContain("Add a Win");
     expect(html).toContain("/dashboard/victory-room/add-win?from=all-wins");
     expect(html).toContain("Showed up");
-    expect(html).toContain('aria-label="Proud Moment actions"');
-    expect(html).toContain("Edit");
-    expect(html).toContain("Delete");
-    expect(html).toContain("/dashboard/victory-room/wins/m1/edit?from=all-wins");
+    expect(html).toContain("Edit a Proud Moment");
+    expect(html).not.toContain('aria-label="Proud Moment actions"');
+    expect(html).not.toContain(">Edit<");
+    expect(html).not.toContain(">Delete<");
+    expect(html).not.toContain("···");
+    expect(html).not.toContain("<details");
+    expect(html).not.toContain("/dashboard/victory-room/wins/m1/edit?from=all-wins");
     expect(html).not.toContain("permanently delete");
     expect(html).not.toContain("Every saved proof moment");
     expect(html).not.toContain("Share");
@@ -117,6 +120,8 @@ describe("VictoryAllProofSection", () => {
       })
     );
     expect(html).toContain("No Proud Moments yet.");
+    expect(html).toContain("Add a Proud Moment");
+    expect(html).not.toContain("Edit a Proud Moment");
     expect(html).toContain(
       "When something real in your life is worth remembering, it will show up here."
     );

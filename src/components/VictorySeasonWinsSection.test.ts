@@ -50,15 +50,21 @@ describe("VictorySeasonWinsSection", () => {
     expect(html).toContain("Done");
     expect(html).toContain("Showed up");
     expect(html).toContain("got it done");
-    expect(html).toContain('aria-label="Proud Moment actions"');
-    expect(html).toContain("Edit");
-    expect(html).toContain("Delete");
-    expect(html).toContain("/dashboard/victory-room/wins/win-manual-1/edit?from=season%3A");
+    expect(html).toContain("Add a Proud Moment");
+    expect(html).toContain("Edit a Proud Moment");
+    expect(html).toContain("Proud Moments from this season");
+    expect(html).not.toContain('aria-label="Proud Moment actions"');
+    expect(html).not.toContain(">Edit<");
+    expect(html).not.toContain(">Delete<");
+    expect(html).not.toContain("···");
+    expect(html).not.toContain("<details");
+    expect(html).toContain("/dashboard/victory-room/add-win?seasonId=");
+    expect(html).not.toContain("/dashboard/victory-room/wins/win-manual-1/edit?from=season%3A");
     expect(html).not.toContain("permanently delete");
     expect(html).not.toMatch(/\bstreak\b|\bscore\b|\bbadge\b|\btrophy\b/i);
   });
 
-  it("omits section entirely when zero Wins", () => {
+  it("shows Add without the Wins shell when zero Wins", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictorySeasonWinsSection, {
         timeZone: "UTC",
@@ -66,8 +72,10 @@ describe("VictorySeasonWinsSection", () => {
         wins: [],
       })
     );
-    expect(html).toBe("");
+    expect(html).toContain("Add a Proud Moment");
+    expect(html).not.toContain("Edit a Proud Moment");
     expect(html).not.toContain("Proud Moments from this season");
-    expect(html).not.toContain("0");
+    expect(html).not.toContain(">Edit<");
+    expect(html).not.toContain(">Delete<");
   });
 });

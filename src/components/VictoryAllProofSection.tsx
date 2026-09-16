@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { VictoryProudMomentsEditChrome } from "@/components/VictoryProudMomentsEditChrome";
 import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
-import { VictoryWinCard } from "@/components/VictoryWinCard";
 import { vrAccentLink, vrEmptyState } from "@/components/victory-room-visual";
 import { formatVictoryRoomDate, formatVictoryRoomMonthYear } from "@/lib/v2-victory-room-view";
 import { buildEditWinHref } from "@/lib/v2-win-edit-origin";
@@ -51,55 +51,41 @@ export function VictoryAllProofSection({
         title="All Proud Moments"
         subtitle="Your archive of real moments — newest first."
       >
-        <p className="mt-4">
-          <Link href="/dashboard/victory-room/add-win?from=all-wins" className={vrAccentLink}>
-            Add a Proud Moment
-          </Link>
-        </p>
-        {wins.length === 0 ? (
-          <p className={vrEmptyState}>
-            No Proud Moments yet. When something real in your life is worth remembering, it will show up
-            here.
-          </p>
-        ) : (
-          <div className="mt-8 space-y-10">
-            {monthGroups.map((group) => (
-              <section key={group.monthLabel} aria-labelledby={`wins-month-${group.monthLabel}`}>
-                <h2
-                  id={`wins-month-${group.monthLabel}`}
-                  className="text-sm font-semibold uppercase tracking-[0.14em] text-stone-400"
-                >
-                  {group.monthLabel}
-                </h2>
-                <ul className="mt-4 space-y-4">
-                  {group.wins.map((w) => (
-                    <li key={w.id}>
-                      <VictoryWinCard
-                        displayTitle={w.displayTitle}
-                        displayBody={w.displayBody}
-                        dateLabel={formatVictoryRoomDate(w.occurredAt, timeZone)}
-                        supportingQuote={w.supportingQuote}
-                        celebrationAppropriate={w.celebrationAppropriate}
-                        media={w.media}
-                        hasMedia={Boolean(w.media)}
-                        winId={w.id}
-                        expectedUpdatedAt={w.updatedAt}
-                        editHref={buildEditWinHref(w.id, { kind: "all-wins" })}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
-            {olderHref ? (
+        <VictoryProudMomentsEditChrome
+          addHref="/dashboard/victory-room/add-win?from=all-wins"
+          addLabel="Add a Proud Moment"
+          groups={monthGroups.map((group) => ({
+            key: group.monthLabel,
+            heading: group.monthLabel,
+            headingId: `wins-month-${group.monthLabel}`,
+            cards: group.wins.map((w) => ({
+              displayTitle: w.displayTitle,
+              displayBody: w.displayBody,
+              dateLabel: formatVictoryRoomDate(w.occurredAt, timeZone),
+              supportingQuote: w.supportingQuote,
+              celebrationAppropriate: w.celebrationAppropriate,
+              media: w.media,
+              winId: w.id,
+              expectedUpdatedAt: w.updatedAt,
+              editHref: buildEditWinHref(w.id, { kind: "all-wins" }),
+            })),
+          }))}
+          emptyState={
+            <p className={vrEmptyState}>
+              No Proud Moments yet. When something real in your life is worth remembering, it will show up
+              here.
+            </p>
+          }
+          footer={
+            olderHref ? (
               <p>
                 <Link href={olderHref} className={vrAccentLink}>
                   View older Proud Moments
                 </Link>
               </p>
-            ) : null}
-          </div>
-        )}
+            ) : null
+          }
+        />
       </VictoryRoomSectionShell>
     </>
   );

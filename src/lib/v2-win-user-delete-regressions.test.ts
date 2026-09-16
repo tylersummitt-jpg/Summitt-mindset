@@ -99,7 +99,7 @@ describe("Delete Win architecture regressions", () => {
     expect(purgeMig).toContain("DELETE FROM public.v2_win WHERE clerk_user_id = v_clerk");
   });
 
-  it("VictoryWinCard wires winId + expectedUpdatedAt + editHref for More menu", () => {
+  it("VictoryWinCard lists wire winId + expectedUpdatedAt + editHref into edit chrome", () => {
     const recent = fs.readFileSync(
       path.join(process.cwd(), "src/components/VictoryRecentProofSection.tsx"),
       "utf8"
@@ -113,9 +113,10 @@ describe("Delete Win architecture regressions", () => {
       "utf8"
     );
     for (const src of [recent, all, season]) {
-      expect(src).toContain("winId={w.id}");
-      expect(src).toContain("expectedUpdatedAt={w.updatedAt}");
-      expect(src).toContain("editHref=");
+      expect(src).toContain("winId: w.id");
+      expect(src).toContain("expectedUpdatedAt: w.updatedAt");
+      expect(src).toContain("editHref:");
+      expect(src).toContain("VictoryProudMomentsEditChrome");
     }
   });
 });

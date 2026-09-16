@@ -5,7 +5,7 @@ import { VictoryWinCard } from "@/components/VictoryWinCard";
 import { vrAccentLink, vrBodyMuted } from "@/components/victory-room-visual";
 import { formatVictoryCalendarDayHeading } from "@/lib/v2-victory-calendar";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
-import { buildCalendarAddWinHref, buildEditWinHref } from "@/lib/v2-win-edit-origin";
+import { buildCalendarAddWinHref } from "@/lib/v2-win-edit-origin";
 import type { PublicWinDto } from "@/lib/v2-win-public-read";
 
 type VictoryCalendarSectionProps = {
@@ -66,14 +66,7 @@ export function VictoryCalendarSection({
                     supportingQuote={w.supportingQuote}
                     celebrationAppropriate={w.celebrationAppropriate}
                     media={w.media}
-                    hasMedia={Boolean(w.media)}
-                    winId={w.id}
-                    expectedUpdatedAt={w.updatedAt}
-                    editHref={buildEditWinHref(w.id, {
-                      kind: "calendar",
-                      month: monthKey,
-                      day: selectedDay,
-                    })}
+                    showEditingControls={false}
                   />
                 </li>
               ))}

@@ -35,10 +35,9 @@ import { VictoryWinCardActions } from "@/components/VictoryWinCardActions";
 import { vrMomentCardBase } from "@/components/victory-room-visual";
 
 const WIN = "550e8400-e29b-41d4-a716-446655440010";
-const MEDIA = "550e8400-e29b-41d4-a716-446655440020";
 
-describe("VictoryWinCardActions in-flow menu (overflow clip regression)", () => {
-  it("menu panel is not absolutely positioned (avoids card overflow-hidden clip)", () => {
+describe("VictoryWinCardActions visible Edit/Delete (no overflow menu)", () => {
+  it("renders Edit link and Delete button in-flow without details/dots/Remove photo", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryWinCardActions, {
         winId: "w1",
@@ -47,55 +46,33 @@ describe("VictoryWinCardActions in-flow menu (overflow clip regression)", () => 
       })
     );
 
-    expect(html).toContain('aria-label="Proud Moment actions"');
     expect(html).toContain(">Edit<");
     expect(html).toContain(">Delete<");
-    expect(html).toContain("<details");
-    expect(html).toContain("<summary");
-
-    // Open panel must stay in normal flow under the trigger.
+    expect(html).toContain("/dashboard/victory-room/wins/w1/edit?from=victory-room");
+    expect(html).toContain("mt-5");
+    expect(html).not.toContain("<details");
+    expect(html).not.toContain("<summary");
+    expect(html).not.toContain("···");
+    expect(html).not.toContain("Remove photo");
+    expect(html).not.toContain("Proud Moment actions");
     expect(html).not.toMatch(/\babsolute\b/);
-    expect(html).not.toMatch(/\bleft-0\b/);
     expect(html).not.toMatch(/\bz-20\b/);
-    expect(html).toContain("mt-2");
-    expect(html).toContain("w-full");
 
     const src = fs.readFileSync(
       path.join(process.cwd(), "src/components/VictoryWinCardActions.tsx"),
       "utf8"
     );
-    expect(src).not.toMatch(/className="[^"]*\babsolute\b/);
-    expect(src).not.toMatch(/className=\{`[^`]*\babsolute\b/);
-    expect(src).toContain("In-flow");
+    expect(src).not.toContain("<details");
+    expect(src).not.toContain("<summary");
+    expect(src).not.toContain("···");
+    expect(src).not.toMatch(/Remove photo/i);
     expect(src).toContain("Delete this Proud Moment?");
-    // No absolute/left-0/z-20 class utilities remain in this file.
-    expect(src).not.toMatch(/\bleft-0\b/);
-    expect(src).not.toMatch(/\bz-20\b/);
+    expect(src).toContain("In-flow");
   });
 
-  it("open details markup keeps Edit/Delete as in-flow children of details", () => {
-    const html = renderToStaticMarkup(
-      React.createElement(VictoryWinCardActions, {
-        winId: "w1",
-        editHref: "/edit",
-        expectedUpdatedAt: "t1",
-      })
-    );
-    // Force-open attribute is not set by default; children still serialize for SSR
-    // and live under <details> so native toggle reveals them in-flow.
-    const detailsIdx = html.indexOf("<details");
-    const menuRoleIdx = html.indexOf('role="menu"');
-    const editIdx = html.indexOf(">Edit<");
-    const deleteIdx = html.indexOf(">Delete<");
-    expect(detailsIdx).toBeGreaterThanOrEqual(0);
-    expect(menuRoleIdx).toBeGreaterThan(detailsIdx);
-    expect(editIdx).toBeGreaterThan(menuRoleIdx);
-    expect(deleteIdx).toBeGreaterThan(editIdx);
-  });
-
-  it("VictoryWinCard keeps overflow-hidden while wiring in-flow actions", () => {
+  it("VictoryWinCard keeps overflow-hidden and hides actions unless showEditingControls", () => {
     expect(vrMomentCardBase).toContain("overflow-hidden");
-    const html = renderToStaticMarkup(
+    const normal = renderToStaticMarkup(
       React.createElement(VictoryWinCard, {
         displayTitle: "Done",
         displayBody: "Done",
@@ -105,16 +82,30 @@ describe("VictoryWinCardActions in-flow menu (overflow clip regression)", () => 
         editHref: "/dashboard/victory-room/wins/w1/edit?from=victory-room",
       })
     );
-    expect(html).toContain("overflow-hidden");
-    expect(html).toContain('aria-label="Proud Moment actions"');
-    expect(html).toContain("Edit");
-    expect(html).toContain("Delete");
-    expect(html).not.toMatch(/\babsolute left-0\b/);
-    expect(html).not.toMatch(/\bz-20\b/);
+    expect(normal).toContain("overflow-hidden");
+    expect(normal).not.toContain(">Edit<");
+    expect(normal).not.toContain(">Delete<");
+    expect(normal).not.toContain("mt-5");
+    expect(normal).not.toContain("···");
+
+    const editing = renderToStaticMarkup(
+      React.createElement(VictoryWinCard, {
+        displayTitle: "Done",
+        displayBody: "Done",
+        dateLabel: "Aug 8, 2026",
+        winId: "w1",
+        expectedUpdatedAt: "t1",
+        editHref: "/dashboard/victory-room/wins/w1/edit?from=victory-room",
+        showEditingControls: true,
+      })
+    );
+    expect(editing).toContain(">Edit<");
+    expect(editing).toContain(">Delete<");
+    expect(editing).toContain("mt-5");
   });
 });
 
-describe("VictoryWinCardActions Remove photo", () => {
+describe("VictoryWinCardActions Delete", () => {
   const fetchMock = vi.fn();
 
   beforeEach(() => {
@@ -128,124 +119,56 @@ describe("VictoryWinCardActions Remove photo", () => {
     vi.unstubAllGlobals();
   });
 
-  function revealMenu() {
-    const details = document.querySelector("details");
-    expect(details).toBeTruthy();
-    details!.open = true;
-  }
-
-  it("1. text-only Win → no Remove photo", () => {
-    const html = renderToStaticMarkup(
-      React.createElement(VictoryWinCardActions, {
-        winId: WIN,
-        editHref: "/edit",
-        expectedUpdatedAt: "t1",
-        hasMedia: false,
-      })
-    );
-    expect(html).toContain(">Edit<");
-    expect(html).toContain(">Delete<");
-    expect(html).not.toContain("Remove photo");
-  });
-
-  it("2. media Win → Remove photo visible", () => {
-    const html = renderToStaticMarkup(
-      React.createElement(VictoryWinCardActions, {
-        winId: WIN,
-        editHref: "/edit",
-        expectedUpdatedAt: "t1",
-        hasMedia: true,
-        mediaId: MEDIA,
-      })
-    );
-    expect(html).toContain("Remove photo");
-    expect(html).toContain(">Edit<");
-    expect(html).toContain(">Delete<");
-  });
-
-  it("3–5. opens separate confirmation with photo/Win-stays copy; Cancel does nothing", async () => {
+  it("opens inline confirmation; Cancel does nothing", async () => {
     const user = userEvent.setup();
     render(
       React.createElement(VictoryWinCardActions, {
         winId: WIN,
         editHref: "/edit",
         expectedUpdatedAt: "t1",
-        hasMedia: true,
-        mediaId: MEDIA,
       })
     );
 
-    revealMenu();
-    await user.click(screen.getByRole("menuitem", { name: "Remove photo" }));
-    expect(screen.getByText("Remove this photo?")).toBeTruthy();
-    expect(
-      screen.getByText(
-        /This permanently removes the photo\. Your Proud Moment stays in Victory Room\. This can’t be undone\./
-      )
-    ).toBeTruthy();
-    expect(screen.queryByText("Delete this Proud Moment?")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByText("Delete this Proud Moment?")).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByText("Remove this photo?")).toBeNull();
-    revealMenu();
-    expect(screen.getByRole("menuitem", { name: "Remove photo" })).toBeTruthy();
+    expect(screen.queryByText("Delete this Proud Moment?")).toBeNull();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
-  it("6–9. confirm DELETE exact route; success removed/already_absent refresh", async () => {
+  it("confirm DELETE uses win route and expected_updated_at; success refreshes", async () => {
     const user = userEvent.setup();
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ ok: true, status: "removed" }),
+      json: async () => ({ ok: true }),
     });
-
     render(
       React.createElement(VictoryWinCardActions, {
         winId: WIN,
-        editHref: "/edit",
+        editHref: `/dashboard/victory-room/wins/${WIN}/edit?from=victory-room`,
         expectedUpdatedAt: "t1",
-        hasMedia: true,
-        mediaId: MEDIA,
       })
     );
-
-    revealMenu();
-    await user.click(screen.getByRole("menuitem", { name: "Remove photo" }));
-    await user.click(screen.getByRole("button", { name: "Remove photo" }));
-
+    expect(
+      screen.getByRole("link", { name: "Edit" }).getAttribute("href")
+    ).toBe(`/dashboard/victory-room/wins/${WIN}/edit?from=victory-room`);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByText("Delete this Proud Moment?")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Delete Proud Moment" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe(`/api/victory-media/win/${WIN}`);
+    expect(url).toBe(`/api/v2/wins/${WIN}`);
     expect(init).toMatchObject({ method: "DELETE", credentials: "include" });
-    expect(JSON.parse(init.body as string)).toEqual({ expectedMediaId: MEDIA });
-    await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
-
-    cleanup();
-    refreshMock.mockClear();
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ ok: true, status: "already_absent" }),
-    });
-    render(
-      React.createElement(VictoryWinCardActions, {
-        winId: WIN,
-        editHref: "/edit",
-        expectedUpdatedAt: "t1",
-        hasMedia: true,
-        mediaId: MEDIA,
-      })
-    );
-    revealMenu();
-    await user.click(screen.getByRole("menuitem", { name: "Remove photo" }));
-    await user.click(screen.getByRole("button", { name: "Remove photo" }));
+    expect(JSON.parse(init.body as string)).toEqual({ expected_updated_at: "t1" });
     await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
   });
 
-  it("10–12. failure keeps confirm; allows retry; busy blocks double Remove", async () => {
+  it("failure keeps confirm; allows retry; busy blocks double submit", async () => {
     const user = userEvent.setup();
     let resolveFetch: (v: unknown) => void = () => {};
     fetchMock.mockImplementation(
@@ -260,20 +183,15 @@ describe("VictoryWinCardActions Remove photo", () => {
         winId: WIN,
         editHref: "/edit",
         expectedUpdatedAt: "t1",
-        hasMedia: true,
-        mediaId: MEDIA,
       })
     );
 
-    revealMenu();
-    await user.click(screen.getByRole("menuitem", { name: "Remove photo" }));
-    const confirmBtn = screen.getByRole("button", { name: "Remove photo" });
-    await user.click(confirmBtn);
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Delete Proud Moment" }));
     expect(
-      (screen.getByRole("button", { name: "Removing…" }) as HTMLButtonElement)
-        .disabled
+      (screen.getByRole("button", { name: "Deleting…" }) as HTMLButtonElement).disabled
     ).toBe(true);
-    await user.click(screen.getByRole("button", { name: "Removing…" }));
+    await user.click(screen.getByRole("button", { name: "Deleting…" }));
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     resolveFetch({
@@ -281,92 +199,40 @@ describe("VictoryWinCardActions Remove photo", () => {
       status: 500,
       json: async () => ({
         ok: false,
-        error: "We couldn’t remove this photo. Please try again.",
-        code: "remove_failed",
+        error: "We couldn’t delete this Proud Moment. Please try again.",
       }),
     });
 
     await waitFor(() =>
-      expect(
-        screen.getByText(/couldn’t remove this photo/i)
-      ).toBeTruthy()
+      expect(screen.getByText(/couldn’t delete this Proud Moment/i)).toBeTruthy()
     );
-    expect(screen.getByText("Remove this photo?")).toBeTruthy();
+    expect(screen.getByText("Delete this Proud Moment?")).toBeTruthy();
     expect(refreshMock).not.toHaveBeenCalled();
 
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ ok: true, status: "removed" }),
+      json: async () => ({ ok: true }),
     });
-    await user.click(screen.getByRole("button", { name: "Remove photo" }));
+    await user.click(screen.getByRole("button", { name: "Delete Proud Moment" }));
     await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
   });
 
-  it("13. Edit/Delete Win unchanged (still present; Delete uses win route)", async () => {
-    const user = userEvent.setup();
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ ok: true }),
-    });
-    render(
-      React.createElement(VictoryWinCardActions, {
-        winId: WIN,
-        editHref: `/dashboard/victory-room/wins/${WIN}/edit?from=victory-room`,
-        expectedUpdatedAt: "t1",
-        hasMedia: true,
-        mediaId: MEDIA,
-      })
-    );
-    revealMenu();
-    expect(
-      screen.getByRole("menuitem", { name: "Edit" }).getAttribute("href")
-    ).toBe(`/dashboard/victory-room/wins/${WIN}/edit?from=victory-room`);
-    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
-    expect(screen.getByText("Delete this Proud Moment?")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Delete Proud Moment" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
-    const [url, init] = fetchMock.mock.calls[0]!;
-    expect(url).toBe(`/api/v2/wins/${WIN}`);
-    expect(init.method).toBe("DELETE");
-  });
-
-  it("14. all three shared surfaces pass hasMedia", () => {
-    for (const file of [
-      "VictoryRecentProofSection.tsx",
-      "VictoryAllProofSection.tsx",
-      "VictorySeasonWinsSection.tsx",
-    ]) {
-      const src = fs.readFileSync(
-        path.join(process.cwd(), "src/components", file),
-        "utf8"
-      );
-      expect(src).toContain("hasMedia={Boolean(w.media)}");
-    }
-    const card = fs.readFileSync(
-      path.join(process.cwd(), "src/components/VictoryWinCard.tsx"),
-      "utf8"
-    );
-    expect(card).toContain("hasMedia={hasMedia}");
-    expect(card).toContain("mediaId={mediaId ?? media?.id ?? null}");
-  });
-
-  it("15. no Replace UI on card menu", () => {
+  it("no Replace or Remove photo UI on card actions", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "src/components/VictoryWinCardActions.tsx"),
       "utf8"
     );
     expect(src).not.toMatch(/Replace/i);
+    expect(src).not.toMatch(/Remove photo/i);
     const html = renderToStaticMarkup(
       React.createElement(VictoryWinCardActions, {
         winId: WIN,
         editHref: "/edit",
         expectedUpdatedAt: "t1",
-        hasMedia: true,
-        mediaId: MEDIA,
       })
     );
     expect(html).not.toMatch(/Replace/i);
+    expect(html).not.toMatch(/Remove photo/i);
   });
 });

@@ -1,5 +1,4 @@
-import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
-import { VictoryWinCard } from "@/components/VictoryWinCard";
+import { VictoryProudMomentsEditChrome } from "@/components/VictoryProudMomentsEditChrome";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
 import { buildEditWinHref } from "@/lib/v2-win-edit-origin";
 import type { PublicWinDto } from "@/lib/v2-win-public-read";
@@ -12,37 +11,40 @@ type VictorySeasonWinsSectionProps = {
 };
 
 /**
- * Season-detail Wins list. Omit when empty (no zero-state shell).
+ * Season-detail Wins list with Add + global Edit Mode chrome.
+ * Empty seasons still show Add; the Wins section shell is omitted.
  */
 export function VictorySeasonWinsSection({
   wins,
   timeZone,
   seasonId,
 }: VictorySeasonWinsSectionProps) {
-  if (wins.length === 0) return null;
-
   return (
-    <div className="mb-10">
-      <VictoryRoomSectionShell title="Proud Moments from this season">
-        <ul className="mt-8 space-y-4">
-          {wins.map((w) => (
-            <li key={w.id}>
-              <VictoryWinCard
-                displayTitle={w.displayTitle}
-                displayBody={w.displayBody}
-                dateLabel={formatVictoryRoomDate(w.occurredAt, timeZone)}
-                supportingQuote={w.supportingQuote}
-                celebrationAppropriate={w.celebrationAppropriate}
-                media={w.media}
-                hasMedia={Boolean(w.media)}
-                winId={w.id}
-                expectedUpdatedAt={w.updatedAt}
-                editHref={buildEditWinHref(w.id, { kind: "season", seasonId })}
-              />
-            </li>
-          ))}
-        </ul>
-      </VictoryRoomSectionShell>
-    </div>
+    <VictoryProudMomentsEditChrome
+      className="-mt-4 mb-10"
+      addHref={`/dashboard/victory-room/add-win?seasonId=${encodeURIComponent(seasonId)}`}
+      addLabel="Add a Proud Moment"
+      sectionTitle={wins.length > 0 ? "Proud Moments from this season" : undefined}
+      groups={
+        wins.length
+          ? [
+              {
+                key: "season",
+                cards: wins.map((w) => ({
+                  displayTitle: w.displayTitle,
+                  displayBody: w.displayBody,
+                  dateLabel: formatVictoryRoomDate(w.occurredAt, timeZone),
+                  supportingQuote: w.supportingQuote,
+                  celebrationAppropriate: w.celebrationAppropriate,
+                  media: w.media,
+                  winId: w.id,
+                  expectedUpdatedAt: w.updatedAt,
+                  editHref: buildEditWinHref(w.id, { kind: "season", seasonId }),
+                })),
+              },
+            ]
+          : []
+      }
+    />
   );
 }

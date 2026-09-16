@@ -67,6 +67,7 @@ describe("Victory Room Proud Moments vocabulary", () => {
     "src/components/VictorySeasonsSection.tsx",
     "src/components/VictoryWinCard.tsx",
     "src/components/VictoryWinCardActions.tsx",
+    "src/components/VictoryProudMomentsEditChrome.tsx",
     "src/components/VictoryWinMediaImage.tsx",
     "src/components/VictoryPatReadSection.tsx",
     "src/app/dashboard/victory-room/page.tsx",

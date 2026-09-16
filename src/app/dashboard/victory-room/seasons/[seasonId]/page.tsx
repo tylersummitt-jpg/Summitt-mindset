@@ -56,15 +56,6 @@ export default async function VictorySeasonDetailPage({ params }: PageProps) {
           timeZone={timeZone}
         />
 
-        <p className="mb-10 -mt-4">
-          <Link
-            href={`/dashboard/victory-room/add-win?seasonId=${encodeURIComponent(view.seasonId)}`}
-            className={vrAccentLink}
-          >
-            Add a Proud Moment
-          </Link>
-        </p>
-
         <VictorySeasonWinsSection
           wins={seasonWins}
           timeZone={timeZone}

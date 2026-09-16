@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { VictoryProudMomentsEditChrome } from "@/components/VictoryProudMomentsEditChrome";
 import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
-import { VictoryWinCard } from "@/components/VictoryWinCard";
 import { VrIconProof } from "@/components/VictoryRoomIcons";
 import {
   vrAccentLink,
@@ -28,55 +28,56 @@ export function VictoryRecentProofSection({
       title="Proud Moments & Goal Wins"
       subtitle="Build your identity one day at a time."
     >
-      <div className="mt-8 flex flex-col items-center text-center sm:items-start sm:text-left">
-        <p className={`${vrEvidenceCount} text-amber-50`}>{totalActiveWins}</p>
-        <p className="mt-2 text-sm font-semibold uppercase tracking-[0.14em] text-stone-400">
-          {totalActiveWins === 1 ? "Moment Saved" : "Moments Saved"}
-        </p>
-        <p className="mt-4">
-          <Link href="/dashboard/victory-room/add-win" className={vrAccentLink}>
-            + Add a Proud Moment
-          </Link>
-        </p>
-      </div>
-
-      {wins.length === 0 ? (
-        <div className={vrEmptyState}>
-          <div className={`${vrIconCircle} mx-auto mb-4 sm:mx-0`} aria-hidden>
-            <VrIconProof />
+      <VictoryProudMomentsEditChrome
+        addHref="/dashboard/victory-room/add-win"
+        addLabel="+ Add a Proud Moment"
+        header={
+          <>
+            <p className={`${vrEvidenceCount} text-amber-50`}>{totalActiveWins}</p>
+            <p className="mt-2 text-sm font-semibold uppercase tracking-[0.14em] text-stone-400">
+              {totalActiveWins === 1 ? "Moment Saved" : "Moments Saved"}
+            </p>
+          </>
+        }
+        groups={
+          wins.length
+            ? [
+                {
+                  key: "recent",
+                  cards: wins.map((w) => ({
+                    displayTitle: w.displayTitle,
+                    displayBody: w.displayBody,
+                    dateLabel: formatVictoryRoomDate(w.occurredAt, timeZone),
+                    supportingQuote: w.supportingQuote,
+                    celebrationAppropriate: w.celebrationAppropriate,
+                    media: w.media,
+                    winId: w.id,
+                    expectedUpdatedAt: w.updatedAt,
+                    editHref: buildEditWinHref(w.id, { kind: "victory-room" }),
+                  })),
+                },
+              ]
+            : []
+        }
+        emptyState={
+          <div className={vrEmptyState}>
+            <div className={`${vrIconCircle} mx-auto mb-4 sm:mx-0`} aria-hidden>
+              <VrIconProof />
+            </div>
+            <p className="font-medium text-stone-100">No Proud Moments yet.</p>
+            <p className="mt-3">
+              When something real in your life is worth remembering, it will show up here.
+            </p>
           </div>
-          <p className="font-medium text-stone-100">No Proud Moments yet.</p>
-          <p className="mt-3">
-            When something real in your life is worth remembering, it will show up here.
-          </p>
-        </div>
-      ) : (
-        <>
-          <ul className="mt-8 space-y-4">
-            {wins.map((w) => (
-              <li key={w.id}>
-                <VictoryWinCard
-                  displayTitle={w.displayTitle}
-                  displayBody={w.displayBody}
-                  dateLabel={formatVictoryRoomDate(w.occurredAt, timeZone)}
-                  supportingQuote={w.supportingQuote}
-                  celebrationAppropriate={w.celebrationAppropriate}
-                  media={w.media}
-                  hasMedia={Boolean(w.media)}
-                  winId={w.id}
-                  expectedUpdatedAt={w.updatedAt}
-                  editHref={buildEditWinHref(w.id, { kind: "victory-room" })}
-                />
-              </li>
-            ))}
-          </ul>
+        }
+        footer={
           <p className="mt-8">
             <Link href="/dashboard/victory-room/all-proof" className={vrAccentLink}>
               View all Proud Moments
             </Link>
           </p>
-        </>
-      )}
+        }
+      />
     </VictoryRoomSectionShell>
   );
 }

@@ -59,6 +59,9 @@ describe("VictoryCalendarSection import guards", () => {
     expect(SECTION_SRC).not.toContain("inbound-sol");
     expect(SECTION_SRC).not.toContain("inbound-mms-d2");
     expect(SECTION_SRC).toContain("VictoryWinCard");
+    expect(SECTION_SRC).toContain("showEditingControls={false}");
+    expect(SECTION_SRC).not.toContain("buildEditWinHref");
+    expect(SECTION_SRC).not.toContain("VictoryProudMomentsEditChrome");
     expect(SECTION_SRC).toContain("import type { PublicWinDto }");
   });
 });
@@ -117,9 +120,12 @@ describe("VictoryCalendarSection selected-day detail", () => {
     expect(one).toContain(
       "/dashboard/victory-room/add-win?occurredOn=2026-09-14&amp;from=calendar%3A2026-09%3A2026-09-14"
     );
-    expect(one).toContain(
-      "/dashboard/victory-room/wins/w1/edit?from=calendar%3A2026-09%3A2026-09-14"
-    );
+    expect(one).not.toContain("/dashboard/victory-room/wins/w1/edit");
+    expect(one).not.toContain("Edit a Proud Moment");
+    expect(one).not.toContain(">Edit<");
+    expect(one).not.toContain(">Delete<");
+    expect(one).not.toContain("···");
+    expect(one).not.toContain("<details");
     expect(one).not.toContain("from=victory-room");
 
     const many = renderToStaticMarkup(
@@ -148,11 +154,9 @@ describe("VictoryCalendarSection selected-day detail", () => {
     expect(many).toContain("https://signed.example/card.jpg");
     expect(many).toContain("alt=\"Photo attached to this proud moment\"");
     expect(many.split("Add a Proud Moment").length - 1).toBe(1);
-    expect(many).toContain(
-      "/dashboard/victory-room/wins/w2/edit?from=calendar%3A2026-09%3A2026-09-14"
-    );
-    expect(many).toContain(
-      "/dashboard/victory-room/wins/w3/edit?from=calendar%3A2026-09%3A2026-09-14"
-    );
+    expect(many).not.toContain("/dashboard/victory-room/wins/");
+    expect(many).not.toContain("Edit a Proud Moment");
+    expect(many).not.toContain(">Edit<");
+    expect(many).not.toContain(">Delete<");
   });
 });

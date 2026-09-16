@@ -10,13 +10,17 @@ describe("Victory Season detail — Wins-only surface", () => {
 
   it("keeps Season header, Add a Win, and Season Wins wiring", () => {
     expect(pageSrc).toContain("VictorySeasonHeader");
-    expect(pageSrc).toContain("Add a Proud Moment");
-    expect(pageSrc).toContain("/dashboard/victory-room/add-win?seasonId=");
     expect(pageSrc).toContain("loadActiveWinsForSeasonCommitment");
     expect(pageSrc).toContain("view.commitmentId");
     expect(pageSrc).toContain("VictorySeasonWinsSection");
     expect(pageSrc).toContain("seasonId={view.seasonId}");
     expect(pageSrc).toContain("loadVictorySeasonProofView");
+    const sectionSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/components/VictorySeasonWinsSection.tsx"),
+      "utf8"
+    );
+    expect(sectionSrc).toContain("Add a Proud Moment");
+    expect(sectionSrc).toContain("/dashboard/victory-room/add-win?seasonId=");
   });
 
   it("no longer renders Season Summary or Proof from this season", () => {
@@ -49,11 +53,11 @@ describe("VictorySeasonWinsSection source", () => {
       "utf8"
     );
     expect(src).toContain("Proud Moments from this season");
-    expect(src).toContain("VictoryWinCard");
-    expect(src).toContain("wins.length === 0");
-    expect(src).toContain("return null");
+    expect(src).toContain("VictoryProudMomentsEditChrome");
     expect(src).toContain("buildEditWinHref");
     expect(src).toContain("seasonId");
+    expect(src).toContain("Add a Proud Moment");
+    expect(src).not.toContain("return null");
     expect(src).not.toMatch(/Manual|SMS|source_type|streak|score/);
   });
 });
