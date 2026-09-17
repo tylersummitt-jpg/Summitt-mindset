@@ -34,6 +34,12 @@ import {
   INBOUND_SOL_WRITER_REASONING_EFFORT,
   writeInboundSolBody,
 } from "@/lib/inbound-sol-writer";
+import {
+  candidatePhotoTargetWinIdFromPersistResult,
+  computePhotoRequestAllowed,
+  hasCurrentTurnInboundMediaOccupancy,
+  loadPhotoRequestEligibilityState,
+} from "@/lib/inbound-photo-request-state";
 import { applyGoalChangeMachineBodySafety } from "@/lib/sol-goal-change-confirmation-guard";
 import type { SolGoalChangeConfirmationAuthorization } from "@/lib/sol-goal-change-confirmation-guard";
 import { shouldPersistSolInboundAccountabilityOutcome } from "@/lib/inbound-sol-persist-advice";
@@ -92,6 +98,8 @@ export type InboundSolRelationshipTurnResult = {
   brief: InboundCoachingBriefV1 | null;
   persistResult: InboundOutcomePersistResult;
   winResult: PersistRecognizedWinsResult | null;
+  photoRequested: boolean;
+  candidatePhotoTargetWinId: string | null;
   forensics: Record<string, unknown>;
 };
 
@@ -178,6 +186,8 @@ export async function runInboundSolRelationshipTurn(args: {
     brief: extras?.brief ?? null,
     persistResult: extras?.persistResult ?? skippedPersist("sol_not_applicable"),
     winResult: extras?.winResult ?? null,
+    photoRequested: extras?.photoRequested === true,
+    candidatePhotoTargetWinId: extras?.candidatePhotoTargetWinId ?? null,
     forensics: {
       ...baseForensics,
       ...(extras?.forensics ?? {}),
@@ -435,6 +445,58 @@ export async function runInboundSolRelationshipTurn(args: {
     persistedUserYes,
   });
 
+  const candidatePhotoTargetWinId = candidatePhotoTargetWinIdFromPersistResult(
+    winResult?.wins
+  );
+  let photoRequestAllowed = false;
+  if (candidatePhotoTargetWinId) {
+    try {
+      const now = new Date();
+      const parsedReceivedAt =
+        typeof args.receivedAt === "string" && args.receivedAt.trim()
+          ? new Date(args.receivedAt.trim())
+          : null;
+      const turnReceivedAt =
+        args.receivedAt instanceof Date && Number.isFinite(args.receivedAt.getTime())
+          ? args.receivedAt
+          : parsedReceivedAt && Number.isFinite(parsedReceivedAt.getTime())
+            ? parsedReceivedAt
+            : now;
+      const currentTurnMessageSids: string[] = [];
+      const seenSids = new Set<string>();
+      for (const raw of [...(args.currentTurnMessageSids ?? []), args.messageSid]) {
+        const sid = raw.trim();
+        if (!sid || seenSids.has(sid)) continue;
+        seenSids.add(sid);
+        currentTurnMessageSids.push(sid);
+      }
+      const bindingConfirmationRequired =
+        args.goalChangeConfirmationAuthorization?.goal_change_confirmation_authorized ===
+          true ||
+        args.goalChangeConfirmationAuthorization?.temporary_adjustment_confirmation_authorized ===
+          true;
+      const [eligibilityState, hasCurrentTurnMedia] = await Promise.all([
+        loadPhotoRequestEligibilityState(args.clerkUserId, now),
+        hasCurrentTurnInboundMediaOccupancy({
+          clerkUserId: args.clerkUserId,
+          currentTurnMessageSids,
+          turnReceivedAt,
+        }),
+      ]);
+      photoRequestAllowed = computePhotoRequestAllowed({
+        candidateWinId: candidatePhotoTargetWinId,
+        questionPolicy: brief.coaching_direction.question_policy,
+        hasCurrentTurnMedia,
+        eligibilityState,
+        now,
+        bindingConfirmationRequired,
+      });
+    } catch {
+      photoRequestAllowed = false;
+    }
+  }
+  baseForensics.photo_request_allowed = photoRequestAllowed;
+
   const written = await writeInboundSolBody({
     packet,
     brief,
@@ -442,6 +504,7 @@ export async function runInboundSolRelationshipTurn(args: {
     goalChangeConfirmationAuthorization: args.goalChangeConfirmationAuthorization ?? null,
     goalWinFreshlyInserted,
     lifeWinFreshlyInserted,
+    photoRequestAllowed,
   });
   baseForensics.inbound_sol_retry_writer = written.capture.retry_occurred;
   baseForensics.writer_model = INBOUND_SOL_WRITER_MODEL;
@@ -479,6 +542,9 @@ export async function runInboundSolRelationshipTurn(args: {
       },
     });
   }
+
+  const photoRequested =
+    photoRequestAllowed && written.ok && written.photo_requested === true;
 
   const blocked = evaluateInboundSolBlockOnlyReply({
     body: written.body,
@@ -518,8 +584,11 @@ export async function runInboundSolRelationshipTurn(args: {
     brief,
     persistResult,
     winResult,
+    photoRequested,
+    candidatePhotoTargetWinId,
     forensics: {
       ...baseForensics,
+      photo_requested: photoRequested,
       inbound_sol_body_preview: previewInboundText(guarded.body),
       inbound_sol_body_hash: hashInboundText(guarded.body),
       inbound_sol_reasoning_effort: INBOUND_SOL_WRITER_REASONING_EFFORT,

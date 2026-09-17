@@ -176,6 +176,7 @@ describe("parseInboundSolWriterJson", () => {
     ).toEqual({
       body: "Yes. Early on I wondered whether I was ready.",
       needs_manual_pat_answer: false,
+      photo_requested: false,
     });
   });
 
@@ -183,16 +184,17 @@ describe("parseInboundSolWriterJson", () => {
     expect(parseInboundSolWriterJson(JSON.stringify({ body: "Yes ..." }))).toEqual({
       body: "Yes ...",
       needs_manual_pat_answer: false,
+      photo_requested: false,
     });
   });
 
   it("C: empty body with needs_manual_pat_answer true is valid manual", () => {
     expect(
       parseInboundSolWriterJson(JSON.stringify({ body: "", needs_manual_pat_answer: true }))
-    ).toEqual({ body: "", needs_manual_pat_answer: true });
+    ).toEqual({ body: "", needs_manual_pat_answer: true, photo_requested: false });
     expect(
       parseInboundSolWriterJson(JSON.stringify({ body: "   ", needs_manual_pat_answer: true }))
-    ).toEqual({ body: "", needs_manual_pat_answer: true });
+    ).toEqual({ body: "", needs_manual_pat_answer: true, photo_requested: false });
   });
 
   it("D: empty body without the flag is invalid", () => {
@@ -218,6 +220,34 @@ describe("parseInboundSolWriterJson", () => {
     expect(parseInboundSolWriterJson("not json")).toBeNull();
     expect(parseInboundSolWriterJson(JSON.stringify({ needs_manual_pat_answer: false }))).toBeNull();
   });
+
+  it("old JSON without photo_requested still parses as false", () => {
+    expect(
+      parseInboundSolWriterJson(
+        JSON.stringify({ body: "Proud of that.", needs_manual_pat_answer: false })
+      )?.photo_requested
+    ).toBe(false);
+  });
+
+  it("optional photo_requested true parses; malformed/non-boolean is false", () => {
+    expect(
+      parseInboundSolWriterJson(
+        JSON.stringify({
+          body: "That's a keeper. Got a picture from tonight?",
+          photo_requested: true,
+        })
+      )
+    ).toEqual({
+      body: "That's a keeper. Got a picture from tonight?",
+      needs_manual_pat_answer: false,
+      photo_requested: true,
+    });
+    expect(
+      parseInboundSolWriterJson(
+        JSON.stringify({ body: "Proud of that.", photo_requested: "yes" })
+      )?.photo_requested
+    ).toBe(false);
+  });
 });
 
 describe("writer contract via writeInboundSolBody", () => {
@@ -232,8 +262,28 @@ describe("writer contract via writeInboundSolBody", () => {
     if (!result.ok) return;
     expect(result.body).toBe("Proud you got the lift in.");
     expect(result.needs_manual_pat_answer).toBe(false);
+    expect(result.photo_requested).toBe(false);
     expect(result.capture.retry_occurred).toBe(false);
     expect(client.chat.completions.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts photo_requested true on a nonempty body without retry", async () => {
+    const client = mockClient([
+      JSON.stringify({
+        body: "That's a keeper. Got a picture from tonight?",
+        photo_requested: true,
+      }),
+    ]);
+    const result = await writeInboundSolBody({
+      packet: packet("My daughter scored her first goal tonight!"),
+      brief: brief(),
+      photoRequestAllowed: true,
+      client,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.photo_requested).toBe(true);
+    expect(result.capture.retry_occurred).toBe(false);
   });
 
   it("accepts manual empty body without retry", async () => {
@@ -365,6 +415,7 @@ describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
     expect(none).toContain("VICTORY_ROOM_CAPTURE_STATE");
     expect(none).toContain('"goal_win_freshly_inserted":false');
     expect(none).toContain('"life_win_freshly_inserted":false');
+    expect(none).toContain('"photo_request_allowed":false');
     expect(none).toContain("Persisted Wins are displayed in the member's Victory Room.");
     expect(none).not.toContain("v2_win");
     expect(none).not.toContain("whole_life");
@@ -419,5 +470,30 @@ describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
     expect(liveUser).not.toContain(newText);
     expect(liveSystem).not.toContain("coach_relationship_memory_items");
     expect(liveSystem).not.toContain(memoryId);
+  });
+
+  it("photo_request_allowed is optional, not required, and false prohibits the ask", () => {
+    const p = INBOUND_SOL_WRITER_SYSTEM_PROMPT;
+    expect(p).toContain(
+      "When photo_request_allowed is true, you may use your otherwise-unused optional question to ask for a picture of the newly saved moment if that feels natural; do not let a photo ask replace answering, support, or real coaching."
+    );
+    expect(p).toContain("If photo_request_allowed is false, do not ask for a picture.");
+    expect(p).toContain("Set photo_requested true only if the body actually includes that optional picture ask");
+    expect(p).toContain("Ask for a picture, not a video.");
+    expect(p).toContain("Do not promise the picture will be saved, attached, or added to the Victory Room.");
+    expect(p).not.toContain("photo-worthy");
+    expect(p).not.toContain("major event");
+    expect(p).not.toContain("I'll save it with this moment");
+    expect(p).not.toContain("I'll add it to your Victory Room");
+    expect(INBOUND_SOL_WRITER_JSON_REMINDER).toContain("photo_requested");
+    const allowed = String(
+      buildInboundSolWriterMessages(packet("Daughter scored her first goal."), brief(), null, null, {
+        goalWinFreshlyInserted: false,
+        lifeWinFreshlyInserted: true,
+        photoRequestAllowed: true,
+      })[1]?.content ?? ""
+    );
+    expect(allowed).toContain('"photo_request_allowed":true');
+    expect(allowed).not.toContain("cccccccc-3333-4333-8333-333333333333");
   });
 });

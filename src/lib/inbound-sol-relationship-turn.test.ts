@@ -21,6 +21,8 @@ const scheduleInboundMmsD2cSemanticClaim = vi.hoisted(() => vi.fn(() => null));
 const loadInboundRelationshipPacket = vi.hoisted(() => vi.fn());
 const runInboundSolBriefInterpreter = vi.hoisted(() => vi.fn());
 const writeInboundSolBody = vi.hoisted(() => vi.fn());
+const loadPhotoRequestEligibilityState = vi.hoisted(() => vi.fn());
+const hasCurrentTurnInboundMediaOccupancy = vi.hoisted(() => vi.fn());
 const getPatEvidenceForSms = vi.hoisted(() => vi.fn());
 const recognizeWinsFromInboundV1 = vi.hoisted(() => vi.fn());
 const classifyWinCandidatesEquivalenceV1 = vi.hoisted(() => vi.fn());
@@ -118,6 +120,15 @@ vi.mock("@/lib/inbound-sol-writer", async (importOriginal) => {
   return {
     ...actual,
     writeInboundSolBody,
+  };
+});
+
+vi.mock("@/lib/inbound-photo-request-state", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/inbound-photo-request-state")>();
+  return {
+    ...actual,
+    loadPhotoRequestEligibilityState,
+    hasCurrentTurnInboundMediaOccupancy,
   };
 });
 
@@ -261,6 +272,13 @@ describe("runInboundSolRelationshipTurn", () => {
     loadInboundRelationshipPacket.mockReset();
     runInboundSolBriefInterpreter.mockReset();
     writeInboundSolBody.mockReset();
+    loadPhotoRequestEligibilityState.mockReset();
+    hasCurrentTurnInboundMediaOccupancy.mockReset();
+    loadPhotoRequestEligibilityState.mockResolvedValue({
+      pending: null,
+      lastSentAt: null,
+    });
+    hasCurrentTurnInboundMediaOccupancy.mockResolvedValue(false);
     getPatEvidenceForSms.mockReset();
     getPatEvidenceForSms.mockImplementation(async () => {
       throw new Error("unexpected_pat_retrieval");
@@ -2945,6 +2963,272 @@ describe("runInboundSolRelationshipTurn", () => {
     );
     expect(result.shouldSend).toBe(false);
     expect(result.noSendReason).toBe("blocked_victory_saved_logged_without_persist");
+  });
+
+  const PHOTO_WIN = "cccccccc-3333-4333-8333-333333333333";
+
+  function freshUuidWin() {
+    persistInboundWinsWithAccountability.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [
+        {
+          ordinal: 0,
+          id: PHOTO_WIN,
+          status: "inserted",
+          idempotency_key: "win_v1:acc_yes:SMfin",
+        },
+      ],
+    });
+  }
+
+  it("one fresh UUID win + none question policy allows photo request", async () => {
+    freshUuidWin();
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "That's a keeper. Got a picture from tonight?",
+      photo_requested: true,
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "My daughter scored her first goal tonight!")
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.photoRequestAllowed).toBe(true);
+    expect(result.photoRequested).toBe(true);
+    expect(result.candidatePhotoTargetWinId).toBe(PHOTO_WIN);
+  });
+
+  it("zero/existing/two fresh wins do not allow photo request", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    const existing = await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.photoRequestAllowed).toBe(false);
+    expect(existing.photoRequested).toBe(false);
+
+    persistInboundWinsWithAccountability.mockResolvedValue({
+      attempted: 2,
+      persisted: 2,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [
+        { ordinal: 0, id: PHOTO_WIN, status: "inserted", idempotency_key: "a" },
+        {
+          ordinal: 1,
+          id: "dddddddd-4444-4444-8444-444444444444",
+          status: "inserted",
+          idempotency_key: "b",
+        },
+      ],
+    });
+    await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the lift and sat with Dad.")
+    );
+    expect(writeInboundSolBody.mock.calls.at(-1)?.[0]?.photoRequestAllowed).toBe(
+      false
+    );
+
+    persistInboundWinsWithAccountability.mockResolvedValue({
+      attempted: 1,
+      persisted: 1,
+      conflicts: 0,
+      failed: 0,
+      allDurable: true,
+      wins: [
+        {
+          ordinal: 0,
+          id: PHOTO_WIN,
+          status: "existing",
+          idempotency_key: "win_v1:acc_yes:SMfin",
+        },
+      ],
+    });
+    await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(writeInboundSolBody.mock.calls.at(-1)?.[0]?.photoRequestAllowed).toBe(
+      false
+    );
+  });
+
+  it("same-turn image, active pending, cooldown, lookup error, and question all deny ask without blocking send", async () => {
+    freshUuidWin();
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+
+    hasCurrentTurnInboundMediaOccupancy.mockResolvedValueOnce(true);
+    await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(writeInboundSolBody.mock.calls.at(-1)?.[0]?.photoRequestAllowed).toBe(
+      false
+    );
+
+    hasCurrentTurnInboundMediaOccupancy.mockResolvedValue(false);
+    loadPhotoRequestEligibilityState.mockResolvedValueOnce({
+      pending: { winId: PHOTO_WIN, expiresAt: "2099-01-01T00:00:00.000Z" },
+      lastSentAt: null,
+    });
+    await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(writeInboundSolBody.mock.calls.at(-1)?.[0]?.photoRequestAllowed).toBe(
+      false
+    );
+
+    loadPhotoRequestEligibilityState.mockResolvedValueOnce({
+      pending: null,
+      lastSentAt: new Date().toISOString(),
+    });
+    await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(writeInboundSolBody.mock.calls.at(-1)?.[0]?.photoRequestAllowed).toBe(
+      false
+    );
+
+    loadPhotoRequestEligibilityState.mockResolvedValueOnce("error");
+    const errored = await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(writeInboundSolBody.mock.calls.at(-1)?.[0]?.photoRequestAllowed).toBe(
+      false
+    );
+    expect(errored.shouldSend).toBe(true);
+
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: (() => {
+        const b = brief();
+        b.coaching_direction.question_policy = "one_useful_question";
+        return b;
+      })(),
+      capture: { retry_occurred: false },
+    });
+    await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "How should I recover?")
+    );
+    expect(writeInboundSolBody.mock.calls.at(-1)?.[0]?.photoRequestAllowed).toBe(
+      false
+    );
+  });
+
+  it("fresh win + picture on sibling/coalesced SID does not allow photo request", async () => {
+    freshUuidWin();
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    hasCurrentTurnInboundMediaOccupancy.mockResolvedValueOnce(true);
+    const receivedAt = new Date("2026-08-18T16:00:00.000Z");
+    const result = await runInboundSolRelationshipTurn({
+      ...turnArgs("SMcaption", "My daughter scored her first goal tonight!"),
+      currentTurnMessageSids: ["SMphoto", "SMcaption"],
+      receivedAt,
+    });
+    expect(hasCurrentTurnInboundMediaOccupancy).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      currentTurnMessageSids: ["SMphoto", "SMcaption"],
+      turnReceivedAt: receivedAt,
+    });
+    expect(writeInboundSolBody.mock.calls.at(-1)?.[0]?.photoRequestAllowed).toBe(
+      false
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(result.photoRequested).toBe(false);
+  });
+
+  it("fresh win + image-only then caption within window does not allow photo request", async () => {
+    freshUuidWin();
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    hasCurrentTurnInboundMediaOccupancy.mockResolvedValueOnce(true);
+    const receivedAt = new Date("2026-08-18T16:00:00.000Z");
+    const result = await runInboundSolRelationshipTurn({
+      ...turnArgs("SMcaption", "My daughter scored her first goal tonight!"),
+      currentTurnMessageSids: ["SMcaption"],
+      receivedAt,
+    });
+    expect(hasCurrentTurnInboundMediaOccupancy).toHaveBeenCalledWith({
+      clerkUserId: "user_1",
+      currentTurnMessageSids: ["SMcaption"],
+      turnReceivedAt: receivedAt,
+    });
+    expect(writeInboundSolBody.mock.calls.at(-1)?.[0]?.photoRequestAllowed).toBe(
+      false
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(result.photoRequested).toBe(false);
+  });
+
+  it("Goal Change confirmation authorized does not allow photo request", async () => {
+    freshUuidWin();
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn({
+      ...turnArgs("SMfin", "Got the whole thing finished before lunch."),
+      goalChangeConfirmationAuthorization: {
+        goal_change_confirmation_authorized: true,
+        goal_change_apply_authorized: false,
+        candidate_behavior_statement: "I will be in bed by 10:30 pm nightly.",
+        canonical_behavior_statement: "I will be in bed by 9:30 pm nightly.",
+        pending_state: "awaiting_confirmation",
+        previous_behavior_statement: null,
+        previous_commitment_id: null,
+        active_commitment_id: "c1",
+        pending_cleared: false,
+      },
+    });
+    expect(writeInboundSolBody.mock.calls.at(-1)?.[0]?.photoRequestAllowed).toBe(
+      false
+    );
+    expect(result.shouldSend).toBe(true);
+    expect(result.photoRequested).toBe(false);
+  });
+
+  it("malformed writer photo_requested without candidate does not request", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Got a picture?",
+      photo_requested: true,
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMfin", "Got the whole thing finished before lunch.")
+    );
+    expect(writeInboundSolBody.mock.calls[0]?.[0]?.photoRequestAllowed).toBe(false);
+    expect(result.photoRequested).toBe(false);
+    expect(result.candidatePhotoTargetWinId).toBeNull();
+    expect(result.shouldSend).toBe(true);
   });
 });
 

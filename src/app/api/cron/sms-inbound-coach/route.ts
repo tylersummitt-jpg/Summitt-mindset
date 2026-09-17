@@ -318,6 +318,7 @@ import {
   isLikelyInboundSolMainBeforeHandoff,
   runInboundSolRelationshipTurn,
 } from "@/lib/inbound-sol-relationship-turn";
+import { tryWritePhotoRequestStateAfterTwilioSuccess } from "@/lib/inbound-photo-request-state";
 import {
   confirmationAuthorizationFromReloadedCommitment,
   runSolGoalChangePendingOpenForInbound,
@@ -5624,6 +5625,8 @@ async function processV2NormalInboundOutcome(
         commitmentId: commitment.id,
         expectedAnswerType: null,
         meaningShadow: null,
+        photoRequested: solTurn.photoRequested === true,
+        candidatePhotoTargetWinId: solTurn.candidatePhotoTargetWinId,
       };
 
       await insertInboundTurnTelemetryBestEffort({
@@ -10298,6 +10301,8 @@ async function sendSolGoalChangeOwnedPendingInboundReply(args: {
     authorization,
   });
   let body = fallbackGuarded.body;
+  let photoRequested = false;
+  let candidatePhotoTargetWinId: string | null = null;
   let laneMetadata: Record<string, unknown> = {
     ...args.forensics,
     [args.laneTag]: true,
@@ -10338,6 +10343,8 @@ async function sendSolGoalChangeOwnedPendingInboundReply(args: {
     if (solTurn.shouldSend && solTurn.body?.trim()) {
       body = solTurn.body.trim();
     }
+    photoRequested = solTurn.photoRequested === true;
+    candidatePhotoTargetWinId = solTurn.candidatePhotoTargetWinId;
   } catch (e) {
     console.warn(`[${args.branchName}] writer_failed_closed`, {
       message_sid: job.message_sid,
@@ -10365,6 +10372,8 @@ async function sendSolGoalChangeOwnedPendingInboundReply(args: {
     commitmentId: commitment.id,
     expectedAnswerType: null,
     meaningShadow: null,
+    photoRequested,
+    candidatePhotoTargetWinId,
   };
 
   await insertInboundTurnTelemetryBestEffort({
@@ -12146,6 +12155,8 @@ type InboundCoachReplyThreadMemoryContext = {
   expectedAnswerType?: string | null;
   clearBindingOpenQuestion?: boolean;
   meaningShadow?: MeaningInterpreterShadowScheduleArgs | null;
+  photoRequested?: boolean;
+  candidatePhotoTargetWinId?: string | null;
 };
 
 /** Relationship/coaching inbound sends — always pass durable thread memory context (Slice 1+). */
@@ -12318,6 +12329,22 @@ async function commitAndSendInboundCoachReply(
 
   if (sidErr) {
     throw new Error(`outbound_message_sid persist failed: ${sidErr.message}`);
+  }
+
+  try {
+    await tryWritePhotoRequestStateAfterTwilioSuccess({
+      clerkUserId: userId,
+      photoRequested: threadMemory?.photoRequested === true,
+      candidatePhotoTargetWinId: threadMemory?.candidatePhotoTargetWinId ?? null,
+    });
+  } catch (photoStateErr) {
+    console.warn("[sms-inbound-coach] photo_request_state_write_failed_soft", {
+      message_sid: job.message_sid,
+      message:
+        photoStateErr instanceof Error
+          ? photoStateErr.message.slice(0, 120)
+          : "unknown",
+    });
   }
 
   const { error: finalErr } = await supabaseServer

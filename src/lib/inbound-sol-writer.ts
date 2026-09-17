@@ -23,7 +23,7 @@ export const INBOUND_SOL_WRITER_MAX_COMPLETION_TOKENS = 1200 as const;
 export const INBOUND_SOL_WRITER_PROMPT_PATH = "inbound_sol_writer_v1" as const;
 
 export const INBOUND_SOL_WRITER_JSON_REMINDER =
-  'Return strict JSON only. Normal reply: {"body":"<nonempty sms text>","needs_manual_pat_answer":false} (the flag may be omitted; treated as false). Manual Pat handoff: {"body":"","needs_manual_pat_answer":true}. Empty body is allowed only with needs_manual_pat_answer true. Do not combine a nonempty body with needs_manual_pat_answer true. No markdown.';
+  'Return strict JSON only. Normal reply: {"body":"<nonempty sms text>","needs_manual_pat_answer":false,"photo_requested":false} (needs_manual_pat_answer and photo_requested may be omitted; treated as false). Set photo_requested true only if the body actually includes the optional picture ask. Manual Pat handoff: {"body":"","needs_manual_pat_answer":true}. Empty body is allowed only with needs_manual_pat_answer true. Do not combine a nonempty body with needs_manual_pat_answer true. No markdown.';
 
 export const INBOUND_SOL_WRITER_SYSTEM_PROMPT = `You are Coach Pat Summitt, replying to the user's newest real text in one ongoing coaching relationship.
 
@@ -32,7 +32,7 @@ You receive two JSON blocks, and sometimes more:
 2. INBOUND_RELATIONSHIP_PACKET_V1 — canonical facts and the exact real conversation.
 3. PAT_SOURCE_EVIDENCE_V1 — only when this turn requires Pat personal/history knowledge.
 4. GOAL_CHANGE_CONFIRMATION_STATE — server-derived Goal Change confirmation authorization. This is not conversational history.
-5. VICTORY_ROOM_CAPTURE_STATE — server-derived proven facts about whether a Win was freshly inserted this turn. This is not conversational history.
+5. VICTORY_ROOM_CAPTURE_STATE — server-derived proven facts about whether a Win was freshly inserted this turn, plus photo_request_allowed. This is not conversational history.
 
 The Brief controls coaching meaning. You control natural language only.
 Do not rediscover the whole relationship from scratch. Do not mechanically translate Brief enum labels into canned sentences. Do not mention internal Brief field names in the SMS.
@@ -96,6 +96,12 @@ Writer law:
 - Respond to the HUMAN first. A direct question, grief, live issue, support need, or more important coaching move still controls the response.
 - A routine Goal Win does NOT require a Victory Room acknowledgment. goal_win_freshly_inserted true alone is factual context, not a command to mention Victory Room. goal_win_freshly_inserted true by itself does not authorize claiming that something was saved, added, logged, recorded, or is now in the Victory Room. life_win_freshly_inserted true is the proof that may authorize an optional natural Victory Room persistence acknowledgment.
 - If both are true: do not count rows or say "I saved two wins." If acknowledgment is useful, make it one natural human thought.
+- When photo_request_allowed is true, you may use your otherwise-unused optional question to ask for a picture of the newly saved moment if that feels natural; do not let a photo ask replace answering, support, or real coaching.
+- If photo_request_allowed is false, do not ask for a picture.
+- Set photo_requested true only if the body actually includes that optional picture ask; otherwise false or omit.
+- If life_win_freshly_inserted is true and you use the picture ask, you may replace a robotic Victory Room acknowledgment with the natural picture ask.
+- Ask for a picture, not a video. Do not promise the picture will be saved, attached, or added to the Victory Room.
+- If historical evidence shows the member does not want picture asks, do not ask.
 - Do not use internal terms: whole_life, v2_win, relationship_type, ordinal. Prefer the user-facing term Victory Room.
 - Win persistence does not prove a photo was saved or attached.
 - A binding saved-goal confirmation question is allowed only when goal_change_confirmation_authorized is true.
@@ -122,9 +128,9 @@ ${HISTORICAL_EVIDENCE_HISTORY_LAW}
 ${COACH_RELATIONSHIP_MEMORY_WRITER_USE_LAW}
 
 Write one SMS when a member-visible reply is appropriate. Do not use em dashes, en dashes, or hyphens as punctuation between thoughts in the SMS, but hyphenated words are fine. Return strict JSON only, one of:
-{"body":"<nonempty sms text>","needs_manual_pat_answer":false}
+{"body":"<nonempty sms text>","needs_manual_pat_answer":false,"photo_requested":false}
 {"body":"","needs_manual_pat_answer":true}
-On a normal reply the flag may be omitted (treated as false). Body must be nonempty unless needs_manual_pat_answer is true.`;
+On a normal reply the flags may be omitted (treated as false). photo_requested is true only when the body includes the optional picture ask. Body must be nonempty unless needs_manual_pat_answer is true.`;
 
 export type InboundSolWriterCapture = {
   model: typeof INBOUND_SOL_WRITER_MODEL;
@@ -143,6 +149,7 @@ export type InboundSolWriterSuccess = {
   ok: true;
   body: string;
   needs_manual_pat_answer: boolean;
+  photo_requested: boolean;
   capture: InboundSolWriterCapture;
 };
 
@@ -205,6 +212,7 @@ export function toWriterFacingInboundCoachingBrief(
 export type InboundSolVictoryRoomCaptureState = {
   goalWinFreshlyInserted: boolean;
   lifeWinFreshlyInserted: boolean;
+  photoRequestAllowed: boolean;
 };
 
 export function buildInboundSolWriterMessages(
@@ -242,6 +250,7 @@ export function buildInboundSolWriterMessages(
     JSON.stringify({
       goal_win_freshly_inserted: victoryRoomCapture?.goalWinFreshlyInserted === true,
       life_win_freshly_inserted: victoryRoomCapture?.lifeWinFreshlyInserted === true,
+      photo_request_allowed: victoryRoomCapture?.photoRequestAllowed === true,
       product_fact: "Persisted Wins are displayed in the member's Victory Room.",
     })
   );
@@ -325,11 +334,13 @@ export function buildInboundSolWriterMessages(
 export type InboundSolWriterParsedJson = {
   body: string;
   needs_manual_pat_answer: boolean;
+  photo_requested: boolean;
 };
 
 /**
  * Writer JSON contract. Absent needs_manual_pat_answer defaults to false when body is nonempty.
  * Empty body is valid only with needs_manual_pat_answer === true.
+ * Absent/malformed/non-boolean photo_requested → false. Old JSON remains valid.
  */
 export function parseInboundSolWriterJson(raw: string): InboundSolWriterParsedJson | null {
   try {
@@ -338,18 +349,27 @@ export function parseInboundSolWriterJson(raw: string): InboundSolWriterParsedJs
     const rec = parsed as Record<string, unknown>;
     if (typeof rec.body !== "string") return null;
     const trimmed = rec.body.trim();
+    const photoRequested = rec.photo_requested === true && !!trimmed;
     const flagRaw = rec.needs_manual_pat_answer;
     if (flagRaw === undefined) {
       if (!trimmed) return null;
-      return { body: trimmed, needs_manual_pat_answer: false };
+      return {
+        body: trimmed,
+        needs_manual_pat_answer: false,
+        photo_requested: photoRequested,
+      };
     }
     if (typeof flagRaw !== "boolean") return null;
     if (flagRaw === true) {
       if (trimmed) return null;
-      return { body: "", needs_manual_pat_answer: true };
+      return { body: "", needs_manual_pat_answer: true, photo_requested: false };
     }
     if (!trimmed) return null;
-    return { body: trimmed, needs_manual_pat_answer: false };
+    return {
+      body: trimmed,
+      needs_manual_pat_answer: false,
+      photo_requested: photoRequested,
+    };
   } catch {
     return null;
   }
@@ -405,6 +425,7 @@ export async function writeInboundSolBody(args: {
   goalChangeConfirmationAuthorization?: SolGoalChangeConfirmationAuthorization | null;
   goalWinFreshlyInserted?: boolean;
   lifeWinFreshlyInserted?: boolean;
+  photoRequestAllowed?: boolean;
   client?: OpenAI | null;
 }): Promise<InboundSolWriterResult> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -446,6 +467,7 @@ export async function writeInboundSolBody(args: {
     {
       goalWinFreshlyInserted: args.goalWinFreshlyInserted === true,
       lifeWinFreshlyInserted: args.lifeWinFreshlyInserted === true,
+      photoRequestAllowed: args.photoRequestAllowed === true,
     }
   );
   const solCreate = (msgs: ChatCompletionMessageParam[]) =>
@@ -480,6 +502,7 @@ export async function writeInboundSolBody(args: {
         ok: true,
         body: parsed.body,
         needs_manual_pat_answer: parsed.needs_manual_pat_answer,
+        photo_requested: parsed.photo_requested,
         capture: buildCapture({
           raw_response: raw || null,
           raw_retry_response: rawRetry,
