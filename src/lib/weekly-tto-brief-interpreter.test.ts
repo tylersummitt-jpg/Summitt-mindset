@@ -420,9 +420,9 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT).toContain("goal_role_today");
   });
 
-  it("Sol request: gpt-5.6-sol, low reasoning, json_schema, no temperature, one schema retry", async () => {
+  it("Terra request: gpt-5.6-terra, low reasoning, json_schema, no temperature, one schema retry", async () => {
     expect(parseMorningCoachingBriefV1(validBrief())).not.toBeNull();
-    expect(WEEKLY_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-sol");
+    expect(WEEKLY_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-terra");
     expect(WEEKLY_BRIEF_INTERPRETER_REASONING_EFFORT).toBe("low");
     expect(WEEKLY_BRIEF_INTERPRETER_TEMPERATURE).toBeNull();
     expect(WEEKLY_BRIEF_INTERPRETER_PROMPT_PATH).toBe("weekly_brief_interpreter_v1");
@@ -447,7 +447,7 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(create).toHaveBeenCalledTimes(2);
     expect(create.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        model: "gpt-5.6-sol",
+        model: "gpt-5.6-terra",
         reasoning_effort: "low",
         max_completion_tokens: 2500,
         response_format: expect.objectContaining({

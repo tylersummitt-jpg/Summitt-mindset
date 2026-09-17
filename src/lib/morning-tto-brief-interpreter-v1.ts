@@ -41,7 +41,7 @@ The exact thread remains the real conversation. The linkage only tells you which
  * Chat Completions + strict JSON Schema; reasoning_effort low.
  * Shared lane JSON helper is incompatible (forces temperature/max_tokens) — call API directly.
  */
-export const MORNING_BRIEF_INTERPRETER_MODEL = "gpt-5.6-sol" as const;
+export const MORNING_BRIEF_INTERPRETER_MODEL = "gpt-5.6-terra" as const;
 export const MORNING_BRIEF_INTERPRETER_REASONING_EFFORT = "low" as const;
 /** Not sent to gpt-5.6-sol (temperature unsupported for this model on Chat Completions). */
 export const MORNING_BRIEF_INTERPRETER_TEMPERATURE = null;

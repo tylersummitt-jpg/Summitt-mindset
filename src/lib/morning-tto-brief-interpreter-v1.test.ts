@@ -294,8 +294,8 @@ describe("morning-tto-brief-interpreter-v1", () => {
   });
 
   it("provisional model constant is framed as placeholder, not a locked production choice", () => {
-    expect(MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL).toBe("gpt-5.6-sol");
-    expect(MORNING_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-sol");
+    expect(MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL).toBe("gpt-5.6-terra");
+    expect(MORNING_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-terra");
     const src = readFileSync(
       path.join(process.cwd(), "src/lib/morning-tto-brief-interpreter-v1.ts"),
       "utf8"
@@ -511,7 +511,7 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(create).toHaveBeenCalledTimes(2);
     expect(create.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        model: "gpt-5.6-sol",
+        model: "gpt-5.6-terra",
         reasoning_effort: "low",
         max_completion_tokens: 2500,
         response_format: expect.objectContaining({
@@ -523,7 +523,7 @@ describe("morning-tto-brief-interpreter-v1", () => {
         }),
       })
     );
-    expect(create.mock.calls[1]?.[0].model).toBe("gpt-5.6-sol");
+    expect(create.mock.calls[1]?.[0].model).toBe("gpt-5.6-terra");
     expect(create.mock.calls[1]?.[0].response_format).toEqual(
       create.mock.calls[0]?.[0].response_format
     );
