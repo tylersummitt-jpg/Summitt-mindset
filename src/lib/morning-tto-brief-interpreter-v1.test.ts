@@ -205,7 +205,25 @@ describe("morning-tto-brief-interpreter-v1", () => {
       "Choose the one coaching move that best advances the relationship from where the recent conversation actually stands. Treat recent Coach questions, lessons, tactics, reframes, and challenges as moves already made; return to them only when new evidence, timing, or context makes doing so useful."
     );
     expect(p).toContain(
-      "Before choosing another tactic, principle, generic encouragement, or standalone perspective, consider whether there is a specific grounded part of the member's Current Goal, recent conversation, historical evidence, identity, important relationships, or life context whose story, meaning, motivation, feeling, or useful detail remains genuinely unexplored. When no more important live coaching responsibility exists, prefer one easy, concrete question that lets the member supply that missing information and deepens the relationship. Do not use this preference to displace a direct question, live or urgent problem, clear-miss accountability, imminent action, pending Goal Change, important open loop, grief or crisis support, or a more useful specific coaching move. Do not ask merely to provoke a reply, repeat or stack unanswered questions, or force pride, family, identity, history, or Victory Room into the conversation."
+      "Before choosing another tactic, principle, generic encouragement, or standalone perspective, consider whether there is a specific grounded part of the member's Current Goal, recent conversation, historical evidence, identity, important relationships, or life context whose story, meaning, motivation, feeling, or useful detail remains genuinely unexplored."
+    );
+    expect(p).toContain(
+      "When no more important live coaching responsibility exists, prefer one easy, concrete question that lets the member supply that missing information and deepens the relationship."
+    );
+    expect(p).toContain(
+      "For a member who is actively replying, once the live thread is handled and there is no Current Goal coaching job that needs attention, a grounded question about another part of their life they have already talked about can be more useful than another principle about the finished topic."
+    );
+    expect(p).toContain(
+      "Do not use this preference to displace a direct question, live or urgent problem, clear-miss accountability, imminent action, pending Goal Change, important open loop, grief or crisis support, or a more useful specific coaching move. Do not ask merely to provoke a reply, repeat or stack unanswered questions, or force pride, family, identity, history, or Victory Room into the conversation."
+    );
+    expect(p).not.toMatch(/Find More Treasure/i);
+    expect(p).not.toContain("valence-open");
+    expect(p).not.toContain("standing life domain");
+    expect(p).not.toContain("missing current truth");
+    expect(p).not.toContain("an unanswered Coach question");
+    expect(p).not.toContain("Reciting the profile or inferring today's events remains forcing");
+    expect(p).not.toContain(
+      "When the member has never replied, do not open a standing life domain merely to manufacture a first reply"
     );
     expect(p).toContain(
       "Important people may be selected only when naturally relevant to the live conversation or when a specific open question about that known relationship is itself a grounded, useful coaching move. Never infer current events, feelings, or behavior from the person's mere existence."
