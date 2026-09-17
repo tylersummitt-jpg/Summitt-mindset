@@ -113,6 +113,9 @@ describe("v2-sms-comms-preferences writer", () => {
     expect(payload.cadence_override).toBeNull();
     expect(hoisted.row.preferred_send_window).toBe("morning");
     expect(hoisted.row.weekend_send_policy).toBe("weekdays_only");
+    expect(payload).not.toHaveProperty("pending_photo_request_win_id");
+    expect(payload).not.toHaveProperty("pending_photo_request_expires_at");
+    expect(payload).not.toHaveProperty("last_photo_request_sent_at");
   });
 
   it("write failure returns ok false", async () => {

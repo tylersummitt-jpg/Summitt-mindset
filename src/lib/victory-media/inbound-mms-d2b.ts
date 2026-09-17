@@ -11,6 +11,10 @@ import {
   isDeletionLookupFailure,
   isIntentionalDeletionSmsBlock,
 } from "@/lib/account-deletion/deletion-guards";
+import {
+  clearPendingPhotoRequestTarget,
+  loadActivePendingPhotoTarget,
+} from "@/lib/inbound-photo-request-state";
 import { supabaseServer } from "@/lib/supabase-server";
 import { sendSMSChunked } from "@/lib/twilio";
 import {
@@ -397,6 +401,15 @@ export type ProcessInboundMmsD2bDeps = {
     clerkUserId: string;
   }) => Promise<{ firstSid: string }>;
   removeObjects?: (args: { bucket: string; paths: string[] }) => Promise<void>;
+  loadActivePendingPhotoTarget?: (
+    clerkUserId: string,
+    now: Date
+  ) => Promise<{ winId: string } | null | "error">;
+  clearPendingPhotoRequestTarget?: (args: {
+    clerkUserId: string;
+    winId: string;
+    now?: Date;
+  }) => Promise<boolean>;
 };
 
 export async function processInboundMmsD2bJob(
@@ -843,6 +856,69 @@ export async function processInboundMmsD2bJob(
   return sendReserved(afterReserve, body);
 }
 
+const PENDING_INVALID_CLEAR_REASONS = new Set(["target_ineligible", "media_exists"]);
+
+async function tryClaimPhotoOnlyPendingTarget(
+  job: InboundMediaJobRow,
+  deps: ProcessInboundMmsD2bDeps
+): Promise<boolean> {
+  const now = deps.now ?? new Date();
+  if (!isInboundMediaJobD2aDueListCandidate(job, now)) return false;
+
+  const loadPending =
+    deps.loadActivePendingPhotoTarget ?? loadActivePendingPhotoTarget;
+  const claim = deps.claim ?? claimInboundMediaJobSemanticTarget;
+  const clearPending =
+    deps.clearPendingPhotoRequestTarget ?? clearPendingPhotoRequestTarget;
+
+  let pending: { winId: string } | null | "error";
+  try {
+    pending = await loadPending(job.clerk_user_id, now);
+  } catch {
+    return false;
+  }
+  if (!pending || pending === "error") return false;
+
+  const claimed = await claim({
+    jobId: job.id,
+    clerkUserId: job.clerk_user_id,
+    targetWinId: pending.winId,
+    now,
+    expectedResolution: null,
+  });
+  if (claimed.ok) {
+    console.info("[victory-media/mms-d2] pending_target_claimed", {
+      job_id: job.id,
+    });
+    try {
+      await clearPending({
+        clerkUserId: job.clerk_user_id,
+        winId: pending.winId,
+        now,
+      });
+    } catch {
+      /* claim already durable on the job */
+    }
+    return true;
+  }
+  if (PENDING_INVALID_CLEAR_REASONS.has(claimed.reason)) {
+    console.info("[victory-media/mms-d2] pending_target_invalid", {
+      job_id: job.id,
+      reason: claimed.reason,
+    });
+    try {
+      await clearPending({
+        clerkUserId: job.clerk_user_id,
+        winId: pending.winId,
+        now,
+      });
+    } catch {
+      /* fall through to existing D2a */
+    }
+  }
+  return false;
+}
+
 export async function processInboundMmsD2Job(
   jobId: string,
   deps?: ProcessInboundMmsD2bDeps
@@ -853,6 +929,9 @@ export async function processInboundMmsD2Job(
   if (isInboundMediaD2bWakeLastErrorCode(job.last_error_code)) {
     const r = await processInboundMmsD2bJob(jobId, deps);
     return { ...r, phase: "d2b" };
+  }
+  if (await tryClaimPhotoOnlyPendingTarget(job, deps ?? {})) {
+    return { ok: true, jobId: job.id, action: "claimed", phase: "d2a" };
   }
   const r = await processInboundMmsD2aJob(
     jobId,

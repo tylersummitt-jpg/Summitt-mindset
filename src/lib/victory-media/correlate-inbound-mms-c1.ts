@@ -24,6 +24,12 @@ import "server-only";
 
 import { after } from "next/server";
 import { hasUnresolvedAccountDeletionRequest } from "@/lib/account-deletion/deletion-guards";
+import {
+  clearPendingPhotoRequestTarget,
+  isInboundPhotoRequestCoachFallbackAllowed,
+  loadActivePendingPhotoTarget,
+  loadCoachJobStatusForPhotoPendingFallback,
+} from "@/lib/inbound-photo-request-state";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   isInboundMediaJobExpiresAtPast,
@@ -31,6 +37,7 @@ import {
   loadInboundMediaJobById,
   type InboundMediaJobRow,
 } from "@/lib/victory-media/claim-inbound-media-job";
+import { claimInboundMediaJobAwaitingAttachSemanticTarget } from "@/lib/victory-media/claim-inbound-mms-awaiting-attach-semantic-target";
 
 export const INBOUND_MEDIA_C1_WAIT_RETRY_MS = 60_000;
 export const INBOUND_MEDIA_PIPELINE_C1_LIMIT = 1;
@@ -96,6 +103,7 @@ export type InboundMmsC1DecisionKind =
   | "stale_ownership"
   | "not_c1_ready"
   | "provenance_clerk_mismatch"
+  | "pending_target_claimed"
   | "error_retry";
 
 export type InboundMmsC1WinLite = {
@@ -154,11 +162,25 @@ export type InboundMmsC1Decision =
   | { kind: "stale_ownership"; jobId: string }
   | { kind: "not_c1_ready"; jobId: string }
   | { kind: "provenance_clerk_mismatch"; jobId: string }
+  | { kind: "pending_target_claimed"; jobId: string; winId: string }
   | { kind: "error_retry"; jobId: string; errorCode: string };
 
 export type CorrelateInboundMmsC1Deps = {
   now?: Date;
   hasUnresolvedDeletion?: (clerkUserId: string) => Promise<boolean>;
+  loadCoachJobStatus?: (
+    messageSid: string
+  ) => Promise<string | null | "error">;
+  loadActivePendingPhotoTarget?: (
+    clerkUserId: string,
+    now: Date
+  ) => Promise<{ winId: string } | null | "error">;
+  claimAwaitingAttachSemanticTarget?: typeof claimInboundMediaJobAwaitingAttachSemanticTarget;
+  clearPendingPhotoRequestTarget?: (args: {
+    clerkUserId: string;
+    winId: string;
+    now?: Date;
+  }) => Promise<boolean>;
 };
 
 function hasNonEmptyText(value: string | null | undefined): boolean {
@@ -251,6 +273,7 @@ export function isInboundMediaJobC1OpportunisticCandidate(
     normalized_storage_path: string | null;
     resolution: string | null;
     attached_win_id: string | null;
+    semantic_target_win_id?: string | null;
     tombstoned_at: string | null;
     next_retry_at: string | null;
   },
@@ -262,6 +285,7 @@ export function isInboundMediaJobC1OpportunisticCandidate(
   if (!hasNonEmptyText(row.normalized_storage_path)) return false;
   if (row.resolution != null) return false;
   if (hasNonEmptyText(row.attached_win_id)) return false;
+  if (hasNonEmptyText(row.semantic_target_win_id)) return false;
   return nextRetryDue(row.next_retry_at, now);
 }
 
@@ -525,10 +549,20 @@ export async function applyInboundMmsC1Decision(args: {
   const nowIso = now.toISOString();
   const d = args.decision;
 
-  if (d.kind === "tombstoned" || d.kind === "not_c1_ready") {
+  if (
+    d.kind === "tombstoned" ||
+    d.kind === "not_c1_ready" ||
+    d.kind === "pending_target_claimed"
+  ) {
     return d;
   }
   if (d.kind === "stale_ownership") return d;
+  if (hasNonEmptyText(args.job.semantic_target_win_id) &&
+      (d.kind === "waiting_for_win" ||
+        d.kind === "attach_eligible" ||
+        d.kind === "waiting_for_sibling_media")) {
+    return { kind: "not_c1_ready", jobId: args.job.id };
+  }
   if (!snap || args.job.status !== "awaiting_attach") {
     return { kind: "stale_ownership", jobId: args.job.id };
   }
@@ -986,6 +1020,9 @@ export async function evaluateAndApplyInboundMmsC1Job(
   if (isInboundMediaJobTombstonedOrRemoved(job)) {
     return { kind: "tombstoned", jobId: job.id };
   }
+  if (hasNonEmptyText(job.semantic_target_win_id)) {
+    return { kind: "not_c1_ready", jobId: job.id };
+  }
   const deletionCheck =
     deps.hasUnresolvedDeletion ?? hasUnresolvedAccountDeletionRequest;
 
@@ -1080,6 +1117,28 @@ export async function evaluateAndApplyInboundMmsC1Job(
     }
   }
 
+  if (decision.kind === "waiting_for_win") {
+    try {
+      facts = await loadC1ExternalFacts(job);
+      decision = evaluateAwaitingInboundMmsAttachment({
+        job,
+        now,
+        deletion: "clear",
+        ...facts,
+      });
+    } catch (e) {
+      const code =
+        e instanceof Error && e.message === "media_lookup_failed"
+          ? "media_lookup_failed"
+          : "correlation_query_failed";
+      return applyInboundMmsC1Decision({
+        job,
+        decision: { kind: "error_retry", jobId: job.id, errorCode: code },
+        now,
+      });
+    }
+  }
+
   if (decision.kind === "same_mms_replay") {
     try {
       decision = await revalidateReplayBeforeAttach({
@@ -1113,7 +1172,163 @@ export async function evaluateAndApplyInboundMmsC1Job(
     }
   }
 
+  if (decision.kind === "attach_eligible") {
+    await logSameSidWinBeatPendingIfNeeded(job, now, deps);
+  } else if (decision.kind === "waiting_for_win") {
+    const fallback = await tryClaimBodyPhotoPendingFallback(job, now, deps);
+    if (fallback?.kind === "pending_target_claimed") {
+      return applyInboundMmsC1Decision({ job, decision: fallback, now });
+    }
+    if (fallback) {
+      decision = fallback;
+      if (
+        decision.kind === "ambiguous_wins" ||
+        decision.kind === "ambiguous_media" ||
+        decision.kind === "web_priority_blocked" ||
+        decision.kind === "other_mms_occupied"
+      ) {
+        try {
+          decision = await confirmTerminalKindImmediatelyBeforeCas(job, decision);
+        } catch {
+          decision = {
+            kind: "error_retry",
+            jobId: job.id,
+            errorCode: "correlation_query_failed",
+          };
+        }
+      } else if (decision.kind === "same_mms_replay") {
+        try {
+          decision = await revalidateReplayBeforeAttach({
+            job,
+            decision,
+            now,
+            deletionCheck,
+          });
+        } catch {
+          decision = {
+            kind: "error_retry",
+            jobId: job.id,
+            errorCode: "media_lookup_failed",
+          };
+        }
+      }
+      if (decision.kind === "attach_eligible") {
+        await logSameSidWinBeatPendingIfNeeded(job, now, deps);
+      }
+    }
+  }
+
   return applyInboundMmsC1Decision({ job, decision, now });
+}
+
+const PENDING_INVALID_CLEAR_REASONS = new Set(["target_ineligible", "media_exists"]);
+
+async function logSameSidWinBeatPendingIfNeeded(
+  job: InboundMediaJobRow,
+  now: Date,
+  deps: CorrelateInboundMmsC1Deps
+): Promise<void> {
+  const loadPending =
+    deps.loadActivePendingPhotoTarget ?? loadActivePendingPhotoTarget;
+  try {
+    const pending = await loadPending(job.clerk_user_id, now);
+    if (pending && pending !== "error") {
+      console.info("[victory-media/mms-c1] same_sid_win_beat_pending", {
+        job_id: job.id,
+      });
+    }
+  } catch {
+    /* optional log only */
+  }
+}
+
+async function tryClaimBodyPhotoPendingFallback(
+  job: InboundMediaJobRow,
+  now: Date,
+  deps: CorrelateInboundMmsC1Deps
+): Promise<InboundMmsC1Decision | null> {
+  const loadCoach = deps.loadCoachJobStatus ?? loadCoachJobStatusForPhotoPendingFallback;
+  const loadPending =
+    deps.loadActivePendingPhotoTarget ?? loadActivePendingPhotoTarget;
+  const claim =
+    deps.claimAwaitingAttachSemanticTarget ??
+    claimInboundMediaJobAwaitingAttachSemanticTarget;
+  const clearPending =
+    deps.clearPendingPhotoRequestTarget ?? clearPendingPhotoRequestTarget;
+
+  let coachStatus: string | null | "error";
+  try {
+    coachStatus = await loadCoach(job.message_sid);
+  } catch {
+    return null;
+  }
+  if (coachStatus === "error" || coachStatus == null) return null;
+  if (!isInboundPhotoRequestCoachFallbackAllowed(coachStatus)) return null;
+
+  let pending: { winId: string } | null | "error";
+  try {
+    pending = await loadPending(job.clerk_user_id, now);
+  } catch {
+    return null;
+  }
+  if (!pending || pending === "error") return null;
+
+  try {
+    const freshFacts = await loadC1ExternalFacts(job);
+    const rerouted = evaluateAwaitingInboundMmsAttachment({
+      job,
+      now,
+      deletion: "clear",
+      ...freshFacts,
+    });
+    if (rerouted.kind !== "waiting_for_win") {
+      return rerouted;
+    }
+  } catch {
+    return null;
+  }
+
+  const claimed = await claim({
+    jobId: job.id,
+    clerkUserId: job.clerk_user_id,
+    targetWinId: pending.winId,
+    now,
+  });
+  if (claimed.ok) {
+    console.info("[victory-media/mms-c1] pending_target_claimed", {
+      job_id: job.id,
+    });
+    try {
+      await clearPending({
+        clerkUserId: job.clerk_user_id,
+        winId: pending.winId,
+        now,
+      });
+    } catch {
+      /* claim already durable on the job */
+    }
+    return {
+      kind: "pending_target_claimed",
+      jobId: job.id,
+      winId: pending.winId,
+    };
+  }
+  if (PENDING_INVALID_CLEAR_REASONS.has(claimed.reason)) {
+    console.info("[victory-media/mms-c1] pending_target_invalid", {
+      job_id: job.id,
+      reason: claimed.reason,
+    });
+    try {
+      await clearPending({
+        clerkUserId: job.clerk_user_id,
+        winId: pending.winId,
+        now,
+      });
+    } catch {
+      /* keep waiting_for_win */
+    }
+  }
+  return null;
 }
 
 export async function tryCorrelateInboundMmsC1Job(
@@ -1174,12 +1389,13 @@ export async function listInboundMediaJobsForC1(
   const { data, error } = await supabaseServer
     .from("v2_inbound_media_job")
     .select(
-      "id,status,attempt_count,next_retry_at,temp_storage_path,normalized_storage_path,resolution,attached_win_id,tombstoned_at,expires_at,created_at,updated_at,last_error_code"
+      "id,status,attempt_count,next_retry_at,temp_storage_path,normalized_storage_path,resolution,attached_win_id,semantic_target_win_id,tombstoned_at,expires_at,created_at,updated_at,last_error_code"
     )
     .eq("status", "awaiting_attach")
     .is("temp_storage_path", null)
     .is("resolution", null)
     .is("attached_win_id", null)
+    .is("semantic_target_win_id", null)
     .is("tombstoned_at", null)
     .not("normalized_storage_path", "is", null)
     .not("next_retry_at", "is", null)
@@ -1204,6 +1420,10 @@ export async function listInboundMediaJobsForC1(
       resolution: typeof raw.resolution === "string" ? raw.resolution : null,
       attached_win_id:
         typeof raw.attached_win_id === "string" ? raw.attached_win_id : null,
+      semantic_target_win_id:
+        typeof raw.semantic_target_win_id === "string"
+          ? raw.semantic_target_win_id
+          : null,
       tombstoned_at:
         typeof raw.tombstoned_at === "string" ? raw.tombstoned_at : null,
       next_retry_at: typeof raw.next_retry_at === "string" ? raw.next_retry_at : null,

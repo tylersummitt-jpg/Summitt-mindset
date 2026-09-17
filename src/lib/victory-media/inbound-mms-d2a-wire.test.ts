@@ -91,6 +91,11 @@ describe("inbound MMS D2a wire", () => {
     expect(d2a).toContain("listInboundMmsD1EligiblePendingJobs");
   });
 
+  it("D2a model worker itself does not read pending photo-request columns", () => {
+    expect(d2a).not.toContain("pending_photo_request");
+    expect(d2a).not.toContain("loadActivePendingPhotoTarget");
+  });
+
   it("queue SQL is D2a-owned codes only and does not JS-filter all pending_semantics", () => {
     const list = d2a.slice(d2a.indexOf("export async function listInboundMediaJobsForD2a"));
     expect(list).toContain('.eq("status", "pending_semantics")');

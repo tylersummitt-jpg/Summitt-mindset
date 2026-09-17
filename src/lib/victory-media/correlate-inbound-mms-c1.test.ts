@@ -22,6 +22,7 @@ const c1Hooks = vi.hoisted(() => ({
   failOnJobSampleLoad: null as number | null,
   dropJob2OnSampleLoad: null as number | null,
   winMediaSequence: null as Array<Record<string, unknown> | null | "error"> | null,
+  seedWinAAfterWinLoad: null as number | null,
   reset() {
     this.hideWinBAfterFirstWinLoad = false;
     this.dropWinMediaAfterFirstWinMediaLoad = false;
@@ -34,6 +35,7 @@ const c1Hooks = vi.hoisted(() => ({
     this.failOnJobSampleLoad = null;
     this.dropJob2OnSampleLoad = null;
     this.winMediaSequence = null;
+    this.seedWinAAfterWinLoad = null;
   },
 }));
 
@@ -210,6 +212,20 @@ vi.mock("@/lib/supabase-server", () => ({
           }
           if (limitN != null) match = match.slice(0, limitN);
           resolve({ data: match.map((r) => ({ ...r })), error: null });
+          if (
+            table === "v2_win" &&
+            c1Hooks.seedWinAAfterWinLoad != null &&
+            c1Hooks.winLoads === c1Hooks.seedWinAAfterWinLoad
+          ) {
+            wins.set("cccccccc-3333-4333-8333-333333333333", {
+              id: "cccccccc-3333-4333-8333-333333333333",
+              clerk_user_id: "user_c1",
+              source_message_sid: "SMcccccccccccccccccccccccccccccccc",
+              source_type: "sms_inbound",
+              status: "active",
+              hidden_at: null,
+            });
+          }
         },
       };
       return {
@@ -269,6 +285,7 @@ import {
   sameSidMediaJobCardinalityIsMulti,
   tryCorrelateAwaitingInboundMmsForMessageSid,
   tryCorrelateInboundMmsC1Job,
+  type CorrelateInboundMmsC1Deps,
   type InboundMmsC1MediaLite,
   type InboundMmsC1SiblingLite,
   type InboundMmsC1WinLite,
@@ -855,6 +872,24 @@ describe("applyInboundMmsC1Decision CAS", () => {
     expect(stored.last_error_code).toBe("waiting_for_win");
     expect(stored.status).not.toBe("failed");
     expect(stored.attempt_count).toBe(2);
+  });
+
+  it("pending_target_claimed is a no-op so sibling CAS is not overwritten", async () => {
+    const job = c1Job({
+      last_error_code: "semantic_target",
+      semantic_target_win_id: WIN_B,
+    });
+    seedJob(job);
+    const d = await applyInboundMmsC1Decision({
+      job,
+      decision: { kind: "pending_target_claimed", jobId: JOB_ID, winId: WIN_B },
+      now: NOW,
+    });
+    expect(d.kind).toBe("pending_target_claimed");
+    const stored = jobs.get(JOB_ID)!;
+    expect(stored.last_error_code).toBe("semantic_target");
+    expect(stored.semantic_target_win_id).toBe(WIN_B);
+    expect(stored.status).toBe("awaiting_attach");
   });
 
   it("attach-eligible does not mutate attached fields but arms next_retry_at", async () => {
@@ -1493,6 +1528,18 @@ describe("opportunistic C1 list", () => {
     expect(listed).not.toContain(JOB_ID);
   });
 
+  it("claimed semantic target is excluded even if last_error_code was overwritten to waiting_for_win", async () => {
+    jobs.set(JOB_ID, {
+      ...c1Job({
+        last_error_code: "waiting_for_win",
+        semantic_target_win_id: WIN_A,
+        next_retry_at: "2026-08-20T11:00:00.000Z",
+      }),
+    });
+    const listed = await listInboundMediaJobsForC1(1, { now: NOW });
+    expect(listed).toEqual([]);
+  });
+
   it("semantic-specific C2 retry codes are excluded from opportunistic C1 list", async () => {
     jobs.set(JOB_ID, {
       ...c1Job({
@@ -1569,5 +1616,336 @@ describe("tryCorrelateAwaitingInboundMmsForMessageSid bound", () => {
     expect(out).toEqual([]);
     expect(jobs.get(JOB_ID)!.status).toBe("awaiting_attach");
     expect(jobs.get(JOB_ID)!.next_retry_at).toBe("2026-08-20T12:01:00.000Z");
+  });
+});
+
+describe("Slice 1 pending photo target — C1", () => {
+  beforeEach(() => {
+    jobs.clear();
+    wins.clear();
+    media.clear();
+    c1Hooks.reset();
+  });
+
+  function seedWaitingJob() {
+    jobs.set(JOB_ID, { ...c1Job() });
+  }
+
+  function markClaimed(targetWinId: string) {
+    const row = jobs.get(JOB_ID)!;
+    row.semantic_target_win_id = targetWinId;
+    row.last_error_code = "semantic_target";
+  }
+
+  function pendingDeps(
+    over: Partial<CorrelateInboundMmsC1Deps> = {}
+  ): CorrelateInboundMmsC1Deps {
+    return {
+      now: NOW,
+      hasUnresolvedDeletion: async () => false,
+      loadCoachJobStatus: async () => "reply_ready",
+      loadActivePendingPhotoTarget: async () => ({ winId: WIN_B }),
+      claimAwaitingAttachSemanticTarget: async ({ targetWinId }) => {
+        markClaimed(targetWinId);
+        return { ok: true, jobId: JOB_ID, targetWinId };
+      },
+      clearPendingPhotoRequestTarget: async () => true,
+      ...over,
+    };
+  }
+
+  it("delayed same-SID win vs 60s C1 retry: new win attaches, pending does not steal", async () => {
+    seedWaitingJob();
+    const claim = vi.fn(async () => ({
+      ok: false as const,
+      reason: "not_used",
+    }));
+    const first = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({
+        loadCoachJobStatus: async () => "processing",
+        claimAwaitingAttachSemanticTarget: claim,
+      })
+    );
+    expect(first?.kind).toBe("waiting_for_win");
+    expect(jobs.get(JOB_ID)!.last_error_code).toBe("waiting_for_win");
+    expect(claim).not.toHaveBeenCalled();
+
+    wins.set(WIN_A, { ...winLite() });
+    const second = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({
+        loadCoachJobStatus: async () => "reply_ready",
+        claimAwaitingAttachSemanticTarget: claim,
+      })
+    );
+    expect(second?.kind).toBe("attach_eligible");
+    if (second?.kind === "attach_eligible") expect(second.winId).toBe(WIN_A);
+    expect(jobs.get(JOB_ID)!.last_error_code).toBe("attach_eligible");
+    expect(jobs.get(JOB_ID)!.semantic_target_win_id).toBeNull();
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("body+photo one same-SID win still attaches normally with old pending present", async () => {
+    seedWaitingJob();
+    wins.set(WIN_A, { ...winLite() });
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_B,
+    }));
+    const d = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({ claimAwaitingAttachSemanticTarget: claim })
+    );
+    expect(d?.kind).toBe("attach_eligible");
+    if (d?.kind === "attach_eligible") expect(d.winId).toBe(WIN_A);
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("body+photo two same-SID wins remains ambiguous_wins and never pending-fallback", async () => {
+    seedWaitingJob();
+    wins.set(WIN_A, { ...winLite() });
+    wins.set(WIN_B, { ...winLite({ id: WIN_B }) });
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_B,
+    }));
+    const d = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({ claimAwaitingAttachSemanticTarget: claim })
+    );
+    expect(d?.kind).toBe("ambiguous_wins");
+    expect(jobs.get(JOB_ID)!.last_error_code).toBe("ambiguous_wins");
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("two same-SID media remains ambiguous_media and never pending-fallback", async () => {
+    seedWaitingJob();
+    jobs.set(JOB_2, { ...c1Job({ id: JOB_2, media_ordinal: 1 }) });
+    wins.set(WIN_A, { ...winLite() });
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_B,
+    }));
+    const d = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({ claimAwaitingAttachSemanticTarget: claim })
+    );
+    expect(d?.kind).toBe("ambiguous_media");
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "reply_ready",
+    "sending",
+    "sent",
+    "cancelled",
+    "awaiting_manual_pat_answer",
+  ] as const)(
+    "zero same-SID wins + coach %s claims pending target",
+    async (status) => {
+      seedWaitingJob();
+      const clear = vi.fn(async () => true);
+      const d = await tryCorrelateInboundMmsC1Job(
+        JOB_ID,
+        pendingDeps({
+          loadCoachJobStatus: async () => status,
+          clearPendingPhotoRequestTarget: clear,
+        })
+      );
+      expect(d?.kind).toBe("pending_target_claimed");
+      expect(jobs.get(JOB_ID)!.semantic_target_win_id).toBe(WIN_B);
+      expect(jobs.get(JOB_ID)!.last_error_code).toBe("semantic_target");
+      expect(clear).toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    "pending",
+    "processing",
+    "failed",
+    "needs_manual_review",
+    "generating_reply",
+  ] as const)("zero same-SID wins + coach %s keeps waiting", async (status) => {
+    seedWaitingJob();
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_B,
+    }));
+    const d = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({
+        loadCoachJobStatus: async () => status,
+        claimAwaitingAttachSemanticTarget: claim,
+      })
+    );
+    expect(d?.kind).toBe("waiting_for_win");
+    expect(jobs.get(JOB_ID)!.last_error_code).toBe("waiting_for_win");
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("missing coach row and lookup error keep waiting", async () => {
+    seedWaitingJob();
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_B,
+    }));
+    const missing = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({
+        loadCoachJobStatus: async () => null,
+        claimAwaitingAttachSemanticTarget: claim,
+      })
+    );
+    const lookup = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({
+        loadCoachJobStatus: async () => "error",
+        claimAwaitingAttachSemanticTarget: claim,
+      })
+    );
+    expect(missing?.kind).toBe("waiting_for_win");
+    expect(lookup?.kind).toBe("waiting_for_win");
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("no pending target keeps waiting when coach would otherwise allow fallback", async () => {
+    seedWaitingJob();
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_B,
+    }));
+    const d = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({
+        loadActivePendingPhotoTarget: async () => null,
+        claimAwaitingAttachSemanticTarget: claim,
+      })
+    );
+    expect(d?.kind).toBe("waiting_for_win");
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it.each(["target_ineligible", "media_exists"] as const)(
+    "hidden/occupied pending (%s) does not overwrite and keeps waiting",
+    async (reason) => {
+      seedWaitingJob();
+      const claim = vi.fn(async () => ({ ok: false as const, reason }));
+      const clear = vi.fn(async () => true);
+      const d = await tryCorrelateInboundMmsC1Job(
+        JOB_ID,
+        pendingDeps({
+          claimAwaitingAttachSemanticTarget: claim,
+          clearPendingPhotoRequestTarget: clear,
+        })
+      );
+      expect(d?.kind).toBe("waiting_for_win");
+      expect(jobs.get(JOB_ID)!.semantic_target_win_id).toBeNull();
+      expect(jobs.get(JOB_ID)!.attached_win_id).toBeNull();
+      expect(clear).toHaveBeenCalled();
+    }
+  );
+
+  it("one C1 attempt: 0 wins then durable same-SID win before pending claim — new win wins", async () => {
+    seedWaitingJob();
+    c1Hooks.seedWinAAfterWinLoad = 1;
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_B,
+    }));
+    const d = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({
+        loadCoachJobStatus: async () => "reply_ready",
+        claimAwaitingAttachSemanticTarget: claim,
+      })
+    );
+    expect(d?.kind).toBe("attach_eligible");
+    if (d?.kind === "attach_eligible") expect(d.winId).toBe(WIN_A);
+    expect(jobs.get(JOB_ID)!.last_error_code).toBe("attach_eligible");
+    expect(jobs.get(JOB_ID)!.semantic_target_win_id).toBeNull();
+    expect(jobs.get(JOB_ID)!.status).toBe("awaiting_attach");
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("reply_ready while win persist is in flight: pending must not claim", async () => {
+    seedWaitingJob();
+    const claim = vi.fn(async () => {
+      markClaimed(WIN_B);
+      return { ok: true as const, jobId: JOB_ID, targetWinId: WIN_B };
+    });
+    const d = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({
+        loadCoachJobStatus: async () => {
+          wins.set(WIN_A, { ...winLite() });
+          return "reply_ready";
+        },
+        claimAwaitingAttachSemanticTarget: claim,
+      })
+    );
+    expect(d?.kind).toBe("attach_eligible");
+    if (d?.kind === "attach_eligible") expect(d.winId).toBe(WIN_A);
+    expect(claim).not.toHaveBeenCalled();
+    expect(jobs.get(JOB_ID)!.semantic_target_win_id).toBeNull();
+    expect(jobs.get(JOB_ID)!.last_error_code).toBe("attach_eligible");
+    expect(jobs.get(JOB_ID)!.attached_win_id).toBeNull();
+  });
+
+  it("later C1 retry after pending claim does not CAS back to waiting_for_win", async () => {
+    jobs.set(JOB_ID, {
+      ...c1Job({
+        semantic_target_win_id: WIN_B,
+        last_error_code: "semantic_target",
+        next_retry_at: "2026-08-20T11:00:00.000Z",
+      }),
+    });
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_B,
+    }));
+    const d = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({ claimAwaitingAttachSemanticTarget: claim })
+    );
+    expect(d?.kind).toBe("not_c1_ready");
+    expect(claim).not.toHaveBeenCalled();
+    expect(jobs.get(JOB_ID)!.semantic_target_win_id).toBe(WIN_B);
+    expect(jobs.get(JOB_ID)!.last_error_code).toBe("semantic_target");
+    expect(jobs.get(JOB_ID)!.status).toBe("awaiting_attach");
+  });
+
+  it("persist-hook C1 after pending claim does not hybridize attach_eligible with old semantic target", async () => {
+    jobs.set(JOB_ID, {
+      ...c1Job({
+        semantic_target_win_id: WIN_B,
+        last_error_code: "semantic_target",
+        next_retry_at: "2026-08-20T11:00:00.000Z",
+      }),
+    });
+    wins.set(WIN_A, { ...winLite() });
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_B,
+    }));
+    const d = await tryCorrelateInboundMmsC1Job(
+      JOB_ID,
+      pendingDeps({ claimAwaitingAttachSemanticTarget: claim })
+    );
+    expect(d?.kind).toBe("not_c1_ready");
+    expect(claim).not.toHaveBeenCalled();
+    expect(jobs.get(JOB_ID)!.semantic_target_win_id).toBe(WIN_B);
+    expect(jobs.get(JOB_ID)!.last_error_code).toBe("semantic_target");
+    expect(jobs.get(JOB_ID)!.status).toBe("awaiting_attach");
+    expect(jobs.get(JOB_ID)!.attached_win_id).toBeNull();
   });
 });

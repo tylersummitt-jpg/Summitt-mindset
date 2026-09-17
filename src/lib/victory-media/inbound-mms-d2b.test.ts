@@ -1026,3 +1026,119 @@ describe("processInboundMmsD2bJob", () => {
     expect(failed.phase).toBe("d2a");
   });
 });
+
+describe("Slice 1 pending photo target — photo-only D2 dispatcher", () => {
+  const duePhoto = () => dueJob({ last_error_code: "semantic_due" });
+
+  it("active valid pending claims exact target and skips D2a model", async () => {
+    const runSemantics = vi.fn();
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_A,
+    }));
+    const clear = vi.fn(async () => true);
+    const r = await processInboundMmsD2Job(
+      JOB_ID,
+      processDeps({
+        loadJob: async () => duePhoto(),
+        loadActivePendingPhotoTarget: async () => ({ winId: WIN_A }),
+        claim,
+        runSemantics,
+        clearPendingPhotoRequestTarget: clear,
+      })
+    );
+    expect(r).toEqual({
+      ok: true,
+      jobId: JOB_ID,
+      action: "claimed",
+      phase: "d2a",
+    });
+    expect(claim).toHaveBeenCalledWith({
+      jobId: JOB_ID,
+      clerkUserId: USER,
+      targetWinId: WIN_A,
+      now: NOW,
+      expectedResolution: null,
+    });
+    expect(runSemantics).not.toHaveBeenCalled();
+    expect(clear).toHaveBeenCalled();
+  });
+
+  it("expired or missing pending still runs existing D2a", async () => {
+    const runSemantics = vi.fn(
+      async (_facts: InboundMmsD2aSemanticFacts) => ({
+        ok: true as const,
+        decision: "ask_clarification" as const,
+        target_win_id: null,
+        clarification_body: QUESTION,
+      })
+    );
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_A,
+    }));
+    const expired = await processInboundMmsD2Job(
+      JOB_ID,
+      processDeps({
+        loadJob: async () => duePhoto(),
+        loadActivePendingPhotoTarget: async () => null,
+        claim,
+        runSemantics,
+      })
+    );
+    expect(expired.phase).toBe("d2a");
+    expect(runSemantics).toHaveBeenCalledTimes(1);
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it.each(["target_ineligible", "media_exists"] as const)(
+    "hidden/occupied pending (%s) does not claim and falls through to D2a",
+    async (reason) => {
+      const runSemantics = vi.fn(
+        async (_facts: InboundMmsD2aSemanticFacts) => ({
+          ok: true as const,
+          decision: "ask_clarification" as const,
+          target_win_id: null,
+          clarification_body: QUESTION,
+        })
+      );
+      const claim = vi.fn(async () => ({ ok: false as const, reason }));
+      const clear = vi.fn(async () => true);
+      const r = await processInboundMmsD2Job(
+        JOB_ID,
+        processDeps({
+          loadJob: async () => duePhoto(),
+          loadActivePendingPhotoTarget: async () => ({ winId: WIN_A }),
+          claim,
+          runSemantics,
+          clearPendingPhotoRequestTarget: clear,
+        })
+      );
+      expect(r.phase).toBe("d2a");
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.action).not.toBe("claimed");
+      expect(runSemantics).toHaveBeenCalled();
+      expect(clear).toHaveBeenCalled();
+    }
+  );
+
+  it("D2b wake does not pending-claim before clarification", async () => {
+    const claim = vi.fn(async () => ({
+      ok: true as const,
+      jobId: JOB_ID,
+      targetWinId: WIN_A,
+    }));
+    const r = await processInboundMmsD2Job(
+      JOB_ID,
+      processDeps({
+        loadJob: async () => dueJob(),
+        loadActivePendingPhotoTarget: async () => ({ winId: WIN_A }),
+        claim,
+      })
+    );
+    expect(r.phase).toBe("d2b");
+    expect(claim).not.toHaveBeenCalled();
+  });
+});

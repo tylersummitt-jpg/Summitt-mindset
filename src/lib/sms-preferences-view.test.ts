@@ -138,6 +138,18 @@ describe("sms-preferences-view", () => {
     if (!result.ok) expect(result.error).toContain("Unknown field");
   });
 
+  it("rejects pending photo-request columns from app PATCH", () => {
+    for (const key of [
+      "pending_photo_request_win_id",
+      "pending_photo_request_expires_at",
+      "last_photo_request_sent_at",
+    ]) {
+      const result = validateSmsPreferencesPatch({ [key]: "x" }, now);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toContain("Unknown field");
+    }
+  });
+
   it("rejects daily cadence from app", () => {
     const result = validateSmsPreferencesPatch({ cadence_override: "daily" }, now);
     expect(result.ok).toBe(false);
