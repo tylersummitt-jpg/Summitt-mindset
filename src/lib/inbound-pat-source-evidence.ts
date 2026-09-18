@@ -177,6 +177,7 @@ async function defaultEmbedQuery(query: string, client: OpenAI): Promise<number[
 
 export async function getPatEvidenceForSms(args: {
   query: string;
+  topK?: number;
   deps?: GetPatEvidenceForSmsDeps;
 }): Promise<{
   packet: PatSourceEvidencePacketV1;
@@ -184,6 +185,7 @@ export async function getPatEvidenceForSms(args: {
 }> {
   const query = normalizePatSmsQuery(args.query);
   if (!query) return errorPacket("empty_query");
+  const k = args.topK ?? PAT_SMS_TOP_K;
 
   try {
     let embedQuery = args.deps?.embedQuery;
@@ -203,7 +205,7 @@ export async function getPatEvidenceForSms(args: {
     if (!queryEmbedding.length) return errorPacket("empty_embedding");
 
     const scoreChunks = args.deps?.scoreChunks ?? getTopRelevantChunks;
-    const scoredHits = scoreChunks(queryEmbedding, PAT_SMS_TOP_K);
+    const scoredHits = scoreChunks(queryEmbedding, k);
     const assembled = assemblePatSmsEvidence({ scoredHits });
 
     if (assembled.excerpts.length === 0) {

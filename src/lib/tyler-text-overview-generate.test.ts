@@ -16,7 +16,10 @@ import {
   generateTylerTextOverviewEveningPreviewForUser,
   loadTylerTextOverviewAudienceRows,
   persistMorningTtoGeneration,
+  maybeLoadOptionalMorningPatEvidence,
 } from "@/lib/tyler-text-overview-generate";
+import type { MorningCoachingBriefV1 } from "@/lib/morning-tto-coaching-brief-v1";
+import type { MorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
 import type { DailySmsBuilt } from "@/lib/daily-sms-build";
 import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
@@ -38,6 +41,7 @@ const sendSmsMock = vi.hoisted(() => vi.fn());
 const reconcileCheckSentMock = vi.hoisted(() => vi.fn());
 const threadMemoryMock = vi.hoisted(() => vi.fn());
 const checkSentInsertMock = vi.hoisted(() => vi.fn());
+const getPatEvidenceForSmsMock = vi.hoisted(() => vi.fn());
 
 type GenerationRow = Record<string, unknown> & { id: string };
 type DraftRow = Record<string, unknown>;
@@ -352,6 +356,14 @@ vi.mock("@/lib/supabase-server", () => {
         makeChain({ table: name, action: "select", payload: {} })
       ),
     },
+  };
+});
+
+vi.mock("@/lib/inbound-pat-source-evidence", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/inbound-pat-source-evidence")>();
+  return {
+    ...actual,
+    getPatEvidenceForSms: getPatEvidenceForSmsMock,
   };
 });
 
@@ -689,6 +701,11 @@ function setupHappyPath() {
     },
   });
   buildDailySmsContentMock.mockResolvedValue(SUCCESS_BUILT);
+  getPatEvidenceForSmsMock.mockReset();
+  getPatEvidenceForSmsMock.mockResolvedValue({
+    packet: { required: true, retrieval_status: "empty", excerpts: [] },
+    forensics: {},
+  });
 }
 
 describe("canonical Morning TTO batch draft day", () => {
@@ -2695,5 +2712,351 @@ describe("Weekly persist explicit regenerate authority", () => {
     expect(db.drafts[0]?.current_body_to_send).toBe("Recovered machine body");
     expect(db.drafts[0]?.current_body_source).toBe("machine");
     expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+  });
+});
+
+describe("optional Morning/Evening Pat source evidence", () => {
+  const quietOff = {
+    quiet_relationship_eligible: false,
+    message_required_today: false,
+    clock_lookup_failed: false,
+    clock_lookup_error: null,
+    days_since_last_successful_proactive_send: 0,
+    days_since_first_successful_proactive_send: 0,
+  };
+  const quietRequired = {
+    ...quietOff,
+    quiet_relationship_eligible: true,
+    message_required_today: true,
+  };
+  const excerpt = {
+    book_id: "sum_it_up",
+    section_title: "CHAPTER 4",
+    text: "Discipline is doing it when you don't feel like it.",
+  };
+
+  async function eligibleBrief(mutate?: (brief: MorningCoachingBriefV1) => void) {
+    setupHappyPath();
+    const current = await runInterpreterMock();
+    const brief = structuredClone(current.brief) as MorningCoachingBriefV1;
+    brief.human_situation.most_alive = "Walking before work is still the real fight";
+    brief.conversation_continuity.stale_or_exhausted_topics = ["another reminder to just start"];
+    brief.goal_role_today.canonical_goal =
+      "Walk 20 minutes every weekday morning before opening email";
+    mutate?.(brief);
+    runInterpreterMock.mockResolvedValue({
+      ...current,
+      brief,
+      capture: {
+        ...current.capture,
+        parsed_brief: brief,
+      },
+    });
+    return brief;
+  }
+
+  function okRetrieval() {
+    return {
+      packet: {
+        required: true as const,
+        retrieval_status: "ok" as const,
+        excerpts: [excerpt],
+      },
+      forensics: {},
+    };
+  }
+
+  it("SPACE generate path: no embedding, no retrieval, no writer", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: {
+        ...MORNING_PACKET,
+        last_user_response: {
+          ...MORNING_PACKET.last_user_response,
+          days_since: 10,
+          never_replied: false,
+        },
+      },
+      commitmentId: "cmt-phase3",
+    });
+    db.smsSendEvents.push({
+      status: "sent",
+      message_sid: "SM-2026-07-01",
+      send_slot: "morning",
+      created_at: "2026-07-01T12:00:00.000Z",
+      day_key: "2026-07-01",
+      metadata: { sent_at: "2026-07-01T12:00:00.000Z" },
+    });
+    const current = await runInterpreterMock();
+    const brief = structuredClone(current.brief) as MorningCoachingBriefV1;
+    brief.coaching_direction.proactive_decision = "intentional_space";
+    brief.conversation_continuity.stale_or_exhausted_topics = ["another reminder to just start"];
+    runInterpreterMock.mockResolvedValue({
+      ...current,
+      brief,
+      capture: { ...current.capture, parsed_brief: brief },
+    });
+    writeMorningTtoBodyMock.mockClear();
+    getPatEvidenceForSmsMock.mockClear();
+    const result = await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(result.ok).toBe(true);
+    expect(writeMorningTtoBodyMock).not.toHaveBeenCalled();
+    expect(getPatEvidenceForSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("SPACE helper: no retrieval", async () => {
+    const brief = await eligibleBrief((b) => {
+      b.coaching_direction.proactive_decision = "intentional_space";
+    });
+    const result = await maybeLoadOptionalMorningPatEvidence({
+      brief,
+      packet: MORNING_PACKET as MorningRelationshipPacket,
+      quietFacts: quietOff,
+    });
+    expect(result).toBeNull();
+    expect(getPatEvidenceForSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("real direct member need: no retrieval", async () => {
+    const brief = await eligibleBrief((b) => {
+      b.human_situation.direct_question_or_need = "How do I start walking again?";
+    });
+    const result = await maybeLoadOptionalMorningPatEvidence({
+      brief,
+      packet: MORNING_PACKET as MorningRelationshipPacket,
+      quietFacts: quietOff,
+    });
+    expect(result).toBeNull();
+    expect(getPatEvidenceForSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("real open_loop: no retrieval", async () => {
+    const brief = await eligibleBrief((b) => {
+      b.conversation_continuity.open_loop = "She said she would text after the meeting";
+    });
+    const result = await maybeLoadOptionalMorningPatEvidence({
+      brief,
+      packet: MORNING_PACKET as MorningRelationshipPacket,
+      quietFacts: quietOff,
+    });
+    expect(result).toBeNull();
+    expect(getPatEvidenceForSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("goal role central: no retrieval", async () => {
+    const brief = await eligibleBrief((b) => {
+      b.goal_role_today.role = "central";
+    });
+    const result = await maybeLoadOptionalMorningPatEvidence({
+      brief,
+      packet: MORNING_PACKET as MorningRelationshipPacket,
+      quietFacts: quietOff,
+    });
+    expect(result).toBeNull();
+    expect(getPatEvidenceForSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("pending Goal Change: no retrieval", async () => {
+    const brief = await eligibleBrief();
+    const result = await maybeLoadOptionalMorningPatEvidence({
+      brief,
+      packet: {
+        ...MORNING_PACKET,
+        hard_state: {
+          pending_goal_change: {
+            candidate_text: "Run three miles",
+            status: "awaiting_user_confirmation",
+          },
+        },
+      } as MorningRelationshipPacket,
+      quietFacts: quietOff,
+    });
+    expect(result).toBeNull();
+    expect(getPatEvidenceForSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("stale topic eligible: retrieval query is model-derived facts only", async () => {
+    const brief = await eligibleBrief();
+    getPatEvidenceForSmsMock.mockResolvedValue(okRetrieval());
+    const result = await maybeLoadOptionalMorningPatEvidence({
+      brief,
+      packet: MORNING_PACKET as MorningRelationshipPacket,
+      quietFacts: quietOff,
+    });
+    expect(getPatEvidenceForSmsMock).toHaveBeenCalledWith({
+      query: expect.stringContaining("Walking before work is still the real fight"),
+      topK: 1,
+    });
+    const query = String(getPatEvidenceForSmsMock.mock.calls[0]?.[0]?.query ?? "");
+    expect(query).toContain("another reminder to just start");
+    expect(query).toContain("Walk 20 minutes every weekday morning before opening email");
+    expect(query).not.toMatch(/health|leadership|taxonomy/i);
+    expect(result).toEqual({ excerpts: [excerpt] });
+  });
+
+  it("message_required_today eligible: canonical goal can be the whole query", async () => {
+    const brief = await eligibleBrief((b) => {
+      b.human_situation.most_alive = "unknown";
+      b.conversation_continuity.stale_or_exhausted_topics = "unknown";
+      b.goal_role_today.canonical_goal = "Walk 20 minutes every weekday morning before opening email";
+    });
+    getPatEvidenceForSmsMock.mockResolvedValue(okRetrieval());
+    const result = await maybeLoadOptionalMorningPatEvidence({
+      brief,
+      packet: MORNING_PACKET as MorningRelationshipPacket,
+      quietFacts: quietRequired,
+    });
+    expect(getPatEvidenceForSmsMock).toHaveBeenCalledWith({
+      query: "Walk 20 minutes every weekday morning before opening email",
+      topK: 1,
+    });
+    expect(result).toEqual({ excerpts: [excerpt] });
+  });
+
+  it("gate false: writer receives no optional evidence", async () => {
+    setupHappyPath();
+    await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(getPatEvidenceForSmsMock).not.toHaveBeenCalled();
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledWith({
+      packet: MORNING_PACKET,
+      morningCoachingBrief: expect.objectContaining({
+        version: "morning_coaching_brief_v1",
+      }),
+    });
+    expect(writeMorningTtoBodyMock.mock.calls[0]?.[0]).not.toHaveProperty(
+      "optionalPatSourceEvidence"
+    );
+  });
+
+  it("empty/error retrieval: normal writer, no optional evidence", async () => {
+    await eligibleBrief();
+    getPatEvidenceForSmsMock.mockResolvedValue({
+      packet: { required: true, retrieval_status: "error", excerpts: [] },
+      forensics: {},
+    });
+    await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(getPatEvidenceForSmsMock).toHaveBeenCalled();
+    expect(writeMorningTtoBodyMock.mock.calls[0]?.[0]).not.toHaveProperty(
+      "optionalPatSourceEvidence"
+    );
+  });
+
+  it("ok + one excerpt: optional evidence passed to Morning writer", async () => {
+    const brief = await eligibleBrief();
+    getPatEvidenceForSmsMock.mockResolvedValue(okRetrieval());
+    await generateTylerTextOverviewDraftForUser({
+      audienceUser: AUDIENCE_USER,
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(writeMorningTtoBodyMock).toHaveBeenCalledWith({
+      packet: MORNING_PACKET,
+      morningCoachingBrief: brief,
+      optionalPatSourceEvidence: { excerpts: [excerpt] },
+    });
+  });
+
+  it("Evening uses the same helper/parity", async () => {
+    await eligibleBrief((b) => {
+      b.human_situation.most_alive = "Hard conversation with her staff";
+      b.conversation_continuity.stale_or_exhausted_topics = ["delegation lecture"];
+      b.goal_role_today.canonical_goal = "Hold one weekly 1:1 with each direct report";
+    });
+    getPatEvidenceForSmsMock.mockResolvedValue(okRetrieval());
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: {
+        ...MORNING_PACKET,
+        message_for: {
+          ...MORNING_PACKET.message_for,
+          daypart: "evening",
+          intended_receive_time_local: "19:00",
+        },
+      },
+      commitmentId: "cmt-phase3",
+    });
+    writeMorningTtoBodyMock.mockClear();
+    await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+    const query = String(getPatEvidenceForSmsMock.mock.calls[0]?.[0]?.query ?? "");
+    expect(getPatEvidenceForSmsMock).toHaveBeenCalledWith({ query, topK: 1 });
+    expect(query).toContain("Hard conversation with her staff");
+    expect(query).toContain("delegation lecture");
+    expect(query).toContain("Hold one weekly 1:1 with each direct report");
+    expect(query).not.toMatch(/leadership/i);
+    expect(writeMorningTtoBodyMock.mock.calls[0]?.[0]?.optionalPatSourceEvidence).toEqual({
+      excerpts: [excerpt],
+    });
+  });
+
+  it("thrown retrieval fails soft and generation continues", async () => {
+    const brief = await eligibleBrief();
+    getPatEvidenceForSmsMock.mockRejectedValue(new Error("embed down"));
+    const result = await maybeLoadOptionalMorningPatEvidence({
+      brief,
+      packet: MORNING_PACKET as MorningRelationshipPacket,
+      quietFacts: quietOff,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("isolation: inbound default top6 / Ask Pat / Weekly / interpreter / FMT unchanged", () => {
+    const helper = readFileSync(
+      join(process.cwd(), "src/lib/inbound-pat-source-evidence.ts"),
+      "utf8"
+    );
+    const turn = readFileSync(
+      join(process.cwd(), "src/lib/inbound-sol-relationship-turn.ts"),
+      "utf8"
+    );
+    const askPat = readFileSync(join(process.cwd(), "src/app/api/ask-pat/route.ts"), "utf8");
+    const weekly = readFileSync(join(process.cwd(), "src/lib/weekly-tto-writer.ts"), "utf8");
+    const interpreter = readFileSync(
+      join(process.cwd(), "src/lib/morning-tto-brief-interpreter-v1.ts"),
+      "utf8"
+    );
+    expect(helper).toContain("PAT_SMS_TOP_K = 6");
+    expect(helper).toContain("args.topK ?? PAT_SMS_TOP_K");
+    expect(turn).toMatch(/getPatEvidenceForSms\(\{\s*query/);
+    expect(turn).not.toContain("topK:");
+    expect(askPat).toContain("getTopRelevantChunks(queryEmbedding, 6)");
+    expect(weekly).not.toContain("OPTIONAL_PAT_SOURCE_EVIDENCE_V1");
+    expect(weekly).not.toContain("getPatEvidenceForSms");
+    expect(interpreter).not.toContain("getPatEvidenceForSms");
+    expect(interpreter).not.toMatch(/Find More Treasure/i);
+    const generateSrc = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"),
+      "utf8"
+    );
+    const morningFn = generateSrc.slice(
+      generateSrc.indexOf("export async function generateTylerTextOverviewDraftForUser"),
+      generateSrc.indexOf("export async function generateTylerTextOverviewEveningPreviewForUser")
+    );
+    const eveningFn = generateSrc.slice(
+      generateSrc.indexOf("export async function generateTylerTextOverviewEveningPreviewForUser")
+    );
+    for (const fn of [morningFn, eveningFn]) {
+      const spaceIdx = fn.indexOf("isIntentionalSpaceDecision");
+      const patIdx = fn.indexOf("maybeLoadOptionalMorningPatEvidence");
+      const writerIdx = fn.lastIndexOf("writeMorningTtoBody");
+      expect(spaceIdx).toBeGreaterThan(-1);
+      expect(patIdx).toBeGreaterThan(spaceIdx);
+      expect(writerIdx).toBeGreaterThan(patIdx);
+    }
   });
 });

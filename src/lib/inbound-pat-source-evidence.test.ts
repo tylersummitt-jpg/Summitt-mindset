@@ -327,6 +327,25 @@ describe("getPatEvidenceForSms (mocked embed/score — no live OpenAI)", () => {
     expect(result.forensics.inbound_sol_pat_global_ids).toBe("PAT_OK");
   });
 
+  it("topK: 1 scores with 1 and yields at most one excerpt", async () => {
+    const hits = [
+      chunk({ globalId: "PAT_A", bookId: "sum_it_up", order: 1, text: LONG(100, "a"), score: 0.99 }),
+      chunk({ globalId: "PAT_B", bookId: "sum_it_up", order: 2, text: LONG(100, "b"), score: 0.98 }),
+      chunk({ globalId: "PAT_C", bookId: "sum_it_up", order: 3, text: LONG(100, "c"), score: 0.97 }),
+    ];
+    const scoreChunks = vi.fn((_embedding: number[], topK = 6) => hits.slice(0, topK));
+    const result = await getPatEvidenceForSms({
+      query: "Were you nervous?",
+      topK: 1,
+      deps: { embedQuery: async () => [1], scoreChunks },
+    });
+    expect(scoreChunks).toHaveBeenCalledWith([1], 1);
+    expect(result.packet.retrieval_status).toBe("ok");
+    expect(result.packet.excerpts).toHaveLength(1);
+    expect(result.packet.excerpts[0]?.book_id).toBe("sum_it_up");
+    expect(PAT_SMS_TOP_K).toBe(6);
+  });
+
   it("preserves all six ranked hits including a 52-char and a 10k-char chunk", async () => {
     const hits = [
       chunk({ globalId: "PAT_TINY", bookId: "sum_it_up", order: 1, text: "x".repeat(52), score: 0.99 }),

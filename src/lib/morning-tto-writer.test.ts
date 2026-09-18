@@ -162,6 +162,7 @@ describe("morning-tto-writer Phase 2D", () => {
     const user = messages[1]?.content as string;
     expect(user).toContain("MORNING_COACHING_BRIEF_V1");
     expect(user).toContain("MORNING_RELATIONSHIP_PACKET_V1");
+    expect(user).not.toContain("OPTIONAL_PAT_SOURCE_EVIDENCE_V1");
     expect(user).toContain(JSON.stringify(brief));
     expect(user).toContain(JSON.stringify(packet));
     expect(user).toContain('"intended_receive_time_local":"07:00"');
@@ -228,7 +229,9 @@ describe("morning-tto-writer Phase 2D", () => {
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain(oldCoachPatOnly);
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("I AM PAT");
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("I want you to...");
-    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("PAT_SOURCE_EVIDENCE");
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain("OPTIONAL_PAT_SOURCE_EVIDENCE_V1");
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("When PAT_SOURCE_EVIDENCE is present");
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("PAT STORY MODE");
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("PAT STORIES");
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain(
       "Being Coach Pat Summitt does NOT mean telling a Pat story"
@@ -505,5 +508,60 @@ describe("morning-tto-writer Phase 2D", () => {
         "capture",
       ])
     );
+  });
+
+  it("optional Pat evidence appends a third OPTIONAL_PAT_SOURCE_EVIDENCE_V1 writer block", () => {
+    const packet = samplePacket();
+    const brief = sampleBrief({
+      coaching_direction: {
+        primary_move: "support",
+        question_policy: "none",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+    });
+    const user = buildMorningWriterMessages(packet, brief, {
+      excerpts: [
+        {
+          book_id: "sum_it_up",
+          section_title: "CHAPTER 4",
+          text: "Discipline is doing it when you don't feel like it.",
+        },
+      ],
+    })[1]?.content as string;
+    expect(user).toContain("MORNING_COACHING_BRIEF_V1");
+    expect(user).toContain("MORNING_RELATIONSHIP_PACKET_V1");
+    expect(user).toContain("OPTIONAL_PAT_SOURCE_EVIDENCE_V1");
+    const marker = "OPTIONAL_PAT_SOURCE_EVIDENCE_V1\n";
+    const json = user.slice(user.indexOf(marker) + marker.length).split("\n\n")[0];
+    expect(JSON.parse(json)).toEqual({
+      excerpts: [
+        {
+          book_id: "sum_it_up",
+          section_title: "CHAPTER 4",
+          text: "Discipline is doing it when you don't feel like it.",
+        },
+      ],
+    });
+    expect(json).not.toContain("required");
+    expect(json).not.toContain("retrieval_status");
+  });
+
+  it("optional Pat evidence is ignoreable; Brief remains authority; no source mechanics in SMS", () => {
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/It is optional/);
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/you may use one short first-person story or lesson/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/otherwise ignore it/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain("The Brief controls coaching meaning. You control natural language only.");
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain(
+      "If no Pat source evidence supports autobiography, do not invent it."
+    );
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain(
+      "Never mention books, citations, chunks, retrieval, or sources in the SMS."
+    );
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("needs_manual_pat_answer");
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("always use");
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("story required");
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("PAT STORY MODE");
   });
 });

@@ -5,6 +5,7 @@
 
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import type { PatSourceEvidenceExcerpt } from "@/lib/inbound-pat-source-evidence";
 import type { MorningCoachingBriefV1 } from "@/lib/morning-tto-coaching-brief-v1";
 import type { MorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
 import {
@@ -27,9 +28,10 @@ export const MORNING_WRITER_JSON_REMINDER =
 
 export const MORNING_TTO_SYSTEM_PROMPT = `You are Coach Pat Summitt writing one SMS in an ongoing coaching relationship. Coach Pat and Pat Summitt are the same person. Speak naturally in first person as Pat. Specific claims about your own life or career must be grounded in supplied Pat source evidence. If no Pat source evidence supports autobiography, do not invent it.
 
-You receive two JSON blocks:
+You receive two JSON blocks, and sometimes a third:
 1. MORNING_COACHING_BRIEF_V1 — the coaching plan for this generation (what matters, what to do, what not to claim).
 2. MORNING_RELATIONSHIP_PACKET_V1 — canonical facts and the exact real conversation.
+3. OPTIONAL_PAT_SOURCE_EVIDENCE_V1 — when present, one real excerpt from your books. It is optional.
 
 The Brief controls coaching meaning. You control natural language only.
 Do not rediscover the whole relationship from scratch. Do not mechanically translate Brief enum labels into canned sentences. Do not mention internal Brief field names in the SMS.
@@ -50,6 +52,7 @@ SEND CONTRACT
 - The interpreter already chose SEND. Do not re-decide whether this text should exist. Do not output empty copy.
 - If the Brief selected conversational reentry or continue_conversation, write the natural next human turn.
 - If the Brief selected standalone value (often offer_perspective, challenge, or support with little live thread), deliver the value itself.
+- If OPTIONAL_PAT_SOURCE_EVIDENCE_V1 is present, you may use one short first-person story or lesson from that excerpt only when it genuinely improves the selected Brief move; otherwise ignore it. Do not invent beyond the excerpt. Never mention books, citations, chunks, retrieval, or sources in the SMS.
 - Follow question_policy. If it is one_useful_question, you may ask that one question. If it is none, do not ask.
 - Do not explain why Coach is texting. Do not mention silence, cadence, checking in, no pressure, or I'm here whenever as mechanical filler.
 - Do not manufacture current events, feelings, problems, or behavior from identity or roles. Identity is a domain for wisdom, not evidence of today.
@@ -153,9 +156,14 @@ export type MorningWriterFailure = {
 
 export type MorningWriterResult = MorningWriterSuccess | MorningWriterFailure;
 
+export type OptionalMorningPatSourceEvidence = {
+  excerpts: PatSourceEvidenceExcerpt[];
+};
+
 export type WriteMorningTtoBodyArgs = {
   packet: MorningRelationshipPacket;
   morningCoachingBrief: MorningCoachingBriefV1;
+  optionalPatSourceEvidence?: OptionalMorningPatSourceEvidence | null;
 };
 
 type MorningWriterJson = {
@@ -223,22 +231,36 @@ function buildCapture(args: {
  */
 export function buildMorningWriterMessages(
   packet: MorningRelationshipPacket,
-  morningCoachingBrief: MorningCoachingBriefV1
+  morningCoachingBrief: MorningCoachingBriefV1,
+  optionalPatSourceEvidence?: OptionalMorningPatSourceEvidence | null
 ): ChatCompletionMessageParam[] {
+  const parts = [
+    "MORNING_COACHING_BRIEF_V1",
+    JSON.stringify(morningCoachingBrief),
+    "",
+    "MORNING_RELATIONSHIP_PACKET_V1",
+    JSON.stringify(packet),
+  ];
+  const excerpt = optionalPatSourceEvidence?.excerpts[0];
+  if (excerpt) {
+    parts.push(
+      "",
+      "OPTIONAL_PAT_SOURCE_EVIDENCE_V1",
+      JSON.stringify({
+        excerpts: [
+          {
+            book_id: excerpt.book_id,
+            section_title: excerpt.section_title,
+            text: excerpt.text,
+          },
+        ],
+      })
+    );
+  }
+  parts.push("", 'Return JSON only: {"body":"<sms text>"}');
   return [
     { role: "system", content: MORNING_TTO_SYSTEM_PROMPT },
-    {
-      role: "user",
-      content: [
-        "MORNING_COACHING_BRIEF_V1",
-        JSON.stringify(morningCoachingBrief),
-        "",
-        "MORNING_RELATIONSHIP_PACKET_V1",
-        JSON.stringify(packet),
-        "",
-        'Return JSON only: {"body":"<sms text>"}',
-      ].join("\n"),
-    },
+    { role: "user", content: parts.join("\n") },
   ];
 }
 
@@ -254,7 +276,7 @@ Return valid JSON only. No markdown code fences, no commentary before or after t
 export async function writeMorningTtoBody(
   args: WriteMorningTtoBodyArgs
 ): Promise<MorningWriterResult> {
-  const { packet, morningCoachingBrief } = args;
+  const { packet, morningCoachingBrief, optionalPatSourceEvidence } = args;
   if (morningCoachingBrief.coaching_direction.proactive_decision === "intentional_space") {
     return { ok: false, error: "intentional_space" };
   }
@@ -263,7 +285,11 @@ export async function writeMorningTtoBody(
     return { ok: false, error: "openai_unavailable" };
   }
 
-  const messages = buildMorningWriterMessages(packet, morningCoachingBrief);
+  const messages = buildMorningWriterMessages(
+    packet,
+    morningCoachingBrief,
+    optionalPatSourceEvidence
+  );
   const client = new OpenAI({ apiKey });
   const startedMs = Date.now();
   const request_started_at = new Date(startedMs).toISOString();

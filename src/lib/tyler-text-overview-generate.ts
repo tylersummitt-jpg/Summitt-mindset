@@ -1,5 +1,6 @@
 import { type DailySmsBuilt } from "@/lib/daily-sms-build";
 import { loadMorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
+import { getPatEvidenceForSms, normalizePatSmsQuery } from "@/lib/inbound-pat-source-evidence";
 import { writeMorningTtoBody } from "@/lib/morning-tto-writer";
 import {
   assembleMorningBriefInterpreterInputFromPacket,
@@ -1081,6 +1082,72 @@ type QuietRelationshipMechanicalFacts = Awaited<
   ReturnType<typeof resolveQuietRelationshipMechanicalFacts>
 >;
 
+function isRealBriefString(value: string | null | "unknown" | undefined): value is string {
+  return typeof value === "string" && value !== "unknown" && value.trim().length > 0;
+}
+
+function buildOptionalMorningPatRetrievalQuery(brief: MorningCoachingBriefV1): string {
+  const parts: string[] = [];
+  if (isRealBriefString(brief.human_situation.most_alive)) {
+    parts.push(brief.human_situation.most_alive);
+  }
+  const stale = brief.conversation_continuity.stale_or_exhausted_topics;
+  if (Array.isArray(stale)) {
+    for (const item of stale) {
+      if (typeof item === "string" && item.trim()) parts.push(item);
+    }
+  }
+  const goal = brief.goal_role_today.canonical_goal;
+  if (typeof goal === "string" && goal.trim()) parts.push(goal);
+  return normalizePatSmsQuery(parts.join("\n"));
+}
+
+export type OptionalMorningPatWriterEvidence = {
+  excerpts: Array<{
+    book_id: string;
+    section_title: string;
+    text: string;
+  }>;
+};
+
+/** Optional top-1 Pat book excerpt for Morning/Evening. Fail-soft; never parks. */
+export async function maybeLoadOptionalMorningPatEvidence(args: {
+  brief: MorningCoachingBriefV1;
+  packet: MorningRelationshipPacket;
+  quietFacts: QuietRelationshipMechanicalFacts;
+}): Promise<OptionalMorningPatWriterEvidence | null> {
+  const { brief, packet, quietFacts } = args;
+  if (brief.coaching_direction.proactive_decision !== "send") return null;
+  if (isRealBriefString(brief.human_situation.direct_question_or_need)) return null;
+  if (isRealBriefString(brief.conversation_continuity.open_loop)) return null;
+  if (brief.goal_role_today.role === "central") return null;
+  if (packet.hard_state.pending_goal_change != null) return null;
+  const stale = brief.conversation_continuity.stale_or_exhausted_topics;
+  const hasStaleTopic =
+    Array.isArray(stale) && stale.some((item) => typeof item === "string" && item.trim().length > 0);
+  if (!hasStaleTopic && quietFacts.message_required_today !== true) return null;
+
+  const query = buildOptionalMorningPatRetrievalQuery(brief);
+  if (!query) return null;
+
+  try {
+    const { packet: evidence } = await getPatEvidenceForSms({ query, topK: 1 });
+    const excerpt = evidence.retrieval_status === "ok" ? evidence.excerpts[0] : undefined;
+    if (!excerpt) return null;
+    return {
+      excerpts: [
+        {
+          book_id: excerpt.book_id,
+          section_title: excerpt.section_title,
+          text: excerpt.text,
+        },
+      ],
+    };
+  } catch {
+    return null;
+  }
+}
+
 function quietMetadataFields(quiet: QuietRelationshipMechanicalFacts): Record<string, unknown> {
   return {
     quiet_relationship_eligible: quiet.quiet_relationship_eligible,
@@ -1385,9 +1452,15 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     };
   }
 
+  const optionalPatSourceEvidence = await maybeLoadOptionalMorningPatEvidence({
+    brief: morningCoachingBrief,
+    packet,
+    quietFacts,
+  });
   const writerResult = await writeMorningTtoBody({
     packet,
     morningCoachingBrief,
+    ...(optionalPatSourceEvidence ? { optionalPatSourceEvidence } : {}),
   });
   const writerMessages = writerResult.messages
     ? mapOpenAiMessagesToWriterCapture(writerResult.messages)
@@ -1831,9 +1904,15 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     };
   }
 
+  const optionalPatSourceEvidence = await maybeLoadOptionalMorningPatEvidence({
+    brief: morningCoachingBrief,
+    packet,
+    quietFacts,
+  });
   const writerResult = await writeMorningTtoBody({
     packet,
     morningCoachingBrief,
+    ...(optionalPatSourceEvidence ? { optionalPatSourceEvidence } : {}),
   });
   const writerMessages = writerResult.messages
     ? mapOpenAiMessagesToWriterCapture(writerResult.messages)
