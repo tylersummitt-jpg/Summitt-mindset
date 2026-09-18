@@ -475,7 +475,7 @@ describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
   it("photo_request_allowed is optional, not required, and false prohibits the ask", () => {
     const p = INBOUND_SOL_WRITER_SYSTEM_PROMPT;
     expect(p).toContain(
-      "When photo_request_allowed is true, you may use your otherwise-unused optional question to ask for a picture of the newly saved moment if that feels natural; do not let a photo ask replace answering, support, or real coaching."
+      "When photo_request_allowed is true, normally use your otherwise-unused optional question to ask for a picture of the newly saved moment when a picture would naturally help preserve the memory; do not let a photo ask replace answering, support, or real coaching."
     );
     expect(p).toContain("If photo_request_allowed is false, do not ask for a picture.");
     expect(p).toContain("Set photo_requested true only if the body actually includes that optional picture ask");
