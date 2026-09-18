@@ -43,6 +43,13 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
     expect(p).not.toMatch(/Example → unknown:[\s\S]{0,80}What did you learn from losing\?/);
     expect(p).toContain("Asking about Pat's actual experience → yes");
     expect(p).toContain("Asking Pat for coaching/advice about the member's life → no");
+    expect(p).toContain("Interpret the newest inbound against exact_thread");
+    expect(p).toContain(
+      "a short follow-up whose subject is Coach Pat's immediately preceding first-person historical turn is yes when it asks for more about her own past or experience"
+    );
+    expect(p).toContain(
+      "a short follow-up whose subject is the member's own life or plan is not automatically yes"
+    );
     expect(p).toContain(
       "Do not use unknown merely because that answer could also yield a general coaching lesson"
     );

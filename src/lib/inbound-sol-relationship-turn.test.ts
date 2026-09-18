@@ -2609,7 +2609,34 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(getPatEvidenceForSms).not.toHaveBeenCalled();
   });
 
-  it("YES retrieval failure still calls the same writer with empty evidence", async () => {
+  it("YES + retrieval empty parks without calling the writer", async () => {
+    getPatEvidenceForSms.mockResolvedValue({
+      packet: { required: true, retrieval_status: "empty", excerpts: [] },
+      forensics: {
+        inbound_sol_pat_retrieval_attempted: true,
+        inbound_sol_pat_evidence_present: false,
+        inbound_sol_pat_source_count: 0,
+        inbound_sol_pat_retrieval_error: null,
+        inbound_sol_pat_global_ids: "",
+      },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ requires_pat_personal_knowledge: "yes" }),
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMempty", "Did you set an alarm clock in the morning?")
+    );
+    expect(writeInboundSolBody).not.toHaveBeenCalled();
+    expect(result.shouldSend).toBe(false);
+    expect(result.body).toBeNull();
+    expect(result.noSendReason).toBe("manual_pat_answer_needed");
+    expect(result.forensics.inbound_sol_needs_manual_pat_answer).toBe(true);
+    expect(result.forensics.inbound_sol_pat_retrieval_attempted).toBe(true);
+  });
+
+  it("YES + retrieval error parks without calling the writer", async () => {
     getPatEvidenceForSms.mockResolvedValue({
       packet: { required: true, retrieval_status: "error", excerpts: [] },
       forensics: {
@@ -2628,13 +2655,11 @@ describe("runInboundSolRelationshipTurn", () => {
     const result = await runInboundSolRelationshipTurn(
       turnArgs("SMfail", "Were you ever scared?")
     );
-    expect(result.shouldSend).toBe(true);
-    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
-    expect(writeInboundSolBody.mock.calls[0]?.[0]?.patSourceEvidence).toEqual({
-      required: true,
-      retrieval_status: "error",
-      excerpts: [],
-    });
+    expect(writeInboundSolBody).not.toHaveBeenCalled();
+    expect(result.shouldSend).toBe(false);
+    expect(result.body).toBeNull();
+    expect(result.noSendReason).toBe("manual_pat_answer_needed");
+    expect(result.forensics.inbound_sol_needs_manual_pat_answer).toBe(true);
     expect(result.forensics.inbound_sol_pat_retrieval_error).toBe("boom");
   });
 

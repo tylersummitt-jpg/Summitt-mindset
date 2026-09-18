@@ -441,6 +441,21 @@ export async function runInboundSolRelationshipTurn(args: {
     });
     patSourceEvidence = evidence.packet;
     Object.assign(baseForensics, evidence.forensics);
+    if (
+      patSourceEvidence.retrieval_status === "empty" ||
+      patSourceEvidence.retrieval_status === "error"
+    ) {
+      return noSend("manual_pat_answer_needed", {
+        packet,
+        brief,
+        persistResult,
+        winResult,
+        forensics: {
+          ...baseForensics,
+          inbound_sol_needs_manual_pat_answer: true,
+        },
+      });
+    }
   } else {
     Object.assign(baseForensics, skippedPatSourceEvidenceForensics());
   }

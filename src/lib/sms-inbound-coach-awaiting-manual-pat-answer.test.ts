@@ -260,3 +260,82 @@ describe("commit 2 — durable awaiting_manual_pat_answer job state", () => {
     expect(src).not.toContain("from(\"sms_manual_pat");
   });
 });
+
+describe("park-means-park — follow-up inbound while awaiting manual Pat", () => {
+  const src = fs.readFileSync(ROUTE, "utf8");
+  const twilioInbound = fs.readFileSync(TWILIO_INBOUND, "utf8");
+  const exactThread = fs.readFileSync(
+    path.join(process.cwd(), "src/lib/sms-recent-exact-thread-72h.ts"),
+    "utf8"
+  );
+
+  function followupGateBlock(): string {
+    const block = solMainBlock(src);
+    const gate = block.indexOf("if (await hasAwaitingManualPatAnswer(userId))");
+    const solTurn = block.indexOf("const solTurn = await runInboundSolRelationshipTurn({");
+    expect(gate).toBeGreaterThan(0);
+    expect(solTurn).toBeGreaterThan(gate);
+    return block.slice(gate, solTurn);
+  }
+
+  it("1: new Sol-main inbound cancels terminally; no turn, send, or notify", () => {
+    const gate = followupGateBlock();
+    expect(src).toContain('from "@/lib/has-awaiting-manual-pat-answer"');
+    expect(gate).toContain('status: "cancelled"');
+    expect(gate).toContain("nextRetry: farFutureIso()");
+    expect(gate).toContain('tag: "inbound_sol_awaiting_manual_pat_answer_blocks_followup"');
+    expect(gate).toContain("return;");
+    expect(gate).not.toContain("runInboundSolRelationshipTurn");
+    expect(gate).not.toContain("notifyManualPatAnswerNeeded");
+    expect(gate).not.toContain("commitAndSendInboundCoachReply");
+    expect(gate).not.toContain("sendSMSChunked");
+    expect(gate).not.toContain('status: "awaiting_manual_pat_answer"');
+    expect(gate).not.toContain('status: "pending"');
+    expect(gate).not.toContain('status: "failed"');
+    expect(gate).not.toContain('status: "sent"');
+  });
+
+  it("2: STOP/HELP/safety remain ahead of the Sol-main gate", () => {
+    const safetyFn = src.slice(
+      src.indexOf("async function processInboundSmsSafetyShortCircuit"),
+      src.indexOf("async function runBlockerPendingPreCaptureGate")
+    );
+    expect(safetyFn).not.toContain("hasAwaitingManualPatAnswer");
+    expect(safetyFn).toContain("classifyInboundSmsSafetyTier");
+    const postStart = twilioInbound.indexOf("export async function POST");
+    const postSlice = twilioInbound.slice(postStart);
+    expect(postSlice.indexOf("isStopCommand(body)")).toBeLessThan(
+      postSlice.indexOf("ensureCoachJobPresent")
+    );
+    expect(twilioInbound).not.toContain("hasAwaitingManualPatAnswer");
+    const handleV2 = src.slice(
+      src.indexOf("async function handleV2SmsInboundCoachJob"),
+      src.indexOf("async function commitAndSendInboundRelationshipCoachReply")
+    );
+    const safetyCall = handleV2.indexOf("if (await processInboundSmsSafetyShortCircuit");
+    const normalOutcome = handleV2.indexOf("await processV2NormalInboundOutcome(");
+    expect(safetyCall).toBeGreaterThan(0);
+    expect(normalOutcome).toBeGreaterThan(safetyCall);
+    expect(handleV2).not.toContain("hasAwaitingManualPatAnswer");
+  });
+
+  it("3: cancelled follow-up raw_body still enters exact_thread as user text", () => {
+    const coachJobs = exactThread.indexOf("for (const r of coachJobRows)");
+    const rawPush = exactThread.indexOf(
+      'const raw = typeof row.raw_body === "string"',
+      coachJobs
+    );
+    const replyPush = exactThread.indexOf(
+      'const reply = typeof row.reply_body === "string"',
+      rawPush
+    );
+    expect(coachJobs).toBeGreaterThan(0);
+    expect(rawPush).toBeGreaterThan(coachJobs);
+    expect(replyPush).toBeGreaterThan(rawPush);
+    const userPush = exactThread.slice(rawPush, replyPush);
+    expect(userPush).toContain('role: "user"');
+    expect(userPush).not.toContain("row.status");
+    expect(userPush).not.toContain("awaiting_manual_pat_answer");
+    expect(userPush).not.toContain("cancelled");
+  });
+});

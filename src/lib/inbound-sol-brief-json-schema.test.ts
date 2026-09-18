@@ -305,6 +305,13 @@ describe("inbound.requires_pat_personal_knowledge", () => {
       /unknown example:[\s\S]{0,80}What did you learn from losing\?/
     );
     expect(appendix).toContain("Asking about Pat's actual experience → yes");
+    expect(appendix).toContain("Interpret the newest inbound against exact_thread");
+    expect(appendix).toContain(
+      "a short follow-up whose subject is Coach Pat's immediately preceding first-person historical turn is yes when it asks for more about her own past or experience"
+    );
+    expect(appendix).toContain(
+      "a short follow-up whose subject is the member's own life or plan is not automatically yes"
+    );
     expect(appendix).toContain(
       "Do not use unknown merely because a Pat-personal question could also lead to a general coaching lesson"
     );

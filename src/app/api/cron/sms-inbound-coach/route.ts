@@ -535,6 +535,7 @@ import {
 import { applyFinalVoiceOwnershipGate, type VoiceOwnershipResult } from "@/lib/v3-sms-voice-ownership";
 import { isAppleMessengerTapbackLine } from "@/lib/sms-imessage-reaction";
 import { notifyManualPatAnswerNeeded } from "@/lib/notify-manual-pat-answer";
+import { hasAwaitingManualPatAnswer } from "@/lib/has-awaiting-manual-pat-answer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -5429,6 +5430,43 @@ async function processV2NormalInboundOutcome(
         conversationBrainControlTurnActive: conversationBrainControlTurn != null,
       })
     ) {
+      if (await hasAwaitingManualPatAnswer(userId)) {
+        await markJobFinal({
+          messageSid: job.message_sid,
+          status: "cancelled",
+          lastError: JSON.stringify({
+            tag: "inbound_sol_awaiting_manual_pat_answer_blocks_followup",
+            no_send_reason: "awaiting_manual_pat_answer",
+          }).slice(0, 1900),
+          nextRetry: farFutureIso(),
+        });
+        console.warn(
+          "[sms-inbound-coach] inbound_sol_awaiting_manual_pat_answer_blocks_followup",
+          {
+            message_sid: job.message_sid,
+            clerk_user_id: userId,
+            commitment_id: commitment.id,
+          }
+        );
+        await insertInboundTurnTelemetryBestEffort({
+          commitmentId: commitment.id,
+          clerkUserId: userId,
+          messageSid: job.message_sid,
+          rawBody: userMessage,
+          replyBody: "",
+          coachingMoveSource: "inbound_sol_relationship_turn",
+          laneMetadata: {
+            inbound_sol_main: true,
+            inbound_sol_awaiting_manual_pat_answer_blocks_followup: true,
+          },
+          routePurpose: "normal_inbound_reply",
+          branchName: "inbound_sol_main",
+          visibleSentIntended: false,
+          branch: "main",
+        });
+        return;
+      }
+
       const solTurn = await runInboundSolRelationshipTurn({
         clerkUserId: userId,
         timezone,

@@ -101,15 +101,12 @@ describe("admin manual Pat answers wire", () => {
     );
     const protectedPaths = [
       "src/lib/inbound-sol-writer.ts",
-      "src/lib/inbound-sol-relationship-turn.ts",
-      "src/lib/inbound-sol-brief-interpreter.ts",
       "src/lib/inbound-pat-source-evidence.ts",
       "src/app/api/ask-pat/route.ts",
       "src/app/api/cron/daily-sms/route.ts",
       "src/app/api/cron/evening-sms/route.ts",
       "src/app/api/cron/weekly-sms/route.ts",
       "src/lib/tyler-text-overview-admin.ts",
-      "src/app/api/cron/sms-inbound-coach/route.ts",
     ];
     for (const p of protectedPaths) {
       expect(changed.has(p), p).toBe(false);

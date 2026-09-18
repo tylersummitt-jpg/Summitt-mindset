@@ -113,7 +113,10 @@ describe("proactive M/E/W awaiting-manual-pat-answer suppression wire", () => {
 
     const inboundCron = fs.readFileSync(CRON_INBOUND, "utf8");
     expect(inboundCron).toContain('.in("status", ["pending", "failed", "reply_ready"])');
-    expect(inboundCron).not.toContain("hasAwaitingManualPatAnswer");
+    const followupGate = inboundCron.indexOf("if (await hasAwaitingManualPatAnswer(userId))");
+    const solTurn = inboundCron.indexOf("await runInboundSolRelationshipTurn({");
+    expect(followupGate).toBeGreaterThan(0);
+    expect(solTurn).toBeGreaterThan(followupGate);
 
     expect(daily).toContain("shouldSkipDailyForActiveInboundThread");
     expect(daily).toContain("hasRecentInboundAccountabilityExchange");
@@ -128,12 +131,9 @@ describe("proactive M/E/W awaiting-manual-pat-answer suppression wire", () => {
     );
     const protectedPaths = [
       "src/lib/inbound-sol-writer.ts",
-      "src/lib/inbound-sol-relationship-turn.ts",
-      "src/lib/inbound-sol-brief-interpreter.ts",
       "src/lib/inbound-pat-source-evidence.ts",
       "src/app/api/ask-pat/route.ts",
       "src/lib/admin-manual-pat-answers.ts",
-      "src/app/api/cron/sms-inbound-coach/route.ts",
       "src/app/api/twilio/inbound/route.ts",
       "src/lib/tyler-text-overview-admin.ts",
       "src/lib/tyler-text-overview-weekly-generate.ts",
