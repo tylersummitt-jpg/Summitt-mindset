@@ -202,14 +202,44 @@ describe("morning-tto-writer Phase 2D", () => {
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/post-writer|repair pass/i);
   });
 
-  it("shared Morning/Evening writer uses the first-person next-turn line; other lanes do not", () => {
+  it("shared Morning/Evening writer uses Coach Pat Summitt identity; other lanes do not", () => {
     const nextTurn =
-      "The message should feel like the next human turn from Coach Pat: speak naturally in first person when it fits, as a real coach texting this member.";
+      "The message should feel like the next human turn from Coach Pat Summitt: speak naturally in first person as a real coach texting this member.";
     const oldNextTurn = "The message should feel like the next human turn in the relationship.";
+    const oldCoachPatOnly =
+      "The message should feel like the next human turn from Coach Pat: speak naturally in first person when it fits, as a real coach texting this member.";
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain(
+      "You are Coach Pat Summitt writing one SMS in an ongoing coaching relationship."
+    );
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain("Coach Pat and Pat Summitt are the same person.");
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain("Speak naturally in first person as Pat.");
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain(
+      "Specific claims about your own life or career must be grounded in supplied Pat source evidence."
+    );
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain(
+      "If no Pat source evidence supports autobiography, do not invent it."
+    );
     expect(MORNING_TTO_SYSTEM_PROMPT).toContain(nextTurn);
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain(
+      "Do not fabricate quotes, studies, statistics, or attributed sayings."
+    );
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/Brief controls coaching meaning/i);
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain(oldNextTurn);
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain(oldCoachPatOnly);
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("I AM PAT");
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("I want you to...");
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("PAT_SOURCE_EVIDENCE");
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain("PAT STORIES");
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toContain(
+      "Being Coach Pat Summitt does NOT mean telling a Pat story"
+    );
+
+    const writerSrc = readFileSync(
+      path.join(process.cwd(), "src/lib/morning-tto-writer.ts"),
+      "utf8"
+    );
+    expect(writerSrc).not.toContain("getPatEvidenceForSms");
+    expect(writerSrc).not.toContain("buildPatSmsRetrievalQuery");
 
     const generateSrc = readFileSync(
       path.join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"),
@@ -225,6 +255,7 @@ describe("morning-tto-writer Phase 2D", () => {
       "utf8"
     );
     expect(weeklyPrompt).not.toContain(nextTurn);
+    expect(weeklyPrompt).not.toContain("Coach Pat and Pat Summitt are the same person.");
     expect(weeklyPrompt).toContain("Write the next natural human text in this relationship.");
 
     const inboundPrompt = readFileSync(

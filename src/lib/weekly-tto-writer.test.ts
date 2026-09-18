@@ -215,8 +215,9 @@ describe("weekly-tto-writer", () => {
     expect(p).not.toMatch(/family, faith, grief/);
     expect(p).toContain("Write the next natural human text in this relationship.");
     expect(p).not.toContain(
-      "The message should feel like the next human turn from Coach Pat: speak naturally in first person when it fits, as a real coach texting this member."
+      "The message should feel like the next human turn from Coach Pat Summitt: speak naturally in first person as a real coach texting this member."
     );
+    expect(p).not.toContain("Coach Pat and Pat Summitt are the same person.");
   });
 
   it("Sol request shape: gpt-5.6-sol, low reasoning, json_object, no temperature, body only", async () => {

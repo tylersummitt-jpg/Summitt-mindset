@@ -53,6 +53,7 @@ import { scheduleInboundMmsD1SemanticClaim } from "@/lib/victory-media/inbound-m
 import { scheduleInboundMmsD2cSemanticClaim } from "@/lib/victory-media/inbound-mms-d2c-claim";
 import { isInboundMmsPendingClarificationContext } from "@/lib/victory-media/inbound-mms-d2c-pending-context";
 import {
+  buildPatSmsRetrievalQuery,
   getPatEvidenceForSms,
   skippedPatSourceEvidenceForensics,
   type PatSourceEvidencePacketV1,
@@ -432,7 +433,11 @@ export async function runInboundSolRelationshipTurn(args: {
   let patSourceEvidence: PatSourceEvidencePacketV1 | null = null;
   if (brief.inbound.requires_pat_personal_knowledge === "yes") {
     const evidence = await getPatEvidenceForSms({
-      query: packet.latest_inbound_text,
+      query: buildPatSmsRetrievalQuery({
+        latestInboundText: packet.latest_inbound_text,
+        directQuestionOrNeed: brief.human_situation.direct_question_or_need,
+        exactThreadMessages: packet.exact_thread.messages,
+      }),
     });
     patSourceEvidence = evidence.packet;
     Object.assign(baseForensics, evidence.forensics);

@@ -83,9 +83,12 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
     const route = fs.readFileSync(ROUTE, "utf8");
     expect(turn).toContain("getPatEvidenceForSms");
     expect(turn).toContain('requires_pat_personal_knowledge === "yes"');
-    expect(turn).toContain("query: packet.latest_inbound_text");
+    expect(turn).toContain("buildPatSmsRetrievalQuery");
+    expect(turn).toContain("latestInboundText: packet.latest_inbound_text");
+    expect(turn).toContain("directQuestionOrNeed: brief.human_situation.direct_question_or_need");
+    expect(turn).toContain("exactThreadMessages: packet.exact_thread.messages");
+    expect(turn).not.toContain("query: packet.latest_inbound_text");
     expect(turn).not.toContain("buildPatSmsEmbeddingQuery");
-    expect(turn).not.toContain("directQuestionOrNeed");
     expect(turn).toContain("writeInboundSolBody({");
     expect(turn).toContain("goalChangeConfirmationAuthorization: args.goalChangeConfirmationAuthorization ?? null");
     expect(turn).toContain('noSend("manual_pat_answer_needed"');
@@ -129,8 +132,10 @@ describe("commit 1 Pat personal-knowledge flag — isolation", () => {
     expect(helper).toContain("PAT_SMS_TOP_K = 6");
     expect(helper).toContain("normalizePatSmsQuery");
     expect(helper).toContain('(text || "").trim().replace(/\\s+/g, " ")');
+    expect(helper).toContain("export function buildPatSmsRetrievalQuery");
+    expect(helper).toContain("directQuestionOrNeed");
     expect(helper).not.toContain("buildPatSmsEmbeddingQuery");
-    expect(helper).not.toContain("directQuestionOrNeed");
+    expect(helper).not.toContain("What happened next?");
     expect(helper).not.toContain("PAT_SMS_MIN_CHUNK");
     expect(helper).not.toContain("PAT_SMS_MAX_CHUNK");
     expect(helper).not.toContain("order - 1");

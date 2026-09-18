@@ -246,7 +246,12 @@ function brief(
 }
 
 describe("runInboundSolRelationshipTurn", () => {
+  let loadedPacketLatestInboundText = "Got the whole thing finished before lunch.";
+  let loadedPacketExactThreadMessages: Array<{ sender: string; body: string }> = [];
+
   beforeEach(() => {
+    loadedPacketLatestInboundText = "Got the whole thing finished before lunch.";
+    loadedPacketExactThreadMessages = [];
     persistSolInboundUserEvidence.mockReset();
     persistSolInboundUserEvidence.mockResolvedValue({ status: "none", reason: "null_capture" });
     persistSolCoachRelationshipMemory.mockReset();
@@ -318,7 +323,7 @@ describe("runInboundSolRelationshipTurn", () => {
         current_identity: { text: null },
         personal_context: [],
         hard_state: { pending_goal_change: null, open_coach_question: null },
-        latest_inbound_text: "Got the whole thing finished before lunch.",
+        latest_inbound_text: loadedPacketLatestInboundText,
         latest_inbound_message_sid: "SMfin",
         pending_media_context: {
           candidate_count: 0,
@@ -331,7 +336,7 @@ describe("runInboundSolRelationshipTurn", () => {
         exact_thread: {
           window_days: 21,
           max_messages: 30,
-          messages: [],
+          messages: loadedPacketExactThreadMessages,
           omitted_older_turn_count: 0,
         },
       },
@@ -2469,6 +2474,7 @@ describe("runInboundSolRelationshipTurn", () => {
       },
     });
     const inbound = "Got the whole thing finished before lunch.";
+    const need = "Were you nervous speaking in public?";
     const yesBrief = brief({
       requires_pat_personal_knowledge: "yes",
       answer_priority: "first",
@@ -2479,8 +2485,7 @@ describe("runInboundSolRelationshipTurn", () => {
         evidence: inbound,
       },
     });
-    yesBrief.human_situation.direct_question_or_need =
-      "Were you nervous speaking in public?";
+    yesBrief.human_situation.direct_question_or_need = need;
     runInboundSolBriefInterpreter.mockResolvedValue({
       ok: true,
       brief: yesBrief,
@@ -2490,16 +2495,118 @@ describe("runInboundSolRelationshipTurn", () => {
     const result = await runInboundSolRelationshipTurn(turnArgs("SMty", inbound));
     expect(result.shouldSend).toBe(true);
     expect(getPatEvidenceForSms).toHaveBeenCalledTimes(1);
-    expect(getPatEvidenceForSms).toHaveBeenCalledWith({ query: inbound });
-    expect(getPatEvidenceForSms.mock.calls[0]?.[0]?.query).not.toContain(
-      "Were you nervous speaking in public?"
-    );
+    expect(getPatEvidenceForSms.mock.calls[0]?.[0]?.query).toContain(inbound);
+    expect(getPatEvidenceForSms.mock.calls[0]?.[0]?.query).toContain(need);
     expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
     expect(writeInboundSolBody.mock.calls[0]?.[0]?.patSourceEvidence).toEqual(packet);
     expect(writeInboundSolBody.mock.calls[0]?.[0]?.brief.human_situation.direct_question_or_need).toBe(
-      "Were you nervous speaking in public?"
+      need
     );
     expect(result.forensics.inbound_sol_pat_global_ids).toBe("PAT_0457");
+  });
+
+  it("YES first-shot query is newest inbound when there is no prior Coach turn or Brief expansion", async () => {
+    const inbound = "Were you ever nervous before big games?";
+    loadedPacketLatestInboundText = inbound;
+    getPatEvidenceForSms.mockResolvedValue({
+      packet: { required: true, retrieval_status: "empty", excerpts: [] },
+      forensics: {
+        inbound_sol_pat_retrieval_attempted: true,
+        inbound_sol_pat_evidence_present: false,
+        inbound_sol_pat_source_count: 0,
+        inbound_sol_pat_retrieval_error: null,
+        inbound_sol_pat_global_ids: "",
+      },
+    });
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ requires_pat_personal_knowledge: "yes" }),
+      capture: { retry_occurred: false },
+    });
+    await runInboundSolRelationshipTurn(turnArgs("SMfirst", inbound));
+    expect(getPatEvidenceForSms).toHaveBeenCalledTimes(1);
+    expect(getPatEvidenceForSms).toHaveBeenCalledWith({ query: inbound });
+  });
+
+  it("YES follow-up query includes newest inbound, Brief need, and previous Coach Tennessee story", async () => {
+    const inbound = "What happened next?";
+    const need = "What happened after you coached at Tennessee?";
+    const tennessee =
+      "When I coached at Tennessee, I learned that standards have to belong to the whole staff, not just me.";
+    loadedPacketLatestInboundText = inbound;
+    loadedPacketExactThreadMessages = [
+      { sender: "user", body: "Tell me about Tennessee." },
+      { sender: "coach", body: tennessee },
+    ];
+    getPatEvidenceForSms.mockResolvedValue({
+      packet: { required: true, retrieval_status: "empty", excerpts: [] },
+      forensics: {
+        inbound_sol_pat_retrieval_attempted: true,
+        inbound_sol_pat_evidence_present: false,
+        inbound_sol_pat_source_count: 0,
+        inbound_sol_pat_retrieval_error: null,
+        inbound_sol_pat_global_ids: "",
+      },
+    });
+    const yesBrief = brief({ requires_pat_personal_knowledge: "yes" });
+    yesBrief.human_situation.direct_question_or_need = need;
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: yesBrief,
+      capture: { retry_occurred: false },
+    });
+    await runInboundSolRelationshipTurn(turnArgs("SMnext", inbound));
+    const query = String(getPatEvidenceForSms.mock.calls[0]?.[0]?.query ?? "");
+    expect(getPatEvidenceForSms).toHaveBeenCalledTimes(1);
+    expect(query).toContain(inbound);
+    expect(query).toContain(need);
+    expect(query).toContain(tennessee);
+  });
+
+  it("YES unknown Brief need still retrieves using inbound plus last Coach outbound", async () => {
+    const inbound = "What happened next?";
+    const tennessee =
+      "When I coached at Tennessee, I learned that standards have to belong to the whole staff, not just me.";
+    loadedPacketLatestInboundText = inbound;
+    loadedPacketExactThreadMessages = [{ sender: "coach", body: tennessee }];
+    getPatEvidenceForSms.mockResolvedValue({
+      packet: { required: true, retrieval_status: "empty", excerpts: [] },
+      forensics: {
+        inbound_sol_pat_retrieval_attempted: true,
+        inbound_sol_pat_evidence_present: false,
+        inbound_sol_pat_source_count: 0,
+        inbound_sol_pat_retrieval_error: null,
+        inbound_sol_pat_global_ids: "",
+      },
+    });
+    const yesBrief = brief({ requires_pat_personal_knowledge: "yes" });
+    yesBrief.human_situation.direct_question_or_need = "unknown";
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: yesBrief,
+      capture: { retry_occurred: false },
+    });
+    await runInboundSolRelationshipTurn(turnArgs("SMunkNeed", inbound));
+    const query = String(getPatEvidenceForSms.mock.calls[0]?.[0]?.query ?? "");
+    expect(query).toBe(`${inbound}\n${tennessee}`);
+    expect(query).not.toContain("unknown");
+  });
+
+  it("NO does not retrieve even when exact_thread has a prior Coach story", async () => {
+    loadedPacketLatestInboundText = "What happened next?";
+    loadedPacketExactThreadMessages = [
+      {
+        sender: "coach",
+        body: "When I coached at Tennessee, I learned that standards have to belong to the whole staff, not just me.",
+      },
+    ];
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ requires_pat_personal_knowledge: "no" }),
+      capture: { retry_occurred: false },
+    });
+    await runInboundSolRelationshipTurn(turnArgs("SMnoStory", "What happened next?"));
+    expect(getPatEvidenceForSms).not.toHaveBeenCalled();
   });
 
   it("YES retrieval failure still calls the same writer with empty evidence", async () => {

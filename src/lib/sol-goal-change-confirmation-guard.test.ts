@@ -562,7 +562,7 @@ describe("Goal Change state files stay outside Morning/Evening first-person line
       "utf8"
     );
     expect(src).not.toContain(
-      "The message should feel like the next human turn from Coach Pat: speak naturally in first person when it fits, as a real coach texting this member."
+      "The message should feel like the next human turn from Coach Pat Summitt: speak naturally in first person as a real coach texting this member."
     );
   });
 });

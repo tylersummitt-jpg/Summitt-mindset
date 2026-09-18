@@ -89,6 +89,55 @@ export function normalizePatSmsQuery(text: string): string {
   return (text || "").trim().replace(/\s+/g, " ");
 }
 
+export type PatSmsRetrievalThreadMessage = {
+  sender: string;
+  body: string;
+};
+
+function pushUniqueNormalizedPart(parts: string[], raw: string): void {
+  const normalized = normalizePatSmsQuery(raw);
+  if (!normalized) return;
+  if (parts.includes(normalized)) return;
+  parts.push(normalized);
+}
+
+/** Last nonempty Coach body in exact_thread. Walks typed sender only. */
+export function lastCoachOutboundBody(
+  messages: ReadonlyArray<PatSmsRetrievalThreadMessage>
+): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message?.sender !== "coach") continue;
+    const body = normalizePatSmsQuery(message.body ?? "");
+    if (body) return body;
+  }
+  return null;
+}
+
+/**
+ * Embed query for inbound Pat-personal retrieval.
+ * Always newest inbound. Optionally Brief-resolved need + last Coach outbound.
+ * No pronoun/keyword/short-question detection.
+ */
+export function buildPatSmsRetrievalQuery(args: {
+  latestInboundText: string;
+  directQuestionOrNeed: string | null | "unknown";
+  exactThreadMessages: ReadonlyArray<PatSmsRetrievalThreadMessage>;
+}): string {
+  const parts: string[] = [];
+  pushUniqueNormalizedPart(parts, args.latestInboundText);
+
+  const need = args.directQuestionOrNeed;
+  if (typeof need === "string" && need !== "unknown") {
+    pushUniqueNormalizedPart(parts, need);
+  }
+
+  const coachBody = lastCoachOutboundBody(args.exactThreadMessages);
+  if (coachBody) pushUniqueNormalizedPart(parts, coachBody);
+
+  return parts.join("\n");
+}
+
 /**
  * Format Ask Pat's ranked top-K hits for the SMS writer.
  * Preserves rank order. No neighbor expansion. No length filter.

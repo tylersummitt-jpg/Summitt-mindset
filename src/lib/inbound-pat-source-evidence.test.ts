@@ -4,7 +4,9 @@ import {
   PAT_SMS_EMBEDDING_MODEL,
   PAT_SMS_TOP_K,
   assemblePatSmsEvidence,
+  buildPatSmsRetrievalQuery,
   getPatEvidenceForSms,
+  lastCoachOutboundBody,
   normalizePatSmsQuery,
 } from "@/lib/inbound-pat-source-evidence";
 
@@ -55,6 +57,98 @@ describe("normalizePatSmsQuery (fixture — Ask Pat formula, no live embed)", ()
     expect(normalizePatSmsQuery(inbound)).toBe("That one.");
     expect(normalizePatSmsQuery(inbound)).not.toContain(need);
     expect(normalizePatSmsQuery(inbound)).not.toContain("\n");
+  });
+});
+
+describe("buildPatSmsRetrievalQuery", () => {
+  const tennessee =
+    "When I coached at Tennessee, I learned that standards have to belong to the whole staff, not just me.";
+
+  it("first-shot Pat personal question still contains newest inbound", () => {
+    const inbound = "Were you ever nervous before big games?";
+    const query = buildPatSmsRetrievalQuery({
+      latestInboundText: inbound,
+      directQuestionOrNeed: null,
+      exactThreadMessages: [],
+    });
+    expect(query).toBe(inbound);
+    expect(query).toContain(inbound);
+  });
+
+  it("contextual follow-up includes newest inbound and previous Coach Tennessee story", () => {
+    const inbound = "What happened next?";
+    const query = buildPatSmsRetrievalQuery({
+      latestInboundText: inbound,
+      directQuestionOrNeed: null,
+      exactThreadMessages: [
+        { sender: "user", body: "Tell me about Tennessee." },
+        { sender: "coach", body: tennessee },
+      ],
+    });
+    expect(query).toContain(inbound);
+    expect(query).toContain("When I coached at Tennessee");
+    expect(query).toContain(tennessee);
+  });
+
+  it("includes Brief direct_question_or_need when it adds semantic expansion", () => {
+    const inbound = "What happened next?";
+    const need = "What happened after you coached at Tennessee?";
+    const query = buildPatSmsRetrievalQuery({
+      latestInboundText: inbound,
+      directQuestionOrNeed: need,
+      exactThreadMessages: [{ sender: "coach", body: tennessee }],
+    });
+    expect(query).toContain(inbound);
+    expect(query).toContain(need);
+    expect(query).toContain(tennessee);
+  });
+
+  it("null or unknown direct need does not break the query", () => {
+    const inbound = "What happened next?";
+    expect(
+      buildPatSmsRetrievalQuery({
+        latestInboundText: inbound,
+        directQuestionOrNeed: null,
+        exactThreadMessages: [{ sender: "coach", body: tennessee }],
+      })
+    ).toBe(`${inbound}\n${tennessee}`);
+    expect(
+      buildPatSmsRetrievalQuery({
+        latestInboundText: inbound,
+        directQuestionOrNeed: "unknown",
+        exactThreadMessages: [{ sender: "coach", body: tennessee }],
+      })
+    ).toBe(`${inbound}\n${tennessee}`);
+  });
+
+  it("no prior Coach turn still works", () => {
+    const inbound = "Were you ever nervous before big games?";
+    expect(
+      buildPatSmsRetrievalQuery({
+        latestInboundText: inbound,
+        directQuestionOrNeed: "unknown",
+        exactThreadMessages: [{ sender: "user", body: "Earlier note." }],
+      })
+    ).toBe(inbound);
+  });
+
+  it("skips empty Coach bodies and exact duplicate parts", () => {
+    const inbound = "What happened next?";
+    expect(lastCoachOutboundBody([{ sender: "coach", body: "   " }])).toBeNull();
+    expect(
+      lastCoachOutboundBody([
+        { sender: "coach", body: tennessee },
+        { sender: "user", body: inbound },
+        { sender: "coach", body: "  " },
+      ])
+    ).toBe(tennessee);
+    expect(
+      buildPatSmsRetrievalQuery({
+        latestInboundText: inbound,
+        directQuestionOrNeed: inbound,
+        exactThreadMessages: [{ sender: "coach", body: inbound }],
+      })
+    ).toBe(inbound);
   });
 });
 
