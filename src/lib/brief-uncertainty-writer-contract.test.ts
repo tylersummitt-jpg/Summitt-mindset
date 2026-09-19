@@ -214,7 +214,6 @@ function expectUncertaintyLaw(prompt: string) {
   expect(prompt).toMatch(/either\/or questions/i);
   expect(prompt).toMatch(/clarification questions/i);
   expect(prompt).toMatch(/does not weaken challenge or accountability/i);
-  expect(prompt).toMatch(/Asking about the outcome of a planned action remains legal/i);
 }
 
 describe("brief uncertainty writer contract", () => {
@@ -227,6 +226,9 @@ describe("brief uncertainty writer contract", () => {
     expectUncertaintyLaw(WEEKLY_TTO_SYSTEM_PROMPT);
     expect(WEEKLY_TTO_SYSTEM_PROMPT).toMatch(
       /unclear whether an event occurred, do not recap that event as completed/i
+    );
+    expect(WEEKLY_TTO_SYSTEM_PROMPT).toMatch(
+      /Asking about the outcome of a planned action remains legal/i
     );
   });
 
@@ -561,10 +563,30 @@ describe("brief uncertainty writer contract", () => {
     const user = writerUserContent(packet, brief);
     expect(user).toContain("I'll lift tomorrow.");
     expect(user).toContain("No reported outcome for the planned lift.");
-    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(
+    expect(user).toContain('"question_policy":"one_useful_question"');
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain(
+      "If it is one_useful_question, you may ask that one question. If it is none, do not ask."
+    );
+    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/Do not turn plans into completed events/i);
+    expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(
       /Asking about the outcome of a planned action remains legal/i
     );
-    expect(MORNING_TTO_SYSTEM_PROMPT).toMatch(/does not assert completion/i);
+  });
+
+  it("question_policy none is passed through; writer does not independently legalize an ask", () => {
+    const brief = baseBrief({
+      coaching_direction: {
+        primary_move: "offer_perspective",
+        question_policy: "none",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+    });
+    const user = writerUserContent(morningPacket(), brief);
+    expect(user).toContain('"question_policy":"none"');
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain("If it is none, do not ask.");
+    expect(MORNING_TTO_SYSTEM_PROMPT).toContain("Honor claims_to_avoid, topics_not_to_force, do_not_repeat, stale/answered continuity.");
   });
 
   it("E. event uncertain — asking whether it happened remains legal; asserting it happened does not", () => {

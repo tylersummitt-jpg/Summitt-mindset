@@ -205,17 +205,34 @@ describe("morning-tto-brief-interpreter-v1", () => {
       "Choose the one coaching move that best advances the relationship from where the recent conversation actually stands. Treat recent Coach questions, lessons, tactics, reframes, and challenges as moves already made; return to them only when new evidence, timing, or context makes doing so useful."
     );
     expect(p).toContain(
+      "Before choosing another tactic, principle, generic encouragement, or standalone perspective, consider whether there is a specific grounded part of the member's Current Goal, recent conversation, historical evidence, identity, important relationships, or life context whose story, meaning, motivation, feeling, or useful detail remains genuinely unexplored. Unanswered does not by itself make the same missing information unexplored. When no more important live coaching responsibility exists, prefer one easy, concrete question that lets the member supply that genuinely unexplored information and deepens the relationship. For a member who is actively replying, a grounded question about another part of their life they have already talked about can be more useful than another principle about the finished topic. Do not use this preference to displace a direct question, live or urgent problem, clear-miss accountability, imminent action, pending Goal Change, grief or crisis support, or a more useful specific coaching move. Do not force pride, family, identity, history, or Victory Room into the conversation. conversation_continuity.open_loop may remain unresolved without asking again."
+    );
+    expect(p).toContain(
       "Before choosing another tactic, principle, generic encouragement, or standalone perspective, consider whether there is a specific grounded part of the member's Current Goal, recent conversation, historical evidence, identity, important relationships, or life context whose story, meaning, motivation, feeling, or useful detail remains genuinely unexplored."
     );
     expect(p).toContain(
-      "When no more important live coaching responsibility exists, prefer one easy, concrete question that lets the member supply that missing information and deepens the relationship."
+      "Unanswered does not by itself make the same missing information unexplored."
     );
     expect(p).toContain(
-      "For a member who is actively replying, once the live thread is handled and there is no Current Goal coaching job that needs attention, a grounded question about another part of their life they have already talked about can be more useful than another principle about the finished topic."
+      "When no more important live coaching responsibility exists, prefer one easy, concrete question that lets the member supply that genuinely unexplored information and deepens the relationship."
     );
     expect(p).toContain(
-      "Do not use this preference to displace a direct question, live or urgent problem, clear-miss accountability, imminent action, pending Goal Change, important open loop, grief or crisis support, or a more useful specific coaching move. Do not ask merely to provoke a reply, repeat or stack unanswered questions, or force pride, family, identity, history, or Victory Room into the conversation."
+      "For a member who is actively replying, a grounded question about another part of their life they have already talked about can be more useful than another principle about the finished topic."
     );
+    expect(p).not.toContain(
+      "once the live thread is handled and there is no Current Goal coaching job that needs attention"
+    );
+    expect(p).not.toContain("supply that missing information");
+    expect(p).toContain(
+      "Do not use this preference to displace a direct question, live or urgent problem, clear-miss accountability, imminent action, pending Goal Change, grief or crisis support, or a more useful specific coaching move. Do not force pride, family, identity, history, or Victory Room into the conversation."
+    );
+    expect(p).toContain(
+      "conversation_continuity.open_loop may remain unresolved without asking again."
+    );
+    expect(p).not.toContain("repeat or stack unanswered questions");
+    expect(p).not.toContain("important open loop");
+    expect(p).not.toContain("follow an open loop");
+    expect(p).not.toContain("Continue conversation, close loops, answer questions");
     expect(p).not.toMatch(/Find More Treasure/i);
     expect(p).not.toContain("valence-open");
     expect(p).not.toContain("standing life domain");
@@ -261,6 +278,10 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(p).toContain('does not automatically mean "make a plan."');
     expect(p).toContain("near-end-of-day receive context");
     expect(p).toContain('does not automatically mean "the day is over."');
+    expect(p).toContain(
+      "Evening may answer, support, clarify, reconnect, prepare for tomorrow, challenge, ask one useful question, or ask none"
+    );
+    expect(p).not.toContain("ask about what happened today");
     expect(p).toContain("start-of-day framing");
     expect(p).toContain(
       "evening alone must not imply every goal/action opportunity has already happened"
@@ -312,8 +333,8 @@ describe("morning-tto-brief-interpreter-v1", () => {
   });
 
   it("provisional model constant is framed as placeholder, not a locked production choice", () => {
-    expect(MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL).toBe("gpt-5.6-terra");
-    expect(MORNING_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-terra");
+    expect(MORNING_BRIEF_INTERPRETER_PROVISIONAL_MODEL).toBe("gpt-5.6-sol");
+    expect(MORNING_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-sol");
     const src = readFileSync(
       path.join(process.cwd(), "src/lib/morning-tto-brief-interpreter-v1.ts"),
       "utf8"
@@ -529,7 +550,7 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(create).toHaveBeenCalledTimes(2);
     expect(create.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        model: "gpt-5.6-terra",
+        model: "gpt-5.6-sol",
         reasoning_effort: "low",
         max_completion_tokens: 2500,
         response_format: expect.objectContaining({
@@ -541,7 +562,7 @@ describe("morning-tto-brief-interpreter-v1", () => {
         }),
       })
     );
-    expect(create.mock.calls[1]?.[0].model).toBe("gpt-5.6-terra");
+    expect(create.mock.calls[1]?.[0].model).toBe("gpt-5.6-sol");
     expect(create.mock.calls[1]?.[0].response_format).toEqual(
       create.mock.calls[0]?.[0].response_format
     );
@@ -1359,5 +1380,380 @@ describe("morning brief interpreter schema-contract fixtures", () => {
         JSON.stringify({ version: "wrong", confidence: "low" })
       )
     ).toBe("schema_validation_failed");
+  });
+});
+
+describe("same missing information vs new information need", () => {
+  function mergeCase(args: {
+    localDate?: string;
+    localWeekday?: string;
+    daypart?: "morning" | "evening";
+    canonicalGoalText?: string;
+    exactThreadMessages: AssembleMorningBriefInterpreterInputArgs["exactThreadMessages"];
+    continuity: Record<string, unknown>;
+    direction: Record<string, unknown>;
+  }) {
+    return parseAndMergeMorningBriefInterpreterResponse({
+      input: assembleOrThrow({
+        ...(args.localDate ? { localDate: args.localDate } : {}),
+        ...(args.localWeekday ? { localWeekday: args.localWeekday } : {}),
+        ...(args.daypart ? { daypart: args.daypart } : {}),
+        ...(args.canonicalGoalText ? { canonicalGoalText: args.canonicalGoalText } : {}),
+        exactThreadMessages: args.exactThreadMessages,
+        recentUnansweredOutboundCount: 1,
+        latestOutcome: null,
+        matchingOutcomeCount: 0,
+      }),
+      raw: JSON.stringify(
+        semanticBriefDraft({
+          conversation_continuity: args.continuity,
+          coaching_direction: args.direction,
+        })
+      ),
+    });
+  }
+
+  it("1 A-Ron GOOD: plan answered + later timing may authorize an outcome question", () => {
+    const merged = mergeCase({
+      localDate: "2026-08-07",
+      localWeekday: "Friday",
+      daypart: "morning",
+      canonicalGoalText: "30-minute workout",
+      exactThreadMessages: [
+        {
+          sender: "coach",
+          sent_at_utc: "2026-08-05T15:00:00.000Z",
+          sent_at_local: "2026-08-05 11:00",
+          local_day_key: "2026-08-05",
+          local_weekday: "Wednesday",
+          day_relation_to_message: "2_days_before",
+          body: "Which morning will you commit to?",
+        },
+        {
+          sender: "user",
+          sent_at_utc: "2026-08-05T16:00:00.000Z",
+          sent_at_local: "2026-08-05 12:00",
+          local_day_key: "2026-08-05",
+          local_weekday: "Wednesday",
+          day_relation_to_message: "2_days_before",
+          body: "Thursday morning.",
+        },
+      ],
+      continuity: {
+        already_acknowledged: ["Thursday morning commitment"],
+        answered_question: {
+          question: "Which morning will you commit to?",
+          answer: "Thursday morning.",
+        },
+        open_loop: "Thursday workout outcome is unknown",
+        stale_or_exhausted_topics: [],
+        do_not_repeat: [],
+      },
+      direction: {
+        primary_move: "continue_conversation",
+        question_policy: "one_useful_question",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+    });
+    expect(merged?.coaching_direction.question_policy).toBe("one_useful_question");
+    expect(merged?.coaching_direction.proactive_decision).toBe("send");
+    expect(String(merged?.conversation_continuity.open_loop)).toMatch(/Thursday workout outcome/i);
+  });
+
+  it("2 A-Ron BAD: same unanswered outcome may stay in open_loop without authorizing a re-ask", () => {
+    const merged = mergeCase({
+      localDate: "2026-08-08",
+      localWeekday: "Saturday",
+      daypart: "morning",
+      canonicalGoalText: "30-minute workout",
+      exactThreadMessages: [
+        {
+          sender: "coach",
+          sent_at_utc: "2026-08-07T15:00:00.000Z",
+          sent_at_local: "2026-08-07 11:00",
+          local_day_key: "2026-08-07",
+          local_weekday: "Friday",
+          day_relation_to_message: "1_day_before",
+          body: "How did the 30-minute workout go this morning?",
+        },
+      ],
+      continuity: {
+        already_acknowledged: [],
+        answered_question: null,
+        open_loop: "Thursday workout outcome is unknown",
+        stale_or_exhausted_topics: [],
+        do_not_repeat: [
+          "Do not ask again what happened with Thursday's workout",
+        ],
+      },
+      direction: {
+        primary_move: "offer_perspective",
+        question_policy: "none",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+    });
+    expect(String(merged?.conversation_continuity.open_loop)).toMatch(/Thursday workout outcome/i);
+    expect(merged?.coaching_direction.question_policy).toBe("none");
+    expect(merged?.coaching_direction.proactive_decision).toBe("send");
+    expect(JSON.stringify(merged?.conversation_continuity.do_not_repeat)).toMatch(
+      /Thursday's workout/i
+    );
+  });
+
+  it("3 Catherine: unanswered Friday outcome may remain open_loop without a re-ask", () => {
+    const merged = mergeCase({
+      localDate: "2026-09-19",
+      localWeekday: "Saturday",
+      daypart: "morning",
+      exactThreadMessages: [
+        {
+          sender: "coach",
+          sent_at_utc: "2026-09-18T23:00:00.000Z",
+          sent_at_local: "2026-09-18 19:00",
+          local_day_key: "2026-09-18",
+          local_weekday: "Friday",
+          day_relation_to_message: "1_day_before",
+          body: "Did you keep your commitment to yourself this afternoon?",
+        },
+      ],
+      continuity: {
+        already_acknowledged: [],
+        answered_question: null,
+        open_loop:
+          "The coach asked whether she kept her September 18 afternoon commitment; she has not answered.",
+        stale_or_exhausted_topics: [],
+        do_not_repeat: ["Friday afternoon commitment outcome"],
+      },
+      direction: {
+        primary_move: "close_loop",
+        question_policy: "none",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+    });
+    expect(String(merged?.conversation_continuity.open_loop)).toMatch(/has not answered/i);
+    expect(merged?.coaching_direction.question_policy).toBe("none");
+    expect(merged?.coaching_direction.primary_move).toBe("close_loop");
+    expect(merged?.coaching_direction.proactive_decision).toBe("send");
+  });
+
+  it("4 Stegs: unanswered incident detail should not authorize the same missing-info re-ask", () => {
+    const merged = mergeCase({
+      localDate: "2026-08-10",
+      localWeekday: "Monday",
+      daypart: "morning",
+      exactThreadMessages: [
+        {
+          sender: "coach",
+          sent_at_utc: "2026-08-07T16:00:00.000Z",
+          sent_at_local: "2026-08-07 12:00",
+          local_day_key: "2026-08-07",
+          local_weekday: "Friday",
+          day_relation_to_message: "3_days_before",
+          body: "When you addressed the trainees, what did you say and how composed were you?",
+        },
+      ],
+      continuity: {
+        already_acknowledged: [],
+        answered_question: null,
+        open_loop: "What he said to the trainees and how composed he was remains unknown",
+        stale_or_exhausted_topics: [],
+        do_not_repeat: [
+          "What did you say when you addressed them, and how composed were you?",
+        ],
+      },
+      direction: {
+        primary_move: "continue_conversation",
+        question_policy: "none",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+    });
+    expect(String(merged?.conversation_continuity.open_loop)).toMatch(/composed/i);
+    expect(merged?.coaching_direction.question_policy).toBe("none");
+    expect(merged?.coaching_direction.proactive_decision).toBe("send");
+  });
+
+  it("5 Bahe: one-time protected block does not automatically forbid a recurring weekly-schedule question", () => {
+    const merged = mergeCase({
+      localDate: "2026-08-12",
+      localWeekday: "Wednesday",
+      daypart: "morning",
+      canonicalGoalText: "Protect one violence-prevention block",
+      exactThreadMessages: [
+        {
+          sender: "user",
+          sent_at_utc: "2026-08-04T15:00:00.000Z",
+          sent_at_local: "2026-08-04 11:00",
+          local_day_key: "2026-08-04",
+          local_weekday: "Tuesday",
+          day_relation_to_message: "8_days_before",
+          body: "Tuesday 8:30-9:30, I added it to the calendar.",
+        },
+        {
+          sender: "user",
+          sent_at_utc: "2026-08-04T20:00:00.000Z",
+          sent_at_local: "2026-08-04 16:00",
+          local_day_key: "2026-08-04",
+          local_weekday: "Tuesday",
+          day_relation_to_message: "8_days_before",
+          body: "Got the block done.",
+        },
+      ],
+      continuity: {
+        already_acknowledged: ["Tuesday 8:30-9:30 block completed"],
+        answered_question: null,
+        open_loop: null,
+        stale_or_exhausted_topics: [],
+        do_not_repeat: [],
+      },
+      direction: {
+        primary_move: "continue_conversation",
+        question_policy: "one_useful_question",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+    });
+    expect(merged?.coaching_direction.question_policy).toBe("one_useful_question");
+    expect(merged?.conversation_continuity.do_not_repeat).toEqual([]);
+    expect(merged?.coaching_direction.proactive_decision).toBe("send");
+  });
+
+  it("6 partial outcome: blocker question remains legal after new user evidence", () => {
+    const merged = mergeCase({
+      localDate: "2026-08-08",
+      localWeekday: "Saturday",
+      daypart: "morning",
+      exactThreadMessages: [
+        {
+          sender: "coach",
+          sent_at_utc: "2026-08-07T15:00:00.000Z",
+          sent_at_local: "2026-08-07 11:00",
+          local_day_key: "2026-08-07",
+          local_weekday: "Friday",
+          day_relation_to_message: "1_day_before",
+          body: "How did the workout go?",
+        },
+        {
+          sender: "user",
+          sent_at_utc: "2026-08-07T16:00:00.000Z",
+          sent_at_local: "2026-08-07 12:00",
+          local_day_key: "2026-08-07",
+          local_weekday: "Friday",
+          day_relation_to_message: "1_day_before",
+          body: "I only got 10 minutes.",
+        },
+      ],
+      continuity: {
+        already_acknowledged: ["only got 10 minutes"],
+        answered_question: {
+          question: "How did the workout go?",
+          answer: "I only got 10 minutes.",
+        },
+        open_loop: null,
+        stale_or_exhausted_topics: [],
+        do_not_repeat: [],
+      },
+      direction: {
+        primary_move: "continue_conversation",
+        question_policy: "one_useful_question",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+    });
+    expect(merged?.coaching_direction.question_policy).toBe("one_useful_question");
+    expect(merged?.conversation_continuity.answered_question).toMatchObject({
+      answer: "I only got 10 minutes.",
+    });
+  });
+
+  it("7 member reopens an old unanswered topic: the topic may become live again", () => {
+    const merged = mergeCase({
+      localDate: "2026-08-10",
+      localWeekday: "Monday",
+      daypart: "morning",
+      exactThreadMessages: [
+        {
+          sender: "coach",
+          sent_at_utc: "2026-08-07T15:00:00.000Z",
+          sent_at_local: "2026-08-07 11:00",
+          local_day_key: "2026-08-07",
+          local_weekday: "Friday",
+          day_relation_to_message: "3_days_before",
+          body: "How did the workout go?",
+        },
+        {
+          sender: "user",
+          sent_at_utc: "2026-08-10T14:00:00.000Z",
+          sent_at_local: "2026-08-10 10:00",
+          local_day_key: "2026-08-10",
+          local_weekday: "Monday",
+          day_relation_to_message: "same_day",
+          body: "About Thursday's workout — I keep thinking about it.",
+        },
+      ],
+      continuity: {
+        already_acknowledged: [],
+        answered_question: null,
+        open_loop: "Thursday workout came back up",
+        stale_or_exhausted_topics: [],
+        do_not_repeat: [],
+      },
+      direction: {
+        primary_move: "continue_conversation",
+        question_policy: "one_useful_question",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+    });
+    expect(merged?.coaching_direction.question_policy).toBe("one_useful_question");
+    expect(merged?.coaching_direction.proactive_decision).toBe("send");
+  });
+
+  it("8 same topic, different missing information: a new useful question may remain legal", () => {
+    const merged = mergeCase({
+      localDate: "2026-08-08",
+      localWeekday: "Saturday",
+      daypart: "morning",
+      exactThreadMessages: [
+        {
+          sender: "coach",
+          sent_at_utc: "2026-08-07T15:00:00.000Z",
+          sent_at_local: "2026-08-07 11:00",
+          local_day_key: "2026-08-07",
+          local_weekday: "Friday",
+          day_relation_to_message: "1_day_before",
+          body: "Did you finish the proposal?",
+        },
+      ],
+      continuity: {
+        already_acknowledged: [],
+        answered_question: null,
+        open_loop: "Proposal still unfinished",
+        stale_or_exhausted_topics: [],
+        do_not_repeat: ["Did you finish the proposal?"],
+      },
+      direction: {
+        primary_move: "continue_conversation",
+        question_policy: "one_useful_question",
+        action_guidance: "none",
+        pressure: "normal",
+        proactive_decision: "send",
+      },
+    });
+    expect(merged?.coaching_direction.question_policy).toBe("one_useful_question");
+    expect(merged?.conversation_continuity.do_not_repeat).toContain(
+      "Did you finish the proposal?"
+    );
+    expect(merged?.coaching_direction.proactive_decision).toBe("send");
   });
 });

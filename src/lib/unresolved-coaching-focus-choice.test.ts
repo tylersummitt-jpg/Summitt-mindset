@@ -287,7 +287,7 @@ describe("unresolved coaching-focus choice — prompt law", () => {
     expect(p).toContain("Do not assign new work on that disputed focus merely because it remains canonical");
     expect(p).toContain("independent reason");
     expect(p).toContain("Do not re-ask the same coaching-focus choice");
-    expect(p).toContain("does not freeze ordinary unanswered outcome questions");
+    expect(p).not.toContain("does not freeze ordinary unanswered outcome questions");
     expect(p).toContain("Do not create intentional SPACE from this law");
     expect(p).toContain("existing Quiet Relationship laws still decide SEND vs SPACE");
     expect(p).not.toContain(RACHAEL_FOCUS_CHOICE);

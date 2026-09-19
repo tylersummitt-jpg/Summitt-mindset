@@ -56,8 +56,7 @@ describe("weekly TTO Sol W1 wire", () => {
   it("interpreter and writer modules are gpt-5.6-sol with no temperature on the OpenAI create call", () => {
     const interpreter = readFileSync(join(REPO, "src/lib/weekly-tto-brief-interpreter.ts"), "utf8");
     const writer = readFileSync(join(REPO, "src/lib/weekly-tto-writer.ts"), "utf8");
-    expect(interpreter).toContain("WEEKLY_BRIEF_INTERPRETER_MODEL = MORNING_BRIEF_INTERPRETER_MODEL");
-    expect(interpreter).toContain("MORNING_BRIEF_INTERPRETER_MODEL");
+    expect(interpreter).toContain('WEEKLY_BRIEF_INTERPRETER_MODEL = "gpt-5.6-terra"');
     expect(writer).toContain('WEEKLY_TTO_WRITER_MODEL = "gpt-5.6-sol"');
     const interpreterSol = interpreter.indexOf("const solCreate");
     const writerSol = writer.indexOf("const solCreate");
