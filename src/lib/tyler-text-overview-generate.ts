@@ -3,6 +3,10 @@ import { loadMorningRelationshipPacket } from "@/lib/morning-tto-relationship-pa
 import { getPatEvidenceForSms, normalizePatSmsQuery } from "@/lib/inbound-pat-source-evidence";
 import { writeMorningTtoBody } from "@/lib/morning-tto-writer";
 import {
+  applyRepeatedCoachEmojiHygiene,
+  recentSentCoachBodiesFromExactThread,
+} from "@/lib/morning-tto-repeated-emoji-hygiene";
+import {
   assembleMorningBriefInterpreterInputFromPacket,
   countRecentUnansweredOutboundFromExactThread,
   loadMorningBriefCanonicalExtrasV1,
@@ -546,6 +550,19 @@ function persistEffectiveAskFromPacket(packet: { current_goal: { text: string } 
   generationEffectiveAsk: string;
 } {
   return { generationEffectiveAsk: packet.current_goal.text };
+}
+
+/** Morning/Evening only. Writer output stays natural; sent/persisted body may drop a recently repeated Coach emoji. */
+function hygienedMorningEveningSmsBody(args: {
+  body: string;
+  packet: MorningRelationshipPacket;
+}): string {
+  return applyRepeatedCoachEmojiHygiene({
+    body: args.body,
+    recentSentCoachBodies: recentSentCoachBodiesFromExactThread(
+      args.packet.exact_thread.messages
+    ),
+  });
 }
 
 export async function persistMorningTtoGeneration(args: {
@@ -1540,6 +1557,10 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     };
   }
 
+  const smsBody = hygienedMorningEveningSmsBody({
+    body: writerResult.body,
+    packet,
+  });
   const persisted = await persistMorningTtoGeneration({
     clerkUserId,
     draftForDayKey,
@@ -1549,7 +1570,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     sendPrefSnapshot,
     now: args.now,
     success: {
-      body: writerResult.body,
+      body: smsBody,
       messages: mapOpenAiMessagesToWriterCapture(writerResult.messages),
       writerPromptPath: writerResult.writer_prompt_path,
       model: writerResult.model,
@@ -1577,7 +1598,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     ok: true,
     draftForDayKey,
     generationId: persisted.generationId,
-    body: writerResult.body,
+    body: smsBody,
     machineShouldSend: true,
     writerPromptPath: writerResult.writer_prompt_path,
     supersedeFailed: persisted.supersedeFailed,
@@ -2001,6 +2022,10 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     };
   }
 
+  const smsBody = hygienedMorningEveningSmsBody({
+    body: writerResult.body,
+    packet,
+  });
   const persisted = await persistMorningTtoGeneration({
     clerkUserId,
     draftForDayKey,
@@ -2011,7 +2036,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     now,
     sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
     success: {
-      body: writerResult.body,
+      body: smsBody,
       messages: mapOpenAiMessagesToWriterCapture(writerResult.messages),
       writerPromptPath: writerResult.writer_prompt_path,
       model: writerResult.model,
@@ -2035,7 +2060,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     ok: true,
     draftForDayKey,
     generationId: persisted.generationId,
-    body: writerResult.body,
+    body: smsBody,
     machineShouldSend: true,
     machineNoSendReason: null,
     writerPromptPath: writerResult.writer_prompt_path,

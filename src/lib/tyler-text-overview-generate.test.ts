@@ -2069,6 +2069,43 @@ describe("canonical batch persists one day across US timezones", () => {
       true
     );
   });
+
+  it("strips a recently repeated Coach emoji from the persisted Morning body", async () => {
+    setupHappyPath();
+    loadMorningPacketMock.mockResolvedValue({
+      ok: true,
+      packet: {
+        ...MORNING_PACKET,
+        exact_thread: {
+          ...MORNING_PACKET.exact_thread,
+          messages: [
+            {
+              ...MORNING_PACKET.exact_thread.messages[0],
+              body: "Great job today. 🩵",
+            },
+            MORNING_PACKET.exact_thread.messages[1],
+          ],
+        },
+      },
+      commitmentId: "cmt-phase3",
+    });
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "Keep going tomorrow. 🩵",
+      messages: MORNING_WRITER_MESSAGES,
+      primaryMessages: MORNING_WRITER_MESSAGES,
+      retryMessages: [],
+      retryOccurred: false,
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
+    });
+    await generateTylerTextOverviewDailyDrafts({
+      now: new Date("2026-07-02T16:00:00.000Z"),
+      draftForDayKey: "2026-07-03",
+    });
+    expect(db.generations[0]?.machine_draft_body).toBe("Keep going tomorrow.");
+    expect(db.drafts[0]?.current_body_to_send).toBe("Keep going tomorrow.");
+  });
 });
 
 describe("generateTylerTextOverviewEveningPreviewForUser", () => {
@@ -2175,6 +2212,47 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
     expect(eveningGen?.machine_should_send).toBe(true);
     expect(db.smsSendEventsWrites).toBe(0);
     expect(sendSmsMock).not.toHaveBeenCalled();
+  });
+
+  it("strips a recently repeated Coach emoji from the persisted Evening body", async () => {
+    loadMorningPacketMock.mockImplementation(async (args: { draftForDayKey: string }) => ({
+      ok: true,
+      packet: {
+        ...eveningPacketForDay(args.draftForDayKey),
+        exact_thread: {
+          ...MORNING_PACKET.exact_thread,
+          messages: [
+            {
+              ...MORNING_PACKET.exact_thread.messages[0],
+              body: "Great job today. 🩵",
+            },
+            MORNING_PACKET.exact_thread.messages[1],
+          ],
+        },
+      },
+      commitmentId: "cmt-phase3",
+    }));
+    writeMorningTtoBodyMock.mockResolvedValue({
+      ok: true,
+      body: "Keep going tomorrow. 🩵",
+      messages: MORNING_WRITER_MESSAGES,
+      primaryMessages: MORNING_WRITER_MESSAGES,
+      retryMessages: [],
+      retryOccurred: false,
+      writer_prompt_path: "morning_brief_writer_v1",
+      model: "gpt-5.6-sol",
+    });
+    const result = await generateTylerTextOverviewEveningPreviewForUser({
+      clerkUserId: AUDIENCE_USER.clerk_user_id,
+      draftForDayKey: "2026-07-03",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.body).toBe("Keep going tomorrow.");
+    const eveningGen = db.generations.find(
+      (g) => g.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+    );
+    expect(eveningGen?.machine_draft_body).toBe("Keep going tomorrow.");
   });
 
   it("morning and evening drafts coexist for same user/day", async () => {
