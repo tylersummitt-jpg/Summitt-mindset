@@ -470,7 +470,7 @@ export function applyUnauthorizedGoalChangeBindingConfirmationGuard(args: {
     return { body, blocked: false, reason: null };
   }
   return {
-    body: UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION,
+    body: "",
     blocked: true,
     reason: "unauthorized_binding_goal_change_confirmation",
   };
@@ -503,7 +503,7 @@ export function applyFalseAppliedGoalChangeGuard(args: {
   return {
     body: pendingAsk
       ? buildAuthorizedPendingConfirmationAsk(args.confirmationAuthorization)
-      : UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION,
+      : "",
     blocked: true,
     reason: "false_applied_goal_change_claim",
   };

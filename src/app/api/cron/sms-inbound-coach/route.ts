@@ -2885,6 +2885,16 @@ async function processV2NormalInboundOutcome(
         ],
       });
 
+      const guardedOpen = applyGoalChangeMachineBodySafety({
+        body: openLaneRes.body,
+        authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+      });
+      openLaneRes.body = guardedOpen.body;
+      if (guardedOpen.blocked) {
+        openLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
+        openLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedOpen.reason;
+      }
+
       if (!openLaneRes.shouldSend || !openLaneRes.body.trim()) {
         registerInboundMeaningShadowPending({
           job,
@@ -2978,16 +2988,6 @@ async function processV2NormalInboundOutcome(
           },
         },
       };
-
-      const guardedOpen = applyGoalChangeMachineBodySafety({
-        body: openLaneRes.body,
-        authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
-      });
-      openLaneRes.body = guardedOpen.body;
-      if (guardedOpen.blocked) {
-        openLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
-        openLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedOpen.reason;
-      }
 
       const oqV3BrainMetadata: Record<string, unknown> = {
         ...openLaneRes.metadata,
@@ -3665,6 +3665,16 @@ async function processV2NormalInboundOutcome(
         ],
       });
 
+      const guardedCb = applyGoalChangeMachineBodySafety({
+        body: cbLaneRes.body,
+        authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+      });
+      cbLaneRes.body = guardedCb.body;
+      if (guardedCb.blocked) {
+        cbLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
+        cbLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedCb.reason;
+      }
+
       const cbSlimFactsSummary = slimConversationBrainFallbackFactsForTelemetry(cbFallbackFacts);
 
       const persistConversationBrainLegacyDisabledServerOutcome = async (
@@ -3765,16 +3775,6 @@ async function processV2NormalInboundOutcome(
           reason: cbLaneRes.noSendReason,
         });
         return;
-      }
-
-      const guardedCb = applyGoalChangeMachineBodySafety({
-        body: cbLaneRes.body,
-        authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
-      });
-      cbLaneRes.body = guardedCb.body;
-      if (guardedCb.blocked) {
-        cbLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
-        cbLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedCb.reason;
       }
 
       const cbV3BrainMetadata: Record<string, unknown> = {
@@ -4612,6 +4612,16 @@ async function processV2NormalInboundOutcome(
       ],
     });
 
+    const guardedPivot = applyGoalChangeMachineBodySafety({
+      body: pivotLaneRes.body,
+      authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+    });
+    pivotLaneRes.body = guardedPivot.body;
+    if (guardedPivot.blocked) {
+      pivotLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
+      pivotLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedPivot.reason;
+    }
+
     if (!pivotLaneRes.shouldSend || !pivotLaneRes.body.trim()) {
       await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
         lane: pivotLaneRes,
@@ -4644,16 +4654,6 @@ async function processV2NormalInboundOutcome(
         },
       });
       return;
-    }
-
-    const guardedPivot = applyGoalChangeMachineBodySafety({
-      body: pivotLaneRes.body,
-      authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
-    });
-    pivotLaneRes.body = guardedPivot.body;
-    if (guardedPivot.blocked) {
-      pivotLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
-      pivotLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedPivot.reason;
     }
 
     const pivotV3BrainMetadata: Record<string, unknown> = {
@@ -5059,6 +5059,16 @@ async function processV2NormalInboundOutcome(
         ],
       });
 
+      const guardedArc = applyGoalChangeMachineBodySafety({
+        body: arcLaneRes.body,
+        authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
+      });
+      arcLaneRes.body = guardedArc.body;
+      if (guardedArc.blocked) {
+        arcLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
+        arcLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedArc.reason;
+      }
+
       if (!arcLaneRes.shouldSend || !arcLaneRes.body.trim()) {
         await cancelInboundV3LaneNoSendWithExplicitOutcomePersist({
           lane: arcLaneRes,
@@ -5092,16 +5102,6 @@ async function processV2NormalInboundOutcome(
           },
         });
         return;
-      }
-
-      const guardedArc = applyGoalChangeMachineBodySafety({
-        body: arcLaneRes.body,
-        authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
-      });
-      arcLaneRes.body = guardedArc.body;
-      if (guardedArc.blocked) {
-        arcLaneRes.metadata.goal_change_binding_confirmation_blocked = true;
-        arcLaneRes.metadata.goal_change_binding_confirmation_block_reason = guardedArc.reason;
       }
 
       const arcV3BrainMetadata: Record<string, unknown> = {

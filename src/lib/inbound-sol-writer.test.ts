@@ -393,6 +393,16 @@ describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
     );
   });
 
+  it("unauthorized Neither follows the Brief and does not start Goal Change", () => {
+    const p = INBOUND_SOL_WRITER_SYSTEM_PROMPT;
+    expect(p).toContain("Follow the Brief");
+    expect(p).toContain("Do not start a Goal Change conversation");
+    expect(p).toContain(
+      "If pending_state is awaiting_candidate and goal_change_confirmation_authorized is not true: ask what the new saved goal should be"
+    );
+    expect(p).not.toContain("You may clarify tonight-only vs going-forward");
+  });
+
   it("names unsupported vs supported fixture questions without requiring one SMS sentence", () => {
     void unrelatedEvidence;
     void confidenceEvidence;

@@ -74,13 +74,13 @@ describe("unauthorized Goal Change binding confirmation guard", () => {
     ).toBe(false);
   });
 
-  it("9: unauthorized writer binding question is replaced with safe clarification", () => {
+  it("9: unauthorized writer binding question is blocked with empty body", () => {
     const r = applyUnauthorizedGoalChangeBindingConfirmationGuard({
       body: BINDING,
       authorized: false,
     });
     expect(r.blocked).toBe(true);
-    expect(r.body).toBe(UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION);
+    expect(r.body).toBe("");
     expect(r.reason).toBe("unauthorized_binding_goal_change_confirmation");
   });
 
@@ -127,22 +127,24 @@ describe("false-applied Goal Change guard", () => {
     }
   });
 
-  it("10: no pending + false-applied claim → clarification", () => {
+  it("10: no pending + false-applied claim → blocked empty body", () => {
     const r = applyFalseAppliedGoalChangeGuard({
       body: "Your goal is now 10:30.",
       applyAuthorized: false,
       confirmationAuthorization: noneAuth,
     });
     expect(r.blocked).toBe(true);
-    expect(r.body).toBe(UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION);
+    expect(r.body).toBe("");
+    expect(r.reason).toBe("false_applied_goal_change_claim");
   });
 });
 
 describe("central Goal Change machine body safety", () => {
-  it("1: handoff/main + no pending + binding question → blocked", () => {
+  it("1: handoff/main + no pending + binding question → blocked empty body", () => {
     const r = applyGoalChangeMachineBodySafety({ body: BINDING, authorization: noneAuth });
     expect(r.blocked).toBe(true);
-    expect(r.body).toBe(UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION);
+    expect(r.body).toBe("");
+    expect(r.reason).toBe("unauthorized_binding_goal_change_confirmation");
   });
 
   it("2: pending awaiting_confirmation + binding question → allowed", () => {
@@ -181,22 +183,24 @@ describe("central Goal Change machine body safety", () => {
     expect(r.body).toBe(BINDING);
   });
 
-  it("9: no pending + binding question → blocked", () => {
+  it("9: no pending + binding question → blocked empty body", () => {
     const r = applyGoalChangeMachineBodySafety({
       body: BINDING,
       authorization: SOL_GOAL_CHANGE_CONFIRMATION_UNAUTHORIZED,
     });
     expect(r.blocked).toBe(true);
-    expect(r.body).toBe(UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION);
+    expect(r.body).toBe("");
+    expect(r.reason).toBe("unauthorized_binding_goal_change_confirmation");
   });
 
-  it("10: no pending + false-applied claim → blocked", () => {
+  it("10: no pending + false-applied claim → blocked empty body", () => {
     const r = applyGoalChangeMachineBodySafety({
       body: "I've changed your goal to 10:30.",
       authorization: noneAuth,
     });
     expect(r.blocked).toBe(true);
-    expect(r.body).toBe(UNAUTHORIZED_GOAL_CHANGE_BINDING_CLARIFICATION);
+    expect(r.body).toBe("");
+    expect(r.reason).toBe("false_applied_goal_change_claim");
   });
 
   it("11–15: ordinary coaching is not rewritten", () => {

@@ -2792,7 +2792,7 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(unk.noSendReason).not.toBe("manual_pat_answer_needed");
   });
 
-  it("11: unauthorized binding confirmation from the writer is replaced", async () => {
+  it("11: unauthorized binding confirmation from the writer fails closed", async () => {
     runInboundSolBriefInterpreter.mockResolvedValue({
       ok: true,
       brief: brief(),
@@ -2806,11 +2806,18 @@ describe("runInboundSolRelationshipTurn", () => {
     const result = await runInboundSolRelationshipTurn(
       turnArgs("SMbind", "I'm out of town. I need to revise to 10:30.")
     );
-    expect(result.shouldSend).toBe(true);
-    expect(result.body).toBe(
+    expect(result.shouldSend).toBe(false);
+    expect(result.body).toBeNull();
+    expect(result.noSendReason).toBe(
+      "blocked_unauthorized_binding_goal_change_confirmation"
+    );
+    expect(result.body).not.toBe(
       "Are you talking about tonight only, or changing the goal going forward?"
     );
     expect(result.forensics.goal_change_binding_confirmation_blocked).toBe(true);
+    expect(result.forensics.goal_change_binding_confirmation_block_reason).toBe(
+      "unauthorized_binding_goal_change_confirmation"
+    );
   });
 
   it("12: authorized pending may send a binding confirmation question", async () => {
@@ -2940,6 +2947,88 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(result.forensics.goal_change_binding_confirmation_block_reason).toBe(
       "post_apply_goal_change_reask"
     );
+  });
+
+  it("unauthorized false-applied writer claim fails closed with no canned Goal Change question", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Your goal is now 10:30.",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs("SMfalseApplied", "I finished the three gratitudes.")
+    );
+    expect(result.shouldSend).toBe(false);
+    expect(result.body).toBeNull();
+    expect(result.noSendReason).toBe("blocked_false_applied_goal_change_claim");
+    expect(String(result.body ?? "")).not.toMatch(
+      /tonight only|going forward|replace .*goal/i
+    );
+    expect(result.forensics.goal_change_binding_confirmation_blocked).toBe(true);
+    expect(result.forensics.goal_change_binding_confirmation_block_reason).toBe(
+      "false_applied_goal_change_claim"
+    );
+  });
+
+  it("Julie regression: ordinary celebration with no Goal Change auth is sent unchanged", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "Proud of you, Julie. Those three gifts count.",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn(
+      turnArgs(
+        "SMjulie",
+        "I got up early before the heat hit to go ride my bike. Secondly, that the weather, even though it's hot is allowing me to go ride my bike and third that I have my car to take me to the trail"
+      )
+    );
+    expect(brief().truth_and_evidence.outcome).toBe("completed");
+    expect(brief().goal_role_today.role).toBe("central");
+    expect(brief().coaching_direction.primary_move).toBe("celebrate");
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe("Proud of you, Julie. Those three gifts count.");
+    expect(result.body).not.toMatch(/tonight only|going forward|replace .*goal/i);
+    expect(result.forensics.goal_change_binding_confirmation_blocked).toBeUndefined();
+  });
+
+  it("awaiting_candidate hallway elicitation is still sendable", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief(),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "What do you want your new goal to be?",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn({
+      ...turnArgs("SMhallway", "I need a change."),
+      goalChangeConfirmationAuthorization: {
+        goal_change_confirmation_authorized: false,
+        goal_change_apply_authorized: false,
+        candidate_behavior_statement: null,
+        canonical_behavior_statement: "I will name three specific things I am grateful for in prayer today.",
+        pending_state: "awaiting_candidate",
+        previous_behavior_statement: null,
+        previous_commitment_id: null,
+        active_commitment_id: "c1",
+        pending_cleared: false,
+      },
+    });
+    expect(result.shouldSend).toBe(true);
+    expect(result.body).toBe("What do you want your new goal to be?");
+    expect(result.forensics.goal_change_binding_confirmation_blocked).toBeUndefined();
   });
 
   it("passes fresh Goal insert proof to the writer after persist", async () => {

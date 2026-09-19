@@ -595,6 +595,19 @@ export async function runInboundSolRelationshipTurn(args: {
     baseForensics.goal_change_binding_confirmation_blocked = true;
     baseForensics.goal_change_binding_confirmation_block_reason = guarded.reason;
   }
+  if (guarded.blocked && !guarded.body.trim()) {
+    return noSend(`blocked_${guarded.reason}`, {
+      packet,
+      brief,
+      persistResult,
+      winResult,
+      forensics: {
+        ...baseForensics,
+        inbound_sol_body_preview: previewInboundText(written.body),
+        inbound_sol_body_hash: hashInboundText(written.body),
+      },
+    });
+  }
 
   return {
     shouldSend: true,
