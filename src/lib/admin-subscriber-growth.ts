@@ -23,6 +23,14 @@ import {
   emptyCurrentFreeTrials,
   emptyStripeWeekMovement,
   emptyUnknownSnapshot,
+  emptyUnknownTrialOnboardingFunnel,
+  computeTrialOnboardingFunnel,
+  uniqueTrialClerkIds,
+  uniqueClerksWithIdentityV1,
+  uniqueClerksWithOnboardingGoal,
+  uniqueClerksWithFirstMeaningfulReply,
+  setupCompletedAtMsByClerk,
+  ONBOARDING_V2_COMMITMENT_SOURCE,
   mondayDateKeyFromDateKey,
   growthPeriodUtcMs,
   paidConversionUnix,
@@ -42,8 +50,11 @@ import {
   type RecentActivityEvent,
   type RecentActivityFailedInvoice,
   type SubscriberGrowthDashboardData,
+  type TrialOnboardingFunnelCounts,
+  type TrialOnboardingInboundRow,
 } from "@/lib/admin-subscriber-growth-pure";
 import { attributionMatchesDashboardSource } from "@/lib/marketing-attribution-pure";
+import { isLikelySmsComplianceOrOptOutTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
 import { isAppleRowCurrentlyGranting } from "@/lib/summitt-membership-entitlement";
 import { listClerkUsers, listClerkUsersByIds } from "@/lib/clerk-rest";
 import { extractPrimaryEmail } from "@/lib/quotes-book-fulfillment-reminder";
@@ -57,6 +68,9 @@ const CLERK_LIST_BATCH_SIZE = 200;
 const MAX_CLERK_SCAN_BATCHES = 100;
 const MARKETING_EVENT_PAGE = 1000;
 const MARKETING_MAX_PAGES = 50;
+const FUNNEL_CLERK_CHUNK = 250;
+const FUNNEL_INBOUND_PAGE = 1000;
+const FUNNEL_INBOUND_MAX_PAGES = 50;
 
 export type { SubscriberGrowthDashboardData };
 
@@ -622,6 +636,252 @@ function formatNyDate(ms: number): string {
   }).format(new Date(ms));
 }
 
+function chunkClerkIds(ids: readonly string[]): string[][] {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    unique.push(id);
+  }
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += FUNNEL_CLERK_CHUNK) {
+    chunks.push(unique.slice(i, i + FUNNEL_CLERK_CHUNK));
+  }
+  return chunks;
+}
+
+function countCohortClerks(found: ReadonlySet<string>, cohort: ReadonlySet<string>): number {
+  let count = 0;
+  for (const id of found) {
+    if (cohort.has(id)) count += 1;
+  }
+  return count;
+}
+
+async function loadIdentityV1Rows(
+  clerkIds: string[]
+): Promise<{ rows: Array<{ clerk_user_id: string | null; version_number: number | null }>; complete: boolean }> {
+  const rows: Array<{ clerk_user_id: string | null; version_number: number | null }> = [];
+  for (const chunk of chunkClerkIds(clerkIds)) {
+    const { data, error } = await supabaseServer
+      .from("user_identity_version")
+      .select("clerk_user_id, version_number")
+      .in("clerk_user_id", chunk)
+      .eq("version_number", 1);
+    if (error) {
+      console.warn("[subscriber-growth] trial onboarding identity query failed", error.message);
+      return { rows: [], complete: false };
+    }
+    for (const raw of data ?? []) {
+      rows.push({
+        clerk_user_id: typeof raw.clerk_user_id === "string" ? raw.clerk_user_id : null,
+        version_number:
+          typeof raw.version_number === "number" ? raw.version_number : null,
+      });
+    }
+  }
+  return { rows, complete: true };
+}
+
+async function loadOnboardingGoalRows(
+  clerkIds: string[]
+): Promise<{ rows: Array<{ clerk_user_id: string | null; source: string | null }>; complete: boolean }> {
+  const rows: Array<{ clerk_user_id: string | null; source: string | null }> = [];
+  for (const chunk of chunkClerkIds(clerkIds)) {
+    const { data, error } = await supabaseServer
+      .from("v2_commitment")
+      .select("clerk_user_id, source")
+      .in("clerk_user_id", chunk)
+      .eq("source", ONBOARDING_V2_COMMITMENT_SOURCE);
+    if (error) {
+      console.warn("[subscriber-growth] trial onboarding goal query failed", error.message);
+      return { rows: [], complete: false };
+    }
+    for (const raw of data ?? []) {
+      rows.push({
+        clerk_user_id: typeof raw.clerk_user_id === "string" ? raw.clerk_user_id : null,
+        source: typeof raw.source === "string" ? raw.source : null,
+      });
+    }
+  }
+  return { rows, complete: true };
+}
+
+async function loadSetupRows(
+  clerkIds: string[]
+): Promise<{
+  rows: Array<{ clerk_user_id: string | null; identity_intake_completed_at: string | null }>;
+  complete: boolean;
+}> {
+  const rows: Array<{
+    clerk_user_id: string | null;
+    identity_intake_completed_at: string | null;
+  }> = [];
+  for (const chunk of chunkClerkIds(clerkIds)) {
+    const { data, error } = await supabaseServer
+      .from("user_profiles")
+      .select("clerk_user_id, identity_intake_completed_at")
+      .in("clerk_user_id", chunk);
+    if (error) {
+      console.warn("[subscriber-growth] trial onboarding setup query failed", error.message);
+      return { rows: [], complete: false };
+    }
+    for (const raw of data ?? []) {
+      rows.push({
+        clerk_user_id: typeof raw.clerk_user_id === "string" ? raw.clerk_user_id : null,
+        identity_intake_completed_at:
+          typeof raw.identity_intake_completed_at === "string"
+            ? raw.identity_intake_completed_at
+            : null,
+      });
+    }
+  }
+  return { rows, complete: true };
+}
+
+async function loadInboundRowsForFunnel(args: {
+  clerkIds: string[];
+  receivedAtGteIso: string;
+}): Promise<{ rows: TrialOnboardingInboundRow[]; complete: boolean }> {
+  const rows: TrialOnboardingInboundRow[] = [];
+  for (const chunk of chunkClerkIds(args.clerkIds)) {
+    let from = 0;
+    for (let page = 0; page < FUNNEL_INBOUND_MAX_PAGES; page += 1) {
+      const { data, error } = await supabaseServer
+        .from("sms_inbound_messages")
+        .select("clerk_user_id, received_at, raw_body")
+        .in("clerk_user_id", chunk)
+        .gte("received_at", args.receivedAtGteIso)
+        .order("received_at", { ascending: true })
+        .range(from, from + FUNNEL_INBOUND_PAGE - 1);
+      if (error) {
+        console.warn("[subscriber-growth] trial onboarding inbound query failed", error.message);
+        return { rows: [], complete: false };
+      }
+      const batch = data ?? [];
+      for (const raw of batch) {
+        const clerkUserId =
+          typeof raw.clerk_user_id === "string" ? raw.clerk_user_id : "";
+        const receivedAtMs = Date.parse(String(raw.received_at ?? ""));
+        if (!clerkUserId || !Number.isFinite(receivedAtMs)) continue;
+        rows.push({
+          clerkUserId,
+          receivedAtMs,
+          rawBody: typeof raw.raw_body === "string" ? raw.raw_body : "",
+        });
+      }
+      if (batch.length < FUNNEL_INBOUND_PAGE) break;
+      if (page === FUNNEL_INBOUND_MAX_PAGES - 1) {
+        console.warn("[subscriber-growth] trial onboarding inbound query truncated");
+        return { rows: [], complete: false };
+      }
+      from += FUNNEL_INBOUND_PAGE;
+    }
+  }
+  return { rows, complete: true };
+}
+
+/**
+ * Read-side trial onboarding funnel. Reuses the already source-filtered
+ * trial Clerk IDs as distinct people. Does not rebuild attribution/source
+ * logic or reuse Stripe subscription count (`freeTrialsStarted`).
+ */
+async function loadTrialOnboardingFunnel(args: {
+  trialClerkIds: readonly string[];
+  stripeListComplete: boolean;
+}): Promise<TrialOnboardingFunnelCounts> {
+  if (!args.stripeListComplete) return emptyUnknownTrialOnboardingFunnel();
+
+  const cohort = uniqueTrialClerkIds(args.trialClerkIds);
+  const trialStarted = cohort.size;
+  if (cohort.size === 0) {
+    return computeTrialOnboardingFunnel({
+      trialStarted,
+      identityCompleted: 0,
+      goalCompleted: 0,
+      setupCompleted: 0,
+      firstMeaningfulReply: 0,
+    });
+  }
+
+  const clerkIds = [...cohort];
+  let identityCompleted: MetricNumber = null;
+  let goalCompleted: MetricNumber = null;
+  let setupCompleted: MetricNumber = null;
+  let firstMeaningfulReply: MetricNumber = null;
+  let setupAtByClerk = new Map<string, number>();
+  let setupComplete = false;
+
+  try {
+    const [identityRes, goalRes, setupRes] = await Promise.all([
+      loadIdentityV1Rows(clerkIds),
+      loadOnboardingGoalRows(clerkIds),
+      loadSetupRows(clerkIds),
+    ]);
+    identityCompleted = identityRes.complete
+      ? countCohortClerks(uniqueClerksWithIdentityV1(identityRes.rows), cohort)
+      : null;
+    goalCompleted = goalRes.complete
+      ? countCohortClerks(uniqueClerksWithOnboardingGoal(goalRes.rows), cohort)
+      : null;
+    if (setupRes.complete) {
+      setupAtByClerk = setupCompletedAtMsByClerk(setupRes.rows);
+      const setupIds = new Set<string>();
+      for (const id of setupAtByClerk.keys()) {
+        if (cohort.has(id)) setupIds.add(id);
+      }
+      setupCompleted = setupIds.size;
+      setupComplete = true;
+      const filteredSetup = new Map<string, number>();
+      for (const id of setupIds) {
+        filteredSetup.set(id, setupAtByClerk.get(id)!);
+      }
+      setupAtByClerk = filteredSetup;
+    } else {
+      setupCompleted = null;
+    }
+  } catch (err) {
+    console.warn("[subscriber-growth] trial onboarding queries failed", err);
+    identityCompleted = identityCompleted ?? null;
+    goalCompleted = goalCompleted ?? null;
+    setupCompleted = null;
+    setupComplete = false;
+  }
+
+  if (!setupComplete) {
+    firstMeaningfulReply = null;
+  } else if (setupAtByClerk.size === 0) {
+    firstMeaningfulReply = 0;
+  } else {
+    const minSetupMs = Math.min(...setupAtByClerk.values());
+    try {
+      const inboundRes = await loadInboundRowsForFunnel({
+        clerkIds: [...setupAtByClerk.keys()],
+        receivedAtGteIso: new Date(minSetupMs).toISOString(),
+      });
+      firstMeaningfulReply = inboundRes.complete
+        ? uniqueClerksWithFirstMeaningfulReply({
+            setupCompletedAtMsByClerk: setupAtByClerk,
+            inbounds: inboundRes.rows,
+            isComplianceOrOptOut: isLikelySmsComplianceOrOptOutTurn,
+          }).size
+        : null;
+    } catch (err) {
+      console.warn("[subscriber-growth] trial onboarding inbound failed", err);
+      firstMeaningfulReply = null;
+    }
+  }
+
+  return computeTrialOnboardingFunnel({
+    trialStarted,
+    identityCompleted,
+    goalCompleted,
+    setupCompleted,
+    firstMeaningfulReply,
+  });
+}
+
 export async function loadSubscriberGrowthDashboard(args: {
   searchParams?: Record<string, string | string[] | undefined>;
   now?: Date;
@@ -659,6 +919,7 @@ export async function loadSubscriberGrowthDashboard(args: {
       currentFreeTrials: emptyCurrentFreeTrials(),
       recentActivity: null,
       recentActivityPaymentFailedIncluded: false,
+      trialOnboardingFunnel: emptyUnknownTrialOnboardingFunnel(),
     };
   }
 
@@ -1019,7 +1280,7 @@ export async function loadSubscriberGrowthDashboard(args: {
   });
 
   const includePaymentFailed = invoiceListComplete;
-  const [latestResult, activityResult] = await Promise.allSettled([
+  const [latestResult, activityResult, funnelResult] = await Promise.allSettled([
     loadLatestTrialRows({
       stripeSubs,
       recognized,
@@ -1033,6 +1294,10 @@ export async function loadSubscriberGrowthDashboard(args: {
       includePaymentFailed,
       stripeListComplete,
       attributionsByClerkId: attrByClerk,
+    }),
+    loadTrialOnboardingFunnel({
+      trialClerkIds,
+      stripeListComplete,
     }),
   ]);
   let latestTrials: LatestTrialRow[] = [];
@@ -1048,6 +1313,13 @@ export async function loadSubscriberGrowthDashboard(args: {
     recentActivity = activityResult.value;
   } else {
     console.warn("[subscriber-growth] recent activity failed", activityResult.reason);
+  }
+  const trialOnboardingFunnel =
+    funnelResult.status === "fulfilled"
+      ? funnelResult.value
+      : emptyUnknownTrialOnboardingFunnel();
+  if (funnelResult.status === "rejected") {
+    console.warn("[subscriber-growth] trial onboarding funnel failed", funnelResult.reason);
   }
 
   return {
@@ -1067,5 +1339,6 @@ export async function loadSubscriberGrowthDashboard(args: {
     currentFreeTrials,
     recentActivity,
     recentActivityPaymentFailedIncluded: includePaymentFailed && recentActivity != null,
+    trialOnboardingFunnel,
   };
 }

@@ -1481,6 +1481,144 @@ export function countDistinctPaidAdTrialsStarted(args: {
   return seen.size;
 }
 
+export const ONBOARDING_V2_COMMITMENT_SOURCE = "onboarding_v2";
+
+/** Distinct Clerk people from the already source-filtered Stripe trial cohort. */
+export function uniqueTrialClerkIds(
+  ids: readonly (string | null | undefined)[]
+): Set<string> {
+  const out = new Set<string>();
+  for (const id of ids) {
+    const trimmed = typeof id === "string" ? id.trim() : "";
+    if (trimmed) out.add(trimmed);
+  }
+  return out;
+}
+
+export type TrialOnboardingFunnelCounts = {
+  trialStarted: MetricNumber;
+  identityCompleted: MetricNumber;
+  goalCompleted: MetricNumber;
+  setupCompleted: MetricNumber;
+  firstMeaningfulReply: MetricNumber;
+  conversions: [MetricNumber, MetricNumber, MetricNumber, MetricNumber];
+};
+
+export type TrialOnboardingIdentityRow = {
+  clerk_user_id: string | null;
+  version_number: number | null;
+};
+
+export type TrialOnboardingGoalRow = {
+  clerk_user_id: string | null;
+  source: string | null;
+};
+
+export type TrialOnboardingSetupRow = {
+  clerk_user_id: string | null;
+  identity_intake_completed_at: string | null;
+};
+
+export type TrialOnboardingInboundRow = {
+  clerkUserId: string;
+  receivedAtMs: number;
+  rawBody: string;
+};
+
+export function emptyUnknownTrialOnboardingFunnel(): TrialOnboardingFunnelCounts {
+  return {
+    trialStarted: null,
+    identityCompleted: null,
+    goalCompleted: null,
+    setupCompleted: null,
+    firstMeaningfulReply: null,
+    conversions: [null, null, null, null],
+  };
+}
+
+export function uniqueClerksWithIdentityV1(
+  rows: readonly TrialOnboardingIdentityRow[]
+): Set<string> {
+  const out = new Set<string>();
+  for (const row of rows) {
+    const id = row.clerk_user_id?.trim();
+    if (!id || row.version_number !== 1) continue;
+    out.add(id);
+  }
+  return out;
+}
+
+export function uniqueClerksWithOnboardingGoal(
+  rows: readonly TrialOnboardingGoalRow[]
+): Set<string> {
+  const out = new Set<string>();
+  for (const row of rows) {
+    const id = row.clerk_user_id?.trim();
+    if (!id || row.source !== ONBOARDING_V2_COMMITMENT_SOURCE) continue;
+    out.add(id);
+  }
+  return out;
+}
+
+export function setupCompletedAtMsByClerk(
+  rows: readonly TrialOnboardingSetupRow[]
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const row of rows) {
+    const id = row.clerk_user_id?.trim();
+    if (!id) continue;
+    const at = Date.parse(String(row.identity_intake_completed_at ?? ""));
+    if (!Number.isFinite(at)) continue;
+    const previous = out.get(id);
+    if (previous == null || at < previous) out.set(id, at);
+  }
+  return out;
+}
+
+export function uniqueClerksWithFirstMeaningfulReply(args: {
+  setupCompletedAtMsByClerk: ReadonlyMap<string, number>;
+  inbounds: readonly TrialOnboardingInboundRow[];
+  isComplianceOrOptOut: (raw: string) => boolean;
+}): Set<string> {
+  const out = new Set<string>();
+  for (const row of args.inbounds) {
+    const id = row.clerkUserId.trim();
+    if (!id || out.has(id)) continue;
+    const setupAt = args.setupCompletedAtMsByClerk.get(id);
+    if (setupAt == null) continue;
+    if (!Number.isFinite(row.receivedAtMs) || row.receivedAtMs <= setupAt) continue;
+    if (args.isComplianceOrOptOut(row.rawBody)) continue;
+    out.add(id);
+  }
+  return out;
+}
+
+/**
+ * Trial-onboarding funnel conversions. Every stage is distinct Clerk people.
+ * Stage 1 is unique trial Clerk IDs, not Stripe subscription count.
+ */
+export function computeTrialOnboardingFunnel(args: {
+  trialStarted: MetricNumber;
+  identityCompleted: MetricNumber;
+  goalCompleted: MetricNumber;
+  setupCompleted: MetricNumber;
+  firstMeaningfulReply: MetricNumber;
+}): TrialOnboardingFunnelCounts {
+  return {
+    trialStarted: args.trialStarted,
+    identityCompleted: args.identityCompleted,
+    goalCompleted: args.goalCompleted,
+    setupCompleted: args.setupCompleted,
+    firstMeaningfulReply: args.firstMeaningfulReply,
+    conversions: [
+      conversionRate(args.identityCompleted, args.trialStarted),
+      conversionRate(args.goalCompleted, args.identityCompleted),
+      conversionRate(args.setupCompleted, args.goalCompleted),
+      conversionRate(args.firstMeaningfulReply, args.setupCompleted),
+    ],
+  };
+}
+
 export type GrowthDashboardSnapshot = {
   asOfNow: {
     activePaid: MetricNumber;
@@ -1561,6 +1699,7 @@ export type SubscriberGrowthDashboardData = {
   currentFreeTrials: CurrentFreeTrialsCounts;
   recentActivity: RecentActivityEvent[] | null;
   recentActivityPaymentFailedIncluded: boolean;
+  trialOnboardingFunnel: TrialOnboardingFunnelCounts;
 };
 
 export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {

@@ -342,6 +342,11 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
       "Not tracked reliably yet. We record marketing source, campaign and post, but we do not currently save one canonical first landing page per person. Do not use page-view history as a substitute.",
   },
   {
+    term: "First meaningful reply",
+    meaning:
+      "A person in the selected trial cohort who sent at least one normal SMS reply after completing setup. STOP, HELP, unsubscribe, and other compliance-only messages do not count. This is different from Answered first morning check in 24 hours: this reply can happen any time after setup and does not require a morning check.",
+  },
+  {
     term: "First touch",
     meaning:
       "The first visit we recorded for that person. Later clicks do not replace it. If we never saved a first visit, this is Unknown.",
@@ -377,6 +382,16 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
     term: "Google search",
     meaning:
       "Their first recorded visit came from Google, but not as a paid Google ad.",
+  },
+  {
+    term: "Goal completed",
+    meaning:
+      "A person in the selected trial cohort who successfully saved the goal created during onboarding. Later goal changes do not count again.",
+  },
+  {
+    term: "Identity completed",
+    meaning:
+      "A person in the selected trial cohort who successfully saved their first onboarding identity. Later identity edits do not count again.",
   },
   {
     term: "Meta ads",
@@ -483,6 +498,11 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
       "Successful Stripe payments collected during the selected dates. Apple payments are not included. Refunds later are not subtracted. Also shown as Stripe cash collected.",
   },
   {
+    term: "Setup completed",
+    meaning:
+      "A person in the selected trial cohort who successfully finished the onboarding setup flow. This is based on the product’s durable setup-completion timestamp.",
+  },
+  {
     term: "Spend not entered",
     meaning: "No Meta or Google ad spend has been saved for this view. Type it in Add Ad Spend.",
   },
@@ -508,6 +528,16 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
     term: "Subscription fully ended",
     meaning:
       "A paying member’s access fully ended during the selected dates. Stripe, plus Apple expirations when we have them.",
+  },
+  {
+    term: "Trial onboarding funnel",
+    meaning:
+      "Counts distinct people whose Stripe free trial started during the selected dates, then shows how far that same group has gotten through onboarding so far. The selected dates decide who enters, based on trial start. Identity, goal, setup, and first reply can happen after the selected dates and still count. This is people, not Stripe subscriptions. The source filter uses the same first-touch attribution as the rest of this dashboard. Apple is not included because Apple has no free trial. 0 means we counted none. — means that stage could not be calculated.",
+  },
+  {
+    term: "Trial started",
+    meaning:
+      "In the Trial onboarding funnel, this is distinct people with a Stripe trial start in the selected period. If one person has more than one trial subscription, they count once here. This can differ from Free trials started elsewhere on this page, which counts trial subscriptions.",
   },
   {
     term: "Trial-to-paid conversion",
@@ -884,6 +914,61 @@ export default function SubscriberGrowthDashboard({
                   ? "—"
                   : formatUnknownablePercent(
                       snapshot.period.funnelConversions[index - 1] ?? null
+                    )
+              }
+            />
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-1.5 text-sm font-semibold text-gray-900">
+          Trial onboarding funnel
+        </h2>
+        <p className="mb-1.5 text-[10px] text-gray-500">
+          People whose Stripe free trial started in the selected period. Shows
+          how far that same group has gotten so far. Apple is not included. A
+          trial that started today may still be completing setup.
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {[
+            {
+              label: "Trial started",
+              count: formatUnknownableCount(data.trialOnboardingFunnel.trialStarted),
+            },
+            {
+              label: "Identity completed",
+              count: formatUnknownableCount(
+                data.trialOnboardingFunnel.identityCompleted
+              ),
+            },
+            {
+              label: "Goal completed",
+              count: formatUnknownableCount(data.trialOnboardingFunnel.goalCompleted),
+            },
+            {
+              label: "Setup completed",
+              count: formatUnknownableCount(
+                data.trialOnboardingFunnel.setupCompleted
+              ),
+            },
+            {
+              label: "First meaningful reply",
+              count: formatUnknownableCount(
+                data.trialOnboardingFunnel.firstMeaningfulReply
+              ),
+            },
+          ].map((step, index) => (
+            <FunnelStep
+              key={step.label}
+              step={index + 1}
+              label={step.label}
+              count={step.count}
+              conversion={
+                index === 0
+                  ? "—"
+                  : formatUnknownablePercent(
+                      data.trialOnboardingFunnel.conversions[index - 1] ?? null
                     )
               }
             />

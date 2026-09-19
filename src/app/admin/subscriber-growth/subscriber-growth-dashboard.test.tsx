@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   emptyUnknownSnapshot,
+  emptyUnknownTrialOnboardingFunnel,
   SUBSCRIBER_GROWTH_TZ,
   type LatestTrialRow,
   type SubscriberGrowthDashboardData,
@@ -92,6 +93,7 @@ function dashboardData(
     },
     recentActivity: [],
     recentActivityPaymentFailedIncluded: true,
+    trialOnboardingFunnel: emptyUnknownTrialOnboardingFunnel(),
   };
 }
 
@@ -361,6 +363,7 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     expect(screen.getByText("This week on Stripe")).toBeTruthy();
     expect(screen.getByText("Current free trials")).toBeTruthy();
     expect(screen.getByText("From website visit to paid member")).toBeTruthy();
+    expect(screen.getAllByText("Trial onboarding funnel").length).toBeGreaterThan(0);
     expect(screen.getByText("Subscribers & retention")).toBeTruthy();
     expect(screen.getByText("Money")).toBeTruthy();
     expect(screen.getByText("Advertising")).toBeTruthy();
@@ -382,6 +385,83 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     expect(screen.getByText("Add Ad Spend")).toBeTruthy();
     expect(screen.getByText("Tracking notes")).toBeTruthy();
     expect(screen.getAllByText("Cost per trial").length).toBeGreaterThan(0);
+  });
+
+  it("renders Trial onboarding funnel after the acquisition funnel and before retention", () => {
+    render(<SubscriberGrowthDashboard data={dashboardData([])} />);
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((el) => el.textContent);
+    const fromVisit = headings.indexOf("From website visit to paid member");
+    const onboarding = headings.indexOf("Trial onboarding funnel");
+    const retention = headings.indexOf("Subscribers & retention");
+    expect(fromVisit).toBeGreaterThan(-1);
+    expect(onboarding).toBe(fromVisit + 1);
+    expect(retention).toBe(onboarding + 1);
+    expect(
+      screen.getByText(
+        "People whose Stripe free trial started in the selected period. Shows how far that same group has gotten so far. Apple is not included. A trial that started today may still be completing setup."
+      )
+    ).toBeTruthy();
+    expect(screen.getAllByText("Trial started").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Identity completed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Goal completed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Setup completed").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("First meaningful reply").length).toBeGreaterThan(0);
+  });
+
+  it("includes trial onboarding definitions in the glossary", () => {
+    render(<SubscriberGrowthDashboard data={dashboardData([])} />);
+    expect(screen.getAllByText("Trial onboarding funnel").length).toBeGreaterThan(1);
+    expect(
+      screen.getByText(
+        "Counts distinct people whose Stripe free trial started during the selected dates, then shows how far that same group has gotten through onboarding so far. The selected dates decide who enters, based on trial start. Identity, goal, setup, and first reply can happen after the selected dates and still count. This is people, not Stripe subscriptions. The source filter uses the same first-touch attribution as the rest of this dashboard. Apple is not included because Apple has no free trial. 0 means we counted none. — means that stage could not be calculated."
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "In the Trial onboarding funnel, this is distinct people with a Stripe trial start in the selected period. If one person has more than one trial subscription, they count once here. This can differ from Free trials started elsewhere on this page, which counts trial subscriptions."
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "A person in the selected trial cohort who successfully saved their first onboarding identity. Later identity edits do not count again."
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "A person in the selected trial cohort who successfully saved the goal created during onboarding. Later goal changes do not count again."
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "A person in the selected trial cohort who successfully finished the onboarding setup flow. This is based on the product’s durable setup-completion timestamp."
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        "A person in the selected trial cohort who sent at least one normal SMS reply after completing setup. STOP, HELP, unsubscribe, and other compliance-only messages do not count. This is different from Answered first morning check in 24 hours: this reply can happen any time after setup and does not require a morning check."
+      )
+    ).toBeTruthy();
+  });
+
+  it("shows known zeros and unavailable stages without hiding the funnel", () => {
+    const data = dashboardData([]);
+    data.trialOnboardingFunnel = {
+      trialStarted: 11,
+      identityCompleted: 0,
+      goalCompleted: null,
+      setupCompleted: 0,
+      firstMeaningfulReply: null,
+      conversions: [0, null, null, null],
+    };
+    render(<SubscriberGrowthDashboard data={data} />);
+    const heading = screen.getByRole("heading", { name: "Trial onboarding funnel" });
+    const section = heading.closest("section");
+    expect(section).toBeTruthy();
+    const funnel = within(section as HTMLElement);
+    expect(funnel.getByText("Trial started")).toBeTruthy();
+    expect(funnel.getByText("11")).toBeTruthy();
+    expect(funnel.getAllByText("0").length).toBeGreaterThan(0);
+    expect(funnel.getAllByText("—").length).toBeGreaterThan(0);
   });
 });
 

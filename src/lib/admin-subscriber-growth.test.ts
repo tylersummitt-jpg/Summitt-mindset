@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   aggregateTrafficSourceRows,
@@ -7,7 +9,16 @@ import {
   blendedCostPerTrialCents,
   buildLatestTrialRows,
   computeGrowthSnapshot,
+  computeTrialOnboardingFunnel,
   conversionRate,
+  clerkUserIdFromStripeSub,
+  emptyUnknownTrialOnboardingFunnel,
+  uniqueClerksWithFirstMeaningfulReply,
+  uniqueClerksWithIdentityV1,
+  uniqueClerksWithOnboardingGoal,
+  uniqueTrialClerkIds,
+  setupCompletedAtMsByClerk,
+  ONBOARDING_V2_COMMITMENT_SOURCE,
   countActivePaidMembers,
   countCurrentFreeTrials,
   countDistinctPaidAdTrialsStarted,
@@ -55,6 +66,7 @@ import {
 } from "@/lib/admin-subscriber-growth-pure";
 import { APPLE_IAP_MONTHLY_PRODUCT_ID } from "@/lib/summitt-membership-entitlement";
 import { getDateKeyInTimezone, utcInstantForLocalMidnight } from "@/lib/timezone";
+import { isLikelySmsComplianceOrOptOutTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
 
 const NOW = new Date("2026-09-01T16:00:00.000Z");
 const NOW_UNIX = Math.floor(NOW.getTime() / 1000);
@@ -2279,6 +2291,284 @@ describe("google ads vs search and website referral grains", () => {
       rows.find((r) => r.firstTouchLabel === "Website referral · partner.example.org")
         ?.visitors
     ).toBe(1);
+  });
+});
+
+describe("trial onboarding funnel", () => {
+  const SETUP_MS = Date.parse("2026-09-02T12:00:00.000Z");
+
+  function reply(partial: {
+    clerkUserId: string;
+    receivedAtMs: number;
+    rawBody: string;
+  }) {
+    return partial;
+  }
+
+  it("counts one Clerk with two Stripe trial subscriptions as one Trial started person", () => {
+    const trialEnd = NOW_UNIX - 2 * 86_400;
+    const trialStart = trialEnd - 7 * 86_400;
+    const subs = [
+      stripeSub({
+        id: "first_trial",
+        status: "canceled",
+        trial_start: trialStart,
+        trial_end: trialEnd,
+        canceled_at: trialEnd - 86_400,
+        metadata: { userId: "user_same" },
+      }),
+      stripeSub({
+        id: "subscribe_again",
+        status: "trialing",
+        trial_start: trialStart + 86_400,
+        trial_end: trialEnd + 86_400,
+        metadata: { userId: "user_same" },
+      }),
+    ];
+    const result = snapshot({ stripeSubs: subs });
+    expect(result.period.freeTrialsStarted).toBe(2);
+    const trialClerkIds = subs.map((sub) => clerkUserIdFromStripeSub(sub));
+    const trialStarted = uniqueTrialClerkIds(trialClerkIds).size;
+    const identityCompleted = uniqueClerksWithIdentityV1([
+      { clerk_user_id: "user_same", version_number: 1 },
+    ]).size;
+    const funnel = computeTrialOnboardingFunnel({
+      trialStarted,
+      identityCompleted,
+      goalCompleted: 0,
+      setupCompleted: 0,
+      firstMeaningfulReply: 0,
+    });
+    expect(funnel.trialStarted).toBe(1);
+    expect(funnel.trialStarted).not.toBe(result.period.freeTrialsStarted);
+    expect(funnel.identityCompleted).toBe(1);
+    expect(funnel.conversions[0]).toBe(1);
+    expect(funnel.conversions[0]).toBe(conversionRate(1, 1));
+  });
+
+  it("does not put a Stripe trial without Clerk userId into the people funnel", () => {
+    const trialEnd = NOW_UNIX - 2 * 86_400;
+    const trialStart = trialEnd - 7 * 86_400;
+    const subs = [
+      stripeSub({
+        id: "with_clerk",
+        status: "trialing",
+        trial_start: trialStart,
+        trial_end: trialEnd,
+        metadata: { userId: "user_known" },
+      }),
+      stripeSub({
+        id: "missing_clerk",
+        status: "trialing",
+        trial_start: trialStart,
+        trial_end: trialEnd,
+        metadata: {},
+      }),
+    ];
+    const result = snapshot({ stripeSubs: subs });
+    expect(result.period.freeTrialsStarted).toBe(2);
+    const trialClerkIds = subs.map((sub) => clerkUserIdFromStripeSub(sub));
+    expect(trialClerkIds).toEqual(["user_known", null]);
+    const trialStarted = uniqueTrialClerkIds(trialClerkIds).size;
+    const funnel = computeTrialOnboardingFunnel({
+      trialStarted,
+      identityCompleted: 0,
+      goalCompleted: 0,
+      setupCompleted: 0,
+      firstMeaningfulReply: 0,
+    });
+    expect(funnel.trialStarted).toBe(1);
+    expect(result.period.freeTrialsStarted).toBe(2);
+    expect(result.period.funnelConversions).toHaveLength(5);
+  });
+
+  it("counts identity v1 once and ignores later versions", () => {
+    expect(
+      uniqueClerksWithIdentityV1([
+        { clerk_user_id: "u1", version_number: 1 },
+      ]).size
+    ).toBe(1);
+    expect(
+      uniqueClerksWithIdentityV1([
+        { clerk_user_id: "u2", version_number: 2 },
+      ]).size
+    ).toBe(0);
+    expect(
+      uniqueClerksWithIdentityV1([
+        { clerk_user_id: "u1", version_number: 1 },
+        { clerk_user_id: "u1", version_number: 2 },
+        { clerk_user_id: "u1", version_number: 3 },
+      ])
+    ).toEqual(new Set(["u1"]));
+  });
+
+  it("counts onboarding_v2 goals once and ignores later sources", () => {
+    expect(ONBOARDING_V2_COMMITMENT_SOURCE).toBe("onboarding_v2");
+    expect(
+      uniqueClerksWithOnboardingGoal([
+        { clerk_user_id: "u1", source: "onboarding_v2" },
+      ]).size
+    ).toBe(1);
+    expect(
+      uniqueClerksWithOnboardingGoal([
+        { clerk_user_id: "u1", source: "sms_inbound" },
+        { clerk_user_id: "u2", source: "sms_manual" },
+        { clerk_user_id: "u3", source: "commitment_replace" },
+      ]).size
+    ).toBe(0);
+    expect(
+      uniqueClerksWithOnboardingGoal([
+        { clerk_user_id: "u1", source: "onboarding_v2" },
+        { clerk_user_id: "u1", source: "onboarding_v2" },
+        { clerk_user_id: "u1", source: "sms_inbound" },
+      ])
+    ).toEqual(new Set(["u1"]));
+  });
+
+  it("counts setup only when identity_intake_completed_at is present", () => {
+    const byClerk = setupCompletedAtMsByClerk([
+      { clerk_user_id: "u1", identity_intake_completed_at: "2026-09-02T12:00:00.000Z" },
+      { clerk_user_id: "u2", identity_intake_completed_at: null },
+      { clerk_user_id: "u3", identity_intake_completed_at: "" },
+    ]);
+    expect(byClerk.has("u1")).toBe(true);
+    expect(byClerk.has("u2")).toBe(false);
+    expect(byClerk.has("u3")).toBe(false);
+    expect(byClerk.size).toBe(1);
+  });
+
+  it("counts first meaningful replies after setup and ignores compliance turns", () => {
+    const setup = new Map([["u1", SETUP_MS]]);
+    const count = (inbounds: Array<{ clerkUserId: string; receivedAtMs: number; rawBody: string }>) =>
+      uniqueClerksWithFirstMeaningfulReply({
+        setupCompletedAtMsByClerk: setup,
+        inbounds,
+        isComplianceOrOptOut: isLikelySmsComplianceOrOptOutTurn,
+      }).size;
+
+    expect(
+      count([reply({ clerkUserId: "u1", receivedAtMs: SETUP_MS + 1000, rawBody: "I did it" })])
+    ).toBe(1);
+    expect(
+      count([reply({ clerkUserId: "u1", receivedAtMs: SETUP_MS - 1000, rawBody: "I did it" })])
+    ).toBe(0);
+    expect(
+      count([reply({ clerkUserId: "u1", receivedAtMs: SETUP_MS + 1000, rawBody: "STOP" })])
+    ).toBe(0);
+    expect(
+      count([reply({ clerkUserId: "u1", receivedAtMs: SETUP_MS + 1000, rawBody: "HELP" })])
+    ).toBe(0);
+    expect(
+      count([
+        reply({
+          clerkUserId: "u1",
+          receivedAtMs: SETUP_MS + 1000,
+          rawBody: "stop texting me",
+        }),
+      ])
+    ).toBe(0);
+    expect(
+      count([reply({ clerkUserId: "u1", receivedAtMs: SETUP_MS + 1000, rawBody: "ok" })])
+    ).toBe(1);
+    expect(
+      count([
+        reply({ clerkUserId: "u1", receivedAtMs: SETUP_MS + 1000, rawBody: "thanks" }),
+        reply({ clerkUserId: "u1", receivedAtMs: SETUP_MS + 2000, rawBody: "yes" }),
+      ])
+    ).toBe(1);
+  });
+
+  it("marks a missing stage unavailable instead of zero", () => {
+    const funnel = computeTrialOnboardingFunnel({
+      trialStarted: 4,
+      identityCompleted: 3,
+      goalCompleted: null,
+      setupCompleted: 2,
+      firstMeaningfulReply: null,
+    });
+    expect(funnel.goalCompleted).toBeNull();
+    expect(funnel.firstMeaningfulReply).toBeNull();
+    expect(funnel.goalCompleted).not.toBe(0);
+    expect(funnel.firstMeaningfulReply).not.toBe(0);
+    expect(funnel.conversions[1]).toBeNull();
+    expect(funnel.conversions[3]).toBeNull();
+    expect(emptyUnknownTrialOnboardingFunnel().identityCompleted).toBeNull();
+  });
+
+  it("uses from-prior conversionRate without a second percentage system", () => {
+    const funnel = computeTrialOnboardingFunnel({
+      trialStarted: 10,
+      identityCompleted: 5,
+      goalCompleted: 4,
+      setupCompleted: 2,
+      firstMeaningfulReply: 1,
+    });
+    expect(funnel.conversions[0]).toBe(conversionRate(5, 10));
+    expect(funnel.conversions[1]).toBe(conversionRate(4, 5));
+    expect(funnel.conversions[2]).toBe(conversionRate(2, 4));
+    expect(funnel.conversions[3]).toBe(conversionRate(1, 2));
+  });
+
+  it("does not change computeGrowthSnapshot acquisition funnel metrics", () => {
+    const trialEnd = NOW_UNIX - 2 * 86_400;
+    const trialStart = trialEnd - 7 * 86_400;
+    const result = snapshot({
+      stripeSubs: [
+        stripeSub({
+          id: "converted",
+          status: "active",
+          trial_start: trialStart,
+          trial_end: trialEnd,
+        }),
+      ],
+      accountsCreated: 2,
+    });
+    expect(result.period.freeTrialsStarted).toBe(1);
+    expect(result.period.trialsConvertedToPaid).toBe(1);
+    expect(result.period.funnelConversions).toHaveLength(5);
+    expect(result).not.toHaveProperty("trialOnboardingFunnel");
+    expect("trialOnboardingFunnel" in result.period).toBe(false);
+  });
+
+  it("excludes Apple-only members without Stripe trial_start from Trial started", () => {
+    const result = snapshot({
+      appleGranting: [appleGranting({ clerk_user_id: "apple_only" })],
+      stripeSubs: [],
+    });
+    expect(result.period.freeTrialsStarted).toBe(0);
+    const funnel = computeTrialOnboardingFunnel({
+      trialStarted: uniqueTrialClerkIds([]).size,
+      identityCompleted: 0,
+      goalCompleted: 0,
+      setupCompleted: 0,
+      firstMeaningfulReply: 0,
+    });
+    expect(funnel.trialStarted).toBe(0);
+  });
+
+  it("reuses the existing source-filtered trial Clerk IDs as distinct people", () => {
+    const loader = readFileSync(
+      join(process.cwd(), "src/lib/admin-subscriber-growth.ts"),
+      "utf8"
+    );
+    expect(loader).not.toContain("trialStarted: snapshot.period.freeTrialsStarted");
+    expect(loader).toContain("uniqueTrialClerkIds(args.trialClerkIds)");
+    const fn = loader.slice(
+      loader.indexOf("async function loadTrialOnboardingFunnel"),
+      loader.indexOf("export async function loadSubscriberGrowthDashboard")
+    );
+    expect(fn).toContain("trialClerkIds");
+    expect(fn).not.toContain("freeTrialsStarted");
+    expect(fn).not.toContain("attributionMatchesDashboardSource");
+    expect(fn).not.toContain("sourceFilteredSubs");
+    expect(fn).not.toContain("loadMarketingAttribution");
+    const snapshotFn = readFileSync(
+      join(process.cwd(), "src/lib/admin-subscriber-growth-pure.ts"),
+      "utf8"
+    );
+    expect(
+      snapshotFn.slice(snapshotFn.indexOf("export function computeGrowthSnapshot"))
+    ).not.toContain("computeTrialOnboardingFunnel(");
   });
 });
 
