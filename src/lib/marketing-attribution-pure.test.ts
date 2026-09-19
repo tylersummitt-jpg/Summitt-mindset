@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   attributionMatchesDashboardSource,
+  isAcquisitionIdentityPath,
+  isBrowserSignUpPath,
   isMarketingPageViewPath,
   isPureDirectTouch,
   isTrialAcquisitionHref,
@@ -36,6 +38,7 @@ describe("marketing route allowlist", () => {
     expect(isMarketingPageViewPath("/subscribe/success")).toBe(false);
     expect(isMarketingPageViewPath("/sign-in")).toBe(false);
     expect(isMarketingPageViewPath("/sign-up")).toBe(false);
+    expect(isMarketingPageViewPath("/sign-up/sso-callback")).toBe(false);
     expect(isMarketingPageViewPath("/app/sign-in")).toBe(false);
     expect(isMarketingPageViewPath("/onboarding/identity")).toBe(false);
     expect(isMarketingPageViewPath("/dashboard/victory-room")).toBe(false);
@@ -163,6 +166,20 @@ describe("first-touch merge", () => {
     ).toBeNull();
     expect(
       resolveMarketingCookies({
+        pathname: "/app/sign-in",
+        nowIso: now,
+        generatedVisitorId: "3b241101-e2bb-4255-8caf-4136c566a962",
+      })
+    ).toBeNull();
+    expect(
+      resolveMarketingCookies({
+        pathname: "/checkout/start",
+        nowIso: now,
+        generatedVisitorId: "3b241101-e2bb-4255-8caf-4136c566a962",
+      })
+    ).toBeNull();
+    expect(
+      resolveMarketingCookies({
         pathname: "/admin/subscriber-growth",
         nowIso: now,
         generatedVisitorId: "3b241101-e2bb-4255-8caf-4136c566a962",
@@ -259,6 +276,55 @@ describe("first-touch merge", () => {
     expect(JSON.stringify(parsed)).not.toMatch(/@/);
     expect(JSON.stringify(parsed)).not.toMatch(/email/i);
     expect(JSON.stringify(parsed)).not.toMatch(/phone/i);
+  });
+});
+
+describe("acquisition identity vs page-view eligibility", () => {
+  const now = "2026-09-01T12:00:00.000Z";
+  const visitorId = "3b241101-e2bb-4255-8caf-4136c566a962";
+
+  it("keeps /sign-up out of Unique Website Visitors page views", () => {
+    expect(isMarketingPageViewPath("/sign-up")).toBe(false);
+    expect(isMarketingPageViewPath("/sign-up/sso-callback")).toBe(false);
+    expect(isBrowserSignUpPath("/sign-up")).toBe(true);
+    expect(isBrowserSignUpPath("/sign-up/sso-callback")).toBe(true);
+    expect(isAcquisitionIdentityPath("/sign-up")).toBe(true);
+    expect(isAcquisitionIdentityPath("/sign-up/sso-callback")).toBe(true);
+  });
+
+  it("keeps existing marketing pages eligible for identity and page view", () => {
+    expect(isMarketingPageViewPath("/")).toBe(true);
+    expect(isAcquisitionIdentityPath("/")).toBe(true);
+    expect(isBrowserSignUpPath("/")).toBe(false);
+  });
+
+  it("does not treat sign-in or direct checkout as acquisition identity", () => {
+    expect(isAcquisitionIdentityPath("/sign-in")).toBe(false);
+    expect(isAcquisitionIdentityPath("/app/sign-in")).toBe(false);
+    expect(isAcquisitionIdentityPath("/checkout/start")).toBe(false);
+    expect(isBrowserSignUpPath("/sign-in")).toBe(false);
+    expect(isBrowserSignUpPath("/app/sign-in")).toBe(false);
+    expect(isBrowserSignUpPath("/checkout/start")).toBe(false);
+  });
+
+  it("mints existing visitor + acq cookies on /sign-up when missing", () => {
+    const resolved = resolveMarketingCookies({
+      pathname: "/sign-up",
+      nowIso: now,
+      generatedVisitorId: visitorId,
+    });
+    expect(resolved?.visitorId).toBe(visitorId);
+    expect(resolved?.payload.source_normalized).toBe("direct");
+  });
+
+  it("mints existing visitor + acq cookies on nested Clerk signup when missing", () => {
+    const resolved = resolveMarketingCookies({
+      pathname: "/sign-up/sso-callback",
+      nowIso: now,
+      generatedVisitorId: visitorId,
+    });
+    expect(resolved?.visitorId).toBe(visitorId);
+    expect(resolved?.payload.source_normalized).toBe("direct");
   });
 });
 

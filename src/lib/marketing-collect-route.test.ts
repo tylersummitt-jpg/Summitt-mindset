@@ -5,12 +5,18 @@ const insertMock = vi.hoisted(() => vi.fn());
 const cookiesMock = vi.hoisted(() => vi.fn());
 const nativeMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/marketing-collect", () => ({
-  collectFailOpenResponse: () =>
-    new Response(null, { status: 204 }),
-  insertMarketingEventFailOpen: (...args: unknown[]) => insertMock(...args),
-  readMarketingCookiesFromRequest: (...args: unknown[]) => cookiesMock(...args),
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
 }));
+
+vi.mock("@/lib/marketing-collect", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/marketing-collect")>();
+  return {
+    ...actual,
+    insertMarketingEventFailOpen: (...args: unknown[]) => insertMock(...args),
+    readMarketingCookiesFromRequest: (...args: unknown[]) => cookiesMock(...args),
+  };
+});
 
 vi.mock("@/lib/native-app/is-native-summitt-mindset-app-request", () => ({
   isNativeSummittMindsetAppRequestFromRequest: (...args: unknown[]) =>
@@ -18,6 +24,11 @@ vi.mock("@/lib/native-app/is-native-summitt-mindset-app-request", () => ({
 }));
 
 import { POST } from "@/app/api/marketing/collect/route";
+import {
+  CLIENT_COLLECT_EVENT_TYPES,
+  MARKETING_EVENT_TYPES,
+  type MarketingEventType,
+} from "@/lib/marketing-collect";
 
 const VISITOR = "3b241101-e2bb-4255-8caf-4136c566a962";
 const ATTR = {
@@ -44,6 +55,19 @@ function req(body: unknown) {
     body: JSON.stringify(body),
   });
 }
+
+const SERVER_AUTHORITATIVE_EVENT_TYPES = [
+  "account_created",
+  "plan_selected",
+  "auth_completed",
+  "checkout_opened",
+  "trial_created",
+  "identity_completed",
+  "goal_completed",
+  "sms_consent_completed",
+  "setup_completed",
+  "first_reply_received",
+] as const satisfies readonly MarketingEventType[];
 
 describe("POST /api/marketing/collect", () => {
   beforeEach(() => {
@@ -121,5 +145,45 @@ describe("POST /api/marketing/collect", () => {
     expect(res.status).toBe(204);
     expect(insertMock).not.toHaveBeenCalled();
     expect(cookiesMock).not.toHaveBeenCalled();
+  });
+
+  it("does not insert page_viewed for /sign-up or nested Clerk signup", async () => {
+    expect((await POST(req({ event_type: "page_viewed", path: "/sign-up" }))).status).toBe(
+      204
+    );
+    expect(
+      (await POST(req({ event_type: "page_viewed", path: "/sign-up/sso-callback" }))).status
+    ).toBe(204);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects server-authoritative event types from the public collect route", async () => {
+    for (const eventType of SERVER_AUTHORITATIVE_EVENT_TYPES) {
+      insertMock.mockClear();
+      const res = await POST(req({ event_type: eventType, path: "/" }));
+      expect(res.status).toBe(204);
+      expect(insertMock).not.toHaveBeenCalled();
+    }
+  });
+});
+
+describe("internal marketing event types", () => {
+  it("accepts existing client events plus future server milestones internally", () => {
+    expect(CLIENT_COLLECT_EVENT_TYPES).toEqual(["page_viewed", "trial_cta_clicked"]);
+    expect(MARKETING_EVENT_TYPES).toEqual([
+      "page_viewed",
+      "trial_cta_clicked",
+      "account_created",
+      "plan_selected",
+      "auth_completed",
+      "checkout_opened",
+      "trial_created",
+      "identity_completed",
+      "goal_completed",
+      "sms_consent_completed",
+      "setup_completed",
+      "first_reply_received",
+    ]);
+    expect(SERVER_AUTHORITATIVE_EVENT_TYPES).toHaveLength(10);
   });
 });

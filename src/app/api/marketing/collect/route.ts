@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   collectFailOpenResponse,
   insertMarketingEventFailOpen,
+  isClientCollectEventType,
   readMarketingCookiesFromRequest,
 } from "@/lib/marketing-collect";
 import {
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
     if (!body || typeof body !== "object") return collectFailOpenResponse();
     const rec = body as Record<string, unknown>;
     const eventType = rec.event_type;
-    if (eventType !== "page_viewed" && eventType !== "trial_cta_clicked") {
+    if (!isClientCollectEventType(eventType)) {
       return collectFailOpenResponse();
     }
 

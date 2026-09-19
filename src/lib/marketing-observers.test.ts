@@ -60,6 +60,26 @@ describe("marketing observers and fail-open wiring", () => {
     expect(res.cookies.get(SM_ACQ_COOKIE)).toBeUndefined();
   });
 
+  it("skips native UA cookie minting on /sign-up", () => {
+    const req = new NextRequest("http://localhost/sign-up", {
+      headers: { "user-agent": "Mozilla SummittMindsetiOS" },
+    });
+    const res = attachMarketingCookies(req, NextResponse.next());
+    expect(res.cookies.get(SM_VISITOR_COOKIE)).toBeUndefined();
+    expect(res.cookies.get(SM_ACQ_COOKIE)).toBeUndefined();
+  });
+
+  it("mints existing visitor cookies on browser /sign-up and nested Clerk signup", () => {
+    for (const path of ["/sign-up", "/sign-up/sso-callback"]) {
+      const req = new NextRequest(`http://localhost${path}`);
+      const res = attachMarketingCookies(req, NextResponse.next());
+      expect(res.cookies.get(SM_VISITOR_COOKIE)?.value).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      );
+      expect(res.cookies.get(SM_ACQ_COOKIE)?.value).toBeTruthy();
+    }
+  });
+
   it("sets HttpOnly Lax visitor cookies on homepage", () => {
     const req = new NextRequest("http://localhost/");
     const res = attachMarketingCookies(req, NextResponse.next());

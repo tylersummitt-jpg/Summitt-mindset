@@ -19,9 +19,40 @@ import { supabaseServer } from "@/lib/supabase-server";
 
 const CTA_METADATA_KEYS = new Set(["cta_surface"]);
 
+export const MARKETING_EVENT_TYPES = [
+  "page_viewed",
+  "trial_cta_clicked",
+  "account_created",
+  "plan_selected",
+  "auth_completed",
+  "checkout_opened",
+  "trial_created",
+  "identity_completed",
+  "goal_completed",
+  "sms_consent_completed",
+  "setup_completed",
+  "first_reply_received",
+] as const;
+
+export type MarketingEventType = (typeof MARKETING_EVENT_TYPES)[number];
+
+export const CLIENT_COLLECT_EVENT_TYPES = [
+  "page_viewed",
+  "trial_cta_clicked",
+] as const;
+
+export type ClientCollectEventType = (typeof CLIENT_COLLECT_EVENT_TYPES)[number];
+
+export function isClientCollectEventType(raw: unknown): raw is ClientCollectEventType {
+  return (
+    typeof raw === "string" &&
+    (CLIENT_COLLECT_EVENT_TYPES as readonly string[]).includes(raw)
+  );
+}
+
 export type MarketingEventInsert = {
   occurred_at?: string;
-  event_type: "page_viewed" | "trial_cta_clicked" | "account_created";
+  event_type: MarketingEventType;
   visitor_id: string;
   clerk_user_id?: string | null;
   path?: string | null;

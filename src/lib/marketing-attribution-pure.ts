@@ -157,6 +157,21 @@ export function isMarketingPageViewPath(pathname: string): boolean {
   return false;
 }
 
+/** Website Clerk sign-up tree, including hosted steps such as /sign-up/sso-callback. */
+export function isBrowserSignUpPath(pathname: string): boolean {
+  const path = normalizePathname(pathname);
+  return path === "/sign-up" || path.startsWith("/sign-up/");
+}
+
+/**
+ * Routes that may mint/retain sm_visitor + sm_acq.
+ * Broader than page-view eligibility: browser /sign-up is identity-only.
+ * Does not include /sign-in, /app/sign-in, or /checkout/start.
+ */
+export function isAcquisitionIdentityPath(pathname: string): boolean {
+  return isMarketingPageViewPath(pathname) || isBrowserSignUpPath(pathname);
+}
+
 export function isCoachMarketingPath(pathname: string): boolean {
   const path = normalizePathname(pathname);
   return path === "/coach-leadership-kit" || path.startsWith("/coach-leadership-kit/");
@@ -590,8 +605,9 @@ export function marketingCookieOptions(isProduction: boolean): {
 }
 
 /**
- * Resolve sm_visitor + sm_acq for an allowlisted marketing request.
- * Returns null when the path is not a marketing observation page (no cookies).
+ * Resolve sm_visitor + sm_acq for an acquisition-identity path.
+ * Returns null when the path may not mint/retain marketing cookies.
+ * Page-view eligibility is a separate allowlist (isMarketingPageViewPath).
  */
 export function resolveMarketingCookies(args: {
   pathname: string;
@@ -603,7 +619,7 @@ export function resolveMarketingCookies(args: {
   nowIso: string;
   generatedVisitorId: string;
 }): { visitorId: string; payload: AcquisitionCookiePayload } | null {
-  if (!isMarketingPageViewPath(args.pathname)) return null;
+  if (!isAcquisitionIdentityPath(args.pathname)) return null;
   const visitorId = isVisitorId(args.existingVisitor)
     ? args.existingVisitor
     : args.generatedVisitorId;
