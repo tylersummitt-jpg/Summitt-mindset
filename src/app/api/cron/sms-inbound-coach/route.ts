@@ -318,6 +318,7 @@ import {
   isLikelyInboundSolMainBeforeHandoff,
   runInboundSolRelationshipTurn,
 } from "@/lib/inbound-sol-relationship-turn";
+import { applyOrdinaryInboundRepeatedCoachEmojiHygiene } from "@/lib/inbound-repeated-coach-emoji-hygiene";
 import { tryWritePhotoRequestStateAfterTwilioSuccess } from "@/lib/inbound-photo-request-state";
 import {
   confirmationAuthorizationFromReloadedCommitment,
@@ -5644,11 +5645,16 @@ async function processV2NormalInboundOutcome(
         return;
       }
 
+      const inboundReplyBody = applyOrdinaryInboundRepeatedCoachEmojiHygiene({
+        body: solTurn.body,
+        exactThreadMessages: solTurn.packet?.exact_thread.messages ?? [],
+      });
+
       const nowSol = new Date().toISOString();
       const { data: persistedSol } = await supabaseServer
         .from("sms_inbound_coach_jobs")
         .update({
-          reply_body: solTurn.body,
+          reply_body: inboundReplyBody,
           status: "reply_ready",
           next_retry_at: nowSol,
           updated_at: nowSol,
@@ -5672,7 +5678,7 @@ async function processV2NormalInboundOutcome(
         clerkUserId: userId,
         messageSid: job.message_sid,
         rawBody: userMessage,
-        replyBody: solTurn.body,
+        replyBody: inboundReplyBody,
         coachingMoveSource: "inbound_sol_relationship_turn",
         laneMetadata: solLaneMetadata,
         routePurpose: "normal_inbound_reply",

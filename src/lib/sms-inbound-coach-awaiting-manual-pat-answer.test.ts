@@ -171,7 +171,8 @@ describe("commit 2 — durable awaiting_manual_pat_answer job state", () => {
     const block = solMainBlock(src);
     const noSendEnd = block.indexOf("return;", block.indexOf("if (!solTurn.shouldSend"));
     const sendPath = block.slice(noSendEnd);
-    expect(sendPath).toContain("reply_body: solTurn.body");
+    expect(sendPath).toContain("applyOrdinaryInboundRepeatedCoachEmojiHygiene");
+    expect(sendPath).toContain("reply_body: inboundReplyBody");
     expect(sendPath).toContain('status: "reply_ready"');
     expect(sendPath).toContain('.eq("status", "processing")');
     expect(sendPath).toContain("commitAndSendInboundCoachReply");
