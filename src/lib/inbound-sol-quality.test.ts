@@ -162,7 +162,7 @@ describe("inbound Sol contracts", () => {
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("win_presentation");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("accountability_supporting_quote");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("life_supporting_quote");
-    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Lifted Weights");
+    expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain("Lifted Weights for 30 Minutes");
     expect(INBOUND_SOL_INTERPRETER_SYSTEM_PROMPT).toContain(
       "does NOT determine whether a Win exists"
     );

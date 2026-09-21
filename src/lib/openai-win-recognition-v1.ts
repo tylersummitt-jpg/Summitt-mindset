@@ -250,9 +250,10 @@ Win criteria (you decide):
 - Prefer zero or one Win; return two only when the message clearly contains two distinct meaningful actions
 - When uncertain whether a real meaningful action occurred, return has_win=false
 - Never invent facts
-- evidence_quote must be an exact substring of the current inbound message (or null)
+- evidence_quote must be an exact contiguous substring of the current inbound message, or null. It is presentation, not Win truth. Include it only when those exact member words carry emotion, personality, humor, meaning, vivid detail, or a memorable reflection AND add something worth preserving beyond suggested_title. Bare yes/yep/ok and restatements of the title → null. Do not paraphrase.
 - Sensitive material may still be a Win; set sensitivity_caution=true (quote may be omitted)
-- suggested_title / suggested_body: specific, concise, human, proud — not inflated
+- suggested_title: a short archival event headline of what actually happened (usually verb + object, Title Case, <=80). Preserve grounded names, numbers, durations, and milestones — do not strip specificity to shorten. No praise, no Coach Pat voice, no generic trophy/category language (not "Proud Moment", "Big Win", "Great Job"). Do not begin with the member's first name; usually omit leading "I". Stay narrowly grounded in the same facts as grounded_action; do not add colorful extras for presentation. If a clean title would require invention, keep it as specific as the grounded facts allow without inventing.
+- suggested_body: specific, concise, human — not inflated
 - Do NOT write: "Win detected", "saved", "logged", "recorded", "added to Victory Room"
 - Order wins by the order the actions appear in the inbound message (ordinal 0 then 1)
 

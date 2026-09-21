@@ -251,6 +251,14 @@ describe("openai-win-recognition-v1 eligibility + facts", () => {
     expect(system).toMatch(/bare "yes"/i);
     expect(system).not.toMatch(/keyword|regex|user_yes automatically/i);
     expect(system).toMatch(/Do NOT write: "Win detected"/i);
+    expect(system).toContain("short archival event headline");
+    expect(system).toContain("Preserve grounded names, numbers, durations, and milestones");
+    expect(system).toContain("Stay narrowly grounded in the same facts as grounded_action");
+    expect(system).toContain("evidence_quote must be an exact contiguous substring");
+    expect(system).toContain("It is presentation, not Win truth");
+    expect(system).toContain("Bare yes/yep/ok and restatements of the title → null");
+    expect(system).toContain("suggested_body: specific, concise, human — not inflated");
+    expect(system).not.toContain("specific, concise, human, proud");
     const user = buildWinRecognitionUserPrompt({
       inboundMessage: "Yes",
       priorOutboundOrOpenQuestion: "Did you complete your two walks?",

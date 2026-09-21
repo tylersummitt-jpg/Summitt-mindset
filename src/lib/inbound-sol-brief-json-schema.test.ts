@@ -198,24 +198,41 @@ describe("inbound Sol win_presentation extras", () => {
     );
   });
 
-  it("prompt law is trophy chrome only and includes style goldens", () => {
+  it("prompt law is presentation-only archival titles and optional quotes", () => {
     const appendix = buildInboundSolBriefExactContractPromptAppendix();
     expect(appendix).toContain("win_presentation");
     expect(appendix).toContain("does NOT determine whether a Win exists");
-    expect(appendix).toContain("Lifted Weights");
-    expect(appendix).toContain("Swam With the Kids");
-    expect(appendix).toContain("Proud Moment With Daughter");
     expect(appendix).toContain("Do not rewrite grounded_action to trophy chrome");
+    expect(appendix).toContain("short archival event headline");
+    expect(appendix).toContain("Preserve grounded names, numbers, durations, and milestones");
+    expect(appendix).toContain("Do not strip meaningful specificity just to make the title shorter");
+    expect(appendix).toContain("Lifted Weights for 30 Minutes");
+    expect(appendix).toContain('not "Lifted Weights"');
+    expect(appendix).toContain("Reviewed Top 3 Business Priorities for 5 Minutes");
+    expect(appendix).toContain("Rocky Caught His First Fish");
+    expect(appendix).toContain("Hit a 300-Lb Deadlift");
+    expect(appendix).toContain("Date Night With Brooke");
+    expect(appendix).toContain("Played With the Big Kids");
+    expect(appendix).toContain("Swam With the Kids");
+    expect(appendix).toContain("No praise");
+    expect(appendix).toContain("Proud Moment With Daughter");
     expect(appendix).toContain("Consistent Weight Lifting");
     expect(appendix).toContain("Being a Present Father");
     expect(appendix).toContain("Proud Family Support");
     expect(appendix).not.toContain("He recognized");
+    expect(appendix).not.toContain("trophy-like");
+    expect(appendix).not.toContain("Natural trophy phrases are allowed");
+    expect(appendix).not.toMatch(/life_trophy_title "Proud Moment With Daughter"/);
     expect(appendix).toContain("accountability_supporting_quote");
     expect(appendix).toContain("life_supporting_quote");
     expect(appendix).toContain("exact contiguous substring of latest_inbound_text");
+    expect(appendix).toContain("Quotes are presentation, not Win truth");
     expect(appendix).toContain("Do not paraphrase");
     expect(appendix).toContain("Do not infer text from an image");
     expect(appendix).toContain("Do not copy one quote onto both Wins");
+    expect(appendix).toContain('Bare "yes" / "Yep" → null');
+    expect(appendix).toContain("He talked about it the entire boat ride home.");
+    expect(appendix).toContain("FINALLY hit 300 on deadlift today!!!");
   });
 });
 
