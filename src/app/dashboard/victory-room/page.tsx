@@ -14,6 +14,7 @@ import {
   vrPageInner,
   vrPageOuter,
   vrSectionCard,
+  vrSectionSubtitle,
   vrSectionTitle,
 } from "@/components/victory-room-visual";
 import { loadPatReadForVictoryRoom } from "@/lib/v2-victory-pat-read-persist";
@@ -173,6 +174,7 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
 
             <header className="mb-5 sm:mb-6">
               <h1 className={vrSectionTitle}>Victory Room</h1>
+              <p className={vrSectionSubtitle}>Build your identity one day at a time.</p>
             </header>
 
             {view.commitment ? (

@@ -39,7 +39,7 @@ export function VictoryCalendarSection({
   return (
     <VictoryRoomSectionShell
       title="Victory Calendar"
-      subtitle="Your proud moments, one day at a time."
+      subtitle="Your victories, one day at a time."
     >
       <VictoryCalendarGrid
         monthKey={monthKey}

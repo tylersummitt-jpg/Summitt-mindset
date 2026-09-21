@@ -19,7 +19,7 @@ vi.mock("next/navigation", () => ({
 import { VictoryRecentProofSection } from "@/components/VictoryRecentProofSection";
 
 describe("VictoryRecentProofSection", () => {
-  it("renders Proud Moments total, cards, and View all Proud Moments link without share or categories", () => {
+  it("renders Your Victories, counts, cards, and View all Victories without share or categories", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryRecentProofSection, {
         summaryCounts: {
@@ -42,9 +42,11 @@ describe("VictoryRecentProofSection", () => {
         ],
       })
     );
-    expect(html).toContain(">Proud Moments &amp; Goal Wins<");
+    expect(html).toContain(">Your Victories<");
+    expect(html).not.toContain("Proud Moments &amp; Goal Wins");
+    expect(html).not.toContain("Proud Moments & Goal Wins");
     expect(html).not.toMatch(/>Proud Moments</);
-    expect(html).toContain("Build your identity one day at a time.");
+    expect(html).not.toContain("Build your identity one day at a time.");
     expect(html).not.toContain(
       "Real moments worth remembering — from your life, not a scoreboard."
     );
@@ -55,6 +57,9 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain("TOTAL VICTORIES");
     expect(html).toContain("GOAL WINS");
     expect(html).toContain("PROUD MOMENTS");
+    expect(html).toContain('aria-label="What are Total Victories?"');
+    expect(html).toContain('aria-label="What are Goal Wins?"');
+    expect(html).toContain('aria-label="What are Proud Moments?"');
     expect(html).not.toContain("Moment Saved");
     expect(html).not.toContain("Moments Saved");
     expect(html).toContain("Kept walking");
@@ -87,6 +92,7 @@ describe("VictoryRecentProofSection", () => {
     expect(src).toContain("buildEditWinHref");
     expect(src).toContain('kind: "victory-room"');
     expect(src).toContain("VictoryProudMomentsEditChrome");
+    expect(src).toContain("VictorySummaryCounts");
     expect(src).toContain("winId: w.id");
     expect(src).toContain("expectedUpdatedAt: w.updatedAt");
   });
@@ -114,7 +120,7 @@ describe("VictoryRecentProofSection", () => {
         ],
       })
     );
-    expect(html).toContain(">Proud Moments &amp; Goal Wins<");
+    expect(html).toContain(">Your Victories<");
     expect(html).toContain("TOTAL VICTORIES");
     expect(html).toContain("GOAL WINS");
     expect(html).toContain("PROUD MOMENTS");
@@ -137,8 +143,8 @@ describe("VictoryRecentProofSection", () => {
         wins: [],
       })
     );
-    expect(html).toContain(">Proud Moments &amp; Goal Wins<");
-    expect(html).toContain("Build your identity one day at a time.");
+    expect(html).toContain(">Your Victories<");
+    expect(html).not.toContain("Build your identity one day at a time.");
     expect(html).toContain("TOTAL VICTORIES");
     expect(html).toContain("GOAL WINS");
     expect(html).toContain("PROUD MOMENTS");
@@ -181,6 +187,9 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toContain("TOTAL VICTORIES");
     expect(html).not.toContain("GOAL WINS");
     expect(html).not.toContain("PROUD MOMENTS");
+    expect(html).not.toContain("What are Total Victories?");
+    expect(html).not.toContain("What are Goal Wins?");
+    expect(html).not.toContain("What are Proud Moments?");
     expect(html).not.toContain("Moment Saved");
     expect(html).not.toContain("Moments Saved");
     expect(html).not.toMatch(/>0</);
@@ -202,6 +211,7 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toContain("TOTAL VICTORIES");
     expect(html).not.toContain("GOAL WINS");
     expect(html).not.toContain("PROUD MOMENTS");
+    expect(html).not.toContain("What are Total Victories?");
     expect(html).not.toMatch(/>0</);
     expect(html).toContain("No Victories yet.");
     expect(html).toContain("+ Add a Victory");

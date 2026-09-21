@@ -64,6 +64,11 @@ describe("Victory Room Victory Calendar wiring", () => {
     expect(top).toBeGreaterThan(h1);
     expect(wins).toBeGreaterThan(top);
     expect(pageSrc).toContain(">Victory Room<");
+    expect(pageSrc).toContain("Build your identity one day at a time.");
+    expect(pageSrc).toContain("vrSectionSubtitle");
+    const tagline = pageSrc.indexOf("Build your identity one day at a time.");
+    expect(tagline).toBeGreaterThan(h1);
+    expect(top).toBeGreaterThan(tagline);
     expect(pageSrc).not.toContain("A place to remember who you&apos;re becoming");
     expect(pageSrc).not.toContain("saved from your");
     expect(pageSrc).not.toContain("real choices.");
@@ -91,6 +96,7 @@ describe("Victory Room Proud Moments vocabulary", () => {
     "src/components/VictoryWinCard.tsx",
     "src/components/VictoryWinCardActions.tsx",
     "src/components/VictoryProudMomentsEditChrome.tsx",
+    "src/components/VictorySummaryCounts.tsx",
     "src/components/VictoryWinMediaImage.tsx",
     "src/components/VictoryPatReadSection.tsx",
     "src/app/dashboard/victory-room/page.tsx",

@@ -76,7 +76,7 @@ describe("VictoryCalendarSection selected-day detail", () => {
       })
     );
     expect(html).toContain("Victory Calendar");
-    expect(html).toContain("Your proud moments, one day at a time.");
+    expect(html).toContain("Your victories, one day at a time.");
     expect(html).not.toContain("Your wins, one day at a time.");
     expect(html).not.toContain("No Victories recorded yet.");
     expect(html).not.toContain("No Wins recorded yet.");

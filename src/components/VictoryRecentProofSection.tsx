@@ -2,6 +2,7 @@ import Link from "next/link";
 import { VictoryProudMomentsEditChrome } from "@/components/VictoryProudMomentsEditChrome";
 import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import { VrIconProof } from "@/components/VictoryRoomIcons";
+import { VictorySummaryCounts } from "@/components/VictorySummaryCounts";
 import {
   vrAccentLink,
   vrEmptyState,
@@ -20,43 +21,18 @@ type VictoryRecentProofSectionProps = {
   timeZone: string;
 };
 
-function summaryStatCell(value: number, label: string) {
-  return (
-    <div className="min-w-0">
-      <p className="font-serif text-2xl font-semibold tabular-nums leading-none text-amber-50 sm:text-4xl">
-        {value}
-      </p>
-      <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 sm:text-xs">
-        {label}
-      </p>
-    </div>
-  );
-}
-
 export function VictoryRecentProofSection({
   summaryCounts,
   wins,
   timeZone,
 }: VictoryRecentProofSectionProps) {
   return (
-    <VictoryRoomSectionShell
-      title="Proud Moments & Goal Wins"
-      subtitle="Build your identity one day at a time."
-    >
+    <VictoryRoomSectionShell title="Your Victories">
       <VictoryProudMomentsEditChrome
         addHref="/dashboard/victory-room/add-win"
         addLabel="+ Add a Victory"
         header={
-          summaryCounts ? (
-            <div className="grid w-full grid-cols-3 gap-2 sm:gap-4">
-              {summaryStatCell(summaryCounts.totalActiveWins, "TOTAL VICTORIES")}
-              {summaryStatCell(summaryCounts.totalActiveGoalWins, "GOAL WINS")}
-              {summaryStatCell(
-                summaryCounts.totalActiveProudMoments,
-                "PROUD MOMENTS"
-              )}
-            </div>
-          ) : undefined
+          summaryCounts ? <VictorySummaryCounts counts={summaryCounts} /> : undefined
         }
         groups={
           wins.length
