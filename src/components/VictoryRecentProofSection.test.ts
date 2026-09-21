@@ -95,6 +95,7 @@ describe("VictoryRecentProofSection", () => {
     expect(src).toContain("VictorySummaryCounts");
     expect(src).toContain("winId: w.id");
     expect(src).toContain("expectedUpdatedAt: w.updatedAt");
+    expect(src).toContain("winKind: w.winKind");
   });
 
   it("renders legitimate zeros for all three stats", () => {

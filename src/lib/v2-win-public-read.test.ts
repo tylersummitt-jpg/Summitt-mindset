@@ -191,6 +191,7 @@ describe("mapV2WinRowToPublicDto", () => {
       updatedAt: "2026-08-01T12:05:00.000Z",
       sourceType: "sms_inbound",
       userEditedAt: null,
+      winKind: null,
     });
     expect(dto).not.toHaveProperty("model_confidence");
     expect(dto).not.toHaveProperty("idempotency_key");
@@ -200,9 +201,25 @@ describe("mapV2WinRowToPublicDto", () => {
     expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("updated_at");
     expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("source_type");
     expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("user_edited_at");
+    expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("win_kind");
     expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("source_message");
     expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("hidden_reason");
     expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("action_fact");
+  });
+
+  it("maps exact win_kind values and fail-closes unexpected or missing values", () => {
+    expect(mapV2WinRowToPublicDto(winRow({ win_kind: "goal_win" }) as never).winKind).toBe(
+      "goal_win"
+    );
+    expect(mapV2WinRowToPublicDto(winRow({ win_kind: "proud_moment" }) as never).winKind).toBe(
+      "proud_moment"
+    );
+    expect(mapV2WinRowToPublicDto(winRow({ win_kind: null }) as never).winKind).toBeNull();
+    expect(mapV2WinRowToPublicDto(winRow() as never).winKind).toBeNull();
+    expect(mapV2WinRowToPublicDto(winRow({ win_kind: "mixed" }) as never).winKind).toBeNull();
+    expect(mapV2WinRowToPublicDto(winRow({ win_kind: "trophy" }) as never).winKind).toBeNull();
+    expect(mapV2WinRowToPublicDto(winRow({ win_kind: "GOAL_WIN" }) as never).winKind).toBeNull();
+    expect(mapV2WinRowToPublicDto(winRow({ win_kind: "" }) as never).winKind).toBeNull();
   });
 
   it("includes whole-life and commitment-linked rows", () => {

@@ -59,6 +59,7 @@ describe("VictoryCalendarSection import guards", () => {
     expect(SECTION_SRC).not.toContain("inbound-sol");
     expect(SECTION_SRC).not.toContain("inbound-mms-d2");
     expect(SECTION_SRC).toContain("VictoryWinCard");
+    expect(SECTION_SRC).toContain("winKind={w.winKind}");
     expect(SECTION_SRC).toContain("showEditingControls={false}");
     expect(SECTION_SRC).not.toContain("buildEditWinHref");
     expect(SECTION_SRC).not.toContain("VictoryProudMomentsEditChrome");

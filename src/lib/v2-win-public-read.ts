@@ -18,7 +18,10 @@ export const PUBLIC_WINS_PAGE_LIMIT = 50;
 
 /** Columns selected from v2_win for public mapping (never returned raw to clients). */
 export const PUBLIC_WIN_SELECT_COLUMNS =
-  "id, occurred_at, display_title, display_body, supporting_quote, sensitivity_caution, celebration_appropriate, commitment_id, status, updated_at, source_type, user_edited_at" as const;
+  "id, occurred_at, display_title, display_body, supporting_quote, sensitivity_caution, celebration_appropriate, commitment_id, status, updated_at, source_type, user_edited_at, win_kind" as const;
+
+/** Canonical public Victory type. Unexpected values map to null. */
+export type PublicWinKind = "goal_win" | "proud_moment";
 
 /** Month-marker query only — no card fields, quotes, or media. */
 export const PUBLIC_WIN_MONTH_MARKER_SELECT_COLUMNS = "id, occurred_at" as const;
@@ -48,6 +51,8 @@ export type PublicWinDto = {
    */
   sourceType?: string;
   userEditedAt?: string | null;
+  /** Canonical type for card presentation. Null when missing or unexpected. */
+  winKind?: PublicWinKind | null;
   /** Optional signed card photo; omitted when absent or enrichment failed. */
   media?: PublicWinMediaDto;
 };
@@ -91,6 +96,7 @@ type WinRow = {
   updated_at: string;
   source_type?: string | null;
   user_edited_at?: string | null;
+  win_kind?: string | null;
 };
 
 function requireClerkUserId(clerkUserId: string): string {
@@ -124,6 +130,10 @@ function normalizeWinUserEditedAt(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function publicWinKindFromUnknown(raw: unknown): PublicWinKind | null {
+  return raw === "goal_win" || raw === "proud_moment" ? raw : null;
 }
 
 /**
@@ -174,6 +184,7 @@ export function mapV2WinRowToPublicDto(row: WinRow): PublicWinDto {
     updatedAt: row.updated_at,
     sourceType,
     userEditedAt,
+    winKind: publicWinKindFromUnknown(row.win_kind),
   };
 }
 

@@ -36,6 +36,7 @@ export function VictorySeasonWinsSection({
                   dateLabel: formatVictoryRoomDate(w.occurredAt, timeZone),
                   supportingQuote: w.supportingQuote,
                   celebrationAppropriate: w.celebrationAppropriate,
+                  winKind: w.winKind,
                   media: w.media,
                   winId: w.id,
                   expectedUpdatedAt: w.updatedAt,

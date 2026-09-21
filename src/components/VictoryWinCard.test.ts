@@ -34,6 +34,10 @@ describe("VictoryWinCard", () => {
     expect(html).not.toContain("Share");
     expect(html).not.toContain("user_yes");
     expect(html).not.toContain("Win detected");
+    expect(html).not.toContain("Goal Win");
+    expect(html).not.toContain("Proud Moment");
+    expect(html).not.toContain("<circle");
+    expect(html).not.toContain("<path");
   });
 
   it("uses quieter styling and still omits quote when celebrationAppropriate is false", () => {
@@ -86,5 +90,79 @@ describe("VictoryWinCard", () => {
     expect(quoteIdx).toBeGreaterThan(imgIdx);
     expect(html).not.toContain("Tyler, you lifted");
     expect(html).not.toContain("showing your commitment");
+  });
+
+  it("renders a Goal Win target icon and hidden type label", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryWinCard, {
+        displayTitle: "Lifted Weights for 30 Minutes",
+        displayBody: "You did the work.",
+        dateLabel: "Aug 1, 2026",
+        winKind: "goal_win",
+      })
+    );
+    expect(html).toContain("Lifted Weights for 30 Minutes");
+    expect(html).toContain("Aug 1, 2026");
+    expect(html).toContain("You did the work.");
+    expect(html).toContain("sr-only");
+    expect(html).toContain("Goal Win");
+    expect(html).toContain("<circle");
+    expect(html).not.toContain("Proud Moment");
+    expect(html).not.toContain("<path");
+    expect(html).not.toContain("Kept the goal");
+  });
+
+  it("renders a Proud Moment star icon and hidden type label", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryWinCard, {
+        displayTitle: "Rocky Caught His First Fish",
+        displayBody: "A moment worth keeping.",
+        dateLabel: "Aug 2, 2026",
+        winKind: "proud_moment",
+        supportingQuote: "he caught it",
+        media: {
+          id: "media-1",
+          cardUrl: "https://signed.example/card.jpg",
+          width: 100,
+          height: 80,
+        },
+      })
+    );
+    expect(html).toContain("Rocky Caught His First Fish");
+    expect(html).toContain("Aug 2, 2026");
+    expect(html).toContain("A moment worth keeping.");
+    expect(html).toContain("he caught it");
+    expect(html).toContain('src="https://signed.example/card.jpg"');
+    expect(html).toContain("Proud Moment");
+    expect(html).toContain("<path");
+    expect(html).not.toContain("Goal Win");
+    expect(html).not.toContain("<circle");
+    expect(html).not.toContain(">Edit<");
+    expect(html).not.toContain(">Delete<");
+  });
+
+  it("omits type icon and hidden label when winKind is missing or null", () => {
+    const omitted = renderToStaticMarkup(
+      React.createElement(VictoryWinCard, {
+        displayTitle: "Owned the apology",
+        displayBody: "You repaired the moment with honesty.",
+        dateLabel: "Aug 1, 2026",
+      })
+    );
+    const explicitNull = renderToStaticMarkup(
+      React.createElement(VictoryWinCard, {
+        displayTitle: "Owned the apology",
+        displayBody: "You repaired the moment with honesty.",
+        dateLabel: "Aug 1, 2026",
+        winKind: null,
+      })
+    );
+    for (const html of [omitted, explicitNull]) {
+      expect(html).toContain("Owned the apology");
+      expect(html).not.toContain("Goal Win");
+      expect(html).not.toContain("Proud Moment");
+      expect(html).not.toContain("<circle");
+      expect(html).not.toContain("<path");
+    }
   });
 });

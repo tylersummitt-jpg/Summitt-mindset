@@ -2,8 +2,9 @@
 
 import { VictoryWinCardActions } from "@/components/VictoryWinCardActions";
 import { VictoryWinMediaImage } from "@/components/VictoryWinMediaImage";
+import { VrIconGoal, VrIconStar } from "@/components/VictoryRoomIcons";
 import { vrMomentCardBase } from "@/components/victory-room-visual";
-import type { PublicWinMediaDto } from "@/lib/v2-win-public-read";
+import type { PublicWinKind, PublicWinMediaDto } from "@/lib/v2-win-public-read";
 
 export type VictoryWinCardProps = {
   displayTitle: string;
@@ -11,6 +12,8 @@ export type VictoryWinCardProps = {
   dateLabel: string;
   supportingQuote?: string | null;
   celebrationAppropriate?: boolean;
+  /** Canonical Victory type marker. Null/omitted → no icon. */
+  winKind?: PublicWinKind | null;
   /** Optional signed card photo from server enrichment. */
   media?: PublicWinMediaDto | null;
   /**
@@ -33,6 +36,7 @@ export function VictoryWinCard({
   dateLabel,
   supportingQuote,
   celebrationAppropriate = true,
+  winKind = null,
   media = null,
   winId = null,
   editHref = null,
@@ -58,6 +62,13 @@ export function VictoryWinCard({
   const quote = supportingQuote?.trim() || null;
   const title = displayTitle.trim();
   const body = displayBody.trim();
+  const kindMarker =
+    winKind === "goal_win"
+      ? { Icon: VrIconGoal, label: "Goal Win" }
+      : winKind === "proud_moment"
+        ? { Icon: VrIconStar, label: "Proud Moment" }
+        : null;
+  const kindIconClass = `mt-1 h-5 w-5 shrink-0 ${quiet ? "text-stone-400" : "text-amber-200"}`;
 
   const actionsReady =
     showEditingControls &&
@@ -84,7 +95,15 @@ export function VictoryWinCard({
         aria-hidden
       />
       <div className="relative flex flex-wrap items-start justify-between gap-2">
-        <h3 className={`${titleClass} min-w-0 flex-1`}>{title}</h3>
+        <h3 className={`${titleClass} flex min-w-0 flex-1 items-start gap-2`}>
+          {kindMarker ? (
+            <>
+              <span className="sr-only">{kindMarker.label}. </span>
+              <kindMarker.Icon className={kindIconClass} />
+            </>
+          ) : null}
+          <span className="min-w-0">{title}</span>
+        </h3>
         {dateLabel ? (
           <p className="shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">
             {dateLabel}

@@ -115,6 +115,7 @@ describe("Delete Win architecture regressions", () => {
     for (const src of [recent, all, season]) {
       expect(src).toContain("winId: w.id");
       expect(src).toContain("expectedUpdatedAt: w.updatedAt");
+      expect(src).toContain("winKind: w.winKind");
       expect(src).toContain("editHref:");
       expect(src).toContain("VictoryProudMomentsEditChrome");
     }

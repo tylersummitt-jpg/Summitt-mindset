@@ -65,6 +65,7 @@ export function VictoryCalendarSection({
                     dateLabel={formatVictoryRoomDate(w.occurredAt, timeZone)}
                     supportingQuote={w.supportingQuote}
                     celebrationAppropriate={w.celebrationAppropriate}
+                    winKind={w.winKind}
                     media={w.media}
                     showEditingControls={false}
                   />
