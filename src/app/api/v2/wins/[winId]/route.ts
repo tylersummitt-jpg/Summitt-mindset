@@ -41,6 +41,8 @@ const FORBIDDEN_WIN_MUTATION_KEYS = [
   "why_meaningful",
   "relationship_type",
   "supporting_quote",
+  "win_kind",
+  "winKind",
 ] as const;
 
 function rejectForbiddenBodyKeys(body: Record<string, unknown>): NextResponse | null {

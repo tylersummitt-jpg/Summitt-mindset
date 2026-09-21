@@ -113,6 +113,31 @@ describe("v2-win-persist keys and row construction", () => {
     expect(wrongOwner.commitment_id).toBeNull();
   });
 
+  it("maps recognition relationship_type to win_kind", () => {
+    const args = {
+      clerkUserId: "user_1",
+      sourceType: "sms_inbound" as const,
+      sourceMessageSid: "SM1",
+      sourceMessageId: null,
+      sourceEventId: null,
+      activeCommitmentId: "c1",
+      activeCommitmentClerkUserId: "user_1",
+      occurredAtIso: "2026-07-31T12:00:00.000Z",
+    };
+    expect(buildV2WinInsertRow({ ...args, candidate: candidate({ relationship_type: "goal" }) }).win_kind).toBe(
+      "goal_win"
+    );
+    expect(buildV2WinInsertRow({ ...args, candidate: candidate({ relationship_type: "mixed" }) }).win_kind).toBe(
+      "goal_win"
+    );
+    expect(
+      buildV2WinInsertRow({ ...args, candidate: candidate({ relationship_type: "identity" }) }).win_kind
+    ).toBe("proud_moment");
+    expect(
+      buildV2WinInsertRow({ ...args, candidate: candidate({ relationship_type: "whole_life" }) }).win_kind
+    ).toBe("proud_moment");
+  });
+
   it("display_title word-boundary limits the swimming example; action_fact stays full", () => {
     const grounded =
       "Swam with the children and shared in their excitement during the family experience";
@@ -443,7 +468,28 @@ describe("accountability user_yes Win persistence", () => {
     expect(row.commitment_id).toBe("c1");
     expect(row.source_event_id).toBe("evt-1");
     expect(row.relationship_type).toBe("goal");
+    expect(row.win_kind).toBe("goal_win");
     expect(row.source_type).toBe("sms_inbound");
+  });
+
+  it("accountability mixed donor presentation still inserts win_kind goal_win", () => {
+    const row = buildAccountabilityV2WinInsertRow({
+      clerkUserId: "user_1",
+      messageSid: "SMmix",
+      sourceMessageId: null,
+      sourceEventId: "evt-mix",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      presentation: {
+        ...buildStructuralAccountabilityWinPresentation({
+          effectiveAsk: "Lift weights for 30 minutes a day",
+        }),
+        relationship_type: "mixed",
+      },
+    });
+    expect(row.relationship_type).toBe("mixed");
+    expect(row.win_kind).toBe("goal_win");
+    expect(row.idempotency_key).toBe("win_v1:acc_yes:SMmix");
   });
 
   it("confirmed user_yes + goal recognition → exactly one durable completion Win", async () => {
@@ -474,6 +520,7 @@ describe("accountability user_yes Win persistence", () => {
     expect(insertedRow.display_title).toBe("Lifted today");
     expect(insertedRow.source_event_id).toBe("evt-yes-1");
     expect(insertedRow.commitment_id).toBe("c1");
+    expect(insertedRow.win_kind).toBe("goal_win");
   });
 
   it("retry same MessageSid → existing accountability Win, no duplicate insert success path", async () => {
@@ -558,9 +605,12 @@ describe("accountability user_yes Win persistence", () => {
     expect(r.wins[0]?.idempotency_key).toBe("win_v1:acc_yes:SMtwo");
     expect(r.wins[1]?.idempotency_key).toBe("win_v1:SMtwo:1");
     expect(r.wins[1]?.ordinal).toBe(1);
+    const accRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
     const indRow = insertMaybeSingle.mock.calls[1]?.[0] as Record<string, unknown>;
+    expect(accRow.win_kind).toBe("goal_win");
     expect(indRow.commitment_id).toBeNull();
     expect(indRow.relationship_type).toBe("whole_life");
+    expect(indRow.win_kind).toBe("proud_moment");
     expect(indRow.candidate_ordinal).toBe(1);
   });
 

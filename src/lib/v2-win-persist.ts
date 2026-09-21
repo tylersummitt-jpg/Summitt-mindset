@@ -29,6 +29,13 @@ import { validateWinSupportingQuote } from "@/lib/v2-win-supporting-quote";
 
 export type WinSourceType = "sms_inbound" | "system_event";
 
+export type V2WinKind = "goal_win" | "proud_moment";
+
+function winKindFromRelationshipType(rel: WinRelationshipTypeV1): V2WinKind {
+  if (rel === "goal" || rel === "mixed") return "goal_win";
+  return "proud_moment";
+}
+
 export type PersistRecognizedWinsArgs = {
   clerkUserId: string;
   sourceType: WinSourceType;
@@ -119,6 +126,7 @@ export type V2WinInsertRow = {
   idempotency_key: string;
   schema_version: typeof WIN_RECOGNITION_VERSION;
   model_confidence: number | null;
+  win_kind: V2WinKind;
 };
 
 export function buildV2WinInsertRow(args: {
@@ -167,6 +175,7 @@ export function buildV2WinInsertRow(args: {
     display_body: args.candidate.suggested_body.slice(0, WIN_FIELD_LIMITS.display_body),
     supporting_quote: supportingQuote,
     relationship_type: args.candidate.relationship_type,
+    win_kind: winKindFromRelationshipType(args.candidate.relationship_type),
     recognition_mode: args.candidate.recognition_mode,
     user_expressed_pride: args.candidate.user_expressed_pride,
     identity_related: args.candidate.identity_related,
@@ -326,6 +335,7 @@ export function buildAccountabilityV2WinInsertRow(args: {
       ? args.presentation.supporting_quote.slice(0, WIN_FIELD_LIMITS.supporting_quote)
       : null,
     relationship_type: args.presentation.relationship_type,
+    win_kind: "goal_win",
     recognition_mode: args.presentation.recognition_mode,
     user_expressed_pride: args.presentation.user_expressed_pride,
     identity_related: args.presentation.identity_related,

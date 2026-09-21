@@ -71,6 +71,35 @@ describe("PATCH /api/v2/wins/[winId]", () => {
     expect(conflict.status).toBe(409);
   });
 
+  it("rejects win_kind and winKind mutation keys", async () => {
+    const { PATCH } = await import("@/app/api/v2/wins/[winId]/route");
+    for (const body of [
+      {
+        title: "Done",
+        occurred_on: "2026-08-08",
+        expected_updated_at: "t1",
+        win_kind: "goal_win",
+      },
+      {
+        title: "Done",
+        occurred_on: "2026-08-08",
+        expected_updated_at: "t1",
+        winKind: "proud_moment",
+      },
+    ]) {
+      applyMock.mockClear();
+      const res = await PATCH(
+        new Request("http://localhost/api/v2/wins/win-1", {
+          method: "PATCH",
+          body: JSON.stringify(body),
+        }),
+        { params: { winId: "win-1" } }
+      );
+      expect(res.status).toBe(400);
+      expect(applyMock).not.toHaveBeenCalled();
+    }
+  });
+
   it("passes validated fields to helper and returns ok", async () => {
     applyMock.mockResolvedValue({
       ok: true,

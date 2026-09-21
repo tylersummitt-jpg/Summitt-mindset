@@ -10,6 +10,7 @@ import { evaluateTextSafetyTier } from "@/lib/onboarding-input-safety";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
 import { formatUserFacingGoal } from "@/lib/v2-user-facing-goal";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
+import type { V2WinKind } from "@/lib/v2-win-persist";
 import {
   buildManualWinIdempotencyKey,
   isValidClientRequestId,
@@ -355,6 +356,7 @@ export async function persistManualV2Win(args: {
     display_body: fields.display_body,
     supporting_quote: null,
     relationship_type: relationshipType,
+    win_kind: "proud_moment" as V2WinKind,
     recognition_mode: "user_identified" as const,
     user_expressed_pride: false,
     identity_related: false,

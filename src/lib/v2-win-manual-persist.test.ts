@@ -230,6 +230,7 @@ describe("persistManualV2Win", () => {
     expect(row.candidate_ordinal).toBe(0);
     expect(row.commitment_id).toBeNull();
     expect(row.relationship_type).toBe("whole_life");
+    expect(row.win_kind).toBe("proud_moment");
     expect(row.source_message_sid).toBeNull();
     expect(row.source_message_id).toBeNull();
     expect(row.source_event_id).toBeNull();
@@ -262,6 +263,7 @@ describe("persistManualV2Win", () => {
     const row = state.lastInsertRow!;
     expect(row.commitment_id).toBe("c-owned");
     expect(row.relationship_type).toBe("goal");
+    expect(row.win_kind).toBe("proud_moment");
     expect(row.display_body).toBe("Full set");
     // No season date-range check in persist path
     const persistSrc = fs.readFileSync(
