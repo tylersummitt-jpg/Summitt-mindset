@@ -22,7 +22,11 @@ describe("VictoryRecentProofSection", () => {
   it("renders Proud Moments total, cards, and View all Proud Moments link without share or categories", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryRecentProofSection, {
-        totalActiveWins: 3,
+        summaryCounts: {
+          totalActiveWins: 5,
+          totalActiveGoalWins: 2,
+          totalActiveProudMoments: 3,
+        },
         timeZone: "UTC",
         wins: [
           {
@@ -45,9 +49,14 @@ describe("VictoryRecentProofSection", () => {
       "Real moments worth remembering — from your life, not a scoreboard."
     );
     expect(html).not.toContain("Your Wins");
+    expect(html).toContain(">5<");
+    expect(html).toContain(">2<");
     expect(html).toContain(">3<");
-    expect(html).toMatch(/text-stone-400">Moments Saved</);
-    expect(html).not.toMatch(/text-stone-400">Moment Saved</);
+    expect(html).toContain("TOTAL VICTORIES");
+    expect(html).toContain("GOAL WINS");
+    expect(html).toContain("PROUD MOMENTS");
+    expect(html).not.toContain("Moment Saved");
+    expect(html).not.toContain("Moments Saved");
     expect(html).toContain("Kept walking");
     expect(html).toContain("You finished the loops you promised yourself.");
     expect(html).toContain("two loops done");
@@ -82,10 +91,14 @@ describe("VictoryRecentProofSection", () => {
     expect(src).toContain("expectedUpdatedAt: w.updatedAt");
   });
 
-  it("uses Moment Saved for a singular count", () => {
+  it("renders legitimate zeros for all three stats", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryRecentProofSection, {
-        totalActiveWins: 1,
+        summaryCounts: {
+          totalActiveWins: 0,
+          totalActiveGoalWins: 0,
+          totalActiveProudMoments: 0,
+        },
         timeZone: "UTC",
         wins: [
           {
@@ -102,22 +115,36 @@ describe("VictoryRecentProofSection", () => {
       })
     );
     expect(html).toContain(">Proud Moments &amp; Goal Wins<");
-    expect(html).toMatch(/text-stone-400">Moment Saved</);
-    expect(html).not.toMatch(/text-stone-400">Moments Saved</);
+    expect(html).toContain("TOTAL VICTORIES");
+    expect(html).toContain("GOAL WINS");
+    expect(html).toContain("PROUD MOMENTS");
+    expect(html.match(/>0</g)?.length).toBe(3);
+    expect(html).not.toContain("Moment Saved");
+    expect(html).not.toContain("Moments Saved");
     expect(html).toContain("+ Add a Proud Moment");
+    expect(html).toContain("Kept walking");
   });
 
   it("renders empty state without banned copy", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryRecentProofSection, {
-        totalActiveWins: 0,
+        summaryCounts: {
+          totalActiveWins: 0,
+          totalActiveGoalWins: 0,
+          totalActiveProudMoments: 0,
+        },
         timeZone: "UTC",
         wins: [],
       })
     );
     expect(html).toContain(">Proud Moments &amp; Goal Wins<");
     expect(html).toContain("Build your identity one day at a time.");
-    expect(html).toMatch(/text-stone-400">Moments Saved</);
+    expect(html).toContain("TOTAL VICTORIES");
+    expect(html).toContain("GOAL WINS");
+    expect(html).toContain("PROUD MOMENTS");
+    expect(html.match(/>0</g)?.length).toBe(3);
+    expect(html).not.toContain("Moment Saved");
+    expect(html).not.toContain("Moments Saved");
     expect(html).toContain("No Proud Moments yet.");
     expect(html).toContain(
       "When something real in your life is worth remembering, it will show up here."
@@ -130,5 +157,54 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toContain("saved");
     expect(html).not.toContain("logged");
     expect(html).not.toContain("detected");
+  });
+
+  it("omits the three-stat header when summaryCounts is null", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryRecentProofSection, {
+        summaryCounts: null,
+        timeZone: "UTC",
+        wins: [
+          {
+            id: "w1",
+            occurredAt: "2026-06-01T12:00:00Z",
+            displayTitle: "Kept walking",
+            displayBody: "You finished the loops you promised yourself.",
+            supportingQuote: "two loops done",
+            celebrationAppropriate: true,
+            commitmentId: null,
+            updatedAt: "2026-06-01T12:05:00.000Z",
+          },
+        ],
+      })
+    );
+    expect(html).not.toContain("TOTAL VICTORIES");
+    expect(html).not.toContain("GOAL WINS");
+    expect(html).not.toContain("PROUD MOMENTS");
+    expect(html).not.toContain("Moment Saved");
+    expect(html).not.toContain("Moments Saved");
+    expect(html).not.toMatch(/>0</);
+    expect(html).toContain("Kept walking");
+    expect(html).toContain("You finished the loops you promised yourself.");
+    expect(html).toContain("+ Add a Proud Moment");
+    expect(html).toContain("Edit a Proud Moment");
+    expect(html).not.toContain("No Proud Moments yet.");
+  });
+
+  it("keeps empty state and omits stats when summaryCounts is null", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryRecentProofSection, {
+        summaryCounts: null,
+        timeZone: "UTC",
+        wins: [],
+      })
+    );
+    expect(html).not.toContain("TOTAL VICTORIES");
+    expect(html).not.toContain("GOAL WINS");
+    expect(html).not.toContain("PROUD MOMENTS");
+    expect(html).not.toMatch(/>0</);
+    expect(html).toContain("No Proud Moments yet.");
+    expect(html).toContain("+ Add a Proud Moment");
+    expect(html).not.toContain("Edit a Proud Moment");
   });
 });

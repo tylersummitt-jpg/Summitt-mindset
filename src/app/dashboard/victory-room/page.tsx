@@ -185,7 +185,7 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
             ) : null}
 
             <VictoryRecentProofSection
-              totalActiveWins={publicWins.totalActiveWins}
+              summaryCounts={publicWins.summaryCounts}
               wins={publicWins.recentWins}
               timeZone={timeZone}
             />

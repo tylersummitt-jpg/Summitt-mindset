@@ -5,21 +5,36 @@ import { VrIconProof } from "@/components/VictoryRoomIcons";
 import {
   vrAccentLink,
   vrEmptyState,
-  vrEvidenceCount,
   vrIconCircle,
 } from "@/components/victory-room-visual";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
 import { buildEditWinHref } from "@/lib/v2-win-edit-origin";
-import type { PublicWinDto } from "@/lib/v2-win-public-read";
+import type {
+  PublicVictorySummaryCounts,
+  PublicWinDto,
+} from "@/lib/v2-win-public-read";
 
 type VictoryRecentProofSectionProps = {
-  totalActiveWins: number;
+  summaryCounts: PublicVictorySummaryCounts | null;
   wins: PublicWinDto[];
   timeZone: string;
 };
 
+function summaryStatCell(value: number, label: string) {
+  return (
+    <div className="min-w-0">
+      <p className="font-serif text-2xl font-semibold tabular-nums leading-none text-amber-50 sm:text-4xl">
+        {value}
+      </p>
+      <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-400 sm:text-xs">
+        {label}
+      </p>
+    </div>
+  );
+}
+
 export function VictoryRecentProofSection({
-  totalActiveWins,
+  summaryCounts,
   wins,
   timeZone,
 }: VictoryRecentProofSectionProps) {
@@ -32,12 +47,16 @@ export function VictoryRecentProofSection({
         addHref="/dashboard/victory-room/add-win"
         addLabel="+ Add a Proud Moment"
         header={
-          <>
-            <p className={`${vrEvidenceCount} text-amber-50`}>{totalActiveWins}</p>
-            <p className="mt-2 text-sm font-semibold uppercase tracking-[0.14em] text-stone-400">
-              {totalActiveWins === 1 ? "Moment Saved" : "Moments Saved"}
-            </p>
-          </>
+          summaryCounts ? (
+            <div className="grid w-full grid-cols-3 gap-2 sm:gap-4">
+              {summaryStatCell(summaryCounts.totalActiveWins, "TOTAL VICTORIES")}
+              {summaryStatCell(summaryCounts.totalActiveGoalWins, "GOAL WINS")}
+              {summaryStatCell(
+                summaryCounts.totalActiveProudMoments,
+                "PROUD MOMENTS"
+              )}
+            </div>
+          ) : undefined
         }
         groups={
           wins.length

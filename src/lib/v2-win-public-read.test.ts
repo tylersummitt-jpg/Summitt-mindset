@@ -2,11 +2,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+type MockCountResult = { count: number | null; error: { message: string } | null };
+
 const { fromMock, state } = vi.hoisted(() => {
   const state = {
-    countResult: { count: 0, error: null as { message: string } | null },
+    goalCountResult: { count: 0, error: null } as MockCountResult,
+    proudCountResult: { count: 0, error: null } as MockCountResult,
     pageResult: { data: [] as unknown[], error: null as { message: string } | null },
     lastEqCalls: [] as Array<[string, string]>,
+    countEqByKind: {} as Record<string, Array<[string, string]>>,
     lastSelects: [] as string[],
     lastOrders: [] as Array<{ col: string; ascending: boolean }>,
     lastLimit: null as number | null,
@@ -76,7 +80,12 @@ function winRow(overrides: Record<string, unknown> = {}) {
 function installFromMock() {
   fromMock.mockImplementation((table: string) => {
     expect(table).toBe("v2_win");
-    const chain: Record<string, unknown> & { __isCount?: boolean } = {};
+    const chain: Record<string, unknown> & {
+      __isCount?: boolean;
+      __winKind?: string;
+      __eqCalls?: Array<[string, string]>;
+    } = {};
+    chain.__eqCalls = [];
 
     chain.select = vi.fn((cols: string, opts?: { count?: string; head?: boolean }) => {
       state.lastSelects.push(cols);
@@ -85,6 +94,8 @@ function installFromMock() {
     });
     chain.eq = vi.fn((col: string, val: string) => {
       state.lastEqCalls.push([col, val]);
+      chain.__eqCalls?.push([col, val]);
+      if (col === "win_kind") chain.__winKind = val;
       return chain;
     });
     chain.order = vi.fn((col: string, opts?: { ascending?: boolean }) => {
@@ -107,10 +118,20 @@ function installFromMock() {
       state.lastLt = { col, val };
       return chain;
     });
-    // thenable for await query — per-chain head flag avoids Promise.all races
+    // Per-chain head + win_kind so Promise.all cannot share one count result.
     chain.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
-      const result = chain.__isCount ? state.countResult : state.pageResult;
-      return Promise.resolve(result).then(resolve, reject);
+      if (chain.__isCount) {
+        const kind = chain.__winKind;
+        if (kind) state.countEqByKind[kind] = [...(chain.__eqCalls ?? [])];
+        const result =
+          kind === "goal_win"
+            ? state.goalCountResult
+            : kind === "proud_moment"
+              ? state.proudCountResult
+              : { count: null, error: { message: "count query missing win_kind" } };
+        return Promise.resolve(result).then(resolve, reject);
+      }
+      return Promise.resolve(state.pageResult).then(resolve, reject);
     };
 
     return chain;
@@ -416,13 +437,15 @@ describe("loadPublicVictoryWinsForUser", () => {
     vi.clearAllMocks();
     enrichMock.mockImplementation(async ({ wins }: { wins: unknown[] }) => wins);
     state.lastEqCalls = [];
+    state.countEqByKind = {};
     state.lastOrders = [];
     state.lastLimit = null;
     state.lastOr = null;
     state.lastSelects = [];
     state.lastGte = null;
     state.lastLt = null;
-    state.countResult = { count: 2, error: null };
+    state.goalCountResult = { count: 2, error: null };
+    state.proudCountResult = { count: 0, error: null };
     state.pageResult = {
       data: [
         winRow({
@@ -454,7 +477,11 @@ describe("loadPublicVictoryWinsForUser", () => {
       recentLimit: PUBLIC_WINS_RECENT_LIMIT,
     });
 
-    expect(result.totalActiveWins).toBe(2);
+    expect(result.summaryCounts).toEqual({
+      totalActiveWins: 2,
+      totalActiveGoalWins: 2,
+      totalActiveProudMoments: 0,
+    });
     expect(result.recentWins).toHaveLength(2);
     expect(result.recentWins[0]?.displayTitle).toBe("Whole life");
     expect(result.recentWins[0]?.commitmentId).toBeNull();
@@ -508,7 +535,101 @@ describe("loadPublicVictoryWinsForUser", () => {
     expect(result.recentWins[0]?.displayBody).toBe("");
     expect(result.recentWins[0]?.id).toBe("cccccccc-cccc-cccc-cccc-cccccccccccc");
     expect(result.recentWins).toHaveLength(2);
-    expect(result.totalActiveWins).toBe(2);
+    expect(result.summaryCounts).toEqual({
+      totalActiveWins: 2,
+      totalActiveGoalWins: 2,
+      totalActiveProudMoments: 0,
+    });
+  });
+
+  it("derives total from goal=2 and proud=3", async () => {
+    state.goalCountResult = { count: 2, error: null };
+    state.proudCountResult = { count: 3, error: null };
+    const result = await loadPublicVictoryWinsForUser({ clerkUserId: "user_1" });
+    expect(result.summaryCounts).toEqual({
+      totalActiveWins: 5,
+      totalActiveGoalWins: 2,
+      totalActiveProudMoments: 3,
+    });
+    expect(result.recentWins).toHaveLength(2);
+  });
+
+  it("returns a real-zero summary object when both kinds are zero", async () => {
+    state.goalCountResult = { count: 0, error: null };
+    state.proudCountResult = { count: 0, error: null };
+    const result = await loadPublicVictoryWinsForUser({ clerkUserId: "user_1" });
+    expect(result.summaryCounts).not.toBeNull();
+    expect(result.summaryCounts).toEqual({
+      totalActiveWins: 0,
+      totalActiveGoalWins: 0,
+      totalActiveProudMoments: 0,
+    });
+  });
+
+  it("goal-only derives total from goal wins", async () => {
+    state.goalCountResult = { count: 4, error: null };
+    state.proudCountResult = { count: 0, error: null };
+    const result = await loadPublicVictoryWinsForUser({ clerkUserId: "user_1" });
+    expect(result.summaryCounts).toEqual({
+      totalActiveWins: 4,
+      totalActiveGoalWins: 4,
+      totalActiveProudMoments: 0,
+    });
+  });
+
+  it("proud-only derives total from proud moments", async () => {
+    state.goalCountResult = { count: 0, error: null };
+    state.proudCountResult = { count: 7, error: null };
+    const result = await loadPublicVictoryWinsForUser({ clerkUserId: "user_1" });
+    expect(result.summaryCounts).toEqual({
+      totalActiveWins: 7,
+      totalActiveGoalWins: 0,
+      totalActiveProudMoments: 7,
+    });
+  });
+
+  it("goal count error yields null summary and still returns recent wins", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    state.goalCountResult = { count: null, error: { message: "goal boom" } };
+    state.proudCountResult = { count: 3, error: null };
+    const result = await loadPublicVictoryWinsForUser({ clerkUserId: "user_1" });
+    expect(result.summaryCounts).toBeNull();
+    expect(result.recentWins).toHaveLength(2);
+    errSpy.mockRestore();
+  });
+
+  it("proud count error yields null summary and still returns recent wins", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    state.goalCountResult = { count: 2, error: null };
+    state.proudCountResult = { count: null, error: { message: "proud boom" } };
+    const result = await loadPublicVictoryWinsForUser({ clerkUserId: "user_1" });
+    expect(result.summaryCounts).toBeNull();
+    expect(result.recentWins).toHaveLength(2);
+    errSpy.mockRestore();
+  });
+
+  it("counts only by clerk, active status, and win_kind — not relationship or source", async () => {
+    state.goalCountResult = { count: 1, error: null };
+    state.proudCountResult = { count: 1, error: null };
+    await loadPublicVictoryWinsForUser({ clerkUserId: "user_1" });
+
+    expect(state.countEqByKind.goal_win).toEqual([
+      ["clerk_user_id", "user_1"],
+      ["status", "active"],
+      ["win_kind", "goal_win"],
+    ]);
+    expect(state.countEqByKind.proud_moment).toEqual([
+      ["clerk_user_id", "user_1"],
+      ["status", "active"],
+      ["win_kind", "proud_moment"],
+    ]);
+
+    const countEqFlat = [
+      ...(state.countEqByKind.goal_win ?? []),
+      ...(state.countEqByKind.proud_moment ?? []),
+    ];
+    expect(countEqFlat.map(([col]) => col)).not.toContain("relationship_type");
+    expect(countEqFlat.map(([col]) => col)).not.toContain("source_type");
   });
 });
 

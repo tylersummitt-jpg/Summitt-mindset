@@ -52,8 +52,15 @@ export type PublicWinDto = {
   media?: PublicWinMediaDto;
 };
 
-export type PublicVictoryWinsHomeResult = {
+export type PublicVictorySummaryCounts = {
   totalActiveWins: number;
+  totalActiveGoalWins: number;
+  totalActiveProudMoments: number;
+};
+
+export type PublicVictoryWinsHomeResult = {
+  /** Null when either category count fails — never fake zeros. */
+  summaryCounts: PublicVictorySummaryCounts | null;
   recentWins: PublicWinDto[];
 };
 
@@ -224,21 +231,40 @@ export function buildPublicWinsOlderThanOrFilter(cursor: PublicWinsCursor): stri
   return `occurred_at.lt.${occurred},and(occurred_at.eq.${occurred},id.lt.${id})`;
 }
 
-async function countActiveWinsForUser(clerkUserId: string): Promise<number> {
+type ActiveWinKindCount = "goal_win" | "proud_moment";
+
+async function countActiveWinsByKindForUser(
+  clerkUserId: string,
+  winKind: ActiveWinKindCount
+): Promise<number | null> {
   const { count, error } = await supabaseServer
     .from("v2_win")
     .select("id", { count: "exact", head: true })
     .eq("clerk_user_id", clerkUserId)
-    .eq("status", "active");
+    .eq("status", "active")
+    .eq("win_kind", winKind);
 
   if (error) {
-    console.error("[v2-win-public-read] active count failed", {
+    console.error("[v2-win-public-read] active kind count failed", {
       clerk_user_id: clerkUserId,
+      win_kind: winKind,
       message: error.message,
     });
-    return 0;
+    return null;
   }
-  return typeof count === "number" ? count : 0;
+  return typeof count === "number" ? count : null;
+}
+
+/** Two exact active counts by canonical win_kind. Null if either query is unusable. */
+async function loadActiveWinKindCountsForUser(
+  clerkUserId: string
+): Promise<{ goal: number; proud: number } | null> {
+  const [goal, proud] = await Promise.all([
+    countActiveWinsByKindForUser(clerkUserId, "goal_win"),
+    countActiveWinsByKindForUser(clerkUserId, "proud_moment"),
+  ]);
+  if (goal == null || proud == null) return null;
+  return { goal, proud };
 }
 
 async function fetchActiveWinsPage(args: {
@@ -282,8 +308,8 @@ export async function loadPublicVictoryWinsForUser(args: {
     Math.min(args.recentLimit ?? PUBLIC_WINS_RECENT_LIMIT, PUBLIC_WINS_RECENT_LIMIT)
   );
 
-  const [totalActiveWins, rows] = await Promise.all([
-    countActiveWinsForUser(clerkUserId),
+  const [kindCounts, rows] = await Promise.all([
+    loadActiveWinKindCountsForUser(clerkUserId),
     fetchActiveWinsPage({ clerkUserId, limit: recentLimit, cursor: null }),
   ]);
 
@@ -292,8 +318,17 @@ export async function loadPublicVictoryWinsForUser(args: {
     wins: rows.map(mapV2WinRowToPublicDto),
   });
 
+  const summaryCounts: PublicVictorySummaryCounts | null =
+    kindCounts == null
+      ? null
+      : {
+          totalActiveWins: kindCounts.goal + kindCounts.proud,
+          totalActiveGoalWins: kindCounts.goal,
+          totalActiveProudMoments: kindCounts.proud,
+        };
+
   return {
-    totalActiveWins,
+    summaryCounts,
     recentWins,
   };
 }
