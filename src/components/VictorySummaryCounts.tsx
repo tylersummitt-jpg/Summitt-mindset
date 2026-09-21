@@ -5,7 +5,6 @@ import {
   VrIconGoal,
   VrIconInfo,
   VrIconStar,
-  VrIconTrophy,
 } from "@/components/VictoryRoomIcons";
 import { vrAccentLink, vrInnerPanel } from "@/components/victory-room-visual";
 import type { PublicVictorySummaryCounts } from "@/lib/v2-win-public-read";
@@ -19,7 +18,7 @@ type StatExplanation = {
   heading: string;
   definition: string;
   quote: string;
-  icon: ComponentType<{ className?: string }>;
+  icon?: ComponentType<{ className?: string }>;
   whatLabel: string;
 };
 
@@ -31,7 +30,6 @@ const STATS: StatExplanation[] = [
     heading: "Total Victories",
     definition: "Your Total Victories are your Goal Wins + Proud Moments.",
     quote: "We keep score in life because it matters. It counts.",
-    icon: VrIconTrophy,
     whatLabel: "What are Total Victories?",
   },
   {
@@ -105,7 +103,11 @@ export function VictorySummaryCounts({ counts }: VictorySummaryCountsProps) {
               key={stat.id}
               className="flex min-w-0 flex-col items-center sm:items-start"
             >
-              <Icon className="h-5 w-5 text-amber-200" />
+              {Icon ? (
+                <Icon className="h-5 w-5 text-amber-200" />
+              ) : (
+                <span className="h-5 w-5" aria-hidden />
+              )}
               <p className="mt-2 font-serif text-2xl font-semibold tabular-nums leading-none text-amber-50 sm:text-4xl">
                 {counts[stat.countKey]}
               </p>

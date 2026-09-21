@@ -49,20 +49,20 @@ describe("VictorySummaryCounts", () => {
     expect(html).not.toContain("We keep score in life");
     expect(html).not.toContain("role=\"region\"");
     expect(html).not.toContain("🏆");
-    expect(html.match(/aria-hidden/g)?.length).toBeGreaterThanOrEqual(6);
+    expect(html.match(/aria-hidden/g)?.length).toBeGreaterThanOrEqual(5);
   });
 
   it("uses existing Victory Room vector icons rather than emoji or a new library", () => {
-    expect(SRC).toContain("VrIconTrophy");
     expect(SRC).toContain("VrIconGoal");
     expect(SRC).toContain("VrIconStar");
     expect(SRC).toContain("VrIconInfo");
+    expect(SRC).not.toContain("VrIconTrophy");
     expect(SRC).not.toContain("🏆");
     expect(SRC).not.toContain("lucide");
     expect(SRC).not.toContain("<details");
     expect(SRC).not.toContain("group-hover");
     expect(SRC).not.toContain("fixed inset-0");
-    expect(ICONS_SRC).toContain("export function VrIconTrophy");
+    expect(ICONS_SRC).not.toContain("export function VrIconTrophy");
     expect(ICONS_SRC).toContain("export function VrIconInfo");
     expect(ICONS_SRC).toContain('stroke="currentColor"');
   });
