@@ -55,16 +55,16 @@ export function VictoryWinCardActions({
       };
       if (res.status === 409 || data.code === "conflict") {
         throw new Error(
-          data.error || "This Proud Moment changed since you opened it. Refresh and try again."
+          data.error || "This Victory changed since you opened it. Refresh and try again."
         );
       }
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "We couldn’t delete this Proud Moment. Please try again.");
+        throw new Error(data.error || "We couldn’t delete this Victory. Please try again.");
       }
       setConfirming(false);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn’t delete this Proud Moment. Please try again.");
+      setError(err instanceof Error ? err.message : "We couldn’t delete this Victory. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -74,7 +74,7 @@ export function VictoryWinCardActions({
     // In-flow confirmation: expands the card; never absolute (card uses overflow-hidden).
     return (
       <div className="mt-5">
-        <p className="font-medium text-stone-100">Delete this Proud Moment?</p>
+        <p className="font-medium text-stone-100">Delete this Victory?</p>
         <p className={`${vrBodyMuted} mt-2 text-sm`}>
           This removes it from your Victory Room. Your accountability history and messages are not
           changed.
@@ -102,7 +102,7 @@ export function VictoryWinCardActions({
             disabled={busy}
             onClick={() => void onConfirmDelete()}
           >
-            {busy ? "Deleting…" : "Delete Proud Moment"}
+            {busy ? "Deleting…" : "Delete Victory"}
           </button>
         </div>
       </div>

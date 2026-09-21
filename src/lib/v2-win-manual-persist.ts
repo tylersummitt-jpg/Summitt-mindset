@@ -16,6 +16,7 @@ import {
   isValidClientRequestId,
   isValidOccurredOnDateKey,
   mapManualWinUserText,
+  parseManualWinKind,
   MANUAL_WIN_DETAILS_MAX,
   MANUAL_WIN_TITLE_MAX,
   type ManualWinSeasonOption,
@@ -29,6 +30,7 @@ export {
   isValidClientRequestId,
   isValidOccurredOnDateKey,
   mapManualWinUserText,
+  parseManualWinKind,
   MANUAL_WIN_DETAILS_MAX,
   MANUAL_WIN_TITLE_MAX,
 } from "@/lib/v2-win-manual-fields";
@@ -304,12 +306,23 @@ export async function persistManualV2Win(args: {
   details?: string | null;
   occurredOn: string;
   timeZone: unknown;
+  /** Required. Server-validated `goal_win` | `proud_moment` only. */
+  winKind: V2WinKind;
   /** When set, must already be ownership-verified. */
   season?: { seasonId: string; commitmentId: string } | null;
 }): Promise<ManualWinPersistResult> {
   const clerk = args.clerkUserId.trim();
   if (!clerk) {
     return { ok: false, error: "Please sign in again.", code: "unauthorized" };
+  }
+
+  const winKind = parseManualWinKind(args.winKind);
+  if (!winKind) {
+    return {
+      ok: false,
+      error: "Choose Goal Win or Proud Moment.",
+      code: "validation",
+    };
   }
 
   const validated = validateManualWinInputs({
@@ -356,7 +369,7 @@ export async function persistManualV2Win(args: {
     display_body: fields.display_body,
     supporting_quote: null,
     relationship_type: relationshipType,
-    win_kind: "proud_moment" as V2WinKind,
+    win_kind: winKind,
     recognition_mode: "user_identified" as const,
     user_expressed_pride: false,
     identity_related: false,
@@ -405,7 +418,7 @@ export async function persistManualV2Win(args: {
   });
   return {
     ok: false,
-    error: "We couldn’t save this Proud Moment. Please try again.",
+    error: "We couldn’t save this Victory. Please try again.",
     code: "persist_failed",
   };
 }

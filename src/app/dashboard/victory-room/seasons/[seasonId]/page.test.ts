@@ -19,7 +19,7 @@ describe("Victory Season detail — Wins-only surface", () => {
       path.join(process.cwd(), "src/components/VictorySeasonWinsSection.tsx"),
       "utf8"
     );
-    expect(sectionSrc).toContain("Add a Proud Moment");
+    expect(sectionSrc).toContain("Add a Victory");
     expect(sectionSrc).toContain("/dashboard/victory-room/add-win?seasonId=");
   });
 
@@ -52,11 +52,11 @@ describe("VictorySeasonWinsSection source", () => {
       path.join(process.cwd(), "src/components/VictorySeasonWinsSection.tsx"),
       "utf8"
     );
-    expect(src).toContain("Proud Moments from this season");
+    expect(src).toContain("Victories from this season");
     expect(src).toContain("VictoryProudMomentsEditChrome");
     expect(src).toContain("buildEditWinHref");
     expect(src).toContain("seasonId");
-    expect(src).toContain("Add a Proud Moment");
+    expect(src).toContain("Add a Victory");
     expect(src).not.toContain("return null");
     expect(src).not.toMatch(/Manual|SMS|source_type|streak|score/);
   });

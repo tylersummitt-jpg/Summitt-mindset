@@ -60,13 +60,13 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain("Kept walking");
     expect(html).toContain("You finished the loops you promised yourself.");
     expect(html).toContain("two loops done");
-    expect(html).toContain("View all Proud Moments");
+    expect(html).toContain("View all Victories");
     expect(html).toContain("/dashboard/victory-room/all-proof");
-    expect(html).toContain("+ Add a Proud Moment");
+    expect(html).toContain("+ Add a Victory");
     expect(html).not.toContain("Add a Goal Win");
     expect(html).not.toContain("Add a Win");
     expect(html).toContain('/dashboard/victory-room/add-win"');
-    expect(html).toContain("Edit a Proud Moment");
+    expect(html).toContain("Edit Victory");
     expect(html).not.toContain('aria-label="Proud Moment actions"');
     expect(html).not.toContain(">Edit<");
     expect(html).not.toContain(">Delete<");
@@ -121,7 +121,7 @@ describe("VictoryRecentProofSection", () => {
     expect(html.match(/>0</g)?.length).toBe(3);
     expect(html).not.toContain("Moment Saved");
     expect(html).not.toContain("Moments Saved");
-    expect(html).toContain("+ Add a Proud Moment");
+    expect(html).toContain("+ Add a Victory");
     expect(html).toContain("Kept walking");
   });
 
@@ -145,13 +145,13 @@ describe("VictoryRecentProofSection", () => {
     expect(html.match(/>0</g)?.length).toBe(3);
     expect(html).not.toContain("Moment Saved");
     expect(html).not.toContain("Moments Saved");
-    expect(html).toContain("No Proud Moments yet.");
+    expect(html).toContain("No Victories yet.");
     expect(html).toContain(
       "When something real in your life is worth remembering, it will show up here."
     );
     expect(html).toContain("worth remembering");
-    expect(html).toContain("+ Add a Proud Moment");
-    expect(html).not.toContain("Edit a Proud Moment");
+    expect(html).toContain("+ Add a Victory");
+    expect(html).not.toContain("Edit Victory");
     expect(html).not.toContain("No Wins yet.");
     expect(html).not.toContain("Recent Proof");
     expect(html).not.toContain("saved");
@@ -186,9 +186,9 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toMatch(/>0</);
     expect(html).toContain("Kept walking");
     expect(html).toContain("You finished the loops you promised yourself.");
-    expect(html).toContain("+ Add a Proud Moment");
-    expect(html).toContain("Edit a Proud Moment");
-    expect(html).not.toContain("No Proud Moments yet.");
+    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Edit Victory");
+    expect(html).not.toContain("No Victories yet.");
   });
 
   it("keeps empty state and omits stats when summaryCounts is null", () => {
@@ -203,8 +203,8 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toContain("GOAL WINS");
     expect(html).not.toContain("PROUD MOMENTS");
     expect(html).not.toMatch(/>0</);
-    expect(html).toContain("No Proud Moments yet.");
-    expect(html).toContain("+ Add a Proud Moment");
-    expect(html).not.toContain("Edit a Proud Moment");
+    expect(html).toContain("No Victories yet.");
+    expect(html).toContain("+ Add a Victory");
+    expect(html).not.toContain("Edit Victory");
   });
 });

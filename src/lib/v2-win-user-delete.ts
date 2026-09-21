@@ -20,9 +20,9 @@ export type DeleteUserVictoryWinResult =
   | { ok: true; win_id: string }
   | { ok: false; error: string; code: UserWinDeleteErrorCode };
 
-const UI_NOT_FOUND = "Proud Moment not found.";
-const UI_CONFLICT = "This Proud Moment changed since you opened it. Refresh and try again.";
-const UI_FAILED = "We couldn’t delete this Proud Moment. Please try again.";
+const UI_NOT_FOUND = "Victory not found.";
+const UI_CONFLICT = "This Victory changed since you opened it. Refresh and try again.";
+const UI_FAILED = "We couldn’t delete this Victory. Please try again.";
 
 /**
  * Soft-hide an owned active Win from Victory Room.

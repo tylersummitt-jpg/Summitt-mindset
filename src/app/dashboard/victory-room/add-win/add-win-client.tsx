@@ -14,6 +14,8 @@ import {
 import {
   MANUAL_WIN_DETAILS_MAX,
   MANUAL_WIN_TITLE_MAX,
+  parseManualWinKind,
+  type ManualWinKind,
   type ManualWinSeasonOption,
 } from "@/lib/v2-win-manual-fields";
 import { uploadVictoryMediaTempObject } from "@/lib/victory-media/browser-put-temp-upload";
@@ -93,7 +95,7 @@ function photoFailureDetail(kind: PhotoFailureKind): string {
     case "network":
       return "A network problem interrupted the upload. You can try again.";
     case "deletion":
-      return "Photo upload is unavailable right now. Your Proud Moment is still saved.";
+      return "Photo upload is unavailable right now. Your Victory is still saved.";
     default:
       return "You can try attaching the photo again, or continue without one.";
   }
@@ -102,6 +104,7 @@ function photoFailureDetail(kind: PhotoFailureKind): string {
 export default function AddWinClient(props: Props) {
   const router = useRouter();
   const [clientRequestId] = useState(() => newClientRequestId());
+  const [winKind, setWinKind] = useState<ManualWinKind | null>(null);
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
   const [occurredOn, setOccurredOn] = useState(props.initialOccurredOn);
@@ -167,14 +170,14 @@ export default function AddWinClient(props: Props) {
     if (!mime) {
       clearPhotoSelection({ keepSelectionError: true });
       setPhotoSelectionError(
-        "That image type isn’t supported. Use HEIC, JPEG, PNG, or WebP — or save your Proud Moment without a photo."
+        "That image type isn’t supported. Use HEIC, JPEG, PNG, or WebP — or save your Victory without a photo."
       );
       return;
     }
     if (file.size > VICTORY_MEDIA_MAX_UPLOAD_BYTES) {
       clearPhotoSelection({ keepSelectionError: true });
       setPhotoSelectionError(
-        "That image is too large (max 12 MB). Choose a smaller photo, or save your Proud Moment without one."
+        "That image is too large (max 12 MB). Choose a smaller photo, or save your Victory without one."
       );
       return;
     }
@@ -296,6 +299,12 @@ export default function AddWinClient(props: Props) {
 
     setError(null);
     setPhotoFailure(null);
+
+    if (!winKind) {
+      setError("Choose Goal Win or Proud Moment.");
+      return;
+    }
+
     setBusyPhase("creating_win");
 
     try {
@@ -304,6 +313,7 @@ export default function AddWinClient(props: Props) {
         title,
         details: details.trim() ? details : null,
         occurred_on: occurredOn,
+        win_kind: winKind,
       };
       if (locked && props.lockedSeason) {
         body.season_id = props.lockedSeason.seasonId;
@@ -331,7 +341,7 @@ export default function AddWinClient(props: Props) {
 
       const winId = typeof data.win_id === "string" ? data.win_id.trim() : "";
       if (!winId) {
-        throw new Error("We couldn’t save this Proud Moment. Please try again.");
+        throw new Error("We couldn’t save this Victory. Please try again.");
       }
 
       const dest = resolveNavDest(data.redirect_to);
@@ -387,10 +397,12 @@ export default function AddWinClient(props: Props) {
 
   const submitLabel =
     busyPhase === "creating_win"
-      ? "Saving Proud Moment…"
+      ? "Saving Victory…"
       : busyPhase === "uploading_photo" || busyPhase === "finalizing_photo"
         ? "Adding photo…"
-        : "Save Proud Moment";
+        : "Save Victory";
+  const kindChosen = winKind != null;
+  const saveDisabled = busy || winLocked || !kindChosen;
 
   return (
     <div className={vrSectionCard}>
@@ -400,7 +412,7 @@ export default function AddWinClient(props: Props) {
         </Link>
       </p>
 
-      <h1 className={vrSectionTitle}>Add a Proud Moment</h1>
+      <h1 className={vrSectionTitle}>Add a Victory</h1>
 
       {props.lockedSeason ? (
         <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
@@ -415,6 +427,66 @@ export default function AddWinClient(props: Props) {
       ) : null}
 
       <form onSubmit={onSave} className="mt-8 space-y-6">
+        <fieldset>
+          <legend className={vrLabel}>What kind of victory is this?</legend>
+          <div className="mt-3 space-y-3">
+            <label
+              htmlFor="win-kind-goal"
+              className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${
+                winKind === "goal_win"
+                  ? "border-amber-500/40 bg-amber-500/5"
+                  : "border-white/15 bg-[#0a0e16]"
+              }`}
+            >
+              <input
+                id="win-kind-goal"
+                name="win_kind"
+                type="radio"
+                value="goal_win"
+                required
+                checked={winKind === "goal_win"}
+                disabled={winLocked || busy}
+                onChange={(e) => setWinKind(parseManualWinKind(e.target.value))}
+                className="mt-1 h-4 w-4 shrink-0 accent-amber-500"
+              />
+              <span>
+                <span className="block text-base font-medium text-stone-100">Goal Win</span>
+                <span className={`${vrBodyMuted} mt-1 block text-sm`}>
+                  Progress or follow-through on a goal.
+                </span>
+              </span>
+            </label>
+            <label
+              htmlFor="win-kind-proud"
+              className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${
+                winKind === "proud_moment"
+                  ? "border-amber-500/40 bg-amber-500/5"
+                  : "border-white/15 bg-[#0a0e16]"
+              }`}
+            >
+              <input
+                id="win-kind-proud"
+                name="win_kind"
+                type="radio"
+                value="proud_moment"
+                checked={winKind === "proud_moment"}
+                disabled={winLocked || busy}
+                onChange={(e) => setWinKind(parseManualWinKind(e.target.value))}
+                className="mt-1 h-4 w-4 shrink-0 accent-amber-500"
+              />
+              <span>
+                <span className="block text-base font-medium text-stone-100">Proud Moment</span>
+                <span className={`${vrBodyMuted} mt-1 block text-sm`}>
+                  A meaningful accomplishment or moment worth remembering.
+                </span>
+              </span>
+            </label>
+          </div>
+          {!kindChosen ? (
+            <p className={`${vrBodyMuted} mt-2 text-sm`}>Choose Goal Win or Proud Moment.</p>
+          ) : null}
+        </fieldset>
+
         <div>
           <label htmlFor="win-title" className={vrLabel}>
             What happened?
@@ -557,7 +629,7 @@ export default function AddWinClient(props: Props) {
             className="rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-4"
             role="alert"
           >
-            <p className="text-base font-medium text-stone-100">Your Proud Moment was saved.</p>
+            <p className="text-base font-medium text-stone-100">Your Victory was saved.</p>
             <p className="mt-2 text-sm text-stone-300">The photo couldn’t be attached.</p>
             {photoFailure ? (
               <p className={`${vrBodyMuted} mt-2 text-sm`}>
@@ -586,7 +658,7 @@ export default function AddWinClient(props: Props) {
         ) : (
           <button
             type="submit"
-            disabled={busy || winLocked}
+            disabled={saveDisabled}
             className="inline-flex w-full items-center justify-center rounded-xl border border-amber-500/40 bg-amber-500/15 px-5 py-3 text-base font-semibold text-amber-50 transition hover:bg-amber-500/25 disabled:opacity-60 sm:w-auto"
           >
             {submitLabel}

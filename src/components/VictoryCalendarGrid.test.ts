@@ -53,12 +53,12 @@ describe("VictoryCalendarGrid", () => {
     expect(container.querySelector("[role='group']")?.children).toHaveLength(7 + 42);
     expect(container.textContent).not.toContain("Add a Win");
     expect(container.textContent).not.toContain("Add a Proud Moment");
-    const one = screen.getByRole("button", { name: "September 14, 2026, 1 Proud Moment" });
+    const one = screen.getByRole("button", { name: "September 14, 2026, 1 Victory" });
     expect(one.textContent).toContain("🏆");
     expect(one.textContent).not.toMatch(/🏆\s*1/);
-    const many = screen.getByRole("button", { name: "September 12, 2026, 2 Proud Moments" });
+    const many = screen.getByRole("button", { name: "September 12, 2026, 2 Victories" });
     expect(many.textContent).toMatch(/🏆\s*2/);
-    expect(screen.getByRole("button", { name: "September 13, 2026, no Proud Moments" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "September 13, 2026, no Victories" })).toBeTruthy();
   });
 
   it("marks today, selected, and keeps future days out of tab order", () => {
@@ -71,7 +71,7 @@ describe("VictoryCalendarGrid", () => {
         counts: { "2026-09-01": 1 },
       })
     );
-    const today = screen.getByRole("button", { name: "Today, September 1, 2026, 1 Proud Moment" });
+    const today = screen.getByRole("button", { name: "Today, September 1, 2026, 1 Victory" });
     expect(today.getAttribute("aria-pressed")).toBe("true");
     expect(today.textContent).toContain("🏆");
     expect(screen.queryByRole("button", { name: /September 15, 2026/ })).toBeNull();
@@ -92,7 +92,7 @@ describe("VictoryCalendarGrid", () => {
         counts: { "2026-08-12": 2 },
       })
     );
-    expect(screen.getByRole("button", { name: "August 12, 2026, 2 Proud Moments" }).textContent).toMatch(
+    expect(screen.getByRole("button", { name: "August 12, 2026, 2 Victories" }).textContent).toMatch(
       /🏆\s*2/
     );
     expect(screen.getByText("Back to This Month")).toBeTruthy();
@@ -111,7 +111,7 @@ describe("VictoryCalendarGrid", () => {
         counts: {},
       })
     );
-    fireEvent.click(screen.getByRole("button", { name: "September 14, 2026, no Proud Moments" }));
+    fireEvent.click(screen.getByRole("button", { name: "September 14, 2026, no Victories" }));
     expect(replaceMock).toHaveBeenCalledWith(
       "/dashboard/victory-room?month=2026-09&day=2026-09-14",
       { scroll: false }

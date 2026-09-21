@@ -3,13 +3,14 @@ import { NextResponse } from "next/server";
 import { resolveUserTimezone } from "@/lib/timezone";
 import {
   loadOwnedSeasonForManualWin,
+  parseManualWinKind,
   persistManualV2Win,
 } from "@/lib/v2-win-manual-persist";
 
 export const dynamic = "force-dynamic";
 
 const UI_SESSION = "Your session expired. Please sign in again.";
-const UI_GENERIC = "We couldn’t save this Proud Moment. Please try again.";
+const UI_GENERIC = "We couldn’t save this Victory. Please try again.";
 
 export async function POST(req: Request) {
   try {
@@ -28,6 +29,16 @@ export async function POST(req: Request) {
     if (body.commitment_id != null || body.commitmentId != null) {
       return NextResponse.json(
         { ok: false, error: "Invalid request." },
+        { status: 400 }
+      );
+    }
+
+    const winKind = parseManualWinKind(
+      body.win_kind !== undefined ? body.win_kind : body.winKind
+    );
+    if (!winKind) {
+      return NextResponse.json(
+        { ok: false, error: "Choose Goal Win or Proud Moment.", code: "validation" },
         { status: 400 }
       );
     }
@@ -76,6 +87,7 @@ export async function POST(req: Request) {
             ? body.occurredOn
             : "",
       timeZone,
+      winKind,
       season,
     });
 

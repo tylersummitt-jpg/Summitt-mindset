@@ -48,12 +48,12 @@ export function VictoryAllProofSection({
       </p>
 
       <VictoryRoomSectionShell
-        title="All Proud Moments"
+        title="All Victories"
         subtitle="Your archive of real moments — newest first."
       >
         <VictoryProudMomentsEditChrome
           addHref="/dashboard/victory-room/add-win?from=all-wins"
-          addLabel="Add a Proud Moment"
+          addLabel="Add a Victory"
           groups={monthGroups.map((group) => ({
             key: group.monthLabel,
             heading: group.monthLabel,
@@ -72,7 +72,7 @@ export function VictoryAllProofSection({
           }))}
           emptyState={
             <p className={vrEmptyState}>
-              No Proud Moments yet. When something real in your life is worth remembering, it will show up
+              No Victories yet. When something real in your life is worth remembering, it will show up
               here.
             </p>
           }
@@ -80,7 +80,7 @@ export function VictoryAllProofSection({
             olderHref ? (
               <p>
                 <Link href={olderHref} className={vrAccentLink}>
-                  View older Proud Moments
+                  View older Victories
                 </Link>
               </p>
             ) : null

@@ -67,7 +67,7 @@ export function VictoryProudMomentsEditChrome({
           aria-pressed={editing}
           onClick={() => setIsEditing((on) => !on)}
         >
-          {editing ? "Done Editing Proud Moments" : "Edit a Proud Moment"}
+          {editing ? "Done Editing" : "Edit Victory"}
         </button>
       ) : null}
     </div>

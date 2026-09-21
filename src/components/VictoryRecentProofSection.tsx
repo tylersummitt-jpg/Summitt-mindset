@@ -45,7 +45,7 @@ export function VictoryRecentProofSection({
     >
       <VictoryProudMomentsEditChrome
         addHref="/dashboard/victory-room/add-win"
-        addLabel="+ Add a Proud Moment"
+        addLabel="+ Add a Victory"
         header={
           summaryCounts ? (
             <div className="grid w-full grid-cols-3 gap-2 sm:gap-4">
@@ -83,7 +83,7 @@ export function VictoryRecentProofSection({
             <div className={`${vrIconCircle} mx-auto mb-4 sm:mx-0`} aria-hidden>
               <VrIconProof />
             </div>
-            <p className="font-medium text-stone-100">No Proud Moments yet.</p>
+            <p className="font-medium text-stone-100">No Victories yet.</p>
             <p className="mt-3">
               When something real in your life is worth remembering, it will show up here.
             </p>
@@ -92,7 +92,7 @@ export function VictoryRecentProofSection({
         footer={
           <p className="mt-8">
             <Link href="/dashboard/victory-room/all-proof" className={vrAccentLink}>
-              View all Proud Moments
+              View all Victories
             </Link>
           </p>
         }

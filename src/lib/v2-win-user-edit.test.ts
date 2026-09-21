@@ -267,6 +267,7 @@ describe("v2-win-user-edit migration shape", () => {
     );
     expect(sql).toContain("v2_apply_user_win_edit_mutation");
     expect(sql).toContain("GRANT EXECUTE ON FUNCTION public.v2_apply_user_win_edit_mutation");
+    expect(sql).not.toContain("win_kind");
     expect(sql).toContain("TO service_role");
     // Early stale conflict still returns before revision INSERT.
     expect(sql).toContain("v_row.updated_at IS DISTINCT FROM p_expected_updated_at");

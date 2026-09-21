@@ -7,8 +7,8 @@ import { deleteUserVictoryWin } from "@/lib/v2-win-user-delete";
 export const dynamic = "force-dynamic";
 
 const UI_SESSION = "Your session expired. Please sign in again.";
-const UI_GENERIC = "We couldn’t save this Proud Moment. Please try again.";
-const UI_DELETE_GENERIC = "We couldn’t delete this Proud Moment. Please try again.";
+const UI_GENERIC = "We couldn’t save this Victory. Please try again.";
+const UI_DELETE_GENERIC = "We couldn’t delete this Victory. Please try again.";
 
 type RouteParams = { params: Promise<{ winId: string }> | { winId: string } };
 
@@ -63,7 +63,7 @@ export async function PATCH(req: Request, ctx: RouteParams) {
 
     const winId = await resolveWinId(ctx.params);
     if (!winId) {
-      return NextResponse.json({ ok: false, error: "Proud Moment not found.", code: "not_found" }, { status: 404 });
+      return NextResponse.json({ ok: false, error: "Victory not found.", code: "not_found" }, { status: 404 });
     }
 
     const user = await currentUser();
@@ -159,7 +159,7 @@ export async function DELETE(req: Request, ctx: RouteParams) {
 
     const winId = await resolveWinId(ctx.params);
     if (!winId) {
-      return NextResponse.json({ ok: false, error: "Proud Moment not found.", code: "not_found" }, { status: 404 });
+      return NextResponse.json({ ok: false, error: "Victory not found.", code: "not_found" }, { status: 404 });
     }
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;

@@ -57,16 +57,16 @@ describe("VictoryProudMomentsEditChrome", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryProudMomentsEditChrome, {
         addHref: "/dashboard/victory-room/add-win",
-        addLabel: "+ Add a Proud Moment",
+        addLabel: "+ Add a Victory",
         groups: [{ key: "recent", cards: [cardA, cardB] }],
       })
     );
-    expect(html).toContain("+ Add a Proud Moment");
-    expect(html).toContain("Edit a Proud Moment");
+    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Edit Victory");
     expect(html).toContain("flex-col");
     expect(html).toContain("sm:flex-row");
     expect(html).toContain("min-h-11");
-    expect(html).not.toContain("Done Editing Proud Moments");
+    expect(html).not.toContain("Done Editing");
     expect(html).not.toContain(">Edit<");
     expect(html).not.toContain(">Delete<");
     expect(html).not.toContain("···");
@@ -75,10 +75,10 @@ describe("VictoryProudMomentsEditChrome", () => {
     expect(html).not.toContain("/dashboard/victory-room/wins/w1/edit");
 
     const addClass = html.match(
-      /<a href="\/dashboard\/victory-room\/add-win" class="([^"]+)">\+ Add a Proud Moment<\/a>/
+      /<a href="\/dashboard\/victory-room\/add-win" class="([^"]+)">\+ Add a Victory<\/a>/
     )?.[1];
     const editClass = html.match(
-      /<button type="button" class="([^"]+)" aria-pressed="false">Edit a Proud Moment<\/button>/
+      /<button type="button" class="([^"]+)" aria-pressed="false">Edit Victory<\/button>/
     )?.[1];
     expect(addClass).toBeTruthy();
     expect(editClass).toBeTruthy();
@@ -87,13 +87,15 @@ describe("VictoryProudMomentsEditChrome", () => {
     expect(addClass).toContain("underline");
   });
 
-  it("keeps full Done Editing Proud Moments copy in source", () => {
+  it("keeps full Done Editing copy in source", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "src/components/VictoryProudMomentsEditChrome.tsx"),
       "utf8"
     );
-    expect(src).toContain("Done Editing Proud Moments");
-    expect(src).toContain("Edit a Proud Moment");
+    expect(src).toContain("Done Editing");
+    expect(src).toContain("Edit Victory");
+    expect(src).not.toContain("Edit a Proud Moment");
+    expect(src).not.toContain("Done Editing Proud Moments");
     expect(src).toContain("aria-pressed");
     expect(src).toContain("flex-col");
     expect(src).toContain("sm:flex-row");
@@ -103,15 +105,15 @@ describe("VictoryProudMomentsEditChrome", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryProudMomentsEditChrome, {
         addHref: "/dashboard/victory-room/add-win",
-        addLabel: "+ Add a Proud Moment",
+        addLabel: "+ Add a Victory",
         groups: [],
-        emptyState: React.createElement("p", null, "No Proud Moments yet."),
+        emptyState: React.createElement("p", null, "No Victories yet."),
       })
     );
-    expect(html).toContain("+ Add a Proud Moment");
-    expect(html).toContain("No Proud Moments yet.");
-    expect(html).not.toContain("Edit a Proud Moment");
-    expect(html).not.toContain("Done Editing Proud Moments");
+    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("No Victories yet.");
+    expect(html).not.toContain("Edit Victory");
+    expect(html).not.toContain("Done Editing");
   });
 
   it("enters and exits edit mode; card Edit uses existing href; Done unmounts confirm", async () => {
@@ -119,35 +121,35 @@ describe("VictoryProudMomentsEditChrome", () => {
     render(
       React.createElement(VictoryProudMomentsEditChrome, {
         addHref: "/dashboard/victory-room/add-win",
-        addLabel: "+ Add a Proud Moment",
+        addLabel: "+ Add a Victory",
         groups: [{ key: "recent", cards: [cardA, cardB] }],
       })
     );
 
-    const toggle = screen.getByRole("button", { name: "Edit a Proud Moment" });
+    const toggle = screen.getByRole("button", { name: "Edit Victory" });
     expect(toggle.getAttribute("aria-pressed")).toBe("false");
     await user.click(toggle);
 
-    expect(screen.getByRole("button", { name: "Done Editing Proud Moments" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Done Editing" })).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Done Editing Proud Moments" }).getAttribute("aria-pressed")
+      screen.getByRole("button", { name: "Done Editing" }).getAttribute("aria-pressed")
     ).toBe("true");
     expect(screen.getAllByRole("link", { name: "Edit" })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "+ Add a Proud Moment" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "+ Add a Victory" })).toBeTruthy();
     expect(screen.queryByText("···")).toBeNull();
     expect(
       screen.getAllByRole("link", { name: "Edit" })[0]!.getAttribute("href")
     ).toBe("/dashboard/victory-room/wins/w1/edit?from=victory-room");
 
     await user.click(screen.getAllByRole("button", { name: "Delete" })[0]!);
-    expect(screen.getByText("Delete this Proud Moment?")).toBeTruthy();
+    expect(screen.getByText("Delete this Victory?")).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Done Editing Proud Moments" }));
-    expect(screen.getByRole("button", { name: "Edit a Proud Moment" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Done Editing" }));
+    expect(screen.getByRole("button", { name: "Edit Victory" })).toBeTruthy();
     expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-    expect(screen.queryByText("Delete this Proud Moment?")).toBeNull();
+    expect(screen.queryByText("Delete this Victory?")).toBeNull();
   });
 
   it("stays in edit mode when rerendered with fewer remaining cards", async () => {
@@ -155,21 +157,21 @@ describe("VictoryProudMomentsEditChrome", () => {
     const { rerender } = render(
       React.createElement(VictoryProudMomentsEditChrome, {
         addHref: "/add",
-        addLabel: "+ Add a Proud Moment",
+        addLabel: "+ Add a Victory",
         groups: [{ key: "recent", cards: [cardA, cardB] }],
       })
     );
-    await user.click(screen.getByRole("button", { name: "Edit a Proud Moment" }));
-    expect(screen.getByRole("button", { name: "Done Editing Proud Moments" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Edit Victory" }));
+    expect(screen.getByRole("button", { name: "Done Editing" })).toBeTruthy();
 
     rerender(
       React.createElement(VictoryProudMomentsEditChrome, {
         addHref: "/add",
-        addLabel: "+ Add a Proud Moment",
+        addLabel: "+ Add a Victory",
         groups: [{ key: "recent", cards: [cardB] }],
       })
     );
-    expect(screen.getByRole("button", { name: "Done Editing Proud Moments" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Done Editing" })).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(1);
     expect(screen.getByText("Second")).toBeTruthy();
     expect(screen.queryByText("First")).toBeNull();
@@ -180,22 +182,22 @@ describe("VictoryProudMomentsEditChrome", () => {
     const { rerender } = render(
       React.createElement(VictoryProudMomentsEditChrome, {
         addHref: "/add",
-        addLabel: "+ Add a Proud Moment",
+        addLabel: "+ Add a Victory",
         groups: [{ key: "recent", cards: [cardA] }],
       })
     );
-    await user.click(screen.getByRole("button", { name: "Edit a Proud Moment" }));
+    await user.click(screen.getByRole("button", { name: "Edit Victory" }));
     rerender(
       React.createElement(VictoryProudMomentsEditChrome, {
         addHref: "/add",
-        addLabel: "+ Add a Proud Moment",
+        addLabel: "+ Add a Victory",
         groups: [],
-        emptyState: React.createElement("p", null, "No Proud Moments yet."),
+        emptyState: React.createElement("p", null, "No Victories yet."),
       })
     );
-    expect(screen.getByRole("link", { name: "+ Add a Proud Moment" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Done Editing Proud Moments" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Edit a Proud Moment" })).toBeNull();
-    expect(screen.getByText("No Proud Moments yet.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "+ Add a Victory" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Done Editing" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit Victory" })).toBeNull();
+    expect(screen.getByText("No Victories yet.")).toBeTruthy();
   });
 });

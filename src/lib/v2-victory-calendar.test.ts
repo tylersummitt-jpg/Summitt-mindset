@@ -288,27 +288,27 @@ describe("Victory Calendar day labels", () => {
         winCount: 1,
         isToday: false,
       })
-    ).toBe("September 14, 2026, 1 Proud Moment");
+    ).toBe("September 14, 2026, 1 Victory");
     expect(
       victoryCalendarDayAccessibleName({
         dateKey: "2026-09-14",
         winCount: 2,
         isToday: false,
       })
-    ).toBe("September 14, 2026, 2 Proud Moments");
+    ).toBe("September 14, 2026, 2 Victories");
     expect(
       victoryCalendarDayAccessibleName({
         dateKey: "2026-09-15",
         winCount: 0,
         isToday: false,
       })
-    ).toBe("September 15, 2026, no Proud Moments");
+    ).toBe("September 15, 2026, no Victories");
     expect(
       victoryCalendarDayAccessibleName({
         dateKey: "2026-09-01",
         winCount: 0,
         isToday: true,
       })
-    ).toBe("Today, September 1, 2026, no Proud Moments");
+    ).toBe("Today, September 1, 2026, no Victories");
   });
 });

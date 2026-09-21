@@ -46,13 +46,13 @@ describe("VictorySeasonWinsSection", () => {
         ],
       })
     );
-    expect(html).toContain("Proud Moments from this season");
+    expect(html).toContain("Victories from this season");
     expect(html).toContain("Done");
     expect(html).toContain("Showed up");
     expect(html).toContain("got it done");
-    expect(html).toContain("Add a Proud Moment");
-    expect(html).toContain("Edit a Proud Moment");
-    expect(html).toContain("Proud Moments from this season");
+    expect(html).toContain("Add a Victory");
+    expect(html).toContain("Edit Victory");
+    expect(html).toContain("Victories from this season");
     expect(html).not.toContain('aria-label="Proud Moment actions"');
     expect(html).not.toContain(">Edit<");
     expect(html).not.toContain(">Delete<");
@@ -72,9 +72,9 @@ describe("VictorySeasonWinsSection", () => {
         wins: [],
       })
     );
-    expect(html).toContain("Add a Proud Moment");
-    expect(html).not.toContain("Edit a Proud Moment");
-    expect(html).not.toContain("Proud Moments from this season");
+    expect(html).toContain("Add a Victory");
+    expect(html).not.toContain("Edit Victory");
+    expect(html).not.toContain("Victories from this season");
     expect(html).not.toContain(">Edit<");
     expect(html).not.toContain(">Delete<");
   });

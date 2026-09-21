@@ -23,8 +23,8 @@ export function VictorySeasonWinsSection({
     <VictoryProudMomentsEditChrome
       className="-mt-4 mb-10"
       addHref={`/dashboard/victory-room/add-win?seasonId=${encodeURIComponent(seasonId)}`}
-      addLabel="Add a Proud Moment"
-      sectionTitle={wins.length > 0 ? "Proud Moments from this season" : undefined}
+      addLabel="Add a Victory"
+      sectionTitle={wins.length > 0 ? "Victories from this season" : undefined}
       groups={
         wins.length
           ? [

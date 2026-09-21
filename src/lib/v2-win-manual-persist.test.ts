@@ -221,6 +221,7 @@ describe("persistManualV2Win", () => {
       details: null,
       occurredOn: "2026-08-01",
       timeZone: "UTC",
+      winKind: "proud_moment",
       season: null,
     });
     expect(r).toMatchObject({ ok: true, status: "inserted", id: "win-overall" });
@@ -257,6 +258,7 @@ describe("persistManualV2Win", () => {
       details: "Full set",
       occurredOn: "2026-01-01", // outside season window — still allowed
       timeZone: "UTC",
+      winKind: "proud_moment",
       season: { seasonId: "season-1", commitmentId: "c-owned" },
     });
     expect(r.ok).toBe(true);
@@ -273,6 +275,58 @@ describe("persistManualV2Win", () => {
     expect(persistSrc).not.toMatch(/started_at.*occurred|ended_at.*occurred|inside.*season/i);
   });
 
+  it("persists Overall manual Goal Win without coupling kind to season", async () => {
+    insertMaybeSingle.mockResolvedValue({ data: { id: "win-goal-overall" }, error: null });
+    const r = await persistManualV2Win({
+      clerkUserId: "user_1",
+      clientRequestId: REQ,
+      title: "Finished the 5K",
+      occurredOn: "2026-08-01",
+      timeZone: "UTC",
+      winKind: "goal_win",
+      season: null,
+    });
+    expect(r).toMatchObject({ ok: true, status: "inserted", id: "win-goal-overall" });
+    const row = state.lastInsertRow!;
+    expect(row.source_type).toBe("manual");
+    expect(row.win_kind).toBe("goal_win");
+    expect(row.relationship_type).toBe("whole_life");
+    expect(row.commitment_id).toBeNull();
+    expect(row.source_message_sid).toBeNull();
+  });
+
+  it("persists Season-attached manual Goal Win with orthogonal kind", async () => {
+    insertMaybeSingle.mockResolvedValue({ data: { id: "win-goal-season" }, error: null });
+    const r = await persistManualV2Win({
+      clerkUserId: "user_1",
+      clientRequestId: REQ,
+      title: "Finished the 5K",
+      occurredOn: "2026-08-01",
+      timeZone: "UTC",
+      winKind: "goal_win",
+      season: { seasonId: "season-1", commitmentId: "c-owned" },
+    });
+    expect(r.ok).toBe(true);
+    const row = state.lastInsertRow!;
+    expect(row.source_type).toBe("manual");
+    expect(row.win_kind).toBe("goal_win");
+    expect(row.relationship_type).toBe("goal");
+    expect(row.commitment_id).toBe("c-owned");
+  });
+
+  it("rejects invalid winKind without inserting", async () => {
+    const r = await persistManualV2Win({
+      clerkUserId: "user_1",
+      clientRequestId: REQ,
+      title: "Done",
+      occurredOn: "2026-08-01",
+      timeZone: "UTC",
+      winKind: "mixed" as "goal_win",
+    });
+    expect(r).toMatchObject({ ok: false, code: "validation" });
+    expect(insertMaybeSingle).not.toHaveBeenCalled();
+  });
+
   it("idempotent same client_request_id returns existing", async () => {
     insertMaybeSingle.mockResolvedValue({
       data: null,
@@ -285,6 +339,7 @@ describe("persistManualV2Win", () => {
       title: "Done",
       occurredOn: "2026-08-01",
       timeZone: "UTC",
+      winKind: "proud_moment",
     });
     expect(r).toMatchObject({ ok: true, status: "existing", id: "win-existing" });
   });
@@ -305,6 +360,7 @@ describe("persistManualV2Win", () => {
       title: "Done",
       occurredOn: "2026-08-01",
       timeZone: "UTC",
+      winKind: "proud_moment",
     });
     expect(r).toMatchObject({ ok: true, status: "existing", id: "win-hidden-manual" });
     const persistSrc = fs.readFileSync(
@@ -326,6 +382,7 @@ describe("persistManualV2Win", () => {
       title: "One",
       occurredOn: "2026-08-01",
       timeZone: "UTC",
+      winKind: "goal_win",
     });
     const key1 = state.lastInsertRow!.idempotency_key;
     await persistManualV2Win({
@@ -334,6 +391,7 @@ describe("persistManualV2Win", () => {
       title: "Two",
       occurredOn: "2026-08-01",
       timeZone: "UTC",
+      winKind: "proud_moment",
     });
     const key2 = state.lastInsertRow!.idempotency_key;
     expect(key1).not.toBe(key2);
@@ -396,6 +454,9 @@ describe("manual Win Overall + Season count integration", () => {
     expect(manualSrc).not.toContain("openai-win-recognition");
     expect(manualSrc).not.toContain("persistInboundWinsWithAccountability");
     expect(manualSrc).not.toContain("OpenAI(");
+    expect(manualSrc).not.toContain("v2_commitment_event");
+    expect(manualSrc).not.toContain("user_yes");
+    expect(manualSrc).not.toContain("acc_yes");
   });
 });
 

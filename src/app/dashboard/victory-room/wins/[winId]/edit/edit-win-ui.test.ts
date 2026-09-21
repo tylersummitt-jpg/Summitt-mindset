@@ -90,16 +90,16 @@ describe("Edit Win UI", () => {
     expect(src).toContain('method: "DELETE"');
     expect(src).toContain("expected_updated_at");
     expect(src).toContain("router.refresh()");
-    expect(src).toContain("Delete this Proud Moment?");
+    expect(src).toContain("Delete this Victory?");
     expect(src).toContain("accountability history and messages are not");
-    expect(src).toContain("Delete Proud Moment");
-    expect(src).toContain("We couldn’t delete this Proud Moment");
+    expect(src).toContain("Delete Victory");
+    expect(src).toContain("We couldn’t delete this Victory");
     expect(src).toContain("changed since you opened");
     expect(src).not.toContain("This permanently removes the photo");
     expect(src).not.toContain("Remove this photo?");
     expect(src).not.toContain("<details");
     expect(src).not.toContain("···");
-    const deleteConfirmBlock = src.slice(src.indexOf("Delete this Proud Moment?"));
+    const deleteConfirmBlock = src.slice(src.indexOf("Delete this Victory?"));
     expect(deleteConfirmBlock).not.toContain("permanently");
     expect(src).not.toContain("openai");
     // Clip regression: open panel must not use absolute positioning.
@@ -135,7 +135,7 @@ describe("Edit Win UI", () => {
         media: null,
       })
     );
-    expect(html).toContain("Edit Proud Moment");
+    expect(html).toContain("Edit Victory");
     expect(html).toContain("Save Changes");
     expect(html).toContain("Cancel");
     expect(html).toContain('value="Lifted"');
@@ -149,6 +149,10 @@ describe("Edit Win UI", () => {
     expect(html).not.toContain("model_confidence");
     expect(html).not.toContain("MessageSid");
     expect(html).not.toContain("Remove photo");
+    expect(html).not.toContain("What kind of victory is this?");
+    expect(html).not.toContain('name="win_kind"');
+    expect(html).not.toContain("Goal Win");
+    expect(html).not.toContain("type=\"radio\"");
   });
 
   it("Cancel uses the provided calendar month/day href", () => {

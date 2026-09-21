@@ -37,16 +37,16 @@ describe("VictoryAllProofSection", () => {
         nextCursor: null,
       })
     );
-    expect(html).toContain("All Proud Moments");
+    expect(html).toContain("All Victories");
     expect(html).not.toContain("All Wins");
     expect(html).not.toContain("All Proof");
     expect(html).toContain("← Victory Room");
     expect(html).toContain("/dashboard/victory-room");
-    expect(html).toContain("Add a Proud Moment");
+    expect(html).toContain("Add a Victory");
     expect(html).not.toContain("Add a Win");
     expect(html).toContain("/dashboard/victory-room/add-win?from=all-wins");
     expect(html).toContain("Showed up");
-    expect(html).toContain("Edit a Proud Moment");
+    expect(html).toContain("Edit Victory");
     expect(html).not.toContain('aria-label="Proud Moment actions"');
     expect(html).not.toContain(">Edit<");
     expect(html).not.toContain(">Delete<");
@@ -79,7 +79,7 @@ describe("VictoryAllProofSection", () => {
         nextCursor: "cursor-token",
       })
     );
-    expect(html).toContain("View older Proud Moments");
+    expect(html).toContain("View older Victories");
     expect(html).toContain("/dashboard/victory-room/all-proof?cursor=");
     expect(html).not.toContain("Showing your most recent saved proof");
   });
@@ -119,9 +119,9 @@ describe("VictoryAllProofSection", () => {
         nextCursor: null,
       })
     );
-    expect(html).toContain("No Proud Moments yet.");
-    expect(html).toContain("Add a Proud Moment");
-    expect(html).not.toContain("Edit a Proud Moment");
+    expect(html).toContain("No Victories yet.");
+    expect(html).toContain("Add a Victory");
+    expect(html).not.toContain("Edit Victory");
     expect(html).toContain(
       "When something real in your life is worth remembering, it will show up here."
     );

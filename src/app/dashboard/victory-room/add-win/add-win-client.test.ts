@@ -66,17 +66,32 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+async function fillRequiredAndSubmit(kind: "goal_win" | "proud_moment" = "proud_moment") {
+  const user = userEvent.setup();
+  await user.click(
+    screen.getByRole("radio", {
+      name: kind === "goal_win" ? /^Goal Win/ : /^Proud Moment/,
+    })
+  );
+  await user.type(screen.getByLabelText(/What happened/i), "Owned the apology");
+  await user.click(screen.getByRole("button", { name: "Save Victory" }));
+  return user;
+}
+
 describe("AddWinClient static markup", () => {
   it("Overall form defaults Overall only and shows Season picker", () => {
     const html = renderToStaticMarkup(React.createElement(AddWinClient, baseProps));
-    expect(html).toContain("Add a Proud Moment");
+    expect(html).toContain("Add a Victory");
+    expect(html).toContain("What kind of victory is this?");
+    expect(html).toContain("Goal Win");
+    expect(html).toContain("Proud Moment");
     expect(html).toContain("What happened?");
     expect(html).toContain("Details");
     expect(html).toContain("Add a photo");
     expect(html).toContain("Date");
     expect(html).toContain("Not tied to a season");
     expect(html).not.toContain("Overall only");
-    expect(html).toContain("Save Proud Moment");
+    expect(html).toContain("Save Victory");
     expect(html).not.toMatch(/streak|score|badge|points|achievement/i);
   });
 
@@ -142,7 +157,134 @@ describe("AddWinClient static markup", () => {
     expect(clientSrc).not.toContain("storageCardPath");
     expect(clientSrc).toContain("/api/v2/wins/manual");
     expect(clientSrc).toContain("client_request_id");
+    expect(clientSrc).toContain("win_kind");
+    expect(clientSrc).not.toContain("source_type");
   });
+});
+
+describe("AddWinClient kind chooser", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    replaceMock.mockReset();
+    refreshMock.mockReset();
+    putMock.mockReset();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it("starts with no kind selected and Save disabled", () => {
+    render(React.createElement(AddWinClient, baseProps));
+    expect((screen.getByRole("radio", { name: /^Goal Win/ }) as HTMLInputElement).checked).toBe(
+      false
+    );
+    expect((screen.getByRole("radio", { name: /^Proud Moment/ }) as HTMLInputElement).checked).toBe(
+      false
+    );
+    expect((screen.getByRole("button", { name: "Save Victory" }) as HTMLButtonElement).disabled).toBe(
+      true
+    );
+    expect(screen.getByText("Choose Goal Win or Proud Moment.")).toBeTruthy();
+  });
+
+  it("selects Goal Win or Proud Moment exclusively", async () => {
+    const user = userEvent.setup();
+    render(React.createElement(AddWinClient, baseProps));
+    const goal = screen.getByRole("radio", { name: /^Goal Win/ }) as HTMLInputElement;
+    const proud = screen.getByRole("radio", { name: /^Proud Moment/ }) as HTMLInputElement;
+    await user.click(goal);
+    expect(goal.checked).toBe(true);
+    expect(proud.checked).toBe(false);
+    await user.click(proud);
+    expect(proud.checked).toBe(true);
+    expect(goal.checked).toBe(false);
+    expect((screen.getByRole("button", { name: "Save Victory" }) as HTMLButtonElement).disabled).toBe(
+      false
+    );
+  });
+
+  it("cannot POST without a kind selection", async () => {
+    const user = userEvent.setup();
+    render(React.createElement(AddWinClient, baseProps));
+    await user.type(screen.getByLabelText(/What happened/i), "Owned the apology");
+    expect((screen.getByRole("button", { name: "Save Victory" }) as HTMLButtonElement).disabled).toBe(
+      true
+    );
+    await user.click(screen.getByRole("button", { name: "Save Victory" }));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("POSTs win_kind=goal_win when Goal Win is chosen", async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url === "/api/v2/wins/manual") {
+        return jsonResponse({
+          ok: true,
+          status: "inserted",
+          win_id: "win-goal",
+          redirect_to: "/dashboard/victory-room",
+        });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    render(React.createElement(AddWinClient, baseProps));
+    await fillRequiredAndSubmit("goal_win");
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith("/dashboard/victory-room");
+    });
+    const posted = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}")) as Record<
+      string,
+      unknown
+    >;
+    expect(posted.win_kind).toBe("goal_win");
+    expect(posted.title).toBe("Owned the apology");
+    expect(posted.occurred_on).toBe("2026-08-08");
+  });
+
+  it.each(["goal_win", "proud_moment"] as const)(
+    "season-locked add still posts season_id with %s",
+    async (kind) => {
+      fetchMock.mockImplementation((url: string) => {
+        if (url === "/api/v2/wins/manual") {
+          return jsonResponse({
+            ok: true,
+            status: "inserted",
+            win_id: "win-locked",
+            redirect_to: "/dashboard/victory-room/seasons/s2",
+          });
+        }
+        throw new Error(`unexpected fetch ${url}`);
+      });
+      render(
+        React.createElement(AddWinClient, {
+          ...baseProps,
+          lockedSeason: {
+            seasonId: "s2",
+            seasonName: "Season 2",
+            goalLabel: "Lift weights for 30 minutes a day",
+          },
+          seasonOptions: [],
+          cancelHref: "/dashboard/victory-room/seasons/s2",
+        })
+      );
+      expect(screen.getByText("Saving to")).toBeTruthy();
+      expect(screen.queryByLabelText(/^Season/)).toBeNull();
+      await fillRequiredAndSubmit(kind);
+      await waitFor(() => {
+        expect(replaceMock).toHaveBeenCalled();
+      });
+      const posted = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}")) as Record<
+        string,
+        unknown
+      >;
+      expect(posted.win_kind).toBe(kind);
+      expect(posted.season_id).toBe("s2");
+    }
+  );
 });
 
 describe("AddWinClient photo flows", () => {
@@ -174,13 +316,6 @@ describe("AddWinClient photo flows", () => {
     vi.unstubAllGlobals();
   });
 
-  async function fillRequiredAndSubmit() {
-    const user = userEvent.setup();
-    await user.type(screen.getByLabelText(/What happened/i), "Owned the apology");
-    await user.click(screen.getByRole("button", { name: "Save Proud Moment" }));
-    return user;
-  }
-
   it("no photo: POST manual once, no media calls, navigates", async () => {
     fetchMock.mockImplementation((url: string) => {
       if (url === "/api/v2/wins/manual") {
@@ -204,6 +339,14 @@ describe("AddWinClient photo flows", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v2/wins/manual");
     expect(putMock).not.toHaveBeenCalled();
+    const posted = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body ?? "{}")) as Record<
+      string,
+      unknown
+    >;
+    expect(posted.win_kind).toBe("proud_moment");
+    expect(posted.source_type).toBeUndefined();
+    expect(posted.commitment_id).toBeUndefined();
+    expect(posted.relationship_type).toBeUndefined();
   });
 
   it("save from calendar cancelHref returns the exact month/day, ignoring API redirect_to", async () => {
@@ -397,7 +540,7 @@ describe("AddWinClient photo flows", () => {
     expect(
       fetchMock.mock.calls.filter((c) => String(c[0]).includes("victory-media"))
     ).toHaveLength(0);
-    expect(screen.getByRole("button", { name: "Save Proud Moment" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save Victory" })).toBeTruthy();
   });
 
   it("media failure after Win: shows saved state; Retry does not re-POST Win", async () => {
@@ -438,7 +581,7 @@ describe("AddWinClient photo flows", () => {
     await fillRequiredAndSubmit();
 
     await waitFor(() => {
-      expect(screen.getByText("Your Proud Moment was saved.")).toBeTruthy();
+      expect(screen.getByText("Your Victory was saved.")).toBeTruthy();
     });
     expect(screen.getByText("The photo couldn’t be attached.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry photo" })).toBeTruthy();
@@ -489,7 +632,7 @@ describe("AddWinClient photo flows", () => {
       makeFile("ok.jpg", "image/jpeg", 10)
     );
     await fillRequiredAndSubmit();
-    await waitFor(() => screen.getByText("Your Proud Moment was saved."));
+    await waitFor(() => screen.getByText("Your Victory was saved."));
 
     await userEvent.click(screen.getByRole("button", { name: "Continue to Victory Room" }));
     expect(replaceMock).toHaveBeenCalledWith("/dashboard/victory-room/all-proof");
@@ -520,7 +663,7 @@ describe("AddWinClient photo flows", () => {
     );
     expect(createObjectURL).not.toHaveBeenCalled();
     await fillRequiredAndSubmit();
-    await waitFor(() => screen.getByText("Your Proud Moment was saved."));
+    await waitFor(() => screen.getByText("Your Victory was saved."));
     expect(screen.getByText(/network problem/i)).toBeTruthy();
   });
 
@@ -585,9 +728,9 @@ describe("AddWinClient source policy", () => {
     expect(clientSrc).toContain("useState(props.initialOccurredOn)");
     expect(clientSrc).toContain("max={props.maxOccurredOn}");
     expect(clientSrc).toContain("/api/v2/wins/manual");
-    expect(clientSrc).toContain("Saving Proud Moment…");
-    expect(clientSrc).toContain("Save Proud Moment");
-    expect(clientSrc).toContain("Add a Proud Moment");
+    expect(clientSrc).toContain("Saving Victory…");
+    expect(clientSrc).toContain("Save Victory");
+    expect(clientSrc).toContain("Add a Victory");
     expect(clientSrc).toContain("Not tied to a season");
     expect(clientSrc).not.toContain("Overall only");
     expect(clientSrc).not.toContain("Add a Win");

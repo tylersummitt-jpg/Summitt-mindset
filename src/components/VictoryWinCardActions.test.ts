@@ -66,7 +66,7 @@ describe("VictoryWinCardActions visible Edit/Delete (no overflow menu)", () => {
     expect(src).not.toContain("<summary");
     expect(src).not.toContain("···");
     expect(src).not.toMatch(/Remove photo/i);
-    expect(src).toContain("Delete this Proud Moment?");
+    expect(src).toContain("Delete this Victory?");
     expect(src).toContain("In-flow");
   });
 
@@ -130,11 +130,11 @@ describe("VictoryWinCardActions Delete", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
-    expect(screen.getByText("Delete this Proud Moment?")).toBeTruthy();
+    expect(screen.getByText("Delete this Victory?")).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByText("Delete this Proud Moment?")).toBeNull();
+    expect(screen.queryByText("Delete this Victory?")).toBeNull();
     expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(refreshMock).not.toHaveBeenCalled();
@@ -158,8 +158,8 @@ describe("VictoryWinCardActions Delete", () => {
       screen.getByRole("link", { name: "Edit" }).getAttribute("href")
     ).toBe(`/dashboard/victory-room/wins/${WIN}/edit?from=victory-room`);
     await user.click(screen.getByRole("button", { name: "Delete" }));
-    expect(screen.getByText("Delete this Proud Moment?")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Delete Proud Moment" }));
+    expect(screen.getByText("Delete this Victory?")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Delete Victory" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(`/api/v2/wins/${WIN}`);
@@ -187,7 +187,7 @@ describe("VictoryWinCardActions Delete", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Delete" }));
-    await user.click(screen.getByRole("button", { name: "Delete Proud Moment" }));
+    await user.click(screen.getByRole("button", { name: "Delete Victory" }));
     expect(
       (screen.getByRole("button", { name: "Deleting…" }) as HTMLButtonElement).disabled
     ).toBe(true);
@@ -199,14 +199,14 @@ describe("VictoryWinCardActions Delete", () => {
       status: 500,
       json: async () => ({
         ok: false,
-        error: "We couldn’t delete this Proud Moment. Please try again.",
+        error: "We couldn’t delete this Victory. Please try again.",
       }),
     });
 
     await waitFor(() =>
-      expect(screen.getByText(/couldn’t delete this Proud Moment/i)).toBeTruthy()
+      expect(screen.getByText(/couldn’t delete this Victory/i)).toBeTruthy()
     );
-    expect(screen.getByText("Delete this Proud Moment?")).toBeTruthy();
+    expect(screen.getByText("Delete this Victory?")).toBeTruthy();
     expect(refreshMock).not.toHaveBeenCalled();
 
     fetchMock.mockResolvedValue({
@@ -214,7 +214,7 @@ describe("VictoryWinCardActions Delete", () => {
       status: 200,
       json: async () => ({ ok: true }),
     });
-    await user.click(screen.getByRole("button", { name: "Delete Proud Moment" }));
+    await user.click(screen.getByRole("button", { name: "Delete Victory" }));
     await waitFor(() => expect(refreshMock).toHaveBeenCalledTimes(1));
   });
 

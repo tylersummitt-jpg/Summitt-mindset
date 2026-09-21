@@ -228,7 +228,7 @@ export async function applyUserVictoryWinEdit(args: {
 
   const winId = typeof args.winId === "string" ? args.winId.trim() : "";
   if (!winId) {
-    return { ok: false, error: "Proud Moment not found.", code: "not_found" };
+    return { ok: false, error: "Victory not found.", code: "not_found" };
   }
 
   const expectedUpdatedAt =
@@ -236,7 +236,7 @@ export async function applyUserVictoryWinEdit(args: {
   if (!expectedUpdatedAt) {
     return {
       ok: false,
-      error: "This Proud Moment changed since you opened it. Refresh and try again.",
+      error: "This Victory changed since you opened it. Refresh and try again.",
       code: "conflict",
     };
   }
@@ -325,12 +325,12 @@ export async function applyUserVictoryWinEdit(args: {
 
   const current = await loadOwnedActiveWinForEdit({ clerkUserId: clerk, winId });
   if (!current) {
-    return { ok: false, error: "Proud Moment not found.", code: "not_found" };
+    return { ok: false, error: "Victory not found.", code: "not_found" };
   }
   if (current.updatedAt !== expectedUpdatedAt) {
     return {
       ok: false,
-      error: "This Proud Moment changed since you opened it. Refresh and try again.",
+      error: "This Victory changed since you opened it. Refresh and try again.",
       code: "conflict",
     };
   }
@@ -385,7 +385,7 @@ export async function applyUserVictoryWinEdit(args: {
     });
     return {
       ok: false,
-      error: "We couldn’t save this Proud Moment. Please try again.",
+      error: "We couldn’t save this Victory. Please try again.",
       code: "persist_failed",
     };
   }
@@ -407,17 +407,17 @@ export async function applyUserVictoryWinEdit(args: {
   if (result === "conflict") {
     return {
       ok: false,
-      error: "This Proud Moment changed since you opened it. Refresh and try again.",
+      error: "This Victory changed since you opened it. Refresh and try again.",
       code: "conflict",
     };
   }
   if (result === "not_found") {
-    return { ok: false, error: "Proud Moment not found.", code: "not_found" };
+    return { ok: false, error: "Victory not found.", code: "not_found" };
   }
   if (result !== "applied" || !newUpdatedAt) {
     return {
       ok: false,
-      error: "We couldn’t save this Proud Moment. Please try again.",
+      error: "We couldn’t save this Victory. Please try again.",
       code: "persist_failed",
     };
   }

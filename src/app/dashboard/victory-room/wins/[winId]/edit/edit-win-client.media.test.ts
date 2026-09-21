@@ -91,7 +91,7 @@ describe("Edit Win media awareness + Replace", () => {
     const html = renderToStaticMarkup(
       React.createElement(EditWinClient, { ...baseProps, media: null })
     );
-    expect(html).toContain("Edit Proud Moment");
+    expect(html).toContain("Edit Victory");
     expect(html).not.toContain(">Photo<");
     expect(html).not.toContain("Remove photo");
     expect(html).not.toContain("Replace photo");

@@ -68,6 +68,14 @@ export function buildManualWinIdempotencyKey(
   return `win_v1:manual:${clerk}:${req}`;
 }
 
+export const MANUAL_WIN_KINDS = ["goal_win", "proud_moment"] as const;
+export type ManualWinKind = (typeof MANUAL_WIN_KINDS)[number];
+
+/** Exact create-time kinds only. No default. No `mixed`. */
+export function parseManualWinKind(raw: unknown): ManualWinKind | null {
+  return raw === "goal_win" || raw === "proud_moment" ? raw : null;
+}
+
 export type ManualWinSeasonOption = {
   seasonId: string;
   seasonName: string;
