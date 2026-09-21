@@ -190,16 +190,17 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
               summaryCounts={publicWins.summaryCounts}
               wins={publicWins.recentWins}
               timeZone={timeZone}
-            />
-
-            <VictoryCalendarSection
-              monthKey={calendarState.monthKey}
-              currentMonthKey={currentMonthKey}
-              todayKey={todayKey}
-              selectedDay={calendarState.selectedDay}
-              counts={calendarCounts}
-              selectedWins={selectedWins}
-              timeZone={timeZone}
+              betweenToolbarAndList={
+                <VictoryCalendarSection
+                  monthKey={calendarState.monthKey}
+                  currentMonthKey={currentMonthKey}
+                  todayKey={todayKey}
+                  selectedDay={calendarState.selectedDay}
+                  counts={calendarCounts}
+                  selectedWins={selectedWins}
+                  timeZone={timeZone}
+                />
+              }
             />
 
             {patRead ? <VictoryPatReadSection read={patRead} /> : null}

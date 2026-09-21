@@ -40,14 +40,25 @@ describe("Victory Room Victory Calendar wiring", () => {
     expect(pageSrc).not.toContain("resolveSmsUserTimezone");
   });
 
-  it("places the calendar after the foundation card and only in the active-commitment branch", () => {
+  it("places the calendar in the proof-section slot, not as a later sibling", () => {
     expect(pageSrc).toContain("VictoryCalendarSection");
+    expect(pageSrc).toContain("betweenToolbarAndList");
     const top = pageSrc.indexOf("<VictoryRoomTopCard");
-    const cal = pageSrc.indexOf("<VictoryCalendarSection");
     const wins = pageSrc.indexOf("<VictoryRecentProofSection");
+    const cal = pageSrc.indexOf("<VictoryCalendarSection");
+    const slot = pageSrc.indexOf("betweenToolbarAndList");
+    const pat = pageSrc.indexOf("<VictoryPatReadSection");
     expect(top).toBeGreaterThan(-1);
     expect(wins).toBeGreaterThan(top);
-    expect(cal).toBeGreaterThan(wins);
+    expect(slot).toBeGreaterThan(wins);
+    expect(cal).toBeGreaterThan(slot);
+    expect(pat).toBeGreaterThan(cal);
+    expect((pageSrc.match(/<VictoryCalendarSection/g) ?? []).length).toBe(1);
+    expect(pageSrc.slice(wins, pat)).toContain("<VictoryCalendarSection");
+    expect(pageSrc.slice(pat)).not.toContain("VictoryCalendarSection");
+    expect(pageSrc).not.toMatch(
+      /<VictoryRecentProofSection[\s\S]*?\/>\s*<VictoryCalendarSection/
+    );
     const notReady = pageSrc.indexOf("Not quite ready");
     expect(cal).toBeGreaterThan(notReady);
     expect(pageSrc).toContain("calendarState.selectedDay");

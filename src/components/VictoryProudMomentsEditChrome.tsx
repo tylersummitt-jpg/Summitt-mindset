@@ -35,6 +35,16 @@ type VictoryProudMomentsEditChromeProps = {
   header?: ReactNode;
   footer?: ReactNode;
   emptyState?: ReactNode;
+  /**
+   * Optional insert after Add/Edit and before the list / empty state / footer.
+   * One chrome instance still owns `isEditing`. Default omitted → unchanged.
+   */
+  betweenToolbarAndList?: ReactNode;
+  /**
+   * When set, wraps header + Add/Edit in a section card so a middle slot
+   * (calendar) and the list can sit outside that card.
+   */
+  toolbarSectionTitle?: string;
   /** Wraps the card list in a Victory Room section (season detail). */
   sectionTitle?: string;
   className?: string;
@@ -47,6 +57,8 @@ export function VictoryProudMomentsEditChrome({
   header,
   footer,
   emptyState,
+  betweenToolbarAndList,
+  toolbarSectionTitle,
   sectionTitle,
   className = "",
 }: VictoryProudMomentsEditChromeProps) {
@@ -73,6 +85,23 @@ export function VictoryProudMomentsEditChrome({
     </div>
   );
 
+  const toolbarBlock = header ? (
+    <div className="mt-8 flex flex-col items-center text-center sm:items-start sm:text-left">
+      {header}
+      {toolbar}
+    </div>
+  ) : (
+    toolbar
+  );
+
+  const toolbarWithOptionalShell = toolbarSectionTitle ? (
+    <VictoryRoomSectionShell title={toolbarSectionTitle}>
+      {toolbarBlock}
+    </VictoryRoomSectionShell>
+  ) : (
+    toolbarBlock
+  );
+
   const list = showEditToggle ? (
     <CardGroups groups={groups} showEditingControls={editing} footer={footer} />
   ) : (
@@ -89,14 +118,8 @@ export function VictoryProudMomentsEditChrome({
 
   return (
     <div className={className}>
-      {header ? (
-        <div className="mt-8 flex flex-col items-center text-center sm:items-start sm:text-left">
-          {header}
-          {toolbar}
-        </div>
-      ) : (
-        toolbar
-      )}
+      {toolbarWithOptionalShell}
+      {betweenToolbarAndList}
       {listBlock}
     </div>
   );

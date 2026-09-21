@@ -1,6 +1,6 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { VictoryProudMomentsEditChrome } from "@/components/VictoryProudMomentsEditChrome";
-import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import { VrIconProof } from "@/components/VictoryRoomIcons";
 import { VictorySummaryCounts } from "@/components/VictorySummaryCounts";
 import {
@@ -19,61 +19,64 @@ type VictoryRecentProofSectionProps = {
   summaryCounts: PublicVictorySummaryCounts | null;
   wins: PublicWinDto[];
   timeZone: string;
+  /** Calendar (or test marker) after stats/actions and before the recent list. */
+  betweenToolbarAndList?: ReactNode;
 };
 
 export function VictoryRecentProofSection({
   summaryCounts,
   wins,
   timeZone,
+  betweenToolbarAndList,
 }: VictoryRecentProofSectionProps) {
   return (
-    <VictoryRoomSectionShell title="Your Victories">
-      <VictoryProudMomentsEditChrome
-        addHref="/dashboard/victory-room/add-win"
-        addLabel="+ Add a Victory"
-        header={
-          summaryCounts ? <VictorySummaryCounts counts={summaryCounts} /> : undefined
-        }
-        groups={
-          wins.length
-            ? [
-                {
-                  key: "recent",
-                  cards: wins.map((w) => ({
-                    displayTitle: w.displayTitle,
-                    displayBody: w.displayBody,
-                    dateLabel: formatVictoryRoomDate(w.occurredAt, timeZone),
-                    supportingQuote: w.supportingQuote,
-                    celebrationAppropriate: w.celebrationAppropriate,
-                    winKind: w.winKind,
-                    media: w.media,
-                    winId: w.id,
-                    expectedUpdatedAt: w.updatedAt,
-                    editHref: buildEditWinHref(w.id, { kind: "victory-room" }),
-                  })),
-                },
-              ]
-            : []
-        }
-        emptyState={
-          <div className={vrEmptyState}>
-            <div className={`${vrIconCircle} mx-auto mb-4 sm:mx-0`} aria-hidden>
-              <VrIconProof />
-            </div>
-            <p className="font-medium text-stone-100">No Victories yet.</p>
-            <p className="mt-3">
-              When something real in your life is worth remembering, it will show up here.
-            </p>
+    <VictoryProudMomentsEditChrome
+      addHref="/dashboard/victory-room/add-win"
+      addLabel="+ Add a Victory"
+      toolbarSectionTitle="Your Victories"
+      header={
+        summaryCounts ? <VictorySummaryCounts counts={summaryCounts} /> : undefined
+      }
+      betweenToolbarAndList={betweenToolbarAndList}
+      groups={
+        wins.length
+          ? [
+              {
+                key: "recent",
+                cards: wins.map((w) => ({
+                  displayTitle: w.displayTitle,
+                  displayBody: w.displayBody,
+                  dateLabel: formatVictoryRoomDate(w.occurredAt, timeZone),
+                  supportingQuote: w.supportingQuote,
+                  celebrationAppropriate: w.celebrationAppropriate,
+                  winKind: w.winKind,
+                  media: w.media,
+                  winId: w.id,
+                  expectedUpdatedAt: w.updatedAt,
+                  editHref: buildEditWinHref(w.id, { kind: "victory-room" }),
+                })),
+              },
+            ]
+          : []
+      }
+      emptyState={
+        <div className={vrEmptyState}>
+          <div className={`${vrIconCircle} mx-auto mb-4 sm:mx-0`} aria-hidden>
+            <VrIconProof />
           </div>
-        }
-        footer={
-          <p className="mt-8">
-            <Link href="/dashboard/victory-room/all-proof" className={vrAccentLink}>
-              View all Victories
-            </Link>
+          <p className="font-medium text-stone-100">No Victories yet.</p>
+          <p className="mt-3">
+            When something real in your life is worth remembering, it will show up here.
           </p>
-        }
-      />
-    </VictoryRoomSectionShell>
+        </div>
+      }
+      footer={
+        <p className="mt-8">
+          <Link href="/dashboard/victory-room/all-proof" className={vrAccentLink}>
+            View all Victories
+          </Link>
+        </p>
+      }
+    />
   );
 }

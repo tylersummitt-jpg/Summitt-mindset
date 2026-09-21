@@ -93,6 +93,9 @@ describe("VictoryRecentProofSection", () => {
     expect(src).toContain('kind: "victory-room"');
     expect(src).toContain("VictoryProudMomentsEditChrome");
     expect(src).toContain("VictorySummaryCounts");
+    expect(src).toContain('toolbarSectionTitle="Your Victories"');
+    expect(src).toContain("betweenToolbarAndList");
+    expect((src.match(/<VictoryProudMomentsEditChrome/g) ?? []).length).toBe(1);
     expect(src).toContain("winId: w.id");
     expect(src).toContain("expectedUpdatedAt: w.updatedAt");
     expect(src).toContain("winKind: w.winKind");
@@ -217,5 +220,74 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain("No Victories yet.");
     expect(html).toContain("+ Add a Victory");
     expect(html).not.toContain("Edit Victory");
+  });
+
+  it("renders an inserted middle slot after Add/Edit and before recent cards", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryRecentProofSection, {
+        summaryCounts: {
+          totalActiveWins: 5,
+          totalActiveGoalWins: 2,
+          totalActiveProudMoments: 3,
+        },
+        timeZone: "UTC",
+        betweenToolbarAndList: React.createElement("div", null, "CALENDAR_SLOT"),
+        wins: [
+          {
+            id: "w1",
+            occurredAt: "2026-06-01T12:00:00Z",
+            displayTitle: "Kept walking",
+            displayBody: "You finished the loops you promised yourself.",
+            supportingQuote: "two loops done",
+            celebrationAppropriate: true,
+            commitmentId: null,
+            updatedAt: "2026-06-01T12:05:00.000Z",
+          },
+        ],
+      })
+    );
+    expect(html).toContain(">Your Victories<");
+    expect(html).toContain("TOTAL VICTORIES");
+    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Edit Victory");
+    expect(html).toContain("CALENDAR_SLOT");
+    expect(html).toContain("Kept walking");
+    expect(html).toContain("View all Victories");
+    const title = html.indexOf(">Your Victories<");
+    const add = html.indexOf("+ Add a Victory");
+    const edit = html.indexOf("Edit Victory");
+    const slot = html.indexOf("CALENDAR_SLOT");
+    const card = html.indexOf("Kept walking");
+    const viewAll = html.indexOf("View all Victories");
+    expect(title).toBeGreaterThan(-1);
+    expect(add).toBeGreaterThan(title);
+    expect(edit).toBeGreaterThan(add);
+    expect(slot).toBeGreaterThan(edit);
+    expect(card).toBeGreaterThan(slot);
+    expect(viewAll).toBeGreaterThan(card);
+  });
+
+  it("renders an inserted middle slot before empty state", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryRecentProofSection, {
+        summaryCounts: {
+          totalActiveWins: 0,
+          totalActiveGoalWins: 0,
+          totalActiveProudMoments: 0,
+        },
+        timeZone: "UTC",
+        betweenToolbarAndList: React.createElement("div", null, "CALENDAR_SLOT"),
+        wins: [],
+      })
+    );
+    expect(html).toContain(">Your Victories<");
+    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("CALENDAR_SLOT");
+    expect(html).toContain("No Victories yet.");
+    expect(html).not.toContain("Edit Victory");
+    const slot = html.indexOf("CALENDAR_SLOT");
+    const empty = html.indexOf("No Victories yet.");
+    expect(slot).toBeGreaterThan(-1);
+    expect(empty).toBeGreaterThan(slot);
   });
 });

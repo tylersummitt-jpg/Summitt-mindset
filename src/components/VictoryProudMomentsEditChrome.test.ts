@@ -200,4 +200,62 @@ describe("VictoryProudMomentsEditChrome", () => {
     expect(screen.queryByRole("button", { name: "Edit Victory" })).toBeNull();
     expect(screen.getByText("No Victories yet.")).toBeTruthy();
   });
+
+  it("renders betweenToolbarAndList after the toolbar and before the list", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryProudMomentsEditChrome, {
+        addHref: "/dashboard/victory-room/add-win",
+        addLabel: "+ Add a Victory",
+        betweenToolbarAndList: React.createElement("div", null, "CALENDAR_SLOT"),
+        groups: [{ key: "recent", cards: [cardA, cardB] }],
+      })
+    );
+    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Edit Victory");
+    expect(html).toContain("CALENDAR_SLOT");
+    expect(html).toContain("First");
+    expect(html).toContain("Second");
+    const add = html.indexOf("+ Add a Victory");
+    const edit = html.indexOf("Edit Victory");
+    const slot = html.indexOf("CALENDAR_SLOT");
+    const first = html.indexOf("First");
+    expect(edit).toBeGreaterThan(add);
+    expect(slot).toBeGreaterThan(edit);
+    expect(first).toBeGreaterThan(slot);
+  });
+
+  it("omitting betweenToolbarAndList keeps toolbar immediately before the list", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryProudMomentsEditChrome, {
+        addHref: "/dashboard/victory-room/add-win",
+        addLabel: "+ Add a Victory",
+        groups: [{ key: "recent", cards: [cardA] }],
+      })
+    );
+    expect(html).not.toContain("CALENDAR_SLOT");
+    const edit = html.indexOf("Edit Victory");
+    const first = html.indexOf("First");
+    expect(edit).toBeGreaterThan(-1);
+    expect(first).toBeGreaterThan(edit);
+    expect(html.slice(edit, first)).not.toContain("CALENDAR_SLOT");
+  });
+
+  it("edit state still reaches cards after the middle slot", async () => {
+    const user = userEvent.setup();
+    render(
+      React.createElement(VictoryProudMomentsEditChrome, {
+        addHref: "/dashboard/victory-room/add-win",
+        addLabel: "+ Add a Victory",
+        betweenToolbarAndList: React.createElement("div", null, "CALENDAR_SLOT"),
+        groups: [{ key: "recent", cards: [cardA, cardB] }],
+      })
+    );
+
+    expect(screen.getByText("CALENDAR_SLOT")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Edit Victory" }));
+    expect(screen.getByRole("button", { name: "Done Editing" })).toBeTruthy();
+    expect(screen.getByText("CALENDAR_SLOT")).toBeTruthy();
+    expect(screen.getAllByRole("link", { name: "Edit" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(2);
+  });
 });
