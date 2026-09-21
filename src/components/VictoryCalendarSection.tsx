@@ -6,14 +6,14 @@ import { vrAccentLink, vrBodyMuted } from "@/components/victory-room-visual";
 import { formatVictoryCalendarDayHeading } from "@/lib/v2-victory-calendar";
 import { formatVictoryRoomDate } from "@/lib/v2-victory-room-view";
 import { buildCalendarAddWinHref } from "@/lib/v2-win-edit-origin";
-import type { PublicWinDto } from "@/lib/v2-win-public-read";
+import type { PublicWinDto, VictoryWinMonthDayMarker } from "@/lib/v2-win-public-read";
 
 type VictoryCalendarSectionProps = {
   monthKey: string;
   currentMonthKey: string;
   todayKey: string;
   selectedDay: string | null;
-  counts: Record<string, number>;
+  markers: Record<string, VictoryWinMonthDayMarker>;
   selectedWins: PublicWinDto[];
   timeZone: string;
 };
@@ -23,7 +23,7 @@ export function VictoryCalendarSection({
   currentMonthKey,
   todayKey,
   selectedDay,
-  counts,
+  markers,
   selectedWins,
   timeZone,
 }: VictoryCalendarSectionProps) {
@@ -46,7 +46,7 @@ export function VictoryCalendarSection({
         currentMonthKey={currentMonthKey}
         todayKey={todayKey}
         selectedDay={selectedDay}
-        counts={counts}
+        markers={markers}
       />
 
       {selectedDay && heading ? (

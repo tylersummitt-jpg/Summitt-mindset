@@ -216,11 +216,20 @@ export function victoryCalendarDayAccessibleName(args: {
   dateKey: string;
   winCount: number;
   isToday: boolean;
+  singleWinKind?: "goal_win" | "proud_moment" | null;
 }): string | null {
   const date = formatVictoryCalendarLongDate(args.dateKey);
   if (!date) return null;
   const n = Number.isFinite(args.winCount) ? Math.max(0, Math.floor(args.winCount)) : 0;
   const winPart =
-    n === 0 ? "no Victories" : n === 1 ? "1 Victory" : `${n} Victories`;
+    n === 0
+      ? "no Victories"
+      : n === 1
+        ? args.singleWinKind === "goal_win"
+          ? "1 Goal Win"
+          : args.singleWinKind === "proud_moment"
+            ? "1 Proud Moment"
+            : "1 Victory"
+        : `${n} Victories`;
   return args.isToday ? `Today, ${date}, ${winPart}` : `${date}, ${winPart}`;
 }

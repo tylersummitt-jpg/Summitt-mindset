@@ -42,7 +42,7 @@ const base = {
   monthKey: "2026-09",
   currentMonthKey: "2026-09",
   todayKey: "2026-09-15",
-  counts: {} as Record<string, number>,
+  markers: {},
   timeZone: "America/New_York",
 };
 
@@ -63,7 +63,7 @@ describe("VictoryCalendarSection import guards", () => {
     expect(SECTION_SRC).toContain("showEditingControls={false}");
     expect(SECTION_SRC).not.toContain("buildEditWinHref");
     expect(SECTION_SRC).not.toContain("VictoryProudMomentsEditChrome");
-    expect(SECTION_SRC).toContain("import type { PublicWinDto }");
+    expect(SECTION_SRC).toContain("import type { PublicWinDto, VictoryWinMonthDayMarker }");
   });
 });
 

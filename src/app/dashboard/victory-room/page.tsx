@@ -32,6 +32,7 @@ import {
   loadVictoryWinMonthMarkersForUser,
   PUBLIC_WINS_RECENT_LIMIT,
   type PublicWinDto,
+  type VictoryWinMonthDayMarker,
 } from "@/lib/v2-win-public-read";
 
 export const dynamic = "force-dynamic";
@@ -121,7 +122,7 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
     ? await loadVictoryEvolutionNudge({ clerkUserId: user.id })
     : null;
 
-  let calendarCounts: Record<string, number> = {};
+  let calendarMarkers: Record<string, VictoryWinMonthDayMarker> = {};
   let selectedWins: PublicWinDto[] = [];
   if (view.hasActiveV2Commitment) {
     const [markers, dayWins] = await Promise.all([
@@ -138,7 +139,7 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
           })
         : Promise.resolve([] as PublicWinDto[]),
     ]);
-    calendarCounts = markers.counts;
+    calendarMarkers = markers.markers;
     selectedWins = dayWins;
   }
 
@@ -196,7 +197,7 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
                   currentMonthKey={currentMonthKey}
                   todayKey={todayKey}
                   selectedDay={calendarState.selectedDay}
-                  counts={calendarCounts}
+                  markers={calendarMarkers}
                   selectedWins={selectedWins}
                   timeZone={timeZone}
                 />

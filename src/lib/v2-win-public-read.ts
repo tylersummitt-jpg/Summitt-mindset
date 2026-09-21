@@ -24,7 +24,8 @@ export const PUBLIC_WIN_SELECT_COLUMNS =
 export type PublicWinKind = "goal_win" | "proud_moment";
 
 /** Month-marker query only — no card fields, quotes, or media. */
-export const PUBLIC_WIN_MONTH_MARKER_SELECT_COLUMNS = "id, occurred_at" as const;
+export const PUBLIC_WIN_MONTH_MARKER_SELECT_COLUMNS =
+  "id, occurred_at, win_kind" as const;
 
 /** Optional Victory Media card presentation — never includes Storage paths. */
 export type PublicWinMediaDto = {
@@ -394,13 +395,19 @@ export async function loadPublicAllWinsForUser(args: {
   };
 }
 
+export type VictoryWinMonthDayMarker = {
+  count: number;
+  singleWinKind: PublicWinKind | null;
+};
+
 export type VictoryWinMonthMarkerResult = {
-  counts: Record<string, number>;
+  markers: Record<string, VictoryWinMonthDayMarker>;
 };
 
 type MonthMarkerRow = {
   id: string;
   occurred_at: string;
+  win_kind?: unknown;
 };
 
 function isMonthMarkerRow(raw: unknown): raw is MonthMarkerRow {
@@ -410,7 +417,7 @@ function isMonthMarkerRow(raw: unknown): raw is MonthMarkerRow {
 }
 
 /**
- * Lightweight active-Win counts for one member-local month.
+ * Lightweight active-Win markers for one member-local month.
  * Bounded by clerk_user_id + status=active + local month UTC range.
  * No media. No application row cap (range is the bound).
  */
@@ -422,7 +429,7 @@ export async function loadVictoryWinMonthMarkersForUser(args: {
   const clerkUserId = requireClerkUserId(args.clerkUserId);
   const range = localMonthUtcRange(args.monthKey, args.timeZone);
   if (!range) {
-    return { counts: {} };
+    return { markers: {} };
   }
 
   const { data, error } = await supabaseServer
@@ -438,19 +445,28 @@ export async function loadVictoryWinMonthMarkersForUser(args: {
       clerk_user_id: clerkUserId,
       message: error.message,
     });
-    return { counts: {} };
+    return { markers: {} };
   }
 
-  const counts: Record<string, number> = {};
+  const markers: Record<string, VictoryWinMonthDayMarker> = {};
   for (const row of data ?? []) {
     if (!isMonthMarkerRow(row)) continue;
     const occurred = new Date(row.occurred_at);
     if (Number.isNaN(occurred.getTime())) continue;
     const dayKey = getDateKeyInTimezone(occurred, args.timeZone);
-    counts[dayKey] = (counts[dayKey] ?? 0) + 1;
+    const existing = markers[dayKey];
+    if (!existing) {
+      markers[dayKey] = {
+        count: 1,
+        singleWinKind: publicWinKindFromUnknown(row.win_kind),
+      };
+      continue;
+    }
+    existing.count += 1;
+    existing.singleWinKind = null;
   }
 
-  return { counts };
+  return { markers };
 }
 
 /**

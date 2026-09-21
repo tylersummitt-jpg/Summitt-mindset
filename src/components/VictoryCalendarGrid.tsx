@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { VrIconArrow } from "@/components/VictoryRoomIcons";
+import { VrIconArrow, VrIconGoal, VrIconStar } from "@/components/VictoryRoomIcons";
 import {
   vrAccentLink,
   vrCalendarCellFuture,
@@ -23,12 +23,17 @@ import {
   victoryCalendarDayAccessibleName,
 } from "@/lib/v2-victory-calendar";
 
+type VictoryCalendarDayMarker = {
+  count: number;
+  singleWinKind: "goal_win" | "proud_moment" | null;
+};
+
 type VictoryCalendarGridProps = {
   monthKey: string;
   currentMonthKey: string;
   todayKey: string;
   selectedDay: string | null;
-  counts: Record<string, number>;
+  markers: Record<string, VictoryCalendarDayMarker>;
 };
 
 export function VictoryCalendarGrid({
@@ -36,7 +41,7 @@ export function VictoryCalendarGrid({
   currentMonthKey,
   todayKey,
   selectedDay,
-  counts,
+  markers,
 }: VictoryCalendarGridProps) {
   const router = useRouter();
   const slots = buildVictoryCalendarGrid(monthKey);
@@ -111,7 +116,9 @@ export function VictoryCalendarGrid({
             return <div key={`b-${i}`} className="min-h-11" aria-hidden />;
           }
 
-          const winCount = counts[slot.dateKey] ?? 0;
+          const marker = markers[slot.dateKey];
+          const winCount = marker?.count ?? 0;
+          const singleWinKind = winCount === 1 ? marker?.singleWinKind ?? null : null;
           const isToday = slot.dateKey === todayKey;
           const isFuture = slot.dateKey > todayKey;
           const isSelected = selectedDay === slot.dateKey;
@@ -119,6 +126,7 @@ export function VictoryCalendarGrid({
             dateKey: slot.dateKey,
             winCount,
             isToday,
+            singleWinKind,
           });
 
           if (isFuture) {
@@ -153,10 +161,18 @@ export function VictoryCalendarGrid({
               <span>{slot.dayOfMonth}</span>
               {winCount > 0 ? (
                 <span className="flex items-center gap-0.5 text-[11px] leading-none text-amber-300" aria-hidden>
-                  <span>🏆</span>
-                  {winCount > 1 ? (
-                    <span className="tabular-nums text-amber-200/90">{winCount}</span>
-                  ) : null}
+                  {winCount === 1 && singleWinKind === "goal_win" ? (
+                    <VrIconGoal className="h-3 w-3" />
+                  ) : winCount === 1 && singleWinKind === "proud_moment" ? (
+                    <VrIconStar className="h-3 w-3" />
+                  ) : (
+                    <>
+                      <span>🏆</span>
+                      {winCount > 1 ? (
+                        <span className="tabular-nums text-amber-200/90">{winCount}</span>
+                      ) : null}
+                    </>
+                  )}
                 </span>
               ) : null}
             </button>

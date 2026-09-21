@@ -20,8 +20,34 @@ import { VictoryCalendarGrid } from "@/components/VictoryCalendarGrid";
 
 const GRID_SRC = readFileSync(join(process.cwd(), "src/components/VictoryCalendarGrid.tsx"), "utf8");
 
+type DayMarker = {
+  count: number;
+  singleWinKind: "goal_win" | "proud_moment" | null;
+};
+
+function dayMarkers(
+  entries: Record<string, { count: number; singleWinKind?: "goal_win" | "proud_moment" | null }>
+): Record<string, DayMarker> {
+  return Object.fromEntries(
+    Object.entries(entries).map(([key, value]) => [
+      key,
+      { count: value.count, singleWinKind: value.singleWinKind ?? null },
+    ])
+  );
+}
+
+const gridBase = {
+  monthKey: "2026-09",
+  currentMonthKey: "2026-09",
+  todayKey: "2026-09-15",
+  selectedDay: null as string | null,
+};
+
 describe("VictoryCalendarGrid import / timezone guards", () => {
   it("does not import public-read, Sol, D2, or use browser Date for today/future", () => {
+    expect(GRID_SRC).toContain("VrIconGoal");
+    expect(GRID_SRC).toContain("VrIconStar");
+    expect(GRID_SRC).not.toContain("VrIconTrophy");
     expect(GRID_SRC).not.toContain("v2-win-public-read");
     expect(GRID_SRC).not.toContain("sms_audience");
     expect(GRID_SRC).not.toContain("inbound-sol");
@@ -43,11 +69,8 @@ describe("VictoryCalendarGrid", () => {
   it("renders 42 slots, trophy without a visual 1, and multiple-win count", () => {
     const { container } = render(
       React.createElement(VictoryCalendarGrid, {
-        monthKey: "2026-09",
-        currentMonthKey: "2026-09",
-        todayKey: "2026-09-15",
-        selectedDay: null,
-        counts: { "2026-09-14": 1, "2026-09-12": 2 },
+        ...gridBase,
+        markers: dayMarkers({ "2026-09-14": { count: 1 }, "2026-09-12": { count: 2 } }),
       })
     );
     expect(container.querySelector("[role='group']")?.children).toHaveLength(7 + 42);
@@ -59,6 +82,52 @@ describe("VictoryCalendarGrid", () => {
     const many = screen.getByRole("button", { name: "September 12, 2026, 2 Victories" });
     expect(many.textContent).toMatch(/🏆\s*2/);
     expect(screen.getByRole("button", { name: "September 13, 2026, no Victories" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "September 13, 2026, no Victories" }).textContent
+    ).not.toContain("🏆");
+  });
+
+  it("renders Goal icon for a single goal_win and Star for a single proud_moment", () => {
+    render(
+      React.createElement(VictoryCalendarGrid, {
+        ...gridBase,
+        markers: dayMarkers({
+          "2026-09-14": { count: 1, singleWinKind: "goal_win" },
+          "2026-09-12": { count: 1, singleWinKind: "proud_moment" },
+        }),
+      })
+    );
+    const goal = screen.getByRole("button", { name: "September 14, 2026, 1 Goal Win" });
+    expect(goal.querySelectorAll("circle").length).toBe(3);
+    expect(goal.textContent).not.toContain("🏆");
+    const proud = screen.getByRole("button", { name: "September 12, 2026, 1 Proud Moment" });
+    expect(proud.querySelector("path")).toBeTruthy();
+    expect(proud.querySelectorAll("circle").length).toBe(0);
+    expect(proud.textContent).not.toContain("🏆");
+  });
+
+  it("renders trophy plus count for two goals, two proud, or mixed days", () => {
+    render(
+      React.createElement(VictoryCalendarGrid, {
+        ...gridBase,
+        markers: dayMarkers({
+          "2026-09-10": { count: 2, singleWinKind: "goal_win" },
+          "2026-09-11": { count: 2, singleWinKind: "proud_moment" },
+          "2026-09-12": { count: 2 },
+        }),
+      })
+    );
+    expect(screen.getByRole("button", { name: "September 10, 2026, 2 Victories" }).textContent).toMatch(
+      /🏆\s*2/
+    );
+    expect(screen.getByRole("button", { name: "September 11, 2026, 2 Victories" }).textContent).toMatch(
+      /🏆\s*2/
+    );
+    expect(screen.getByRole("button", { name: "September 12, 2026, 2 Victories" }).textContent).toMatch(
+      /🏆\s*2/
+    );
+    expect(screen.queryByRole("button", { name: /1 Goal Win/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /1 Proud Moment/ })).toBeNull();
   });
 
   it("marks today, selected, and keeps future days out of tab order", () => {
@@ -68,7 +137,7 @@ describe("VictoryCalendarGrid", () => {
         currentMonthKey: "2026-09",
         todayKey: "2026-09-01",
         selectedDay: "2026-09-01",
-        counts: { "2026-09-01": 1 },
+        markers: dayMarkers({ "2026-09-01": { count: 1 } }),
       })
     );
     const today = screen.getByRole("button", { name: "Today, September 1, 2026, 1 Victory" });
@@ -89,7 +158,7 @@ describe("VictoryCalendarGrid", () => {
         currentMonthKey: "2026-09",
         todayKey: "2026-09-01",
         selectedDay: "2026-08-12",
-        counts: { "2026-08-12": 2 },
+        markers: dayMarkers({ "2026-08-12": { count: 2 } }),
       })
     );
     expect(screen.getByRole("button", { name: "August 12, 2026, 2 Victories" }).textContent).toMatch(
@@ -108,7 +177,7 @@ describe("VictoryCalendarGrid", () => {
         currentMonthKey: "2026-09",
         todayKey: "2026-09-15",
         selectedDay: null,
-        counts: {},
+        markers: {},
       })
     );
     fireEvent.click(screen.getByRole("button", { name: "September 14, 2026, no Victories" }));
@@ -125,7 +194,7 @@ describe("VictoryCalendarGrid", () => {
         currentMonthKey: "2026-09",
         todayKey: "2026-09-15",
         selectedDay: "2026-09-14",
-        counts: {},
+        markers: {},
       })
     );
     fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
@@ -141,7 +210,7 @@ describe("VictoryCalendarGrid", () => {
         currentMonthKey: "2026-09",
         todayKey: "2026-09-01",
         selectedDay: "2026-08-12",
-        counts: {},
+        markers: {},
       })
     );
     fireEvent.click(screen.getByRole("button", { name: "Next month" }));

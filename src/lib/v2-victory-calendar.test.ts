@@ -292,10 +292,42 @@ describe("Victory Calendar day labels", () => {
     expect(
       victoryCalendarDayAccessibleName({
         dateKey: "2026-09-14",
+        winCount: 1,
+        isToday: false,
+        singleWinKind: null,
+      })
+    ).toBe("September 14, 2026, 1 Victory");
+    expect(
+      victoryCalendarDayAccessibleName({
+        dateKey: "2026-09-21",
+        winCount: 1,
+        isToday: false,
+        singleWinKind: "goal_win",
+      })
+    ).toBe("September 21, 2026, 1 Goal Win");
+    expect(
+      victoryCalendarDayAccessibleName({
+        dateKey: "2026-09-21",
+        winCount: 1,
+        isToday: false,
+        singleWinKind: "proud_moment",
+      })
+    ).toBe("September 21, 2026, 1 Proud Moment");
+    expect(
+      victoryCalendarDayAccessibleName({
+        dateKey: "2026-09-14",
         winCount: 2,
         isToday: false,
       })
     ).toBe("September 14, 2026, 2 Victories");
+    expect(
+      victoryCalendarDayAccessibleName({
+        dateKey: "2026-09-21",
+        winCount: 3,
+        isToday: false,
+        singleWinKind: "goal_win",
+      })
+    ).toBe("September 21, 2026, 3 Victories");
     expect(
       victoryCalendarDayAccessibleName({
         dateKey: "2026-09-15",
@@ -310,5 +342,13 @@ describe("Victory Calendar day labels", () => {
         isToday: true,
       })
     ).toBe("Today, September 1, 2026, no Victories");
+    expect(
+      victoryCalendarDayAccessibleName({
+        dateKey: "2026-09-01",
+        winCount: 1,
+        isToday: true,
+        singleWinKind: "goal_win",
+      })
+    ).toBe("Today, September 1, 2026, 1 Goal Win");
   });
 });
