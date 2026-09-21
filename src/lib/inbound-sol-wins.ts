@@ -11,6 +11,7 @@ import {
 import type { WinEquivalenceJudgment } from "@/lib/openai-win-candidate-equivalence-v1";
 import {
   normalizeSolTrophyTitle,
+  normalizeWinArchivalDetail,
   type InboundSolBriefExtras,
 } from "@/lib/inbound-sol-coaching-brief";
 import type { InboundOutcomePersistResult } from "@/lib/v2-inbound-accountability-outcome-persist";
@@ -41,7 +42,7 @@ function lifeWinCandidate(groundedAction: string): WinCandidateV1 {
     grounded_action: action,
     why_meaningful: null,
     suggested_title: limitWinDisplayTitleOrFallback(action),
-    suggested_body: action.slice(0, 240),
+    suggested_body: "",
     evidence_quote: null,
     relationship_type: "whole_life",
     recognition_mode: "user_identified",
@@ -115,22 +116,40 @@ export function solWinSupportingQuoteOverrides(inbound: InboundSolBriefExtras): 
   };
 }
 
+/** Raw archival-detail fields. Persist validates length/shape. Life detail only when a life Win exists. */
+export function solWinDisplayBodyOverrides(inbound: InboundSolBriefExtras): {
+  accountability: string | null;
+  independent: string | null;
+} {
+  const presentation = inbound.win_presentation;
+  const hasLife = inbound.meaningful_win?.relationship === "life";
+  return {
+    accountability: presentation?.accountability_detail ?? null,
+    independent: hasLife ? presentation?.life_detail ?? null : null,
+  };
+}
+
 function recognitionWithLifePresentation(args: {
   recognition: WinRecognitionResultV1;
   lifeTitle: string | null;
   lifeQuote: string | null;
+  lifeDetail: string | null;
   inboundText: string;
 }): WinRecognitionResultV1 {
-  const { recognition, lifeTitle, lifeQuote, inboundText } = args;
+  const { recognition, lifeTitle, lifeQuote, lifeDetail, inboundText } = args;
   if (!recognition.has_win || recognition.wins.length === 0) return recognition;
   const first = recognition.wins[0]!;
   const suggested_title = lifeTitle ?? first.suggested_title;
   const evidence_quote = first.sensitivity_caution
     ? null
     : validateWinSupportingQuote(lifeQuote, inboundText);
+  const suggested_body = normalizeWinArchivalDetail(lifeDetail) ?? "";
   return {
     ...recognition,
-    wins: [{ ...first, suggested_title, evidence_quote }, ...recognition.wins.slice(1)],
+    wins: [
+      { ...first, suggested_title, evidence_quote, suggested_body },
+      ...recognition.wins.slice(1),
+    ],
   };
 }
 
@@ -156,6 +175,7 @@ export async function persistSolInboundWins(args: {
   });
   const titles = solWinDisplayTitleOverrides(args.inbound);
   const quotes = solWinSupportingQuoteOverrides(args.inbound);
+  const bodies = solWinDisplayBodyOverrides(args.inbound);
 
   if (persistedUserYes(args.persistResult)) {
     const result = await persistInboundWinsWithAccountability({
@@ -179,6 +199,10 @@ export async function persistSolInboundWins(args: {
         accountability: quotes.accountability,
         independent: quotes.independent,
       },
+      displayBodyOverrides: {
+        accountability: bodies.accountability,
+        independent: bodies.independent,
+      },
     });
     scheduleC1IfWinsDurable({
       persisted: result.persisted,
@@ -200,6 +224,7 @@ export async function persistSolInboundWins(args: {
     recognition: winPlan.recognition,
     lifeTitle: titles.independent,
     lifeQuote: quotes.independent,
+    lifeDetail: bodies.independent,
     inboundText: args.inboundText,
   });
   const recognized = await persistRecognizedWins({
@@ -212,6 +237,7 @@ export async function persistSolInboundWins(args: {
     activeCommitmentClerkUserId: args.clerkUserId,
     occurredAtIso: args.occurredAtIso,
     recognition,
+    suggestedBodyIsSolArchivalDetail: true,
   });
   scheduleC1IfWinsDurable({
     persisted: recognized.persisted,

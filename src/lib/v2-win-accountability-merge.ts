@@ -16,6 +16,7 @@ import {
   type WinEquivalenceJudgment,
 } from "@/lib/openai-win-candidate-equivalence-v1";
 import { limitWinDisplayTitleOrFallback } from "@/lib/v2-win-display-title";
+import { normalizeWinArchivalDetail } from "@/lib/inbound-sol-coaching-brief";
 
 export function buildAccountabilityWinIdempotencyKey(messageSid: string): string {
   const sid = messageSid.trim();
@@ -124,6 +125,8 @@ function presentationFromGoalCandidate(
     : candidate.evidence_quote
       ? trimTo(candidate.evidence_quote, WIN_FIELD_LIMITS.supporting_quote)
       : null;
+  const archival = normalizeWinArchivalDetail(candidate.suggested_body);
+  const fallbackBody = trimTo(candidate.grounded_action, WIN_FIELD_LIMITS.display_body);
 
   return {
     action_fact: trimTo(candidate.grounded_action, WIN_FIELD_LIMITS.action_fact),
@@ -131,7 +134,7 @@ function presentationFromGoalCandidate(
       ? trimTo(candidate.why_meaningful, WIN_FIELD_LIMITS.why_meaningful)
       : null,
     display_title: limitWinDisplayTitleOrFallback(candidate.suggested_title),
-    display_body: trimTo(candidate.suggested_body, WIN_FIELD_LIMITS.display_body),
+    display_body: archival ?? fallbackBody,
     supporting_quote: supportingQuote,
     relationship_type: candidate.relationship_type === "mixed" ? "mixed" : "goal",
     recognition_mode: candidate.recognition_mode,

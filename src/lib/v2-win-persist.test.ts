@@ -217,6 +217,64 @@ describe("v2-win-persist keys and row construction", () => {
     expect(row.candidate_ordinal).toBe(1);
   });
 
+  it("non-Sol never marks suggested_body as archival detail", () => {
+    const args = {
+      clerkUserId: "user_1",
+      sourceType: "sms_inbound" as const,
+      sourceMessageSid: "SM1",
+      sourceMessageId: null,
+      sourceEventId: null,
+      activeCommitmentId: null,
+      activeCommitmentClerkUserId: null,
+      occurredAtIso: "2026-08-28T12:00:00.000Z",
+    };
+    const coachVoice = buildV2WinInsertRow({
+      ...args,
+      candidate: candidate({
+        grounded_action: "Lifted weights for 30 minutes",
+        suggested_title: "Lifted Weights for 30 Minutes",
+        suggested_body: "You showed discipline by following through today.",
+      }),
+    });
+    expect(coachVoice.display_body).toBe("You showed discipline by following through today.");
+    expect(coachVoice.display_body_is_archival_detail).toBe(false);
+    expect(coachVoice.action_fact).toBe("Lifted weights for 30 minutes");
+
+    const restated = buildV2WinInsertRow({
+      ...args,
+      candidate: candidate({
+        grounded_action: "Rocky caught his first fish",
+        suggested_title: "Rocky Caught His First Fish",
+        suggested_body: "Rocky caught his first fish today.",
+      }),
+    });
+    expect(restated.display_body).toBe("Rocky caught his first fish today.");
+    expect(restated.display_body_is_archival_detail).toBe(false);
+
+    const empty = buildV2WinInsertRow({
+      ...args,
+      candidate: candidate({
+        grounded_action: "Rocky caught his first fish",
+        suggested_title: "Rocky Caught His First Fish",
+        suggested_body: "",
+      }),
+    });
+    expect(empty.display_body).toBe("Rocky caught his first fish");
+    expect(empty.display_body_is_archival_detail).toBe(false);
+
+    const solOnly = buildV2WinInsertRow({
+      ...args,
+      suggestedBodyIsSolArchivalDetail: true,
+      candidate: candidate({
+        grounded_action: "Rocky caught his first fish",
+        suggested_title: "Rocky Caught His First Fish",
+        suggested_body: "He used a Spider-Man pole and released a bluegill.",
+      }),
+    });
+    expect(solOnly.display_body).toBe("He used a Spider-Man pole and released a bluegill.");
+    expect(solOnly.display_body_is_archival_detail).toBe(true);
+  });
+
   it("rejects sms persist without message sid / clerk", () => {
     expect(() =>
       buildV2WinInsertRow({
@@ -324,6 +382,249 @@ describe("persistRecognizedWins", () => {
       recognition: recognition([candidate(), candidate({ ordinal: 1 })]),
     });
     expect(two.persisted).toBe(2);
+  });
+
+  it("empty suggested_body persists fallback body with archival flag false", async () => {
+    fromMock.mockImplementation((table: string) => {
+      if (table !== "v2_win") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      return {
+        insert: (row: Record<string, unknown>) => ({
+          select: () => ({
+            maybeSingle: async () => {
+              insertMaybeSingle(row);
+              return { data: { id: "w-empty-body" }, error: null };
+            },
+          }),
+        }),
+        select: () => ({
+          eq: () => ({
+            maybeSingle: existingMaybeSingle,
+          }),
+        }),
+      };
+    });
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    const r = await persistRecognizedWins({
+      clerkUserId: "user_1",
+      sourceType: "sms_inbound",
+      sourceMessageSid: "SMempty",
+      sourceMessageId: null,
+      sourceEventId: null,
+      activeCommitmentId: null,
+      activeCommitmentClerkUserId: null,
+      occurredAtIso: "2026-07-31T12:00:00.000Z",
+      recognition: recognition([
+        candidate({
+          suggested_title: "Rocky Caught His First Fish",
+          suggested_body: "",
+          grounded_action: "Rocky caught his first fish",
+        }),
+      ]),
+    });
+    expect(r.persisted).toBe(1);
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.display_body).toBe("Rocky caught his first fish");
+    expect(insertedRow.display_body_is_archival_detail).toBe(false);
+    expect(insertedRow.action_fact).toBe("Rocky caught his first fish");
+    expect(insertedRow.display_title).toBe("Rocky Caught His First Fish");
+  });
+
+  it("A–E. non-Sol persistRecognizedWins never sets archival-detail true", async () => {
+    const captureInsert = () => {
+      fromMock.mockImplementation((table: string) => {
+        if (table !== "v2_win") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          };
+        }
+        return {
+          insert: (row: Record<string, unknown>) => ({
+            select: () => ({
+              maybeSingle: async () => {
+                insertMaybeSingle(row);
+                return { data: { id: "w-mini" }, error: null };
+              },
+            }),
+          }),
+          select: () => ({
+            eq: () => ({
+              maybeSingle: existingMaybeSingle,
+            }),
+          }),
+        };
+      });
+      existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+      insertMaybeSingle.mockClear();
+    };
+
+    const persistMini = (suggested_body: string) =>
+      persistRecognizedWins({
+        clerkUserId: "user_1",
+        sourceType: "sms_inbound",
+        sourceMessageSid: "SMmini-body",
+        sourceMessageId: null,
+        sourceEventId: null,
+        activeCommitmentId: null,
+        activeCommitmentClerkUserId: null,
+        occurredAtIso: "2026-07-31T12:00:00.000Z",
+        recognition: recognition([
+          candidate({
+            suggested_title: "Lifted Weights for 30 Minutes",
+            suggested_body,
+            grounded_action: "Lifted weights for 30 minutes",
+          }),
+        ]),
+      });
+
+    captureInsert();
+    await persistMini("You showed discipline by following through today.");
+    let row = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row.display_body).toBe("You showed discipline by following through today.");
+    expect(row.display_body_is_archival_detail).toBe(false);
+    expect(row.action_fact).toBe("Lifted weights for 30 minutes");
+
+    captureInsert();
+    await persistMini("Rocky caught his first fish today.");
+    row = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row.display_body).toBe("Rocky caught his first fish today.");
+    expect(row.display_body_is_archival_detail).toBe(false);
+
+    captureInsert();
+    await persistMini("");
+    row = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row.display_body).toBe("Lifted weights for 30 minutes");
+    expect(row.display_body_is_archival_detail).toBe(false);
+
+    captureInsert();
+    await persistRecognizedWins({
+      clerkUserId: "user_1",
+      sourceType: "sms_inbound",
+      sourceMessageSid: "SMmini-missing",
+      sourceMessageId: null,
+      sourceEventId: null,
+      activeCommitmentId: null,
+      activeCommitmentClerkUserId: null,
+      occurredAtIso: "2026-07-31T12:00:00.000Z",
+      recognition: recognition([
+        candidate({
+          suggested_title: "Lifted Weights for 30 Minutes",
+          suggested_body: undefined as unknown as string,
+          grounded_action: "Lifted weights for 30 minutes",
+        }),
+      ]),
+    });
+    row = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row.display_body).toBe("Lifted weights for 30 minutes");
+    expect(row.display_body_is_archival_detail).toBe(false);
+
+    captureInsert();
+    const tooLong = await persistMini(`too long ${"x".repeat(240)}`);
+    expect(tooLong.persisted).toBe(1);
+    row = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(row.display_body).toBe("Lifted weights for 30 minutes");
+    expect(row.display_body_is_archival_detail).toBe(false);
+  });
+
+  it("idempotent retry does not update stored body or archival marker", async () => {
+    const inserted: Record<string, unknown>[] = [];
+    const updatePatches: Record<string, unknown>[] = [];
+    fromMock.mockImplementation((table: string) => {
+      if (table !== "v2_win") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+            }),
+          }),
+        };
+      }
+      return {
+        insert: (row: Record<string, unknown>) => ({
+          select: () => ({
+            maybeSingle: async () => {
+              inserted.push(row);
+              if (inserted.length === 1) {
+                return { data: { id: "w-first" }, error: null };
+              }
+              return { data: null, error: { code: "23505", message: "duplicate key" } };
+            },
+          }),
+        }),
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () =>
+              inserted.length === 1
+                ? { data: null, error: null }
+                : { data: { id: "w-first", status: "active" }, error: null },
+          }),
+        }),
+        update: (patch: Record<string, unknown>) => {
+          updatePatches.push(patch);
+          return {
+            eq: () => ({
+              eq: async () => ({ error: null }),
+            }),
+          };
+        },
+      };
+    });
+
+    const first = await persistRecognizedWins({
+      clerkUserId: "user_1",
+      sourceType: "sms_inbound",
+      sourceMessageSid: "SMretry",
+      sourceMessageId: null,
+      sourceEventId: null,
+      activeCommitmentId: null,
+      activeCommitmentClerkUserId: null,
+      occurredAtIso: "2026-07-31T12:00:00.000Z",
+      recognition: recognition([
+        candidate({
+          suggested_title: "Rocky Caught His First Fish",
+          suggested_body: "",
+          grounded_action: "Rocky caught his first fish",
+        }),
+      ]),
+    });
+    expect(first.persisted).toBe(1);
+    expect(inserted[0]?.display_body).toBe("Rocky caught his first fish");
+    expect(inserted[0]?.display_body_is_archival_detail).toBe(false);
+
+    const retry = await persistRecognizedWins({
+      clerkUserId: "user_1",
+      sourceType: "sms_inbound",
+      sourceMessageSid: "SMretry",
+      sourceMessageId: null,
+      sourceEventId: null,
+      activeCommitmentId: null,
+      activeCommitmentClerkUserId: null,
+      occurredAtIso: "2026-07-31T12:00:00.000Z",
+      suggestedBodyIsSolArchivalDetail: true,
+      recognition: recognition([
+        candidate({
+          suggested_title: "Rocky Caught His First Fish",
+          suggested_body: "He used a Spider-Man pole and released a bluegill.",
+          grounded_action: "Rocky caught his first fish",
+        }),
+      ]),
+    });
+    expect(retry.conflicts).toBe(1);
+    expect(retry.wins[0]?.status).toBe("existing");
+    expect(retry.wins[0]?.id).toBe("w-first");
+    expect(updatePatches).toEqual([]);
+    expect(inserted[1]?.display_body_is_archival_detail).toBe(true);
   });
 
   it("treats unique conflict as existing success and does not restore hidden", async () => {
@@ -470,6 +771,28 @@ describe("accountability user_yes Win persistence", () => {
     expect(row.relationship_type).toBe("goal");
     expect(row.win_kind).toBe("goal_win");
     expect(row.source_type).toBe("sms_inbound");
+    expect(row.display_body_is_archival_detail).toBe(false);
+  });
+
+  it("accountability insert derives archival marker from overlay, not presentation", () => {
+    const presentation = buildStructuralAccountabilityWinPresentation({
+      effectiveAsk: "Lift weights for 30 minutes a day",
+    });
+    expect(presentation).not.toHaveProperty("display_body_is_archival_detail");
+    const withDetail = buildAccountabilityV2WinInsertRow({
+      clerkUserId: "user_1",
+      messageSid: "SMderive",
+      sourceMessageId: null,
+      sourceEventId: "evt-1",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      presentation,
+      archivalDetail: "Finished the last set after almost skipping.",
+    });
+    expect(withDetail.display_body).toBe("Finished the last set after almost skipping.");
+    expect(withDetail.display_body_is_archival_detail).toBe(true);
+    expect(withDetail.action_fact).toBe("Lift weights for 30 minutes a day");
+    expect(presentation.display_body).toBe("Lift weights for 30 minutes a day");
   });
 
   it("accountability mixed donor presentation still inserts win_kind goal_win", () => {
@@ -774,6 +1097,7 @@ describe("accountability user_yes Win persistence", () => {
     expect(insertedRow.display_title).toBe("Lifted Weights");
     expect(insertedRow.action_fact).toBe("Lift weights for 30 minutes a day.");
     expect(insertedRow.display_body).toBe("Lift weights for 30 minutes a day.");
+    expect(insertedRow.display_body_is_archival_detail).toBe(false);
     expect(insertedRow.supporting_quote).toBeNull();
     expect(insertedRow.candidate_ordinal).toBe(0);
     expect(insertedRow.idempotency_key).toBe("win_v1:acc_yes:SMyes");
@@ -1084,5 +1408,156 @@ describe("accountability user_yes Win persistence", () => {
     expect(insertedRow.display_title).toBe("Lifted today");
     expect(insertedRow.action_fact).toBe("Lifted weights today");
     expect(insertedRow.supporting_quote).toBe("got my workout done");
+    expect(insertedRow.display_body).toBe("You protected the bar.");
+    expect(insertedRow.display_body_is_archival_detail).toBe(false);
+  });
+
+  it("A. accountability detail overlay writes body and sets archival flag", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    const detail = "Finished the last set after almost skipping.";
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMdetA",
+      sourceMessageId: null,
+      userYesEventId: "evt-det-a",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: null,
+      equivalenceByOrdinal: {},
+      displayBodyOverrides: {
+        accountability: detail,
+        independent: null,
+      },
+    });
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.display_body).toBe(detail);
+    expect(insertedRow.display_body_is_archival_detail).toBe(true);
+    expect(insertedRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+  });
+
+  it("B. null accountability detail keeps fallback body and flag false", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMdetB",
+      sourceMessageId: null,
+      userYesEventId: "evt-det-b",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: null,
+      equivalenceByOrdinal: {},
+      displayBodyOverrides: {
+        accountability: null,
+        independent: null,
+      },
+    });
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.display_body).toBe("Lift weights for 30 minutes a day.");
+    expect(insertedRow.display_body_is_archival_detail).toBe(false);
+    expect(insertedRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+  });
+
+  it("C/D. life detail overlay vs null uses independent body + flag without touching action_fact", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle
+      .mockResolvedValueOnce({ data: { id: "w-acc" }, error: null })
+      .mockResolvedValueOnce({ data: { id: "w-life" }, error: null });
+    const grounded = "Rocky caught his first fish";
+    const detail = "He used a Spider-Man pole and released a bluegill.";
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMdetC",
+      sourceMessageId: null,
+      userYesEventId: "evt-det-c",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: recognition([
+        candidate({
+          ordinal: 0,
+          grounded_action: grounded,
+          suggested_title: "Rocky Caught His First Fish",
+          suggested_body: "",
+          relationship_type: "whole_life",
+          evidence_quote: null,
+        }),
+      ]),
+      equivalenceByOrdinal: { 0: "distinct" },
+      displayBodyOverrides: {
+        accountability: null,
+        independent: detail,
+      },
+    });
+    const accRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    const lifeRow = insertMaybeSingle.mock.calls[1]?.[0] as Record<string, unknown>;
+    expect(accRow.display_body).toBe("Lift weights for 30 minutes a day.");
+    expect(accRow.display_body_is_archival_detail).toBe(false);
+    expect(accRow.action_fact).toBe("Lift weights for 30 minutes a day.");
+    expect(lifeRow.display_body).toBe(detail);
+    expect(lifeRow.display_body_is_archival_detail).toBe(true);
+    expect(lifeRow.action_fact).toBe(grounded);
+
+    insertMaybeSingle.mockClear();
+    insertMaybeSingle
+      .mockResolvedValueOnce({ data: { id: "w-acc2" }, error: null })
+      .mockResolvedValueOnce({ data: { id: "w-life2" }, error: null });
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMdetD",
+      sourceMessageId: null,
+      userYesEventId: "evt-det-d",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: recognition([
+        candidate({
+          ordinal: 0,
+          grounded_action: grounded,
+          suggested_title: "Rocky Caught His First Fish",
+          suggested_body: "",
+          relationship_type: "whole_life",
+          evidence_quote: null,
+        }),
+      ]),
+      equivalenceByOrdinal: { 0: "distinct" },
+      displayBodyOverrides: {
+        accountability: null,
+        independent: null,
+      },
+    });
+    const accNull = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    const lifeNull = insertMaybeSingle.mock.calls[1]?.[0] as Record<string, unknown>;
+    expect(accNull.display_body_is_archival_detail).toBe(false);
+    expect(lifeNull.display_body).toBe(grounded);
+    expect(lifeNull.display_body_is_archival_detail).toBe(false);
+    expect(lifeNull.action_fact).toBe(grounded);
+  });
+
+  it("E/F. invalid accountability detail fails soft: fallback body, flag false, action_fact unchanged", async () => {
+    existingMaybeSingle.mockResolvedValue({ data: null, error: null });
+    insertMaybeSingle.mockResolvedValue({ data: { id: "w-acc" }, error: null });
+    await persistInboundWinsWithAccountability({
+      clerkUserId: "user_1",
+      messageSid: "SMdetE",
+      sourceMessageId: null,
+      userYesEventId: "evt-det-e",
+      commitmentId: "c1",
+      occurredAtIso: "2026-08-08T12:00:00.000Z",
+      effectiveAsk: "Lift weights for 30 minutes a day.",
+      recognition: null,
+      equivalenceByOrdinal: {},
+      displayBodyOverrides: {
+        accountability: `too long ${"x".repeat(240)}`,
+        independent: "He\nused a pole.",
+      },
+    });
+    const insertedRow = insertMaybeSingle.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(insertedRow.display_body).toBe("Lift weights for 30 minutes a day.");
+    expect(insertedRow.display_body_is_archival_detail).toBe(false);
+    expect(insertedRow.action_fact).toBe("Lift weights for 30 minutes a day.");
   });
 });

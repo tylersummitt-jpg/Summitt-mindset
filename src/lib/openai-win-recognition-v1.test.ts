@@ -122,7 +122,7 @@ describe("openai-win-recognition-v1 parse/validate", () => {
     expect(r).toBeNull();
   });
 
-  it("rejects blank grounded action / title / body", () => {
+  it("rejects blank grounded action / title, and accepts empty archival body", () => {
     expect(
       parseAndValidateWinRecognitionResult(
         validPayload([validCandidate({ grounded_action: "   ", evidence_quote: "I finally apologized to my wife" })]),
@@ -135,12 +135,49 @@ describe("openai-win-recognition-v1 parse/validate", () => {
         INBOUND
       )
     ).toBeNull();
+    const emptyBody = parseAndValidateWinRecognitionResult(
+      validPayload([validCandidate({ suggested_body: " ", evidence_quote: "I finally apologized to my wife" })]),
+      INBOUND
+    );
+    expect(emptyBody?.has_win).toBe(true);
+    expect(emptyBody?.wins[0]?.suggested_body).toBe("");
+    expect(emptyBody?.wins[0]?.grounded_action).toBe("Apologized to my wife after the argument");
+    expect(emptyBody?.wins[0]?.suggested_title).toBe("Relationship repair");
+  });
+
+  it("does not fail a valid Win when suggested_body is missing, too long, or non-string", () => {
+    const missing = validCandidate({ evidence_quote: "I finally apologized to my wife" }) as unknown as Record<
+      string,
+      unknown
+    >;
+    delete missing.suggested_body;
     expect(
-      parseAndValidateWinRecognitionResult(
-        validPayload([validCandidate({ suggested_body: " ", evidence_quote: "I finally apologized to my wife" })]),
-        INBOUND
-      )
-    ).toBeNull();
+      parseAndValidateWinRecognitionResult(validPayload([missing as never]), INBOUND)?.has_win
+    ).toBe(true);
+    expect(
+      parseAndValidateWinRecognitionResult(validPayload([missing as never]), INBOUND)?.wins[0]?.suggested_body
+    ).toBe("");
+
+    const tooLong = parseAndValidateWinRecognitionResult(
+      validPayload([
+        validCandidate({
+          suggested_body: `too long ${"x".repeat(240)}`,
+          evidence_quote: "I finally apologized to my wife",
+        }),
+      ]),
+      INBOUND
+    );
+    expect(tooLong?.has_win).toBe(true);
+    expect(tooLong?.wins[0]?.suggested_body).toBe("");
+    expect(tooLong?.wins[0]?.grounded_action).toBe("Apologized to my wife after the argument");
+
+    const nonString = {
+      ...validCandidate({ evidence_quote: "I finally apologized to my wife" }),
+      suggested_body: 12,
+    };
+    const parsedNonString = parseAndValidateWinRecognitionResult(validPayload([nonString as never]), INBOUND);
+    expect(parsedNonString?.has_win).toBe(true);
+    expect(parsedNonString?.wins[0]?.suggested_body).toBe("");
   });
 
   it("rejects invalid enum", () => {
@@ -257,7 +294,9 @@ describe("openai-win-recognition-v1 eligibility + facts", () => {
     expect(system).toContain("evidence_quote must be an exact contiguous substring");
     expect(system).toContain("It is presentation, not Win truth");
     expect(system).toContain("Bare yes/yep/ok and restatements of the title → null");
-    expect(system).toContain("suggested_body: specific, concise, human — not inflated");
+    expect(system).toContain("suggested_body: OPTIONAL ARCHIVAL DETAIL");
+    expect(system).toContain("Else empty string");
+    expect(system).not.toContain("suggested_body: specific, concise, human — not inflated");
     expect(system).not.toContain("specific, concise, human, proud");
     const user = buildWinRecognitionUserPrompt({
       inboundMessage: "Yes",

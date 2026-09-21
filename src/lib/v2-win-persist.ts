@@ -23,7 +23,7 @@ import {
   equivalenceMapFromJudgments,
   type WinEquivalenceJudgment,
 } from "@/lib/openai-win-candidate-equivalence-v1";
-import { normalizeSolTrophyTitle } from "@/lib/inbound-sol-coaching-brief";
+import { normalizeSolTrophyTitle, normalizeWinArchivalDetail } from "@/lib/inbound-sol-coaching-brief";
 import { limitWinDisplayTitleOrFallback } from "@/lib/v2-win-display-title";
 import { validateWinSupportingQuote } from "@/lib/v2-win-supporting-quote";
 
@@ -47,6 +47,11 @@ export type PersistRecognizedWinsArgs = {
   activeCommitmentClerkUserId: string | null;
   occurredAtIso: string;
   recognition: WinRecognitionResultV1;
+  /**
+   * Sol life-only path: suggested_body was already validated as archival detail.
+   * Mini / non-Sol omit this — suggested_body may be stored but marker stays false.
+   */
+  suggestedBodyIsSolArchivalDetail?: boolean;
 };
 
 export type PersistWinCandidateStatus = "inserted" | "existing" | "failed" | "skipped";
@@ -84,6 +89,33 @@ export function buildWinIdempotencyKey(args: {
 /** Dedicated namespace for confirmed user_yes → Win (distinct from recognition :0/:1). */
 export { buildAccountabilityWinIdempotencyKey };
 
+function fallbackWinDisplayBody(groundedAction: string): string {
+  const t = groundedAction.replace(/\s+/g, " ").trim();
+  if (!t) return "Confirmed today's commitment follow-through";
+  if (t.length <= WIN_FIELD_LIMITS.display_body) return t;
+  return t.slice(0, WIN_FIELD_LIMITS.display_body).trimEnd();
+}
+
+function persistDisplayBodyFromCandidate(
+  candidate: WinCandidateV1,
+  suggestedBodyIsSolArchivalDetail: boolean
+): {
+  display_body: string;
+  display_body_is_archival_detail: boolean;
+} {
+  const archival = normalizeWinArchivalDetail(candidate.suggested_body);
+  if (archival) {
+    return {
+      display_body: archival,
+      display_body_is_archival_detail: suggestedBodyIsSolArchivalDetail === true,
+    };
+  }
+  return {
+    display_body: fallbackWinDisplayBody(candidate.grounded_action),
+    display_body_is_archival_detail: false,
+  };
+}
+
 function relationshipAllowsCommitment(rel: WinRelationshipTypeV1): boolean {
   return rel === "goal" || rel === "mixed";
 }
@@ -114,6 +146,7 @@ export type V2WinInsertRow = {
   why_meaningful: string | null;
   display_title: string;
   display_body: string;
+  display_body_is_archival_detail: boolean;
   supporting_quote: string | null;
   relationship_type: WinRelationshipTypeV1;
   recognition_mode: WinCandidateV1["recognition_mode"];
@@ -139,6 +172,8 @@ export function buildV2WinInsertRow(args: {
   activeCommitmentClerkUserId: string | null;
   occurredAtIso: string;
   candidate: WinCandidateV1;
+  /** True only for Sol archival-detail overlays. Mini omits / false. */
+  suggestedBodyIsSolArchivalDetail?: boolean;
 }): V2WinInsertRow {
   const clerk = args.clerkUserId.trim();
   if (!clerk) throw new Error("win_persist_requires_clerk_user_id");
@@ -172,7 +207,10 @@ export function buildV2WinInsertRow(args: {
       ? args.candidate.why_meaningful.slice(0, WIN_FIELD_LIMITS.why_meaningful)
       : null,
     display_title: limitWinDisplayTitleOrFallback(args.candidate.suggested_title),
-    display_body: args.candidate.suggested_body.slice(0, WIN_FIELD_LIMITS.display_body),
+    ...persistDisplayBodyFromCandidate(
+      args.candidate,
+      args.suggestedBodyIsSolArchivalDetail === true
+    ),
     supporting_quote: supportingQuote,
     relationship_type: args.candidate.relationship_type,
     win_kind: winKindFromRelationshipType(args.candidate.relationship_type),
@@ -309,6 +347,8 @@ export function buildAccountabilityV2WinInsertRow(args: {
   commitmentId: string;
   occurredAtIso: string;
   presentation: AccountabilityWinPresentation;
+  /** Validated Sol accountability_detail. Persistence derives body + marker. Mini omits. */
+  archivalDetail?: string | null;
 }): V2WinInsertRow {
   const clerk = args.clerkUserId.trim();
   if (!clerk) throw new Error("win_persist_requires_clerk_user_id");
@@ -316,6 +356,8 @@ export function buildAccountabilityV2WinInsertRow(args: {
   if (!sid) throw new Error("win_persist_sms_requires_message_sid");
   const cid = args.commitmentId.trim();
   if (!cid) throw new Error("acc_yes_win_requires_commitment_id");
+
+  const archival = normalizeWinArchivalDetail(args.archivalDetail);
 
   return {
     clerk_user_id: clerk,
@@ -330,7 +372,8 @@ export function buildAccountabilityV2WinInsertRow(args: {
       ? args.presentation.why_meaningful.slice(0, WIN_FIELD_LIMITS.why_meaningful)
       : null,
     display_title: limitWinDisplayTitleOrFallback(args.presentation.display_title),
-    display_body: args.presentation.display_body.slice(0, WIN_FIELD_LIMITS.display_body),
+    display_body: (archival ?? args.presentation.display_body).slice(0, WIN_FIELD_LIMITS.display_body),
+    display_body_is_archival_detail: archival != null,
     supporting_quote: args.presentation.supporting_quote
       ? args.presentation.supporting_quote.slice(0, WIN_FIELD_LIMITS.supporting_quote)
       : null,
@@ -447,6 +490,7 @@ export async function persistRecognizedWins(
         activeCommitmentClerkUserId: args.activeCommitmentClerkUserId,
         occurredAtIso: args.occurredAtIso,
         candidate,
+        suggestedBodyIsSolArchivalDetail: args.suggestedBodyIsSolArchivalDetail === true,
       });
     } catch (e) {
       result.failed += 1;
@@ -546,6 +590,18 @@ export type PersistInboundWinsWithAccountabilityArgs = {
    * Invalid / ungrounded values become null.
    */
   supportingQuoteOverrides?: {
+    accountability?: string | null;
+    independent?: string | null;
+  };
+  /**
+   * Display-only archival detail overlays. Applied after merge. Never creates Wins.
+   * Never writes action_fact / grounded_action / relationship.
+   * Valid non-empty detail replaces display_body and sets display_body_is_archival_detail.
+   * Persistence derives the marker from the validated overlay; it is not caller-supplied on the presentation.
+   * Null/invalid keeps the existing non-empty fallback and leaves the flag false.
+   * Mini callers omit this and cannot set the marker true.
+   */
+  displayBodyOverrides?: {
     accountability?: string | null;
     independent?: string | null;
   };
@@ -692,6 +748,11 @@ export async function persistInboundWinsWithAccountability(
     accountability = { ...accountability, supporting_quote: quote };
   }
 
+  const accArchivalDetail =
+    args.displayBodyOverrides !== undefined
+      ? normalizeWinArchivalDetail(args.displayBodyOverrides.accountability)
+      : null;
+
   const independentTitleOverride = normalizeSolTrophyTitle(
     args.displayTitleOverrides?.independent
   );
@@ -707,6 +768,10 @@ export async function persistInboundWinsWithAccountability(
           args.inboundMessage ?? ""
         );
     independent = { ...independent, evidence_quote: quote };
+  }
+  if (independent && args.displayBodyOverrides !== undefined) {
+    const lifeDetail = normalizeWinArchivalDetail(args.displayBodyOverrides.independent);
+    independent = { ...independent, suggested_body: lifeDetail ?? "" };
   }
 
   let sourceEventId = args.userYesEventId?.trim() || null;
@@ -741,6 +806,7 @@ export async function persistInboundWinsWithAccountability(
       commitmentId,
       occurredAtIso: args.occurredAtIso,
       presentation: accountability,
+      archivalDetail: accArchivalDetail,
     });
     const accInsert = await insertV2WinRow(accRow);
     if (accInsert.status === "inserted") {
@@ -806,6 +872,7 @@ export async function persistInboundWinsWithAccountability(
         activeCommitmentClerkUserId: clerk,
         occurredAtIso: args.occurredAtIso,
         candidate: independent,
+        suggestedBodyIsSolArchivalDetail: args.displayBodyOverrides !== undefined,
       });
       const indInsert = await insertV2WinRow(indRow);
       if (indInsert.status === "inserted") {

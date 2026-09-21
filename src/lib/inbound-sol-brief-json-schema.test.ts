@@ -102,6 +102,8 @@ describe("inbound Sol win_presentation extras", () => {
       "life_trophy_title",
       "accountability_supporting_quote",
       "life_supporting_quote",
+      "accountability_detail",
+      "life_detail",
     ]);
     expect(presentation.properties.accountability_trophy_title).toEqual({
       anyOf: [{ type: "string" }, { type: "null" }],
@@ -113,6 +115,12 @@ describe("inbound Sol win_presentation extras", () => {
       anyOf: [{ type: "string" }, { type: "null" }],
     });
     expect(presentation.properties.life_supporting_quote).toEqual({
+      anyOf: [{ type: "string" }, { type: "null" }],
+    });
+    expect(presentation.properties.accountability_detail).toEqual({
+      anyOf: [{ type: "string" }, { type: "null" }],
+    });
+    expect(presentation.properties.life_detail).toEqual({
       anyOf: [{ type: "string" }, { type: "null" }],
     });
   });
@@ -136,6 +144,8 @@ describe("inbound Sol win_presentation extras", () => {
       life_trophy_title: null,
       accountability_supporting_quote: null,
       life_supporting_quote: null,
+      accountability_detail: null,
+      life_detail: null,
     });
 
     const malformed = parseInboundSolBriefExtras({
@@ -155,6 +165,8 @@ describe("inbound Sol win_presentation extras", () => {
     expect(malformed?.win_presentation.accountability_trophy_title).toBeNull();
     expect(malformed?.win_presentation.accountability_supporting_quote).toBeNull();
     expect(malformed?.win_presentation.life_supporting_quote).toBeNull();
+    expect(malformed?.win_presentation.accountability_detail).toBeNull();
+    expect(malformed?.win_presentation.life_detail).toBeNull();
   });
 
   it("invalid quote types do not fail extras parse; strings pass through for persist grounding", () => {
@@ -182,6 +194,38 @@ describe("inbound Sol win_presentation extras", () => {
     expect(parsed?.win_presentation.life_supporting_quote).toBe(
       "Going to church with Brooke and the kids!"
     );
+  });
+
+  it("invalid archival detail does not fail extras parse and becomes null", () => {
+    const parsed = parseInboundSolBriefExtras({
+      answer_priority: "normal",
+      coaching_after_answer: "no",
+      user_is_correcting_coach: false,
+      accountability_interpretation: {
+        relevance: "central",
+        outcome: "completed",
+        confidence: "high",
+        evidence: "yes",
+      },
+      meaningful_win: {
+        present: true,
+        grounded_action: "Rocky caught his first fish",
+        relationship: "life",
+      },
+      win_presentation: {
+        accountability_trophy_title: "Lifted Weights",
+        life_trophy_title: "Rocky Caught His First Fish",
+        accountability_supporting_quote: null,
+        life_supporting_quote: null,
+        accountability_detail: 12,
+        life_detail: `too long ${"x".repeat(240)}`,
+      },
+    });
+    expect(parsed?.accountability_interpretation.outcome).toBe("completed");
+    expect(parsed?.meaningful_win?.relationship).toBe("life");
+    expect(parsed?.win_presentation.accountability_detail).toBeNull();
+    expect(parsed?.win_presentation.life_detail).toBeNull();
+    expect(parsed?.win_presentation.accountability_trophy_title).toBe("Lifted Weights");
   });
 
   it("inbound extras appendix echoes Phase 2A meaningful_win capture law", () => {
@@ -233,6 +277,12 @@ describe("inbound Sol win_presentation extras", () => {
     expect(appendix).toContain('Bare "yes" / "Yep" → null');
     expect(appendix).toContain("He talked about it the entire boat ride home.");
     expect(appendix).toContain("FINALLY hit 300 on deadlift today!!!");
+    expect(appendix).toContain("accountability_detail");
+    expect(appendix).toContain("life_detail");
+    expect(appendix).toContain("one short factual sentence, or null");
+    expect(appendix).toContain("adds grounded context the matching title does not already communicate");
+    expect(appendix).toContain("Do not restate or paraphrase the title just to fill space");
+    expect(appendix).toContain("Do not polish grounded_action into pretty prose");
   });
 });
 

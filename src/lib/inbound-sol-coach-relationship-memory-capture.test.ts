@@ -148,6 +148,8 @@ function validBriefRaw(inboundOverrides: Record<string, unknown> = {}) {
         life_trophy_title: null,
         accountability_supporting_quote: null,
         life_supporting_quote: null,
+        accountability_detail: null,
+        life_detail: null,
       },
       ...inboundOverrides,
     },

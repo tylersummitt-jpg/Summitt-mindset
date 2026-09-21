@@ -9,6 +9,7 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 
 import { runLaneOpenAiJsonWithOneRetry } from "@/lib/v3-lane-openai-json-retry";
 import { limitWinDisplayTitleOrFallback } from "@/lib/v2-win-display-title";
+import { normalizeWinArchivalDetail } from "@/lib/inbound-sol-coaching-brief";
 
 export const WIN_RECOGNITION_VERSION = "win_v1" as const;
 export const WIN_RECOGNITION_OPENAI_MODEL = "gpt-4o-mini" as const;
@@ -150,8 +151,8 @@ export function parseAndValidateWinRecognitionResult(
 
     const grounded = typeof row.grounded_action === "string" ? row.grounded_action.trim() : "";
     const title = typeof row.suggested_title === "string" ? row.suggested_title.trim() : "";
-    const body = typeof row.suggested_body === "string" ? row.suggested_body.trim() : "";
-    if (!grounded || !title || !body) return null;
+    if (!grounded || !title) return null;
+    const suggested_body = normalizeWinArchivalDetail(row.suggested_body) ?? "";
 
     const whyRaw =
       row.why_meaningful == null
@@ -190,7 +191,7 @@ export function parseAndValidateWinRecognitionResult(
       grounded_action: trimTo(grounded, WIN_FIELD_LIMITS.action_fact),
       why_meaningful: whyRaw ? trimTo(whyRaw, WIN_FIELD_LIMITS.why_meaningful) : null,
       suggested_title: limitWinDisplayTitleOrFallback(title),
-      suggested_body: trimTo(body, WIN_FIELD_LIMITS.display_body),
+      suggested_body,
       evidence_quote: evidence,
       relationship_type: rel as WinRelationshipTypeV1,
       recognition_mode: mode as WinRecognitionModeV1,
@@ -253,7 +254,7 @@ Win criteria (you decide):
 - evidence_quote must be an exact contiguous substring of the current inbound message, or null. It is presentation, not Win truth. Include it only when those exact member words carry emotion, personality, humor, meaning, vivid detail, or a memorable reflection AND add something worth preserving beyond suggested_title. Bare yes/yep/ok and restatements of the title → null. Do not paraphrase.
 - Sensitive material may still be a Win; set sensitivity_caution=true (quote may be omitted)
 - suggested_title: a short archival event headline of what actually happened (usually verb + object, Title Case, <=80). Preserve grounded names, numbers, durations, and milestones — do not strip specificity to shorten. No praise, no Coach Pat voice, no generic trophy/category language (not "Proud Moment", "Big Win", "Great Job"). Do not begin with the member's first name; usually omit leading "I". Stay narrowly grounded in the same facts as grounded_action; do not add colorful extras for presentation. If a clean title would require invention, keep it as specific as the grounded facts allow without inventing.
-- suggested_body: specific, concise, human — not inflated
+- suggested_body: OPTIONAL ARCHIVAL DETAIL. One short factual sentence ONLY when it adds grounded context that suggested_title does not already communicate. Else empty string. Never filler. Never Coach Pat voice. Never invented. Never restate or paraphrase the title. Never polish grounded_action into pretty prose. Never summarize the entire inbound.
 - Do NOT write: "Win detected", "saved", "logged", "recorded", "added to Victory Room"
 - Order wins by the order the actions appear in the inbound message (ordinal 0 then 1)
 

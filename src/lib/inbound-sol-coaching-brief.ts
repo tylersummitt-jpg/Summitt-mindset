@@ -101,11 +101,32 @@ export const EMPTY_INBOUND_SOL_PENDING_PHOTO_RELATION: InboundSolPendingPhotoRel
 /** Matches v2_win.display_title CHECK / WIN_FIELD_LIMITS.display_title. */
 export const SOL_TROPHY_TITLE_MAX_CHARS = 80 as const;
 
+/** Matches v2_win.display_body CHECK / WIN_FIELD_LIMITS.display_body. */
+export const SOL_ARCHIVAL_DETAIL_MAX_CHARS = 240 as const;
+
+/**
+ * Shape-only archival detail validator. Invalid, empty, control chars, or >240 → null.
+ * Never slices. Never invents. Presentation only.
+ */
+export function normalizeWinArchivalDetail(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  for (let i = 0; i < raw.length; i++) {
+    const code = raw.charCodeAt(i);
+    if (code < 32 || code === 127) return null;
+  }
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  if (!collapsed) return null;
+  if (collapsed.length > SOL_ARCHIVAL_DETAIL_MAX_CHARS) return null;
+  return collapsed;
+}
+
 export type InboundSolWinPresentation = {
   accountability_trophy_title: string | null;
   life_trophy_title: string | null;
   accountability_supporting_quote: string | null;
   life_supporting_quote: string | null;
+  accountability_detail: string | null;
+  life_detail: string | null;
 };
 
 export const EMPTY_INBOUND_SOL_WIN_PRESENTATION: InboundSolWinPresentation = {
@@ -113,6 +134,8 @@ export const EMPTY_INBOUND_SOL_WIN_PRESENTATION: InboundSolWinPresentation = {
   life_trophy_title: null,
   accountability_supporting_quote: null,
   life_supporting_quote: null,
+  accountability_detail: null,
+  life_detail: null,
 };
 
 export type InboundSolBriefExtras = {
@@ -269,6 +292,8 @@ function parseWinPresentation(raw: unknown): InboundSolWinPresentation {
     life_trophy_title: normalizeSolTrophyTitle(o.life_trophy_title),
     accountability_supporting_quote: parsePresentationQuote(o.accountability_supporting_quote),
     life_supporting_quote: parsePresentationQuote(o.life_supporting_quote),
+    accountability_detail: normalizeWinArchivalDetail(o.accountability_detail),
+    life_detail: normalizeWinArchivalDetail(o.life_detail),
   };
 }
 

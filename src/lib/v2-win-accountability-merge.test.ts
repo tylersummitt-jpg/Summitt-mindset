@@ -71,6 +71,7 @@ describe("v2-win-accountability-merge", () => {
     });
     expect(plan.accountability!.presentation_source).toBe("structural_fallback");
     expect(plan.accountability!.action_fact).toContain("Lift weights");
+    expect(plan.accountability!).not.toHaveProperty("display_body_is_archival_detail");
     expect(plan.independent).toBeNull();
   });
 

@@ -198,10 +198,13 @@ describe("mapV2WinRowToPublicDto", () => {
     expect(dto).not.toHaveProperty("source_message_sid");
     expect(dto).not.toHaveProperty("hidden_reason");
     expect(dto).not.toHaveProperty("action_fact");
+    expect(dto).not.toHaveProperty("display_body_is_archival_detail");
+    expect(dto).not.toHaveProperty("displayBodyIsArchivalDetail");
     expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("updated_at");
     expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("source_type");
     expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("user_edited_at");
     expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("win_kind");
+    expect(PUBLIC_WIN_SELECT_COLUMNS).toContain("display_body_is_archival_detail");
     expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("source_message");
     expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("hidden_reason");
     expect(PUBLIC_WIN_SELECT_COLUMNS).not.toContain("action_fact");
@@ -337,6 +340,77 @@ describe("mapV2WinRowToPublicDto", () => {
       false
     );
   });
+
+  it("unedited SMS shows body only when display_body_is_archival_detail is true", () => {
+    const hidden = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Rocky Caught His First Fish",
+        display_body: "You confirmed completing today's commitment.",
+        supporting_quote: "Rocky caught his first fish!",
+        source_type: "sms_inbound",
+        user_edited_at: null,
+        display_body_is_archival_detail: false,
+        win_kind: "proud_moment",
+      }) as never
+    );
+    expect(hidden.displayTitle).toBe("Rocky Caught His First Fish");
+    expect(hidden.displayBody).toBe("");
+    expect(hidden.supportingQuote).toBe("Rocky caught his first fish!");
+    expect(hidden.winKind).toBe("proud_moment");
+    expect(hidden).not.toHaveProperty("display_body_is_archival_detail");
+
+    const shown = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Rocky Caught His First Fish",
+        display_body: "He used a Spider-Man pole and released a bluegill.",
+        supporting_quote: "Rocky caught his first fish!",
+        source_type: "sms_inbound",
+        user_edited_at: null,
+        display_body_is_archival_detail: true,
+        win_kind: "proud_moment",
+      }) as never
+    );
+    expect(shown.displayTitle).toBe("Rocky Caught His First Fish");
+    expect(shown.displayBody).toBe("He used a Spider-Man pole and released a bluegill.");
+    expect(shown.supportingQuote).toBe("Rocky caught his first fish!");
+    expect(shown.winKind).toBe("proud_moment");
+  });
+
+  it("manual and user-edited SMS show stored body even when archival marker is false", () => {
+    const manual = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Family Vacation",
+        display_body: "Took the kids to the beach.",
+        source_type: "manual",
+        user_edited_at: null,
+        display_body_is_archival_detail: false,
+      }) as never
+    );
+    expect(manual.displayBody).toBe("Took the kids to the beach.");
+
+    const edited = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Lifted weights with Brooke",
+        display_body: "We actually made it to the gym together.",
+        source_type: "sms_inbound",
+        user_edited_at: "2026-08-20T15:00:00.000Z",
+        display_body_is_archival_detail: false,
+      }) as never
+    );
+    expect(edited.displayBody).toBe("We actually made it to the gym together.");
+  });
+
+  it("historical-style unedited SMS without marker stays hidden", () => {
+    const dto = mapV2WinRowToPublicDto(
+      winRow({
+        display_title: "Lift weights for 30 minutes a day.",
+        display_body: "Lift weights for 30 minutes a day.",
+        source_type: "sms_inbound",
+        user_edited_at: null,
+      }) as never
+    );
+    expect(dto.displayBody).toBe("");
+  });
 });
 
 describe("publicWinCardDisplayBody owner-mode", () => {
@@ -353,6 +427,51 @@ describe("publicWinCardDisplayBody owner-mode", () => {
     ).toBe(false);
   });
 
+  it("shows unedited SMS body only when archival-detail marker is exactly true", () => {
+    expect(
+      publicWinCardDisplayBody({
+        displayBody: "He used a Spider-Man pole and released a bluegill.",
+        sourceType: "sms_inbound",
+        userEditedAt: null,
+        displayBodyIsArchivalDetail: true,
+      })
+    ).toBe("He used a Spider-Man pole and released a bluegill.");
+    expect(
+      publicWinCardDisplayBody({
+        displayBody: "He used a Spider-Man pole and released a bluegill.",
+        sourceType: "sms_inbound",
+        userEditedAt: null,
+        displayBodyIsArchivalDetail: false,
+      })
+    ).toBe("");
+  });
+
+  it("treats missing or invalid archival-detail marker as false", () => {
+    expect(
+      publicWinCardDisplayBody({
+        displayBody: "You confirmed completing today's commitment.",
+        sourceType: "sms_inbound",
+        userEditedAt: null,
+      })
+    ).toBe("");
+    expect(
+      publicWinCardDisplayBody({
+        displayBody: "You confirmed completing today's commitment.",
+        sourceType: "sms_inbound",
+        userEditedAt: null,
+        displayBodyIsArchivalDetail: null,
+      })
+    ).toBe("");
+    expect(
+      publicWinCardDisplayBody({
+        displayBody: "You confirmed completing today's commitment.",
+        sourceType: "sms_inbound",
+        userEditedAt: null,
+        displayBodyIsArchivalDetail: "true" as never,
+      })
+    ).toBe("");
+  });
+
   it("treats source_type manual as member-authored even without user_edited_at", () => {
     expect(
       publicWinCardDisplayBody({
@@ -362,6 +481,14 @@ describe("publicWinCardDisplayBody owner-mode", () => {
       })
     ).toBe("Took the kids to the beach.");
     expect(isMemberOwnedWinPresentation({ sourceType: "manual", userEditedAt: null })).toBe(true);
+    expect(
+      publicWinCardDisplayBody({
+        displayBody: "Took the kids to the beach.",
+        sourceType: "manual",
+        userEditedAt: null,
+        displayBodyIsArchivalDetail: false,
+      })
+    ).toBe("Took the kids to the beach.");
   });
 
   it("treats sms_inbound + user_edited_at as member-authored", () => {
@@ -378,6 +505,14 @@ describe("publicWinCardDisplayBody owner-mode", () => {
         userEditedAt: "2026-08-20T15:00:00.000Z",
       })
     ).toBe(true);
+    expect(
+      publicWinCardDisplayBody({
+        displayBody: "We actually made it to the gym together.",
+        sourceType: "sms_inbound",
+        userEditedAt: "2026-08-20T15:00:00.000Z",
+        displayBodyIsArchivalDetail: false,
+      })
+    ).toBe("We actually made it to the gym together.");
   });
 });
 

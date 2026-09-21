@@ -26,6 +26,7 @@ import {
   persistSolInboundWins,
   solWinDisplayTitleOverrides,
   solWinSupportingQuoteOverrides,
+  solWinDisplayBodyOverrides,
 } from "@/lib/inbound-sol-wins";
 import {
   EMPTY_INBOUND_SOL_WIN_PRESENTATION,
@@ -295,6 +296,41 @@ describe("solWinSupportingQuoteOverrides targeting", () => {
   });
 });
 
+describe("solWinDisplayBodyOverrides targeting", () => {
+  it("life detail is ignored without a life Win", () => {
+    const inbound: InboundSolBriefExtras = {
+      ...completed,
+      win_presentation: pres({
+        accountability_detail: "Finished the last set after almost skipping.",
+        life_detail: "He used a Spider-Man pole and released a bluegill.",
+      }),
+    };
+    expect(solWinDisplayBodyOverrides(inbound)).toEqual({
+      accountability: "Finished the last set after almost skipping.",
+      independent: null,
+    });
+  });
+
+  it("named detail fields do not swap", () => {
+    const inbound: InboundSolBriefExtras = {
+      ...completed,
+      meaningful_win: {
+        present: true,
+        grounded_action: "Rocky caught his first fish",
+        relationship: "life",
+      },
+      win_presentation: pres({
+        accountability_detail: "Finished the last set after almost skipping.",
+        life_detail: "He used a Spider-Man pole and released a bluegill.",
+      }),
+    };
+    expect(solWinDisplayBodyOverrides(inbound)).toEqual({
+      accountability: "Finished the last set after almost skipping.",
+      independent: "He used a Spider-Man pole and released a bluegill.",
+    });
+  });
+});
+
 describe("persistSolInboundWins trophy overlay routing", () => {
   beforeEach(() => {
     persistInboundWinsWithAccountability.mockReset();
@@ -357,6 +393,10 @@ describe("persistSolInboundWins trophy overlay routing", () => {
       accountability: null,
       independent: null,
     });
+    expect(arg.displayBodyOverrides).toEqual({
+      accountability: null,
+      independent: null,
+    });
     expect(arg.recognition?.has_win).toBe(false);
   });
 
@@ -413,8 +453,9 @@ describe("persistSolInboundWins trophy overlay routing", () => {
     const rec = persistRecognizedWins.mock.calls[0]?.[0]?.recognition;
     expect(rec.wins[0]?.grounded_action).toBe(grounded);
     expect(rec.wins[0]?.suggested_title).toBe("Swam With the Kids");
-    expect(rec.wins[0]?.suggested_body).toBe(grounded.slice(0, 240));
+    expect(rec.wins[0]?.suggested_body).toBe("");
     expect(rec.wins[0]?.evidence_quote).toBeNull();
+    expect(persistRecognizedWins.mock.calls[0]?.[0]?.suggestedBodyIsSolArchivalDetail).toBe(true);
   });
 
   it("G. acc+life passes named overlays onto the accountability merge call", async () => {
@@ -441,6 +482,10 @@ describe("persistSolInboundWins trophy overlay routing", () => {
       independent: "Swam With the Kids",
     });
     expect(arg.supportingQuoteOverrides).toEqual({
+      accountability: null,
+      independent: null,
+    });
+    expect(arg.displayBodyOverrides).toEqual({
       accountability: null,
       independent: null,
     });
@@ -524,7 +569,7 @@ describe("persistSolInboundWins trophy overlay routing", () => {
     expect(rec.wins[0]?.evidence_quote).toBe(inboundText);
     expect(rec.wins[0]?.suggested_title).toBe("Church With the Family");
     expect(rec.wins[0]?.grounded_action).toBe("Went to church with family");
-    expect(rec.wins[0]?.suggested_body).toBe("Went to church with family");
+    expect(rec.wins[0]?.suggested_body).toBe("");
   });
 
   it("paraphrased life quote becomes null and still persists the Win", async () => {
@@ -589,8 +634,102 @@ describe("persistSolInboundWins trophy overlay routing", () => {
       accountability: null,
       independent: lifeSpan,
     });
+    expect(arg.displayBodyOverrides).toEqual({
+      accountability: null,
+      independent: null,
+    });
     expect(arg.inboundMessage).toBe(inboundText);
     expect(persistRecognizedWins).not.toHaveBeenCalled();
+  });
+
+  it("accountability and life archival details overlay without creating unauthorized Wins", async () => {
+    const accDetail = "Finished the last set after almost skipping.";
+    const lifeDetail = "He used a Spider-Man pole and released a bluegill.";
+    await persist({
+      persistResult: yesEvent,
+      inbound: {
+        ...completed,
+        meaningful_win: {
+          present: true,
+          grounded_action: "Rocky caught his first fish",
+          relationship: "life",
+        },
+        win_presentation: pres({
+          accountability_trophy_title: "Lifted Weights",
+          life_trophy_title: "Rocky Caught His First Fish",
+          accountability_detail: accDetail,
+          life_detail: lifeDetail,
+        }),
+      },
+    });
+    const arg = persistInboundWinsWithAccountability.mock.calls[0]?.[0];
+    expect(arg.displayBodyOverrides).toEqual({
+      accountability: accDetail,
+      independent: lifeDetail,
+    });
+    expect(arg.recognition?.wins[0]?.grounded_action).toBe("Rocky caught his first fish");
+  });
+
+  it("life-only valid detail overlays suggested_body; invalid detail stays empty and still persists", async () => {
+    const grounded = "Rocky caught his first fish";
+    const detail = "He used a Spider-Man pole and released a bluegill.";
+    await persist({
+      persistResult: skippedEvent,
+      inbound: {
+        ...completed,
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "fish",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: grounded,
+          relationship: "life",
+        },
+        win_presentation: pres({
+          life_trophy_title: "Rocky Caught His First Fish",
+          life_detail: detail,
+        }),
+      },
+    });
+    expect(persistRecognizedWins).toHaveBeenCalledTimes(1);
+    expect(persistRecognizedWins.mock.calls[0]?.[0]?.suggestedBodyIsSolArchivalDetail).toBe(true);
+    expect(persistRecognizedWins.mock.calls[0]?.[0]?.recognition.wins[0]?.suggested_body).toBe(
+      detail
+    );
+    expect(persistRecognizedWins.mock.calls[0]?.[0]?.recognition.wins[0]?.grounded_action).toBe(
+      grounded
+    );
+
+    persistRecognizedWins.mockClear();
+    await persist({
+      persistResult: skippedEvent,
+      inbound: {
+        ...completed,
+        accountability_interpretation: {
+          relevance: "unrelated",
+          outcome: "not_applicable",
+          confidence: "high",
+          evidence: "fish",
+        },
+        meaningful_win: {
+          present: true,
+          grounded_action: grounded,
+          relationship: "life",
+        },
+        win_presentation: pres({
+          life_trophy_title: "Rocky Caught His First Fish",
+          life_detail: `too long ${"x".repeat(240)}`,
+        }),
+      },
+    });
+    expect(persistRecognizedWins).toHaveBeenCalledTimes(1);
+    expect(persistRecognizedWins.mock.calls[0]?.[0]?.recognition.wins[0]?.suggested_body).toBe("");
+    expect(persistRecognizedWins.mock.calls[0]?.[0]?.recognition.wins[0]?.grounded_action).toBe(
+      grounded
+    );
   });
 
   it("quotes cannot create a Win when none is authorized", async () => {
@@ -638,7 +777,7 @@ describe("Sol life fallback display_title is word-boundary limited", () => {
     });
     const win = input.recognition?.wins[0];
     expect(win?.grounded_action).toBe(LONG_SWIM);
-    expect(win?.suggested_body).toBe(LONG_SWIM);
+    expect(win?.suggested_body).toBe("");
     expect(win?.evidence_quote).toBeNull();
     expect(win?.suggested_title.length).toBeLessThanOrEqual(80);
     expect(win?.suggested_title).toBe(

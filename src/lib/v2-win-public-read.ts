@@ -18,7 +18,7 @@ export const PUBLIC_WINS_PAGE_LIMIT = 50;
 
 /** Columns selected from v2_win for public mapping (never returned raw to clients). */
 export const PUBLIC_WIN_SELECT_COLUMNS =
-  "id, occurred_at, display_title, display_body, supporting_quote, sensitivity_caution, celebration_appropriate, commitment_id, status, updated_at, source_type, user_edited_at, win_kind" as const;
+  "id, occurred_at, display_title, display_body, supporting_quote, sensitivity_caution, celebration_appropriate, commitment_id, status, updated_at, source_type, user_edited_at, win_kind, display_body_is_archival_detail" as const;
 
 /** Canonical public Victory type. Unexpected values map to null. */
 export type PublicWinKind = "goal_win" | "proud_moment";
@@ -97,6 +97,7 @@ type WinRow = {
   source_type?: string | null;
   user_edited_at?: string | null;
   win_kind?: string | null;
+  display_body_is_archival_detail?: boolean | null;
 };
 
 function requireClerkUserId(clerkUserId: string): string {
@@ -150,15 +151,23 @@ export function isMemberOwnedWinPresentation(args: {
   return normalizeWinUserEditedAt(args.userEditedAt) != null;
 }
 
-/** Card `displayBody`: stored body for member-owned Wins; empty for unedited system Wins. */
+/**
+ * Card `displayBody` visibility (server-side only).
+ * Manual and user-edited SMS always show stored body.
+ * Unedited SMS/AI shows stored body only when display_body_is_archival_detail is exactly true.
+ * Missing/invalid marker is treated as false (historical and fallback bodies stay hidden).
+ */
 export function publicWinCardDisplayBody(args: {
   displayBody: string;
   sourceType: string | null | undefined;
   userEditedAt: string | null | undefined;
+  displayBodyIsArchivalDetail?: boolean | null;
 }): string {
   const body = args.displayBody.trim();
   if (!body) return "";
-  if (isMemberOwnedWinPresentation(args)) return body;
+  if (normalizeWinSourceType(args.sourceType) === "manual") return body;
+  if (normalizeWinUserEditedAt(args.userEditedAt) != null) return body;
+  if (args.displayBodyIsArchivalDetail === true) return body;
   return "";
 }
 
@@ -173,6 +182,7 @@ export function mapV2WinRowToPublicDto(row: WinRow): PublicWinDto {
       displayBody: row.display_body,
       sourceType,
       userEditedAt,
+      displayBodyIsArchivalDetail: row.display_body_is_archival_detail === true,
     }),
     supportingQuote: sanitizePublicWinSupportingQuote({
       supportingQuote: row.supporting_quote,
