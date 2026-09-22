@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+  <title id="title">The Impact of Three Communication Elements on Messages of Feelings and Attitudes</title>
+  <desc id="desc">Pie chart: Words 7 percent; How words are said 38 percent; Facial expression and nonverbal communication 55 percent.</desc>
+  <rect width="900" height="520" fill="#ffffff"/>
+  <text x="450" y="46" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#222222">Impact of Communication Elements</text>
+  <circle cx="270" cy="270" r="150" fill="#730300"/>
+  <path d="M270 270 L270 120 A150 150 0 0 1 333.87 134.27 Z" fill="#ff6602"/>
+  <path d="M270 270 L333.87 134.27 A150 150 0 0 1 223.65 412.66 Z" fill="#eb524d"/>
+  <circle cx="270" cy="270" r="64" fill="#ffffff"/>
+  <g font-family="Arial, sans-serif" font-size="21" fill="#222222">
+    <rect x="500" y="160" width="24" height="24" rx="3" fill="#ff6602"/>
+    <text x="540" y="180">Words — 7%</text>
+    <rect x="500" y="220" width="24" height="24" rx="3" fill="#eb524d"/>
+    <text x="540" y="240">How words are said — 38%</text>
+    <rect x="500" y="280" width="24" height="24" rx="3" fill="#730300"/>
+    <text x="540" y="300">Facial expression / nonverbal — 55%</text>
+  </g>
+  <text x="450" y="490" text-anchor="middle" font-family="Arial, sans-serif" font-size="15" fill="#555555">Albert Mehrabian, Silent Messages (1981)</text>
+</svg>

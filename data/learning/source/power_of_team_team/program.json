@@ -1,0 +1,21 @@
+{
+  "schema_version": "learning_source_archive_v1",
+  "program_id": "power_of_team_team",
+  "source_platform": "docebo",
+  "source_title": "Power of Team - Team Version",
+  "source_docebo_id": null,
+  "source_url": null,
+  "rebuild_scope": "archive_only",
+  "source_description": null,
+  "source_completion_rules_text": null,
+  "source_completion_rules": {
+    "must_complete_all_steps": null,
+    "linear_lock": null,
+    "video_minimum_percent": null,
+    "quiz_pass_percent": null,
+    "raw_notes": null
+  },
+  "capture_notes": [],
+  "capture_status": "not_started",
+  "mini_programs": []
+}

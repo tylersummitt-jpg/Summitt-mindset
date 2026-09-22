@@ -114,6 +114,7 @@ export function Navbar() {
     { href: "/dashboard/victory-room", label: "Victory Room", key: "victory-room" },
     { href: "/ask-pat", label: "Ask Pat", key: "ask-pat" },
     { href: "/film-room", label: "Film Room", key: "film-room" },
+    { href: "/programs", label: "Programs", key: "programs" },
     { href: "/user", label: "Account", key: "user" },
     ...(!isNativeApp && !isSubscribed && !isPaused
       ? [{ href: "/subscribe", label: "Subscribe", key: "subscribe" }]

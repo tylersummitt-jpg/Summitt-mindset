@@ -1,0 +1,1270 @@
+{
+  "id": "dd_mp_06",
+  "collection_id": "definite_dozen",
+  "collection_title": "Definite Dozen",
+  "title": "Principle 5: Discipline Yourself, So No One Else Has To",
+  "description": "It's very important...that we have great work ethic. Some of the most talented players are not always the ones who work the hardest. Why? Because they don't have it right here. You've got to have it in your heart. You've got to be invested.",
+  "sequence": 5,
+  "estimated_minutes": 45,
+  "source_mini_program_id": "dd_mp_06",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "dd_mp_06_st_001",
+      "source_step_id": "dd_mp_06_st_001",
+      "sequence": 1,
+      "title": "Pat in Her Own Words",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Page 1 of 15\nPat in Her Own Words\n\nIt's very important...that we have great work ethic. Some of the most talented players are not always the ones who work the hardest. Why? Because they don't have it right here. You've got to have it in your heart. You've got to be invested.\n\nPat Summitt"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Discipline Yourself So No One Else Has To: Pat in Her Own Words",
+          "speaker": "Pat Summitt"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Outstanding Work Ethic\n\nIt’s difficult to argue the importance of an outstanding work ethic — a consistent commitment around working with energy and focus towards things that matter. People with an outstanding work ethic usually have outrageous levels of success in life, both personally and professionally. The reason is fairly simple — with hard work comes the ability to learn new things along the way, try things and fail, and then rebuild strategies. Individuals and teams with less talent, but with a strong work ethic, will often prevail over more talented teams that lack an outstanding work ethic.\n\nWithin Your Control\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nWhen it comes to work ethic in your team or organization, what aspects do you think are within your control and which are not?\n\nThank you! As a leader, you can't necessarily control your and your team's innate gifts or talents. However, what is within your control is the development and cultivation of an outstanding work ethic. With a great work ethic, almost anyone can at least reach some level of competence and success. When talented people come together and demonstrate stellar work ethic, the sky is truly the limit. No matter what the context, strategy, technology, or time, work ethic will always be a key factor in determining success.\n\nWhen talented people come together and demonstrate stellar work ethic, the sky is truly the limit.\n\nPeople with Talent\n\nSometimes you'll find people with outstanding talent who don't seem to work as hard as the rest of the group. If you've ever found yourself on a team observing a person with great talent, but a poor work ethic, it may have been tempting to feel a little jealous of their raw talent. However, in business and in life, work ethic makes a huge difference in your overall success. Simply put, you can't be successful in life without consistently developing your work ethic. Period. So don't be jealous of people with outstanding talent. Just commit to working as hard as you can, and if you're on a team with these talented people, encourage them to do the same!\n\nWork Ethic Is a Daily Investment That Pays\n\nCompounding interest is arguably a pretty good analogy for a work ethic. If you find a simple investment calculator and evaluate the power of compound interest each month over a period of years or decades, the accumulation of wealth is surprising — $100 a month for 30 years becomes $100,000. An investment of $1,000 a month for 30 years becomes a million. What starts off as a modest sum, with a modest effort, becomes a formidable financial force! It's the same with work ethic! You might barely notice the commitment you make in putting in that extra effort each day, similar to setting aside a few dollars each month. Over time, with that extra effort or funding, you'll end up with a fortune.\n\nWork Hard Every Day\n\nTo that end, leaders should demonstrate a commitment to themselves and with others to work hard every day. By making that investment, teams or groups can overcome even more talented adversaries or competitors.\n\nEveryone Needs to Work Hard\n\nIf everyone on a team isn’t working hard, a lack of synergy emerges. For example, if a leader permits a more talented team member to stop working hard, the other members of the team will become demotivated. On the other hand, there is nothing more motivating to a team than to look around and realize that everyone, including the leader, is working absolutely as hard as they can. Therefore, it's important for a leader to build the expectation within a group that hard work is a consistent expectation within the organization. Once that's established, it's very difficult to do anything but continuously progress."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_001_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_001_image_03.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_002",
+      "source_step_id": "dd_mp_06_st_002",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_06_st_002_q01",
+              "prompt": "Leaders are well served to make ___ part of the team or organizational ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "perfection, expectations"
+                },
+                {
+                  "id": "c2",
+                  "text": "punishment, policy manual"
+                },
+                {
+                  "id": "c3",
+                  "text": "hard work, culture"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_002_q02",
+              "prompt": "One of the reasons having a strong work ethic is such a powerful tool in leadership and peak performance is that it is entirely _____. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "within your control"
+                },
+                {
+                  "id": "c2",
+                  "text": "a product of genetics"
+                },
+                {
+                  "id": "c3",
+                  "text": "the responsibility of your followers"
+                },
+                {
+                  "id": "c4",
+                  "text": "readily and consistently available"
+                },
+                {
+                  "id": "c5",
+                  "text": "free"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c4",
+                "c5"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_002_q03",
+              "prompt": "The best way for a leader to make ___ a consistent pattern is to ___ it.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "strong work ethics, enforce"
+                },
+                {
+                  "id": "c2",
+                  "text": "peak performance, renumerate"
+                },
+                {
+                  "id": "c3",
+                  "text": "hard work, model"
+                },
+                {
+                  "id": "c4",
+                  "text": "respect, demand"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_003",
+      "source_step_id": "dd_mp_06_st_003",
+      "sequence": 3,
+      "title": "Discipline Yourself So No One Else Has To",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Discipline Yourself So No One Else Has To: Introduction",
+          "speaker": "Joan Cronan"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Page 3 of 15\nDiscipline Yourself So No One Else Has To\n\nDiscipline Yourself So No One Else Has To: Introduction, featuring Joan Cronan\n\nI don’t like this subject. It makes me bite my lip. I warn you right now that my warmest, friendliest side doesn’t show up in these pages. By the time you’re done, you’ll think I’m one tough lady, and you may even like me a little less. That’s okay, as long as you respect me and believe in what I tell you — because that’s what discipline is all about. It’s about belief.\n\n— Pat Summitt\n\nThe Importance of Discipline\n\nAt the most basic level, discipline is a term that relates to the ability to strictly adhere to a set of standards or obligations. If you have a health challenge and your doctor indicates you must avoid certain foods, the gift of discipline is what gives you the psychological certainty to purposefully and predictably avoid those foods that would make you unhealthy. So, in this context, to be a good leader, you need to be used to practicing and applying the benefits of discipline. Without question, in order to understand and embrace the benefits of discipline, you also have to have the maturity to realize that discipline isn’t about taking things away. It’s about growing and improving by eliminating, saying \"no,\" or simply making different choices. If you are under doctor’s orders to eat different things, you’re not saying \"no\" to food. You are, however, making different choices at breakfast, lunch, and dinner — and you have the mental ability, or the discipline, to navigate that choice.\n\nExternal and Internal Discipline Forces\n\nFor the patient whose doctor says they need to make some changes; for the child whose parents insist on good behavior; and yes, for Coach Summitt demanding discipline and alignment with her players — these are all examples of external forces building discipline. For the patient making lifestyle changes as an investment in their future; for the team member knowing the expectations and committing to hard work and dedication to meet or exceed them; and for Coach Summitt's players who committed to excellence even without her immediate oversight — these all reflect internal forces building discipline. Coach Summitt didn’t make \"suggestions\" about certain essential behaviors or conduct. She doggedly demanded them and held her players accountable rigorously and continuously. Her force within the program made it impossible for the players to make any other choices if they wanted to be on her team. Her external reinforcement, carefully established and clearly articulated, helped her players live and work with the level of discipline required to be champions.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nPat rather famously (and loudly) confronted behaviors not aligned with her high performance standards and disciplined approach. Do you think these external forces of discipline were enough to produce her highly successful teams over the years? Why or why not?\n\nThank you! High performance and discipline are not all she asked of her players, right? Indeed, like any great leader, Pat was interested in building her players' discipline, but eventually without her oversight. Once they understood the expectations, she wanted her players to begin to operate with a certain level of discipline and conduct without her having to observe or correct them.\n\nTo that end, which of the following would you say are important truths about discipline? Select all that apply.\n\nExactly! All of these are true about discipline. When individuals take on the leader's expectations as their own internal, individualized, personal expectations, this becomes a huge differentiator in helping the organization go \"from good to great\" or \"from great to exceptional.\"\n\nWell-led organizations understand and embrace this required discipline to the point where those expectations become the internal guardrails that govern every decision.\n\nSelf-Discipline: Who Needs Drive?\n\nUltimately, self-discipline is the primary destination. Organizations are far more effective when they are teaming with individuals who don’t need to be driven, but instead drive themselves. This is a powerful differentiator. Like our earlier example, without question, well-behaved children aren't born that way. Similarly, in organizational settings, even the most creative and innovative companies have expectations of behavior and effort. Yet even with those expectations, the most powerful companies employ people that don’t just comply with the requested behaviors out of a sense of duty. They behave that way because those expectations are in alignment with who they are as people. This is why it is so important to go to work for organizations that have a climate, culture, and expectations aligned with your own. Furthermore, it’s essential to be in charge of your own internal discipline and drive. So who needs drive? We all do, and leadership should be looking for individuals in their organization who are willing to hold the standard of discipline without having to be monitored every minute by the leader.\n\nWhat Do You Get from Self-Discipline?\n\nYou will have far greater effectiveness as a leader if you can demonstrate self-discipline yourself. As leaders, we need to perform! In fact, many extremely successful leaders will actually hold themselves to a much higher standard than even the standards they might hold for others. This sends the message to others that meeting and exceeding expectations is the gold standard.\n\nExactly! In all these situations, the leaders are living out their own high standards in front of their teams or followers, helping those individuals internalize and build their own self-discipline.\n\nMost of us would rather be moved by internal voices than be externally driven. The message is clear: in the best organizations with the best leaders, we see evidence that leaders set high standards, and then those standards become the cultural expectation. Each individual in the organization begins to adopt and internalize those expectations, allowing performance to be pushed to ever-higher levels!\n\nDiscipline fosters achievement and self-confidence. Discipline is the only sure way I know to convince people to believe in themselves. Discipline gets you out of bed in the morning. It gets you to work on time, and it tells you when you need to work late. It drives you. It is essential to success, whether individually or in a group.\n\n— Pat Summitt\n\nFirm, Fair, and Consistent\n\nWe've established that leaders need to lead with expectations of a highly disciplined environment, starting with themselves. Pat Summitt believed in setting some specific parameters around discipline practices for leaders — that they are firm, fair, and consistent.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nBefore we give you our thoughts on these three areas, how would you describe what it means to be firm, fair, and consistent with discipline?\n\nThank you! Firm\n\nTo be firm means to be certain. If, for example, as a leader you expect everyone to arrive on time and to deliver their work to a certain standard, to be firm means to meet the expectation, take it seriously, and maintain it. If an unmet expectation is not addressed by the leader, it sends the message that the expectation really wasn't that firm. It moves from being an \"expectation\" to a casual recommendation or desire.\n\nFair\n\nTo be fair means that the expectation is reasonable. To have a fair expectation of someone means that even if the expectation is rigorous it’s not impossible or unattainable for them. It might require growth or stretching on the team member's part, but it is achievable.\n\nConsistent\n\nThe expectation of consistency goes back to keeping your word. Favoring an individual or group over another and allowing them to slack off violates the consistency clause. The best coaches and leaders understand that a consistent standard for all creates a culture or climate where everyone sees discipline as something that is equally shared and expected."
+        },
+        {
+          "type": "sort",
+          "prompt": "Sort the items into either external or internal forces of discipline.",
+          "categories": [
+            "external_forces",
+            "internal_forces"
+          ],
+          "cards": [
+            {
+              "id": "a_doctor_instructing_her_patient_to_avoid",
+              "text": "A doctor instructing her patient to avoid certain foods for health reasons",
+              "correct_category": "external_forces"
+            },
+            {
+              "id": "parents_ordering_their_child_to_be_well_be",
+              "text": "Parents ordering their child to be well-behaved in a restaurant",
+              "correct_category": "external_forces"
+            },
+            {
+              "id": "coach_summitt_expecting_hard_work_and_dedi",
+              "text": "Coach Summitt expecting hard work and dedication from her players.",
+              "correct_category": "external_forces"
+            },
+            {
+              "id": "understanding_the_expectations_and_seeking",
+              "text": "Understanding the expectations and seeking to meet or exceed them",
+              "correct_category": "internal_forces"
+            },
+            {
+              "id": "coach_summitt_s_players_committing_to_exce",
+              "text": "Coach Summitt’s players committing to excellence without her direct oversight",
+              "correct_category": "internal_forces"
+            },
+            {
+              "id": "a_patient_making_lifestyle_changes_as_an_i",
+              "text": "A patient making lifestyle changes as an investment in their health and future.",
+              "correct_category": "internal_forces"
+            }
+          ]
+        },
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_06_st_003_q01",
+              "prompt": "To that end, which of the following would you say are important truths about discipline? Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Individuals on great teams hold each other accountable"
+                },
+                {
+                  "id": "c2",
+                  "text": "Successful teams maintain the standard even when the leader isn't around"
+                },
+                {
+                  "id": "c3",
+                  "text": "Individuals within a well-led organization take the leader's expectation as their own internal, individualized, personal expectation"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c2",
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_003_q02",
+              "prompt": "Which of these examples illustrate leaders who establish high standards and live them out in front of others in ways that might build internal discipline within others? Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Manuel occasionally comes to the office early and stays late to get things done. His team notices this and sees that he is willing to put in the time."
+                },
+                {
+                  "id": "c2",
+                  "text": "Amelia and Noah are in early elementary school. Their parents demand they make their beds every day. It creates a sense of order in the house. As kids, Amelia and Noah develop this habit because their parents made them do it. However, later as adults, they continue the habit because they have a deep sense of pride in their own homes."
+                },
+                {
+                  "id": "c3",
+                  "text": "Rachel asks her team to be available for extended coverage for a few weeks due to a large volume of expected business traffic. When she makes the announcement, she publicly lets the team know she isn't asking them to do anything she is unwilling to do herself, and she signs herself up for some of the extended hours time slots."
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c2",
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_004",
+      "source_step_id": "dd_mp_06_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_06_st_004_q01",
+              "prompt": "In this lesson, we learned that, to deliver discipline in a way that leads to better outcomes and to avoid negative impacts or criticisms, the discipline must be three things. What are they?",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "fair"
+                },
+                {
+                  "id": "c2",
+                  "text": "zero-tolerance"
+                },
+                {
+                  "id": "c3",
+                  "text": "simple"
+                },
+                {
+                  "id": "c4",
+                  "text": "consistent"
+                },
+                {
+                  "id": "c5",
+                  "text": "firm"
+                },
+                {
+                  "id": "c6",
+                  "text": "immediate"
+                },
+                {
+                  "id": "c7",
+                  "text": "kind"
+                },
+                {
+                  "id": "c8",
+                  "text": "situational"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c4",
+                "c5"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_004_q02",
+              "prompt": "____ discipline is the ultimate destination. It takes us to better places through a better knowledge of ourselves.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Team"
+                },
+                {
+                  "id": "c2",
+                  "text": "Sustaining"
+                },
+                {
+                  "id": "c3",
+                  "text": "Self-"
+                },
+                {
+                  "id": "c4",
+                  "text": "Enlightened"
+                },
+                {
+                  "id": "c5",
+                  "text": "Strictly enforced"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_004_q03",
+              "prompt": "It’s truly an amazing formula. ___ fosters ___, and the process tends to repeat itself over and over again.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Discipline, achievement"
+                },
+                {
+                  "id": "c2",
+                  "text": "Generosity, laziness"
+                },
+                {
+                  "id": "c3",
+                  "text": "Achievement, subordination"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_005",
+      "source_step_id": "dd_mp_06_st_005",
+      "sequence": 5,
+      "title": "Leadership Reflections: How Can You Model Self-Discipline?",
+      "blocks": [
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_06_st_005_reflection_01",
+          "prompt": "Leadership Reflections: How Can You Model Self-Discipline?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "These principles are far more likely to be replicated in your organization when they are practiced and applied rather than just talked about. Self-discipline is, once again, more likely to show up if it is demonstrated by the leader."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_06_st_005_reflection_02",
+          "prompt": "So, what could you do to demonstrate self-discipline in your organization?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_06_st_005_reflection_03",
+          "prompt": "What could you do to let the organization know that self-discipline is something the leader is willing to demonstrate? Get specific about things you could do to make this a powerful reminder to your organization."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_005_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_015_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_006",
+      "source_step_id": "dd_mp_06_st_006",
+      "sequence": 6,
+      "title": "Discipline Should Be Fair",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Discipline Yourself So No One Else Has To: Discipline Should Be Fair",
+          "speaker": "Teela Jackson"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Page 6 of 15\nDiscipline Should Be Fair\n\nAs a leader, you cannot develop discipline in others if you don't have self-discipline. It starts at the top. You have to demonstrate that no staff member, no employee, no star player, is above the rules. I don't ask anything of our players that I haven't asked of myself.\n\n— Pat Summitt\n\nDiscipline Yourself So No One Else Has To: Discipline Should Be Fair, featuring Teela Jackson\n\nWalking the Talk\n\nAs a leader, it's difficult to demand discipline and work ethic in others if you don't demonstrate that same level of discipline and work ethic for yourself. This is why we hold leaders to such a high standard. We watch how they carry themselves, how they dress, how they prepare, and how they execute their role. We notice what time a leader arrives at work, what time they leave, and we have a tendency to carefully observe the intensity a leader brings to their work each and every day.\n\nLeaders Hold the Standard\n\nOutstanding leaders hold an incredibly high standard for themselves and are always looking for opportunities to demonstrate the level of discipline required. By holding the standard and remaining consistent, the team understands that this standard of work, discipline, and performance is the common expectation. Everyone understands that this level of effort is what the team is committed to providing for the team and, ultimately, themselves.\n\nTeam Synergy Is Destroyed by the Lack of Discipline\n\nA team's energy erodes significantly when there is a collective lack of discipline. Consider this example:\n\nSuppose your team has an important commitment to keep. The leader has clearly set the expectations for the team.\n\nOne team member is particularly talented to the extent one would expect them to consistently exceed those expectations.\n\nIt turns out, though, that this individual, while talented in their work, is cutting corners in some areas. Perhaps they feel their attendance or meeting participation can slide because they’re so valuable to the team that they deserve some slack.\n\nThe leader seems to have this same philosophy and doesn’t hold this talented individual to the same standards as others on the team.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nHow would other, less-talented and less-skilled team members likely feel about this situation?\n\nThank you! Those teammates who didn’t have that same talent or skill would observe the other person getting a break, being relieved in the moment of discipline.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nIf you were on a team where a talented member was allowed to slack, would you put in the extra effort? Would you continue to extend yourself?\n\nThank you! Maybe you would put in the extra effort. But in many cases, teams are quickly diminished and the level of effort compromised when exceptions are made and discipline is sacrificed.\n\nThere's a Difference Between Personalization and Consistency\n\nSituational leadership is very popular in business today and it applies to both coaching and leadership. With situational leadership, the leader recognizes that it's important to recognize the individual person or psychological makeup of a team and try to support or lead within that context. The leader would support and engage them differently depending on the style they prefer in terms of motivation or engagement. Now, there is nothing perfect about this approach, and a leader can't expect that every interaction has to be perfectly tailored to every individual person. This would be impossible. It is, however, a good rule of thumb. Take team feedback, for example. Consider both sides of the following card:\n\nSome team members may be highly social. They might find themselves needing a lot of feedback from the leader.\n\nOther team members may prefer less interaction. They might only need occasional encouragement or redirection.\n\nWith situational leadership, the leader would support and engage these team members differently depending on the style they prefer in terms of motivation or engagement. This can be an effective, yet imperfect, approach. A leader can't possibly tailor every interaction to every individual person. But it's a good rule of thumb.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nHow might a leader mistakenly apply situational leadership in a way that negatively impacts the team or organization? In other words, how do you think situational leadership might be misapplied?\n\nTo summarize, two of the following behaviors combine to represent the very essence of situational leadership. All the other behaviors are quite the opposite. Select the two behaviors that, together, model situational leadership.\n\nYou got it! Situational leadership is not: being inconsistent or overly personalized with group expectations; compromising a team goal or expectation; or personalizing the standard or \"bar\" and letting people slide. Instead, situational leadership is: maintaining the expectations for everyone on the team, including the leader; and helping members of a team individually with as much stealth and grace as possible.\n\nRules Few in Number\n\nHave you ever read case law? It’s very complicated. Overly-complicated laws or rules take far too much effort to understand or execute. We hire tax attorneys because tax law is very hard to understand. As a leader, if you want fluid, unfettered compliance with the rules, while maintaining high levels of momentum, you simply can't make the rules so complex that it requires a specialist to interpret them.\n\nCoach Pat Summitt believed one way you can do this is to make sure your rules are few in number, yet important and impactful. Rather than 15 complex rules, you're better off with three to five very impactful rules that cover the majority of the conditions that would make a difference on the team or in the group. As a leader, spending time creating rules for every outlier example is arguably a waste of time and energy. Ultimately, teams don't work as quickly or with as much fluidity if they're thinking about the rules every moment. However, if the rules are clear and understandable, they can get momentum going by just keeping a few basic and essential elements in mind.\n\nRules That Solve Problems\n\nWhen you think about it, rules on a team or group are really aimed at solving problems on the way to success. The more mature the group or team, the more time that should be spent explaining the rule and clarifying its intent.\n\nFor example, suppose a preschool teacher makes a rule about hand washing to help keep her students from getting sick. That's the goal she wants to reach or problem she wants to tackle. She might explain to the children the basics of hand washing and germs. She then might create conditions where hand washing becomes a fun ritual. When these same kids get to grade school, that teacher may also have a hand washing rule. Several years have passed and the children are more mature, so this teacher might include a deeper explanation of germs, how they mature, and their impact on human health. When you're working with a more advanced group, give them the opportunity to understand that the rules should give the group an opportunity to work together in a more fluid way for peak performance. High-performing teams today will often establish team protocols within their group. For example, consider a team that wants to ensure they make better use of their time, while making everyone feel respected as a commitment to being part of the group. That's the problem they want to solve. As a group, they might collectively: 1. establish a rule together that timeliness in meetings is important; 2. decide that during team meetings, everyone must report in and provide feedback; and 3. establish a rule for minimizing distractions during the meeting in order to keep momentum.\n\nThese three simple rules would help solve the team's problems with meeting attendance, participation, and distractions. Rather than mechanisms for controlling behavior, the rules would create levels of freedom and improve the experience of everyone on the team — while deeply improving team performance.\n\nCracking Down Means Finding Balance\n\nFinally, it’s very important to set a high standard. The very best teams are willing to create highly disciplined conditions and aren't afraid to crack down on individuals who aren't meeting the expectations. It's also important that these high-expectation environments be encouraging and nurturing, or you will lose members of the team. If all you do is spend your time cracking down, eventually people will burn out and break out and no longer be part of the team.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nWhat potential challenges do you see for a leader who wants to both crack down on those not meeting expectations, while also being encouraging and nurturing? What are some ways you might overcome these challenges as a leader?\n\nThank you! Part of what it takes to be a leader is finding the balance between cracking down, nurturing, pulling back, and pushing forward. Leadership is an art, and being able to feel the energy of the group is important.\n\nLeaders can push a team too hard, where team members feel exhausted.\n\nLeaders can fail to push a team hard enough, leaving team members short of expectations.\n\nThe very best leaders aren’t always perfect, and even the great ones will miss out on opportunities either way. Remaining aware of this dynamic is important. Set that high expectation, and then be willing to observe the need to pull back the pressure and to make sure that the experience is rewarding."
+        },
+        {
+          "type": "sort",
+          "prompt": "Note: Your response to the following question is for self-reflection only and will not be saved or graded. How would other, less-talented and less-skilled team members likely feel about this situation?",
+          "categories": [
+            "situational_leadership",
+            "inconsistency_over_personalization"
+          ],
+          "cards": [
+            {
+              "id": "adapting_your_management_style_within_reas",
+              "text": "Adapting your management style, within reason, to team strengths & weaknesses",
+              "correct_category": "situational_leadership"
+            },
+            {
+              "id": "placing_team_members_in_roles_where_their",
+              "text": "Placing team members in roles where their talents can best be tapped",
+              "correct_category": "situational_leadership"
+            },
+            {
+              "id": "adjusting_work_schedules_to_help_with_team",
+              "text": "Adjusting work schedules to help with team members’ work-life balance",
+              "correct_category": "situational_leadership"
+            },
+            {
+              "id": "allowing_more_autonomy_for_team_members_wi",
+              "text": "Allowing more autonomy for team members with a proven track record",
+              "correct_category": "situational_leadership"
+            },
+            {
+              "id": "tailoring_feedback_based_on_team_members_p",
+              "text": "Tailoring feedback based on team members’ personal preferences.",
+              "correct_category": "situational_leadership"
+            },
+            {
+              "id": "expecting_more_of_your_team_than_you_are_w",
+              "text": "Expecting more of your team than you are willing to give yourself",
+              "correct_category": "inconsistency_over_personalization"
+            },
+            {
+              "id": "cutting_more_talented_team_members_some_sl",
+              "text": "Cutting more talented team members some slack when it comes to attendance",
+              "correct_category": "inconsistency_over_personalization"
+            },
+            {
+              "id": "expecting_more_work_output_from_the_newest",
+              "text": "Expecting more work output from the newest members of the team",
+              "correct_category": "inconsistency_over_personalization"
+            },
+            {
+              "id": "micromanaging_your_team_s_daily_work_activ",
+              "text": "Micromanaging your team’s daily work activities.",
+              "correct_category": "inconsistency_over_personalization"
+            }
+          ]
+        },
+        {
+          "type": "quiz",
+          "minimum_correct": 1,
+          "questions": [
+            {
+              "question_id": "dd_mp_06_st_006_q01",
+              "prompt": "To summarize, two of the following behaviors combine to represent the very essence of situational leadership. All the other behaviors are quite the opposite. Select the two behaviors that, together, model situational leadership.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Being inconsistent or overly personalized with group expectations"
+                },
+                {
+                  "id": "c2",
+                  "text": "Maintaining the expectations for everyone on the team, including the leader"
+                },
+                {
+                  "id": "c3",
+                  "text": "Compromising a team goal or expectation"
+                },
+                {
+                  "id": "c4",
+                  "text": "Personalizing the standard or \"bar\" and letting people slide"
+                },
+                {
+                  "id": "c5",
+                  "text": "Helping members of a team individually with as much stealth and grace as possible"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2",
+                "c5"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_006_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_006_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_006_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_006_image_05.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_006_image_06.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_007",
+      "source_step_id": "dd_mp_06_st_007",
+      "sequence": 7,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_06_st_007_q01",
+              "prompt": "Leaders must be aware that the lack of team discipline can result in ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "diminished team synergy and collaboration"
+                },
+                {
+                  "id": "c2",
+                  "text": "enhanced individual productivity"
+                },
+                {
+                  "id": "c3",
+                  "text": "the emergence of new leaders"
+                },
+                {
+                  "id": "c4",
+                  "text": "more creativity"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_007_q02",
+              "prompt": "One of the most powerful things a leader can do to create more elevated standards is to commit to ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "overcoming drudgery"
+                },
+                {
+                  "id": "c2",
+                  "text": "extensive planning"
+                },
+                {
+                  "id": "c3",
+                  "text": "setting and holding a standard"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_007_q03",
+              "prompt": "Rules are important when creating a disciplined environment. One of the most important things about rules is that they should be ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "posted in common areas"
+                },
+                {
+                  "id": "c2",
+                  "text": "few in number"
+                },
+                {
+                  "id": "c3",
+                  "text": "only for the most egregious mistakes"
+                },
+                {
+                  "id": "c4",
+                  "text": "avoided"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_008",
+      "source_step_id": "dd_mp_06_st_008",
+      "sequence": 8,
+      "title": "Discipline Should Be Firm",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Discipline Yourself So No One Else Has To: Discipline Should Be Firm",
+          "speaker": "Teela Jackson"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Page 8 of 15\nDiscipline Should Be Firm\n\nDiscipline Yourself So No One Else Has To: Discipline Should Be Firm, featuring Teela Jackson\n\nEat Your Vegetables...They’re Good for You\n\nParents often struggle getting their children to eat healthy foods. Obviously, foods like raw vegetables aren’t as appealing as other food choices. New parents may try to negotiate with their children. In an effort to get them to consume the healthy options, they will remind them that eating vegetables is good for them. Depending on the age of the child, this may not necessarily be a successful strategy. After all, promising a 3-year-old a longer, healthier life by eating more broccoli may be a tough sell!\n\nSimilarly, leaders are often put in positions where they need to convince those around them that discipline isn’t just something they have to endure to be on the team or part of the group. Instead, discipline becomes a common denominator that leads to good things personally for the individual. By convincing the group that discipline is a great thing for them as individuals (not just the team), success is more likely to happen. Clearly, Coach Summitt was successful at this. She was able to get her players to commit to success through discipline, and they remained dedicated to that commitment throughout the rest of their lives. Many of her former players went on to become coaches and successful in a variety of other business endeavors. Though they would graduate from the program, they realized the discipline they had learned was not only the undergirding element for their success in college, but for the success they would enjoy the rest of their lives.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nAs a leader, what are some ways you could help your team members see discipline as a benefit and a pathway to success, rather than a set of requirements and restrictions to endure?\n\nThank you! Pain in the Moment, Pleasure in the Mission\n\nWithout question, discipline brings pain. The pain in the moment can be physical pain, such as committing to a rigorous exercise program, a diet, or even staying up late to concentrate on finishing a report or putting together a project plan when sleep is calling. We have to push ourselves at times to meet our own expectations when we have a dedicated, strong, and ascending work ethic. If a team member loses focus on the future or the mission, the sacrifice seems senseless and irrelevant. Suppose you have an upcoming event or experience that makes you want to get in better shape:\n\nMaybe it’s a vacation and you want to get in shape to have more fun.\n\nMaybe it’s a wedding and you know pictures are going to be taken, so you want to lose a few inches.\n\nWith those goals in mind, you’re willing to tolerate the low-carb diet.\n\nYou push yourself through your workouts because you know what you’re working for.\n\nThat motivation or mission in front of you makes the pain associated with disciplining yourself tolerable. The best leaders are excellent at painting that picture for what’s possible and getting the team to work with energetic enthusiasm towards the goal. This enthusiasm makes any pain of the moment tolerable.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nWhat are the potential risks of establishing discipline and high standards without a clear, motivating mission?\n\nThank you! Without the Mission, It Becomes Drudgery\n\nThe opposite of what we just described is also possible. Leaders who don’t build a clear mission don’t make the pursuit of discipline seem worthwhile. Without a clear goal and the understanding of the commitment it will take to achieve that goal, the discipline in the moment can seem unnecessary and wearisome. Individuals might set aside cash and perhaps deprive themselves of certain things so they can appreciate accumulated wealth in the future. But if they didn’t have that vision for the future, the sacrifice they’d make to put that money aside would seem unnecessary. This is why, in some cases, people don’t save the money, don’t lose the weight, or fail to achieve any number of goals in front of them. They simply don’t relate the momentary sacrifice to the eventual success that comes with it. Fundamentally, getting individuals to see the endgame and understand the merits of pain in the moment for pleasure in the long run represents one of the most important elements of what it means to be a good leader. Once that vision is created, it becomes much easier to commit to the disciplined actions needed to achieve it. Without selling that vision and getting the team or group to commit, submitting to discipline simply becomes an act of drudgery that individuals execute out of a sense of obligation or compliance.\n\nHave you ever seen someone go through a workout without much enthusiasm? You can almost see it in their eyes. They don’t believe in what they’re doing, they’re not excited about it, and they appear to be going through the motions.\n\nOn the other hand, have you ever seen someone who gets really excited about their exercise program? Maybe they have some vision in their mind about what they’re trying to accomplish, and suddenly they hit those workouts with a deep level of enthusiasm! When they have that enthusiasm, they are hard to beat.\n\nLeadership Is Getting Others to Discipline Themselves\n\nAt the end of the day, even highly engaged leaders can’t be everywhere, creating expectations for every decision for every minute of the day. The best leaders create a rigorous environment where expectation is very clear. However, the very best leaders with the very best outcomes on the best teams create conditions within that team where self-discipline becomes an expectation. The motivation to achieve the group goals is in the hearts and minds of everyone there. Everyone holds one another accountable as together they pursue the goals that they have clearly articulated."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_05.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_06.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_07.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_08.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_009",
+      "source_step_id": "dd_mp_06_st_009",
+      "sequence": 9,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_06_st_009_q01",
+              "prompt": "One of the best practices a leader can pursue in order to build discipline is to create a culture of discipline, and then get each team member to adopt discipline as ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "a necessary drudgery"
+                },
+                {
+                  "id": "c2",
+                  "text": "the opposite of hope"
+                },
+                {
+                  "id": "c3",
+                  "text": "their own standard"
+                },
+                {
+                  "id": "c4",
+                  "text": "the lesser of two evils"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_009_q02",
+              "prompt": "Leaders can make discipline seem more necessary and relevant by reminding everyone that discipline today needs to serve the overarching _____.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "mission of the team or group"
+                },
+                {
+                  "id": "c2",
+                  "text": "societal forces at play"
+                },
+                {
+                  "id": "c3",
+                  "text": "psychological standards of the organization"
+                },
+                {
+                  "id": "c4",
+                  "text": "visibility of the leader"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_009_q03",
+              "prompt": "In the end, leaders must recognize that the most important thing they can do with ‘discipline’ is to ___. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "encourage self-discipline among others"
+                },
+                {
+                  "id": "c2",
+                  "text": "punish the least-disciplined member of the team"
+                },
+                {
+                  "id": "c3",
+                  "text": "create zero-tolerance policies that are understood"
+                },
+                {
+                  "id": "c4",
+                  "text": "be disciplined themselves"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_010",
+      "source_step_id": "dd_mp_06_st_010",
+      "sequence": 10,
+      "title": "Leadership Reflections: Strength in Numbers",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Page 10 of 15\nLeadership Reflections: Strength in Numbers\n\nIn these sections, we've discussed that one of the best ways to build a disciplined environment is to limit the number of rules you are trying to implement. You will create a much more disciplined environment if you consistently focus on a small handful of priorities that you remain disciplined about."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_06_st_010_reflection_01",
+          "prompt": "What would be an example of a handful of rules in your organization that could make for a more disciplined environment? Remember, this doesn't have to be an articulation of sins at work you're not supposed to commit. Innovative tech companies, for example, often set a rule that every employee will spend a certain amount of time innovating towards some unique and perhaps unplanned outcome as a way of creating a discipline around creativity. This priority wouldn't work if there were 50 other priorities."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_06_st_010_reflection_02",
+          "prompt": "Leaders must pick rules or priorities that are few in number, but important for the organization. What are the important priorities in your organization that would make a difference in the overall environment?"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_010_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_015_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_011",
+      "source_step_id": "dd_mp_06_st_011",
+      "sequence": 11,
+      "title": "Discipline Should Be Consistent",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Discipline Yourself So No One Else Has To: Discipline Should Be Consistent",
+          "speaker": "Teela Jackson"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Page 11 of 15\nDiscipline Should Be Consistent\n\nDiscipline Yourself So No One Else Has To: Discipline Should Be Consistent, featuring Teela Jackson\n\nDiscipline Is About Structure, Not Words\n\nFailed leaders will make the mistake of attempting to infuse discipline with well-crafted speeches. They will extol the virtues of discipline in one form or another and hope that their oratory skills will get the message across. Verbally reminding people what to do and when is valuable. But structure, systems, and guided practice will create conditions where discipline and structure are lived rather than simply talked about. Let’s use the tech industry as an example. Many companies today expect team members to consistently innovate on the job by trying new things and creating new ways of doing business. Suppose a senior leader at one of these companies gives a keynote speech stressing the importance of innovation.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nWhat impact — both positive and negative — might this leader's speech have on the organization? Do you think this approach is enough to create a disciplined culture of innovation at his company?\n\nThank you! Sure, talking about the importance of innovation routinely may motivate some people to change some behaviors. Now, suppose that instead of the keynote about innovation, or perhaps in addition to it, that leader establishes the expectation that a certain number of hours each week are to be devoted to innovation. Those innovations are to be tracked so that the company continues moving forward.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded.\n\nHow might the leader’s new approach play out in his company? What specifically is different about this approach?\n\nThank you! This time, the leader creates structure around innovation that makes it much more likely to happen. The structure, indeed, really matters.\n\nLeadership Is Architecture\n\nThis is where leadership becomes a process of engineering, design, and architecture. If creating an environment where structure creates the opportunity to pursue what's important, leadership has to be adept enough to create the structure that makes it more likely to flourish. With Coach Summitt, for example, if a team's physical readiness was important, building in strength practice on a consistent basis would provide the necessary structure to make that happen."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_011_image_03.jpg",
+          "alt": "Original lesson photograph accompanying Leadership Is Architecture."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Earlier in the course, we discussed how remarkably common that high-achieving leaders, coaches, and peak performers will get up and exercise in the morning before their day because they view self-care and peak physical conditioning as keys to their success. They recognize that in order for them to bring the most to their jobs, they have to prepare themselves physically. Your challenge as a leader will be creating structures in the organization where discipline becomes a lived component of the team or organization. Everyone will recognize the importance of discipline by operating in a structure that prioritizes it, features it, and makes it a non-negotiable element of what it means to work there or be there.\n\nIntegrity Talk vs. Integrity Structure\n\nSuppose an organization has a goal of building integrity — certainly a critical value. As we've established, the best leaders would approach this goal by creating discipline around activities that reinforce this outcome. If an individual fails to meet the expectation, a failure in integrity emerges."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "imagine_you_re_a_leader_taking_over_an_o",
+              "title": "Imagine you're a leader taking over an organization or team that hasn't been ve…",
+              "body": "Imagine you're a leader taking over an organization or team that hasn't been very successful."
+            },
+            {
+              "id": "you_and_your_team_collaborate_to_come_up",
+              "title": "You and your team collaborate to come up with some expectations for things that…",
+              "body": "You and your team collaborate to come up with some expectations for things that the team can do to begin to demonstrate greater levels of success."
+            },
+            {
+              "id": "together_you_make_a_commitment_to_certai",
+              "title": "Together, you make a commitment to certain activities, and everyone is accounta…",
+              "body": "Together, you make a commitment to certain activities, and everyone is accountable to those disciplines or practices that will lead to a better outcome."
+            },
+            {
+              "id": "as_everyone_looks_at_one_another_while_d",
+              "title": "As everyone looks at one another while doing this, an undeniable sense of integ…",
+              "body": "As everyone looks at one another while doing this, an undeniable sense of integrity will develop within the team."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "In this example, integrity has become a lived attribute. It wouldn't be something that a CEO or top leader just talks about. Integrity would become a lived property. Earned integrity is undeniable. And without question, teams who create those critical integrity-building moments almost always begin to have higher levels of success."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Exactly! Leaders often face this difficult question. However, if you drive away those who lack discipline and integrity, you're much better off than had you sacrificed either of these values to keep talented people around.\n\nA team will lose momentum if there isn't a collective sense of discipline. Furthermore, a team collectively and unanimously disciplined will be more successful than a team that allows certain members to cut corners. So, as Pat Summitt showed us in her tenure as the most successful basketball coach of all time, you're better off losing even supremely talented team members who are unwilling to be disciplined than to sacrifice the team for people that are unwilling to make the commitment. If you drive them away, they probably weren't going to contribute to your success anyway."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Absolutely! All of these will be improved if you have the commitment to adopt this philosophy.\n\nDiscipline Is All About Setting Standards, for Performance and Practice\n\nThese standards of discipline become the guideposts for performance. When mistakes are made or opportunities to grow present themselves, standards of discipline create the conditions to work on growth in these areas. The highest performing teams set high standards for their practice and are very disciplined about the steps they take to get themselves to the next level. Leaders in these organizations set high standards, speak to these high standards, and lead to these high standards. They have high standards for the outcomes they hope to achieve, and for the standards of practice that must be executed on a consistent level to achieve these outcomes. However, these standards have little value unless they meet four criteria:\n\nStandards must be collectively established"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "once_again_depending_on_the_level_of_sop",
+              "title": "Once again, depending on the level of sophistication within the team or group,…",
+              "body": "Once again, depending on the level of sophistication within the team or group, one of the best things a leader can do is to work collectively with the team to establish the standards for performance on the team. When team members or group members are involved in the process, there is an even greater likelihood that they will be energized and engaged in making sure that these standards are met."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Standards must be understood"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "one_of_the_most_basic_mistakes_some_lead",
+              "title": "One of the most basic mistakes some leaders make in establishing discipline sta…",
+              "body": "One of the most basic mistakes some leaders make in establishing discipline standards revolves around the failure to make clear what the standards actually mean. This can cause frustration both for the leader and within the team. It's hard to get a team or individual to comply with a set of expectations that they truly don't understand. So, a highly functional leader spends the time to make sure that the standards for performance are thoroughly explained. Ideally, team members or members of the group are given a chance to ask questions and clarify any misunderstandings they may have. Once again, with greater levels of understanding comes greater fluidity and execution."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Standards must be automatic"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "in_families_who_have_a_very_consistent_s",
+              "title": "In families who have a very consistent standard, there are certain habits and r…",
+              "body": "In families who have a very consistent standard, there are certain habits and rituals that don't ever need to be discussed. There is a standard set of expectations and habits that are undeniable and completely automated.\n\nEXAMPLE: If a family has already established they consistently go to religious services each weekend, they won't find themselves wondering what they'll be doing at 8am on Sunday. It has become automatic.\n\nWith high functioning teams or groups, this level of automation also revolves around punishments or consequences for the lack of compliance to the standard.\n\nEXAMPLE: Football coaches may develop consequences in practice for mistakes made during the game, especially mistakes within the players' control.\n\nThe fact that they are automated is what's extraordinarily important in this section. Automated consequences take the debate off the table.\n\nEXAMPLE: If the family with four children preparing for church on Sunday had to individually negotiate with each child, each Sunday, about each church service, it would take a while to engage in any faith-based activities. However, if there is a common set of expectations and an understanding about what happens when results aren't achieved, the automation becomes the formative element to once again build momentum.\n\nTherefore, the message here is that, as a leader, we must build standards and create automated responses that are non-negotiable, without regard to the circumstances or the people involved. This keeps everyone honest and moving forward and allows them to more consistently know what to expect on their team and for themselves."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Standards must be non-negotiable"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "if_a_family_of_four_has_established_a_st",
+              "title": "If a family of four has established a standard of attending weekly religious se…",
+              "body": "If a family of four has established a standard of attending weekly religious services, time spent negotiating with each family member on a Sunday morning would result in a rather chaotic exchange. When standards become non-negotiable, they become bigger than the individual and even bigger than the leader. It becomes an overall dynamic that exists in the organization. It becomes all about the individual’s awareness of what they need to do to get to where they need to go collectively to enjoy everyone's desired outcomes.\n\nEXAMPLE: If a family or team practices certain behaviors (hand washing, faith, exercise, or other health practices), these behaviors become a standard they collectively work toward. They aren't the nagging expectations of Mom, Dad, or a leader. Instead, each individual is aware of where the family or team is going collectively and what they must do, as individuals, to help them get there. This is truly an example of what happens when leaders elevate the conversation. In the case of the family of four, the weekly standard has already been established, so there's no need for wasting time negotiating with each family member on Sunday mornings."
+            }
+          ]
+        },
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_06_st_011_q01",
+              "prompt": "But what if discipline and integrity drive people away from your team or organization? Which of these do you think would be the best response?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Lower your expectations of discipline or integrity to make them more feasible for all team members."
+                },
+                {
+                  "id": "c2",
+                  "text": "Reassess your organization's focus on discipline and integrity as priorities."
+                },
+                {
+                  "id": "c3",
+                  "text": "Hold an all-team meeting reiterating the importance of discipline and integrity and what's in it for individual team members."
+                },
+                {
+                  "id": "c4",
+                  "text": "Acknowledge that you're better off driving away those who don't have discipline and integrity than to sacrifice either value."
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_011_q02",
+              "prompt": "If you have the commitment to enforce the philosophy that we just covered, which of the following do you think could be improved as a result? Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Growth of each team member"
+                },
+                {
+                  "id": "c2",
+                  "text": "Your long-term outcomes"
+                },
+                {
+                  "id": "c3",
+                  "text": "Your tenure as a leader"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c2",
+                "c3"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_011_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_012",
+      "source_step_id": "dd_mp_06_st_012",
+      "sequence": 12,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_06_st_012_q01",
+              "prompt": "If discipline and integrity drive people away, then it's ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "okay"
+                },
+                {
+                  "id": "c2",
+                  "text": "time to rethink your standards"
+                },
+                {
+                  "id": "c3",
+                  "text": "time to minimize the consequences"
+                },
+                {
+                  "id": "c4",
+                  "text": "clear that your standards are perfect"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_012_q02",
+              "prompt": "In order to have a disciplined environment, the standards of performance must be ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "understood"
+                },
+                {
+                  "id": "c2",
+                  "text": "voted on"
+                },
+                {
+                  "id": "c3",
+                  "text": "acceptable to all"
+                },
+                {
+                  "id": "c4",
+                  "text": "unanimously approved"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_012_q03",
+              "prompt": "The best leaders understand discipline is about ___, not ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "structure, words"
+                },
+                {
+                  "id": "c2",
+                  "text": "hope, gratitude"
+                },
+                {
+                  "id": "c3",
+                  "text": "learning, overcoming"
+                },
+                {
+                  "id": "c4",
+                  "text": "timing, luck"
+                },
+                {
+                  "id": "c5",
+                  "text": "punishment, growth"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_013",
+      "source_step_id": "dd_mp_06_st_013",
+      "sequence": 13,
+      "title": "Wrap-Up",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Discipline Yourself So No One Else Has To: Wrap-up",
+          "speaker": "Joan Cronan"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Page 13 of 15\nWrap-Up\n\nDiscipline Yourself So No One Else Has To: Wrap-up, featuring Joan Cronan\n\nThe Discipline Formula\n\nCreating a disciplined environment isn’t easy. One of the keys to making discipline happen regularly and with quality is a very simple formula:\n\n1. Setting a goal\n2. Creating a reward\n3. Leveraging that reward against the potential penalty, and\n4. Remaining consistent to that choice on a daily basis.\n\nLet’s break each of these down and reflect on how they can have an impact on individual and team or group success.\n\nStep 1: Setting a goal"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "goals_are_very_important_the_best_leader",
+              "title": "Goals are very important.",
+              "body": "Goals are very important. The best leaders understand that chasing a goal gives direction to both individuals and a group. The goal of getting in shape for a vacation puts a long-range aspiration in mind and impacts how an individual might respond in making daily food choices. Therefore, \"long-term\" goals are really good at helping to establish daily or \"short-term\" goals.\n\nThe great thing about a daily goal is that it can sit right in front of you and require immediate action. Daily goals are simple that way. Long-term goals are harder because they're bigger and can be overwhelming. This is why having a daily goal is so important. A daily goal allows you to look at that one solitary day and make decisions on what’s important for that day in alignment to these long-term aspirations.\n\nEXAMPLE: If an individual wants to hike the Grand Canyon from rim to rim and that person is 50 pounds overweight, they won't be ready to do that in a day. It will take days, weeks, even months to achieve that long-term goal. The prospect of being lean and fit enough to enjoy this experience may seem nearly unimaginable given where this person is in their journey.\n\nThis aspirational hiker can only control the next 24 hours, a short-term goal. Making good decisions over a 24-hour period brings them one day closer to their bigger goal."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Step 2: Setting a reward"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "rewards_matter_the_very_best_teams_organ",
+              "title": "Rewards matter!",
+              "body": "Rewards matter! The very best teams, organizations, and Fortune 100 companies rigorously celebrate the accomplishment of big goals. When annual, quarterly, or even monthly benchmarks are met, the best companies don’t miss out on the celebration! Celebrations provide a psychological reinforcement for the behaviors that made that achievement possible. This is important, because sometimes highly disciplined, high-achieving people will set high standards for themselves...and fail to celebrate benchmark progress. This is a mistake. Even though these highly motivated achievers might make their mark, there is tremendous advantage psychologically in celebrating milestones.\n\nSmartwatches and fitness trackers are incredibly popular today. They offer advanced feedback opportunities on your sleep quality, how many steps you've taken each day, and how long it's been since you moved around. They reward the wearer for achieving daily or weekly fitness goals. These simple digital celebrations are popular because they work! We respond well to even simple rewards, and they make us more likely to repeat the behavior.\n\nSo, whether you are used to having rewards in your life or not, you need to include them if you’re going to be an effective leader. Reward yourself and others when goals are achieved. The quality of the reward is less important than the recognition itself in making the greatest difference. How many of us have saved little notes along a journey or other seemingly insignificant recognitions of progress toward a goal, only because these small recognitions meant a lot to us?\n\nBy giving ourselves a little reward, our hearts and minds feel good and that will give us the discipline to continue doing what was expected to get the reward. Small rewards, day by day, lead to accomplishment of the overall goal.\n\nEXAMPLE: If the aspirational hiker wants to tackle their short- and long-term goals, perhaps they'll invest in and take advantage of a smartwatch for daily fitness tracking. Those simple daily rewards from the fitness tracker help motivate this individual to do it again tomorrow!\n\nPerhaps they'll go on some short, basic local hikes at first, gradually increasing the distance and challenge. Building strength and endurance through these increasingly challenging workouts help further feed the individual's drive and reward their progress. All the while, they're getting better equipped to tackle that upcoming challenge of hiking the Grand Canyon rim to rim.\n\nJust think, though — if this person failed to celebrate the wins along the way, would they ever feel ready to go for their long-term goal? Rewards matter!"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Step 3: Leveraging the reward against the potential penalty"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "okay_so_you_didn_t_meet_expectations_tod",
+              "title": "Okay, so you didn’t meet expectations today!",
+              "body": "Okay, so you didn’t meet expectations today! Ugh! It doesn't feel good to fail to meet expectations. This is why a simple structure established on a daily basis can reinforce the power of self-discipline. Decide up front what penalty may apply to missing the mark on your short-term goals along the way to your longer-term goals. The penalty should consist of some form of discomfort that serves to remind you in small and simple ways of the expectations you've held for yourself and that failing to meet your daily disciplined objective is not an option. The penalty reinforces how important it is to be vigilant each day if you're going to achieve your bigger goals!\n\nEXAMPLE: Remember our aspirational hiker? If they start slacking on their daily or weekly workouts and fail to make short-term progress, what will get them back on track? This individual might decide they have to execute an even more rigorous diet and exercise schedule the day after a miss to make up for the mistake. Or they might decide to temporarily lose a privilege for a day or two to help regain their focus. Or perhaps they revisit some self-portraits from when they began their weight loss journey to remind them where they came from and where they could return if they don't get back on track."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Step 4: Remaining consistent to that choice on a daily basis"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "you_ve_set_the_goal_determined_how_you_l",
+              "title": "You've set the goal, determined how you'll reward progress, and decided how you…",
+              "body": "You've set the goal, determined how you'll reward progress, and decided how you'll prevent the penalty for not successfully moving toward the goal. Now, it comes down to consistently making those choices every day and taking those steps that bring you closer to your goal.\n\nEXAMPLE: Our Grand Canyon hiker has to get out there daily and do the work. It's as simple as that, right? We know it may not necessarily be easy. We also know that working toward our short-term goals is the only way we'll move toward the longer-term goals. So, now this individual has to continue getting into better shape to be ready to tackle that amazing and challenging canyon!"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Summary\n\nCreating a disciplined environment isn’t easy. One of the keys to making discipline happen regularly and with quality is a very simple formula:\n\n1. Setting a goal\n2. Creating a reward\n3. Leveraging that reward against the potential penalty, and\n4. Remaining consistent to that choice on a daily basis.\n\nEver-Present, but Unnecessary\n\nPat Summitt’s goal for her players was to be \"ever-present,\" meaning her players knew that she was always there to maintain the standard—daily, weekly, and so on. However, she also believed that she was doing her job as a leader if eventually her presence became unnecessary at times. In other words, her players would respond when she wasn't looking by maintaining the standard as if she was. This is the true mark of excellent, successful leadership.\n\nYou Get to Keep What You Do for Yourself\n\nMany of Pat Summitt’s players went on to become highly successful coaches. Many went on to become successful at business and other endeavors. Great leaders create conditions through discipline where high levels of individual performance occur daily. Self-discipline becomes a permanent internal feature for those who embrace it. So, as a leader, you have an opportunity to touch the future by helping other people find an even better version of themselves through discipline.\n\nBe firm. You need to be willing to set a precedent. It’s not good just announcing a set of rules. Trust me, whether you are dealing with colleagues, or your own child, or yourself, the best way to discourage anarchy is the uncompromising enforcing the regulations... The first timeout will prevent a repeat offense.\n\n— Pat Summitt"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_014",
+      "source_step_id": "dd_mp_06_st_014",
+      "sequence": 14,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_06_st_014_q01",
+              "prompt": "____ help make goals attainable because they allow us to enjoy the process and be reinforced along the way.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Penalties"
+                },
+                {
+                  "id": "c2",
+                  "text": "Rules"
+                },
+                {
+                  "id": "c3",
+                  "text": "Rewards"
+                },
+                {
+                  "id": "c4",
+                  "text": "Detailed plans"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_014_q02",
+              "prompt": "Pat Summitt believed in letting her players know that she was___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "always right"
+                },
+                {
+                  "id": "c2",
+                  "text": "the sole authority they should answer to"
+                },
+                {
+                  "id": "c3",
+                  "text": "always watching them"
+                },
+                {
+                  "id": "c4",
+                  "text": "ever-present, but not necessary"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_06_st_014_q03",
+              "prompt": "The advantage of simple ___ is that they create a powerful leverage point to remind the team exactly what’s required to succeed.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "play calls"
+                },
+                {
+                  "id": "c2",
+                  "text": "practice drills"
+                },
+                {
+                  "id": "c3",
+                  "text": "rules"
+                },
+                {
+                  "id": "c4",
+                  "text": "compensation plans"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_06_st_015",
+      "source_step_id": "dd_mp_06_st_015",
+      "sequence": 15,
+      "title": "Leadership Reflections: Rewards and Penalties",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "One very basic but effective approach to creating a more disciplined environment is to create a system of simple rewards and penalties. Pat believed that a simple reward or quick penalty would psychologically establish guidelines for performance that would have a positive impact on the organization."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_015_image_01.jpg",
+          "alt": "Original lesson photograph accompanying the rewards-and-penalties reflection."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_015_image_02.jpg",
+          "alt": "Original lesson photograph accompanying the customer-contact performance reflection."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_06_st_015_image_03.jpg",
+          "alt": "Original Principle 5 lesson-completion image (source alt: wrap-up5.png).",
+          "role": "completion"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Congratulations! That concludes this lesson. You can revisit the completed course material at any time."
+        }
+      ]
+    }
+  ]
+}

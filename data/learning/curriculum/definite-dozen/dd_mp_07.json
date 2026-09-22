@@ -1,0 +1,895 @@
+{
+  "id": "dd_mp_07",
+  "collection_id": "definite_dozen",
+  "collection_title": "Definite Dozen",
+  "title": "Principle 6: Make Hard Work Your Passion",
+  "description": "Who would have anticipated that life on a dairy farm would have prepared Pat Summitt to be the winningest basketball coach of all time at the point of her retirement? Clearly her father had a great impact on her, and all of us lucky enough to enjoy elements of her legacy are grateful for his efforts. Several of the lessons her father taught her represented foundational elements of her approach to being a leader and can be of assistance to us as we think about outstanding leadership. Before we discuss Pat Summitt's definition of hard work, let's look at the statements below. Which of them represents you?",
+  "sequence": 6,
+  "estimated_minutes": 45,
+  "source_mini_program_id": "dd_mp_07",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "dd_mp_07_st_001",
+      "source_step_id": "dd_mp_07_st_001",
+      "sequence": 1,
+      "title": "Pat in Her Own Words",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Make Hard Work Your Passion: Pat in Her Own Words",
+          "speaker": "Pat Summitt"
+        },
+        {
+          "type": "markdown",
+          "markdown": "I grew up on a dairy farm. Cows don't take a day off. We worked, and we worked hard.\n\n— Pat Summitt\n\nWho would have anticipated that life on a dairy farm would have prepared Pat Summitt to be the winningest basketball coach of all time at the point of her retirement? Clearly her father had a great impact on her, and all of us lucky enough to enjoy elements of her legacy are grateful for his efforts. Several of the lessons her father taught her represented foundational elements of her approach to being a leader and can be of assistance to us as we think about outstanding leadership. Before we discuss Pat Summitt's definition of hard work, let's look at the statements below. Which of them represents you?\n\nYour responses will help you reflect on your own attitude towards work.\n\nI work only because I need a source of income.\n\nI bring mental focus and dedication to what I do.\n\nI bring passion and enthusiasm to my work.\n\nI have high expectations for my performance.\n\nThe leadership has high expectations for my performance.\n\nI end my week in total exhaustion from the boring work I am doing.\n\nI end my week feeling tired because I gave it my all.\n\nHow Do You Define Hard Work?\n\nMy Work Is Hard: I show up on time | I do my work according to the job description | I set expectations that meet job requirements | I leave when I am supposed to leave\n\nHard Work Is My Passion: I execute my job description with record-breaking efforts | I set rigorous goals and objectives | I bring mental focus and enthusiasm to everything I do | I show up on time or earlier | I leave when I am supposed to leave or later"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_07_st_001_reflection_01",
+          "prompt": "Reflect on your choices. Do you work, or do you work hard? It’s important to see the difference."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_001_image_02.jpg",
+          "alt": "“(My dad) inspired me because his expectations were so high.” — Pat Summitt"
+        },
+        {
+          "type": "markdown",
+          "markdown": "How High Are Your Expectations?\n\nOf the two examples above, which best represents you? How high are your expectations for hard work each week? If you are more like the second example, you don't reach Friday afternoon feeling exhausted from your work. You feel tired but satisfied that you have given it your all. After all, most of us aren't doing physical work that wears us out. It's the psychological fatigue at the end of the week that usually makes us tired. Would you rather have psychological fatigue after giving it your all, or would you rather have fatigue associated with boredom just for doing what's expected?\n\nIt all comes down to how high your expectations may be. For Pat, her Dad obviously set some pretty high expectations, and his influence carried over in everything that she did. For most of us, we can work harder. We can do more. We can exert more energy and bring more mental focus, passion, enthusiasm, and engagement to everything we do. If you want to excel as a leader and as a peak performer, make it your commitment to simply bring more effort, enthusiasm, and engagement to the pursuit of your goals."
+        },
+        {
+          "type": "sort",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “My Work Is Hard” or “Hard Work Is My Passion.”",
+          "categories": [
+            "My Work Is Hard",
+            "Hard Work Is My Passion"
+          ],
+          "cards": [
+            {
+              "id": "i_show_up_on_time",
+              "text": "I show up on time",
+              "correct_category": "My Work Is Hard"
+            },
+            {
+              "id": "i_do_my_work_according_to_the_job_descript",
+              "text": "I do my work according to the job description",
+              "correct_category": "My Work Is Hard"
+            },
+            {
+              "id": "i_set_expectations_that_meet_job_requireme",
+              "text": "I set expectations that meet job requirements",
+              "correct_category": "My Work Is Hard"
+            },
+            {
+              "id": "i_leave_when_i_am_supposed_to_leave",
+              "text": "I leave when I am supposed to leave",
+              "correct_category": "My Work Is Hard"
+            },
+            {
+              "id": "i_execute_my_job_description_with_record_b",
+              "text": "I execute my job description with record-breaking efforts",
+              "correct_category": "Hard Work Is My Passion"
+            },
+            {
+              "id": "i_set_rigorous_goals_and_objectives",
+              "text": "I set rigorous goals and objectives",
+              "correct_category": "Hard Work Is My Passion"
+            },
+            {
+              "id": "i_bring_mental_focus_and_enthusiasm_to_eve",
+              "text": "I bring mental focus and enthusiasm to everything I do",
+              "correct_category": "Hard Work Is My Passion"
+            },
+            {
+              "id": "i_show_up_on_time_or_earlier",
+              "text": "I show up on time or earlier",
+              "correct_category": "Hard Work Is My Passion"
+            },
+            {
+              "id": "i_leave_when_i_am_supposed_to_leave_or_lat",
+              "text": "I leave when I am supposed to leave or later",
+              "correct_category": "Hard Work Is My Passion"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_002",
+      "source_step_id": "dd_mp_07_st_002",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_07_st_002_q01",
+              "prompt": "One of the greatest challenges to high performance is establishing a standard for what it means to work hard.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "True"
+                },
+                {
+                  "id": "c2",
+                  "text": "False"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_002_q02",
+              "prompt": "Growing up on a dairy farm, Pat learned to _____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "keep trying, even when the effort was weak"
+                },
+                {
+                  "id": "c2",
+                  "text": "work, and keep working hard"
+                },
+                {
+                  "id": "c3",
+                  "text": "plan every morning"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_002_q03",
+              "prompt": "Hard work is far more likely to show up when you have _____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "high expectations"
+                },
+                {
+                  "id": "c2",
+                  "text": "no expectations"
+                },
+                {
+                  "id": "c3",
+                  "text": "low expectations"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_003",
+      "source_step_id": "dd_mp_07_st_003",
+      "sequence": 3,
+      "title": "Make Hard Work Your Passion: Introduction",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Make Hard Work Your Passion: Introduction",
+          "speaker": "Phillip Fulmer"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Here’s how I’m going to beat you. I’m going to outwork you. That’s it. That’s all there is to it.\n\n— Pat Summitt\n\nAny outstanding achievement includes some degree of hard work. Of course, we've heard the old adage, it's better to \"work smarter\" than to \"work harder.\" However, to work smart, you have to work hard to get either the perspective or the overall level of preparation necessary to achieve success. Remember, hard work doesn't have to mean working hard for a long period of time. Sometimes, working with very little effort will take you forever to get a job done, while working hard can cut the time in half. The purpose of this unit is to bring the concept of hard work into light, reflect on its elements, and establish the things that leaders can do to make hard work an endless component of personal and organizational development.\n\nHard Work is Practical\n\nOne of the merits of hard work is that it's entirely practical. If you are new on the job and you don't have experience, hard work helps mitigate that. If you have a deficit that you or your team is trying to overcome, hard work is the most accessible tool available to you.\n\nYou could start to work harder right now, and everything you do in your life would be better — your fitness, your finances, your career, and your relationships. Hard work is, without question, a very practical equalizer in giving everyone access to at least some level of success."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_003_image_02.jpg",
+          "alt": "Coach Pat Summitt instructs Semeka Randall on the sideline."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Does Hard Work Tire or Inspire You?\n\nHard work isn't easy. Coach Summitt worked hard every day of the year. She wanted everyone to know the merits of hard work and to emulate that ethic. If you can achieve something without working at it very hard, maybe you should ask yourself, \"Did I choose a difficult enough goal?\" If the goal is too easy, that level of inspiration just doesn't show up. You need to pick a goal that is rigorous enough to inspire you. The \"hard work\" part, however, is non-negotiable. You will be tired at the end no matter what you do.\n\nChallenge yourself with goals that are difficult to reach and rigorous enough to inspire you, and make the hard work non-negotiable."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_003_image_03.jpg",
+          "alt": "Coach crouching in front of bench, 1984."
+        },
+        {
+          "type": "markdown",
+          "markdown": "The Advantage of Loving What You Do\n\nWhen you love what you do, your life is spent in pursuit of things that make you happy. The trick in life — and in successful leadership — is to find those aspirational outcomes that mean a lot to you. Our brains work at their best when we feel those amazing impulses chasing what we really, really care about. When aspiration and enthusiasm are evident, there is almost unlimited opportunity to get creative.\n\nRevealing, Unleashing, and Continuously Elevating the Purpose and Passion\n\nThe very best leaders make a habit of continuously reminding everyone of the purpose and passion for their organization. If the team has the aspiration to win a national title, the coach must continuously remind the team that daily efforts will lead to this outcome. And if this outcome is something that everyone is interested in pursuing, it will indeed unleash the collective power of everyone involved. The leader then must become excellent at continuously presenting this mission and reminding the team every day.\n\nWhen the Leader Loves the Work\n\nWhen the leader of an organization or a team consistently demonstrates their heartfelt love for the mission or the goal, there's a far greater likelihood that this passion will be shared by others in the organization. And as that feeling spreads, momentum tends to build. In many cases, these individuals who will go on to other places and continue to share this same aspirational message and energy. Conversely, toxic leaders or people who work in organizations with a negative attitude will many times share that negativity, anger, and stress...and indeed create more of it. Therefore, the very best leaders must understand that it is critical for them to consistently demonstrate the love that they have for their work and for their mission.\n\nPreparation, Effort, and Energy Are All Within Your Control\n\nThe best leaders understand they can't wait for the ideal situation in order to be a prepared, energetic, and highly influential leader. They may be so busy with day-to-day efforts that they're exhausted, which makes them less impactful than they would like. A leader who makes excuses could throw their hands in the air and say that they simply can't lead with excellence within those conditions. However, the best leaders don't rely on this type of excuse. Instead, they recognize that tools like preparation, effort, and energy are indeed within their control, and that with strategy, time, and energy, they can put themselves in a position to create better outcomes.\n\nHow to Make Hard Work Your Passion\n\nLet's summarize what you can do to make hard work your passion, rather than an exhausting chore.\n\nSet challenging goals, and the hard work in pursuit of these goals will inspire you.\n\nSet aspirational goals that you and your team care about, and the hard work will turn into the labor of love.\n\nPersistently remind the team of the final outcomes of the team's efforts to unleash the collective power.\n\nConsistently demonstrate the love for your work and for the organization's mission.\n\nDo things that are within your control: your daily preparation, best effort, energy, and focus. You'll be better equipped for the day when things will get out of control."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_004",
+      "source_step_id": "dd_mp_07_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_07_st_004_q01",
+              "prompt": "It’s much easier to work hard when _________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "you have a passion for what you are doing"
+                },
+                {
+                  "id": "c2",
+                  "text": "you aren’t distracted by leadership responsibilities"
+                },
+                {
+                  "id": "c3",
+                  "text": "there is punishment if you don’t succeed"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_004_q02",
+              "prompt": "When you love what you do, know what you want, and commit to the hard work, working hard becomes ____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "an unavoidable task"
+                },
+                {
+                  "id": "c2",
+                  "text": "an unnecessary evil"
+                },
+                {
+                  "id": "c3",
+                  "text": "a labor of love"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_004_q03",
+              "prompt": "Hard work ___________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "guarantees little success"
+                },
+                {
+                  "id": "c2",
+                  "text": "requires challenging goals"
+                },
+                {
+                  "id": "c3",
+                  "text": "is not accessible to everyone"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_005",
+      "source_step_id": "dd_mp_07_st_005",
+      "sequence": 5,
+      "title": "Leadership Reflections: The Hard Work You Love",
+      "blocks": [
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_07_st_005_reflection_01",
+          "prompt": "If winners, effective leaders, and peak performers fall in love with hard work, they must go through a process to make this happen. It's rare when people are born with this sensibility. As Coach Pat Summitt indicated, this is generally accomplished by consistently committing to hard work and consistently associating that hard work with the pleasure of meeting work aspirations that are important to you. To that end, what are work efforts you consistently engage with that helped to lead to your success? For example, maybe you have found that getting to work early and responding to your email and setting up your day is a hard work example that truly makes you feel prepared each day. Think about the routines that you have that would be good demonstrations of hard work, and reflect on the positive things that dedication to hard work brings. In this case, taking the time to reflect really does serve to reinforce the link between hard work and passion."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_07_st_005_reflection_02",
+          "prompt": "That's necessary for you to continue to grow as a leader!"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_005_image_01.jpg",
+          "alt": "Original lesson photograph accompanying The Hard Work You Love reflection."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_006",
+      "source_step_id": "dd_mp_07_st_006",
+      "sequence": 6,
+      "title": "Commitment",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Make Hard Work Your Passion: Commitment",
+          "speaker": "Marie Mouchet"
+        },
+        {
+          "type": "markdown",
+          "markdown": "How can you make work fun? You can't, at least not entirely. Fun is the wrong word for something that makes your back hurt, your hands stiff, and your head ache. Work is drudgery, grind, toil. But you can make your work more satisfying. The first step is to commit to it. Decide to do it well.\n\n— Pat Summitt\n\nAs discussed, one of the keys to outstanding levels of performance is practice and preparation. When it comes to hard work, be a leader who loves the practice, preparation, and anticipation. Success won't happen by accident."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_006_image_02.jpg",
+          "alt": "A player has socks with hand-written “It’s in me” and “Focus.”"
+        },
+        {
+          "type": "markdown",
+          "markdown": "High Performance Requires High-Level Practice\n\nWhen peak performers do amazing things, there's a tendency to assume those amazing things happened for the first time when all eyes were on them. The truth is, outstanding leaders and peak performers practice at the level they hope to perform. Top sales professionals have practiced their pitch, have a plan for rejections, and have gone over their script so many times that it's second nature. Think about how much more confident a leader can be when they put this level of effort into their preparation.\n\nThe harder you work, the harder it is to surrender. Tennessee wins because, in the end, our players feel they have worked too hard not to.\n\n— Pat Summitt\n\nWins, Losses, Potential, and Hard Work\n\nWins and losses are easier to calculate when you reflect on games like basketball. Coach John Wooden from UCLA was famous for declaring that wins and losses in team sports weren't as important as the degree to which a team matched their potential. He was famously proud of some less-talented teams he coached who lost hard-fought games, but met and exceeded expectations. In business, things can sometimes get a bit cloudy. Amazing efforts can sometimes result in very little immediate return on investment, while in other cases, an unexpected win can emerge in the face of a rather indifferent or lucky effort. High-achieving leaders refrain from taking either of these anomalies too seriously, consistently reminding the team that it is important to work hard.\n\nIt’s Harder to Give Up When You Have Put in the Work\n\nAnother advantage of hard work is that it sets the expectation that winning or achievement is the expectation. A sports team who practices every imaginable game scenario is less surprised when those game scenarios show up in primetime. Businesses who anticipate the actions of their competitors and work rigorously to prepare for them are less surprised when these challenges appear. If they've never practiced or prepared for these scenarios, giving up becomes an easier option. If they have put more time into practice, they simply take the next steps in responding to whatever challenges they face.\n\nYou Are Surrounded, with What?"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_006_image_03.jpg",
+          "alt": "Coaches Holly Warlick, Pat Summitt, and Mickie DeMoss."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Think about the people who are around you each day. When it comes to your work, or even in your social spaces, are you surrounding yourself with people who share your work ethic and celebrate your drive? Think about all the outstanding performers over the years who have given credit to people around them. They may talk about a loving spouse, a faithful father or mother, or supportive son or daughter giving them the energy and grace to continue. That level of support is real. Can you achieve without it? Yes. But it's just a lot harder. The most successful leaders today understand this dynamic and take great steps to surround themselves with people who inspire them, drive them, and help them become even more. This is especially easy today in a world of technology. Surround yourself with people who not only understand your dream, but will push you to reach even farther. Surround yourself with high achievers who may say, \"That's not enough.\" Keep reaching and striving!\n\nThere is an unspoken understanding that develops between like-minded people who share a goal. The understanding is, 'Only you know and I know how hard we are willing to work on each other's behalf.'\n\n— Pat Summitt\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_007",
+      "source_step_id": "dd_mp_07_st_007",
+      "sequence": 7,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_07_st_007_q01",
+              "prompt": "One of the sobering truths discussed in this unit is the fact that, when it comes to high performance, you can’t simply ____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "switch it “on” without practice"
+                },
+                {
+                  "id": "c2",
+                  "text": "work hard and succeed"
+                },
+                {
+                  "id": "c3",
+                  "text": "lead by example"
+                },
+                {
+                  "id": "c4",
+                  "text": "focus on hard work and expect good things to happen"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_007_q02",
+              "prompt": "In order to be extremely successful, you must commit to a deep and sustaining ___________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "acceptance of your occasional mistakes"
+                },
+                {
+                  "id": "c2",
+                  "text": "love of practice and preparation"
+                },
+                {
+                  "id": "c3",
+                  "text": "commitment to withstanding your own punishments"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_007_q03",
+              "prompt": "When you commit to hard work, that commitment makes it far more difficult for individuals or an organization to ____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "engage in deep learning"
+                },
+                {
+                  "id": "c2",
+                  "text": "meet the challenge"
+                },
+                {
+                  "id": "c3",
+                  "text": "set and achieve goals"
+                },
+                {
+                  "id": "c4",
+                  "text": "give up"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_008",
+      "source_step_id": "dd_mp_07_st_008",
+      "sequence": 8,
+      "title": "Planning",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Make Hard Work Your Passion: Planning",
+          "speaker": "Marie Mouchet"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Make Hard Work Your Passion: Planning, featuring Marie Mouchet\n\nAre They Really \"Winging It\"?\n\nLet's consider the following scenario. A seasoned CEO is confronted with a novel challenge in the company, and everyone is pushing the panic button. The leader calmly finds an attainable solution. The solution, to the outside world, looks entirely novel. The leader appears to be \"winging it,\" as the saying goes.\n\nThe message here is simple. Everyone at some point is going to have to \"wing it\" and deal with situations that are new and novel. When those times come, those with a rich set of experiences — practicing along the way, always improving, tackling difficulties, navigating novel territory — will be most successful.\n\nPlan Your Work, and Work Your Plan\n\nThis adage is a key element in success as a leader. With goals on the horizon, a competent leader will recognize that they will only be achieved by establishing and executing a plan. We've all seen those leaders or peak performers who put together a plan only to leave it on their desk and fail to take action. Clearly, having a good plan is important, because working hard at a plan that won't work will never allow for the proper results to be achieved. But actually executing the plan is equally important. And within that formula, it's also important to analyze results and make adjustments as needed — potentially changing both the plan and its execution.\n\nYou have to work towards a goal in an organized fashion. You don't just show up in March and win a championship. You work every day in a systematic fashion. You have a long-range plan. But you also have a short-range plan. More importantly, you have to plan your daily activity and know what your goal is.\n\n— Pat Summitt"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_008_image_02.jpg",
+          "alt": "Types of Goals"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Career/Lifetime Goals"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_008_image_03.jpg",
+          "alt": "Pat Summitt with graduates Semeka Randall and Tamika Catchings."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Having goals for a career or lifetime are equally helpful. As is the case with any goal-setting, being specific matters. For example, if someone came to you and said they had a lifetime goal of being rich, you would need more information to provide counsel. If, to that person, \"being rich\" means \"being a millionaire,\" working a modest job and saving $1,000 a month for three decades with a modest return on investment might make them \"rich.\" If it's their desire to be a billionaire, however, and if that's the definition of \"rich,\" that strategy won't be enough. The same is true with almost any goal. The desire to own your own business versus the desire to be the CEO of a major company represent very different goals and very different steps along the way.\n\nAnnual/Quarterly Goals"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_008_image_04.jpg",
+          "alt": "Business leader image for annual and quarterly goals."
+        },
+        {
+          "type": "markdown",
+          "markdown": "You can't reach lifetime goals without creating annual goals. The best leaders establish annual goals and commit to achieving them en route to their overall career or life goals. Sometimes quarterly goals are even needed to enhance motivation and momentum in smaller chunks.\n\nMonthly/Weekly Goals"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_008_image_05.jpg",
+          "alt": "Weekly planner image for monthly and weekly goals."
+        },
+        {
+          "type": "markdown",
+          "markdown": "By establishing monthly and weekly goals, effective leaders and peak performers can then drill down even further and make plans for every day, built around these expectations. With these goals in mind, it's helpful to create a list of potential tasks for the day. Group these activities in terms of their priority and their relationship to other tasks of the day. As discussed earlier, the most important and intense tasks of the day should be put towards the front of the day so they will be attended to with high levels of energy and commitment.\n\nThe three types of goals you reviewed are:\n\nHere is a summarized list of planning ideas and tips to help you review your own planning habits."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_009",
+      "source_step_id": "dd_mp_07_st_009",
+      "sequence": 9,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_07_st_009_q01",
+              "prompt": "A deep and sustaining knowledge of your goals will make you _______.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "more independent"
+                },
+                {
+                  "id": "c2",
+                  "text": "more efficient in pursuit of the goal"
+                },
+                {
+                  "id": "c3",
+                  "text": "less creative"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_009_q02",
+              "prompt": "Pat Summitt believed that hard work should be driven by passionate awareness and the desire to achieve your _______.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "potential, without regard to your gifts"
+                },
+                {
+                  "id": "c2",
+                  "text": "view of the world"
+                },
+                {
+                  "id": "c3",
+                  "text": "goals"
+                },
+                {
+                  "id": "c4",
+                  "text": "leader or coach’s approval"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_009_q03",
+              "prompt": "Coach Summitt believed in a simple but profound approach: ‘_______ your _______, and _______ your _______.’",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Understand, strengths, announce, weaknesses"
+                },
+                {
+                  "id": "c2",
+                  "text": "Understand, weaknesses, announce, strengths"
+                },
+                {
+                  "id": "c3",
+                  "text": "Plan, work, work, plan"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_010",
+      "source_step_id": "dd_mp_07_st_010",
+      "sequence": 10,
+      "title": "Leadership Reflections: Making It Hard to Give Up",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "We learned in these sections that it's harder for human beings to give up when they've put in the hard work. This makes a lot of sense. Putting in the hard work requires a lot of effort, and you don't extend that effort imagining failure.\n\nReflect on something really hard at your work and how it had an impact on your commitment to seeing it come to fruition. Maybe you're working on a project now. Maybe you have put in a lot of effort and you're starting to feel like achieving the goal is painstakingly paramount!"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Reflect on how that feels and reflect on how that hard work builds up your commitment. Working hard and making hard work your passion actually make winning and achieving feel better, and they will likely make you absolutely detest losing and/or missing the mark. Take the time and reflect!"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_010_image_02.jpg",
+          "alt": "Second reflection photograph."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_010_image_01.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_011",
+      "source_step_id": "dd_mp_07_st_011",
+      "sequence": 11,
+      "title": "Execution",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Make Hard Work Your Passion: Execution",
+          "speaker": "Marie Mouchet"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Make Hard Work Your Passion: Execution, featuring Marie Mouchet\n\nWhy Do We Avoid Hard Work?\n\nThere is a consistent tendency within human beings to avoid hard work. Before we get too hard on ourselves, let's reflect on why that might be. In nature, there is no advantage for \"survival\" when running in circles, sweating, and aching, for no material benefit. From a \"survival\" standpoint, there is great advantage, however, to sweating and potentially running in circles to get something to eat, create shelter, or otherwise protect yourself and your family. With this example in mind, we are hardwired for likely hundreds of generations to work hard at things that matter. We shouldn't have to only reserve hard work for matters of life or death. But it is important for us to understand a biological predisposition to avoid hard work that doesn't directly help the body survive.\n\nDo I Have to Work Hard All the Time?\n\nAt the root of charlatan-powered \"get rich quick\" schemes is the notion that you can have all you want in an instant. What lies beneath this assumption is the notion that maybe we don't have to work hard all the time. Without question, the best leaders and peak performers absolutely reject this kind of thinking. For them, hard work is a way of life. When we are born, we work hard to learn to walk, grow, evolve, and learn. When we become adults, we have to work hard to find our place in society and to maintain it. We have to work hard to find a mate and to raise a family. And when we get older, even if we have found a place of comfort in retirement, we likely will have to work hard to stay healthy and to maintain our quality of life.\n\nThe best leaders understand that life doesn't have to be hard. But hard work must be part of life when you embrace hard work as a necessary element of being alive and having a quality standard of living.\n\nMake Hard Work Your Passion\n\nSo, given the importance of hard work, the best leaders and peak performers understand that they must make hard work their passion. They must love hard work and see it as a critical element for who and what they are, every day of their lives. Those who are still struggling to achieve what an elite leader achieves often find themselves marveling that a top leader is sometimes also wildly successful in hobbies like running, triathlons, or CrossFit competitions, in addition to their leadership success. If you're wondering how successful leaders can achieve success at work and still find time for elite levels of success in their pastime, you are observing the very essence of the learning in this unit. These leaders and peak performers are successful in nearly everything they do because they've learned that hard work needs to follow them wherever they go. They often work hard to understand what it means to be a good partner, a good parent, a good friend. They might invest in reading, training, listening, and understanding that goes above and beyond, because they know that the harder they work in anything they do, the more success that they have.\n\nOne of the reasons winning leaders and peak performers value hard work is because it provides a destination for all their energy and ambition. Peak performers have steadily built their capabilities, and even when they achieve their goals, it's hard for them to turn off the switch that pushes them to work hard. It's almost like a discovery that people make, and once they realize that hard work is going to be a common denominator of everything they do, there is no mountain too difficult to climb and no aspiration too bold to conquer.\n\nHard Work and Confidence\n\nAnother advantage of hard work is that it creates conditions where confidence is more likely to show up. If several team members are tasked with preparing for a major sales presentation, they will feel more confident about the presentation if they've worked really hard to understand the pitch and be well-versed in all the potential objections and questions. By preparing for the work, there's a far greater likelihood that confidence will arise in the presentation itself. Therefore, even if someone isn't a naturally confident person, hard work can give them the confidence they need in otherwise challenging situations.\n\nHard Work and Hurdles\n\nOnce again, with hard work, leaders are more prepared for the eventual hurdles that every team or group faces. High-performing football teams are famous for running two-minute drills, getting players to run their offense in the face of a deficit, in an effort to gain a comeback victory. Practicing \"being behind\" is an example of practicing for potential hurdles. When you practice for potential hurdles, you put yourself in a much better position to be successful...and to never endure the hurdles in the first place.\n\nHard Work Is Harder Than It Looks\n\nAll of this probably sounds good and may make sense intellectually. The fact is, hard work is actually harder than it looks. There's a million reasons why looking for an easier way out becomes appealing in the moment, and leaders must be aware of these tendencies and try hard to keep the focus on quality and consistent hard work. That said, there are certain strategies that can help make hard work show up more consistently.\n\nThree Hard Work Hacks\n\n1. Lean on your commitment.\n\nIf you have an opportunity to compete in the next Olympic Games, hard work may come a little easier in the face of a countdown to an Olympic event. A rigorous Monday morning workout may seem less daunting in the face of an aggressive commitment you've made to yourself to get to the Olympics. The degree to which we can keep that commitment front and center will help drive our success.\n\nIndividually, we should always keep our goals in front of us. By reminding ourselves of our annual, quarterly, monthly, and weekly goals, we put ourselves in a position where our daily hard work seems like a practical reaction in the face of a commitment that means a lot to our head and heart. To help this show up with your team, find creative ways of keeping the ascending goal in front of them and keep them excited about the steps they're taking towards the goal. When doing so, the hard work will seem smaller and obvious on the way to the goal.\n\n2. Tackle the least desirable goal first.\n\nIn many cases, there are forms of procrastination that keep us from jumping straight into the grind, putting work into the most demanding elements of our goal. As a result, one of the steps you can take is to pursue the least desirable goal first. In other words, if there is a particularly difficult element that must be executed, front-load the most rigorous endeavor first, to put yourself in a position where you guarantee that it's being tackled with the greatest amount of physical, emotional, and mental energy.\n\n3. Emphasize the positive aspects of an unfavorable situation.\n\nThis may sound like simple, positive thinking. However, it goes deeper than that. Successful leaders and peak performers notice and ultimately emphasize the positive aspects that can be found in otherwise unfavorable situations. In other words, in the face of a setback or something negative, they try to find something positive, affirming, or growth-oriented.\n\nFor example, many tech companies run into problems when they try a new innovation and it fails. One of the spiraling downfalls is that a team of engineers or inventors can get discouraged after several failures. Pretty soon they go on a \"losing streak\" and are unable to create. Instead, what some leaders have done to combat this is to actually take the time to celebrate the failure when they have experienced it. This may sound illogical, but it all comes down to how the issue is framed. Rather than \"celebrating the failure\" in its plainest sense, innovators learn to celebrate the fact that they have strategically identified a new way that won't work. In other words, they have eliminated one possibility, and are now one step closer to the solution. This is exciting, because rather than being discouraged by the failure, they can then get encouraged that they are getting closer to a solution."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_011_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_011_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_011_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_011_image_05.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_011_image_06.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_011_image_07.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_011_image_08.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_012",
+      "source_step_id": "dd_mp_07_st_012",
+      "sequence": 12,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_07_st_012_q01",
+              "prompt": "It’s not enough to simply work hard if you want outstanding results. You have to ________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "make hard work your passion"
+                },
+                {
+                  "id": "c2",
+                  "text": "make time for yourself"
+                },
+                {
+                  "id": "c3",
+                  "text": "learn creative avoidance"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_012_q02",
+              "prompt": "One of the strategies for training yourself to work hard is to _______.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "tackle the least desirable job first"
+                },
+                {
+                  "id": "c2",
+                  "text": "tackle the most desirable job first"
+                },
+                {
+                  "id": "c3",
+                  "text": "continue to make to-do lists"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_012_q03",
+              "prompt": "Hard work gives a person a new sense of _______. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "dependence"
+                },
+                {
+                  "id": "c2",
+                  "text": "readiness"
+                },
+                {
+                  "id": "c3",
+                  "text": "confidence"
+                },
+                {
+                  "id": "c4",
+                  "text": "fatigue"
+                },
+                {
+                  "id": "c5",
+                  "text": "focus"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2",
+                "c3",
+                "c5"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_013",
+      "source_step_id": "dd_mp_07_st_013",
+      "sequence": 13,
+      "title": "Wrap-Up",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Make Hard Work Your Passion: Wrap-Up",
+          "speaker": "Phillip Fulmer"
+        },
+        {
+          "type": "markdown",
+          "markdown": "We simulate, prepare, and train so that the task of winning does not seem so daunting. It's what we are supposed to do, because we have worked hard all year. We expect to win because we practice it. I believe you get what you expect.\n\n— Pat Summitt\n\nMake Hard Work Your Passion: Wrap-Up, featuring Phillip Fulmer\n\nWinners Win the Day\n\nIt’s been said that we can't do anything about the past, nor can we predict or dictate the future. The only thing we have control of is the present. In the present, we have control of ourselves and our efforts, and our present means putting forth the best effort possible in this moment, on this day. This is why the most successful leaders and peak performers become so obsessed with making meaningful plans for each day, and executing their plans with high focus, concentration, and passion.\n\nHigh achievers and successful leaders recognize that today is what we have, and we need to make the most of each of our days.\n\nGet Out of Your Comfort Zone\n\nBy getting out of our comfort zone and trying something that's more difficult or perhaps a bit out of reach, we put ourselves in the best position to grow. It can sometimes be difficult because we typically need to find something simple enough to understand, yet challenging enough to create new knowledge or skill. Have you ever tried to learn something and it's far too complicated for your level of learning? It's frustrating! Finding that learning zone of \"challenging, yet reachable\" isn't easy. But it's exactly what leaders target. They try to get their teams out of their comfort zones and reaching for a level of performance that's just beyond their current ability to perform, yet within reach with enough effort.\n\nPut Your Commitment on Display\n\nThis is especially true for leaders. In the music industry, some performers try to appear to the outside world like their art is simply a manifestation of their gifts, and that they have only a casual interest in their performance and recordings — but, in reality, they are hyper-competitive and obsessed with progress. Leaders, on the other hand, have no excuse for refusing to continually extol the virtues of hard work. If a leader intends to lead an organization that's deeply committed to growth, they need to show the world that this is their commitment as well.\n\nThe best work should have an alive quality. It should be performed with some feeling — even with passion. You may not think your intention is visible, but it is. The intent is obvious in your every action — more than you would ever know.\n\n— Pat Summitt\n\nWhat You Focus on Is What You Create\n\nThis sounds like a great motivational phrase, yet it has incredibly practical \"Monday morning\" application. The human brain tends to pursue what you tell it to. If you wake up every morning and ask yourself \"What's wrong with me?,\" you're likely to find answers. And in doing this, you will spend a lifetime inspecting your flaws. Similarly, if you wake up each day and focus on growth and keep your periodic goals in mind, you'll make the most of each day and be more focused on progress.\n\nEstablish a Commitment to the Daily Habit of Making Your Future a Reality\n\nSadly, some people give up on their dreams and the art of possibility. They see dreams and aspirations as something meant for somebody else. This is incredibly sad, because in reality, the people who continue to succeed in life maintain an unshakable ritual of seeing their future as their reality. It is said that no great dream is ever created without that dream first being built in the hearts and minds of the leaders who hope to see it happen. Keep focusing on that construction and planning for the best use of each day so that you can get there sooner than later."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_013_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_014",
+      "source_step_id": "dd_mp_07_st_014",
+      "sequence": 14,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_07_st_014_q01",
+              "prompt": "Coach Summitt believed one of the things that great leaders did was put their ___________ on display.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "commitments"
+                },
+                {
+                  "id": "c2",
+                  "text": "fears"
+                },
+                {
+                  "id": "c3",
+                  "text": "weaknesses"
+                },
+                {
+                  "id": "c4",
+                  "text": "challenges"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_014_q02",
+              "prompt": "By looking at your goals on a consistent basis, you can make your ________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "past mistakes less challenging"
+                },
+                {
+                  "id": "c2",
+                  "text": "past mistakes less visible"
+                },
+                {
+                  "id": "c3",
+                  "text": "less-organized habits less visible"
+                },
+                {
+                  "id": "c4",
+                  "text": "future a reality"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_07_st_014_q03",
+              "prompt": "Pat Summitt believed the only way to get to the next level of your achievement was to get out of your ___________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "comfort zone"
+                },
+                {
+                  "id": "c2",
+                  "text": "supervisor’s expectations of you"
+                },
+                {
+                  "id": "c3",
+                  "text": "own way"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_07_st_015",
+      "source_step_id": "dd_mp_07_st_015",
+      "sequence": 15,
+      "title": "Leadership Reflections: Your Hard Work on Display",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "When you put your hard work out there, it does two things. First, it forces you to commit, and second, it makes public a commitment to hard work in the organization, thus pushing everyone to work harder."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_07_st_015_reflection_01",
+          "prompt": "What would be an example in your work environment of a commitment to hard work that you could make that would be public enough to get you to commit? What would be public enough to get the attention of the organization you are a part of?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_07_st_015_reflection_02",
+          "prompt": "For example, if your organization demands 50 customer contacts a week, and you start making 100 and that performance is known to all, what could that do to the culture? What would committing to 100 calls or 100 contacts do for you? Make this example your own and reflect on what it would mean to put your hard work on display and commit to it."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_015_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_015_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_015_image_03.jpg",
+          "alt": "Lesson complete",
+          "role": "completion"
+        }
+      ]
+    }
+  ]
+}

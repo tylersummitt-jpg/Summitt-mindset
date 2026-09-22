@@ -1,0 +1,32 @@
+{
+  "schema_version": "learning_source_archive_v1",
+  "captured_at": "2026-09-21T14:51:19.379654+00:00",
+  "captor": "chatgpt-work",
+  "capture_status": "in_progress",
+  "programs": [
+    {
+      "program_id": "definite_dozen",
+      "source_title": "Pat Summitt Leadership Group Definite Dozen",
+      "rebuild_scope": "rebuild",
+      "path": "definite_dozen/program.json"
+    },
+    {
+      "program_id": "championing_women",
+      "source_title": "Championing Women in Leadership",
+      "rebuild_scope": "rebuild",
+      "path": "championing_women/program.json"
+    },
+    {
+      "program_id": "power_of_team_leader",
+      "source_title": "Power of Team - Leader Version",
+      "rebuild_scope": "rebuild",
+      "path": "power_of_team_leader/program.json"
+    },
+    {
+      "program_id": "power_of_team_team",
+      "source_title": "Power of Team - Team Version",
+      "rebuild_scope": "archive_only",
+      "path": "power_of_team_team/program.json"
+    }
+  ]
+}

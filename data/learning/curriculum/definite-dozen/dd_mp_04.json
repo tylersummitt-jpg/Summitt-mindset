@@ -1,0 +1,843 @@
+{
+  "id": "dd_mp_04",
+  "collection_id": "definite_dozen",
+  "collection_title": "Definite Dozen",
+  "title": "Principle 3: Develop & Demonstrate Loyalty",
+  "description": "I tell our players right off that loyalty is so big. Loyalty. I would not hire anyone I couldn't trust. I would struggle with any player that wasn't loyal to our system.",
+  "sequence": 3,
+  "estimated_minutes": 45,
+  "source_mini_program_id": "dd_mp_04",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "dd_mp_04_st_001",
+      "source_step_id": "dd_mp_04_st_001",
+      "sequence": 1,
+      "title": "Pat in Her Own Words",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Page 1 of 15\nPat in Her Own Words\n\nI tell our players right off that loyalty is so big. Loyalty. I would not hire anyone I couldn't trust. I would struggle with any player that wasn't loyal to our system.\n\nPat Summitt"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Develop & Demonstrate Loyalty: Pat in Her Own Words",
+          "speaker": "Pat Summitt"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Paul proposes an organizational change. The learner agrees it is good but determines the timing is wrong and that senior leadership may not support it, then explains that decision to Paul. Prompts: (1) If Paul is a disloyal employee, what are some ways you think he might respond in this situation? (2) Let’s assume that you, as the leader, are right, and better outcomes emerge by ignoring Paul's advised changes. Let's also assume that Paul is a loyal employee. From that experience, what could both the leader and follower learn? (3) Now let’s assume yet another outcome. What if Paul, as the follower, was right about his suggestion? What if Paul’s prediction was correct and your team or group falters because the leader made the wrong choice?"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_002",
+      "source_step_id": "dd_mp_04_st_002",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_04_st_002_q01",
+              "prompt": "Which of the following did Pat Summitt say is critical regarding loyalty?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "A team mostly made up of “yes” people who don’t challenge the status quo"
+                },
+                {
+                  "id": "c2",
+                  "text": "The ability from within to support someone that’s sitting in the “big chair”"
+                },
+                {
+                  "id": "c3",
+                  "text": "A willingness to build an alliance among team members who disagree with the leader"
+                },
+                {
+                  "id": "c4",
+                  "text": "Complete agreement among the leader and all team members"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_002_q02",
+              "prompt": "Regarding loyalty, Pat Summitt said she wouldn’t hire anyone she couldn’t _____.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "trust"
+                },
+                {
+                  "id": "c2",
+                  "text": "persuade"
+                },
+                {
+                  "id": "c3",
+                  "text": "change"
+                },
+                {
+                  "id": "c4",
+                  "text": "like"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_002_q03",
+              "prompt": "Pat Summitt said that if she discovered she had a disloyal staff member, she would have only one choice. What was it?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Lead a loyalty workshop for her team"
+                },
+                {
+                  "id": "c2",
+                  "text": "Hold a team meeting with the rest of the staff"
+                },
+                {
+                  "id": "c3",
+                  "text": "Make a staffing change"
+                },
+                {
+                  "id": "c4",
+                  "text": "Seek to change the disloyal person’s viewpoint"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_003",
+      "source_step_id": "dd_mp_04_st_003",
+      "sequence": 3,
+      "title": "Develop & Demonstrate Loyalty",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Page 3 of 15\nDevelop & Demonstrate Loyalty"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Develop & Demonstrate Loyalty: Introduction, featuring Greg Hiebert",
+          "speaker": "Greg Hiebert"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_004",
+      "source_step_id": "dd_mp_04_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_04_st_004_q01",
+              "prompt": "Pat Summitt believed that the best way for your organization to achieve excellence is to create an environment where the people you work with are seen as ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "competent"
+                },
+                {
+                  "id": "c2",
+                  "text": "well-intended"
+                },
+                {
+                  "id": "c3",
+                  "text": "replaceable"
+                },
+                {
+                  "id": "c4",
+                  "text": "family"
+                },
+                {
+                  "id": "c5",
+                  "text": "happy"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_004_q02",
+              "prompt": "Loyalty is developed in an organization by doing each of the following things, except one. Identify the one element below that is not part of what it means to build loyalty.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Execute simple acts of kindness"
+                },
+                {
+                  "id": "c2",
+                  "text": "Seek out those who will reliably report the lack of loyalty"
+                },
+                {
+                  "id": "c3",
+                  "text": "Hire high-performing people"
+                },
+                {
+                  "id": "c4",
+                  "text": "Refrain from “throwing people under the bus”"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_004_q03",
+              "prompt": "The first step in creating a culture of loyalty is to _____.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "demonstrate it yourself"
+                },
+                {
+                  "id": "c2",
+                  "text": "demand respect from those you work with"
+                },
+                {
+                  "id": "c3",
+                  "text": "write a mission statement specifically mentioning loyalty"
+                },
+                {
+                  "id": "c4",
+                  "text": "develop “loyalty creeds” and recite them regularly"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_005",
+      "source_step_id": "dd_mp_04_st_005",
+      "sequence": 5,
+      "title": "Leadership Reflections: Loyalty on Display",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Page 5 of 15\nLeadership Reflections: Loyalty on Display\n\nOnce again, these principles are far more likely to be replicated in your organization when they are practiced and applied rather than just talked about. Loyalty is far more likely to show up if it is specifically demonstrated by the leader."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_005_reflection_01",
+          "prompt": "To that end, what could you do to demonstrate loyalty in your organization?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_005_reflection_02",
+          "prompt": "What could you do to let the organization know that loyalty is something that the leader is willing to demonstrate and promote? Get specific about things you could do where you work to make this demonstration a powerful reminder to your organization."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_006",
+      "source_step_id": "dd_mp_04_st_006",
+      "sequence": 6,
+      "title": "A Family Model",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Page 6 of 15\nA Family Model"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Develop & Demonstrate Loyalty: A Family Model, featuring Joan Cronan",
+          "speaker": "Joan Cronan"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_007",
+      "source_step_id": "dd_mp_04_st_007",
+      "sequence": 7,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_04_st_007_q01",
+              "prompt": "Pat Summitt makes it clear that loyalty is not ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "achievable without conflict"
+                },
+                {
+                  "id": "c2",
+                  "text": "a lofty goal"
+                },
+                {
+                  "id": "c3",
+                  "text": "a one-way street"
+                },
+                {
+                  "id": "c4",
+                  "text": "achievable without some hardship"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_007_q02",
+              "prompt": "Coach Pat Summitt suggested that strong leaders need not to be followed by ___ people.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "wishy-washy"
+                },
+                {
+                  "id": "c2",
+                  "text": "\"maybe\""
+                },
+                {
+                  "id": "c3",
+                  "text": "\"no\""
+                },
+                {
+                  "id": "c4",
+                  "text": "\"yes\""
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_007_q03",
+              "prompt": "The advantage of hiring people on your team who are better than you at certain things is that they ___. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "will automatically be loyal"
+                },
+                {
+                  "id": "c2",
+                  "text": "improve outcomes"
+                },
+                {
+                  "id": "c3",
+                  "text": "help the organization"
+                },
+                {
+                  "id": "c4",
+                  "text": "make up for things the leader can't do"
+                },
+                {
+                  "id": "c5",
+                  "text": "will threaten your own job security"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2",
+                "c3",
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_008",
+      "source_step_id": "dd_mp_04_st_008",
+      "sequence": 8,
+      "title": "The EQ Wacky Stack",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Page 8 of 15\nThe EQ Wacky Stack"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Develop & Demonstrate Loyalty: The EQ Wacky Stack, featuring Joan Cronan",
+          "speaker": "Joan Cronan"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_008_reflection_01",
+          "prompt": "The two sides of that card describe two very different types of organization, don't they? One of the quickest ways to differentiate between them is by really reflecting on how it feels to be there. Feelings are just the signal. But being aware of the feelings is the first step in addressing the concerns behind them. Because of the importance of emotions, the term emotional intelligence has emerged. Emotional intelligence refers to an individual’s ability to recognize their own emotional state and likewise to recognize the emotional states of others."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_008_reflection_02",
+          "prompt": "How EQ Shows Up. Leaders with high levels of EQ can sense what their team is feeling and can reflect on the appropriateness of that feeling. What if the team failed to achieve expectations and the team members didn’t seem very frustrated? Might the leader worry more about that? Indeed, the best leaders understand that emotions are a signal, and what to do with that signal might be different depending on the circumstances. Leaders must be able to sense these emotions if they are going to make the right choices for the team."
+        },
+        {
+          "type": "markdown",
+          "markdown": "IQ, or Intelligence Quotient, allows us to assess a person's mental or intellectual capacity. A person with a high IQ has the ability to understand complex issues and apply what they are learning at a higher level due to their intelligence. Certainly, IQ testing is an imperfect science, but generally speaking, the scientific community is pretty good in the modern era at identifying human potential by measuring intelligence with an IQ test and other measures.\n\nHowever, like Joan Cronan suggested in the video, it isn’t all about our IQ, is it? Our heads and our hearts work together in ways that can’t always be easily predicted.\n\nIn fact, there was a rather famous mistake in the scientific community many decades ago where a handful of students were accidentally told that they had a much higher IQ than they were able to demonstrate. With this knowledge, these students performed at a much higher level than their IQ would have predicted. After this rather famous discovery, it became clear that human potential was more than intellectual potential alone. We’ve come to realize that it is more about the heart and head connection when it comes to making a difference. In other words, human performance is both an emotional and intellectual proposition. As a result, we have become fascinated with the concept of both: IQ (Intelligence Quotient), and EQ (Emotional Quotient, or \"emotional intelligence\").\n\nWhat is Emotion? Simply put, your emotions are your feelings, and they are key to survival. Let’s start with the obvious. Human beings are always ebbing and flowing from one emotional state to the next.\n\nEmotions play a critical role in our very existence. As you work your way through this learning material, we hope you are energized and curious. Those are emotional states. If, while you're reading this, the roof of your house starts caving in, it would be very logical for you to shift from curiosity to fear and terror! In fact, your ancestors responded emotionally to life-threatening situations, shifted their state, and made choices that enabled them to live another day. Had they not done so, you wouldn't be here today, going through this lesson! That's right — emotions aren’t merely ‘mushy’ things reserved for romance, birthdays, or rare poignant moments, as some believe. Emotions are lived each day, and the best leaders understand that they are shared experiences, and that people all around you are constantly experiencing emotional states that will make them more or less effective.\n\nIf you missed the announcement and had at least some small degree of emotional intelligence, you would walk into the room and immediately recognize that something was different. You could tell by people’s facial expressions or by the tone of their voice that something had happened. If you had poor emotional intelligence, you might miss the emotional signals being put out by all of the sad people in the room and begin to be boisterous or act in a way that's completely out of touch with what’s going on. We’ve all been imperfect in understanding the emotional mood others are experiencing at one point or another, but really trying to be emotionally intelligent is helpful because it allows you to be more aware of exactly how people are feeling and, as a result, more responsive. Therefore, the term \"EQ\" is simply another way of discussing emotional intelligence or awareness. If you have high levels of emotional intelligence, you have the ability to sense emotions in others, and you know your own emotions.\n\nEmotional Intelligence Is Knowing the Difference. When you have advanced levels of emotional intelligence, you have the ability to understand the difference between one emotional state and another. For example, most people understand the difference between being happy and being deeply satisfied. You could eat a piece of chocolate when you’re hungry before dinner and enjoy the impact of the cocoa on your taste buds. You can appreciate the sugar and carbohydrate surge in your bloodstream and feel good, even for just a second. That might give you a ‘happy’ feeling. You could also cross the finish line after training for a year to run in the Boston Marathon, collapsing in the arms of your partner, weeping in exhaustion. The happiness you feel after eating a piece of chocolate versus the deep sense of satisfaction after training and running a marathon represent two very different emotional experiences. It's also understanding the difference between being angry versus being disappointed in an outcome that didn't quite turn out the way it should. The better you're able to understand these emotional reactions and channel them, the more successful you will be as a leader.\n\nDeveloping Emotional Intelligence. Yes, emotional intelligence can be developed! The keys are four building blocks: Understand Yourself; Manage Yourself; Understand Others; Manage Relationships."
+        },
+        {
+          "type": "markdown",
+          "markdown": "The Accident: It's a Tuesday morning. Collette, a coworker, is spending the day—perhaps the next week or more—at the hospital. Her partner was in a terrible car accident last night and is in critical condition. The Meeting: As the workday begins, Alejandra, the manager, shares the news with the team. They're deeply moved and feeling empathy for Collette and her partner. Devastated by the news, everyone in the room has a collective sense of palpable sadness and concern. Your Morning: On that same Tuesday, you oversleep and get stuck in traffic. Your Response: You missed your manager's announcement and you're a little late for the meeting."
+        },
+        {
+          "type": "markdown",
+          "markdown": "The keys to developing emotional intelligence are: 1. Understand Yourself; 2. Manage Yourself; 3. Understand Others; 4. Manage Relationships."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "how_does_it_feel_to_work_in_my_organizat",
+              "title": "How does it feel to work in my organization? Do people come to work and feel a sense of excitement, curiosity, and anticipation? Are they...",
+              "body": "How does it feel to work in my organization? Do people come to work and feel a sense of excitement, curiosity, and anticipation? Are they a little bit nervous because they know they’re going to grow? Are they smiling as they think about the friendly interaction from their coworkers?\n\n-OR- Are they fearful because they're overwhelmed and afraid people are going to criticize and throw them under the bus? Are they lonely because they feel isolated?"
+            },
+            {
+              "id": "understand_yourself",
+              "title": "Understand yourself",
+              "body": "To understand yourself, recognize that you experience a variety of emotions throughout each day. Understanding your recurring states helps identify contributing habits or unresolved issues. Personality assessments can also reveal your emotional tendencies and how you address problems."
+            },
+            {
+              "id": "manage_yourself",
+              "title": "Manage yourself",
+              "body": "Once you understand yourself better, manage your work life accordingly. If many choices, voices, and stress overwhelm you, moving somewhere quiet to reflect may help you stay productive."
+            },
+            {
+              "id": "understand_others",
+              "title": "Understand others",
+              "body": "Recognize that other people also move among emotional states. By understanding the mood of the room and distinctions such as happiness versus deep satisfaction, leaders can make better decisions and encourage productive direction."
+            },
+            {
+              "id": "manage_relationships",
+              "title": "Manage relationships",
+              "body": "Good leaders provide personalized support. Some people need verbal praise and motivation; others prefer one-on-one contact and quiet observation. Emotional intelligence in action requires listening, flexibility, and practice."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_009",
+      "source_step_id": "dd_mp_04_st_009",
+      "sequence": 9,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_04_st_009_q01",
+              "prompt": "The best leaders are aware of emotions because ___. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "we are all driven by emotions"
+                },
+                {
+                  "id": "c2",
+                  "text": "they only play a trivial role in most of our lives"
+                },
+                {
+                  "id": "c3",
+                  "text": "they ensure everyone checks their emotions at the door"
+                },
+                {
+                  "id": "c4",
+                  "text": "emotions are everywhere"
+                },
+                {
+                  "id": "c5",
+                  "text": "our emotions ultimately drive our actions"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c4",
+                "c5"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_009_q02",
+              "prompt": "When we are aware of our emotional intelligence and seek to improve it, we develop the ability to better ________. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "understand others"
+                },
+                {
+                  "id": "c2",
+                  "text": "understand ourselves"
+                },
+                {
+                  "id": "c3",
+                  "text": "demand loyalty"
+                },
+                {
+                  "id": "c4",
+                  "text": "manage ourselves"
+                },
+                {
+                  "id": "c5",
+                  "text": "ignore emotions"
+                },
+                {
+                  "id": "c6",
+                  "text": "manage relationships"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c2",
+                "c4",
+                "c6"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_009_q03",
+              "prompt": "The first key to improving emotional intelligence is to ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "try to be content with the circumstances"
+                },
+                {
+                  "id": "c2",
+                  "text": "try to always be positive"
+                },
+                {
+                  "id": "c3",
+                  "text": "understand ourselves"
+                },
+                {
+                  "id": "c4",
+                  "text": "assess our IQ and establish a \"baseline\""
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_010",
+      "source_step_id": "dd_mp_04_st_010",
+      "sequence": 10,
+      "title": "Leadership Reflections: The Emotionally Intelligent Leader",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Page 10 of 15\nLeadership Reflections: The Emotionally Intelligent Leader\n\nIn the last two units, you had the chance to learn about the merits of emotional intelligence. Leaders who are emotionally intelligent set themselves apart by their ability to understand and motivate those around them."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_010_reflection_01",
+          "prompt": "What could you do as a leader to demonstrate a high degree of emotional intelligence in working with others?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_010_reflection_02",
+          "prompt": "How can you demonstrate your awareness and understanding of the emotions of others, and how could that ultimately lead to accelerated levels of performance? What are the steps?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Get specific and be clear about this important topic!"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_011",
+      "source_step_id": "dd_mp_04_st_011",
+      "sequence": 11,
+      "title": "Being Loyal While Managing Conflict",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Page 11 of 15\nBeing Loyal While Managing Conflict"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Develop & Demonstrate Loyalty: Being Loyal While Managing Conflict, featuring Joan Cronan",
+          "speaker": "Joan Cronan"
+        },
+        {
+          "type": "markdown",
+          "markdown": "In the previous section, we discussed the importance of emotions. Throughout this learning experience, we’ve discussed the advantage of positive emotions and the simple truth that the best organizations are consistently experiencing a collective set of emotions that lead to better outcomes. The best teams experience emotions like pride, curiosity, joy, and excitement more than less successful organizations. This being said, it’s a mistake for a leader to assume that other types of emotions aren't going to emerge constantly. This is part of what it means to be human. A great place to start reflecting on this comes in the inevitable moment when a leader must deal with conflict.\n\nAre You in Denial? Some leaders see it as a strength to avoid conflict. In reality, the avoidance of conflict can actually create even deeper chasms and do more to hurt an organizational culture than help it. While none of us likes the discomfort of dealing with a difficult circumstance, the ultimate opportunity for growth makes it worthwhile. Don’t deny the opportunity to grow by being afraid to deal with conflict! Indeed, in many cases after dealing with the conflict, better feelings will emerge, and in some cases, warring factions will actually become loyal allies!\n\nThe 6-Step Process for Dealing with Conflict. Dealing with conflict isn't easy. Emotions can get amped up, and you may not think as clearly as you normally would in a given situation. To that end, having a plan or a process to effectively deal with conflict can help."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_012",
+      "source_step_id": "dd_mp_04_st_012",
+      "sequence": 12,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_04_st_012_q01",
+              "prompt": "After sharing the source of the conflict, it’s important to share the ____.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "impact"
+                },
+                {
+                  "id": "c2",
+                  "text": "root cause"
+                },
+                {
+                  "id": "c3",
+                  "text": "emotions"
+                },
+                {
+                  "id": "c4",
+                  "text": "criticism"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_012_q02",
+              "prompt": "When addressing conflict, we must own the conversation. This means, as leaders, we must ______.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "apply the \"Alpha\" principle"
+                },
+                {
+                  "id": "c2",
+                  "text": "be willing to do most of the talking"
+                },
+                {
+                  "id": "c3",
+                  "text": "take the blame"
+                },
+                {
+                  "id": "c4",
+                  "text": "make it clear that we are sharing first, our perspectives"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_012_q03",
+              "prompt": "According to this lesson, which of the following is accurate about conflict?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Conflict does not generally occur within high-performing teams."
+                },
+                {
+                  "id": "c2",
+                  "text": "Avoiding conflict is a sign of a strong, effective leader."
+                },
+                {
+                  "id": "c3",
+                  "text": "It is best to avoid conflict when those involved are new to the organization."
+                },
+                {
+                  "id": "c4",
+                  "text": "It is best to avoid conflict when those involved have been in the organization longer than three years."
+                },
+                {
+                  "id": "c5",
+                  "text": "Avoiding conflict is not really a leadership strength."
+                }
+              ],
+              "correct_choice_ids": [
+                "c5"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_013",
+      "source_step_id": "dd_mp_04_st_013",
+      "sequence": 13,
+      "title": "Conclusion",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Page 13 of 15\nConclusion"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Develop & Demonstrate Loyalty: Wrap-up, featuring Greg Hiebert",
+          "speaker": "Greg Hiebert"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Pat Summitt believed that high levels of success would never come without a strong desire to compete. She believed that the desire to compete came from a deep sense of motivation, and that motivation was internal. Put another way, she didn't want to motivate people to perform as much as she wanted to help them to develop their own internal ability to motivate themselves.\n\nThe simplicity of this statement can't be underestimated. You can give a person a fish, or teach them to fish. You can try to motivate them in the moment, or teach them to find the pride that lies within and to spark that internal motivation whenever they need it.\n\nIt's no wonder so many of Pat’s players went on to have very successful careers, coaching or otherwise. She gave them the gift of that internal fire that taught them to stay motivated and bring the best of themselves to work every day. She also believed that loyalty was paramount, and the best way to receive loyalty was to give it without hesitation and with great enthusiasm. Pat believed in unconditional loyalty, for life."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_014",
+      "source_step_id": "dd_mp_04_st_014",
+      "sequence": 14,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_04_st_014_q01",
+              "prompt": "Pat Summitt believed that if you start to take shortcuts at work, you fail, and also start ______.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "finding efficient ways to reach your goals"
+                },
+                {
+                  "id": "c2",
+                  "text": "accelerating your performance"
+                },
+                {
+                  "id": "c3",
+                  "text": "attracting better things in your life"
+                },
+                {
+                  "id": "c4",
+                  "text": "taking shortcuts the rest of your life"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_014_q02",
+              "prompt": "Coach Pat Summitt said you set high standards for your performance and consistently insist on being true to your own ______.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "urges"
+                },
+                {
+                  "id": "c2",
+                  "text": "policies"
+                },
+                {
+                  "id": "c3",
+                  "text": "fears"
+                },
+                {
+                  "id": "c4",
+                  "text": "standards and expectations"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_04_st_014_q03",
+              "prompt": "You can’t demand ______, but you can give it and try to create conditions where it shows up more often.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "toxicity"
+                },
+                {
+                  "id": "c2",
+                  "text": "loyalty"
+                },
+                {
+                  "id": "c3",
+                  "text": "joy"
+                },
+                {
+                  "id": "c4",
+                  "text": "obedience"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_04_st_015",
+      "source_step_id": "dd_mp_04_st_015",
+      "sequence": 15,
+      "title": "Leadership Reflections: Can You Deal with Conflict?",
+      "blocks": [
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_015_reflection_01",
+          "prompt": "Leadership Reflections: Can You Deal with Conflict?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "The best leaders or peak performers have a unique ability to manage conflict. In other words, they learn to not only minimize or eliminate the debilitating aspects of dealing with conflict, but they actually learn to use conflict to identify areas of growth, clarify potential misunderstandings, and build better relationships. This takes a unique level of commitment, and this learning experience offers a six-step process for dealing with conflict."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_015_reflection_02",
+          "prompt": "For reflection, think about the six-step process and your overall understanding of how to apply it. How would you make this process work in your organization?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_015_reflection_03",
+          "prompt": "What do you see as the opportunity for the culture if you consistently operationalized this approach to dealing with conflict?"
+        }
+      ]
+    }
+  ]
+}

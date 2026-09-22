@@ -1,0 +1,1163 @@
+{
+  "id": "dd_mp_10",
+  "collection_id": "definite_dozen",
+  "collection_title": "Definite Dozen",
+  "title": "Principle 9: Make Winning an Attitude",
+  "description": "Technology continues to make our world more efficient, often by empowering us with shortcuts that simplify our daily tasks. However, when it comes to building a winning tradition, championship team, or highly successful business, there really are no shortcuts. It requires:",
+  "sequence": 9,
+  "estimated_minutes": 45,
+  "source_mini_program_id": "dd_mp_10",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "dd_mp_10_st_001",
+      "source_step_id": "dd_mp_10_st_001",
+      "sequence": 1,
+      "title": "Pat in Her Own Words",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Make Winning an Attitude: Pat in Her Own Words",
+          "speaker": "Pat Summitt"
+        },
+        {
+          "type": "markdown",
+          "markdown": "No shortcuts to success. You will hear that over and over and over. People want to take shortcuts. Those people struggle to ever get to the top. Pat Summitt\n\n— Pat Summitt\n\nMake Winning an Attitude: Pat in Her Own Words\n\nThere Are No Real Shortcuts\n\nTechnology continues to make our world more efficient, often by empowering us with shortcuts that simplify our daily tasks. However, when it comes to building a winning tradition, championship team, or highly successful business, there really are no shortcuts. It requires:\n\nhard work;\n\na commitment to the process; and\n\nresistance of the desire to \"make it easy.\"\n\nMany successful leaders and peak performers discover they can compete at the highest levels when they avoid cutting corners, do what they need to be competitive, remain faithful to the process, and work as hard as they can."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_002",
+      "source_step_id": "dd_mp_10_st_002",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_10_st_002_q01",
+              "prompt": "Team members who believe in themselves and pursue their mission with passion ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "forget to revisit team goals"
+                },
+                {
+                  "id": "c2",
+                  "text": "limit long-term strategic planning"
+                },
+                {
+                  "id": "c3",
+                  "text": "avoid cutting corners"
+                },
+                {
+                  "id": "c4",
+                  "text": "focus more on the individual than the team"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_002_q02",
+              "prompt": "Developing team members who believe in themselves and pursue their mission with passion requires ___. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "teams with extensive experience"
+                },
+                {
+                  "id": "c2",
+                  "text": "passionate leaders setting an example"
+                },
+                {
+                  "id": "c3",
+                  "text": "team unity"
+                },
+                {
+                  "id": "c4",
+                  "text": "the willingness to sacrifice"
+                },
+                {
+                  "id": "c5",
+                  "text": "compromising of values"
+                },
+                {
+                  "id": "c6",
+                  "text": "building a new team from scratch"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2",
+                "c3",
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_002_q03",
+              "prompt": "We learned in this unit that ___ is something that needs to be built and practiced.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "belief"
+                },
+                {
+                  "id": "c2",
+                  "text": "setting flexible goals"
+                },
+                {
+                  "id": "c3",
+                  "text": "self-criticism"
+                },
+                {
+                  "id": "c4",
+                  "text": "benefit-oriented mindset"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_003",
+      "source_step_id": "dd_mp_10_st_003",
+      "sequence": 3,
+      "title": "Make Winning an Attitude",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Make Winning an Attitude: Introduction, featuring Sue Nokes",
+          "speaker": "Sue Nokes"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Make Winning an Attitude: Introduction, featuring Sue Nokes\n\nWinning Must Become an Attitude\n\nWinning doesn't always look the same, right? Think about it. Sometimes a team may win even when members haven't had the best habits or put forth the best performance. On the other hand, sometimes a team can lose even when members have performed at their very best. Thus, it isn't enough to simply pay attention to the record of \"wins and losses.\" The same is true in business with profit statements. Although profits and corporate financial success are very important to every business, they can't be the only measures of success.\n\nResults are what you get at the end. They are summative. Your attitude, your practice habits, and your preparation all represent formative elements that get you ready for winning and losing. The formative nature of your attitude, then, means it can set you up for success or failure. Developing a winning attitude can have a long-term impact on success."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_003_reflection_01",
+          "prompt": "What do you think could happen if a team is made up of members who have superior talent, but negative attitudes? Do any examples come to mind?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "That team's negativity will likely result in the team being ill-prepared for tougher times.\n\nCollective Attitudes That Can Make or Break the Team\n\nThe attitudes of the individuals who make up teams and organizations compound to form an overall attitude within the team or organization. That collective attitude might be:"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_003_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_003_image_02.jpg",
+          "alt": "Collective attitude labels"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Collective attitude labels\n\npositive\n\nthankless\n\ngrateful\n\napathetic\n\nurgent\n\nlosing\n\nwinning\n\nnegative"
+        },
+        {
+          "type": "markdown",
+          "markdown": "The attitude a group consistently maintains is arguably its most important predictor of success. Think about it. People with incredibly resilient attitudes usually find ways to make good fortune great and to get through bad fortune without completely derailing their progress. Therefore, leaders must keep in mind that attitude is everything. A negative attitude can consistently lead a team or organization to underperform more easily. A positive attitude will likely do the opposite. A leader must remember that the attitude or emotional state of the team will be a key driving factor of their success."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_003_reflection_02",
+          "prompt": "What does it mean to have a winning attitude? How does it manifest itself within a team or organization?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Winning is a comprehensive attitude that a leader must first build for themselves, and then for everyone around them."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_003_reflection_03",
+          "prompt": "Suppose your significant other or a close friend shares with you that they wake up each day, look in the mirror, and ask, \"What is wrong with me?\" What advice might you give that person and why?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "It Takes Practice to Develop a Winning Attitude\n\nYou might try to help that person understand the very real impact their negative attitude has on their daily life, right? Maybe instead of focusing on what's wrong, you would hope to help this person start focusing on how they can do things right more often to lead to winning.\n\nThis same advice is important for yourself as well. If you find yourself frequently asking \"What's wrong?\" or \"Why am I always losing?,\" your brain will get really good at constantly seeking answers to these questions in your life, in business, and otherwise. This is why winning people always seem to surround themselves with amazing outcomes. A simple shift can train your brain to consistently look for solutions, better opportunities, happier outcomes, and more relaxing points of view. This simple shift in context amounts to a huge shift in mental and emotional work.\n\nThink, Feel, Say, Act!\n\nWe have to get ourselves into the right headspace to visualize winning. In other words, we need to consistently think and feel like winners. We also need to say it — that is, declare what winning looks like and declare that we plan to achieve it. No one ever broke an Olympic weight-lifting record by going to the gym and telling themselves they are weak, they are a loser, and they cannot break the world record. It simply will not happen with that kind of internal monologue.\n\nBut it's not enough to just think, feel, and say it. It also takes consistent action. Breaking that weight-lifting record takes more than talking a good talk and watching others put in the work at the gym. It takes getting in there, working hard, and giving it everything. Even then, success is no guarantee — but the only chance of becoming a champion is to live that winning attitude. As a leader, the closer you get to living out that winning attitude daily, the more successful you will be."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_003_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Your Outlook Is the Most Predictable Element of Your Potential Success\n\nYour outlook and attitude are extremely strong predictors of your potential success. An individual of average intelligence, skill, and support can become an industry leader if they have an overwhelmingly positive, winning attitude driving them. Their energy and ambition — expressed in their daily outlook and evident to everyone around them — will create a positive climate that's impossible to deny. If you want to change your life and make a powerful impact on your team or organization, adopt a winning attitude that will shine on everyone around you."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_004",
+      "source_step_id": "dd_mp_10_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_10_st_004_q01",
+              "prompt": "We learned in this unit that winning is both an outcome and an ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "opportunity"
+                },
+                {
+                  "id": "c2",
+                  "text": "aspiration"
+                },
+                {
+                  "id": "c3",
+                  "text": "attitude"
+                },
+                {
+                  "id": "c4",
+                  "text": "inspiration"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_004_q02",
+              "prompt": "Developing a winning attitude doesn’t happen by giving an inspirational speech. It comes from establishing committed, ongoing, winning ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "procedures"
+                },
+                {
+                  "id": "c2",
+                  "text": "policies"
+                },
+                {
+                  "id": "c3",
+                  "text": "practices"
+                },
+                {
+                  "id": "c4",
+                  "text": "goals"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_004_q03",
+              "prompt": "Leaders who win bring a different ___ to work each day. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "expectation"
+                },
+                {
+                  "id": "c2",
+                  "text": "level of energy and interest"
+                },
+                {
+                  "id": "c3",
+                  "text": "attitude"
+                },
+                {
+                  "id": "c4",
+                  "text": "outlook"
+                },
+                {
+                  "id": "c5",
+                  "text": "strategic goal"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2",
+                "c3",
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_005",
+      "source_step_id": "dd_mp_10_st_005",
+      "sequence": 5,
+      "title": "Leadership Reflections: Get an Attitude, Not an Outcome!",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Winning doesn’t always feel good — for example, if the win is due to luck or other circumstances out of our control. While you may appreciate the victory, it doesn't feel as good as winning after working hard and paying the price. In this module, Coach Pat Summitt talks about leaders and peak performers who maintain a commitment to developing a winning attitude, rather than defining \"winning\" as only an outcome. A \"winning attitude\" means we expect to win and we will ourselves to win every moment of every day. This is quite advantageous because it helps us win more often and avoid allowing any losses to define us."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_005_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_005_reflection_01",
+          "prompt": "What are some specific things you can do to help make winning a daily attitude in your life?"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_006",
+      "source_step_id": "dd_mp_10_st_006",
+      "sequence": 6,
+      "title": "Practice Your Belief",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": "1150859511",
+          "visible_title": "Make Winning an Attitude: Practice Your Belief, featuring Timothy Alexander",
+          "speaker": "Timothy Alexander"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Make Winning an Attitude: Practice Your Belief, featuring Timothy Alexander\n\nI Believe. Therefore, I Am.\n\nEverything you have achieved and become in your life is because, at some point, you believed it was possible. Let that sink in. If you graduated from college, at some point in high school (or even earlier), you decided to attend college, truly believing that if you attended and worked hard, you would graduate. If you are married and have a family, you believed at some point that someone would love you, share their life with you, and join you to form a family. That all happened first in your head and heart. Then your belief system allowed you to develop the courage to take action, which you knew would be worth it, because you truly believed it all could happen.\n\nHow to Create Belief in Self\n\nLeaders of successful teams and high-performing organizations believe in themselves, and their teams are powered by high performers who likewise believe in their talents and skills. But an individual doesn't simply develop belief after, say, hearing a motivational speaker or reading an encouraging greeting card. Belief takes more than words. Belief requires action. Whether you are a team's leader or a peak performer, you are the first person you must teach the power of belief."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_006_reflection_01",
+          "prompt": "If belief starts at the individual level, how do you think one might go from dreams or fanciful ideas to a heartfelt belief that leads to success?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "It Takes Consistent Action\n\nWe've established that the road to success starts with a dream at the individual level, followed by heart-felt belief that it can happen. Now, we add a third step to make the process look something like this:\n\nEnvision the dream of what you want to accomplish.\n\nIn your heart, believe you are capable of making that dream a reality.\n\nTake action to make it happen."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "gina_an_award_winning_track_star_thinks",
+              "title": "Gina, an award-winning track star, thinks she might want to compete in the Olym…",
+              "body": "Gina, an award-winning track star, thinks she might want to compete in the Olympics."
+            },
+            {
+              "id": "at_first_just_a_passing_thought_or_fanci",
+              "title": "At first just a passing thought or fanciful idea, Gina recalls a coach or two m…",
+              "body": "At first just a passing thought or fanciful idea, Gina recalls a coach or two mentioning they could see her as an Olympic competitor. The idea has sparked."
+            },
+            {
+              "id": "after_some_careful_reflection_study_and",
+              "title": "After some careful reflection, study, and analysis, Gina decides that, with the…",
+              "body": "After some careful reflection, study, and analysis, Gina decides that, with the right work, she could see herself achieving what has become this dream of competing in the Olympics."
+            },
+            {
+              "id": "she_knows_the_dream_is_nothing_more_than",
+              "title": "She knows the dream is nothing more than wishful thinking if she doesn't put in…",
+              "body": "She knows the dream is nothing more than wishful thinking if she doesn't put in the work to make it happen. Her next step, obviously, is action."
+            },
+            {
+              "id": "she_may_have_an_enormous_amount_of_work",
+              "title": "She may have an enormous amount of work ahead of her to physically and mentally…",
+              "body": "She may have an enormous amount of work ahead of her to physically and mentally prepare for the rigors of an Olympic tryout."
+            },
+            {
+              "id": "gina_plans_her_fitness_training_she_deci",
+              "title": "Gina plans her fitness training.",
+              "body": "Gina plans her fitness training. She decides to create a plan to gain sponsors to help pay for coaching to prepare her for this enormous challenge."
+            },
+            {
+              "id": "clearly_gina_has_a_dream_believes_she_ca",
+              "title": "Clearly, Gina has a dream, believes she can achieve it, and now faces decisive,…",
+              "body": "Clearly, Gina has a dream, believes she can achieve it, and now faces decisive, consistent, and intentional action to get there."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "What About Groups or Teams?\n\nThe good news is, the formula is exactly the same for groups or teams:\n\nDream\n\nBelieve\n\nAct\n\nBeing part of a team has the added advantage of teammates who can potentially push us to dream bigger and to work even harder than we perhaps would do alone."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "leadership_within_a_major_tech_company_b",
+              "title": "Leadership within a major tech company believes they have a team capable of cre…",
+              "body": "Leadership within a major tech company believes they have a team capable of creating a game-changing sales app that could revolutionize their industry."
+            },
+            {
+              "id": "leaders_and_team_members_chat_about_the",
+              "title": "Leaders and team members chat about the idea and reflect on how it might look t…",
+              "body": "Leaders and team members chat about the idea and reflect on how it might look to compete with the most dominant apps in their space."
+            },
+            {
+              "id": "they_talk_about_it_enough_and_analyze_th",
+              "title": "They talk about it enough and analyze the possibilities to the point they confi…",
+              "body": "They talk about it enough and analyze the possibilities to the point they confidently believe they can do it."
+            },
+            {
+              "id": "the_idea_morphs_from_casual_conversation",
+              "title": "The idea morphs from casual conversation to a group belief that they can achiev…",
+              "body": "The idea morphs from casual conversation to a group belief that they can achieve this major accomplishment."
+            },
+            {
+              "id": "team_members_remind_each_other_of_their",
+              "title": "Team members remind each other of their commitment and hold one another account…",
+              "body": "Team members remind each other of their commitment and hold one another accountable for striving toward it."
+            },
+            {
+              "id": "they_agree_on_the_tasks_needed_to_make_i",
+              "title": "They agree on the tasks needed to make it happen and they take action on those…",
+              "body": "They agree on the tasks needed to make it happen and they take action on those tasks, pursuing their dream with passion."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "The formula of establishing the belief, making the belief a real pursuit, and then taking action will always lead to progress. It may not always lead to game-changing innovation or a guaranteed win, but it will always get the ball rolling in the right direction when pursued by leaders who care about their people and are faithful to the formula.\n\nThe Presence of Adversity\n\nAdversity is inevitable, but it's also one of the most powerful forces capable of stimulating innovation. Adversity can come in the form of an unexpected loss or the emergence of a formidable competitor that begins to gobble up market share and challenge the organization's viability. Adversity can emerge after an unforeseen setback, putting the organization in a perilous position where the choice between winning and losing is hanging in the balance. The best companies led by the most forward-thinking leaders, however, understand that it is within these moments of adversity where some of the best outcomes can emerge."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_006_reflection_02",
+          "prompt": "How can you handle adversity? As a leader, what approaches can you take to ensure your team overcomes adversity with the greatest chance of exceeding previous benchmarks?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Facing and Beating the Forces of Adversity\n\nThere are three steps you could take as a leader or individual performer when facing the negative forces of adversity. Remember, resiliency is the key, and the best leaders understand that learning is a continuous value proposition."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "make_it_personal",
+              "title": "Make it personal",
+              "body": "Make it personal"
+            },
+            {
+              "id": "michael_jordan_is_one_of_the_most_celebr",
+              "title": "Michael Jordan is one of the most celebrated winners of all time.",
+              "body": "Michael Jordan is one of the most celebrated winners of all time. He exemplifies nearly every concept covered in this leadership training program, but this idea of \"making it personal\" is perhaps one of his best-known attributes. As he has begun sharing more of his secrets to success, Jordan said that he consistently overcame adversity by making it personal and identifying adversaries he would devote to overcoming.\n\nThe two-time NBA champion Detroit Pistons team beat Jordan and his Chicago Bulls team numerous times, knocking Jordan around physically and sending him to the court repeatedly during games. Jordan says he took those behaviors personally and, in the off-season, he trained with renewed enthusiasm, refusing to allow those difficult moments to define him. He found the inspiration in his training to finally get past the Pistons on the way to winning multiple world championships.\n\nAs a leader, you can do this too. When the competition is fierce and your organization is losing ground while your competitors get all the positive publicity, these could be the battle cries that make it personal and lead to deeper commitment.\n\nA word of warning, however: the idea is to make it personal, not to make it toxic. Remember, Michael Jordan had to face a lot of other teams besides the Detroit Pistons. If he spent all of his time hating the Pistons, he wouldn't have been able to focus. It's a fine balance. You can make it personal while keeping a broad perspective and avoiding toxicity."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "see_every_setback_as_an_opportunity_to_l",
+              "title": "See every setback as an opportunity to learn",
+              "body": "See every setback as an opportunity to learn"
+            },
+            {
+              "id": "while_some_high_profile_winners_have_fam",
+              "title": "While some high-profile winners have famously acted poorly when they lost, this…",
+              "body": "While some high-profile winners have famously acted poorly when they lost, this is not necessarily a sign of strength. Disappointment is very real, and whenever you work at something and don't achieve it, a passionate person will feel deep pangs of disappointment. However, leaders and top performers who consistently stay in the winners' circle will often find themselves determined to use losses or setbacks as opportunities to grow.\n\nRather than being angry or pouting about the loss or setback, a smart leader might use these moments to self-scout—that is, take a look at what's being done well and what's being done poorly and evaluate what can be learned from these moments of truth:\n\n- “What can we come away with after losing?”\n- “What can we learn from coming away with less than we'd hoped?”\n- “What did we fail to do? What did we lack?”\n\nThese may sound like negative questions. Rather, they can be formative and strategic questions that will allow the team members to gather themselves and better prepare to win the next time."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "expect_the_extraordinary",
+              "title": "Expect the extraordinary",
+              "body": "Expect the extraordinary"
+            },
+            {
+              "id": "those_who_expect_the_extraordinary_are_m",
+              "title": "Those who expect the extraordinary are more likely to achieve it!",
+              "body": "Those who expect the extraordinary are more likely to achieve it! This is not just hyperbole. If you have average expectations, you will achieve, at best, average results. As discussed earlier, athletes who do extraordinary things and break old paradigms get there because on a deep, emotional level, they expect to.\n\nBefore he turned 40, professional football player Tom Brady planned to keep playing well into his 40s, an extraordinary goal. Most people didn't believe it was possible, yet because he had such high expectations, he made it possible. Just wishing, as you know, isn't enough. However, setting extraordinary expectations can create opportunities where, even if those top goals aren't met, the overall landing spot might still be amazing.\n\nMany highly successful CEOs over the years famously made extraordinary demands and expected stellar results. They may have stretched the imagination for what's possible, but they likely broke records, even if they never reached the original goals. Even if you don't achieve the actual extraordinary outcome you expected, you will likely still be amazed at what you can accomplish along the journey. This is what leaders today need to think about as they reflect on just how aggressive their goals might be."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Again, these three steps can help you as a leader when you face the negative forces of adversity:"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Again, these three steps can help you as a leader when you face the negative forces of adversity: Make it personal.; See every setback as an opportunity to learn.; Expect the extraordinary."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_006_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_006_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_006_image_04.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_007",
+      "source_step_id": "dd_mp_10_st_007",
+      "sequence": 7,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_10_st_007_q01",
+              "prompt": "We learned in this unit that the presence of adversity is to be ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "avoided at all costs"
+                },
+                {
+                  "id": "c2",
+                  "text": "embraced as a learning opportunity"
+                },
+                {
+                  "id": "c3",
+                  "text": "ignored as a potential distraction"
+                },
+                {
+                  "id": "c4",
+                  "text": "denied or trivialized"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_007_q02",
+              "prompt": "The best leaders see ___ as an opportunity to grow.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "toxicity"
+                },
+                {
+                  "id": "c2",
+                  "text": "bad habits in practice"
+                },
+                {
+                  "id": "c3",
+                  "text": "restless energy"
+                },
+                {
+                  "id": "c4",
+                  "text": "setbacks"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_007_q03",
+              "prompt": "Highly competitive leaders make ___ personal and continually challenge themselves to grow.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "losing"
+                },
+                {
+                  "id": "c2",
+                  "text": "communicating"
+                },
+                {
+                  "id": "c3",
+                  "text": "learning"
+                },
+                {
+                  "id": "c4",
+                  "text": "teaming"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_008",
+      "source_step_id": "dd_mp_10_st_008",
+      "sequence": 8,
+      "title": "Attitude & Positivity",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Make Winning an Attitude: Embody Your Positivity, featuring Timothy Alexander",
+          "speaker": "Timothy Alexander"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Make Winning an Attitude: Embody Your Positivity, featuring Timothy Alexander\n\nAttitude Can Determine Performance"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_008_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Don’t ever settle for being on \"autopilot.\" Even if you are executing a task you have done several times, the attitude you bring to any moment of the day can influence your performance. For example, if you are exercising and lifting a weight you are accustomed to lifting, your experience can vary dramatically depending on your attitude. If you are optimistic, excited, and somewhat fired up, you might push that weight and make it feel light. If you are exhausted or distracted, the weight might feel heavy.\n\nThe same is true with nearly everything in your work. If a customer service agent comes to work after struggling with a child or a difficult marriage counseling session, these events will impact that employee's attitude. To this point, the most successful leaders understand that setting the emotional tenor of an organization can make a huge difference in the attitude team members bring to their work. Strong leaders work hard to build a specific cultural tone within their organizations to help create a winning \"attitude\" or environment through the system."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_008_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_008_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "For example, creative companies that specialize in art and design often create beautiful, interesting, and stimulating workspaces to help inspire creativity among team members. As a leader, you must identify and employ mechanisms for creating an outstanding attitude for yourself and your team. Investing in culture makes all the difference.\n\nWhen Positive People Enter a Room, Everything Changes\n\nNumerous studies show that our body temperature, heart rate, and emotions can change when different people enter a room. Happy and engaging people, unsurprisingly, bring happy and engaging vibrations. Angry and toxic people bring negative feelings. Perplexingly, there's almost nothing you can do to avoid at least feeling the vibrations of these people when you're near them. No matter how positive you may be, your psychology will be affected if you are consistently shoulder-to-shoulder with negativity. It can take a lot of energy to fight that off, and it's something to consider when reflecting on those with whom you regularly surround yourself.\n\nAs a leader, think about the energy that you bring to every team meeting. Whether it's a video meeting or face-to-face, evaluate your energy by asking yourself things like:"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Leader energy self-evaluation\n\n- Do I tend to give or take more energy?\n\n- Do my colleagues and team members feel inspired and excited to engage with me? Or are they fearful they may get scolded?\n\n- Do my team members feel the need to pursue growth? Or do they feel they need to avoid me because I might call them out on things they aren't prepared to discuss yet?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "The way you make people feel when you enter the room is really important, and you need to think about the vibrations you hope to put out. Input from trusted colleagues and 360 evaluations (discussed earlier in the course) can give valuable insights into this.\n\nIt's really helpful to try to unpack exactly what people think when they see you or the energy you give off. You may imagine yourself as a powerful, positive energy-giver. Is that what others are feeling? It may or may not be, so consider asking to see if people's perceptions align with your intentions. Similarly, hire the right people who are giving out the right kind of energy to positively impact your organization."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_008_reflection_01",
+          "prompt": "Think about your team right now. What kind of energy is present and what kind of energy is needed? What might you do to help maintain or improve that energy? What might you look for in any future hires in terms of energy?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "If your team is collectively quiet and withdrawn, perhaps your next hire could be someone with contagious energy. If you have a very energetic group that is extremely talkative, maybe your next hire could be someone quiet and reflective to help establish a nice balance and help the entire team achieve even more.\n\nThere are no right or wrong answers. Finding the right energy balance is part of the art of effective leadership. It's all about discovering yourself and figuring out what kind of energy is needed to make the most out of the people you work with daily."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_008_reflection_02",
+          "prompt": "Attitude is a choice. What do you think of that statement? What comes to mind?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Attitude Is a Choice, Followed by Action\n\nIt may seem cliché, but attitude is a choice. If you're not feeling optimistic and your friend says, \"You can feel better if you just decide to,\" you may not necessarily feel that advice is very helpful. The simple truth is, however, attitude does revolve around the concept of feelings or emotion. If your attitude is positive and affirming, it's because you feel that way. If you're feeling grateful and happy, chances are you will carry that into all you do. Yes, attitude is a choice, but it requires at least some action.\n\nAs part of the drug rehabilitation process, a counselor might ask a struggling addict to foster dogs and cats. At face value, it may seem odd to ask someone who is already overwhelmed with repercussions of their addiction to take on responsibilities of caring for animals. However, when the addict takes the actions of consistently caring for something other than themself, it also establishes that same condition or attitude of consistency and caring for themselves. Consistently being there and caring for the animals requires a change in attitude, which can then translate to a change in attitude and behavior for themselves as well.\n\nThe message here is simple. Actions matter. If someone with an ungrateful attitude is placed in a position to give things up for people who are less fortunate, it can completely change their perspective and open up their hearts and minds in appreciation of what they have.\n\nAs a leader, think about the kind of attitude you want your team to consistently demonstrate."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_008_reflection_03",
+          "prompt": "What attitude do you expect throughout your organization? Do you see it portrayed consistently? If not, what actions might you take to create a condition where that attitude might emerge?"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_009",
+      "source_step_id": "dd_mp_10_st_009",
+      "sequence": 9,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_10_st_009_q01",
+              "prompt": "We learned in this unit that, indeed, “attitude is a choice,” but it also requires a massive amount of ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "delegation"
+                },
+                {
+                  "id": "c2",
+                  "text": "action"
+                },
+                {
+                  "id": "c3",
+                  "text": "planning"
+                },
+                {
+                  "id": "c4",
+                  "text": "soul-searching"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_009_q02",
+              "prompt": "No matter how many resources your team has, one of the most powerful tools they can bring every day to the workplace is an engaging, positive, problem-solving ____.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "ego"
+                },
+                {
+                  "id": "c2",
+                  "text": "colleague"
+                },
+                {
+                  "id": "c3",
+                  "text": "assessment"
+                },
+                {
+                  "id": "c4",
+                  "text": "attitude"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_009_q03",
+              "prompt": "We learned in this unit that some powerful advantages of having a positive and compelling attitude include that it can ___. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "cause others to see you as unrealistic"
+                },
+                {
+                  "id": "c2",
+                  "text": "improve the odds of success"
+                },
+                {
+                  "id": "c3",
+                  "text": "appear inauthentic"
+                },
+                {
+                  "id": "c4",
+                  "text": "increase the energy in the room"
+                },
+                {
+                  "id": "c5",
+                  "text": "make the workday feel shorter"
+                },
+                {
+                  "id": "c6",
+                  "text": "help you move others to achieve more"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2",
+                "c4",
+                "c6"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_010",
+      "source_step_id": "dd_mp_10_st_010",
+      "sequence": 10,
+      "title": "Leadership Reflections: Not Just Any Attitude",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "The best leaders come to understand that stellar team performance is far more likely to occur when leaders demonstrate a positive, peak-performance attitude. Remember, a winning attitude isn't simply a \"happy\" attitude, but rather one that demonstrates resilience and refuses to be defined by negativity. A winning attitude turns a setback into an opportunity for growth."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_010_reflection_01",
+          "prompt": "Gut check time: do you have a winning attitude?"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_010_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_010_reflection_02",
+          "prompt": "As you consider the essential attitudes for peak performance, do you see yourself? Or do you see a version of yourself that you could aspire to? What could you do to put forth a winning attitude more consistently? What could you do to spread that kind of attitude, and what impact would it have on others? How would it make you feel to consistently act this way? Get specific."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_011",
+      "source_step_id": "dd_mp_10_st_011",
+      "sequence": 11,
+      "title": "Visualize Your Victory",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": "1150859446",
+          "visible_title": "Make Winning an Attitude: Visualize Your Victory, featuring Timothy Alexander",
+          "speaker": "Timothy Alexander"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Make Winning an Attitude: Visualize Your Victory, featuring Timothy Alexander\n\nDo You See What I See?\n\nProbably not — at least not at first. Elon Musk had a vision for a company and a myriad of innovations he wanted to bring to fruition. He imagined things that did not yet exist, but he believed they were possible long before Tesla and all its innovations emerged. Before any investor would give him a dollar, he believed it was possible. He had visions of what he hoped to create and went about the work of putting it together. Strong leaders have a unique ability to see what's possible before anyone else and then spend their days bringing that vision to fruition.\n\nThe Specificity of the Dream\n\nMost people allow themselves to dream on some level. The difference between casual dreamers and dreamers like Elon Musk is the specificity of the dream, the belief in its possibility, and the relentless pursuit of the end goals.\n\nWhen certified financial planners sit down and talk to people about their future and ask them what they are saving for, a common answer is, “I want to be rich.” Unfortunately, richness isn't very specific. When a dream or vision isn't very specific, it's hard to get real about its pursuit. If a leader in an organization says, \"I want my team or my group to be successful,\" can that leader define what success actually means? Do they know what specific outputs would represent an amazing effort in the business? If you want to be a leader who helps move an organization to a new level of success, you must be very clear about what \"success\" actually means.\n\nBelieving in the Possibility\n\nAt some point, every astronaut who ever went into space or walked on the moon had to decide they were going to become an astronaut. Many would find that to be fantastical. Others might have the same dream. However, the select few who actually make it happen adopt a belief system within themselves that moves them into action. They go from a casual imagination of what something might be like to believing that, with effort, energy, and dedication, this dream could become reality. It takes a bit of boldness, creativity, and a whole lot of heart.\n\nThe Relentless Pursuit"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Successful leaders demonstrate a localized relentlessness that can't be denied. They go after their dreams and goals with unrelenting energy and aspiration, and they achieve their desired outcomes. If you want to be a successful leader, dream that dream, and then commit to its relentless pursuit, doing whatever it takes to make it happen.\n\nSimulations Help\n\nA winning attitude can be a rather cerebral experience. This can be reinforced through simulations. When a leader simulates \"winning,\" they become increasingly acquainted with what it will take to compete. The most successful stock traders who have made their investors millions likely took time beforehand to simulate stock trades on software designed for that purpose. The game of Monopoly simulates what it takes to earn a salary and make a living with residential or commercial real estate. With every simulation, our brains get to experience the feeling of actually competing to be in the winner’s circle."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_011_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Simulations not only help prepare for the real thing, but they provide insights into the kinds of activities that will be required to win. In a stock trading simulation, the junior trader may discover some technical deficits that could be remedied with study. Ultimately, putting yourself in a position where you practice what you hope to win will lead to greater degrees of confidence, experience, and preparation. How many simulations do you suppose those astronauts experienced before they actually went into space?"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_011_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_011_reflection_01",
+          "prompt": "What are some ways you might simulate winning as a leader? How might you help your team simulate winning?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "A Winning Attitude Has No Finish Line\n\nBy adopting, maintaining, and consistently nurturing and improving upon a winning attitude, a leader will come to realize that a winning attitude has no finish line. It doesn't allow for complacency or a sense that the winner has \"arrived.\" Interestingly, some of the most competitive athletes in history have not only dominated their chosen field, but stayed in the winning circle for a really long time.\n\nThink about a competitor like Tom Brady. As an athlete, he reached an unprecedented level of success in every individual and team category in professional sports. He simply reached a point where there were no other peers. Why not just quit after reaching that benchmark? Why keep striving for more? The answer is pretty simple:"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_011_image_04.jpg",
+          "alt": "A daily winning attitude is the reason champions become champions, and it has no finish line."
+        },
+        {
+          "type": "markdown",
+          "markdown": "A daily winning attitude is the reason champions become champions, and it has no finish line.\n\nIn order to stay in the winner's circle, even winners who don't have any competitors in their space look for ways of making it better. Immediately after one of his team's national championship wins, college football coach Nick Saban was spotted pulling a notepad out of his pocket and writing himself a note. His team had just won the championship. Players were jumping into the air and celebrating all around him. When a reporter asked what he wrote, he said it was a note about a recruit he hoped to sign, and he didn't want to forget about it. Here he was, in the moments of celebrating a national championship, working on the steps he needed to take to get back to the championship game again. While he most certainly had a great celebration, in that moment, his drive towards the next championship had no finish line, even with the championship in his hand."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_012",
+      "source_step_id": "dd_mp_10_st_012",
+      "sequence": 12,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_10_st_012_q01",
+              "prompt": "Leaders who bring a clear, exciting goal to their team and remind them what they need to do to achieve it will create ___. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "unrealistic expectations"
+                },
+                {
+                  "id": "c2",
+                  "text": "motivated individual players"
+                },
+                {
+                  "id": "c3",
+                  "text": "better team culture"
+                },
+                {
+                  "id": "c4",
+                  "text": "a more passionate and excited pursuit"
+                },
+                {
+                  "id": "c5",
+                  "text": "increased profit margins"
+                },
+                {
+                  "id": "c6",
+                  "text": "conflicting priorities among the team"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2",
+                "c3",
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_012_q02",
+              "prompt": "Developing a winning attitude doesn’t result from an inspirational speech. It comes from establishing an ongoing commitment to winning ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "policies"
+                },
+                {
+                  "id": "c2",
+                  "text": "goals"
+                },
+                {
+                  "id": "c3",
+                  "text": "procedures"
+                },
+                {
+                  "id": "c4",
+                  "text": "practices"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_012_q03",
+              "prompt": "We learned in this unit that ____ is very helpful in preparing teams to be more successful.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "imagination"
+                },
+                {
+                  "id": "c2",
+                  "text": "purposeful desperation"
+                },
+                {
+                  "id": "c3",
+                  "text": "delegation"
+                },
+                {
+                  "id": "c4",
+                  "text": "simulation"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_013",
+      "source_step_id": "dd_mp_10_st_013",
+      "sequence": 13,
+      "title": "Wrap-Up",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Make Winning an Attitude: Wrap-Up, featuring Sue Nokes",
+          "speaker": "Sue Nokes"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Make Winning an Attitude: Wrap-Up, featuring Sue Nokes\n\nExpecting Loss\n\nIndividual and team losses are a natural part of any organization. The best leaders understand that even in championship seasons, losses will come in one form or another. How we respond to losses will have a significant impact on our overall success.\n\nA team can have an undefeated season, yet individuals on the team can find themselves experiencing loss. They can lose a starting position, get injured, or lose focus and be unable to perform as well even in the face of continued winning within the program.\n\nBenchmarking Losses\n\nObviously, it's easier to quantify success or failure in sports than in business, where benchmarking \"wins or losses\" isn't as straightforward. Consider these examples:\n\nA company posts robust profits one quarter. Further examination reveals this \"win\" was due to selling off income-generating assets that could cost profitability in coming quarters.\n\nA company has a less-productive quarter due to internal investments in preparation for gigantic steps forward.\n\nA company launches a new product or service after months of market research, but the new offering doesn't resonate with customers.\n\nClearly, in business, wins and losses don't always tell the whole story. When it comes to losses, the key is to make sure teams or businesses take time to reflect on them. Losing is hard enough on its own — but then also missing out on the opportunity to grow is almost like losing twice.\n\nWhat Is Your Story?"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "a_team_wins_the_national_championship",
+              "title": "A team wins the national championship.",
+              "body": "A team wins the national championship."
+            },
+            {
+              "id": "the_very_next_season_the_same_team_strug",
+              "title": "The very next season, the same team struggles just to get a regular season win.",
+              "body": "The very next season, the same team struggles just to get a regular season win."
+            },
+            {
+              "id": "a_newspaper_runs_the_story_the_champions",
+              "title": "A newspaper runs the story: \"The championship must have been a fluke.",
+              "body": "A newspaper runs the story: \"The championship must have been a fluke. The team had one really strong player and once that player graduated from the program, the magic was gone.\""
+            },
+            {
+              "id": "another_source_says_the_team_has_lost_it",
+              "title": "Another source says the team has lost its hunger and no longer has it in them t…",
+              "body": "Another source says the team has lost its hunger and no longer has it in them to compete on this level."
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_013_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Stories are also psychological. Everyone you know is living the story of their life. One individual's story might be that they are going to leave their home country, start a new business in a new land, and be wildly successful. Another person's story might be that they and their children are doomed to repeat the fate of their alcoholic parents. Some are living stories that suggest their best days are behind them. For others, their best days are still ahead.\n\nOur stories are powerful because they set our expectations and put us on a pathway that's hard to deny. Remember, a story isn't a dream. A story is something that you live. While a dream might have gotten you to start living your story, a \"story\" is more linear.\n\nEach of us lives the story we have established for ourselves. If you're looking to change your fortune as a leader, thinking deeply and honestly about the story you have told yourself about your life is perhaps one of the most powerful things you can do. If you've told yourself you lead a division within a company that won't let you be as effective as possible, you will likely continue with that exact path. Or, if you told yourself a very different story, you're likely to pursue that as well. The first step is acknowledging that your story has authentic elements that can drive your ultimate success. And if you want to change your life... change your story.\n\nAre You Living Your Comeback Story?\n\nEveryone loves the story of a comeback, rising from defeat or from the ashes of obscurity and achieving victory. The Rocky film franchise is based on the story of an athlete who rises up in the face of unlikely odds. Rocky lives a story on his own terms and doesn't allow the story others would write for him to manifest. He takes action and generates a different future for himself. As a leader, recognize that your business and every team member is living out their story. Their stories, at least partly crafted by your strong leadership, have a huge impact on how the story ends."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_013_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_013_reflection_01",
+          "prompt": "What story are you living? What about your story are you happy about? What would you like to change?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Convincing Others That They Are Writing This Story, Not Somebody Else\n\nTo help a team lead its comeback story, a strong leader must first convince team members that they are in charge of their own stories. This is harder than it sounds. In many cases, individuals tell themselves a story that someone else is in charge of the story of their lives — perhaps they would be more successful if somebody wasn't writing their story for them.\n\nOnce a leader convinces their followers that they are in charge of their story, and that by rewriting the story of their lives, they can have virtually any destiny, their results can be amazing. Small victories and achievable elements of their story will begin to convince them that, indeed, they are in charge. When you can empower them with this truth, as a leader, you will be giving them the \"keys to the kingdom\" to control their own destinies."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_014",
+      "source_step_id": "dd_mp_10_st_014",
+      "sequence": 14,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_10_st_014_q01",
+              "prompt": "We learned in this unit that, in order to make a comeback, you need a comeback ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "delegation"
+                },
+                {
+                  "id": "c2",
+                  "text": "story"
+                },
+                {
+                  "id": "c3",
+                  "text": "ego"
+                },
+                {
+                  "id": "c4",
+                  "text": "plan"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_014_q02",
+              "prompt": "Leaders commonly face the difficult challenge of convincing teams or organizations that they ___. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "can be the hero of their story"
+                },
+                {
+                  "id": "c2",
+                  "text": "must stick to the story script"
+                },
+                {
+                  "id": "c3",
+                  "text": "are the ones writing their own story"
+                },
+                {
+                  "id": "c4",
+                  "text": "are living in a story"
+                },
+                {
+                  "id": "c5",
+                  "text": "need to tell the organization's story, not their own"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c3",
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_10_st_014_q03",
+              "prompt": "We learned in this unit that your story is your vision of ___. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "your adversaries"
+                },
+                {
+                  "id": "c2",
+                  "text": "your path toward future achievements"
+                },
+                {
+                  "id": "c3",
+                  "text": "your past mistakes"
+                },
+                {
+                  "id": "c4",
+                  "text": "your achievements"
+                },
+                {
+                  "id": "c5",
+                  "text": "yourself and your team"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2",
+                "c4",
+                "c5"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_10_st_015",
+      "source_step_id": "dd_mp_10_st_015",
+      "sequence": 15,
+      "title": "Leadership Reflections: What Do You Do with Your Losses?",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Losses happen. You can lose out on an opportunity to sell a client your product. You can pursue a new job promotion and fail to achieve your objective. In this module, we learned that high-achieving leaders treat losses differently. They see them as setbacks that opened the door for new levels of growth. Put another way, they see a loss as only temporary and the pathway towards victory is just ahead."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_015_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_015_reflection_01",
+          "prompt": "Most of us don't handle losses perfectly in our personal and/or professional lives. For this reflection, think back on a time when you were unsuccessful. How did you process that loss and what could you have done differently based on what you know now? How might this impact future losses that might come your way?"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_015_image_02.jpg",
+          "alt": "Lesson complete",
+          "role": "completion"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Congratulations! That concludes this lesson. You can revisit the completed course material at any time."
+        }
+      ]
+    }
+  ]
+}

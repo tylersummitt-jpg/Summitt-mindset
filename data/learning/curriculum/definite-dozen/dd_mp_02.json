@@ -1,0 +1,1090 @@
+{
+  "id": "dd_mp_02",
+  "collection_id": "definite_dozen",
+  "collection_title": "Definite Dozen",
+  "title": "Principle 1: Respect Yourself & Others",
+  "description": "Pat Summitt made it clear. Leadership is exhibited when the team is willing to follow. Furthermore, teams won’t follow a leader they don’t respect. So, how do leaders get followers on the team to respect them? It starts with observing leadership self-respect and respecting others.\n\nFor this learning module, we want you to first understand the concept of leadership self-respect, and then learn the key leadership habits you can practice that will allow you to demonstrate leadership self-respect, earn respect of people around you, and cultivate peer respect and accountability in the team.",
+  "sequence": 1,
+  "estimated_minutes": 45,
+  "source_mini_program_id": "dd_mp_02",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "dd_mp_02_st_001",
+      "source_step_id": "dd_mp_02_st_001",
+      "sequence": 1,
+      "title": "Pat in Her Own Words",
+      "blocks": [
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_02_st_001_quote.jpg",
+          "alt": "Pat Summitt with the Tennessee team during a celebration",
+          "quote": "There is no such thing as self-respect without respect for others.",
+          "attribution": "Pat Summitt"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Respect Yourself and Others: Pat in Her Own Words",
+          "speaker": "Pat Summitt"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Defining leadership self-respect\n\nLeadership self-respect includes both the level of respect leaders have for themselves, and the level of respect teammates observe the leader has for themselves.\n\nFor example, a leader who shows up looking professional, in a good state of health, rested and ready, sends the message to the team that they care enough about themselves to bring the best version of who they are to the team. Then, the team will often respond well to the leader, and they become more likely to respect themselves in the same way.\n\nThis creates a success cycle that builds momentum and begins to improve results."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_002",
+      "source_step_id": "dd_mp_02_st_002",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_02_st_002_q01",
+              "prompt": "In this module about respect, Pat Summitt shared that it’s important for a leader to remember that everyone on the team needs to __________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "have equal say in each decision"
+                },
+                {
+                  "id": "c2",
+                  "text": "vote on big issues"
+                },
+                {
+                  "id": "c3",
+                  "text": "be a strong athlete"
+                },
+                {
+                  "id": "c4",
+                  "text": "feel important"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_002_q02",
+              "prompt": "One thing Pat Summitt learned about respect was that during the glorious moments, when the team is being celebrated, you need to make sure you __________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "elaborate on your role in getting them to this point"
+                },
+                {
+                  "id": "c2",
+                  "text": "recognize the people working behind the scenes"
+                },
+                {
+                  "id": "c3",
+                  "text": "keep distractions away, saving them for later"
+                },
+                {
+                  "id": "c4",
+                  "text": "put respect above game preparation"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_002_q03",
+              "prompt": "By working with her assistant Katie, Coach Summitt learned no matter how busy you are, you have to take the time to ___________. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "develop relationships with those you work with"
+                },
+                {
+                  "id": "c2",
+                  "text": "avoid bonding with those you work with"
+                },
+                {
+                  "id": "c3",
+                  "text": "demand respect from those you work with"
+                },
+                {
+                  "id": "c4",
+                  "text": "take an interest in those you work with"
+                },
+                {
+                  "id": "c5",
+                  "text": "stop and talk with those you work with"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c4",
+                "c5"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_003",
+      "source_step_id": "dd_mp_02_st_003",
+      "sequence": 3,
+      "title": "The Simple Truths About Respect & Self-Respect",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Respect is essential to building group cohesion.\n\n— Pat Summitt\n\nIn this section, we will share Pat Summitt’s simple truths of respect and self-respect. As you reflect on these truths, think about their application in your work.\n\nBe the boss you would want for yourself.\n\nEarn and cultivate respect by demonstrating competence, staying strong in difficult situations, and thoughtfully advocating for the team.\n\nYou can't demand it or whack it out of them!\n\n— Pat Summitt\n\nPat Summitt was a notoriously demanding coach. Creating a demanding environment with respect, high standards, and rigor brings good outcomes.\n\nHowever, imposing hard work or punitive measures on others to gain respect is futile. She used the example of forcing her players to run suicides and push themselves physically as a mechanism for earning respect. That demand, she went on to realize, would never build the kind of respect she needed to build a championship team. She learned that respect must be cultivated and earned.\n\nConversely, the leader must communicate to the team that they too must work hard to earn the respect of each other and of the leaders. This expectation helps teams to pull together to create the reciprocal support needed to establish mutual respect all around."
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Respect Yourself and Others: Executive Introduction, featuring Teela Jackson",
+          "speaker": "Teela Jackson"
+        },
+        {
+          "type": "choice_prompt",
+          "prompt": "Could I play for me? In your world, would you want you as a boss?",
+          "choices": [
+            {
+              "id": "yes",
+              "label": "Yes, I would!",
+              "response": "That's great! What is it about your leadership that allows others to respect you enough to want to follow?"
+            },
+            {
+              "id": "no",
+              "label": "No, not really.",
+              "response": "What is it about your level of self-respect that keeps you from being the type of boss that you and others would follow?"
+            }
+          ]
+        },
+        {
+          "type": "sort",
+          "prompt": "You'll see one action at a time. Decide whether it is a great way to earn respect or a way to destroy or harm it.",
+          "categories": [
+            "Ways to destroy or harm respect",
+            "Great ways to earn respect"
+          ],
+          "cards": [
+            {
+              "id": "coercion_force",
+              "text": "Coercion / force",
+              "correct_category": "Ways to destroy or harm respect"
+            },
+            {
+              "id": "demonstrating_competence",
+              "text": "Demonstrating competence",
+              "correct_category": "Great ways to earn respect"
+            },
+            {
+              "id": "demanding",
+              "text": "Demanding",
+              "correct_category": "Ways to destroy or harm respect"
+            },
+            {
+              "id": "remaining_strong",
+              "text": "Remaining strong in difficult circumstances",
+              "correct_category": "Great ways to earn respect"
+            },
+            {
+              "id": "thoughtfully_advocating",
+              "text": "Thoughtfully advocating for what is right",
+              "correct_category": "Great ways to earn respect"
+            },
+            {
+              "id": "bartering",
+              "text": "Bartering",
+              "correct_category": "Ways to destroy or harm respect"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_004",
+      "source_step_id": "dd_mp_02_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_02_st_004_q01",
+              "prompt": "Pat Summitt created a demanding environment by ___________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "imposing punitive measures"
+                },
+                {
+                  "id": "c2",
+                  "text": "frequent staff changes"
+                },
+                {
+                  "id": "c3",
+                  "text": "setting high standards"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_004_q02",
+              "prompt": "In addition to the leader cultivating respect from the team or followers, Pat Summitt believed that ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "the leader was the most important team member"
+                },
+                {
+                  "id": "c2",
+                  "text": "teams didn’t need a leader, but one helps"
+                },
+                {
+                  "id": "c3",
+                  "text": "the team had to cultivate respect for each other"
+                },
+                {
+                  "id": "c4",
+                  "text": "the team was always in a state of potential failure without the leader"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_004_q03",
+              "prompt": "Pat Summitt believed you couldn’t use punishment and harsh treatment to earn respect. She believed respect had to be ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "bartered"
+                },
+                {
+                  "id": "c2",
+                  "text": "ordered"
+                },
+                {
+                  "id": "c3",
+                  "text": "earned"
+                },
+                {
+                  "id": "c4",
+                  "text": "contrasted"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_005",
+      "source_step_id": "dd_mp_02_st_005",
+      "sequence": 5,
+      "title": "Leadership Reflections: What Can You Do to Earn Respect?",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "The purpose of these reflections is to give you the opportunity to take what you're learning and get ready to apply it to your professional practice. The most essential element to the first two units revolves around the ability as a leader to cultivate and earn respect."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_02_st_005_reflection_01",
+          "prompt": "So, in your current role, what can you do to create a condition where respect is earned or developed?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_02_st_005_reflection_02",
+          "prompt": "Can your team observe you doing something with excellence? Can you give an outstanding effort?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_02_st_005_reflection_03",
+          "prompt": "You can demonstrate work ethic, energy, and a commitment to things like grace and creativity on the way to earning respect. Get specific. What specifically can you do to earn respect?"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_006",
+      "source_step_id": "dd_mp_02_st_006",
+      "sequence": 6,
+      "title": "It Starts with You!",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": "1150754357",
+          "visible_title": "Respect Yourself and Others: It Starts with You, featuring Doug Buce",
+          "speaker": "Doug Buce"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_007",
+      "source_step_id": "dd_mp_02_st_007",
+      "sequence": 7,
+      "title": "Physical Habits for Building Self-Respect from Within",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Physical Habits for Building Self-Respect from Within\n\nCoach Summitt found that several physical habits help build and sustain self-respect from within:\n\nKeep moving\n\nMeet standing up\n\nHave a brain break each hour\n\nGo exercise\n\nEat well\n\nHydrate\n\nSleep\n\nRemove technology from where you sleep"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "keep_moving",
+              "title": "Keep moving",
+              "body": "In a world where you can run a business from a computer or mobile device, it’s easy to begin to become sedentary. The world is a better place when we are healthy, so resisting remaining sedentary is good for your long-term physical health.\n\nThe habit of Keeping Moving does even more!\n\nMoving on a consistent basis:\n\nchanges your emotional and mental states\n\nenhances blood-flow, and in some cases, moves blood away from your legs and feet and toward the most important destination: your brain"
+            },
+            {
+              "id": "meet_standing",
+              "title": "Meet standing up",
+              "body": "This may seem a bit awkward at first but give it a try! Many business leaders today begin the morning with a standing, huddle meeting where team members quickly review their priorities for the day and aspirations for outstanding performance.\n\nSo why is it helpful to stand up for these meetings? Slouching in your chair, scooting down and getting too comfortable, and perhaps to some degree, relaxing too much, keeps us from feeling active and engaged.\n\nA quick standing meeting that allows you to touch base and review major talking points is both healthy for the body and dynamic for the brain."
+            },
+            {
+              "id": "brain_break",
+              "title": "Have a brain break each hour",
+              "body": "Have you ever found yourself checking social media during your workday? Most of us have. Have you ever found yourself thinking about a movie or music at a time when you’re supposed to be working? Our brains are full of distractions that we must learn to ignore to some degree.\n\nBut part of the reason why we get distracted is because our brains need a bit of a break. In learning, the younger you are, the more breaks you need. In preschool, for example, lessons are made up of very small chunks, giving children playtime in between. The fact is, we aren’t that different than children.\n\nAlthough there may be times when this isn’t possible, there are some definite neurological, energy, and creative advantages to taking a break every 60 minutes. Some companies today, for example, actually build in social media update moments throughout the day so that team members can reconnect with their outside world or their social networks.\n\nWhatever you do with your break, giving yourself five minutes every 60 minutes or so to break your concentration from your work and check in on something you enjoy, setting a timer, and bringing yourself back to your work quickly, can represent a habit that will renew your spirit and ultimately help you to concentrate much better after your break is over."
+            },
+            {
+              "id": "exercise",
+              "title": "Go exercise",
+              "body": "The best leaders and top performers almost always follow an established exercise routine. They might be training for a marathon, getting a little bit more in shape for an upcoming social event or vacation, or they may have decided that they are going to go for a walk at least four days a week in nature as an expression of gentle exercise. Whatever your workout routine may be, it builds incredible self-confidence and self-respect to consistently follow that routine.\n\nWhen you make a commitment to yourself to exercise, and then remain faithful to the commitment to yourself, you not only feel physically better from the exercise, but you also feel emotionally and mentally better about the person you are becoming by staying healthy and keeping your promises. Also, the time you give up exercising is worth it because invariably the version of you that comes back after exercise will be much more creative and effective.\n\nWhen your teammates observe you setting a habit and routine for yourself and living with it, they are far more likely to do the same for themselves and for the work they bring each day."
+            },
+            {
+              "id": "eat_well",
+              "title": "Eat well",
+              "body": "There is no shortage of information on healthy eating today. Although there is a wide variety of purported, healthy diets, what’s important for our purposes is that you do your own research and select eating habits that give you energy and allow you to be your absolute best.\n\nMost research-based, healthy diets include:\n\na healthy observation of portion sizes\n\ncareful restrictions on fast food\n\nthe avoidance of an overindulgence of fat and sugar, and\n\nthe habit of enjoying food that provides nutrients and vitamins to help us stay healthy and replenished.\n\nPhysically, we’ve all seen people that begin to either embrace or depart from the habit of eating well. Leaders who have teams that follow successfully and eagerly recognize that their leader has self-respect, as demonstrated by how they choose to feed themselves."
+            },
+            {
+              "id": "hydrate",
+              "title": "Hydrate",
+              "body": "Doctors will tell you that many of their patients are dehydrated. Transcendent, high-achieving athletes like NFL quarterback Tom Brady drink more water than most of us can imagine. Water is the ultimate system-cleansing agent and helps with cell rejuvenation. After all, our brains and bodies are made up mostly of water, so consuming our very essence helps keep us energized and rejuvenated."
+            },
+            {
+              "id": "sleep",
+              "title": "Sleep",
+              "body": "Did you ever hear someone say, “You’d better sleep on it?” There’s wisdom in letting ideas percolate, giving time for reflection, overnight or otherwise. But there are also numerous other advantages to the habit of sleep. The great Kobe Bryant was famous for sleeping just a few hours a night, committing even more hours of the day to honing his craft. Keep in mind, there are individuals who obviously can get by with less sleep, but it’s actually very rare. Most of us can find a way to “get by” with less sleep, but generally speaking, we aren’t at our physical and mental peak when we deny ourselves sleep.\n\nWhat would it be like if you were actually rested? How much better could you be?"
+            },
+            {
+              "id": "remove_technology",
+              "title": "Remove technology from where you sleep",
+              "body": "You may have heard about this old trick for doing well on exams in school. For decades, instructors have suggested that students study for their exam in the place where the exam is going to take place. The reason this is said to work is because when you learn something new, your surroundings and the context of your surroundings make a difference. Learning to hit a tennis ball on a golf driving range wouldn’t create the familiarity in your brain that learning it on a tennis court would.\n\nThis idea of familiarity makes a difference to learning something new, and the same is true with technology. If your handheld tools are used on a consistent basis to help you work as hard as you can with the utmost concentration and engagement at work, it’s a bad idea to curl up with that same piece of technology and try to go to sleep. Many people struggle mightily with their sleep habits, due in part to the habit of taking technology to bed with us and our eyes being exposed to the stimulating screen light. Thoughtful leaders once again respect themselves enough to remove these distractions when it benefits them, which in this case results in the restorative advantage of sleep."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "To summarize, there are several important physical habits that can help you establish and build self-respect from within:\n\nKeep moving\n\nMeet standing up\n\nHave a brain break each hour\n\nGo exercise\n\nEat well\n\nHydrate\n\nSleep\n\nRemove technology from where you sleep"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_008",
+      "source_step_id": "dd_mp_02_st_008",
+      "sequence": 8,
+      "title": "Mental Habits for Building Self-Respect from Within",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Four Mental Habits for Building Self-Respect from Within\n\nIn addition to physical approaches to building self-respect, four key mental habits can help establish self-respect from within:\n\nMinimize multitasking\n\nLeverage mornings\n\nTake distraction-free vacations\n\nTurn off notifications"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "minimize_multitasking",
+              "title": "Minimize multitasking",
+              "body": "Teenagers are famous for telling their parents that they are much better at multitasking than their older teachers or family members. The fact is, multitasking represents a division of your attention, no matter your age. And with every division of your attention, you are less focused and less able to bring the best of yourself to whatever you’re doing. So, to demonstrate self-respect, adopt the habit of minimizing multitasking.\n\nAs a general rule, try to limit multitasking to activities that don’t require a generous amount of brainpower. For example, if you are doing a load of laundry while boiling some eggs and waiting for the dishes in the dishwasher to run a cycle, you may be working in a very efficient manner.\n\nHowever, balance that against really important tasks or obligations, such as writing a key report or creating a multimedia presentation for an upcoming meeting. In those instances, the best leaders and peak performers understand that minimizing distractions in those moments and putting full mental power towards the task at hand is a far more powerful strategy for achieving better results. It also helps to demonstrate self-respect and represents an excellent habit for others to follow."
+            },
+            {
+              "id": "leverage_mornings",
+              "title": "Leverage mornings",
+              "body": "There’s no doubt that many of the most successful leaders are \"morning people.\" They get up, get going, and get more done before work than many get done all day long. Competitive leaders will start making progress on their goals before others even start their day.\n\nNow, being a morning person sometimes has to do with your body’s natural rhythms, suggesting that if you are not a morning person, you may never be at your best in the early morning hours. The degree to which you can become a morning person is perhaps debatable.\n\nHowever, even if you cannot bring it to yourself to get up earlier than others and get a lot of work done before anybody else does, the notion of leveraging mornings has a secondary application. To leverage mornings can also mean that you follow the old Stephen Covey adage of putting \"first things first.\" This simple adage suggests that prioritizing the things that matter the most and getting them done before anything else helps foolproof your success and make it more likely that progress towards a goal will happen.\n\nWhether it’s at 5 a.m. or simply a commitment to schedule the top priorities as early in the day as possible, you’re far more likely to make progress if you put what matters most at times of the day that won’t be interrupted. Why do so many successful leaders exercise so early in the morning? Often times they will suggest to you that this is a time when interruptions are less likely to occur, allowing them to tackle their health before turning themselves over to their work."
+            },
+            {
+              "id": "distraction_free_vacations",
+              "title": "Take distraction-free vacations",
+              "body": "The video specifically recommends that you take your vacation time and refrain from taking your work with you. It’s often a sign of honor in hyper-competitive work environments to check in on work during vacation, responding to copious emails and checking in on key performance indicators. This is not necessarily a sign of strength or self-respect.\n\nBy always checking in, there is an implied suggestion that the system can’t work for a while without you, and that’s not a good sign if you’re a leader. Checking in during vacations also deviates from your commitment to taking care of yourself and giving yourself the gift of rest.\n\nGreat leaders and top performers often take vacations that are more engaging and rigorous than their work. They may trek a challenging landscape or engage in some interesting and rigorous retreat. While a few emails may take longer to respond to, there is a recognition of self-care and the expansion of personal interests that only serve to make a leader or top performer more valuable to the system and the team. Refraining from staying attached to laptops and other devices goes back to our recommendation about technology as well. Taking a sabbatical from technology for a week definitely has physical, emotional, and spiritual advantages."
+            },
+            {
+              "id": "turn_off_notifications",
+              "title": "Turn off notifications",
+              "body": "Notifications are good for business—the app business, that is. Remember, as wonderful as our phones and mobile devices have become in helping us execute our daily functions, there is embedded functionality within them designed primarily to advance the business interests within the applications on our phones. It is in the best interest of our most popular social media destinations to keep our eyes glued to the screen and to continue scrolling. The same is true for all of our embedded news channels or personal interest apps. Think of each of them like baby birds in the nest, screeching for the mother’s attention. Every time one of these baby bird applications chirps and your phone causes you to move away from whatever you’re doing and towards the content, you are submitting to their business intention instead of your own.\n\nTo be clear, there’s nothing wrong with a good product trying to entice us and capture our attention. However, what we would suggest is that you at least turn off your notifications and refrain from responding like Pavlov’s dog every time one of your favorite app destinations pushes out an update. Simply put, our brain can’t withstand that many interruptions a day. We’re more likely to be successful if we can schedule our own time to catch up on our favorite social media. We get to limit the exposure and choose to spend time in these spaces at a point where it makes sense in our day - not when the app company decides to focus and get our attention."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "To summarize, there are four important mental habits that can help you establish and build self-respect from within:\n\nMinimize multitasking\n\nLeverage mornings\n\nTake distraction-free vacations\n\nTurn off notifications"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_009",
+      "source_step_id": "dd_mp_02_st_009",
+      "sequence": 9,
+      "title": "Emotional Habits for Building Self-Respect from Within",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Three Emotional Habits for Building Self-Respect from Within\n\nWe've gone over both physical and mental habits for building self-respect. There's yet another dimension: emotional habits. There are three important emotional habits that can help you establish and build self-respect from within:\n\nEstablish weekly and daily gratitude practice\n\nUnleash laughter\n\nDeclare appreciation"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "gratitude",
+              "title": "Establish weekly and daily gratitude practice",
+              "body": "We all can visualize a life and levels of performance that are better than our current situation. More importantly, there are others out there who could only dream of having what you have. To that end, one of the most empowering emotional habits you can establish is to specifically and directly recognize the people, things, achievements, situations, etc. for which you should be grateful.\n\nWriting down what you should be grateful for each week or even daily can give you a deep sense of fulfillment and happiness. It also helps you in striving to achieve more so that our brains begin to see that pleasant things come from hard work and discipline. There’s nothing worse than, for example, working hard towards a goal, achieving that goal, and then not taking the time to be grateful for your achievement!"
+            },
+            {
+              "id": "laughter",
+              "title": "Unleash laughter",
+              "body": "Throughout history, jesters and comedians have been in high demand. Funny people tend to remain surrounded by friends and find themselves included in a variety of social situations, often with more invitations than time to fulfill them. This is true because laughter is an amazingly euphoric emotional state. When we laugh, we breathe, we are distracted from our troubles or our daily grind, and we land in a lighter, happier place, even for just a moment.\n\nThis is so important for leaders and high performers, especially in high-stress situations. Leaders who are incredibly competitive can, and arguably should, remain very demanding of themselves and others around them. While this culture of demand may be necessary overall, it can create an ongoing level of stress that requires a break, and that break can come from laughter. Therefore, as a leader or top performer, be willing to laugh at yourself, your circumstance, a situation, or just a crazy moment in the day. Be willing to laugh uproariously, sharing joy with others.\n\nPsychologists and sociologists have suggested that sharing a laugh helps bring groups closer, which is why you see humor, even in small doses, being used all the time by successful teams. This use of humor does not suggest that everything is a laughing matter, or that your system needs a steady diet of slapstick jokes. Instead, make room for laughter that can break the tension, give yourself an opportunity to connect, and then get right back to the work at hand with renewed focus and joy."
+            },
+            {
+              "id": "appreciation",
+              "title": "Declare appreciation",
+              "body": "When the people you work with feel good, it’s palpable to others. The leader who genuinely and authentically declares appreciation for coworkers creates an amazing feeling of goodwill on the team or individual. Think about the last time you looked into someone’s eyes and thanked them and told them how much you appreciated them for who they were or what they were doing.\n\nHow did you feel the last time someone said that to you? When that appreciation is declared, it’s impossible to ignore, and we share a mutually good feeling. When you declare appreciation for somebody in a group, everyone feels that good grace, and the team invariably grows closer and improves their bond to one another."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "To summarize, there are three important emotional habits that can help you establish and build self-respect from within:\n\nEstablish weekly and daily gratitude practice\n\nUnleash laughter\n\nDeclare appreciation"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_010",
+      "source_step_id": "dd_mp_02_st_010",
+      "sequence": 10,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_02_st_010_q01",
+              "prompt": "Multitasking ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "is easier today than 50 years ago"
+                },
+                {
+                  "id": "c2",
+                  "text": "is more appropriate when the tasks don’t require in-depth analysis"
+                },
+                {
+                  "id": "c3",
+                  "text": "is an important learned skill"
+                },
+                {
+                  "id": "c4",
+                  "text": "leads to deeper team connections"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_010_q02",
+              "prompt": "By exercising, eating right, and staying hydrated, a leader or team member ___. Select all that apply.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "feels better"
+                },
+                {
+                  "id": "c2",
+                  "text": "loses focus"
+                },
+                {
+                  "id": "c3",
+                  "text": "respects themselves"
+                },
+                {
+                  "id": "c4",
+                  "text": "wastes time and effort"
+                },
+                {
+                  "id": "c5",
+                  "text": "thinks better"
+                },
+                {
+                  "id": "c6",
+                  "text": "demands respect"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c3",
+                "c5"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_010_q03",
+              "prompt": "By turning off the notification on your mobile devices, you ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "reduce long-term learning and application"
+                },
+                {
+                  "id": "c2",
+                  "text": "reduce your chances of making connections"
+                },
+                {
+                  "id": "c3",
+                  "text": "allow for more extended, concentrated think time"
+                },
+                {
+                  "id": "c4",
+                  "text": "send the signal that you are a superior to others"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_011",
+      "source_step_id": "dd_mp_02_st_011",
+      "sequence": 11,
+      "title": "Respect & Accountability",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": "1150754332",
+          "visible_title": "Respect Yourself and Others: Respect and Accountability, featuring Doug Buce",
+          "speaker": "Doug Buce"
+        },
+        {
+          "type": "markdown",
+          "markdown": "One of the most powerful elements of being a team is the possibility of supporting each other to improve individual and collective performance and outcomes. This improvement is generated by respect and accountability, thoughtfully established by both leaders and committed team members who work together for excellence.\n\nTwo Truths about Team Respect and Accountability\n\nHere are two important truths to keep in mind:"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_02_st_011_quote_1.jpg",
+          "alt": "A rowing crew moving together",
+          "quote": "Truth 1: \"We go is more important than ego.\"",
+          "attribution": "Pat Summitt"
+        },
+        {
+          "type": "markdown",
+          "markdown": "How many times have you been on a team when one or more members of the team began working toward their own advantage vs. what’s good for the team? This is the chasm between we go (the team) and ego (the individual).\n\nWhen teams are fully formed, they realize that the team is better when all members consistently focus on what’s good for their collective purpose instead of focusing on individual opportunities. In most cases, individual performance can be dramatically enhanced when the team is there to provide support.\n\nIn other words, when teams are fully formed and working effectively, the individual or ego doesn’t have to suffer unnecessarily for the sake of the team because the team, while working together, improves the team outcome and sets the best environment for individual performance."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_02_st_011_quote_3.jpg",
+          "alt": "Four people standing together on a ridge",
+          "quote": "Truth 2: Team (peer-to-peer) accountability has more impact than power-based accountability."
+        },
+        {
+          "type": "markdown",
+          "markdown": "With power-based accountability, individuals might be motivated to perform or react due to the expectations of a particular person in some level of authority. This level of influence isn’t an earned area. It is assigned. It means you pay attention or respond because of the authority that exists. A certain amount of authority will always exist. However, the best organizations and the most successful teams respond to leadership because they genuinely respect the leader.\n\nWhen the leader creates an expectation of accountability, there’s a desire to reach the expectation out of respect for the leader. To take it one step further, the very best teams don’t wait for the leader’s accountability to kick in. They create their own by supporting and holding each other accountable on the team. This is always the most powerful form of accountability because it’s immediate and ever present.\n\nWork cultures that are creative, positive, and engaging can’t remain that way if one leader alone carries that expectation. There are frankly too many moments when the boss isn’t there. This has to be an accountability where everybody engages without being forced."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_02_st_011_quote_4.jpg",
+          "alt": "Storm clouds",
+          "quote": "Teamwork allows common people to obtain uncommon results.",
+          "attribution": "Pat Summitt"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Pat Summitt's 3 Keys to Team Accountability\n\nTeam, or peer-to-peer accountability, is the most powerful form of accountability that helps teams dramatically improve their production and output. Let's look at Pat Summitt’s keys to developing this accountability with teams or groups:\n\nAuthentic trust\n\nHealthy debate\n\nCommitment\n\nWhich of these 3 approaches do you already use in your team?"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "trust_your_team",
+              "title": "Do you trust your team?",
+              "body": "If yes, that's great! Teams work at their creative best when there is trust within the team and organization. With trust, the team's ability to dream, work creatively, take chances, and innovate flourish.\n\nCan you imagine an industry-leading technology company today suddenly firing an engineer for trying to develop a creative app that happens to fall short? How much innovation would exist within that company when others see their colleague get fired for trying something new? The trust would be broken and innovation would fade."
+            },
+            {
+              "id": "healthy_debates",
+              "title": "Do you encourage healthy debates?",
+              "body": "If so, then kudos to you as a leader! The best leaders indeed value the diversity of multiple perspectives. They can help the team consider numerous options when making decisions.\n\nWhat’s essential to make this work are two things:\n\nDistinguish the difference between disagreement and being disagreeable. Disagreeable people always seek negative or contrarian perspectives, which is not good for the system or the people within it. In thoughtful debates, team members debate ideas, not each other.\n\nEncourage healthy disagreement with, and even debate in, the face of the leader. Having a line of “yes” people only serves to reinforce the current direction. If individuals feel the need to speak up and offer a different perspective, they should be given the authority to do so."
+            },
+            {
+              "id": "team_commitment",
+              "title": "Do you build team commitment?",
+              "body": "If you do, then way to go! Commitment is a simple act of coming together, acknowledging the pursuit of a particular goal or outcome, and agreeing that aiming at that outcome will be an ongoing, often-reviewed, emotionally-based exercise."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_012",
+      "source_step_id": "dd_mp_02_st_012",
+      "sequence": 12,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_02_st_012_q01",
+              "prompt": "Pat Summitt believed that _______.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Ego is more important than \"We go.\""
+                },
+                {
+                  "id": "c2",
+                  "text": "teamwork is more important than individual work."
+                },
+                {
+                  "id": "c3",
+                  "text": "\"We go\" is more important than ego."
+                },
+                {
+                  "id": "c4",
+                  "text": "ego is more important than IQ."
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_012_q02",
+              "prompt": "Peer accountability occurs when ____.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "peers hold each other accountable"
+                },
+                {
+                  "id": "c2",
+                  "text": "peers hold the leader accountable"
+                },
+                {
+                  "id": "c3",
+                  "text": "the leader holds the peers accountable"
+                },
+                {
+                  "id": "c4",
+                  "text": "the peers are seeking accountability"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_012_q03",
+              "prompt": "Power-based authority is power and authority based on___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "just how powerful the leader is"
+                },
+                {
+                  "id": "c2",
+                  "text": "the position the leader holds"
+                },
+                {
+                  "id": "c3",
+                  "text": "the strength of the leader"
+                },
+                {
+                  "id": "c4",
+                  "text": "the strength of the team"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_013",
+      "source_step_id": "dd_mp_02_st_013",
+      "sequence": 13,
+      "title": "Leadership Reflections: A Healthier You!",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "As discussed in these last two units, one of the best ways you can improve your game and be a better leader or peak performer is to bring a healthier version of yourself to your work. Remember, you can get healthier by being stronger, more fit, having better sleep habits, and even a better relationship with your own technological devices, ensuring focus, not distraction."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_02_st_013_reflection_01",
+          "prompt": "From what you’ve learned, reflect on steps that you can take right now to bring a greater sense of health and vitality to your life. Based on what you've learned, what would be the priorities?"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_014",
+      "source_step_id": "dd_mp_02_st_014",
+      "sequence": 14,
+      "title": "Respect-Busting Behaviors You Must Avoid and Eliminate",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "It’s difficult to build an environment with a profound level of respect without recognizing those variables that can have a significant capacity to diminish or degrade a culture of respect.\n\nThe following are elements that Pat Summitt understood were respect-busting behaviors that had to be recognized and consistently dealt with in order to create a respectful, high-performing environment."
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150754397",
+          "visible_title": "Respect Yourself and Others: Respect-Busting Behaviors, featuring Doug Buce",
+          "speaker": "Doug Buce"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "gossiping",
+              "title": "Gossiping",
+              "body": "If you have to look over your shoulder when telling someone on your team something, maybe you shouldn’t say it. Gossip almost always serves to diminish someone in the organization or on the team and ultimately hurts the team as a whole.\n\nEstablishing the expectation that honest sharing is welcome, but gossip isn’t will go a long way in building an honest and authentic team atmosphere."
+            },
+            {
+              "id": "hoarding_information",
+              "title": "Hoarding Information",
+              "body": "Information is power, in almost every professional setting, on every team. Individuals who engage in respect-busting behaviors will often hoard key pieces of information, either for political purposes or for personal, situational advantage. Once again, this needs to be addressed and directly discouraged."
+            },
+            {
+              "id": "blame",
+              "title": "Being a Blame-Thrower",
+              "body": "Blame-throwers refuse any level of accountability and are always looking for opportunities to throw other people under the bus for lack of progress or failure. Rather than honestly acknowledging what’s going on with the situation, energy is spent literally finding blame and taking previous time away from finding solutions.\n\nCreating an environment where the team owns and learns from its mistakes, and where teammates cheer on each other's victories, creates a far better environment."
+            },
+            {
+              "id": "lateness",
+              "title": "Being Late",
+              "body": "Individuals who fail to be on time consistently send a very powerful message. They may believe that they are special and that the system should wait for them. Maybe they are sloppy or can't manage their time. None of these are good for building a strong and interconnected team."
+            },
+            {
+              "id": "negativity",
+              "title": "Being Negative",
+              "body": "\"What’s wrong\" is usually easier to discover than \"what’s right.\" Furthermore, if the leader is unusually negative, the team will get the message, and they will begin to pursue and present negativity on a more consistent basis, simply following the expectations of the leader.\n\nNegativity can operate like a magnet, pulling in more negativity every day. Therefore, negative individuals cannot be allowed to flourish without confrontation. An environment where negativity is allowed loses respect and momentum."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Do you recognize any of these behaviors in your team? Within you? Can you think of any strategies to end them?"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_015",
+      "source_step_id": "dd_mp_02_st_015",
+      "sequence": 15,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_02_st_015_q01",
+              "prompt": "Pat Summitt said that ___was like a magnet. Once present, it would attack more and more!",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "hoarding"
+                },
+                {
+                  "id": "c2",
+                  "text": "advocacy"
+                },
+                {
+                  "id": "c3",
+                  "text": "negativity"
+                },
+                {
+                  "id": "c4",
+                  "text": "bartering"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_015_q02",
+              "prompt": "People who hide from accountability, attribute failure to others, and fail to grow from failure or mistakes are ___.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "blamethrowers"
+                },
+                {
+                  "id": "c2",
+                  "text": "advocates"
+                },
+                {
+                  "id": "c3",
+                  "text": "barterers"
+                },
+                {
+                  "id": "c4",
+                  "text": "ego leaders"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_015_q03",
+              "prompt": "When you withhold information to create leverage, we call it __.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "bartering"
+                },
+                {
+                  "id": "c2",
+                  "text": "hoarding"
+                },
+                {
+                  "id": "c3",
+                  "text": "stemming"
+                },
+                {
+                  "id": "c4",
+                  "text": "accounting"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_016",
+      "source_step_id": "dd_mp_02_st_016",
+      "sequence": 16,
+      "title": "Wrap-Up",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Respect Yourself and Others: Wrap-Up, featuring Teela Jackson",
+          "speaker": "Teela Jackson"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Remember, there are two very important types of respect you need to be a good leader.\n\nSelf-respect, which you must reflect on and pursue on your own. That self-respect doesn’t have to be advertised. It will be obvious to other people as you carry yourself in front of others.\n\nEarned respect, which creates a condition where you earn the respect of the team or your followers and team members earn each other’s respect by similarly setting high standards and remembering the importance of respect in their lives.\n\nWe learned in this section that individual success most often emerges thanks to thoughtful, reflective, teams who learn to engage in certain attitudes and behaviors that contribute to trust and success, and avoid elements that can degrade or destroy trust and success.\n\nFinally, one of the most important points Pat Summitt makes about the principle of Respect Yourself & Others revolves around the importance of remembering that everyone at one point or another can lose confidence, feel insecure, and generally be uncertain about what to do next. This is what it means to be human and the best leaders remain engaged in behaviors that generate respect and drive outcomes that will improve the team."
+        },
+        {
+          "type": "sort",
+          "prompt": "You'll see one behavior at a time. Decide whether it contributes to trust and success or degrades trust and success.",
+          "categories": [
+            "Contributes to trust & success",
+            "Degrades trust & success"
+          ],
+          "cards": [
+            {
+              "id": "honest_debates",
+              "text": "Having honest, healthy debates",
+              "correct_category": "Contributes to trust & success"
+            },
+            {
+              "id": "peer_accountability",
+              "text": "Peers holding each other accountable",
+              "correct_category": "Contributes to trust & success"
+            },
+            {
+              "id": "being_late",
+              "text": "Being late",
+              "correct_category": "Degrades trust & success"
+            },
+            {
+              "id": "hoarding_information",
+              "text": "Hoarding information",
+              "correct_category": "Degrades trust & success"
+            },
+            {
+              "id": "tough_questions",
+              "text": "Asking tough questions in the name of growth & development",
+              "correct_category": "Contributes to trust & success"
+            },
+            {
+              "id": "throwing_blame",
+              "text": "Throwing blame",
+              "correct_category": "Degrades trust & success"
+            },
+            {
+              "id": "being_negative",
+              "text": "Being negative",
+              "correct_category": "Degrades trust & success"
+            },
+            {
+              "id": "gossiping",
+              "text": "Gossiping",
+              "correct_category": "Degrades trust & success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_017",
+      "source_step_id": "dd_mp_02_st_017",
+      "sequence": 17,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_02_st_017_q01",
+              "prompt": "There’s really no such thing as _____ without _____.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "self-respect, respect for others"
+                },
+                {
+                  "id": "c2",
+                  "text": "ambition, distraction"
+                },
+                {
+                  "id": "c3",
+                  "text": "hope, loss"
+                },
+                {
+                  "id": "c4",
+                  "text": "distraction, blame"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_017_q02",
+              "prompt": "Pat Summitt found that ______ can _______.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "ambition, transcend you"
+                },
+                {
+                  "id": "c2",
+                  "text": "hope, prevent growth"
+                },
+                {
+                  "id": "c3",
+                  "text": "ambition, distract you"
+                },
+                {
+                  "id": "c4",
+                  "text": "hope, distract you"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_02_st_017_q03",
+              "prompt": "The starting point of _____ is _____.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "distraction, ambition"
+                },
+                {
+                  "id": "c2",
+                  "text": "hope, distraction"
+                },
+                {
+                  "id": "c3",
+                  "text": "distraction, self-respect"
+                },
+                {
+                  "id": "c4",
+                  "text": "ambition, self-respect"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_02_st_018",
+      "source_step_id": "dd_mp_02_st_018",
+      "sequence": 18,
+      "title": "Leadership Reflections: Busting Respect-Busting Behavior",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "As you learned, respect must be earned, and one of the best steps you can take is to reduce or eliminate examples of respect-busting behavior that can show up and diminish respect in your organization."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_02_st_018_reflection_01",
+          "prompt": "From what you learned about respect-busting, what are some things that you could do right away to improve a culture of respect in your organization?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_02_st_018_reflection_02",
+          "prompt": "As you reflect on some of the respect-busting behaviors, which are most egregious in your organization? What can be done about them, and what can you do right away to help make your organization more respectful by busting those behaviors?"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_02_st_018_wrap_up.jpg",
+          "alt": "You have completed Principle 1",
+          "role": "completion"
+        }
+      ]
+    }
+  ]
+}

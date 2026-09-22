@@ -1,0 +1,979 @@
+{
+  "id": "dd_mp_05",
+  "collection_id": "definite_dozen",
+  "collection_title": "Definite Dozen",
+  "title": "Principle 4: Learn to Be a Great Communicator",
+  "description": "A Journey in Leadership: Becoming a Better Listener. The best leaders are always trying to improve their ability to communicate. Pat Summitt strongly advocated the importance of listening. By listening, a leader does a number of things.",
+  "sequence": 4,
+  "estimated_minutes": 45,
+  "source_mini_program_id": "dd_mp_05",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "dd_mp_05_st_001",
+      "source_step_id": "dd_mp_05_st_001",
+      "sequence": 1,
+      "title": "Pat in Her Own Words",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "If we make a mistake…we verbalize it to rebound from the mistake and move on.\n\nPat Summitt"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Learn to Be a Great Communicator: Pat in Her Own Words",
+          "speaker": "Pat Summitt"
+        },
+        {
+          "type": "markdown",
+          "markdown": "A Journey in Leadership: Becoming a Better Listener. The best leaders are always trying to improve their ability to communicate. Pat Summitt strongly advocated the importance of listening. By listening, a leader does a number of things.\n\nLeaders invest their time in the most important place of all -- with their people.\n\nBy listening, leaders better understand the specific needs of the individual and how to make the most of their working experience together.\n\nFinally, by listening carefully, leaders can get a better impression of exactly how their message is being received. When leaders remain quiet long enough, they will hear what message is being received...and that can be a great indicator of a leader’s success. In a careful moment of listening, leaders may discover that their message hasn’t been communicated as accurately as they thought.\n\nKeep listening, and listen intently! Communication Analogies: Based on the images, try to guess the meaning of the analogies before flipping the cards.\n\nQualities and Practices of an Effective Communicator. Below, we introduce you to several qualities and practices of a leader who is an effective communicator.\n\nGive Praise: It Could Be the Needed Nourishment. In this section, Coach Summitt discussed her experience in discovering and ultimately rediscovering the merits of praise. As discussed earlier, it’s important not to praise just anything. Instead, leaders should reinforce, congratulate, and recognize efforts that are part of what it means to succeed within the organization. Leaders who are successful discover that the longer they are on the job, the more praise is undeniably valuable and important. The longer you lead, the more certain you become of yourself, and the more your team needs to hear from you when they are doing things right. And when they do, you may find they are far more likely to do right more often.\n\nYou’re the Leader, and It’s Not About You. As leaders mature, they become increasingly aware that leadership is ultimately a transformation that becomes increasingly less about you, the leader. In fact, research shows that leaders who talk about only themselves, their own efforts, and consistently talk about the organization in terms of their presence within it are doomed to failure. This is likely due to a couple of obvious reasons. First, if a leader communicates that the primary mission of the organization is to recognize the leader, then that’s where efforts will go. Second, when leaders make the mission about them -- even in the best of circumstances -- the mission becomes far too dependent on the leader. The best leaders attempt to share power and create conditions where everyone is successful and everyone contributes to success within the program.\n\nYou’re the Leader...It’s About Them, and Your Results. When a leader ascends to a new position, it’s easy for them to get convinced that they have superpowers. Without question, a leader who gets a great promotion should be proud of their accomplishments. However, as soon as the job gets started, as mentioned above, it shouldn’t be about the leader. It needs to be about who the leader is there to serve. In Coach Pat Summitt’s case, the people she served included her players, her assistant coaches, and other members of the administrative team. She knew that she needed to keep the emphasis on them, because after all, they were the ones on the court each year. They were also the ones supporting her efforts, making sure that everything she was trying to do could be executed successfully. Your people and your results are what your job as a leader is all about.\n\nYou Are the Barometer. As we have learned more about how teams respond to the power of a leader, it’s clear that leaders are the unmistakable barometer of success. While this unit uses the ‘barometer analogy’ as being predictive of the success of the team, it’s probably even more illustrative to think about the leader as the ‘spark’ and the ‘fire.’ Without question, leaders have the ability to spark things on a team.\n\nA very combative coach who has the reputation for swearing or fighting will often times lead teams that will do the same. Coaches who are caring, communicative, and culture-building are famous for having players who lock arms and never give up on one another. It has been said that whatever strengths or weaknesses that reside within a leader will likewise reside on a team within an organization. This is why good leaders always surround themselves with people who are better than they are at their blind spots. All that said, it can be an enormous pressure to be that spark or flame for the team! But it is also the key for being successful. Highly successful tech companies are often led by leaders who are enormously gifted at creating environments where mind-blowing innovations emerge and working together toward new solutions is commonplace. It’s not an accident. It’s about a commitment to the kind of thinking that drives the behaviors and results that lead to success. And leaders are the key. So in your leadership journey, it’s incredibly important to think about the institutions that you are leading and their needs. You need to be the barometer, the spark, and the flame -- factors that inspire creativity, level out uneven performance, and inspire new levels of engagement.\n\nHow to Prepare to Be the Barometer. If an organization is going to watch the leader closely, it’s very important that the leader is prepared to lead. Coach Summitt famously exercised on a consistent basis, even on game days. She wanted to be able to work off any unnecessary stress and bring the most relaxed, healthy, and happy version of herself to her game. This is why so many high-performing leaders regularly exercise, meditate, practice yoga, and work out to be their best so they can bring positive energy to their role as the barometer."
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_002",
+      "source_step_id": "dd_mp_05_st_002",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_05_st_002_q01",
+              "prompt": "Pat Summitt rigorously exercised before her games because ______________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "she was nervous and needed something to do"
+                },
+                {
+                  "id": "c2",
+                  "text": "she wanted to let go of stress and optimize mental readiness"
+                },
+                {
+                  "id": "c3",
+                  "text": "she wanted to feel what it would be like to play"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_002_q02",
+              "prompt": "When you become a leader, you must learn to ___________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "accept praise graciously and deflect criticism"
+                },
+                {
+                  "id": "c2",
+                  "text": "be the 'spark' and 'barometer' of success for the team"
+                },
+                {
+                  "id": "c3",
+                  "text": "focus on your own professional development instead of helping others advance their career"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_002_q03",
+              "prompt": "Coach Pat Summitt made it clear. When you become the leader, it’s no longer “about you, it’s about ___________.\"",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "them"
+                },
+                {
+                  "id": "c2",
+                  "text": "the results"
+                },
+                {
+                  "id": "c3",
+                  "text": "the organization"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_003",
+      "source_step_id": "dd_mp_05_st_003",
+      "sequence": 3,
+      "title": "Learn to Be a Great Communicator: Introduction",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Learn to Be a Great Communicator: Introduction",
+          "speaker": "Virginia Means"
+        },
+        {
+          "type": "markdown",
+          "markdown": "By communicating effectively, what I mean is, how can you best command the attention of those you are speaking to. Decide what you are trying to accomplish, whether you are trying to motivate, elicit a confession, ask for a raise, or instill confidence. Be clear on what you want to say, and say it in a way that is appropriate to your surroundings.\n\nPat Summitt\n\nLearn to Be a Great Communicator: Introduction, featuring Virginia Means\n\nWhy Communication Is So Important for Leaders\n\nBecoming adept at good communication is at the heart of what good leaders must do to be effective.\n\nOne could argue that the skill to communicate is perhaps the most important skill any leader can develop. Day in and day out, leaders spend their time communicating. They communicate with customers, clients, colleagues, direct reports, and outside partners who can have a huge impact on their success. With every artery of communication emerges an opportunity to influence and improve the trajectory of your organization. If a leader is a good communicator, literally every moment of their day is spent infusing good energy and possibility in the organization or team. If they are a bad communicator, things can spiral in the wrong direction very quickly.\n\nWhile Talkers Talk, Communicators Listen and Empathize\n\nThe best leaders understand that good verbal skills are helpful. But they are only part of the puzzle. Good communication involves the ability to be a good listener. While listening, it’s also important to be able to absorb the feelings attached to those providing the message. Listening to an irate colleague may be a signal that the system is broken, the individual is struggling with their job, or there was a significant (or maybe only episodic) breakdown leading to this outburst. This understanding can't happen without carefully observing the surroundings, listening to the message, feeling the intention, and being able to use discernment to reflect on next best steps.\n\nThere’s NO Small Stuff!\n\nWhen attempting to communicate, the little things matter! If a leader has a difficult conversation to execute, it’s helpful for them to consider the location of the meeting, the leader’s body language, the facial expressions, and any other potential contextual factors that could impact of the message is received. The more careful the delivery of the message, the more likely the successful receipt of that message.\n\nTiming, and Other Factors, Are Everything\n\nIt is said that \"timing is everything.\" Communicating to a person or a group at a point in which they’re ready to hear it makes for a much more dynamic message. As a coach, speaking to a team after losing in triple overtime versus a speech after winning by 30 points represents very different timing. And it isn’t just about timing – it’s about wanting to pick the right message, at the right time, delivered to the right people, at a moment that will provide the greatest opportunity for growth.\n\nThree Keys to Great Communication\n\nIn reflecting on the keys to great communication, three essentials stand out.\n\nKEY 1 — Authenticity\n\nThere is currently a lot of talk in business and politics about the importance of \"transparency.\" One of the key elements to transparency and believability is whether the leader communicates with authenticity. Is the leader believable? If a leader is seen as suspicious or insincere, they aren’t seen as authentic. One notorious example of how important authenticity is came during the infamous presidential election between Richard Nixon and John F. Kennedy. This was the first nationally televised debate, and Nixon was observed to be sweating and fidgety. Those who watched the debate on TV indicated that they didn’t think Nixon was authentic or trustworthy. Conversely, of those listening to the debate on the radio, some actually favored Nixon in the discussion because they only heard the words and weren’t privy to the nervous behavior in front of the TV audience.\n\nKEY 2 — Relationships\n\nWhen you have strong relationships, there are greater opportunities to communicate quickly and with precision. As a leader, if you have established a strong relationship with your team, in a moment of stress you can be somewhat demanding without worrying whether or not you have a good enough relationship with them to withstand it.\n\nKEY 3 — Nonverbal Communication\n\nHow can you tell that the two persons in the image are having a positive, engaging conversation?\n\nThe nonverbal element of communication can sometimes have a greater impact than the exact words used. The debate between Kennedy and Nixon is a great example. Another example might include a leader who needs to call in an employee and remind them to report to work on time. If the leader calls in the employee and stands up during the meeting with arms crossed, scowling, it’s likely that the employee will get the message that there is displeasure in that moment. Or, a leader who might physically stand close to somebody could create an intimidating environment that changes what the meeting feels like. Imagine if you were in a meeting and you had a boss that was 6’8”, and he chose to confront you about a topic, while leaning into your personal space! That could be intimidating.\n\nThe problem with these non-verbal miscues is that they can send a message that isn’t exactly intended. The well-intended, tall boss may not like the idea of intimidating those around them, but that could be the perception if he doesn’t use his nonverbal communications correctly. It’s true of every leader, and being conscious of it is half the battle.\n\nSummary\n\nWe will review these three communication strategies more closely further in this module."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_003_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_003_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_003_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_003_image_05.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_003_image_06.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_004",
+      "source_step_id": "dd_mp_05_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_05_st_004_q01",
+              "prompt": "Leaders who become adept at effective communication should use their communication skills to _____.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "influence others"
+                },
+                {
+                  "id": "c2",
+                  "text": "control others"
+                },
+                {
+                  "id": "c3",
+                  "text": "speak instead of listening"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_004_q02",
+              "prompt": "When leaders are seen as insincere, they most likely __________ in their communication.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "haven't developed relationships with others"
+                },
+                {
+                  "id": "c2",
+                  "text": "use nonverbal communication ineffectively"
+                },
+                {
+                  "id": "c3",
+                  "text": "lack authenticity"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_004_q03",
+              "prompt": "Listening to a person while trying to understand their feelings is an example of _____ in communication.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "sympathy"
+                },
+                {
+                  "id": "c2",
+                  "text": "authenticity"
+                },
+                {
+                  "id": "c3",
+                  "text": "empathy"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_005",
+      "source_step_id": "dd_mp_05_st_005",
+      "sequence": 5,
+      "title": "Leadership Reflections: Leaders Who Talk, Communicate, and Listen",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Talking is easy. Being a leader who communicates at a deeper level is much more difficult. Obviously, a key element to the ability to communicate is the under-appreciated art of listening. We talked about the importance of listening for leaders and peak performers, and the impact it can have on the organization."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_005_reflection_01",
+          "prompt": "What steps could you take to become a better communicator by listening?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_005_reflection_02",
+          "prompt": "What did you learn in these units about listening that you can apply right away?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Remember, be specific and think about applying what you've learned!"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_005_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_010_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_006",
+      "source_step_id": "dd_mp_05_st_006",
+      "sequence": 6,
+      "title": "Authenticity Matters",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": "1150855840",
+          "visible_title": "Learn to Be a Great Communicator: Authenticity Matters",
+          "speaker": "John Horton"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Learn to Be a Great Communicator: Authenticity Matters, featuring John Horton\n\nGood leaders remain acutely aware that every interaction they have with other people affords an opportunity to enhance or diminish their message. No matter how much or how little a leader pays attention to their ability to communicate, they continue to send out a myriad of messages every day. This is why it is incredibly helpful for leaders to invest energy in learning how to communicate and deliver a message that hits the intended target. Whether a leader likes it or not, their ability to communicate is the wellspring of their effectiveness.\n\nWhat does it mean to be authentic in communication?\n\n1. Be honest and transparent. 2. Be the true you. Don't pretend to be something you are not. 3. Speak with candor. 4. Move aside your ego and be open to have your ideas challenged. 5. Strategically balance the amount of compliments and criticism. 6. Don't compromise your principles. Stay true to your principles, values, and ethics.\n\nNow let's delve deeper into each of these qualities.\n\n1. Be Honest and Transparent\n\nWhen a leader is seen as honest, there’s greater trust. With greater trust comes the ability to grow as a team and take chances. Be honest when you become a leader!\n\n2. Be Authentic: Be You!\n\nHave you ever seen a politician, in an attempt to find favor with local voters, find themselves in situations that don’t at all seem authentic? Maybe they are trying to act comfortable on the back of a horse, or in a factory, or bowling, when in reality, this isn’t who they are. Although some may give them points for trying, in most cases these attempts go awry because leaders were seen as inauthentic. This goes back to the idea of honesty and transparency. Leaders should, by-and-large, be themselves. If they are going to put themselves in the position where they are trying something they haven’t tried before, they should admit it! Don’t be afraid to claim to be an outsider. Former President Barack Obama had a long history of being comfortable around the game of basketball. However, when he went into a bowling alley he openly admitted he had no game! In that situation, he didn’t pretend to be anything he wasn’t, and the bowlers in the alley had fun showing him the ropes.\n\n3. Speak with Candor, Even When It’s Uncomfortable\n\nThis can be difficult, because it can’t always be premeditated. Individuals within an organization may suddenly spring a question on a leader that requires uncomfortable candor. For example, if a leader is asked by an employee about a promotion they just aren't ready for, telling someone the truth can be hurtful, but that’s part of what being a leader is all about. A leader is better off sticking with the truth and trying to deliver the message with kindness than to be inauthentic and insincere. In general, speaking with candor always improves the organization and enhances everyone's opportunity to grow.\n\n4. Move Aside Your Ego\n\nOnce again, ego can stand in the way of thoughtful communication. If a leader isn’t honest, open, willing, or interested in listening, the ability to communicate successfully disappears. In many cases, a leader will fail in this area because they lack the confidence in themselves to take the risk of being open. In order to be open to communication, you have to be open to having your ideas challenged...and in some cases even replaced.\n\nYou can simply stick to whatever script you’ve imagined, but leaders like this are rarely successful. In a world that requires flexibility, creativity, and spontaneous pivots in the face of challenges of competition, it’s impossible to maintain a large ego and communicate well.\n\n5. Don’t Overuse Compliments or Criticisms\n\nPat Summitt always believed you need to be strategic with compliments and criticisms, and refrain from overusing either one. If Coach Summitt were effusive in her compliments for the team after a hard-fought victory, the words probably would mean something and stick with the players for quite some time. On the other hand, if she praised her players on how quickly they got back on the court after taking a water break in practice, the compliments would begin to seem meaningless and ultimately become less impactful.\n\n6. Don’t Compromise Your Principles\n\nDon’t go there if your heart, head, and gut tell you not to go. As a leader, you’re going to hear a lot of feedback from a lot of people. Through it all, you must stay true to your principles, values, and ethics. Take in the information you receive in stride, but don’t let anyone talk you into compromising those principles, values, and ethics. If someone tries to get you to go against your beliefs and it won’t work for you and your organization's core values, you must have the courage to just say \"No.\"\n\nSituational Leadership and Authenticity\n\nThroughout this course, we’ve discussed situational leadership. It suggests that the particular situation a leader finds themselves in should dictate the strategy and approach they take. The audience and the situation do make a difference when communicating! Is it possible to be authentic in situational leadership? Pat Summitt discussed this in the video, Authenticity Matters. No matter how she adjusted her communication based on the context, she was always true to herself and never compromised her principles."
+        },
+        {
+          "type": "sort",
+          "prompt": "Sort the items into 2 piles: Authenticity (for behaviors that show authenticity and improve communication) and Lack of Authenticity (for behaviors that hinder communication).",
+          "categories": [
+            "Authenticity",
+            "Lack of Authenticity"
+          ],
+          "cards": [
+            {
+              "id": "be_open_to_having_your_ideas_challenged",
+              "text": "Be open to having your ideas challenged",
+              "correct_category": "Authenticity"
+            },
+            {
+              "id": "reply_with_candor_to_challenging_questions",
+              "text": "Reply with candor to challenging questions",
+              "correct_category": "Authenticity"
+            },
+            {
+              "id": "admit_that_you_are_a_novice_in_a_specific",
+              "text": "Admit that you are a novice in a specific field",
+              "correct_category": "Authenticity"
+            },
+            {
+              "id": "use_compliments_when_they_have_the_most_im",
+              "text": "Use compliments when they have the most impact",
+              "correct_category": "Authenticity"
+            },
+            {
+              "id": "say_no_if_something_doesn_t_feel_right",
+              "text": "Say \"No\" if something doesn't feel right",
+              "correct_category": "Authenticity"
+            },
+            {
+              "id": "be_transparent_in_communication",
+              "text": "Be transparent in communication",
+              "correct_category": "Authenticity"
+            },
+            {
+              "id": "deliver_difficult_truth_with_candor_and_si",
+              "text": "Deliver difficult truth with candor and sincerity.",
+              "correct_category": "Authenticity"
+            },
+            {
+              "id": "give_compliments_excessively",
+              "text": "Give compliments excessively",
+              "correct_category": "Lack of Authenticity"
+            },
+            {
+              "id": "pretend_to_be_something_you_are_not_in_ord",
+              "text": "Pretend to be something you are not, in order to fit in",
+              "correct_category": "Lack of Authenticity"
+            },
+            {
+              "id": "stick_to_your_script_to_please_your_ego",
+              "text": "Stick to your script to please your ego",
+              "correct_category": "Lack of Authenticity"
+            },
+            {
+              "id": "pretend_to_have_the_skills_that_you_actual",
+              "text": "Pretend to have the skills that you actually don't have.",
+              "correct_category": "Lack of Authenticity"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_006_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_007",
+      "source_step_id": "dd_mp_05_st_007",
+      "sequence": 7,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_05_st_007_q01",
+              "prompt": "Pat Summitt advised to be strategic with compliments and criticisms by _______.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "being generous with praise"
+                },
+                {
+                  "id": "c2",
+                  "text": "using praise for impact"
+                },
+                {
+                  "id": "c3",
+                  "text": "avoiding criticism"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_007_q02",
+              "prompt": "When a leader is honest and transparent, it creates __________________ in the organization.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "a toxic environment"
+                },
+                {
+                  "id": "c2",
+                  "text": "a culture of trust"
+                },
+                {
+                  "id": "c3",
+                  "text": "communication issues"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_007_q03",
+              "prompt": "One factor that can keep a leader from being an effective communicator is ________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "IQ"
+                },
+                {
+                  "id": "c2",
+                  "text": "ego"
+                },
+                {
+                  "id": "c3",
+                  "text": "ego and IQ"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_008",
+      "source_step_id": "dd_mp_05_st_008",
+      "sequence": 8,
+      "title": "Relationships Matter",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Learn to Be a Great Communicator: Relationships Matter",
+          "speaker": "John Horton"
+        },
+        {
+          "type": "markdown",
+          "markdown": "I know my reputation. I'm that lady who's so mean to those poor young women.\n\nPat Summitt\n\nLearn to Be a Great Communicator: Relationships Matter, featuring John Horton\n\nWhy invest in developing good relationships?\n\nDid you ever have a friend who could say tough things to you? “Hey! You need to try harder,\" \"Eat healthier,\" or \"Spend more time with your family.” People who care about you can say tough things.\n\nWe are willing to accept the tough love advice from people with whom we have trusting relationships. But what if you hear the same words from a stranger? You would likely be angered and insulted.\n\nTo the outside observer, Pat Summitt probably appeared to be someone who was tough on her players. But to her team, she had a way of being that friend who could say things that needed to be said.\n\nThis is why investing in relationships is such an important part of being a leader!\n\nWhat’s Private? What’s Public?\n\nFor a leader, arguably what's most important is the communication dynamic in private spaces. In one-on-one opportunities to communicate, a leader must create a space for authentic and healthy communication with those they lead. In Coach Summitt’s case, she served as a confidant, a mother figure, and a friend to so many of her players. And while so many observers of her program saw her scowling visage roaming the sidelines, they weren't necessarily there to see her kind engagement in those private, one-on-one moments.\n\nCoach Pat Summitt served as a confidant, a mother figure, and a friend to her players, including two-time Naismith player of the year recipient Chamique Holdsclaw.\n\nCoach Pat Summitt in a Huddle\n\nThis is not to say that what is said publicly isn't important. It certainly is. A good leader understands that a kind word said in front of the entire work group or team can send a powerful message that the effort it took to receive that compliment is to be duplicated. Furthermore, the decision to admonish or embarrass somebody in public can be one that leads to long-term pain and even resentment. The decision to call out a player or a colleague in a public space where others are able to observe is a decision that can have multiple ramifications. Leaders who make these decisions do so knowing that may be the case. If a leader, for example, recognizes that an individual's behavior is so abhorrent that they can't avoid it in that moment, the public admonishment might be totally appropriate. It is, as we've said along the way, entirely situational.\n\nMaintaining awareness of situational variables in effective communication is a skill that good leaders must continue to work on throughout their careers.\n\nDo They Know Who You Are?\n\nWhile leaders need a personal life away from the scrutiny of the workplace, it's clear that one of the fastest ways to build relationships with others is to let them into your life. Leaders who are willing to share stories about their childhood struggles, continued imperfections, and other examples that reveal they are just like everyone else, arguably help a leader get closer to their colleagues. A wise strategy to this end is to identify parts of your life that you're willing to share.\n\nConsider What to Share\n\nSharing family anecdotes and certain hobbies and pursuits represent safe and identifiable reveals within a larger work group.\n\nSharing your continued attempts to disrupt the efforts of an opposing political party, or a deep dive into a faith journey that others may not share perhaps should be saved for a closer set of friends.\n\nGreat Ways to Create Connections\n\nConnect with High Touch! — Manage by Walking Around\n\nLeaders must get connected with their teams and peers. Many times, leaders who start new jobs spend a huge chunk of their day simply walking around the organization and talking to people, getting to know who they are, and learning about their tasks. It would be very easy for a new leader to get caught up in the myriad of office-bound meetings that are arguably necessary. But, there's a great likelihood that the leader’s overall effectiveness and chance of success within the organization will be greater by making those initial connections and allowing those perceptions to drive understanding. Successful leaders understand the importance of establishing and maintaining high-touch. Some of the best leaders on the planet establish within their calendar time to simply walk around, observing the work environment and looking to connect with those who are on the front lines of doing the work, looking for clues to success and are seeking understanding, solving problems on the spot, and resolving conflicts before they emerge.\n\nConnect with High Tech — Manage by Effectively Using Technology\n\nSo, can you manage by walking around online? Can you do high touch as a leader with high tech? The answer is yes. However, you shouldn't use technology to the exclusion of opportunities to connect with face-to-face. To put it in perspective, probably the best thing that a leader can do today with all the access points of technology is to simply see these tools as another mechanism for making connection.\n\nFor example, if a leader recognizes that there is an individual in the organization with whom they haven't spoken in a while and for whatever reason they still haven't been able to see them face-to-face, a warm text message indicating that they were thinking about them and checking in can mean the world to the person receiving the message.\n\nAnother advantage of these high-tech tools is that they are very scalable. Certainly a leader could send a group text and literally connect with everybody in the organization in a heartbeat. However, deeper levels of personalization emerge when the messages themselves are more personalized. So, as a point of practice, technology can be used to enhance a steady diet of face-to-face, heartfelt connection.\n\nPut It in Writing! It’s Permanent! — Manage Using Written Notes\n\nIn an era of technology that can ebb and flow in the blink of an eye, the permanence of a handwritten card or note makes a big difference to those who receive them. Some of the best leaders have maintained a habit of writing a personal note every day to different people within the organization, expressing gratitude or the observance of something positive within the organization. For example, some leaders will maintain a stack of these notes. After they manage by walking around, observing noteworthy attitudes, behaviors, and accomplishments, they will follow up with the permanence of a written note. The good news and the good feelings within are hard to deny."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Did you ever have a friend who could say tough things to you? “Hey! You need to try harder,” “Eat healthier,” or “Spend more time with your family.” People who care about you can say tough things."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_04.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_05.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_06.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_07.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_08.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_09.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_10.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_11.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_12.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_13.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_14.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_15.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_16.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_17.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_18.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_19.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_20.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_21.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_009",
+      "source_step_id": "dd_mp_05_st_009",
+      "sequence": 9,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_05_st_009_q01",
+              "prompt": "When leaders adopt the practice of management by walking around, they are generally looking for opportunities to ______.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "establish their authority"
+                },
+                {
+                  "id": "c2",
+                  "text": "build relationships"
+                },
+                {
+                  "id": "c3",
+                  "text": "find issues"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_009_q02",
+              "prompt": "By remaining high-touch and high-tech, you are ________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "resolving major issues in the organization"
+                },
+                {
+                  "id": "c2",
+                  "text": "building a strong relationship with people you work with"
+                },
+                {
+                  "id": "c3",
+                  "text": "controlling communication in the organization"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_009_q03",
+              "prompt": "Pat Summitt makes it clear. The reason she was able to be so hard on her players in public was because _________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "she had connected with them and was nurturing them in private"
+                },
+                {
+                  "id": "c2",
+                  "text": "she had a reputation and had paid her dues to be the boss"
+                },
+                {
+                  "id": "c3",
+                  "text": "they respected her celebrity status no matter what"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_010",
+      "source_step_id": "dd_mp_05_st_010",
+      "sequence": 10,
+      "title": "Leadership Reflections: The Keys to Great Communication",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "We learned in these past two units that great communication doesn't happen by accident. In fact, we found out that authenticity, relationships, and carefully considered nonverbal communication can have a huge impact on those with whom you communicate. For this reflection, let's think about the first two, since this is a lot to reflect upon. Authenticity and relationships may seem abstract or amorphous, but in reality, they are attributes in communication that we can sense or feel right away."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_010_reflection_01",
+          "prompt": "Have you ever met somebody who is completely inauthentic? Maybe they were trying to sell you something or convince you to do something for them. Their inauthenticity made your communication with them more difficult. Furthermore, we usually don't create a relationship with inauthentic people."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_010_reflection_02",
+          "prompt": "So, for this reflection, what steps could you take to create a deeper sense of authenticity and improved relationships in your organization?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_010_reflection_03",
+          "prompt": "What things could you do as a leader to demonstrate that you are authentic and committed to those that you are in relationship with?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Get specific and reflect on things that you can do right away."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_010_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_07_st_010_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_011",
+      "source_step_id": "dd_mp_05_st_011",
+      "sequence": 11,
+      "title": "Nonverbals Matter",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Learn to Be a Great Communicator: Nonverbals Really Matter",
+          "speaker": "John Horton"
+        },
+        {
+          "type": "markdown",
+          "markdown": "While you’re listening to someone, don’t just take in their words -- study the speaker. Be aware of the speaker’s voice and mannerisms. Notice his effect on you. Become aware of your own voice and body language, too.\n\nPat Summitt\n\nLearn to Be a Great Communicator: Nonverbals Really Matter, featuring John Horton\n\nThe Stare\n\nMuch has been written over the years about the famous Pat Summit stare. Her very expressive eyes and face had a stirring emotional impact on her players, the fans, the referees, and all levels of her opponents. None of this was by accident. She understood at a very high level the power of nonverbal communications. She understood that how she carried herself could have a significant impact on her message. She understood that words alone weren’t enough. In order to have a significant impact on other people (the true goal of leadership), a leader must take advantage of all the tools at their disposal. In this case, nonverbal tools, when used thoughtfully, can become an expert leverage point in reinforcing your message.\n\nA Deeper Understanding of Nonverbal Communication\n\nThe goal of communication is to create impact or understanding. If you were delivering a college commencement speech, you may want to send the message of hope or inspiration to those in attendance. Or, if you were trying to mend a broken relationship, you may convey the right words of apology to move the relationship forward. In both examples, we search for tools to help carry our message, hoping that what’s in our hearts and in our heads can be transferred to our audience. When you think about it, it’s a painfully difficult translation. Our brains are enormously complicated, and we still have a lot to learn about mental processing. If you are trying to share a feeling with someone who hasn’t lived your life experience, hasn’t grown up in your world, or may be a very different age, all those differentiating factors can make communicating even basic ideas more difficult.\n\nThe Impact of Three Communication Elements on Messages of Feelings and Attitudes\n\nPie chart: Words: 7; How words are said: 38; Facial expression/nonverbal: 55.\n\nAlbert Mehrabian. 1981. Silent Messages: Implicit Communication of Emotions and Attitudes\n\nTo help better break this down, we need to reflect on how we currently take in the signals during communication and which signals we tend to pay the most attention to. Although scientific research doesn’t represent a comprehensive understanding of the art of communication, it does give us a starting point. When communicating with someone face-to-face, extensive research concluded that 7% of the impact came from the words being used, while 38% was conveyed by the way the words were said. This means somebody could use the words \"I love you\" in a sentence. But if this is said sarcastically or with laughter, the message is significantly altered. Perhaps, more importantly, the same research revealed that the message received was 55% impacted by the use of a person's facial expressions and body language.\n\nWhy Read a Face Over Listening to Words?\n\nSo, why would our brains work this way? It likely comes down to a basic survival instinct. There are hundreds of muscles in our face, and the evidence of joy, frustration, and fatigue all show up in our bodies — arguably a lot more authentically than in our words. How many times, for example, has a friend told you “I’m fine,” when you knew they weren’t? How about when someone you love says, “I’m not tired,” when you can see they are exhausted? Our brains have learned to study others and know the signs of what’s really going on with them. It’s an instinct that has helped us protect each other and survive.\n\nSo How Can I Apply This?\n\nStudy yourself on video\n\nIf facial expressions and body language mean so much, you need to spend some time in the mirror or on video. Without taking the time to really study ourselves, we can't begin to observe how others are likely perceiving our behaviors. How many times have you seen yourself on video and disliked what you saw? Does this person look strong and confident? Would you believe what they were saying if you didn't know them? It is important to be really honest with yourself and look at your facial expressions.\n\nDo you need to slow down or pick up the pace? Do you need to speak with more confidence? Do you need more humor? Do you appear in control?\n\nTake a good look at your nonverbal communication and think about how others may be receiving the messages you are sending."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_011_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_011_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_011_image_03.svg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_012",
+      "source_step_id": "dd_mp_05_st_012",
+      "sequence": 12,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_05_st_012_q01",
+              "prompt": "When communicating, the words we use impact __________ percent of our message.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "7"
+                },
+                {
+                  "id": "c2",
+                  "text": "9"
+                },
+                {
+                  "id": "c3",
+                  "text": "8"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_012_q02",
+              "prompt": "When communicating, the facial expressions we use impact _________ percent of our message.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "65"
+                },
+                {
+                  "id": "c2",
+                  "text": "45"
+                },
+                {
+                  "id": "c3",
+                  "text": "55"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_012_q03",
+              "prompt": "The famous “Pat Summitt stare” was a powerful tool in her _______ communication.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "passive-aggressive"
+                },
+                {
+                  "id": "c2",
+                  "text": "verbal"
+                },
+                {
+                  "id": "c3",
+                  "text": "nonverbal"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_013",
+      "source_step_id": "dd_mp_05_st_013",
+      "sequence": 13,
+      "title": "Wrap-Up",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": null,
+          "visible_title": "Learn to Be a Great Communicator: Wrap-Up",
+          "speaker": "Virginia Means"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_013_reflection_01",
+          "prompt": "Have you ever opened your phone to a really long text or email? Unless you are in love with the sender, you may feel a sense of dread at having to wade through it all. Don’t feel guilty — it's not about your unwillingness to read a long message. The amount of brainpower it takes to understand a long message, and then reflect on its meaning and intention, represents one of the more complex brain function activities in processing communication. The best leaders today edit themselves to make sure they aren’t using too many words."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Learn to Be a Great Communicator: Wrap-Up, featuring Virginia Means\n\nIt’s Not About Your Great Speech, It’s About Their Great Performance\n\nOnce again, it’s important for leaders to recognize that their success will not be driven by their ability to give speeches. While strong verbal skills are always an advantage, leaders are measured by the degree to which they empower and ultimately super-empower other people to perform at high levels. The very best leaders create conditions where their teams blossom and contribute in a way that’s rarely observed in other similar organizations. These leaders are able to get other people to give more and try harder when others are exhausted.\n\nLet's review the keys to effective communication: Authenticity; Relationships; Nonverbal communication.\n\nKey 1 — Authenticity\n\nYou can only play a role for so long. What you are, who you are, what you value, and where you invest your emotional energy will become obvious to everyone around you in time. This is why it’s so important to know yourself and to be authentic with others about who you are. When you meet highly successful leaders they are often acutely aware of the values and beliefs that drive their behaviors. They can describe them with certainty because they know that living these values and beliefs is inherent to the journey of successful leader.\n\nKey 2 — Relationships\n\nRelationships are always under construction. If you are just getting to know someone new to your organization or social circle, your investment in getting to know them will pay big dividends in enhancing the relationship. Additionally, the strength and quality of your relationships will influence the quality of your outcomes. By investing in relationships, you are investing in the very fabric of success of every organization or team.\n\nKey 3 — Nonverbal Communication\n\nMany people think they have a good poker face. But, in reality, many of us give away our feelings through our body language. When people go through periods of depression, their posture is rarely in peak form. When people fall in love, their eyes are bright and their steps are light. What’s important to remember here is that it’s very difficult to fake body language. Being your authentic self and investing in your health and well-being make good nonverbals less of a chore. Video technology makes it easy to see ourselves, and when you do, ask yourself whether you would follow the person that you see. Remember, one of the most compelling elements of a leader is the expression of confidence. Confidence is almost impossible to ignore, and in many cases, it is the invisible, quiet, determining factor of success.\n\nNonverbal Communication (cont.)\n\nAs an exercise, you may want to consider visualizing something you’re confident about and examine your face and body when you’re thinking about that element. How do you look when you are feeling confident? Remember that look and hold onto it! As often as you possibly can, try to express that look on your face, or hold your body in that place of confidence. Finally, what is really exciting about this exercise is that it actually becomes predictive of your emotional state. In other words, even if you aren’t feeling particularly confident or calm, successful facial expressions or body language can take you there. Try it!\n\nPractical Thoughts on Communication\n\nIn ending this section, it’s helpful to reflect on and revisit some very simple yet profound truths about communication:\n\n1. Shorter messages make a deeper impact\n\n2. Simple is better than complex\n\nThe most popular website on the planet is Google. Have you ever noticed the simplicity of the homepage? Think of how many gadgets could be attached to the Google homepage. Instead, the aspiration is to make it look simple and accessible. The same is true when it comes to learning. Simplify the game plan and make it accessible to everyone. Boil it down to simple and easily digested steps. When we do this, we increase the opportunity for those learning the ropes to master the fundamentals...and ultimately become masters of what they do.\n\n3. The truth is better than anything\n\nSticking with the truth makes life so much easier as a leader. When you tell the truth, you don’t have to keep track of your story or manage perception. You can tell the truth and do the best you can to support those around you in dealing with that truth."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_013_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_003_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_013_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_11_st_015_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_013_image_06.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_014",
+      "source_step_id": "dd_mp_05_st_014",
+      "sequence": 14,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "dd_mp_05_st_014_q01",
+              "prompt": "Sticking with the truth as a leader _____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "forces the leader to resolve the conflicts on their own"
+                },
+                {
+                  "id": "c2",
+                  "text": "makes the leader's life more difficult"
+                },
+                {
+                  "id": "c3",
+                  "text": "reinforces the team's confidence in leadership"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_014_q02",
+              "prompt": "Keeping a message simple is advantageous because it makes communication more ___________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "generalized"
+                },
+                {
+                  "id": "c2",
+                  "text": "accessible"
+                },
+                {
+                  "id": "c3",
+                  "text": "truthful"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "dd_mp_05_st_014_q03",
+              "prompt": "By keeping their messages short, leaders can communicate more effectively because, as compared to long ones, short messages _____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "are easier to create"
+                },
+                {
+                  "id": "c2",
+                  "text": "lead to easier tasks"
+                },
+                {
+                  "id": "c3",
+                  "text": "are easier for the brain to process"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dd_mp_05_st_015",
+      "source_step_id": "dd_mp_05_st_015",
+      "sequence": 15,
+      "title": "Leadership Reflections: Let’s Talk…About Nonverbals",
+      "blocks": [
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_015_reflection_01",
+          "prompt": "Why is a picture worth 1,000 words? Because in many cases, words can be imprecise. You can describe in a beautifully written essay the majesty of the Swiss Alps, but it doesn't compare to actually standing there and taking it all in. To that end, your nonverbals work the same way. You can tell somebody you love them, but if your facial expression looks like you just chomped on a lemon, they may be less likely to believe your message!"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_015_reflection_02",
+          "prompt": "While this may sound like overly simple advice, let's get a little more technical and practical. First, have you ever seen yourself in a video or in a picture and been able to think about what others might see in your face when you look at them?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_015_reflection_03",
+          "prompt": "As you think about these images, what do you have to say about your own facial expressions?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_015_reflection_04",
+          "prompt": "Do you look interested?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_05_st_015_reflection_05",
+          "prompt": "Do you look engaged?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Think about the facial expressions that you have when you're sitting in a meeting, issuing a directive, or encouraging somebody. If at all possible, take a picture of yourself looking in the mirror and imagining yourself in those positions. While it may not be perfect, it can at least give you some perspective on the facial expressions that you make when you are in these moments. If you can take a picture of these images, it can give you something to reflect on.\n\nSome people give off facial expressions that don't exactly inspire confidence, or even trust. Good facial expressions sometimes need to be practiced. Take the time to actually reflect on the expressions you see and what you think others may be perceiving of your nonverbal communications."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_015_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_015_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_05_st_015_image_03.jpg",
+          "alt": "Lesson complete",
+          "role": "completion"
+        }
+      ]
+    }
+  ]
+}
