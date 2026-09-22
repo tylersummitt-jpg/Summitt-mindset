@@ -103,17 +103,19 @@ export function VictorySummaryCounts({ counts }: VictorySummaryCountsProps) {
               key={stat.id}
               className="flex min-w-0 flex-col items-center sm:items-start"
             >
-              <p className="font-serif text-2xl font-semibold tabular-nums leading-none text-amber-50 sm:text-4xl">
-                {counts[stat.countKey]}
-              </p>
+              <div className="flex items-center justify-center gap-1 sm:justify-start">
+                <p className="font-serif text-2xl font-semibold tabular-nums leading-none text-amber-50 sm:text-4xl">
+                  {counts[stat.countKey]}
+                </p>
+                {Icon ? (
+                  <Icon className="h-5 w-5 shrink-0 text-amber-200" />
+                ) : null}
+              </div>
               <div className="mt-1 flex w-full min-w-0 flex-col items-center sm:flex-row sm:items-center sm:justify-start">
                 <div className="flex min-w-0 max-w-full items-center justify-center sm:justify-start">
                   <p className="min-w-0 text-center text-[10px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:text-left sm:text-xs">
                     {stat.label}
                   </p>
-                  {Icon ? (
-                    <Icon className="ml-1 h-3.5 w-3.5 shrink-0 text-amber-200" />
-                  ) : null}
                 </div>
                 <button
                   type="button"

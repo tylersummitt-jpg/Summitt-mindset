@@ -397,7 +397,8 @@ export async function loadPublicAllWinsForUser(args: {
 
 export type VictoryWinMonthDayMarker = {
   count: number;
-  singleWinKind: PublicWinKind | null;
+  hasGoalWin: boolean;
+  hasProudMoment: boolean;
 };
 
 export type VictoryWinMonthMarkerResult = {
@@ -454,16 +455,19 @@ export async function loadVictoryWinMonthMarkersForUser(args: {
     const occurred = new Date(row.occurred_at);
     if (Number.isNaN(occurred.getTime())) continue;
     const dayKey = getDateKeyInTimezone(occurred, args.timeZone);
+    const kind = publicWinKindFromUnknown(row.win_kind);
     const existing = markers[dayKey];
     if (!existing) {
       markers[dayKey] = {
         count: 1,
-        singleWinKind: publicWinKindFromUnknown(row.win_kind),
+        hasGoalWin: kind === "goal_win",
+        hasProudMoment: kind === "proud_moment",
       };
       continue;
     }
     existing.count += 1;
-    existing.singleWinKind = null;
+    if (kind === "goal_win") existing.hasGoalWin = true;
+    if (kind === "proud_moment") existing.hasProudMoment = true;
   }
 
   return { markers };

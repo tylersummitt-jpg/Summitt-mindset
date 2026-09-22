@@ -25,7 +25,8 @@ import {
 
 type VictoryCalendarDayMarker = {
   count: number;
-  singleWinKind: "goal_win" | "proud_moment" | null;
+  hasGoalWin: boolean;
+  hasProudMoment: boolean;
 };
 
 type VictoryCalendarGridProps = {
@@ -118,7 +119,8 @@ export function VictoryCalendarGrid({
 
           const marker = markers[slot.dateKey];
           const winCount = marker?.count ?? 0;
-          const singleWinKind = winCount === 1 ? marker?.singleWinKind ?? null : null;
+          const hasGoalWin = Boolean(marker?.hasGoalWin);
+          const hasProudMoment = Boolean(marker?.hasProudMoment);
           const isToday = slot.dateKey === todayKey;
           const isFuture = slot.dateKey > todayKey;
           const isSelected = selectedDay === slot.dateKey;
@@ -126,7 +128,8 @@ export function VictoryCalendarGrid({
             dateKey: slot.dateKey,
             winCount,
             isToday,
-            singleWinKind,
+            hasGoalWin,
+            hasProudMoment,
           });
 
           if (isFuture) {
@@ -159,20 +162,16 @@ export function VictoryCalendarGrid({
               }
             >
               <span>{slot.dayOfMonth}</span>
-              {winCount > 0 ? (
+              {winCount > 0 && (hasGoalWin || hasProudMoment || winCount > 1) ? (
                 <span className="flex items-center gap-0.5 text-[11px] leading-none text-amber-300" aria-hidden>
-                  {winCount === 1 && singleWinKind === "goal_win" ? (
+                  {hasGoalWin ? (
                     <VrIconGoal className="h-3 w-3" />
-                  ) : winCount === 1 && singleWinKind === "proud_moment" ? (
+                  ) : hasProudMoment ? (
                     <VrIconStar className="h-3 w-3" />
-                  ) : (
-                    <>
-                      <span>🏆</span>
-                      {winCount > 1 ? (
-                        <span className="tabular-nums text-amber-200/90">{winCount}</span>
-                      ) : null}
-                    </>
-                  )}
+                  ) : null}
+                  {winCount > 1 ? (
+                    <span className="tabular-nums text-amber-200/90">{winCount}</span>
+                  ) : null}
                 </span>
               ) : null}
             </button>

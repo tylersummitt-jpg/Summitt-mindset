@@ -32,7 +32,7 @@ export function VictoryRecentProofSection({
   return (
     <VictoryProudMomentsEditChrome
       addHref="/dashboard/victory-room/add-win"
-      addLabel="+ Add a Victory"
+      addLabel="Add a Victory"
       editLabel="Edit a Victory"
       toolbarSectionTitle="Your Victories"
       listHeading="Recent Victories"

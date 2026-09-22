@@ -925,7 +925,11 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
     expect(state.lastLt).toEqual({ col: "occurred_at", val: range.endUtcIso });
     expect(state.lastLimit).toBeNull();
     expect(enrichMock).not.toHaveBeenCalled();
-    expect(result.markers["2026-09-14"]).toEqual({ count: 3, singleWinKind: null });
+    expect(result.markers["2026-09-14"]).toEqual({
+      count: 3,
+      hasGoalWin: true,
+      hasProudMoment: true,
+    });
     expect(Object.keys(result.markers)).toEqual(["2026-09-14"]);
   });
 
@@ -940,7 +944,7 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
     expect(fromMock).toHaveBeenCalled();
   });
 
-  it("one goal_win is count 1 with singleWinKind goal_win", async () => {
+  it("one goal_win is count 1 with hasGoalWin", async () => {
     state.pageResult = {
       data: [{ id: "g1", occurred_at: "2026-09-14T16:00:00.000Z", win_kind: "goal_win" }],
       error: null,
@@ -951,11 +955,11 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
       monthKey: "2026-09",
     });
     expect(result.markers).toEqual({
-      "2026-09-14": { count: 1, singleWinKind: "goal_win" },
+      "2026-09-14": { count: 1, hasGoalWin: true, hasProudMoment: false },
     });
   });
 
-  it("one proud_moment is count 1 with singleWinKind proud_moment", async () => {
+  it("one proud_moment is count 1 with hasProudMoment", async () => {
     state.pageResult = {
       data: [{ id: "p1", occurred_at: "2026-09-14T16:00:00.000Z", win_kind: "proud_moment" }],
       error: null,
@@ -966,11 +970,11 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
       monthKey: "2026-09",
     });
     expect(result.markers).toEqual({
-      "2026-09-14": { count: 1, singleWinKind: "proud_moment" },
+      "2026-09-14": { count: 1, hasGoalWin: false, hasProudMoment: true },
     });
   });
 
-  it("two goal wins are count 2 with singleWinKind null", async () => {
+  it("two goal wins are count 2 with hasGoalWin only", async () => {
     state.pageResult = {
       data: [
         { id: "g1", occurred_at: "2026-09-14T16:00:00.000Z", win_kind: "goal_win" },
@@ -984,11 +988,11 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
       monthKey: "2026-09",
     });
     expect(result.markers).toEqual({
-      "2026-09-14": { count: 2, singleWinKind: null },
+      "2026-09-14": { count: 2, hasGoalWin: true, hasProudMoment: false },
     });
   });
 
-  it("two proud moments are count 2 with singleWinKind null", async () => {
+  it("two proud moments are count 2 with hasProudMoment only", async () => {
     state.pageResult = {
       data: [
         { id: "p1", occurred_at: "2026-09-14T16:00:00.000Z", win_kind: "proud_moment" },
@@ -1002,11 +1006,11 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
       monthKey: "2026-09",
     });
     expect(result.markers).toEqual({
-      "2026-09-14": { count: 2, singleWinKind: null },
+      "2026-09-14": { count: 2, hasGoalWin: false, hasProudMoment: true },
     });
   });
 
-  it("goal + proud on the same local day is count 2 with singleWinKind null", async () => {
+  it("goal then proud is count 2 with both flags", async () => {
     state.pageResult = {
       data: [
         { id: "g1", occurred_at: "2026-09-14T16:00:00.000Z", win_kind: "goal_win" },
@@ -1020,11 +1024,29 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
       monthKey: "2026-09",
     });
     expect(result.markers).toEqual({
-      "2026-09-14": { count: 2, singleWinKind: null },
+      "2026-09-14": { count: 2, hasGoalWin: true, hasProudMoment: true },
     });
   });
 
-  it("invalid or missing single win_kind is count 1 with singleWinKind null", async () => {
+  it("proud then goal is the same mixed result", async () => {
+    state.pageResult = {
+      data: [
+        { id: "p1", occurred_at: "2026-09-14T16:00:00.000Z", win_kind: "proud_moment" },
+        { id: "g1", occurred_at: "2026-09-14T20:00:00.000Z", win_kind: "goal_win" },
+      ],
+      error: null,
+    };
+    const result = await loadVictoryWinMonthMarkersForUser({
+      clerkUserId: "user_1",
+      timeZone: "America/New_York",
+      monthKey: "2026-09",
+    });
+    expect(result.markers).toEqual({
+      "2026-09-14": { count: 2, hasGoalWin: true, hasProudMoment: true },
+    });
+  });
+
+  it("unknown-only rows keep both flags false", async () => {
     state.pageResult = {
       data: [
         { id: "bad", occurred_at: "2026-09-14T16:00:00.000Z", win_kind: "not_a_kind" },
@@ -1038,9 +1060,61 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
       timeZone: "America/New_York",
       monthKey: "2026-09",
     });
-    expect(result.markers["2026-09-14"]).toEqual({ count: 1, singleWinKind: null });
-    expect(result.markers["2026-09-13"]).toEqual({ count: 1, singleWinKind: null });
-    expect(result.markers["2026-09-12"]).toEqual({ count: 1, singleWinKind: null });
+    expect(result.markers["2026-09-14"]).toEqual({
+      count: 1,
+      hasGoalWin: false,
+      hasProudMoment: false,
+    });
+    expect(result.markers["2026-09-13"]).toEqual({
+      count: 1,
+      hasGoalWin: false,
+      hasProudMoment: false,
+    });
+    expect(result.markers["2026-09-12"]).toEqual({
+      count: 1,
+      hasGoalWin: false,
+      hasProudMoment: false,
+    });
+  });
+
+  it("proud + unknown keeps hasProudMoment and does not infer the unknown as Proud extra kind", async () => {
+    state.pageResult = {
+      data: [
+        { id: "p1", occurred_at: "2026-09-14T16:00:00.000Z", win_kind: "proud_moment" },
+        { id: "bad", occurred_at: "2026-09-14T20:00:00.000Z", win_kind: "not_a_kind" },
+      ],
+      error: null,
+    };
+    const result = await loadVictoryWinMonthMarkersForUser({
+      clerkUserId: "user_1",
+      timeZone: "America/New_York",
+      monthKey: "2026-09",
+    });
+    expect(result.markers["2026-09-14"]).toEqual({
+      count: 2,
+      hasGoalWin: false,
+      hasProudMoment: true,
+    });
+  });
+
+  it("goal + unknown keeps hasGoalWin", async () => {
+    state.pageResult = {
+      data: [
+        { id: "g1", occurred_at: "2026-09-14T16:00:00.000Z", win_kind: "goal_win" },
+        { id: "bad", occurred_at: "2026-09-14T20:00:00.000Z", win_kind: "not_a_kind" },
+      ],
+      error: null,
+    };
+    const result = await loadVictoryWinMonthMarkersForUser({
+      clerkUserId: "user_1",
+      timeZone: "America/New_York",
+      monthKey: "2026-09",
+    });
+    expect(result.markers["2026-09-14"]).toEqual({
+      count: 2,
+      hasGoalWin: true,
+      hasProudMoment: false,
+    });
   });
 
   it("groups two UTC calendar dates onto one member-local day", async () => {
@@ -1057,7 +1131,7 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
       monthKey: "2026-09",
     });
     expect(result.markers).toEqual({
-      "2026-09-14": { count: 2, singleWinKind: null },
+      "2026-09-14": { count: 2, hasGoalWin: true, hasProudMoment: true },
     });
   });
 
@@ -1075,7 +1149,7 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
       monthKey: "2026-09",
     });
     expect(result.markers).toEqual({
-      "2026-09-14": { count: 1, singleWinKind: "proud_moment" },
+      "2026-09-14": { count: 1, hasGoalWin: false, hasProudMoment: true },
     });
   });
 
@@ -1090,7 +1164,11 @@ describe("loadVictoryWinMonthMarkersForUser", () => {
       monthKey: "2026-09",
     });
     expect(state.lastEqCalls).toContainEqual(["status", "active"]);
-    expect(result.markers["2026-09-14"]).toEqual({ count: 1, singleWinKind: "goal_win" });
+    expect(result.markers["2026-09-14"]).toEqual({
+      count: 1,
+      hasGoalWin: true,
+      hasProudMoment: false,
+    });
   });
 
   it("fail-closed: invalid month does not query the database", async () => {

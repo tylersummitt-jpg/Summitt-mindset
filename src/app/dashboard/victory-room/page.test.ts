@@ -87,6 +87,8 @@ describe("Victory Room Victory Calendar wiring", () => {
     expect(pageSrc).toContain(">Victory Room<");
     expect(pageSrc).toContain("PROUD_MOMENT_STAT_QUOTE");
     expect(pageSrc).toContain('from "@/lib/v2-victory-room-display"');
+    expect(pageSrc).toContain("“{PROUD_MOMENT_STAT_QUOTE}”");
+    expect(pageSrc).toContain("— Pat Summitt");
     expect(pageSrc).not.toContain("Build your identity one day at a time.");
     expect(pageSrc).not.toContain(
       "Confidence comes from seeing a stack of evidence from your own life"
@@ -94,6 +96,7 @@ describe("Victory Room Victory Calendar wiring", () => {
     expect(PROUD_MOMENT_STAT_QUOTE).toBe(
       "Confidence comes from seeing a stack of evidence from your own life that proves what you’re capable of."
     );
+    expect(PROUD_MOMENT_STAT_QUOTE).not.toContain("Pat Summitt");
     expect(pageSrc).toContain("vrSectionSubtitle");
     const tagline = pageSrc.indexOf("{PROUD_MOMENT_STAT_QUOTE}");
     expect(tagline).toBeGreaterThan(h1);

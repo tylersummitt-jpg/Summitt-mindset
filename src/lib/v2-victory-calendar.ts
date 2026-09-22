@@ -216,7 +216,8 @@ export function victoryCalendarDayAccessibleName(args: {
   dateKey: string;
   winCount: number;
   isToday: boolean;
-  singleWinKind?: "goal_win" | "proud_moment" | null;
+  hasGoalWin?: boolean;
+  hasProudMoment?: boolean;
 }): string | null {
   const date = formatVictoryCalendarLongDate(args.dateKey);
   if (!date) return null;
@@ -225,9 +226,9 @@ export function victoryCalendarDayAccessibleName(args: {
     n === 0
       ? "no Victories"
       : n === 1
-        ? args.singleWinKind === "goal_win"
+        ? args.hasGoalWin
           ? "1 Goal Win"
-          : args.singleWinKind === "proud_moment"
+          : args.hasProudMoment
             ? "1 Proud Moment"
             : "1 Victory"
         : `${n} Victories`;

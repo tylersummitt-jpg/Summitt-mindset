@@ -47,9 +47,12 @@ describe("VictorySummaryCounts", () => {
     const totalInfo = html.indexOf('aria-label="What are Total Victories?"');
     const goalInfo = html.indexOf('aria-label="What are Goal Wins?"');
     const proudInfo = html.indexOf('aria-label="What are Proud Moments?"');
+    expect(html.slice(html.indexOf(">33<"), html.indexOf("TOTAL VICTORIES"))).not.toContain("<svg");
+    expect(html.slice(html.indexOf(">7<"), html.indexOf("GOAL WINS"))).toContain("<svg");
+    expect(html.slice(html.indexOf(">26<"), html.indexOf("PROUD MOMENTS"))).toContain("<svg");
+    expect(html.slice(html.indexOf("GOAL WINS"), goalInfo)).not.toContain("<svg");
+    expect(html.slice(html.indexOf("PROUD MOMENTS"), proudInfo)).not.toContain("<svg");
     expect(html.slice(html.indexOf("TOTAL VICTORIES"), totalInfo)).not.toContain("<svg");
-    expect(html.slice(html.indexOf("GOAL WINS"), goalInfo)).toContain("<svg");
-    expect(html.slice(html.indexOf("PROUD MOMENTS"), proudInfo)).toContain("<svg");
     expect(html).toContain("flex-col");
     expect(html).toContain("sm:flex-row");
     expect(html).toContain("h-11 w-11");
@@ -73,7 +76,7 @@ describe("VictorySummaryCounts", () => {
     expect(SRC).not.toContain("🏆");
     expect(SRC).toContain("flex-col items-center sm:flex-row");
     expect(SRC).toContain("h-11 w-11");
-    expect(SRC).not.toContain("h-5 w-5");
+    expect(SRC).toContain("h-5 w-5");
     expect(SRC).not.toContain('span className="h-5');
     expect(SRC).not.toContain(
       "Confidence comes from seeing a stack of evidence from your own life"

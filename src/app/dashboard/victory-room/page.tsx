@@ -175,7 +175,9 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
 
             <header className="mb-5 sm:mb-6">
               <h1 className={vrSectionTitle}>Victory Room</h1>
-              <p className={vrSectionSubtitle}>{PROUD_MOMENT_STAT_QUOTE}</p>
+              <p className={vrSectionSubtitle}>
+                “{PROUD_MOMENT_STAT_QUOTE}” — Pat Summitt
+              </p>
             </header>
 
             {view.commitment ? (

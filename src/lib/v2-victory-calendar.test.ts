@@ -294,7 +294,8 @@ describe("Victory Calendar day labels", () => {
         dateKey: "2026-09-14",
         winCount: 1,
         isToday: false,
-        singleWinKind: null,
+        hasGoalWin: false,
+        hasProudMoment: false,
       })
     ).toBe("September 14, 2026, 1 Victory");
     expect(
@@ -302,7 +303,7 @@ describe("Victory Calendar day labels", () => {
         dateKey: "2026-09-21",
         winCount: 1,
         isToday: false,
-        singleWinKind: "goal_win",
+        hasGoalWin: true,
       })
     ).toBe("September 21, 2026, 1 Goal Win");
     expect(
@@ -310,7 +311,7 @@ describe("Victory Calendar day labels", () => {
         dateKey: "2026-09-21",
         winCount: 1,
         isToday: false,
-        singleWinKind: "proud_moment",
+        hasProudMoment: true,
       })
     ).toBe("September 21, 2026, 1 Proud Moment");
     expect(
@@ -325,7 +326,8 @@ describe("Victory Calendar day labels", () => {
         dateKey: "2026-09-21",
         winCount: 3,
         isToday: false,
-        singleWinKind: "goal_win",
+        hasGoalWin: true,
+        hasProudMoment: true,
       })
     ).toBe("September 21, 2026, 3 Victories");
     expect(
@@ -347,7 +349,7 @@ describe("Victory Calendar day labels", () => {
         dateKey: "2026-09-01",
         winCount: 1,
         isToday: true,
-        singleWinKind: "goal_win",
+        hasGoalWin: true,
       })
     ).toBe("Today, September 1, 2026, 1 Goal Win");
   });

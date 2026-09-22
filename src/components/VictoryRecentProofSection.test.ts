@@ -68,7 +68,8 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain("two loops done");
     expect(html).toContain("View all Victories");
     expect(html).toContain("/dashboard/victory-room/all-proof");
-    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Add a Victory");
+    expect(html).not.toContain("+ Add a Victory");
     expect(html).not.toContain("Add a Goal Win");
     expect(html).not.toContain("Add a Win");
     expect(html).toContain('/dashboard/victory-room/add-win"');
@@ -153,6 +154,8 @@ describe("VictoryRecentProofSection", () => {
     expect(src).toContain('kind: "victory-room"');
     expect(src).toContain("VictoryProudMomentsEditChrome");
     expect(src).toContain("VictorySummaryCounts");
+    expect(src).toContain('addLabel="Add a Victory"');
+    expect(src).not.toContain("+ Add a Victory");
     expect(src).toContain('editLabel="Edit a Victory"');
     expect(src).toContain('listHeading="Recent Victories"');
     expect(src).toContain('toolbarSectionTitle="Your Victories"');
@@ -195,7 +198,8 @@ describe("VictoryRecentProofSection", () => {
     expect(html.match(/>0</g)?.length).toBe(3);
     expect(html).not.toContain("Moment Saved");
     expect(html).not.toContain("Moments Saved");
-    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Add a Victory");
+    expect(html).not.toContain("+ Add a Victory");
     expect(html).toContain("Kept walking");
   });
 
@@ -225,7 +229,8 @@ describe("VictoryRecentProofSection", () => {
       "When something real in your life is worth remembering, it will show up here."
     );
     expect(html).toContain("worth remembering");
-    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Add a Victory");
+    expect(html).not.toContain("+ Add a Victory");
     expect(html).not.toContain("Edit Victory");
     expect(html).not.toContain("No Wins yet.");
     expect(html).not.toContain("Recent Proof");
@@ -264,7 +269,8 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toMatch(/>0</);
     expect(html).toContain("Kept walking");
     expect(html).toContain("You finished the loops you promised yourself.");
-    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Add a Victory");
+    expect(html).not.toContain("+ Add a Victory");
     expect(html).toContain("Edit a Victory");
     expect(html).not.toContain("No Victories yet.");
   });
@@ -283,7 +289,8 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toContain("What are Total Victories?");
     expect(html).not.toMatch(/>0</);
     expect(html).toContain("No Victories yet.");
-    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Add a Victory");
+    expect(html).not.toContain("+ Add a Victory");
     expect(html).not.toContain("Edit Victory");
   });
 
@@ -313,14 +320,15 @@ describe("VictoryRecentProofSection", () => {
     );
     expect(html).toContain(">Your Victories<");
     expect(html).toContain("TOTAL VICTORIES");
-    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Add a Victory");
+    expect(html).not.toContain("+ Add a Victory");
     expect(html).toContain("Edit a Victory");
     expect(html).toContain("CALENDAR_SLOT");
     expect(html).toContain(">Recent Victories<");
     expect(html).toContain("Kept walking");
     expect(html).toContain("View all Victories");
     const title = html.indexOf(">Your Victories<");
-    const add = html.indexOf("+ Add a Victory");
+    const add = html.indexOf("Add a Victory");
     const edit = html.indexOf("Edit a Victory");
     const slot = html.indexOf("CALENDAR_SLOT");
     const recent = html.indexOf(">Recent Victories<");
@@ -349,7 +357,8 @@ describe("VictoryRecentProofSection", () => {
       })
     );
     expect(html).toContain(">Your Victories<");
-    expect(html).toContain("+ Add a Victory");
+    expect(html).toContain("Add a Victory");
+    expect(html).not.toContain("+ Add a Victory");
     expect(html).toContain("CALENDAR_SLOT");
     expect(html).toContain("No Victories yet.");
     expect(html).not.toContain("Edit Victory");
