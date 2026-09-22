@@ -10,12 +10,16 @@ describe("Victory Room main — legacy proof surface retirement", () => {
     "utf8"
   );
 
-  it("keeps Wins, Seasons, Coach Pat Feedback, and Pat Principles", () => {
+  it("keeps Wins and Seasons and hides Coach Pat Feedback and Pat Principles", () => {
     expect(pageSrc).toContain("VictoryRecentProofSection");
     expect(pageSrc).toContain("VictorySeasonsSection");
-    expect(pageSrc).toContain("VictoryPatReadSection");
-    expect(pageSrc).toContain("VictoryPatPrinciplesSection");
     expect(pageSrc).toContain("VictoryRoomTopCard");
+    expect(pageSrc).not.toContain("VictoryPatReadSection");
+    expect(pageSrc).not.toContain("VictoryPatPrinciplesSection");
+    expect(pageSrc).not.toContain("loadPatReadForVictoryRoom");
+    expect(pageSrc).not.toContain("loadPatPrinciplesForVictoryRoom");
+    expect(pageSrc).not.toContain("v2-victory-pat-read-persist");
+    expect(pageSrc).not.toContain("v2-victory-principles-persist");
   });
 
   it("hides Earlier Chapters proof-history link from primary Victory Room", () => {
@@ -51,14 +55,14 @@ describe("Victory Room Victory Calendar wiring", () => {
     const top = pageSrc.indexOf("<VictoryRoomTopCard");
     const wins = pageSrc.indexOf("<VictoryRecentProofSection");
     const cal = pageSrc.indexOf("<VictoryCalendarSection");
-    const pat = pageSrc.indexOf("<VictoryPatReadSection");
+    const seasons = pageSrc.indexOf("<VictorySeasonsSection");
     expect(top).toBeGreaterThan(-1);
     expect(wins).toBeGreaterThan(top);
     expect(cal).toBeGreaterThan(wins);
-    expect(pat).toBeGreaterThan(cal);
+    expect(seasons).toBeGreaterThan(cal);
     expect((pageSrc.match(/<VictoryCalendarSection/g) ?? []).length).toBe(1);
-    expect(pageSrc.slice(wins, pat)).toContain("<VictoryCalendarSection");
-    expect(pageSrc.slice(pat)).not.toContain("VictoryCalendarSection");
+    expect(pageSrc.slice(wins, seasons)).toContain("<VictoryCalendarSection");
+    expect(pageSrc.slice(seasons)).not.toContain("VictoryCalendarSection");
     expect(pageSrc).not.toMatch(
       /<VictoryRecentProofSection[\s\S]*?\/>\s*<VictoryCalendarSection/
     );

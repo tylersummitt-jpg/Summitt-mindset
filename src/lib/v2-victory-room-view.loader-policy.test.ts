@@ -121,12 +121,12 @@ describe("Victory Room loader policy", () => {
     expect(PAGE_SRC).not.toContain("getRecentProofCategoryLabel");
     expect(PAGE_SRC).not.toContain("VictoryRoomProofShareSection");
     expect(PAGE_SRC).toContain("VictoryRoomTopCard");
-    expect(PAGE_SRC).toContain("loadPatReadForVictoryRoom");
-    expect(PAGE_SRC).toContain("loadPatPrinciplesForVictoryRoom");
-    expect(PAGE_SRC).toContain("v2-victory-pat-read-persist");
-    expect(PAGE_SRC).toContain("v2-victory-principles-persist");
-    expect(PAGE_SRC).toContain("VictoryPatPrinciplesSection");
-    expect(PAGE_SRC).toContain("VictoryPatReadSection");
+    expect(PAGE_SRC).not.toContain("loadPatReadForVictoryRoom");
+    expect(PAGE_SRC).not.toContain("loadPatPrinciplesForVictoryRoom");
+    expect(PAGE_SRC).not.toContain("v2-victory-pat-read-persist");
+    expect(PAGE_SRC).not.toContain("v2-victory-principles-persist");
+    expect(PAGE_SRC).not.toContain("VictoryPatPrinciplesSection");
+    expect(PAGE_SRC).not.toContain("VictoryPatReadSection");
     expect(PAGE_SRC).not.toContain("VictoryPatPrinciplesPlaceholder");
     expect(PAGE_SRC).not.toContain("buildDeterministicPatRead");
     expect(PAGE_SRC).toContain("loadVictorySeasonListForRoom");

@@ -2,8 +2,6 @@ import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { VictoryCalendarSection } from "@/components/VictoryCalendarSection";
-import { VictoryPatPrinciplesSection } from "@/components/VictoryPatPrinciplesSection";
-import { VictoryPatReadSection } from "@/components/VictoryPatReadSection";
 import { VictoryRecentProofSection } from "@/components/VictoryRecentProofSection";
 import { VictoryRoomTopCard } from "@/components/VictoryRoomTopCard";
 import { VictorySeasonsSection } from "@/components/VictorySeasonsSection";
@@ -17,8 +15,6 @@ import {
   vrSectionSubtitle,
   vrSectionTitle,
 } from "@/components/victory-room-visual";
-import { loadPatReadForVictoryRoom } from "@/lib/v2-victory-pat-read-persist";
-import { loadPatPrinciplesForVictoryRoom } from "@/lib/v2-victory-principles-persist";
 import { loadVictorySeasonListForRoom } from "@/lib/v2-victory-season-list";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
 import { resolveVictoryCalendarPageState } from "@/lib/v2-victory-calendar";
@@ -91,28 +87,6 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
     showUpdateGoalLink = canEditFoundation;
     showEditIdentityLink = canEditFoundation;
   }
-
-  const displayName =
-    view.profile.preferred_name?.trim() ||
-    user.firstName?.trim() ||
-    "there";
-
-  const patRead = view.hasActiveV2Commitment
-    ? await loadPatReadForVictoryRoom({
-        clerkUserId: user.id,
-        view,
-        displayName,
-        timezone: timeZone,
-      })
-    : null;
-
-  const patPrinciples = view.hasActiveV2Commitment
-    ? await loadPatPrinciplesForVictoryRoom({
-        clerkUserId: user.id,
-        view,
-        timezone: timeZone,
-      })
-    : null;
 
   const seasonList = view.hasActiveV2Commitment
     ? await loadVictorySeasonListForRoom(user.id)
@@ -205,10 +179,6 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
                 />
               }
             />
-
-            {patRead ? <VictoryPatReadSection read={patRead} /> : null}
-
-            {patPrinciples ? <VictoryPatPrinciplesSection principles={patPrinciples} /> : null}
 
             {seasonList ? (
               <VictorySeasonsSection
