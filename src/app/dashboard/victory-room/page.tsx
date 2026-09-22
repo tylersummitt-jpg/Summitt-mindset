@@ -193,7 +193,7 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
               summaryCounts={publicWins.summaryCounts}
               wins={publicWins.recentWins}
               timeZone={timeZone}
-              betweenToolbarAndList={
+              calendar={
                 <VictoryCalendarSection
                   monthKey={calendarState.monthKey}
                   currentMonthKey={currentMonthKey}

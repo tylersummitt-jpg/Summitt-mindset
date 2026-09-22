@@ -44,18 +44,17 @@ describe("Victory Room Victory Calendar wiring", () => {
     expect(pageSrc).not.toContain("resolveSmsUserTimezone");
   });
 
-  it("places the calendar in the proof-section slot, not as a later sibling", () => {
+  it("places the calendar inside Your Victories via RecentProof, not an EditChrome slot", () => {
     expect(pageSrc).toContain("VictoryCalendarSection");
-    expect(pageSrc).toContain("betweenToolbarAndList");
+    expect(pageSrc).toContain("calendar={");
+    expect(pageSrc).not.toContain("betweenToolbarAndList");
     const top = pageSrc.indexOf("<VictoryRoomTopCard");
     const wins = pageSrc.indexOf("<VictoryRecentProofSection");
     const cal = pageSrc.indexOf("<VictoryCalendarSection");
-    const slot = pageSrc.indexOf("betweenToolbarAndList");
     const pat = pageSrc.indexOf("<VictoryPatReadSection");
     expect(top).toBeGreaterThan(-1);
     expect(wins).toBeGreaterThan(top);
-    expect(slot).toBeGreaterThan(wins);
-    expect(cal).toBeGreaterThan(slot);
+    expect(cal).toBeGreaterThan(wins);
     expect(pat).toBeGreaterThan(cal);
     expect((pageSrc.match(/<VictoryCalendarSection/g) ?? []).length).toBe(1);
     expect(pageSrc.slice(wins, pat)).toContain("<VictoryCalendarSection");
@@ -71,8 +70,19 @@ describe("Victory Room Victory Calendar wiring", () => {
       path.join(process.cwd(), "src/components/VictoryCalendarSection.tsx"),
       "utf8"
     );
-    expect(calendarSrc).toContain('title="Victory Calendar"');
-    expect(calendarSrc).toContain("Your victories, one day at a time.");
+    expect(calendarSrc).not.toContain("VictoryRoomSectionShell");
+    expect(calendarSrc).not.toContain('title="Victory Calendar"');
+    expect(calendarSrc).not.toContain("Your victories, one day at a time.");
+    const recentSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/components/VictoryRecentProofSection.tsx"),
+      "utf8"
+    );
+    expect(recentSrc).toContain('title="Your Victories"');
+    expect(recentSrc).toContain("VictorySummaryCounts");
+    expect(recentSrc).toContain("{calendar}");
+    expect((recentSrc.match(/<VictoryProudMomentsEditChrome/g) ?? []).length).toBe(1);
+    expect(recentSrc).not.toContain("betweenToolbarAndList");
+    expect(recentSrc).not.toContain("toolbarSectionTitle");
   });
 
   it("keeps a single page H1 outside the foundation card", () => {

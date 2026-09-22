@@ -51,6 +51,9 @@ describe("VictoryCalendarSection import guards", () => {
     expect(SECTION_SRC).toContain("buildCalendarAddWinHref");
     expect(SECTION_SRC).toContain("+ Add a Victory");
     expect(SECTION_SRC).toContain("vrAccentLink");
+    expect(SECTION_SRC).not.toContain("VictoryRoomSectionShell");
+    expect(SECTION_SRC).not.toContain("Victory Calendar");
+    expect(SECTION_SRC).not.toContain("Your victories, one day at a time.");
     expect(SECTION_SRC).not.toContain("vrFoundationBtn");
     expect(SECTION_SRC).not.toContain("returnTo");
     expect(SECTION_SRC).not.toContain("persistManualV2Win");
@@ -76,9 +79,10 @@ describe("VictoryCalendarSection selected-day detail", () => {
         selectedWins: [],
       })
     );
-    expect(html).toContain("Victory Calendar");
-    expect(html).toContain("Your victories, one day at a time.");
+    expect(html).not.toContain("Victory Calendar");
+    expect(html).not.toContain("Your victories, one day at a time.");
     expect(html).not.toContain("Your wins, one day at a time.");
+    expect(html).toContain("SEPTEMBER 2026");
     expect(html).not.toContain("No Victories recorded yet.");
     expect(html).not.toContain("No Wins recorded yet.");
     expect(html).not.toContain("Add a Victory");

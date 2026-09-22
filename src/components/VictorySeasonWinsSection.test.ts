@@ -54,6 +54,14 @@ describe("VictorySeasonWinsSection", () => {
     expect(html).toContain("Edit Victory");
     expect(html).not.toContain("Edit a Victory");
     expect(html).toContain("Victories from this season");
+    const add = html.indexOf("Add a Victory");
+    const edit = html.indexOf("Edit Victory");
+    const seasonTitle = html.indexOf("Victories from this season");
+    const firstCard = html.indexOf("Done");
+    expect(add).toBeGreaterThan(-1);
+    expect(edit).toBeGreaterThan(add);
+    expect(seasonTitle).toBeGreaterThan(edit);
+    expect(firstCard).toBeGreaterThan(seasonTitle);
     expect(html).not.toContain('aria-label="Proud Moment actions"');
     expect(html).not.toContain(">Edit<");
     expect(html).not.toContain(">Delete<");

@@ -275,22 +275,51 @@ describe("VictoryProudMomentsEditChrome", () => {
     expect(html).not.toMatch(/>Edit Victory</);
   });
 
-  it("renders listHeading above cards without an extra section card", () => {
+  it("renders listHeading above Add/Edit then cards, without an extra section card", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryProudMomentsEditChrome, {
         addHref: "/dashboard/victory-room/add-win",
-        addLabel: "+ Add a Victory",
+        addLabel: "Add a Victory",
+        editLabel: "Edit a Victory",
         listHeading: "Recent Victories",
         groups: [{ key: "recent", cards: [cardA, cardB] }],
       })
     );
     expect(html).toContain(">Recent Victories<");
+    expect(html).toContain("Add a Victory");
+    expect(html).toContain("Edit a Victory");
     expect(html).toContain("First");
     expect(html).toContain("Second");
     const heading = html.indexOf(">Recent Victories<");
+    const add = html.indexOf("Add a Victory");
+    const edit = html.indexOf("Edit a Victory");
     const first = html.indexOf("First");
     expect(heading).toBeGreaterThan(-1);
-    expect(first).toBeGreaterThan(heading);
+    expect(add).toBeGreaterThan(heading);
+    expect(edit).toBeGreaterThan(add);
+    expect(first).toBeGreaterThan(edit);
     expect(html).toContain("mb-12");
+  });
+
+  it("keeps one isEditing when listHeading is set: Edit a Victory exposes card controls", async () => {
+    const user = userEvent.setup();
+    render(
+      React.createElement(VictoryProudMomentsEditChrome, {
+        addHref: "/dashboard/victory-room/add-win",
+        addLabel: "Add a Victory",
+        editLabel: "Edit a Victory",
+        listHeading: "Recent Victories",
+        groups: [{ key: "recent", cards: [cardA, cardB] }],
+      })
+    );
+
+    expect(screen.getByRole("heading", { name: "Recent Victories" })).toBeTruthy();
+    const toggle = screen.getByRole("button", { name: "Edit a Victory" });
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
+    await user.click(toggle);
+    expect(screen.getByRole("button", { name: "Done Editing" })).toBeTruthy();
+    expect(screen.getAllByRole("link", { name: "Edit" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(2);
   });
 });

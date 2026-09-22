@@ -74,11 +74,19 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toContain("Add a Win");
     expect(html).toContain('/dashboard/victory-room/add-win"');
     expect(html).toContain("Edit a Victory");
+    const title = html.indexOf(">Your Victories<");
+    const stats = html.indexOf("TOTAL VICTORIES");
     const recent = html.indexOf(">Recent Victories<");
+    const add = html.indexOf("Add a Victory");
+    const edit = html.indexOf("Edit a Victory");
     const card = html.indexOf("Kept walking");
     const viewAll = html.indexOf("View all Victories");
-    expect(recent).toBeGreaterThan(-1);
-    expect(card).toBeGreaterThan(recent);
+    expect(title).toBeGreaterThan(-1);
+    expect(stats).toBeGreaterThan(title);
+    expect(recent).toBeGreaterThan(stats);
+    expect(add).toBeGreaterThan(recent);
+    expect(edit).toBeGreaterThan(add);
+    expect(card).toBeGreaterThan(edit);
     expect(viewAll).toBeGreaterThan(card);
     expect(html).not.toContain('aria-label="Proud Moment actions"');
     expect(html).not.toContain(">Edit<");
@@ -158,8 +166,10 @@ describe("VictoryRecentProofSection", () => {
     expect(src).not.toContain("+ Add a Victory");
     expect(src).toContain('editLabel="Edit a Victory"');
     expect(src).toContain('listHeading="Recent Victories"');
-    expect(src).toContain('toolbarSectionTitle="Your Victories"');
-    expect(src).toContain("betweenToolbarAndList");
+    expect(src).toContain('title="Your Victories"');
+    expect(src).toContain("calendar");
+    expect(src).not.toContain("toolbarSectionTitle");
+    expect(src).not.toContain("betweenToolbarAndList");
     expect(src).not.toContain("recentLimit");
     expect(src).not.toContain(".slice(");
     expect((src.match(/<VictoryProudMomentsEditChrome/g) ?? []).length).toBe(1);
@@ -231,7 +241,15 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain("worth remembering");
     expect(html).toContain("Add a Victory");
     expect(html).not.toContain("+ Add a Victory");
+    expect(html).not.toContain("Edit a Victory");
     expect(html).not.toContain("Edit Victory");
+    expect(html).not.toContain("View all Victories");
+    const recent = html.indexOf(">Recent Victories<");
+    const add = html.indexOf("Add a Victory");
+    const empty = html.indexOf("No Victories yet.");
+    expect(recent).toBeGreaterThan(-1);
+    expect(add).toBeGreaterThan(recent);
+    expect(empty).toBeGreaterThan(add);
     expect(html).not.toContain("No Wins yet.");
     expect(html).not.toContain("Recent Proof");
     expect(html).not.toContain("saved");
@@ -294,7 +312,7 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toContain("Edit Victory");
   });
 
-  it("renders an inserted middle slot after Add/Edit and before recent cards", () => {
+  it("places calendar content inside Your Victories, then Recent heading, Add/Edit, cards", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryRecentProofSection, {
         summaryCounts: {
@@ -303,7 +321,7 @@ describe("VictoryRecentProofSection", () => {
           totalActiveProudMoments: 3,
         },
         timeZone: "UTC",
-        betweenToolbarAndList: React.createElement("div", null, "CALENDAR_SLOT"),
+        calendar: React.createElement("div", null, "CALENDAR_SLOT"),
         wins: [
           {
             id: "w1",
@@ -328,22 +346,24 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain("Kept walking");
     expect(html).toContain("View all Victories");
     const title = html.indexOf(">Your Victories<");
-    const add = html.indexOf("Add a Victory");
-    const edit = html.indexOf("Edit a Victory");
+    const stats = html.indexOf("TOTAL VICTORIES");
     const slot = html.indexOf("CALENDAR_SLOT");
     const recent = html.indexOf(">Recent Victories<");
+    const add = html.indexOf("Add a Victory");
+    const edit = html.indexOf("Edit a Victory");
     const card = html.indexOf("Kept walking");
     const viewAll = html.indexOf("View all Victories");
     expect(title).toBeGreaterThan(-1);
-    expect(add).toBeGreaterThan(title);
-    expect(edit).toBeGreaterThan(add);
-    expect(slot).toBeGreaterThan(edit);
+    expect(stats).toBeGreaterThan(title);
+    expect(slot).toBeGreaterThan(stats);
     expect(recent).toBeGreaterThan(slot);
-    expect(card).toBeGreaterThan(recent);
+    expect(add).toBeGreaterThan(recent);
+    expect(edit).toBeGreaterThan(add);
+    expect(card).toBeGreaterThan(edit);
     expect(viewAll).toBeGreaterThan(card);
   });
 
-  it("renders an inserted middle slot before empty state", () => {
+  it("keeps calendar inside Your Victories when recent list is empty", () => {
     const html = renderToStaticMarkup(
       React.createElement(VictoryRecentProofSection, {
         summaryCounts: {
@@ -352,7 +372,7 @@ describe("VictoryRecentProofSection", () => {
           totalActiveProudMoments: 0,
         },
         timeZone: "UTC",
-        betweenToolbarAndList: React.createElement("div", null, "CALENDAR_SLOT"),
+        calendar: React.createElement("div", null, "CALENDAR_SLOT"),
         wins: [],
       })
     );
@@ -361,10 +381,18 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toContain("+ Add a Victory");
     expect(html).toContain("CALENDAR_SLOT");
     expect(html).toContain("No Victories yet.");
+    expect(html).not.toContain("Edit a Victory");
     expect(html).not.toContain("Edit Victory");
+    expect(html).not.toContain("View all Victories");
+    const title = html.indexOf(">Your Victories<");
     const slot = html.indexOf("CALENDAR_SLOT");
+    const recent = html.indexOf(">Recent Victories<");
+    const add = html.indexOf("Add a Victory");
     const empty = html.indexOf("No Victories yet.");
-    expect(slot).toBeGreaterThan(-1);
-    expect(empty).toBeGreaterThan(slot);
+    expect(title).toBeGreaterThan(-1);
+    expect(slot).toBeGreaterThan(title);
+    expect(recent).toBeGreaterThan(slot);
+    expect(add).toBeGreaterThan(recent);
+    expect(empty).toBeGreaterThan(add);
   });
 });

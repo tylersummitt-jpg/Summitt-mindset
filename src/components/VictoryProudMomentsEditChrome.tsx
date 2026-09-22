@@ -45,7 +45,7 @@ type VictoryProudMomentsEditChromeProps = {
    * (calendar) and the list can sit outside that card.
    */
   toolbarSectionTitle?: string;
-  /** Visible heading above the card list / empty state. No extra section card. */
+  /** Visible heading above Add/Edit and the card list. No extra section card. */
   listHeading?: string;
   /** Idle edit-toggle copy. Default keeps All Proof / Season unchanged. */
   editLabel?: string;
@@ -124,15 +124,21 @@ export function VictoryProudMomentsEditChrome({
 
   return (
     <div className={className}>
-      {toolbarWithOptionalShell}
-      {betweenToolbarAndList}
       {listHeading ? (
-        <div className="mb-12">
-          <h2 className={vrSectionTitle}>{listHeading}</h2>
-          {listBlock}
-        </div>
+        <>
+          {betweenToolbarAndList}
+          <div className="mb-12">
+            <h2 className={vrSectionTitle}>{listHeading}</h2>
+            {toolbar}
+            {listBlock}
+          </div>
+        </>
       ) : (
-        listBlock
+        <>
+          {toolbarWithOptionalShell}
+          {betweenToolbarAndList}
+          {listBlock}
+        </>
       )}
     </div>
   );

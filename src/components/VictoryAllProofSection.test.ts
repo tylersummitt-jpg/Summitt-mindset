@@ -48,6 +48,12 @@ describe("VictoryAllProofSection", () => {
     expect(html).toContain("Showed up");
     expect(html).toContain("Edit Victory");
     expect(html).not.toContain("Edit a Victory");
+    const add = html.indexOf("Add a Victory");
+    const edit = html.indexOf("Edit Victory");
+    const card = html.indexOf("Showed up");
+    expect(add).toBeGreaterThan(-1);
+    expect(edit).toBeGreaterThan(add);
+    expect(card).toBeGreaterThan(edit);
     expect(html).not.toContain('aria-label="Proud Moment actions"');
     expect(html).not.toContain(">Edit<");
     expect(html).not.toContain(">Delete<");

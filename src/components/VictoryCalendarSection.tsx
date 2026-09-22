@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { VictoryCalendarGrid } from "@/components/VictoryCalendarGrid";
-import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import { VictoryWinCard } from "@/components/VictoryWinCard";
 import { vrAccentLink, vrBodyMuted } from "@/components/victory-room-visual";
 import { formatVictoryCalendarDayHeading } from "@/lib/v2-victory-calendar";
@@ -37,10 +36,7 @@ export function VictoryCalendarSection({
         : `${winCount} Victories`;
 
   return (
-    <VictoryRoomSectionShell
-      title="Victory Calendar"
-      subtitle="Your victories, one day at a time."
-    >
+    <>
       <VictoryCalendarGrid
         monthKey={monthKey}
         currentMonthKey={currentMonthKey}
@@ -83,6 +79,6 @@ export function VictoryCalendarSection({
           </p>
         </div>
       ) : null}
-    </VictoryRoomSectionShell>
+    </>
   );
 }
