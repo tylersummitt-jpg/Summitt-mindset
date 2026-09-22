@@ -189,6 +189,55 @@ export async function clearPendingPhotoRequestTarget(args: {
   }
 }
 
+/**
+ * After a semantic C2 attach CAS wins, clear this request's cooldown and
+ * pending target only when the attached win is still the open request and
+ * the media job was received before that request expired.
+ * Never throws. False means zero rows or a failed write; cooldown stays.
+ */
+export async function clearPhotoRequestCooldownAfterRequestedAttach(args: {
+  clerkUserId: string;
+  attachedWinId: string;
+  mediaJobCreatedAt: string | null | undefined;
+  now?: Date;
+}): Promise<boolean> {
+  const clerkUserId = args.clerkUserId.trim();
+  const attachedWinId = args.attachedWinId.trim();
+  const createdRaw = args.mediaJobCreatedAt?.trim() ?? "";
+  if (!clerkUserId || !UUID_RE.test(attachedWinId) || !createdRaw) return false;
+  const createdMs = new Date(createdRaw).getTime();
+  if (!Number.isFinite(createdMs)) return false;
+  const createdIso = new Date(createdMs).toISOString();
+  const nowIso = (args.now ?? new Date()).toISOString();
+  try {
+    const { data, error } = await supabaseServer
+      .from("v2_user_sms_comms_preferences")
+      .update({
+        last_photo_request_sent_at: null,
+        pending_photo_request_win_id: null,
+        pending_photo_request_expires_at: null,
+        updated_at: nowIso,
+      })
+      .eq("clerk_user_id", clerkUserId)
+      .eq("pending_photo_request_win_id", attachedWinId)
+      .gt("pending_photo_request_expires_at", createdIso)
+      .select("clerk_user_id")
+      .maybeSingle();
+    if (error) {
+      console.warn("[inbound-photo-request] cooldown_clear_failed", {
+        message: error.message.slice(0, 120),
+      });
+      return false;
+    }
+    return !!data;
+  } catch (e) {
+    console.warn("[inbound-photo-request] cooldown_clear_failed", {
+      message: e instanceof Error ? e.message.slice(0, 120) : "unknown",
+    });
+    return false;
+  }
+}
+
 function lastSentAtFromRow(
   row: { last_photo_request_sent_at?: string | null } | null
 ): string | null {

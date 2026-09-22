@@ -1389,6 +1389,104 @@ describe("evaluateAndAttachInboundMmsC2Job", () => {
     );
     expect(r).toMatchObject({ ok: true, status: "attached", winId: WIN_A });
   });
+
+  it("semantic C2 clears the photo-request cooldown only after the attach CAS wins", async () => {
+    const clearRequestedPhotoCooldown = vi.fn(async () => true);
+    const createdAt = "2026-08-19T18:00:00.000Z";
+    const r = await evaluateAndAttachInboundMmsC2Job(
+      semanticJob({ created_at: createdAt }),
+      semanticDeps({
+        downloadObject: async () => jpegBytes(8, 8),
+        clearRequestedPhotoCooldown,
+      })
+    );
+    expect(r).toMatchObject({ ok: true, status: "attached", winId: WIN_A });
+    expect(clearRequestedPhotoCooldown).toHaveBeenCalledOnce();
+    expect(clearRequestedPhotoCooldown).toHaveBeenCalledWith({
+      clerkUserId: USER,
+      attachedWinId: WIN_A,
+      mediaJobCreatedAt: createdAt,
+      now: NOW,
+    });
+  });
+
+  it("failed semantic finalize does not clear the photo-request cooldown", async () => {
+    const clearRequestedPhotoCooldown = vi.fn(async () => true);
+    const r = await evaluateAndAttachInboundMmsC2Job(
+      semanticJob(),
+      semanticDeps({
+        downloadObject: async () => jpegBytes(8, 8),
+        finalize: async () => ({ ok: false, code: "db_insert_failed" }),
+        clearRequestedPhotoCooldown,
+      })
+    );
+    expect(r.ok).toBe(false);
+    expect(clearRequestedPhotoCooldown).not.toHaveBeenCalled();
+  });
+
+  it("failed semantic attach CAS does not clear the photo-request cooldown", async () => {
+    const clearRequestedPhotoCooldown = vi.fn(async () => true);
+    const r = await evaluateAndAttachInboundMmsC2Job(
+      semanticJob(),
+      semanticDeps({
+        downloadObject: async () => jpegBytes(8, 8),
+        casJob: async () => false,
+        clearRequestedPhotoCooldown,
+      })
+    );
+    expect(r.ok).toBe(false);
+    expect(clearRequestedPhotoCooldown).not.toHaveBeenCalled();
+  });
+
+  it("semantic replay CAS clears the photo-request cooldown once", async () => {
+    const clearRequestedPhotoCooldown = vi.fn(async () => true);
+    const r = await evaluateAndAttachInboundMmsC2Job(
+      semanticJob(),
+      semanticDeps({
+        loadFacts: async () =>
+          facts({
+            provenanceMedia: mmsMedia({
+              win_id: WIN_A,
+              source_message_sid: PHOTO_SID,
+            }),
+          }),
+        clearRequestedPhotoCooldown,
+      })
+    );
+    expect(r).toMatchObject({ ok: true, status: "existing", winId: WIN_A });
+    expect(clearRequestedPhotoCooldown).toHaveBeenCalledOnce();
+    expect(clearRequestedPhotoCooldown).toHaveBeenCalledWith(
+      expect.objectContaining({ attachedWinId: WIN_A, clerkUserId: USER })
+    );
+  });
+
+  it("Mode A same-SID attach does not clear the photo-request cooldown", async () => {
+    const clearRequestedPhotoCooldown = vi.fn(async () => true);
+    const r = await evaluateAndAttachInboundMmsC2Job(
+      job({ semantic_target_win_id: null, last_error_code: "attach_eligible" }),
+      baseDeps({
+        downloadObject: async () => jpegBytes(8, 8),
+        clearRequestedPhotoCooldown,
+      })
+    );
+    expect(r).toMatchObject({ ok: true, status: "attached", winId: WIN_A });
+    expect(clearRequestedPhotoCooldown).not.toHaveBeenCalled();
+  });
+
+  it("a throwing cooldown clear does not fail a successful semantic attach", async () => {
+    const clearRequestedPhotoCooldown = vi.fn(async () => {
+      throw new Error("prefs down");
+    });
+    const r = await evaluateAndAttachInboundMmsC2Job(
+      semanticJob(),
+      semanticDeps({
+        downloadObject: async () => jpegBytes(8, 8),
+        clearRequestedPhotoCooldown,
+      })
+    );
+    expect(r).toMatchObject({ ok: true, status: "attached", winId: WIN_A });
+    expect(clearRequestedPhotoCooldown).toHaveBeenCalledOnce();
+  });
 });
 
 describe("isInboundMediaJobSemanticTargetOwned", () => {

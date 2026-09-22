@@ -1062,7 +1062,7 @@ describe("Slice 1 pending photo target — photo-only D2 dispatcher", () => {
       expectedResolution: null,
     });
     expect(runSemantics).not.toHaveBeenCalled();
-    expect(clear).toHaveBeenCalled();
+    expect(clear).not.toHaveBeenCalled();
   });
 
   it("expired or missing pending still runs existing D2a", async () => {

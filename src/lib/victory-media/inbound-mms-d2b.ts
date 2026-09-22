@@ -890,15 +890,6 @@ async function tryClaimPhotoOnlyPendingTarget(
     console.info("[victory-media/mms-d2] pending_target_claimed", {
       job_id: job.id,
     });
-    try {
-      await clearPending({
-        clerkUserId: job.clerk_user_id,
-        winId: pending.winId,
-        now,
-      });
-    } catch {
-      /* claim already durable on the job */
-    }
     return true;
   }
   if (PENDING_INVALID_CLEAR_REASONS.has(claimed.reason)) {

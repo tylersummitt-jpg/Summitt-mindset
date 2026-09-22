@@ -39,6 +39,7 @@ import {
   type InboundMmsC1Decision,
   type InboundMmsC1MediaLite,
 } from "@/lib/victory-media/correlate-inbound-mms-c1";
+import { clearPhotoRequestCooldownAfterRequestedAttach } from "@/lib/inbound-photo-request-state";
 import {
   finalizeVictoryWinMedia,
   type FinalizeVictoryWinMediaResult,
@@ -98,6 +99,8 @@ export type AttachInboundMmsC2Deps = {
     winId: string;
     clerkUserId: string;
   }) => Promise<InboundMmsC1MediaLite | null>;
+  /** Best-effort after a winning semantic attach CAS. Never affects attach success. */
+  clearRequestedPhotoCooldown?: typeof clearPhotoRequestCooldownAfterRequestedAttach;
 };
 
 function hasNonEmptyText(value: string | null | undefined): boolean {
@@ -424,6 +427,27 @@ async function casJobAttached(args: {
   });
 }
 
+async function maybeClearRequestedPhotoCooldown(args: {
+  job: InboundMediaJobRow;
+  attachedWinId: string;
+  now: Date;
+  clearRequestedPhotoCooldown: typeof clearPhotoRequestCooldownAfterRequestedAttach;
+}): Promise<void> {
+  try {
+    await args.clearRequestedPhotoCooldown({
+      clerkUserId: args.job.clerk_user_id,
+      attachedWinId: args.attachedWinId,
+      mediaJobCreatedAt: args.job.created_at,
+      now: args.now,
+    });
+  } catch (e) {
+    console.warn("[victory-media/mms-c2] photo_request_cooldown_clear_failed", {
+      job_id: args.job.id,
+      message: e instanceof Error ? e.message.slice(0, 120) : "unknown",
+    });
+  }
+}
+
 async function replayExistingCanonical(args: {
   job: InboundMediaJobRow;
   media: InboundMmsC1MediaLite;
@@ -431,6 +455,8 @@ async function replayExistingCanonical(args: {
   applyDecision: typeof applyInboundMmsC1Decision;
   casJob: typeof casAwaitingAttachJob;
   removeObjects: NonNullable<AttachInboundMmsC2Deps["removeObjects"]>;
+  semanticTargetWinId?: string | null;
+  clearRequestedPhotoCooldown?: typeof clearPhotoRequestCooldownAfterRequestedAttach;
 }): Promise<InboundMmsC2Result> {
   const won = await casJobAttached({
     job: args.job,
@@ -450,6 +476,19 @@ async function replayExistingCanonical(args: {
       args.applyDecision
     );
     return failResult(args.job.id, "c2_stale_ownership", false);
+  }
+  const semanticWinId = args.semanticTargetWinId?.trim() ?? "";
+  if (
+    semanticWinId &&
+    semanticWinId.toLowerCase() === args.media.win_id.trim().toLowerCase() &&
+    args.clearRequestedPhotoCooldown
+  ) {
+    await maybeClearRequestedPhotoCooldown({
+      job: args.job,
+      attachedWinId: args.media.win_id,
+      now: args.now,
+      clearRequestedPhotoCooldown: args.clearRequestedPhotoCooldown,
+    });
   }
   await maybeCleanupNorm({ job: args.job, removeObjects: args.removeObjects });
   return okAttached(args.job.id, args.media.win_id, "existing");
@@ -497,6 +536,7 @@ async function resolveAfterFinalizeConflict(args: {
   removeObjects: NonNullable<AttachInboundMmsC2Deps["removeObjects"]>;
   semanticTargetWinId?: string | null;
   loadMediaForWin?: NonNullable<AttachInboundMmsC2Deps["loadMediaForWin"]>;
+  clearRequestedPhotoCooldown?: typeof clearPhotoRequestCooldownAfterRequestedAttach;
 }): Promise<InboundMmsC2Result> {
   const requiredWinId = args.semanticTargetWinId?.trim() || null;
   let facts: Awaited<ReturnType<typeof loadInboundMmsCorrelationFacts>>;
@@ -517,6 +557,8 @@ async function resolveAfterFinalizeConflict(args: {
       applyDecision: args.applyDecision,
       casJob: args.casJob,
       removeObjects: args.removeObjects,
+      semanticTargetWinId: requiredWinId,
+      clearRequestedPhotoCooldown: args.clearRequestedPhotoCooldown,
     });
   }
   if (isSameMmsProvenanceWrongId(facts.provenanceMedia, args.job)) {
@@ -562,6 +604,8 @@ async function resolveAfterFinalizeConflict(args: {
       applyDecision: args.applyDecision,
       casJob: args.casJob,
       removeObjects: args.removeObjects,
+      semanticTargetWinId: requiredWinId,
+      clearRequestedPhotoCooldown: args.clearRequestedPhotoCooldown,
     });
   }
   if (
@@ -665,6 +709,7 @@ type CanonicalAttachCtx = {
   casJob: typeof casAwaitingAttachJob;
   semanticTargetWinId: string | null;
   loadMediaForWin: NonNullable<AttachInboundMmsC2Deps["loadMediaForWin"]>;
+  clearRequestedPhotoCooldown: typeof clearPhotoRequestCooldownAfterRequestedAttach;
 };
 
 async function runCanonicalAttach(ctx: CanonicalAttachCtx): Promise<InboundMmsC2Result> {
@@ -683,6 +728,7 @@ async function runCanonicalAttach(ctx: CanonicalAttachCtx): Promise<InboundMmsC2
     casJob,
     semanticTargetWinId,
     loadMediaForWin,
+    clearRequestedPhotoCooldown,
   } = ctx;
   const semanticMode = !!semanticTargetWinId;
 
@@ -834,6 +880,7 @@ async function runCanonicalAttach(ctx: CanonicalAttachCtx): Promise<InboundMmsC2
         removeObjects,
         semanticTargetWinId,
         loadMediaForWin,
+        clearRequestedPhotoCooldown,
       });
     }
     if (finalized.code === "win_not_attachable" || finalized.code === "win_not_found") {
@@ -913,6 +960,15 @@ async function runCanonicalAttach(ctx: CanonicalAttachCtx): Promise<InboundMmsC2
     return retryC2(job, now, "c2_stale_ownership", applyDecision);
   }
 
+  if (semanticMode) {
+    await maybeClearRequestedPhotoCooldown({
+      job,
+      attachedWinId: finalized.media.winId,
+      now,
+      clearRequestedPhotoCooldown,
+    });
+  }
+
   await maybeCleanupNorm({ job, removeObjects });
   return okAttached(
     job.id,
@@ -936,6 +992,7 @@ async function attachSemanticTargetC2(
     casJob: typeof casAwaitingAttachJob;
     loadTargetWin: NonNullable<AttachInboundMmsC2Deps["loadTargetWin"]>;
     loadMediaForWin: NonNullable<AttachInboundMmsC2Deps["loadMediaForWin"]>;
+    clearRequestedPhotoCooldown: typeof clearPhotoRequestCooldownAfterRequestedAttach;
   }
 ): Promise<InboundMmsC2Result> {
   const targetWinId = semanticTargetWinIdOf(job);
@@ -961,6 +1018,8 @@ async function attachSemanticTargetC2(
       applyDecision: ctx.applyDecision,
       casJob: ctx.casJob,
       removeObjects: ctx.removeObjects,
+      semanticTargetWinId: targetWinId,
+      clearRequestedPhotoCooldown: ctx.clearRequestedPhotoCooldown,
     });
   }
   if (isSameMmsProvenanceWrongId(facts.provenanceMedia, job)) {
@@ -1051,6 +1110,8 @@ async function attachSemanticTargetC2(
         applyDecision: ctx.applyDecision,
         casJob: ctx.casJob,
         removeObjects: ctx.removeObjects,
+        semanticTargetWinId: targetWinId,
+        clearRequestedPhotoCooldown: ctx.clearRequestedPhotoCooldown,
       });
     }
     if (
@@ -1087,6 +1148,7 @@ async function attachSemanticTargetC2(
     casJob: ctx.casJob,
     semanticTargetWinId: targetWinId,
     loadMediaForWin: ctx.loadMediaForWin,
+    clearRequestedPhotoCooldown: ctx.clearRequestedPhotoCooldown,
   });
 }
 
@@ -1120,6 +1182,9 @@ export async function evaluateAndAttachInboundMmsC2Job(
   const casJob = deps.casJob ?? casAwaitingAttachJob;
   const loadTargetWin = deps.loadTargetWin ?? defaultLoadTargetWin;
   const loadMediaForWin = deps.loadMediaForWin ?? defaultLoadMediaForWin;
+  const clearRequestedPhotoCooldown =
+    deps.clearRequestedPhotoCooldown ??
+    clearPhotoRequestCooldownAfterRequestedAttach;
 
   if (isInboundMediaJobTombstonedOrRemoved(job)) {
     return failResult(job.id, "tombstoned", true);
@@ -1150,6 +1215,7 @@ export async function evaluateAndAttachInboundMmsC2Job(
       casJob,
       loadTargetWin,
       loadMediaForWin,
+      clearRequestedPhotoCooldown,
     });
   }
 
@@ -1289,5 +1355,6 @@ export async function evaluateAndAttachInboundMmsC2Job(
     casJob,
     semanticTargetWinId: null,
     loadMediaForWin,
+    clearRequestedPhotoCooldown,
   });
 }

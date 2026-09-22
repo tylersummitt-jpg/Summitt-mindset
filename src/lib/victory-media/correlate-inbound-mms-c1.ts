@@ -1298,15 +1298,6 @@ async function tryClaimBodyPhotoPendingFallback(
     console.info("[victory-media/mms-c1] pending_target_claimed", {
       job_id: job.id,
     });
-    try {
-      await clearPending({
-        clerkUserId: job.clerk_user_id,
-        winId: pending.winId,
-        now,
-      });
-    } catch {
-      /* claim already durable on the job */
-    }
     return {
       kind: "pending_target_claimed",
       jobId: job.id,

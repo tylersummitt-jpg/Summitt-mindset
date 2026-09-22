@@ -1759,7 +1759,7 @@ describe("Slice 1 pending photo target — C1", () => {
       expect(d?.kind).toBe("pending_target_claimed");
       expect(jobs.get(JOB_ID)!.semantic_target_win_id).toBe(WIN_B);
       expect(jobs.get(JOB_ID)!.last_error_code).toBe("semantic_target");
-      expect(clear).toHaveBeenCalled();
+      expect(clear).not.toHaveBeenCalled();
     }
   );
 

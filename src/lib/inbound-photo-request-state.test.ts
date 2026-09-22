@@ -8,7 +8,11 @@ const hoisted = vi.hoisted(() => {
   const maybeSingle = vi.fn();
   const updateEq = vi.fn();
   const coachMaybeSingle = vi.fn();
-  const lastUpdate = { payload: null as Record<string, unknown> | null };
+  const lastUpdate = {
+    payload: null as Record<string, unknown> | null,
+    eqs: [] as Array<[string, string]>,
+    gt: null as [string, string] | null,
+  };
   const mediaLimit = vi.fn();
   const lastMediaQuery = {
     sids: null as string[] | null,
@@ -23,18 +27,22 @@ const hoisted = vi.hoisted(() => {
         }),
         update: (payload: Record<string, unknown>) => {
           lastUpdate.payload = payload;
-          return {
-            eq: () => ({
-              eq: () => ({
-                select: () => ({
-                  maybeSingle: updateEq,
-                }),
-              }),
-              select: () => ({
-                maybeSingle: updateEq,
-              }),
+          lastUpdate.eqs = [];
+          lastUpdate.gt = null;
+          const chain = {
+            eq: (col: string, val: string) => {
+              lastUpdate.eqs.push([col, val]);
+              return chain;
+            },
+            gt: (col: string, val: string) => {
+              lastUpdate.gt = [col, val];
+              return chain;
+            },
+            select: () => ({
+              maybeSingle: updateEq,
             }),
           };
+          return chain;
         },
       };
     }
@@ -92,6 +100,7 @@ vi.mock("@/lib/supabase-server", () => ({
 import {
   candidatePhotoTargetWinIdFromPersistResult,
   clearPendingPhotoRequestTarget,
+  clearPhotoRequestCooldownAfterRequestedAttach,
   computePhotoRequestAllowed,
   hasCurrentTurnInboundMediaOccupancy,
   INBOUND_PHOTO_REQUEST_COACH_FALLBACK_NO,
@@ -121,6 +130,8 @@ describe("pending photo-request state", () => {
     hoisted.coachMaybeSingle.mockReset();
     hoisted.mediaLimit.mockReset();
     hoisted.lastUpdate.payload = null;
+    hoisted.lastUpdate.eqs = [];
+    hoisted.lastUpdate.gt = null;
     hoisted.lastMediaQuery.sids = null;
     hoisted.lastMediaQuery.gte = null;
     hoisted.lastMediaQuery.lte = null;
@@ -345,6 +356,33 @@ describe("Slice 2 photo-request eligibility", () => {
     );
   });
 
+  it("unfulfilled request keeps the 168h block after the pending window is inactive", () => {
+    const dayLater = new Date(NOW.getTime() + 24 * 60 * 60 * 1000);
+    const sentAt = NOW.toISOString();
+    expect(isPhotoRequestCooldownClear(sentAt, dayLater)).toBe(false);
+    expect(
+      computePhotoRequestAllowed({
+        candidateWinId: WIN,
+        questionPolicy: "none",
+        hasCurrentTurnMedia: false,
+        eligibilityState: { pending: null, lastSentAt: sentAt },
+        now: dayLater,
+        bindingConfirmationRequired: false,
+      })
+    ).toBe(false);
+  });
+
+  it("null cooldown and no pending allow the next ask when every other gate passes", () => {
+    expect(
+      allowed({
+        eligibilityState: { pending: null, lastSentAt: null },
+        questionPolicy: "none",
+        hasCurrentTurnMedia: false,
+        bindingConfirmationRequired: false,
+      })
+    ).toBe(true);
+  });
+
   it("state/media lookup error -> false", () => {
     expect(allowed({ eligibilityState: "error" })).toBe(false);
     expect(allowed({ hasCurrentTurnMedia: "error" })).toBe(false);
@@ -373,6 +411,8 @@ describe("Slice 2 photo-request read/write", () => {
     hoisted.coachMaybeSingle.mockReset();
     hoisted.mediaLimit.mockReset();
     hoisted.lastUpdate.payload = null;
+    hoisted.lastUpdate.eqs = [];
+    hoisted.lastUpdate.gt = null;
     hoisted.lastMediaQuery.sids = null;
     hoisted.lastMediaQuery.gte = null;
     hoisted.lastMediaQuery.lte = null;
@@ -586,5 +626,135 @@ describe("Slice 2 photo-request read/write", () => {
     expect(photoIdx).toBeGreaterThan(sidIdx);
     expect(sentIdx).toBeGreaterThan(photoIdx);
     expect(src).toContain("photo_request_state_write_failed_soft");
+  });
+
+  it("requested attach inside the pending window clears cooldown and pending together", async () => {
+    const createdAt = "2026-09-17T15:00:00.000Z";
+    hoisted.updateEq.mockResolvedValueOnce({
+      data: { clerk_user_id: "user_1" },
+      error: null,
+    });
+    await expect(
+      clearPhotoRequestCooldownAfterRequestedAttach({
+        clerkUserId: "user_1",
+        attachedWinId: WIN,
+        mediaJobCreatedAt: createdAt,
+        now: NOW,
+      })
+    ).resolves.toBe(true);
+    expect(hoisted.lastUpdate.payload).toEqual({
+      last_photo_request_sent_at: null,
+      pending_photo_request_win_id: null,
+      pending_photo_request_expires_at: null,
+      updated_at: NOW.toISOString(),
+    });
+    expect(hoisted.lastUpdate.eqs).toEqual([
+      ["clerk_user_id", "user_1"],
+      ["pending_photo_request_win_id", WIN],
+    ]);
+    expect(hoisted.lastUpdate.gt).toEqual([
+      "pending_photo_request_expires_at",
+      createdAt,
+    ]);
+  });
+
+  it("a different or newer pending win id is the only win the update will match", async () => {
+    const newerWin = "dddddddd-4444-4444-8444-444444444444";
+    hoisted.updateEq.mockResolvedValueOnce({ data: null, error: null });
+    await expect(
+      clearPhotoRequestCooldownAfterRequestedAttach({
+        clerkUserId: "user_1",
+        attachedWinId: WIN,
+        mediaJobCreatedAt: "2026-09-17T15:00:00.000Z",
+        now: NOW,
+      })
+    ).resolves.toBe(false);
+    expect(hoisted.lastUpdate.eqs).toEqual([
+      ["clerk_user_id", "user_1"],
+      ["pending_photo_request_win_id", WIN],
+    ]);
+    expect(hoisted.lastUpdate.eqs).not.toContainEqual([
+      "pending_photo_request_win_id",
+      newerWin,
+    ]);
+  });
+
+  it("media received at or after expiry is excluded by expires_at > created_at", async () => {
+    const createdAt = "2026-09-17T22:00:00.000Z";
+    hoisted.updateEq.mockResolvedValueOnce({ data: null, error: null });
+    await expect(
+      clearPhotoRequestCooldownAfterRequestedAttach({
+        clerkUserId: "user_1",
+        attachedWinId: WIN,
+        mediaJobCreatedAt: createdAt,
+        now: NOW,
+      })
+    ).resolves.toBe(false);
+    expect(hoisted.lastUpdate.gt).toEqual([
+      "pending_photo_request_expires_at",
+      createdAt,
+    ]);
+  });
+
+  it("malformed media created_at does not write", async () => {
+    await expect(
+      clearPhotoRequestCooldownAfterRequestedAttach({
+        clerkUserId: "user_1",
+        attachedWinId: WIN,
+        mediaJobCreatedAt: "not-a-date",
+        now: NOW,
+      })
+    ).resolves.toBe(false);
+    expect(hoisted.lastUpdate.payload).toBeNull();
+  });
+
+  it("prefs clear failure does not throw", async () => {
+    hoisted.updateEq.mockResolvedValueOnce({
+      data: null,
+      error: { message: "db down" },
+    });
+    await expect(
+      clearPhotoRequestCooldownAfterRequestedAttach({
+        clerkUserId: "user_1",
+        attachedWinId: WIN,
+        mediaJobCreatedAt: "2026-09-17T15:00:00.000Z",
+        now: NOW,
+      })
+    ).resolves.toBe(false);
+  });
+
+  it("a second clear after the pending win is gone matches zero rows", async () => {
+    hoisted.updateEq.mockResolvedValueOnce({ data: null, error: null });
+    await expect(
+      clearPhotoRequestCooldownAfterRequestedAttach({
+        clerkUserId: "user_1",
+        attachedWinId: WIN,
+        mediaJobCreatedAt: "2026-09-17T15:00:00.000Z",
+        now: NOW,
+      })
+    ).resolves.toBe(false);
+  });
+
+  it("Morning, Evening, and Weekly writers do not clear this cooldown", () => {
+    for (const rel of [
+      "src/lib/morning-tto-writer.ts",
+      "src/lib/tyler-text-overview-evening-send.ts",
+      "src/lib/weekly-tto-writer.ts",
+    ]) {
+      const src = readFileSync(join(process.cwd(), rel), "utf8");
+      expect(src).not.toContain("clearPhotoRequestCooldownAfterRequestedAttach");
+      expect(src).not.toContain("last_photo_request_sent_at");
+    }
+  });
+
+  it("writer prompt and model constants are unchanged by this cooldown clear", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/lib/inbound-sol-writer.ts"),
+      "utf8"
+    );
+    expect(src).toContain('export const INBOUND_SOL_WRITER_MODEL = "gpt-5.6-sol"');
+    expect(src).toContain('export const INBOUND_SOL_WRITER_REASONING_EFFORT = "low"');
+    expect(src).not.toContain("clearPhotoRequestCooldownAfterRequestedAttach");
+    expect(src).toContain("When photo_request_allowed is true, normally use");
   });
 });
