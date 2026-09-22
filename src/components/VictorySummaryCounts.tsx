@@ -7,6 +7,7 @@ import {
   VrIconStar,
 } from "@/components/VictoryRoomIcons";
 import { vrAccentLink, vrInnerPanel } from "@/components/victory-room-visual";
+import { PROUD_MOMENT_STAT_QUOTE } from "@/lib/v2-victory-room-display";
 import type { PublicVictorySummaryCounts } from "@/lib/v2-win-public-read";
 
 type StatId = "total" | "goal" | "proud";
@@ -50,8 +51,7 @@ const STATS: StatExplanation[] = [
     heading: "Proud Moments",
     definition:
       "A Proud Moment is a meaningful accomplishment or life moment worth remembering — evidence from your own life you can look back on.",
-    quote:
-      "Confidence comes from seeing a stack of evidence from your own life that proves what you’re capable of.",
+    quote: PROUD_MOMENT_STAT_QUOTE,
     icon: VrIconStar,
     whatLabel: "What are Proud Moments?",
   },
@@ -103,18 +103,18 @@ export function VictorySummaryCounts({ counts }: VictorySummaryCountsProps) {
               key={stat.id}
               className="flex min-w-0 flex-col items-center sm:items-start"
             >
-              {Icon ? (
-                <Icon className="h-5 w-5 text-amber-200" />
-              ) : (
-                <span className="h-5 w-5" aria-hidden />
-              )}
-              <p className="mt-2 font-serif text-2xl font-semibold tabular-nums leading-none text-amber-50 sm:text-4xl">
+              <p className="font-serif text-2xl font-semibold tabular-nums leading-none text-amber-50 sm:text-4xl">
                 {counts[stat.countKey]}
               </p>
-              <div className="mt-1 flex w-full flex-col items-center sm:flex-row sm:items-center sm:justify-start">
-                <p className="text-center text-[10px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:text-left sm:text-xs">
-                  {stat.label}
-                </p>
+              <div className="mt-1 flex w-full min-w-0 flex-col items-center sm:flex-row sm:items-center sm:justify-start">
+                <div className="flex min-w-0 max-w-full items-center justify-center sm:justify-start">
+                  <p className="min-w-0 text-center text-[10px] font-semibold uppercase leading-tight tracking-[0.12em] text-stone-400 sm:text-left sm:text-xs">
+                    {stat.label}
+                  </p>
+                  {Icon ? (
+                    <Icon className="ml-1 h-3.5 w-3.5 shrink-0 text-amber-200" />
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   className={infoButtonClass}

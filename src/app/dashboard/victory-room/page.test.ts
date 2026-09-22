@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 
+import { PROUD_MOMENT_STAT_QUOTE } from "@/lib/v2-victory-room-display";
+
 describe("Victory Room main — legacy proof surface retirement", () => {
   const pageSrc = fs.readFileSync(
     path.join(process.cwd(), "src/app/dashboard/victory-room/page.tsx"),
@@ -34,8 +36,10 @@ describe("Victory Room Victory Calendar wiring", () => {
     expect(pageSrc).toContain("resolveVictoryCalendarPageState");
     expect(pageSrc).toContain("loadVictoryWinMonthMarkersForUser");
     expect(pageSrc).toContain("loadPublicVictoryWinsForUserLocalDay");
-    expect(pageSrc).toContain("PUBLIC_WINS_RECENT_LIMIT");
     expect(pageSrc).toContain("loadPublicVictoryWinsForUser");
+    expect(pageSrc).toContain("recentLimit: 3");
+    expect(pageSrc).not.toContain("PUBLIC_WINS_RECENT_LIMIT");
+    expect(pageSrc).not.toContain(".slice(0, 3)");
     expect(pageSrc).not.toContain("sms_audience");
     expect(pageSrc).not.toContain("resolveSmsUserTimezone");
   });
@@ -63,6 +67,12 @@ describe("Victory Room Victory Calendar wiring", () => {
     expect(cal).toBeGreaterThan(notReady);
     expect(pageSrc).toContain("calendarState.selectedDay");
     expect(pageSrc).toContain("Promise.resolve([] as PublicWinDto[])");
+    const calendarSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/components/VictoryCalendarSection.tsx"),
+      "utf8"
+    );
+    expect(calendarSrc).toContain('title="Victory Calendar"');
+    expect(calendarSrc).toContain("Your victories, one day at a time.");
   });
 
   it("keeps a single page H1 outside the foundation card", () => {
@@ -75,9 +85,17 @@ describe("Victory Room Victory Calendar wiring", () => {
     expect(top).toBeGreaterThan(h1);
     expect(wins).toBeGreaterThan(top);
     expect(pageSrc).toContain(">Victory Room<");
-    expect(pageSrc).toContain("Build your identity one day at a time.");
+    expect(pageSrc).toContain("PROUD_MOMENT_STAT_QUOTE");
+    expect(pageSrc).toContain('from "@/lib/v2-victory-room-display"');
+    expect(pageSrc).not.toContain("Build your identity one day at a time.");
+    expect(pageSrc).not.toContain(
+      "Confidence comes from seeing a stack of evidence from your own life"
+    );
+    expect(PROUD_MOMENT_STAT_QUOTE).toBe(
+      "Confidence comes from seeing a stack of evidence from your own life that proves what you’re capable of."
+    );
     expect(pageSrc).toContain("vrSectionSubtitle");
-    const tagline = pageSrc.indexOf("Build your identity one day at a time.");
+    const tagline = pageSrc.indexOf("{PROUD_MOMENT_STAT_QUOTE}");
     expect(tagline).toBeGreaterThan(h1);
     expect(top).toBeGreaterThan(tagline);
     expect(pageSrc).not.toContain("A place to remember who you&apos;re becoming");

@@ -41,6 +41,18 @@ describe("VictorySummaryCounts", () => {
     expect(html).toContain("TOTAL VICTORIES");
     expect(html).toContain("GOAL WINS");
     expect(html).toContain("PROUD MOMENTS");
+    expect(html.indexOf(">33<")).toBeLessThan(html.indexOf("TOTAL VICTORIES"));
+    expect(html.indexOf(">7<")).toBeLessThan(html.indexOf("GOAL WINS"));
+    expect(html.indexOf(">26<")).toBeLessThan(html.indexOf("PROUD MOMENTS"));
+    const totalInfo = html.indexOf('aria-label="What are Total Victories?"');
+    const goalInfo = html.indexOf('aria-label="What are Goal Wins?"');
+    const proudInfo = html.indexOf('aria-label="What are Proud Moments?"');
+    expect(html.slice(html.indexOf("TOTAL VICTORIES"), totalInfo)).not.toContain("<svg");
+    expect(html.slice(html.indexOf("GOAL WINS"), goalInfo)).toContain("<svg");
+    expect(html.slice(html.indexOf("PROUD MOMENTS"), proudInfo)).toContain("<svg");
+    expect(html).toContain("flex-col");
+    expect(html).toContain("sm:flex-row");
+    expect(html).toContain("h-11 w-11");
     expect(html).toContain('aria-label="What are Total Victories?"');
     expect(html).toContain('aria-label="What are Goal Wins?"');
     expect(html).toContain('aria-label="What are Proud Moments?"');
@@ -56,8 +68,16 @@ describe("VictorySummaryCounts", () => {
     expect(SRC).toContain("VrIconGoal");
     expect(SRC).toContain("VrIconStar");
     expect(SRC).toContain("VrIconInfo");
+    expect(SRC).toContain("PROUD_MOMENT_STAT_QUOTE");
     expect(SRC).not.toContain("VrIconTrophy");
     expect(SRC).not.toContain("🏆");
+    expect(SRC).toContain("flex-col items-center sm:flex-row");
+    expect(SRC).toContain("h-11 w-11");
+    expect(SRC).not.toContain("h-5 w-5");
+    expect(SRC).not.toContain('span className="h-5');
+    expect(SRC).not.toContain(
+      "Confidence comes from seeing a stack of evidence from your own life"
+    );
     expect(SRC).not.toContain("lucide");
     expect(SRC).not.toContain("<details");
     expect(SRC).not.toContain("group-hover");

@@ -43,6 +43,7 @@ describe("VictoryRecentProofSection", () => {
       })
     );
     expect(html).toContain(">Your Victories<");
+    expect(html).toContain(">Recent Victories<");
     expect(html).not.toContain("Proud Moments &amp; Goal Wins");
     expect(html).not.toContain("Proud Moments & Goal Wins");
     expect(html).not.toMatch(/>Proud Moments</);
@@ -71,7 +72,13 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toContain("Add a Goal Win");
     expect(html).not.toContain("Add a Win");
     expect(html).toContain('/dashboard/victory-room/add-win"');
-    expect(html).toContain("Edit Victory");
+    expect(html).toContain("Edit a Victory");
+    const recent = html.indexOf(">Recent Victories<");
+    const card = html.indexOf("Kept walking");
+    const viewAll = html.indexOf("View all Victories");
+    expect(recent).toBeGreaterThan(-1);
+    expect(card).toBeGreaterThan(recent);
+    expect(viewAll).toBeGreaterThan(card);
     expect(html).not.toContain('aria-label="Proud Moment actions"');
     expect(html).not.toContain(">Edit<");
     expect(html).not.toContain(">Delete<");
@@ -84,6 +91,59 @@ describe("VictoryRecentProofSection", () => {
     expect(html).not.toMatch(/streak|badge|\bXP\b|achievement unlocked|habit tracker|Win detected/i);
   });
 
+  it("renders three recent Victory cards in list order", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryRecentProofSection, {
+        summaryCounts: {
+          totalActiveWins: 3,
+          totalActiveGoalWins: 1,
+          totalActiveProudMoments: 2,
+        },
+        timeZone: "UTC",
+        wins: [
+          {
+            id: "w1",
+            occurredAt: "2026-06-03T12:00:00Z",
+            displayTitle: "First recent",
+            displayBody: "One",
+            supportingQuote: null,
+            celebrationAppropriate: true,
+            commitmentId: null,
+            updatedAt: "2026-06-03T12:05:00.000Z",
+          },
+          {
+            id: "w2",
+            occurredAt: "2026-06-02T12:00:00Z",
+            displayTitle: "Second recent",
+            displayBody: "Two",
+            supportingQuote: null,
+            celebrationAppropriate: true,
+            commitmentId: null,
+            updatedAt: "2026-06-02T12:05:00.000Z",
+          },
+          {
+            id: "w3",
+            occurredAt: "2026-06-01T12:00:00Z",
+            displayTitle: "Third recent",
+            displayBody: "Three",
+            supportingQuote: null,
+            celebrationAppropriate: true,
+            commitmentId: null,
+            updatedAt: "2026-06-01T12:05:00.000Z",
+          },
+        ],
+      })
+    );
+    expect(html).toContain(">Recent Victories<");
+    expect(html).toContain("First recent");
+    expect(html).toContain("Second recent");
+    expect(html).toContain("Third recent");
+    expect(html).toContain("View all Victories");
+    expect(html.indexOf("First recent")).toBeLessThan(html.indexOf("Second recent"));
+    expect(html.indexOf("Second recent")).toBeLessThan(html.indexOf("Third recent"));
+    expect(html.indexOf("Third recent")).toBeLessThan(html.indexOf("View all Victories"));
+  });
+
   it("wires bounded edit origin for home cards", () => {
     const src = fs.readFileSync(
       path.join(process.cwd(), "src/components/VictoryRecentProofSection.tsx"),
@@ -93,8 +153,12 @@ describe("VictoryRecentProofSection", () => {
     expect(src).toContain('kind: "victory-room"');
     expect(src).toContain("VictoryProudMomentsEditChrome");
     expect(src).toContain("VictorySummaryCounts");
+    expect(src).toContain('editLabel="Edit a Victory"');
+    expect(src).toContain('listHeading="Recent Victories"');
     expect(src).toContain('toolbarSectionTitle="Your Victories"');
     expect(src).toContain("betweenToolbarAndList");
+    expect(src).not.toContain("recentLimit");
+    expect(src).not.toContain(".slice(");
     expect((src.match(/<VictoryProudMomentsEditChrome/g) ?? []).length).toBe(1);
     expect(src).toContain("winId: w.id");
     expect(src).toContain("expectedUpdatedAt: w.updatedAt");
@@ -148,6 +212,7 @@ describe("VictoryRecentProofSection", () => {
       })
     );
     expect(html).toContain(">Your Victories<");
+    expect(html).toContain(">Recent Victories<");
     expect(html).not.toContain("Build your identity one day at a time.");
     expect(html).toContain("TOTAL VICTORIES");
     expect(html).toContain("GOAL WINS");
@@ -200,7 +265,7 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain("Kept walking");
     expect(html).toContain("You finished the loops you promised yourself.");
     expect(html).toContain("+ Add a Victory");
-    expect(html).toContain("Edit Victory");
+    expect(html).toContain("Edit a Victory");
     expect(html).not.toContain("No Victories yet.");
   });
 
@@ -249,21 +314,24 @@ describe("VictoryRecentProofSection", () => {
     expect(html).toContain(">Your Victories<");
     expect(html).toContain("TOTAL VICTORIES");
     expect(html).toContain("+ Add a Victory");
-    expect(html).toContain("Edit Victory");
+    expect(html).toContain("Edit a Victory");
     expect(html).toContain("CALENDAR_SLOT");
+    expect(html).toContain(">Recent Victories<");
     expect(html).toContain("Kept walking");
     expect(html).toContain("View all Victories");
     const title = html.indexOf(">Your Victories<");
     const add = html.indexOf("+ Add a Victory");
-    const edit = html.indexOf("Edit Victory");
+    const edit = html.indexOf("Edit a Victory");
     const slot = html.indexOf("CALENDAR_SLOT");
+    const recent = html.indexOf(">Recent Victories<");
     const card = html.indexOf("Kept walking");
     const viewAll = html.indexOf("View all Victories");
     expect(title).toBeGreaterThan(-1);
     expect(add).toBeGreaterThan(title);
     expect(edit).toBeGreaterThan(add);
     expect(slot).toBeGreaterThan(edit);
-    expect(card).toBeGreaterThan(slot);
+    expect(recent).toBeGreaterThan(slot);
+    expect(card).toBeGreaterThan(recent);
     expect(viewAll).toBeGreaterThan(card);
   });
 

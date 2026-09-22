@@ -52,6 +52,7 @@ describe("VictorySeasonWinsSection", () => {
     expect(html).toContain("got it done");
     expect(html).toContain("Add a Victory");
     expect(html).toContain("Edit Victory");
+    expect(html).not.toContain("Edit a Victory");
     expect(html).toContain("Victories from this season");
     expect(html).not.toContain('aria-label="Proud Moment actions"');
     expect(html).not.toContain(">Edit<");

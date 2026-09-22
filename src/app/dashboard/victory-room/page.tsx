@@ -25,12 +25,12 @@ import { resolveVictoryCalendarPageState } from "@/lib/v2-victory-calendar";
 import { loadVictoryEvolutionNudge } from "@/lib/v2-victory-evolution-nudge";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { getPendingResolutionOrNull, isSmsInboundPendingResolutionActionable } from "@/lib/v2-guided-resolution";
+import { PROUD_MOMENT_STAT_QUOTE } from "@/lib/v2-victory-room-display";
 import { loadVictoryRoomView } from "@/lib/v2-victory-room-view";
 import {
   loadPublicVictoryWinsForUser,
   loadPublicVictoryWinsForUserLocalDay,
   loadVictoryWinMonthMarkersForUser,
-  PUBLIC_WINS_RECENT_LIMIT,
   type PublicWinDto,
   type VictoryWinMonthDayMarker,
 } from "@/lib/v2-win-public-read";
@@ -72,7 +72,7 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
     loadVictoryRoomView(user.id, { timeZone }),
     loadPublicVictoryWinsForUser({
       clerkUserId: user.id,
-      recentLimit: PUBLIC_WINS_RECENT_LIMIT,
+      recentLimit: 3,
     }),
   ]);
 
@@ -175,7 +175,7 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
 
             <header className="mb-5 sm:mb-6">
               <h1 className={vrSectionTitle}>Victory Room</h1>
-              <p className={vrSectionSubtitle}>Build your identity one day at a time.</p>
+              <p className={vrSectionSubtitle}>{PROUD_MOMENT_STAT_QUOTE}</p>
             </header>
 
             {view.commitment ? (

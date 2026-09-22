@@ -20,6 +20,8 @@ describe("Victory Season detail — Wins-only surface", () => {
       "utf8"
     );
     expect(sectionSrc).toContain("Add a Victory");
+    expect(sectionSrc).not.toContain("editLabel");
+    expect(sectionSrc).not.toContain("listHeading");
     expect(sectionSrc).toContain("/dashboard/victory-room/add-win?seasonId=");
   });
 

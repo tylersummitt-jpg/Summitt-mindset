@@ -8,6 +8,10 @@ import {
   proofTextsAreDuplicateForDisplay,
 } from "@/lib/v2-victory-proof-quote";
 
+/** Proud Moment stat popover + Victory Room page header. One source. */
+export const PROUD_MOMENT_STAT_QUOTE =
+  "Confidence comes from seeing a stack of evidence from your own life that proves what you’re capable of.";
+
 export type VictoryMomentDisplayInput = {
   headline: string;
   body: string;

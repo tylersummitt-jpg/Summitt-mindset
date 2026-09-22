@@ -63,6 +63,7 @@ describe("VictoryProudMomentsEditChrome", () => {
     );
     expect(html).toContain("+ Add a Victory");
     expect(html).toContain("Edit Victory");
+    expect(html).not.toContain("Edit a Victory");
     expect(html).toContain("flex-col");
     expect(html).toContain("sm:flex-row");
     expect(html).toContain("min-h-11");
@@ -93,7 +94,9 @@ describe("VictoryProudMomentsEditChrome", () => {
       "utf8"
     );
     expect(src).toContain("Done Editing");
+    expect(src).toContain('editLabel = "Edit Victory"');
     expect(src).toContain("Edit Victory");
+    expect(src).toContain("listHeading");
     expect(src).not.toContain("Edit a Proud Moment");
     expect(src).not.toContain("Done Editing Proud Moments");
     expect(src).toContain("aria-pressed");
@@ -257,5 +260,37 @@ describe("VictoryProudMomentsEditChrome", () => {
     expect(screen.getByText("CALENDAR_SLOT")).toBeTruthy();
     expect(screen.getAllByRole("link", { name: "Edit" })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(2);
+  });
+
+  it("uses optional editLabel without changing the default idle copy", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryProudMomentsEditChrome, {
+        addHref: "/dashboard/victory-room/add-win",
+        addLabel: "+ Add a Victory",
+        editLabel: "Edit a Victory",
+        groups: [{ key: "recent", cards: [cardA] }],
+      })
+    );
+    expect(html).toContain("Edit a Victory");
+    expect(html).not.toMatch(/>Edit Victory</);
+  });
+
+  it("renders listHeading above cards without an extra section card", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(VictoryProudMomentsEditChrome, {
+        addHref: "/dashboard/victory-room/add-win",
+        addLabel: "+ Add a Victory",
+        listHeading: "Recent Victories",
+        groups: [{ key: "recent", cards: [cardA, cardB] }],
+      })
+    );
+    expect(html).toContain(">Recent Victories<");
+    expect(html).toContain("First");
+    expect(html).toContain("Second");
+    const heading = html.indexOf(">Recent Victories<");
+    const first = html.indexOf("First");
+    expect(heading).toBeGreaterThan(-1);
+    expect(first).toBeGreaterThan(heading);
+    expect(html).toContain("mb-12");
   });
 });

@@ -47,6 +47,7 @@ describe("VictoryAllProofSection", () => {
     expect(html).toContain("/dashboard/victory-room/add-win?from=all-wins");
     expect(html).toContain("Showed up");
     expect(html).toContain("Edit Victory");
+    expect(html).not.toContain("Edit a Victory");
     expect(html).not.toContain('aria-label="Proud Moment actions"');
     expect(html).not.toContain(">Edit<");
     expect(html).not.toContain(">Delete<");

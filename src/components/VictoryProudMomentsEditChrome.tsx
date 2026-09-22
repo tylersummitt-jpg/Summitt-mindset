@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { VictoryRoomSectionShell } from "@/components/VictoryRoomSectionShell";
 import { VictoryWinCard, type VictoryWinCardProps } from "@/components/VictoryWinCard";
-import { vrAccentLink } from "@/components/victory-room-visual";
+import { vrAccentLink, vrSectionTitle } from "@/components/victory-room-visual";
 
 export type VictoryProudMomentCardInput = Omit<
   VictoryWinCardProps,
@@ -45,6 +45,10 @@ type VictoryProudMomentsEditChromeProps = {
    * (calendar) and the list can sit outside that card.
    */
   toolbarSectionTitle?: string;
+  /** Visible heading above the card list / empty state. No extra section card. */
+  listHeading?: string;
+  /** Idle edit-toggle copy. Default keeps All Proof / Season unchanged. */
+  editLabel?: string;
   /** Wraps the card list in a Victory Room section (season detail). */
   sectionTitle?: string;
   className?: string;
@@ -59,6 +63,8 @@ export function VictoryProudMomentsEditChrome({
   emptyState,
   betweenToolbarAndList,
   toolbarSectionTitle,
+  listHeading,
+  editLabel = "Edit Victory",
   sectionTitle,
   className = "",
 }: VictoryProudMomentsEditChromeProps) {
@@ -79,7 +85,7 @@ export function VictoryProudMomentsEditChrome({
           aria-pressed={editing}
           onClick={() => setIsEditing((on) => !on)}
         >
-          {editing ? "Done Editing" : "Edit Victory"}
+          {editing ? "Done Editing" : editLabel}
         </button>
       ) : null}
     </div>
@@ -120,7 +126,14 @@ export function VictoryProudMomentsEditChrome({
     <div className={className}>
       {toolbarWithOptionalShell}
       {betweenToolbarAndList}
-      {listBlock}
+      {listHeading ? (
+        <div className="mb-12">
+          <h2 className={vrSectionTitle}>{listHeading}</h2>
+          {listBlock}
+        </div>
+      ) : (
+        listBlock
+      )}
     </div>
   );
 }
