@@ -109,14 +109,14 @@ function reflectionAnswers(step: LearningStep): Record<string, string> {
 }
 
 describe("Personal Brand final step", () => {
-  it("finishes all 13 saved reflections without treating the step as unavailable", async () => {
+  it("finishes the saved reflections without treating the step as unavailable", async () => {
     const program = getLearningMiniProgram("potl_mp_05");
     if (!program) throw new Error("missing Personal Brand");
     const step = program.steps.at(-1);
     if (!step) throw new Error("missing final step");
     expect(step.id).toBe("potl_mp_05_st_010");
     const reflections = reflectionAnswers(step);
-    expect(Object.keys(reflections)).toHaveLength(13);
+    expect(Object.keys(reflections)).toHaveLength(11);
 
     const parsed = parseContinuePayload({
       miniProgramId: program.id,
@@ -155,7 +155,7 @@ describe("Personal Brand final step", () => {
       completed_at: LATER,
       current_step_id: "potl_mp_05_st_010",
     });
-    expect(reflectionDb.rows).toHaveLength(13);
+    expect(reflectionDb.rows).toHaveLength(11);
 
     const again = await continueMiniProgramStep({
       progressDb,
@@ -167,7 +167,7 @@ describe("Personal Brand final step", () => {
       now: LATER,
     });
     expect(again).toEqual({ ok: true, destination: { type: "programs" } });
-    expect(reflectionDb.rows).toHaveLength(13);
+    expect(reflectionDb.rows).toHaveLength(11);
     expect(created.row.status).toBe("completed");
   });
 

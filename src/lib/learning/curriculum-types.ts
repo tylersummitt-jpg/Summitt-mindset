@@ -15,6 +15,9 @@ export const LEARNING_BLOCK_TYPES = [
   "process",
   "video",
   "image",
+  "gallery",
+  "audio",
+  "flashcard",
   "quiz",
   "reflection",
   "choice_prompt",
@@ -42,18 +45,22 @@ export type LearningQuizQuestion = {
 export type LearningMarkdownBlock = {
   type: "markdown";
   markdown: string;
+  /** Hide this block until the named reflection is submitted or the quiz is graded. */
+  reveal_after?: string;
 };
 
 export type LearningHeadingBlock = {
   type: "heading";
   level: 2 | 3;
   text: string;
+  reveal_after?: string;
 };
 
 export type LearningListBlock = {
   type: "list";
   ordered: boolean;
   items: string[];
+  reveal_after?: string;
 };
 
 export type LearningTableBlock = {
@@ -66,6 +73,7 @@ export type LearningTableBlock = {
 export type LearningCalloutBlock = {
   type: "callout";
   text: string;
+  reveal_after?: string;
 };
 
 export type LearningProcessStep = {
@@ -92,6 +100,36 @@ export type LearningImageBlock = {
   quote?: string;
   attribution?: string;
   role?: "completion";
+  reveal_after?: string;
+};
+
+export type LearningGalleryImage = {
+  src: string;
+  alt: string;
+};
+
+export type LearningGalleryBlock = {
+  type: "gallery";
+  label: string;
+  images: LearningGalleryImage[];
+};
+
+export type LearningAudioBlock = {
+  type: "audio";
+  src: string;
+  label: string;
+  transcript: string;
+};
+
+export type LearningFlashcard = {
+  id: string;
+  front: string;
+  back: string;
+};
+
+export type LearningFlashcardBlock = {
+  type: "flashcard";
+  cards: LearningFlashcard[];
 };
 
 export type LearningQuizBlock = {
@@ -106,6 +144,8 @@ export type LearningReflectionBlock = {
   prompt: string;
   /** False when the source says the response is not saved. Omitted means persisted. */
   persist?: boolean;
+  /** Shown after a non-persisted response is submitted. Not stored. */
+  confirmation?: string;
 };
 
 export type LearningChoicePromptBlock = {
@@ -151,6 +191,9 @@ export type LearningBlock =
   | LearningProcessBlock
   | LearningVideoBlock
   | LearningImageBlock
+  | LearningGalleryBlock
+  | LearningAudioBlock
+  | LearningFlashcardBlock
   | LearningQuizBlock
   | LearningReflectionBlock
   | LearningChoicePromptBlock
@@ -205,6 +248,9 @@ export type PublicLearningBlock =
   | LearningProcessBlock
   | LearningVideoBlock
   | LearningImageBlock
+  | LearningGalleryBlock
+  | LearningAudioBlock
+  | LearningFlashcardBlock
   | PublicQuizBlock
   | LearningReflectionBlock
   | LearningChoicePromptBlock
@@ -255,6 +301,19 @@ function requireStringOrNull(value: unknown, label: string): string | null {
 function optionalString(value: unknown, label: string): string | undefined {
   if (value == null || value === "") return undefined;
   return requireString(value, label);
+}
+
+function revealField(value: Record<string, unknown>, label: string): { reveal_after?: string } {
+  const revealAfter = optionalString(value.reveal_after, `${label}.reveal_after`);
+  return revealAfter ? { reveal_after: revealAfter } : {};
+}
+
+function curatedPublicSrc(src: string, label: string): string {
+  const blockedArchive = ["data", "learning", "source"].join("/");
+  if (!src.startsWith("/") || src.includes(blockedArchive)) {
+    throw new Error(`Invalid curriculum: ${label} must be a curated public path`);
+  }
+  return src;
 }
 
 export function parseLearningMiniProgram(value: unknown): LearningMiniProgram {
@@ -350,6 +409,7 @@ function parseBlock(
       return {
         type: "markdown",
         markdown: requireString(value.markdown, `${label}.markdown`),
+        ...revealField(value, label),
       };
     case "heading": {
       const level = value.level;
@@ -360,6 +420,7 @@ function parseBlock(
         type: "heading",
         level,
         text: requireString(value.text, `${label}.text`),
+        ...revealField(value, label),
       };
     }
     case "list": {
@@ -370,6 +431,7 @@ function parseBlock(
         type: "list",
         ordered: value.ordered === true,
         items: value.items.map((item, index) => requireString(item, `${label}.items[${index}]`)),
+        ...revealField(value, label),
       };
     }
     case "table": {
@@ -405,6 +467,7 @@ function parseBlock(
       return {
         type: "callout",
         text: requireString(value.text, `${label}.text`),
+        ...revealField(value, label),
       };
     case "process": {
       if (!Array.isArray(value.steps) || value.steps.length === 0) {
@@ -440,10 +503,7 @@ function parseBlock(
       if (typeof value.alt !== "string") {
         throw new Error(`Invalid curriculum: ${label}.alt must be a string`);
       }
-      const blockedArchive = ["data", "learning", "source"].join("/");
-      if (!src.startsWith("/") || src.includes(blockedArchive)) {
-        throw new Error(`Invalid curriculum: ${label}.src must be a curated public path`);
-      }
+      curatedPublicSrc(src, `${label}.src`);
       const quote = optionalString(value.quote, `${label}.quote`);
       const attribution = optionalString(value.attribution, `${label}.attribution`);
       const role = optionalString(value.role, `${label}.role`);
@@ -457,8 +517,15 @@ function parseBlock(
         ...(quote ? { quote } : {}),
         ...(attribution ? { attribution } : {}),
         ...(role === "completion" ? { role: "completion" as const } : {}),
+        ...revealField(value, label),
       };
     }
+    case "gallery":
+      return parseGallery(value, label);
+    case "audio":
+      return parseAudio(value, label);
+    case "flashcard":
+      return parseFlashcards(value, label);
     case "quiz":
       return parseQuiz(value, label, questionIds);
     case "reflection": {
@@ -470,11 +537,16 @@ function parseBlock(
       if (value.persist != null && typeof value.persist !== "boolean") {
         throw new Error(`Invalid curriculum: ${label}.persist`);
       }
+      const confirmation = optionalString(value.confirmation, `${label}.confirmation`);
+      if (confirmation && value.persist !== false) {
+        throw new Error(`Invalid curriculum: ${label}.confirmation requires persist false`);
+      }
       return {
         type: "reflection",
         question_id: questionId,
         prompt: requireString(value.prompt, `${label}.prompt`),
         ...(value.persist === false ? { persist: false as const } : {}),
+        ...(confirmation ? { confirmation } : {}),
       };
     }
     case "choice_prompt":
@@ -621,6 +693,62 @@ function parseSort(value: Record<string, unknown>, label: string): LearningSortB
     categories,
     cards,
   };
+}
+
+function parseGallery(value: Record<string, unknown>, label: string): LearningGalleryBlock {
+  if (!Array.isArray(value.images) || value.images.length < 2) {
+    throw new Error(`Invalid curriculum: ${label} needs images`);
+  }
+  return {
+    type: "gallery",
+    label: requireString(value.label, `${label}.label`),
+    images: value.images.map((imageValue, index) => {
+      if (!isRecord(imageValue)) {
+        throw new Error(`Invalid curriculum: ${label}.images[${index}]`);
+      }
+      const src = requireString(imageValue.src, `${label}.images[${index}].src`);
+      curatedPublicSrc(src, `${label}.images[${index}].src`);
+      if (typeof imageValue.alt !== "string") {
+        throw new Error(`Invalid curriculum: ${label}.images[${index}].alt must be a string`);
+      }
+      return { src, alt: imageValue.alt };
+    }),
+  };
+}
+
+function parseAudio(value: Record<string, unknown>, label: string): LearningAudioBlock {
+  const src = requireString(value.src, `${label}.src`);
+  curatedPublicSrc(src, `${label}.src`);
+  if (!src.endsWith(".mp3")) {
+    throw new Error(`Invalid curriculum: ${label}.src must be an mp3`);
+  }
+  return {
+    type: "audio",
+    src,
+    label: requireString(value.label, `${label}.label`),
+    transcript: requireString(value.transcript, `${label}.transcript`),
+  };
+}
+
+function parseFlashcards(value: Record<string, unknown>, label: string): LearningFlashcardBlock {
+  if (!Array.isArray(value.cards) || value.cards.length === 0) {
+    throw new Error(`Invalid curriculum: ${label} needs cards`);
+  }
+  const cards = value.cards.map((cardValue, index) => {
+    if (!isRecord(cardValue)) {
+      throw new Error(`Invalid curriculum: ${label}.cards[${index}]`);
+    }
+    return {
+      id: requireString(cardValue.id, `${label}.cards[${index}].id`),
+      front: requireString(cardValue.front, `${label}.cards[${index}].front`),
+      back: requireString(cardValue.back, `${label}.cards[${index}].back`),
+    };
+  });
+  const ids = new Set(cards.map((card) => card.id));
+  if (ids.size !== cards.length) {
+    throw new Error(`Invalid curriculum: ${label} has duplicate flashcard ids`);
+  }
+  return { type: "flashcard", cards };
 }
 
 function parseSections(

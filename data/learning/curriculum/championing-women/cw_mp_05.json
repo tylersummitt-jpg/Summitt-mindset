@@ -18,7 +18,7 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_05_st_002_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": "introductory lesson photo"
         },
         {
           "type": "markdown",
@@ -27,7 +27,7 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_05_st_002_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "background image for the twelve-marker labeled graphic"
         },
         {
           "type": "image",
@@ -157,31 +157,16 @@
             {
               "id": "i_don_t_like_your_tone",
               "title": "\"I don't like your tone.\"",
-              "body": "\"I don't like your tone.\""
-            },
-            {
-              "id": "unless_the_men_in_the_office_are_also_be",
-              "title": "Unless the men in the office are also being told they should smile more, women shouldn’t…",
               "body": "Unless the men in the office are also being told they should smile more, women shouldn’t be singled out as having to look perpetually happy."
             },
             {
               "id": "you_should_smile_more",
               "title": "\"You should smile more.\"",
-              "body": "\"You should smile more.\""
-            },
-            {
-              "id": "a_man_might_get_a_critique_on_his_presen",
-              "title": "A man might get a critique on his presentation, but probably wouldn’t be told it looks to…",
               "body": "A man might get a critique on his presentation, but probably wouldn’t be told it looks too manly. He would get specific feedback like “the PowerPoint fonts are too boxy,” or “you need more graphics,” etc."
             },
             {
               "id": "your_presentation_is_too_girly",
               "title": "\"Your presentation is too girly.\"",
-              "body": "\"Your presentation is too girly.\""
-            },
-            {
-              "id": "men_are_rarely_accused_of_being_emotiona",
-              "title": "Men are rarely accused of being emotional, even when angry.",
               "body": "Men are rarely accused of being emotional, even when angry. Instead, try: “I can see that you’re frustrated, but let’s take a step back.”"
             },
             {
@@ -201,31 +186,16 @@
             {
               "id": "avoid_terms_of_endearment",
               "title": "Avoid terms of endearment.",
-              "body": "Avoid terms of endearment."
-            },
-            {
-              "id": "avoid_terms_of_endearment_honey_sweetie",
-              "title": "Avoid terms of endearment (honey, sweetie, darling) the same way you would avoid similar…",
               "body": "Avoid terms of endearment (honey, sweetie, darling) the same way you would avoid similar terms for men (like junior or buddy)."
             },
             {
               "id": "stay_away_from_anything_with_sexual_unde",
               "title": "Stay away from anything with sexual undertones.",
-              "body": "Stay away from anything with sexual undertones."
-            },
-            {
-              "id": "stay_away_from_anything_with_sexual_unde_2",
-              "title": "Stay away from anything with sexual undertones, such as commenting on appearance.",
               "body": "Stay away from anything with sexual undertones, such as commenting on appearance. When in doubt, avoid commenting. But if you do, keep comments to a neutral statement, rather than something you might say to a significant other. For example, “That blouse looks nice on you” vs. “Hey, Steve, looking sharp today.”\nThe latter merely indicates someone looks professional.  Or “Dig the new haircut!” (acknowledging someone’s drastic new do) instead of “That haircut brings out your eyes” or “You have such pretty hair.”"
             },
             {
               "id": "don_t_reference_hormones",
               "title": "Don't reference hormones.",
-              "body": "Don't reference hormones."
-            },
-            {
-              "id": "we_all_have_hormones_men_included_but_ke",
-              "title": "We all have hormones (men included!).",
               "body": "We all have hormones (men included!). But keep hormones out of it when it comes to addressing behavior in the workplace. “It must be the pregnancy hormones” or “She seemed grouchy today … it must be that time of the month” is as unfair and unprofessional as referring to a man’s hormones: “Damon got a bit angry after that meeting. His testosterone must be out of control.”"
             }
           ]
@@ -239,33 +209,28 @@
           "sections": [
             {
               "id": "interrupting_a_woman_multiple_times_whil",
-              "title": "Interrupting a woman multiple times (while letting long-winded male counterparts drone on…",
+              "title": "Interrupting a woman multiple times (while letting long-winded male counterparts",
               "body": "Interrupting a woman multiple times (while letting long-winded male counterparts drone on)."
             },
             {
               "id": "making_eye_contact_in_a_meeting_with_onl",
               "title": "Making eye contact in a meeting with only the men, ignoring the women.",
-              "body": "Making eye contact in a meeting with only the men, ignoring the women."
-            },
-            {
-              "id": "asking_women_to_hang_back_and_clean_up_a",
-              "title": "Asking women to hang back and clean up after the meeting, while the men are excused to go…",
               "body": "Asking women to hang back and clean up after the meeting, while the men are excused to go to their next appointment."
             },
             {
               "id": "talking_in_a_huddle_stopping_abruptly_wh",
-              "title": "Talking in a huddle, stopping abruptly when someone of the opposite gender walks up, excl…",
+              "title": "Talking in a huddle, stopping abruptly when someone of the opposite gender walks",
               "body": "Talking in a huddle, stopping abruptly when someone of the opposite gender walks up, excluding them from the conversation."
             }
           ]
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "flashcard",
+          "cards": [
             {
-              "id": "institutional",
-              "title": "Institutional",
-              "body": "Finally, there are microaggressions at the institutional level. Most of the time these aren’t outright discrimination (macroaggressions), but more subtle, systemic signs of an organization’s culture."
+              "id": "institutional_2",
+              "front": "Institutional",
+              "back": "Finally, there are microaggressions at the institutional level. Most of the time these aren’t outright discrimination (macroaggressions), but more subtle, systemic signs of an organization’s culture."
             }
           ]
         },
@@ -275,51 +240,26 @@
             {
               "id": "example_1",
               "title": "Example 1",
-              "body": "Example 1"
-            },
-            {
-              "id": "job_postings_listed_with_gender_biased_l",
-              "title": "Job postings listed with gender-biased language like “able to have direct, man-to-man con…",
               "body": "Job postings listed with gender-biased language like “able to have direct, man-to-man conversations” or “must be pleasant and friendly” or “you’re a sales superman.”"
             },
             {
               "id": "example_2",
               "title": "Example 2",
-              "body": "Example 2"
-            },
-            {
-              "id": "bias_seen_in_the_dress_code_such_as_wome",
-              "title": "Bias seen in the dress code, such as women can have earrings, but men can’t, or men can w…",
               "body": "Bias seen in the dress code, such as women can have earrings, but men can’t, or men can wear comfortable shoes like sneakers while women must wear heels, etc."
             },
             {
               "id": "example_3",
               "title": "Example 3",
-              "body": "Example 3"
-            },
-            {
-              "id": "the_company_sends_men_to_sexual_harassme",
-              "title": "The company sends men to sexual harassment training, but not women.",
               "body": "The company sends men to sexual harassment training, but not women."
             },
             {
               "id": "example_4",
               "title": "Example 4",
-              "body": "Example 4"
-            },
-            {
-              "id": "team_building_events_like_hockey_games_o",
-              "title": "Team-building events like hockey games or ax-throwing that lean toward one gender (ask yo…",
               "body": "Team-building events like hockey games or ax-throwing that lean toward one gender (ask yourself: How might men respond to a pedicure afternoon or jewelry-making class?)."
             },
             {
               "id": "example_5",
               "title": "Example 5",
-              "body": "Example 5"
-            },
-            {
-              "id": "keeping_the_thermostat_on_an_extreme_set",
-              "title": "Keeping the thermostat on an extreme setting that caters to one gender, such as men in su…",
               "body": "Keeping the thermostat on an extreme setting that caters to one gender, such as men in suits or women in short sleeves."
             }
           ]
@@ -331,27 +271,27 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_05_st_004_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_05_st_004_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_05_st_004_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_05_st_004_image_04.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_05_st_004_image_05.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -458,36 +398,18 @@
           "markdown": "With a little intentionality, you can take a step toward eliminating unchecked microaggressions from your organization’s culture. Here’s how:"
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "process",
+          "steps": [
             {
-              "id": "educate_your_team_thoroughly_on_what_mic",
               "title": "Educate your team thoroughly on what microaggressions are...",
-              "body": "Educate your team thoroughly on what microaggressions are..."
-            },
-            {
-              "id": "and_why_they_are_undesirable_for_either",
-              "title": "...and why they are undesirable (for either sex).",
               "body": "...and why they are undesirable (for either sex). Remember, people come from a variety of backgrounds, and you can’t expect modified behavior if you haven’t clarified what the desired behavior is."
             },
             {
-              "id": "when_microaggressions_occur_call_them_ou",
               "title": "When microaggressions occur, call them out and move on.",
-              "body": "When microaggressions occur, call them out and move on."
-            },
-            {
-              "id": "this_is_an_open_opportunity_call_out_pol",
-              "title": "This is an open-opportunity call-out policy—not just for one gender or just for leaders,…",
               "body": "This is an open-opportunity call-out policy—not just for one gender or just for leaders, etc. Take a quick moment to acknowledge what was said or done (“Aaron, you said ‘guys’ just now, and we happen to have six females in the room.”), then apply gentle correction (“We know what you meant, but next time let’s just say team.”), and move on."
             },
             {
-              "id": "assume_innocent_intent_especially_on_the",
               "title": "Assume innocent intent, especially on the first few infractions.",
-              "body": "Assume innocent intent, especially on the first few infractions."
-            },
-            {
-              "id": "most_people_aren_t_aware_of_some_of_the",
-              "title": "Most people aren’t aware of some of the nuances of microaggressions and genuinely didn’t…",
               "body": "Most people aren’t aware of some of the nuances of microaggressions and genuinely didn’t intend to offend. No one needs to be publicly shamed or embarrassed. Just call it out, keep it matter-of-fact, and move on."
             }
           ]
@@ -497,36 +419,18 @@
           "markdown": "We recommend instituting the Rule of Three: If something happens once, assume innocent intent. Someone could be oblivious or just having a bad day. If it happens again, assume the same thing. Someone could be in a rush and not have a filter on their speech. But if it happens three times, it’s hard to argue that there isn’t a pattern developing, and it may warrant a private conversation with the individual."
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "process",
+          "steps": [
             {
-              "id": "over_exaggerating_the_issue",
               "title": "Over-exaggerating the issue",
-              "body": "Over-exaggerating the issue"
-            },
-            {
-              "id": "politely_correct_the_behavior_and_move_o",
-              "title": "Politely correct the behavior and move on.",
               "body": "Politely correct the behavior and move on. It shouldn’t be a showstopper or something the office talks about for days. Try to avoid giving someone an in-depth rebuke in front of other employees. If it warrants further conversation, do it one-on-one away from the rest of the group."
             },
             {
-              "id": "name_calling",
               "title": "Name-calling.",
-              "body": "Name-calling."
-            },
-            {
-              "id": "avoid_saying_things_like_that_s_a_sexist",
-              "title": "Avoid saying things like, “That’s a sexist remark,” “You’re behaving like a chauvinist,”…",
               "body": "Avoid saying things like, “That’s a sexist remark,” “You’re behaving like a chauvinist,” or “Were you raised in a barn?”"
             },
             {
-              "id": "excusing_certain_employees_groups_based",
               "title": "Excusing certain employees/groups based on age, industry etc.",
-              "body": "Excusing certain employees/groups based on age, industry etc."
-            },
-            {
-              "id": "for_example_ignoring_microaggressions_fr",
-              "title": "For example, ignoring microaggressions from a baby boomer because they grew up in a diffe…",
               "body": "For example, ignoring microaggressions from a baby boomer because they grew up in a different time or implementing gender-neutral policies at the corporate headquarters, but not the trucking division because there aren’t that many females."
             }
           ]
@@ -544,7 +448,7 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_05_st_006_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "sort",
@@ -760,12 +664,7 @@
         {
           "type": "reflection",
           "question_id": "cw_mp_05_st_009_reflection_01",
-          "prompt": "What microaggressions have you noticed in your workplace or on your team?"
-        },
-        {
-          "type": "reflection",
-          "question_id": "cw_mp_05_st_009_reflection_02",
-          "prompt": "Are they one-offs, or are any reoccurring?"
+          "prompt": "What microaggressions have you noticed in your workplace or on your team? Are they one-offs, or are any reoccurring?"
         },
         {
           "type": "reflection",

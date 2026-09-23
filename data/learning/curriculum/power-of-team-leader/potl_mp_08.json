@@ -18,7 +18,7 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_001_image_06.png",
-          "alt": "Lesson image"
+          "alt": "Rise course cover image shown on the course start screen"
         },
         {
           "type": "markdown",
@@ -27,22 +27,22 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_001_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_001_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_001_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "video",
@@ -157,12 +157,12 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_003_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": "Four coworkers cheering while rolling through an office in chairs"
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_003_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "A woman working alone at a laptop with headphones on"
         },
         {
           "type": "sort",
@@ -224,12 +224,12 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_004_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": "Two coworkers reviewing charts on computer monitors"
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_004_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "Five coworkers gathered around a laptop, smiling"
         },
         {
           "type": "sort",
@@ -294,96 +294,42 @@
           "markdown": "To go beyond the general assessments of “introvert-extrovert” or “thinker-feeler,” you can also gain insight into personality types through personality trait assessments. Pat famously used the Predictive Index assessment with her players in the 1990s, relying on the tool to understand each player’s natural motivations. But there are many tools and assessments to choose from nowadays."
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "process",
+          "steps": [
             {
-              "id": "types_of_personality_tests",
               "title": "Types of Personality Tests",
-              "body": "Types of Personality Tests"
-            },
-            {
-              "id": "here_are_a_few_of_the_more_common_tools",
-              "title": "Here are a few of the more common tools you may find in the space.",
               "body": "Here are a few of the more common tools you may find in the space.\n(Scroll through to complete this element)"
             },
             {
-              "id": "summary",
               "title": "Summary",
-              "body": "Summary"
-            },
-            {
-              "id": "consider_what_personality_trait_assessme",
-              "title": "Consider what personality trait assessment tool might work best for your team members, an…",
               "body": "Consider what personality trait assessment tool might work best for your team members, and how you can share those results with the team."
             },
             {
-              "id": "predictive_index_pi",
               "title": "Predictive Index (PI)",
-              "body": "Predictive Index (PI)"
-            },
-            {
-              "id": "the_predictive_index_pi_is_based_on_the",
-              "title": "The Predictive Index (PI) is based on the theory of behavioral drives, which suggests tha…",
               "body": "The Predictive Index (PI) is based on the theory of behavioral drives, which suggests that individuals have innate needs that drive their behavior in the workplace. It measures four primary personality factors:\nDominance – the drive to exert influence and control over one's environment\nExtraversion – the drive to interact with and gain energy from one's environment\nPatience – the drive to maintain stability and consistency in one's environment\nFormality – the drive to conform to rules and structure in one's environment\nBased on an individual's responses to the PI assessment, their scores on these four factors are plotted on a grid that generates a personality profile. The profile helps predict their leadership style, communication style, decision-making approach, and ability to work independently or as part of a team. For example, an individual with a high Dominance score is likely to be assertive and confident, while someone with a high Patience score may prefer a steady and predictable environment."
             },
             {
-              "id": "myers_briggs_type_indicator_mbti",
               "title": "Myers-Briggs Type Indicator (MBTI)",
-              "body": "Myers-Briggs Type Indicator (MBTI)"
-            },
-            {
-              "id": "the_myers_briggs_type_indicator_is_a_per",
-              "title": "The Myers-Briggs Type Indicator is a personality trait assessment that measures an indivi…",
               "body": "The Myers-Briggs Type Indicator is a personality trait assessment that measures an individual's preferences on four dimensions: Extraversion vs. Introversion, Sensing vs. Intuition, Thinking vs. Feeling, and Judging vs. Perceiving. Based on these preferences, an individual is assigned one of 16 possible personality types, such as ISTJ (Introverted, Sensing, Thinking, Judging) or ENFP (Extraverted, Intuitive, Feeling, Perceiving). Knowing an individual's MBTI type can help you understand their communication style and how they generally prefer to receive information, in addition to other personality insights."
             },
             {
-              "id": "the_enneagram",
               "title": "The Enneagram",
-              "body": "The Enneagram"
-            },
-            {
-              "id": "the_enneagram_is_a_personality_assessmen",
-              "title": "The Enneagram is a personality assessment that categorizes individuals into nine differen…",
               "body": "The Enneagram is a personality assessment that categorizes individuals into nine different personality types based on their core fears, desires, and motivations. These types include the Reformer, the Helper, the Achiever, the Individualist, the Investigator, the Loyalist, the Enthusiast, the Challenger, and the Peacemaker. Understanding an individual's Enneagram type can help you understand their underlying motivations and needs. For example, a Peacemaker may prioritize harmony and avoiding conflict, while someone with an Enthusiast type might prioritize relationships and fun."
             },
             {
-              "id": "disc_profile",
               "title": "DISC Profile",
-              "body": "DISC Profile"
-            },
-            {
-              "id": "the_disc_profile_is_another_traditionall",
-              "title": "The DISC profile is another traditionally used personality trait assessment that measures…",
               "body": "The DISC profile is another traditionally used personality trait assessment that measures an individual's Dominance, Influence, Steadiness, and Conscientiousness. These factors are plotted on a graph to generate a personality profile that can help predict an individual's communication style and behavior in different situations with a percentage given for each type."
             },
             {
-              "id": "big_five_personality_traits",
               "title": "Big Five Personality Traits",
-              "body": "Big Five Personality Traits"
-            },
-            {
-              "id": "the_big_five_personality_traits_are_a_se",
-              "title": "The Big Five personality traits are a set of five broad dimensions that are used to descr…",
               "body": "The Big Five personality traits are a set of five broad dimensions that are used to describe human personality. These traits include Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism. Understanding an individual's Big Five personality traits can help you understand their communication style, values, and preferences. An individual with a high Openness score may be more creative and open to new ideas, while someone with a high Conscientiousness score might prioritize organization and planning."
             },
             {
-              "id": "strengthsfinder",
               "title": "StrengthsFinder",
-              "body": "StrengthsFinder"
-            },
-            {
-              "id": "strengthsfinder_is_a_personality_trait_a",
-              "title": "StrengthsFinder is a personality trait assessment that measures an individual's top five…",
               "body": "StrengthsFinder is a personality trait assessment that measures an individual's top five unique strengths across 34 different themes, such as Strategic, Achiever, Empathy, or Adaptability. Understanding an individual's strengths can help you communicate with them in a way that acknowledges their unique skills and abilities in the workplace."
             },
             {
-              "id": "hogan_personality_inventory_hpi",
               "title": "Hogan Personality Inventory (HPI)",
-              "body": "Hogan Personality Inventory (HPI)"
-            },
-            {
-              "id": "the_hogan_personality_inventory_is_a_per",
-              "title": "The Hogan Personality Inventory is a personality trait assessment that measures an indivi…",
               "body": "The Hogan Personality Inventory is a personality trait assessment that measures an individual's personality in terms of three main categories: Reputation, Identity, and Motives. Reputation refers to how an individual is perceived by others, Identity refers to how an individual sees themselves, and Motives refers to the underlying drivers of an individual's behavior. Understanding an individual's HPI profile can help you understand their communication style, their strengths, and their potential weaknesses."
             }
           ]
@@ -395,7 +341,7 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_005_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "video",
@@ -543,14 +489,20 @@
           "markdown": "Finally, when learning to communicate with different personality types, one principle Pat always believed in was supplementing any necessary criticisms with praise and knowing how to use both wisely.\n\nWhen is it appropriate to use harsh words? Only you can be the judge of that. But I’ll say this: They must be used in combination with praise. Negative reinforcement must be used sparingly.”\n\nRealizing that praise was necessary to keep her team going as well as the routine critiques and criticisms, Pat developed a system called “rebound and two points” to help her players remember the use of both. Whenever an opportunity for improvement or chastisement was issued, the player would say, “Rebound!” to show they understood and knew the criticism was for the best. When praise was given, they were to say, “Two points!” to indicate that they heard the praise and it had been received. The verbal reinforcement was necessary, Pat believed, to ensure the players weren’t hearing and internalizing only the criticism.\n\nIn summary, whether using praise or criticism, communicating with extroverts, introverts, or other diverse personalities, using the right communication style can make all the difference. The next time you're in a conversation with someone, take a moment to consider their communication style and adjust your approach accordingly. You might be surprised at how much more effective your communication becomes."
         },
         {
+          "type": "audio",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_007_audio.mp3",
+          "label": "Pat Summitt on criticism and praise",
+          "transcript": "When is it appropriate to use harsh words? Only you can be the judge of that. But I’ll say this: They must be used in combination with praise. Negative reinforcement must be used sparingly.”"
+        },
+        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_007_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_007_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -663,6 +615,15 @@
           "speaker": "Alexis Hornbuckle"
         },
         {
+          "type": "heading",
+          "level": 2,
+          "text": "Exercises"
+        },
+        {
+          "type": "callout",
+          "text": "When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention."
+        },
+        {
           "type": "reflection",
           "question_id": "potl_mp_08_st_009_reflection_01",
           "prompt": "Do you have more introverts or extroverts on your team?"
@@ -695,12 +656,7 @@
         {
           "type": "reflection",
           "question_id": "potl_mp_08_st_009_reflection_07",
-          "prompt": "When communicating with your team directly, what percentage would you estimate is criticism vs. praise?"
-        },
-        {
-          "type": "reflection",
-          "question_id": "potl_mp_08_st_009_reflection_08",
-          "prompt": "If praise is below 30 percent, how could you work to improve that percentage?"
+          "prompt": "When communicating with your team directly, what percentage would you estimate is criticism vs. praise? If praise is below 30 percent, how could you work to improve that percentage?"
         }
       ]
     }

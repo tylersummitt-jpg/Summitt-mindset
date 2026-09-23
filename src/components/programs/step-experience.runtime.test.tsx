@@ -900,4 +900,32 @@ describe("step experience", () => {
     expect(screen.queryByText("Failed")).toBeNull();
     expect(screen.queryByText(/Passing:/)).toBeNull();
   });
+
+  it("keeps an unsaved reflection off the server until it is submitted", async () => {
+    const user = userEvent.setup();
+    const loaded = getLearningStepForClient("dd_mp_12", "dd_mp_12_st_011");
+    if (!loaded) throw new Error("missing unsaved reflection");
+    render(
+      <StepExperience
+        miniProgramId="dd_mp_12"
+        collectionTitle="Definite Dozen"
+        step={loaded}
+        stepCount={15}
+        previousHref={null}
+        initialAnswers={{}}
+        enforceRequirements={false}
+        isLastStep={false}
+      />
+    );
+    const field = screen.getByRole("textbox");
+    await user.type(field, "A private note");
+    expect(saveLearningReflection).not.toHaveBeenCalled();
+    expect(screen.queryByText("Saving…")).toBeNull();
+    expect(screen.queryByText("Saved")).toBeNull();
+    expect(screen.queryByText(/Thank you/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+    expect(saveLearningReflection).not.toHaveBeenCalled();
+    expect(screen.getByText(/Thank you/)).toBeTruthy();
+    expect(screen.queryByText("Saved")).toBeNull();
+  });
 });

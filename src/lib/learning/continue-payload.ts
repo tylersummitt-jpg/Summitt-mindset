@@ -1,4 +1,4 @@
-/** Bounds for one Finish/Continue submission. Personal Brand's final step saves 13 reflections. */
+/** Bounds for one Finish/Continue submission. Personal Brand's final step saves its reflections. */
 export const MAX_CONTINUE_REFLECTIONS = 40;
 export const MAX_CONTINUE_QUIZ_ANSWERS = 20;
 export const MAX_CONTINUE_SORT_PLACEMENTS = 20;

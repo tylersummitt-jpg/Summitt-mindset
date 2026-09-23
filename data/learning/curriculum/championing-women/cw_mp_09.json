@@ -22,12 +22,12 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_001_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_001_image_02.png",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "video",
@@ -53,61 +53,31 @@
             {
               "id": "strategic_decision_making",
               "title": "Strategic Decision-Making",
-              "body": "Strategic Decision-Making"
-            },
-            {
-              "id": "knowing_when_to_pick_your_battles_involv",
-              "title": "Knowing when to pick your battles involves assessing the importance of an issue, understa…",
               "body": "Knowing when to pick your battles involves assessing the importance of an issue, understanding the potential impact on your career, and considering the long-term consequences of engaging in a particular issue."
             },
             {
               "id": "preserving_energy_and_focus",
               "title": "Preserving Energy and Focus",
-              "body": "Preserving Energy and Focus"
-            },
-            {
-              "id": "engaging_in_every_battle_can_be_exhausti",
-              "title": "Engaging in every battle can be exhausting and detract from your overall focus and produc…",
               "body": "Engaging in every battle can be exhausting and detract from your overall focus and productivity. Knowing when to pick your battles allows you to preserve your energy for the issues that truly matter."
             },
             {
               "id": "demonstrating_emotional_intelligence",
               "title": "Demonstrating Emotional Intelligence",
-              "body": "Demonstrating Emotional Intelligence"
-            },
-            {
-              "id": "emotional_intelligence_plays_a_big_role",
-              "title": "Emotional intelligence plays a big role in workplace dynamics.",
               "body": "Emotional intelligence plays a big role in workplace dynamics. Choosing battles requires recognizing and managing emotions effectively, leading to more constructive interactions between you and your peers."
             },
             {
               "id": "distinguishing_between_major_and_minor_i",
               "title": "Distinguishing Between Major and Minor Issues",
-              "body": "Distinguishing Between Major and Minor Issues"
-            },
-            {
-              "id": "not_every_workplace_issue_requires_the_s",
-              "title": "Not every workplace issue requires the same level of your attention.",
               "body": "Not every workplace issue requires the same level of your attention. Period. Major issues that align with your core values or significantly impact your work should be prioritized."
             },
             {
               "id": "assessing_the_long_term_impact",
               "title": "Assessing the Long-Term Impact",
-              "body": "Assessing the Long-Term Impact"
-            },
-            {
-              "id": "consider_the_long_term_impact_of_a_poten",
-              "title": "Consider the long-term impact of a potential conflict.",
               "body": "Consider the long-term impact of a potential conflict. Will the issue at hand have lasting consequences on your career, relationships, or the overall work environment?"
             },
             {
               "id": "evaluating_personal_investment",
               "title": "Evaluating Personal Investment",
-              "body": "Evaluating Personal Investment"
-            },
-            {
-              "id": "if_the_matter_directly_affects_your_resp",
-              "title": "If the matter directly affects your responsibilities, well-being, or professional growth,…",
               "body": "If the matter directly affects your responsibilities, well-being, or professional growth, it may be worth addressing. However, for issues that are more peripheral to your role, choosing to step back might be the wiser option."
             }
           ]
@@ -115,32 +85,32 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_002_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_002_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_002_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_002_image_04.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_002_image_05.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_002_image_06.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -254,7 +224,7 @@
         {
           "type": "reflection",
           "question_id": "cw_mp_09_st_006_reflection_02",
-          "prompt": "Who is someone in your office who fits the description of a go-to player?"
+          "prompt": "Who is someone in your office who fits the description of a go-to player? Why?"
         },
         {
           "type": "reflection",

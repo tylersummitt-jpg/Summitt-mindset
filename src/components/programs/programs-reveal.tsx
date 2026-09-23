@@ -12,7 +12,7 @@ export function ProgramsReveal({
   const [open, setOpen] = useState<Record<string, boolean>>({});
   return (
     <div className="space-y-3">
-      {sections.map((section, index) => {
+      {sections.map((section) => {
         const expanded = Boolean(open[section.id]);
         return (
           <section key={section.id} className={programsSectionCard}>
@@ -25,9 +25,7 @@ export function ProgramsReveal({
                   setOpen((current) => ({ ...current, [section.id]: !current[section.id] }))
                 }
               >
-                <span>
-                  {index + 1}. {section.title}
-                </span>
+                <span>{section.title}</span>
                 <span aria-hidden="true" className="text-stone-400">
                   {expanded ? "–" : "+"}
                 </span>

@@ -162,6 +162,9 @@ function toPublicBlock(block: LearningStep["blocks"][number]): PublicLearningBlo
     case "process":
     case "video":
     case "image":
+    case "gallery":
+    case "audio":
+    case "flashcard":
     case "reflection":
     case "choice_prompt":
     case "sections":

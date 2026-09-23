@@ -1,5 +1,6 @@
 export const PROGRAMS_COPY = {
   reflectionRequired: "Enter a response before continuing.",
+  unsavedReflectionRequired: "Submit your reflection before continuing.",
   reflectionTooLong: "Keep this response under 4000 characters.",
   reflectionSaveFailed: "We couldn't save your response. You're still on this step.",
   progressSaveFailed: "We couldn't save your place. You're still on this step.",

@@ -22,7 +22,7 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_001_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "video",
@@ -63,76 +63,34 @@
           ]
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "process",
+          "steps": [
             {
-              "id": "nonverbal_communication",
               "title": "Nonverbal Communication",
-              "body": "Nonverbal Communication"
-            },
-            {
-              "id": "nonverbal_communication_plays_a_signific",
-              "title": "Nonverbal communication plays a significant role in conveying messages, feelings, and int…",
               "body": "Nonverbal communication plays a significant role in conveying messages, feelings, and intentions. Mastering the art of nonverbal communication can enhance your professional and personal interactions. Here are a few tips for doing just that:"
             },
             {
-              "id": "summary",
               "title": "Summary",
-              "body": "Summary"
-            },
-            {
-              "id": "to_summarize_nonverbal_communication_pla",
-              "title": "To summarize, nonverbal communication plays a significant role in conveying messages, fee…",
               "body": "To summarize, nonverbal communication plays a significant role in conveying messages, feelings, and intentions. Mastering the art of nonverbal communication can enhance your professional and personal interactions."
             },
             {
-              "id": "maintain_eye_contact",
               "title": "Maintain Eye Contact",
-              "body": "Maintain Eye Contact"
-            },
-            {
-              "id": "eye_contact_is_a_large_part_of_nonverbal",
-              "title": "Eye contact is a large part of nonverbal communication.",
               "body": "Eye contact is a large part of nonverbal communication. It signifies confidence, attentiveness, and sincerity. However, it's essential to strike a balance. Too much eye contact may come across as intimidating, while too little might suggest disinterest. A powerful gaze like Pat Summitt’s “Summitt Stare,” for example, communicated strength and assertiveness as part of her personal brand."
             },
             {
-              "id": "confident_posture",
               "title": "Confident Posture",
-              "body": "Confident Posture"
-            },
-            {
-              "id": "a_strong_and_confident_posture_can_signi",
-              "title": "A strong and confident posture can significantly impact how others perceive you.",
               "body": "A strong and confident posture can significantly impact how others perceive you. A straight posture exudes self-assurance and professionalism. Stand tall with your shoulders back and head held high. Avoid slouching or crossing your arms, as these gestures may convey insecurity. It can be helpful in this area to film yourself or get feedback from friends. Plus, there are all types of devices on the market nowadays to help you work on your posture."
             },
             {
-              "id": "gesture_with_purpose",
               "title": "Gesture with Purpose",
-              "body": "Gesture with Purpose"
-            },
-            {
-              "id": "gestures_can_enhance_verbal_communicatio",
-              "title": "Gestures can enhance verbal communication, but they should be purposeful and not distract…",
               "body": "Gestures can enhance verbal communication, but they should be purposeful and not distracting. Use gestures that complement your speech, emphasizing key points. Avoid excessive or erratic movements, as they can be distracting or detract from your message.\nUse your hands purposefully to enhance your verbal communication. Some individuals have nervous habits that can detract from their nonverbal communication. Whether it's playing with hair, tapping fingers, or fidgeting, being aware of and minimizing these habits is crucial for professionalism."
             },
             {
-              "id": "facial_expressions",
               "title": "Facial Expressions",
-              "body": "Facial Expressions"
-            },
-            {
-              "id": "pay_attention_to_your_facial_expressions",
-              "title": "Pay attention to your facial expressions, ensuring they align with the context of the con…",
               "body": "Pay attention to your facial expressions, ensuring they align with the context of the conversation. A genuine smile or look of interested attention in what is happening at the moment can instantly create a positive atmosphere."
             },
             {
-              "id": "active_listening",
               "title": "Active Listening",
-              "body": "Active Listening"
-            },
-            {
-              "id": "nonverbal_cues_are_equally_essential_in",
-              "title": "Nonverbal cues are equally essential in demonstrating active listening.",
               "body": "Nonverbal cues are equally essential in demonstrating active listening. Nodding, maintaining eye contact, and mirroring the speaker's expressions show that you are fully engaged. Avoid distractions and give your full attention to the person speaking."
             }
           ]
@@ -140,37 +98,37 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_002_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_002_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_002_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_002_image_04.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_002_image_05.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_002_image_06.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_002_image_07.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -287,18 +245,9 @@
           "markdown": "Try eliminating these words from your communication for more effective delivery. Also, avoid the overuse of qualifying words as they water down your communication. Women can be more prone to these than men, so be on the lookout for them in your everyday communications:\n\nIt's just that\nIf I'm not mistaken\nI'm not entirely sure, but\nIt might be the case that\nIt could be argued that\nFrom my perspective\nI may be off base, but\nIt's just my impression that\nIf I recall correctly\nTo a certain degree\nIt appears that\nAs far as I know\nAs I see it\nI suppose\n\nI'm not sure, but\nI could be wrong\nSorry, but\nMaybe we should\nIt seems like\nI might be mistaken, but\nI'm not an expert, but\nCorrect me if I'm wrong\nI think\nPossibly\nIn my opinion\nFrom what I understand\nTo some extent\nTo tell you the truth"
         },
         {
-          "type": "markdown",
-          "markdown": "storyline"
-        },
-        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_004_image_01.png",
-          "alt": "Lesson image"
-        },
-        {
-          "type": "reflection",
-          "question_id": "cw_mp_10_st_004_reflection_01",
-          "prompt": "Qualifiers and Filler Words"
+          "alt": ""
         },
         {
           "type": "sort",
@@ -359,6 +308,11 @@
               "correct_category": "Filler Words"
             }
           ]
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_10_st_004_reflection_01",
+          "prompt": "Stop for a minute and consider what filler or qualifying words you need to eliminate from your communication. Take three to five minutes and make a list of the top five."
         }
       ]
     },

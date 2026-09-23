@@ -18,7 +18,7 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_06_st_001_image_03.png",
-          "alt": "Lesson image"
+          "alt": "Rise course cover image shown on the course start screen"
         },
         {
           "type": "markdown",
@@ -27,7 +27,7 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "video",
@@ -145,21 +145,11 @@
             {
               "id": "scenario_1",
               "title": "Scenario 1",
-              "body": "Scenario 1"
-            },
-            {
-              "id": "to_give_a_practical_example_let_s_say_th",
-              "title": "To give a practical example, let’s say the vice president is asking for everyone’s weekly…",
               "body": "To give a practical example, let’s say the vice president is asking for everyone’s weekly report or status updates, including a monthly revenue update, by Thursday morning instead of Monday morning, and you’re in charge of getting it from the team members you manage. You announce this in the next daily standup — revenue updates and estimates from their department are now due on Thursday. What’s to be misunderstood; it’s super clear, right?\nFor starters, three team members aren’t in the standup. One walked in late, and a few people were having a separate conversation in the back of the room about something urgent. Thursday morning rolls around and … you guessed it, you’re short five reports (including one person who “just forgot”). A few others turned in the weekly status update as usual but included the monthly revenue update as month-to-date instead of projected estimates for the end of the month like you asked. You think, This is unbelievable. People can’t follow simple instructions.\nYou now have to scramble to give the vice president the numbers she needs, furiously emailing the team members who have missing reports, demanding they send you something ASAP. The truth is, in the words of Cool Hand Luke, “What we have here, is a failure to communicate.”\nWith just an ounce of prevention — or rather, overcommunication — you might have had a different outcome."
             },
             {
               "id": "scenario_2",
               "title": "Scenario 2",
-              "body": "Scenario 2"
-            },
-            {
-              "id": "let_s_say_you_make_the_announcement_in_s",
-              "title": "Let’s say you make the announcement in standup, followed by an email to everyone afterwar…",
               "body": "Let’s say you make the announcement in standup, followed by an email to everyone afterward reinforcing the announcement that you need reports by Thursday, including a brief, bulleted list of what needs to be in the report. Then, Wednesday you send a reminder, including a sample report attached to the email, asking those who can’t send you the report by Thursday morning to let you know in advance. Thursday rolls around, and this time you have all your reports, except for a team member who is at a funeral and communicated that in advance. Or if still you don’t have all your reports for some reason, it becomes easier to address the failure directly with the individuals involved, now that the excuse of communication is taken out of the loop."
             }
           ]
@@ -171,12 +161,12 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_06_st_003_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_06_st_003_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -193,17 +183,17 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_06_st_004_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": "Two colleagues talking across a table"
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_06_st_004_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "A team looking surprised around a conference table"
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_06_st_004_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": "A woman with her hand on her forehead"
         },
         {
           "type": "sort",
@@ -372,31 +362,16 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Overcommunication looks different in different situations, but the rules are simple:\nClick on each circle in the illustration to complete this element."
+          "markdown": "Overcommunication looks different in different situations, but the rules are simple:"
         },
         {
-          "type": "sections",
-          "sections": [
-            {
-              "id": "1_be_clear_and_concise_about_what_you_ne",
-              "title": "1.",
-              "body": "1. Be clear and concise about what you need."
-            },
-            {
-              "id": "2_reiterate_the_communication_in_multipl",
-              "title": "2.",
-              "body": "2. Reiterate the communication in multiple channels."
-            },
-            {
-              "id": "3_give_as_much_context_as_you_can_to_hel",
-              "title": "3.",
-              "body": "3. Give as much context as you can to help everyone understand the why."
-            },
-            {
-              "id": "4_clarify_expectations_so_everyone_knows",
-              "title": "4.",
-              "body": "4. Clarify expectations so everyone knows exactly what is needed to win."
-            }
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Be clear and concise about what you need.",
+            "Reiterate the communication in multiple channels.",
+            "Give as much context as you can to help everyone understand the why.",
+            "Clarify expectations so everyone knows exactly what is needed to win."
           ]
         },
         {
@@ -406,7 +381,7 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_06_st_006_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "video",
@@ -427,84 +402,54 @@
           "markdown": "A wise person once said, “You get better results with a little of the why.” Inexperienced leaders tend to default to keeping people in the dark, but experienced leaders know team member buy-in is crucial for a healthy, functioning team. Pat made it clear on her teams that every task or mandate was working toward a particular goal — from the overall goal of national championships to the micro-goals of slowing down a star shooter on the other team or adjusting the defense strategy for an upcoming team who was more physical than they were.\n\n“Because I said so” is usually easier than slowing down to explain the strategy or exact reason behind the ask, but remember: Your success rises and falls on the shoulders of your team. If they can do a better job with more context than less, this ought to be the standard.\n\nFor example, you could tell your social media coordinator to spotlight a certain product more, and they may add two or three more posts to the monthly calendar. But if you let them know the why — that this product is eventually going to become the foundation for replacing two other products and that sales need to exceed a certain point — you’re likely to get better results. What’s more, your team may surprise you by thinking of additional ways to reach the goal that you hadn’t considered.\n\nExercise"
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "flashcard",
+          "cards": [
             {
-              "id": "yes_this_demonstrates_respect",
-              "title": "Yes!",
-              "body": "Yes! This demonstrates respect."
+              "id": "yes_this_demonstrates_respect_2",
+              "front": "Yes! This demonstrates respect.",
+              "back": "Letting team members know the reason behind an ask"
             },
             {
-              "id": "letting_team_members_know_the_reason_beh",
-              "title": "Letting team members know the reason behind an ask",
-              "body": "Letting team members know the reason behind an ask"
+              "id": "yes_this_encourages_understanding_and_buy_",
+              "front": "Yes! This encourages understanding and buy-in.",
+              "back": "Explaining the goals for your department"
             },
             {
-              "id": "yes_this_encourages_understanding_and_bu",
-              "title": "Yes!",
-              "body": "Yes! This encourages understanding and buy-in."
+              "id": "no_consensus_is_not_needed_when_providing_",
+              "front": "No, consensus is not needed when providing context.",
+              "back": "Make sure everyone agrees with the decision"
             },
             {
-              "id": "explaining_the_goals_for_your_department",
-              "title": "Explaining the goals for your department",
-              "body": "Explaining the goals for your department"
+              "id": "yes_this_sets_them_up_for_success_2",
+              "front": "Yes! This sets them up for success.",
+              "back": "Giving team members the tools they need to accomplish a task"
             },
             {
-              "id": "no_consensus_is_not_needed_when_providin",
-              "title": "No, consensus is not needed when providing context.",
-              "body": "No, consensus is not needed when providing context."
+              "id": "no_this_may_lead_to_confusion_2",
+              "front": "No, this may lead to confusion.",
+              "back": "Adding tasks in the project management system without explanation"
             },
             {
-              "id": "make_sure_everyone_agrees_with_the_decis",
-              "title": "Make sure everyone agrees with the decision",
-              "body": "Make sure everyone agrees with the decision"
-            },
-            {
-              "id": "yes_this_sets_them_up_for_success",
-              "title": "Yes!",
-              "body": "Yes! This sets them up for success."
-            },
-            {
-              "id": "giving_team_members_the_tools_they_need",
-              "title": "Giving team members the tools they need to accomplish a task",
-              "body": "Giving team members the tools they need to accomplish a task"
-            },
-            {
-              "id": "no_this_may_lead_to_confusion",
-              "title": "No, this may lead to confusion.",
-              "body": "No, this may lead to confusion."
-            },
-            {
-              "id": "adding_tasks_in_the_project_management_s",
-              "title": "Adding tasks in the project management system without explanation",
-              "body": "Adding tasks in the project management system without explanation"
-            },
-            {
-              "id": "no_this_encourages_confusion",
-              "title": "No, this encourages confusion.",
-              "body": "No, this encourages confusion."
-            },
-            {
-              "id": "keeping_strategic_direction_a_secret",
-              "title": "Keeping strategic direction a secret",
-              "body": "Keeping strategic direction a secret"
+              "id": "no_this_encourages_confusion_2",
+              "front": "No, this encourages confusion.",
+              "back": "Keeping strategic direction a secret"
             }
           ]
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_06_st_007_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_06_st_007_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_06_st_007_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -587,6 +532,15 @@
       "title": "Personal Reflections",
       "blocks": [
         {
+          "type": "heading",
+          "level": 2,
+          "text": "Exercises"
+        },
+        {
+          "type": "callout",
+          "text": "When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention."
+        },
+        {
           "type": "reflection",
           "question_id": "potl_mp_06_st_009_reflection_01",
           "prompt": "Reflect on the phrase, “To be unclear is to be unkind.” Can you think of a time when this may have been true in your own career?"
@@ -604,7 +558,7 @@
         {
           "type": "reflection",
           "question_id": "potl_mp_06_st_009_reflection_04",
-          "prompt": "Do you currently tend to err on the side of overcommunicating or under-communicating?"
+          "prompt": "Do you currently tend to err on the side of overcommunicating or under-communicating? Why?"
         },
         {
           "type": "reflection",
@@ -614,12 +568,7 @@
         {
           "type": "reflection",
           "question_id": "potl_mp_06_st_009_reflection_06",
-          "prompt": "How much context do you provide for your team in your current communication?"
-        },
-        {
-          "type": "reflection",
-          "question_id": "potl_mp_06_st_009_reflection_07",
-          "prompt": "Is it easy or hard to give context?"
+          "prompt": "How much context do you provide for your team in your current communication? Is it easy or hard to give context?"
         }
       ]
     }

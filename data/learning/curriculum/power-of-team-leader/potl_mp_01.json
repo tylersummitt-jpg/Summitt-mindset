@@ -22,22 +22,22 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_02.png",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_04.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -141,7 +141,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "The Concept of Team Involves More Than Output\n\nThe goal of Pat’s championship programs wasn’t to develop star players; it was to have an unbeatable team year after year. “Team-building starts by recruiting good people and turning them into willing role players early on,” she taught. Self-discipline, responsibility, hard work, and individual performance may come naturally to some, but how do you teach shared ownership, respect for others, loyalty, good communication, respect for the leader, and no gossip, just to name a few? While all the Definite Dozen principles are important, there are three principles in particular whose lack arguably causes a majority of the problems for teams in the modern workforce.\n\nClick to expand and complete this element."
+          "markdown": "The Concept of Team Involves More Than Output\n\nThe goal of Pat’s championship programs wasn’t to develop star players; it was to have an unbeatable team year after year. “Team-building starts by recruiting good people and turning them into willing role players early on,” she taught. Self-discipline, responsibility, hard work, and individual performance may come naturally to some, but how do you teach shared ownership, respect for others, loyalty, good communication, respect for the leader, and no gossip, just to name a few? While all the Definite Dozen principles are important, there are three principles in particular whose lack arguably causes a majority of the problems for teams in the modern workforce."
         },
         {
           "type": "sections",
@@ -149,31 +149,16 @@
             {
               "id": "responsibility",
               "title": "Responsibility",
-              "body": "Responsibility"
-            },
-            {
-              "id": "how_do_you_encourage_your_employees_to_t",
-              "title": "How do you encourage your employees to take ownership for their work and embrace/internal…",
               "body": "How do you encourage your employees to take ownership for their work and embrace/internalize the shared vision of the company?"
             },
             {
               "id": "loyalty",
               "title": "Loyalty",
-              "body": "Loyalty"
-            },
-            {
-              "id": "how_do_you_cultivate_employees_who_are_l",
-              "title": "How do you cultivate employees who are loyal to the company and its mission?",
               "body": "How do you cultivate employees who are loyal to the company and its mission?"
             },
             {
               "id": "communication",
               "title": "Communication",
-              "body": "Communication"
-            },
-            {
-              "id": "organizations_move_at_the_speed_of_commu",
-              "title": "Organizations move at the speed of communication and trust.",
               "body": "Organizations move at the speed of communication and trust. How do you foster team communication — from the top down, from the bottom up, and from side-to-side among peers?"
             }
           ]
@@ -185,7 +170,7 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_01_st_004_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -296,6 +281,15 @@
           "markdown": "Sources:\nUnless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
         },
         {
+          "type": "heading",
+          "level": 2,
+          "text": "Exercises"
+        },
+        {
+          "type": "callout",
+          "text": "When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention."
+        },
+        {
           "type": "reflection",
           "question_id": "potl_mp_01_st_007_reflection_01",
           "prompt": "Take a minute to sit down and assess your starting point. Where are you currently as a team and as a leader?"
@@ -323,12 +317,7 @@
         {
           "type": "reflection",
           "question_id": "potl_mp_01_st_007_reflection_06",
-          "prompt": "Who is the person on your team who seems the most natural in their role?"
-        },
-        {
-          "type": "reflection",
-          "question_id": "potl_mp_01_st_007_reflection_07",
-          "prompt": "List up to three. Which team members need more development?"
+          "prompt": "Who is the person on your team who seems the most natural in their role? List up to three. Which team members need more development?"
         },
         {
           "type": "reflection",

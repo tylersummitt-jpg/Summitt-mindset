@@ -24,7 +24,7 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_04_st_001_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "embedded workplace image"
         },
         {
           "type": "markdown",
@@ -43,44 +43,39 @@
           "markdown": "If women are opting out at a slightly higher rate than men, this begs the question: Why? Historically, many analysts would have pointed to childbearing as the natural culprit. But according to several surveys, surprisingly, the issue isn’t entirely due to childbearing.\n\nA study by Harvard Business Review, for example, found that high-achieving women pursued their careers an average of 11 years, and 60 percent worked well past the birth of their second child.² Most fascinating is the number of women who continue working well beyond their child bearing years and still drop out.\n\nWe’ve already discussed gender biases and the isolation of being the only one in the room in certain fields. Like their non-managerial counterparts, future female leaders are often paddling upstream from the start. Then there’s the factor of hidden work, specifically:\n\nStudies show that women are looking for more flexibility in the post-COVID world, and work-life balance is a big reason more women are leaving corporations than men. While both sexes appreciate a healthy work-life balance, women typically have more work at home, making this more of a need than a want."
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "flashcard",
+          "cards": [
             {
-              "id": "hidden_work",
-              "title": "Hidden work",
-              "body": "Women work more at home after their corporate hours are through."
-            }
-          ]
-        },
-        {
-          "type": "sections",
-          "sections": [
+              "id": "hidden_work_1",
+              "front": "Women work more at home after their corporate hours are through.",
+              "back": "Hidden work"
+            },
             {
-              "id": "hidden_work",
-              "title": "Hidden work",
-              "body": "Women often work more at work, shouldering special projects and initiatives that don’t directly contribute to the bottom line, but contribute to the overall work culture or environment."
+              "id": "hidden_work_2",
+              "front": "Women often work more at work, shouldering special projects and initiatives that don’t directly contribute to the bottom line, but contribute to the overall work culture or environment.",
+              "back": "Hidden work"
             }
           ]
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_04_st_002_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": "image embedded in the lesson"
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_04_st_002_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "image embedded in the lesson"
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_04_st_002_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": "image embedded in the lesson"
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_04_st_002_image_04.jpg",
-          "alt": "Lesson image"
+          "alt": "image embedded in the lesson"
         }
       ]
     },
@@ -184,7 +179,12 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "So what does all this look like in reality? Many women describe their decision to leave the workplace not as something that happened in one fell swoop, but rather death by a thousand cuts. Take these fictitious examples of three women: Lei, Allison, and Felicia.\n\nScenario 1: Lei"
+          "markdown": "So what does all this look like in reality? Many women describe their decision to leave the workplace not as something that happened in one fell swoop, but rather death by a thousand cuts. Take these fictitious examples of three women: Lei, Allison, and Felicia."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Scenario 1: Lei"
         },
         {
           "type": "image",
@@ -193,7 +193,12 @@
         },
         {
           "type": "markdown",
-          "markdown": "Lei is an associate director of quality assurance in IT. She has held her position for about a year and a half and is finding that she’s questioned more than the male mentor who trained her. She was even asked to provide a weekly report of what she’s working on.\n\nIn four of her five standing meetings, she’s the only woman in the room. In one of these meetings, a recurring lunch meeting, the team frequently volunteers her to go pick up lunch—“because no one else knows how to order it the right way,” they say. She begins to wonder if her personal brand is becoming “sandwiches.”\n\nWhen Lei asks about a raise a year into her role, she’s told raises will be scarce this year and she should be grateful for what she has. Lei is puzzled because her male counterparts didn’t seem to have issues getting a raise six months earlier. She debates taking it up, but worried she might look like she’s playing the minority flag, or worse, complaining. After all, she might not have all the facts, and discussing salary is taboo. Lei continues to work, but feels like a sparrow in a hen house.\n\nScenario 2: Allison"
+          "markdown": "Lei is an associate director of quality assurance in IT. She has held her position for about a year and a half and is finding that she’s questioned more than the male mentor who trained her. She was even asked to provide a weekly report of what she’s working on.\n\nIn four of her five standing meetings, she’s the only woman in the room. In one of these meetings, a recurring lunch meeting, the team frequently volunteers her to go pick up lunch—“because no one else knows how to order it the right way,” they say. She begins to wonder if her personal brand is becoming “sandwiches.”\n\nWhen Lei asks about a raise a year into her role, she’s told raises will be scarce this year and she should be grateful for what she has. Lei is puzzled because her male counterparts didn’t seem to have issues getting a raise six months earlier. She debates taking it up, but worried she might look like she’s playing the minority flag, or worse, complaining. After all, she might not have all the facts, and discussing salary is taboo. Lei continues to work, but feels like a sparrow in a hen house."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Scenario 2: Allison"
         },
         {
           "type": "image",
@@ -202,7 +207,12 @@
         },
         {
           "type": "markdown",
-          "markdown": "Then there’s Allison, a newly hired VP of product with 20 years of experience at an organization with all its VPs at the senior board level: the VP of finance, VP of marketing, VP of human resources, VP of operations and VP of creative.\n\nThe company hires two new male VPs, the VP of technology and the VP of sales at the same time they hire Allison. The two new VPs are placed on the board immediately, but Allison is told she needs to “prove her worth” before she can be considered. Right away this puts Allison at a disadvantage—because the VPs of sales, technology, and marketing, whom she needs to collaborate with regularly, are all on the board and she isn’t.\n\nIn addition, whenever she tries to present the new product line, the male VP of Sales constantly interrupts Allison, making it difficult to get through her slideshow. When Allison mentions this to her leader, she’s told she’s “probably being too sensitive about it.”\n\nThe company is preparing for a major conference, with Allison’s team putting in extra work in the office to revamp conference room space. While her male counterparts stay till 7 p.m., Allison has to leave at 5 p.m. to pick her kids up from the after-school program, driving back to work at 6:30 p.m.and working until 8:30 p.m.\n\nThe conference networking event is a golfing tournament hosted by the company’s CEO, followed by a bourbon tasting at a local distillery. Allison attends, but is relegated to the sidelines, as she doesn’t know how to play golf and doesn’t particularly care for bourbon. While Allison went to school to be a product manager and loves her job, she wonders if she’s ever going to fit in at this new company and secretly dreams of going into real estate, like her sister-in-law.\n\nScenario 3: Felicia"
+          "markdown": "Then there’s Allison, a newly hired VP of product with 20 years of experience at an organization with all its VPs at the senior board level: the VP of finance, VP of marketing, VP of human resources, VP of operations and VP of creative.\n\nThe company hires two new male VPs, the VP of technology and the VP of sales at the same time they hire Allison. The two new VPs are placed on the board immediately, but Allison is told she needs to “prove her worth” before she can be considered. Right away this puts Allison at a disadvantage—because the VPs of sales, technology, and marketing, whom she needs to collaborate with regularly, are all on the board and she isn’t.\n\nIn addition, whenever she tries to present the new product line, the male VP of Sales constantly interrupts Allison, making it difficult to get through her slideshow. When Allison mentions this to her leader, she’s told she’s “probably being too sensitive about it.”\n\nThe company is preparing for a major conference, with Allison’s team putting in extra work in the office to revamp conference room space. While her male counterparts stay till 7 p.m., Allison has to leave at 5 p.m. to pick her kids up from the after-school program, driving back to work at 6:30 p.m.and working until 8:30 p.m.\n\nThe conference networking event is a golfing tournament hosted by the company’s CEO, followed by a bourbon tasting at a local distillery. Allison attends, but is relegated to the sidelines, as she doesn’t know how to play golf and doesn’t particularly care for bourbon. While Allison went to school to be a product manager and loves her job, she wonders if she’s ever going to fit in at this new company and secretly dreams of going into real estate, like her sister-in-law."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Scenario 3: Felicia"
         },
         {
           "type": "image",
@@ -211,7 +221,16 @@
         },
         {
           "type": "markdown",
-          "markdown": "Lastly, there’s Felicia, a 35-year-old associate creative manager with a degree from a highly respected private college. Felicia worked for eight years before having her first child. Eager to continue her career, she puts the child in daycare at $800 per month. Two years later when she has her second child, she puts that child in daycare as well, for a total of $1600 a month. Felicia’s bi-monthly take-home pay is only $2,100 per paycheck.\n\nHer company is bought out, and Felicia is hopeful for more flexibility with the new leadership, but they reduce the number of work-from-home days from eight days a month to two. A male counterpart from another division is then promoted to creative director over Felicia, in spite of having four and a half less years of experience. Felicia is crushed. She then learns that her first child has been diagnosed with hearing loss and will require special attention and additional therapy appointments. She decides to opt out of the corporate workforce and become a freelancer, hoping to replace 60 to 70 percent of her corporate paycheck, but on her own terms.\n\nSummary\n\nWhile these are fictitious examples, they represent the myriad of nuanced challenges women face in their careers. Have you ever known someone like a Lei, Allison, or Felicia?"
+          "markdown": "Lastly, there’s Felicia, a 35-year-old associate creative manager with a degree from a highly respected private college. Felicia worked for eight years before having her first child. Eager to continue her career, she puts the child in daycare at $800 per month. Two years later when she has her second child, she puts that child in daycare as well, for a total of $1600 a month. Felicia’s bi-monthly take-home pay is only $2,100 per paycheck.\n\nHer company is bought out, and Felicia is hopeful for more flexibility with the new leadership, but they reduce the number of work-from-home days from eight days a month to two. A male counterpart from another division is then promoted to creative director over Felicia, in spite of having four and a half less years of experience. Felicia is crushed. She then learns that her first child has been diagnosed with hearing loss and will require special attention and additional therapy appointments. She decides to opt out of the corporate workforce and become a freelancer, hoping to replace 60 to 70 percent of her corporate paycheck, but on her own terms."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Summary"
+        },
+        {
+          "type": "markdown",
+          "markdown": "While these are fictitious examples, they represent the myriad of nuanced challenges women face in their careers. Have you ever known someone like a Lei, Allison, or Felicia?"
         }
       ]
     },
@@ -258,8 +277,13 @@
       "title": "The Leadership Trap",
       "blocks": [
         {
+          "type": "heading",
+          "level": 2,
+          "text": "The Leadership Trap: He’s a Baller, She’s Scary."
+        },
+        {
           "type": "markdown",
-          "markdown": "The Leadership Trap: He’s a Baller, She’s Scary.\n\nThis leads us to one of the next hurdles for women, the “leadership trap.” When it comes to being potential candidates for leadership, oftentimes women report:"
+          "markdown": "This leads us to one of the next hurdles for women, the “leadership trap.” When it comes to being potential candidates for leadership, oftentimes women report:"
         },
         {
           "type": "image",
@@ -390,6 +414,19 @@
           "markdown": "Listen to Sue Nokes, former Customer Solutions Officer at Asurion and Chief Customer and Operations Officer at T-Mobile remember Pat’s legacy and what made her the G.O.A.T."
         },
         {
+          "type": "heading",
+          "level": 2,
+          "text": "Sources for this course"
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "1. McKinsey & Company with LeanIn.org. “Women in the Workplace 2023” Accessed online: https://www.mckinsey.com/featured-insights/diversity-and-inclusion/women-in-the-workplace",
+            "2. Harvard Business Review. “Women in the Workplace: A Research Roundup.” Reprint R1309F 9/2013. Accessed 2/24/24 online: https://hbr.org/2013/09/women-in-the-workplace-a-research-roundup"
+          ]
+        },
+        {
           "type": "reflection",
           "question_id": "cw_mp_04_st_008_reflection_01",
           "prompt": "Take a minute to reflect. What percentage of leaders at your organization are women? What percentage of leaders at the board or senior level are women?"
@@ -413,10 +450,6 @@
           "type": "reflection",
           "question_id": "cw_mp_04_st_008_reflection_05",
           "prompt": "Knowing what you now know, what do you think are two real obstacles facing female leaders at your own organization?"
-        },
-        {
-          "type": "markdown",
-          "markdown": "Sources for this course\n\n1. McKinsey & Company with LeanIn.org. “Women in the Workplace 2023” Accessed online: https://www.mckinsey.com/featured-insights/diversity-and-inclusion/women-in-the-workplace\n\n2. Harvard Business Review. “Women in the Workplace: A Research Roundup.” Reprint R1309F 9/2013. Accessed 2/24/24 online: https://hbr.org/2013/09/women-in-the-workplace-a-research-roundup"
         }
       ]
     }

@@ -212,11 +212,6 @@
           "markdown": "Wanting to win, and wanting to beat the competition, is at the heart of what it takes to improve your performance. If you want to nurture your sense of competition, the best thing to do is to treat it like a muscle and use it. This is why so many coaches are so good at creating competitions in practice. They want to ignite that spirit and get their team members to think consistently about the presence of competition in their practices, and then in games."
         },
         {
-          "type": "reflection",
-          "question_id": "dd_mp_11_st_003_reflection_02",
-          "prompt": "In your team or organization, how can the leader ignite a sense of competitiveness?"
-        },
-        {
           "type": "callout",
           "text": "You have to love your adversaries. They make you better. They force you to improve, to stretch your capacities."
         },
@@ -285,6 +280,11 @@
             "Keep your rival in sight to motivate you.",
             "Appreciate your rival."
           ]
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_11_st_003_reflection_02",
+          "prompt": "In your team or organization, how can the leader ignite a sense of competitiveness?"
         }
       ]
     },
@@ -610,7 +610,7 @@
         },
         {
           "type": "markdown",
-          "markdown": "There are bound to be days when you run into someone who is better than you. What can you do about it? You can compete, that's what. You can put forth so much effort that you cut your opponent down to size and force him to play below his own abilities. Competitiveness allows you to influence your opponent.\n\n— Pat Summitt\n\nBe a Competitor: Influence Your Opponent, featuring Phillip Fulmer"
+          "markdown": "There are bound to be days when you run into someone who is better than you. What can you do about it? You can compete, that's what. You can put forth so much effort that you cut your opponent down to size and force him to play below his own abilities. Competitiveness allows you to influence your opponent.\n\n— Pat Summitt"
         },
         {
           "type": "image",
@@ -618,47 +618,59 @@
           "alt": "Coach Pat Summitt instructs a player on the sideline."
         },
         {
-          "type": "markdown",
-          "markdown": "How Do You Influence Your Opponent?\n\nYou influence your opponent by studying them, and then playing to your strengths and against their weaknesses. As a player, Pat Summitt fought for a seat in the Olympic squad against a superior player. She won the contest by forcing her opponent — a strong offensive player — to play a defensive game. In the world of business, a new competitor can apply similar tactics of influencing their opponents.\n\nGetting More Competitive by Competing More Often\n\nOnce again, the key to getting better in this space is to compete more often. None of us are born in a perfect, competitive condition until we learn how to compete and get used to it. This is why participating in sports at a young age plays such an important role in the lives of youth. They learn what it's like to face competition at an early age and what to do in those high-pressure situations. The opportunity to grow never ends, and the best leaders understand that the best way to get their team to be more competitive is to compete, adjust, reflect, and compete again.\n\nTo be competitive, leaders and peak performers must get good at answering a call to compete. Here are two strategies to consider."
+          "type": "heading",
+          "level": 2,
+          "text": "How Do You Influence Your Opponent?"
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "markdown",
+          "markdown": "You influence your opponent by studying them, and then playing to your strengths and against their weaknesses. As a player, Pat Summitt fought for a seat in the Olympic squad against a superior player. She won the contest by forcing her opponent — a strong offensive player — to play a defensive game. In the world of business, a new competitor can apply similar tactics of influencing their opponents."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Getting More Competitive by Competing More Often"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Once again, the key to getting better in this space is to compete more often. None of us are born in a perfect, competitive condition until we learn how to compete and get used to it. This is why participating in sports at a young age plays such an important role in the lives of youth. They learn what it's like to face competition at an early age and what to do in those high-pressure situations. The opportunity to grow never ends, and the best leaders understand that the best way to get their team to be more competitive is to compete, adjust, reflect, and compete again.\n\nTo be competitive, leaders and peak performers must get good at answering a call to compete. Here are two strategies to consider."
+        },
+        {
+          "type": "process",
+          "steps": [
             {
-              "id": "two_strategies_for_a_call_to_compete",
               "title": "Two Strategies for a Call to Compete",
-              "body": "Two Strategies for a Call to Compete"
-            },
-            {
-              "id": "posting_the_bulletin_board_material_one",
-              "title": "Posting the Bulletin-Board Material: One strategy is the presence of \"bulletin-…",
               "body": "Posting the Bulletin-Board Material: One strategy is the presence of \"bulletin-board\" material. You don't have to wait for a competitor to say something negative about you or your work to create that material. If you are a software designer trying to compete with another designer, and you post articles in your workspace reminding you of their latest innovation, it may motivate you to rise up, compete, and win. Seeing an accolade your competitor won within view of your workspace may inspire you to keep working when fatigue sets in."
             },
             {
-              "id": "identifying_a_rival_in_some_cases_a_riva",
               "title": "Identifying a Rival: In some cases, a rival may not be as easy to identify.",
               "body": "Identifying a Rival: In some cases, a rival may not be as easy to identify. For example, if you work in a large corporation doing quality control, you may not have the day-to-day \"wins and losses vs. the competitor\" that other departments may experience. On this note, leaders may need to get creative and find existing metrics that would allow for competition. In some cases, companies are big enough for internal departments to compete with each other for some level of excellence. Who is your rival? Identify it and keep it in front of you."
             }
           ]
         },
         {
+          "type": "heading",
+          "level": 2,
+          "text": "What Does Competition Do to Us?"
+        },
+        {
           "type": "markdown",
-          "markdown": "What Does Competition Do to Us?\n\nThere is an old adage that competition doesn't build character, it reveals it. It's likely that competition does both. By consistently competing, you learn what it means to compete and how to improve your readiness to match wits and energy with whomever you're up against. On the other hand, competition indeed reveals our character. As we continue to face competition, we ultimately unlock an ancient potential within us. The reason you are here reading these words at this moment is because countless ancestors who came before you had the agility to survive. Human beings have been very successful at meeting challenges, rising to the competition, and evolving. Our bodies have literally learned to grow and change in order to compete."
+          "markdown": "There is an old adage that competition doesn't build character, it reveals it. It's likely that competition does both. By consistently competing, you learn what it means to compete and how to improve your readiness to match wits and energy with whomever you're up against. On the other hand, competition indeed reveals our character. As we continue to face competition, we ultimately unlock an ancient potential within us. The reason you are here reading these words at this moment is because countless ancestors who came before you had the agility to survive. Human beings have been very successful at meeting challenges, rising to the competition, and evolving. Our bodies have literally learned to grow and change in order to compete."
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_11_st_008_image_03.jpg",
+          "alt": "Posting the Bulletin-Board Material process image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_11_st_008_image_04.jpg",
+          "alt": "Identifying a Rival process image"
         },
         {
           "type": "reflection",
           "question_id": "dd_mp_11_st_008_reflection_01",
           "prompt": "In your life and career, who are you competing with? How do you identify your rivals? And how can you influence them?"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_11_st_008_image_03.jpg",
-          "alt": "Lesson image"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_11_st_008_image_04.jpg",
-          "alt": "Lesson image"
         }
       ]
     },
@@ -754,19 +766,19 @@
           "markdown": "Everyone wants to win. But interestingly, people who don't win very often become hesitant to declare that winning is the objective. Perhaps, psychologically, it's easier to refrain from making that declaration as protection against disappointment. However, we learned in this module that successful leaders are unafraid of declaring winning the goal and benchmarks of success as the clear objective of their efforts. They are willing to boldly declare that they intend to win and how winning will be defined."
         },
         {
-          "type": "reflection",
-          "question_id": "dd_mp_11_st_010_reflection_01",
-          "prompt": "What could you identify in your work as a declaration of winning?"
-        },
-        {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_010_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": "lesson image for Winning as a Declaration"
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_010_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "Second original image in Winning as a Declaration reflection"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_11_st_010_reflection_01",
+          "prompt": "What could you identify in your work as a declaration of winning?"
         },
         {
           "type": "reflection",
@@ -789,29 +801,34 @@
         },
         {
           "type": "markdown",
-          "markdown": "Your competitors make you better. Having worthy adversaries stimulates your work ethic, and brings out qualities you may not have known you had. So don't resent them. You should love your competitors. And you should thank them.\n\n— Pat Summitt\n\nBe a Competitor: Love Your Adversaries, featuring Phillip Fulmer\n\nYour Rivals Force You to Stretch and Grow"
+          "markdown": "Your competitors make you better. Having worthy adversaries stimulates your work ethic, and brings out qualities you may not have known you had. So don't resent them. You should love your competitors. And you should thank them.\n\n— Pat Summitt"
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Your Rivals Force You to Stretch and Grow"
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_011_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "lesson image for Your Rivals Force You to Stretch and Grow"
         },
         {
           "type": "markdown",
-          "markdown": "More than simply getting your attention or keeping you hustling, the presence of a great rival stretches you to achieve more. How many times have great rivals credited each other for some of their best work? In professional men's basketball, the rivalry between Larry Bird and Magic Johnson is one of the best examples of a fierce rivalry spanning more than a decade. They competed with each other in college and in the pros and gave each other credit for pushing one another to develop parts of their game that wouldn't have emerged otherwise.\n\nEach of us needs to identify our rival. Furthermore, we need to be grateful for their presence and recognize their abilities. Then, commit to stretch and grow in a way that will allow you to meet and exceed whatever challenges your competition will bring.\n\nWhen rivalries are appreciated and embraced, they can be leveraged to encourage breakthroughs. Breakthroughs represent unprecedented leaps forward.\n\nWhat's Your Bulletin-Board Material?"
+          "markdown": "More than simply getting your attention or keeping you hustling, the presence of a great rival stretches you to achieve more. How many times have great rivals credited each other for some of their best work? In professional men's basketball, the rivalry between Larry Bird and Magic Johnson is one of the best examples of a fierce rivalry spanning more than a decade. They competed with each other in college and in the pros and gave each other credit for pushing one another to develop parts of their game that wouldn't have emerged otherwise.\n\nEach of us needs to identify our rival. Furthermore, we need to be grateful for their presence and recognize their abilities. Then, commit to stretch and grow in a way that will allow you to meet and exceed whatever challenges your competition will bring.\n\nWhen rivalries are appreciated and embraced, they can be leveraged to encourage breakthroughs. Breakthroughs represent unprecedented leaps forward."
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "heading",
+          "level": 2,
+          "text": "What's Your Bulletin-Board Material?"
+        },
+        {
+          "type": "flashcard",
+          "cards": [
             {
-              "id": "bulletin_board_material",
-              "title": "Bulletin Board Material",
-              "body": "Bulletin Board Material"
-            },
-            {
-              "id": "in_sports_a_rival_s_comment_or_detail_th",
-              "title": "In sports, a rival's comment or detail that is used by the opposite team for mo…",
-              "body": "In sports, a rival's comment or detail that is used by the opposite team for motivation"
+              "id": "bulletin_board_material_2",
+              "front": "Bulletin Board Material",
+              "back": "In sports, a rival's comment or detail that is used by the opposite team for motivation"
             }
           ]
         },
@@ -820,13 +837,18 @@
           "markdown": "An up-and-coming rival may say that the champion is \"getting old,\" \"slowing down,\" or no longer able to compete for whatever reason. That declaration, to the champion, may be \"bulletin-board material\" that they communicate to the rest of the team as motivation. Before the era of social media, coaches might take a disparaging quote and post it in the locker room to remind the team of how they had been disparaged by the rival.\n\nSometimes these reminders can be useful in getting ready for a competition, inspiring days, weeks, and even years of work in developing the skills necessary to compete with the offending party. This can obviously work in business as well. This only works if there is a deep and abiding competitive spirit. Michael Jordan was known to push himself into a competitive frenzy over even the slightest disrespect from his competition."
         },
         {
-          "type": "reflection",
-          "question_id": "dd_mp_11_st_011_reflection_01",
-          "prompt": "Do you think the Bulletin Board Material approach would fire up competitiveness in your organization? Why or why not?"
+          "type": "heading",
+          "level": 2,
+          "text": "Do Some Self-Scouting: How Is Your Rival Planning to Overtake You?"
         },
         {
           "type": "markdown",
-          "markdown": "Do Some Self-Scouting: How Is Your Rival Planning to Overtake You?\n\nIn creating an environment that's more competitive, one of the smart things a leader can do is to get team members to thoughtfully reflect on how the competition is likely observing their performance. For example, if your team owned a number of fast food restaurants and your speed ratings by the consumers had suffered, you might observe that the competition may very well take advantage of this weakness. Only through self-scouting can you get a good look at yourself and recognize how the competition may try to take advantage."
+          "markdown": "In creating an environment that's more competitive, one of the smart things a leader can do is to get team members to thoughtfully reflect on how the competition is likely observing their performance. For example, if your team owned a number of fast food restaurants and your speed ratings by the consumers had suffered, you might observe that the competition may very well take advantage of this weakness. Only through self-scouting can you get a good look at yourself and recognize how the competition may try to take advantage."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_11_st_011_reflection_01",
+          "prompt": "Do you think the Bulletin Board Material approach would fire up competitiveness in your organization? Why or why not?"
         }
       ]
     },
@@ -920,7 +942,79 @@
         },
         {
           "type": "markdown",
-          "markdown": "When you choose to compete, you make the conscious decision to find out what your real limits are, not just what you think they are. Competition trains you to accept risk and to endure setbacks. By embracing it, you can enhance your life. But it will also pull you through those painful, frightening, everyday battles we all have to face at one time or another.\n\n— Pat Summitt\n\nBe a Competitor: Wrap-Up, featuring Roberto Fernandez\n\nCompetition Can Create a “Whatever It Takes” Mentality\n\nHave you ever noticed how hard it is to beat a sitting champion? They already know how to win, and they have at their disposal a number of tools to hold off the competition. While this is probably more easily visualized in sports, it's true of virtually any type of challenge. When a team has worked hard to reach a goal and understands the challenges of success, team members are far more likely to commit to whatever it takes to win! As a leader, this \"whatever it takes mentality\" will show up more often when competition becomes a regular element of practice and preparation, and resilient leaders within the organization are consistently encouraged and supported.\n\nThe Urgency of Failure\n\nFailure, or the threat thereof, can create a great deal of urgency. Teams who have been working a long time to accomplish a goal will feel the emergency of impending failure, perhaps brought on by the emergence of competition, and will use that fuel to redouble their efforts. Leaders need to be aware that the urgency of failure can show up at every turn.\n\nRaising the Standards in the Face of Urgency\n\nUrgency brings out our very best at a cellular level. Athletes have actually reported that at times they have performed at peak performance while on the verge of getting sick, likely because their brains and bodies felt a sense of urgency due to the impending illness, causing an even greater level of focus. Wilt Chamberlain was reportedly sick the night before he scored 100 points in a single NBA game. The key takeaway for leaders is this: make sure you respond to a sense of urgency by raising standards, not inducing panic. Some groups don't respond as well in cases of urgency or emergency. They may collapse under stress and refrain from doing their very best. This panic can come due to a lack of experience on how to perform under a sense of urgency. Coach Summitt famously had her team practice for hours with simulated end-of-game situations, forcing players to take the last shot or to make split-second decisions under a variety of circumstances. By helping the players get used to a sense of urgency and training them to raise their standards when it happened, there was a much greater chance that game-winning performance was going to happen.\n\nBringing the Battle, or Waiting for War\n\nWe’ve learned in this unit that competition is going to emerge no matter what we do. To this end, leaders have two choices. They can respond to the competition by simply waiting for it to show up, or preemptively bring the best of themselves to battle, anticipating competition. A seasoned, peak-performing athlete may know that a competitor is likely to emerge at any time and attempt to dethrone them in new ways. By preemptively being ready for battle, it's far more likely that the competition will be a fierce one when it arrives.\n\nRaising the Standard, and Leaving Others Behind\n\nDon’t be surprised if the act of raising the standard makes others feel uncomfortable. If your peer group tends to be out of shape, and you decide to commit to a rigorous workout routine, your new standard may not necessarily be met with open arms. While it may not be your intention, the very act of raising the standard for yourself or for your team may send a message that they are being \"left behind.\" The desire to raise your standard and do whatever it takes to remain competitive will attract others who are hungry for competition, but you will face opposition from those who are uncomfortable with the same. The harder you push to be competitive, the more the divide will increase. Don't be surprised if you leave behind some folks who just weren't ready for the challenge.\n\nCompetition Ignites Both Success and Failure. Leadership Matters!\n\nThroughout this module, you've been exposed to the many merits of competition. However, jumping into a competition doesn't mean that you or your team will automatically achieve or experience all the amazing benefits. One of the best things that a leader can do, however, is to test the mettle and see where they stand. A coach may look at their team and think they know who the real competitors are, only to discover that, when tested, different leaders and intense competitors rise and fall. Competition ignites both success and failure, and to be an outstanding leader, the presence of competition must ignite in you a sense of innovation, and the willingness to raise your own standards. Without question, competition and the ability to manage this dynamic is an absolute must for high-performing leaders and individual performers to achieve the highest results.\n\nLet's Summarize\n\nMake competition a regular element in your practice.\n\nBe prepared to face the urgency of failure at any time.\n\nRespond to a sense of urgency by raising standards.\n\nAnticipate and prepare to compete at any time.\n\nAccept that not everyone will accept raised standards.\n\nAccept the risk of failures.\n\nBe willing to innovate and raise your own standards."
+          "markdown": "When you choose to compete, you make the conscious decision to find out what your real limits are, not just what you think they are. Competition trains you to accept risk and to endure setbacks. By embracing it, you can enhance your life. But it will also pull you through those painful, frightening, everyday battles we all have to face at one time or another.\n\n— Pat Summitt"
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Competition Can Create a “Whatever It Takes” Mentality"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Have you ever noticed how hard it is to beat a sitting champion? They already know how to win, and they have at their disposal a number of tools to hold off the competition. While this is probably more easily visualized in sports, it's true of virtually any type of challenge. When a team has worked hard to reach a goal and understands the challenges of success, team members are far more likely to commit to whatever it takes to win! As a leader, this \"whatever it takes mentality\" will show up more often when competition becomes a regular element of practice and preparation, and resilient leaders within the organization are consistently encouraged and supported."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "The Urgency of Failure"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Failure, or the threat thereof, can create a great deal of urgency. Teams who have been working a long time to accomplish a goal will feel the emergency of impending failure, perhaps brought on by the emergence of competition, and will use that fuel to redouble their efforts. Leaders need to be aware that the urgency of failure can show up at every turn."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Raising the Standards in the Face of Urgency"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Urgency brings out our very best at a cellular level. Athletes have actually reported that at times they have performed at peak performance while on the verge of getting sick, likely because their brains and bodies felt a sense of urgency due to the impending illness, causing an even greater level of focus. Wilt Chamberlain was reportedly sick the night before he scored 100 points in a single NBA game. The key takeaway for leaders is this: make sure you respond to a sense of urgency by raising standards, not inducing panic. Some groups don't respond as well in cases of urgency or emergency. They may collapse under stress and refrain from doing their very best. This panic can come due to a lack of experience on how to perform under a sense of urgency. Coach Summitt famously had her team practice for hours with simulated end-of-game situations, forcing players to take the last shot or to make split-second decisions under a variety of circumstances. By helping the players get used to a sense of urgency and training them to raise their standards when it happened, there was a much greater chance that game-winning performance was going to happen."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Bringing the Battle, or Waiting for War"
+        },
+        {
+          "type": "markdown",
+          "markdown": "We’ve learned in this unit that competition is going to emerge no matter what we do. To this end, leaders have two choices. They can respond to the competition by simply waiting for it to show up, or preemptively bring the best of themselves to battle, anticipating competition. A seasoned, peak-performing athlete may know that a competitor is likely to emerge at any time and attempt to dethrone them in new ways. By preemptively being ready for battle, it's far more likely that the competition will be a fierce one when it arrives."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Raising the Standard, and Leaving Others Behind"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Don’t be surprised if the act of raising the standard makes others feel uncomfortable. If your peer group tends to be out of shape, and you decide to commit to a rigorous workout routine, your new standard may not necessarily be met with open arms. While it may not be your intention, the very act of raising the standard for yourself or for your team may send a message that they are being \"left behind.\" The desire to raise your standard and do whatever it takes to remain competitive will attract others who are hungry for competition, but you will face opposition from those who are uncomfortable with the same. The harder you push to be competitive, the more the divide will increase. Don't be surprised if you leave behind some folks who just weren't ready for the challenge."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Competition Ignites Both Success and Failure. Leadership Matters!"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Throughout this module, you've been exposed to the many merits of competition. However, jumping into a competition doesn't mean that you or your team will automatically achieve or experience all the amazing benefits. One of the best things that a leader can do, however, is to test the mettle and see where they stand. A coach may look at their team and think they know who the real competitors are, only to discover that, when tested, different leaders and intense competitors rise and fall. Competition ignites both success and failure, and to be an outstanding leader, the presence of competition must ignite in you a sense of innovation, and the willingness to raise your own standards. Without question, competition and the ability to manage this dynamic is an absolute must for high-performing leaders and individual performers to achieve the highest results."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Let's Summarize"
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "Make competition a regular element in your practice.",
+            "Be prepared to face the urgency of failure at any time.",
+            "Respond to a sense of urgency by raising standards.",
+            "Anticipate and prepare to compete at any time.",
+            "Accept that not everyone will accept raised standards.",
+            "Accept the risk of failures.",
+            "Be willing to innovate and raise your own standards."
+          ]
         }
       ]
     },
@@ -1021,7 +1115,7 @@
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_015_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": "image for When Competition Ignites reflection"
         },
         {
           "type": "markdown",
@@ -1036,6 +1130,16 @@
         {
           "type": "markdown",
           "markdown": "Congratulations! That concludes this lesson. You can revisit the completed course material at any time."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_11_st_015_reflection_01",
+          "prompt": "How could your organization commit to growth in the face of powerful competition?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_11_st_015_reflection_02",
+          "prompt": "How can you use competitors to inspire you and your team to be a better version of yourselves?"
         }
       ]
     }

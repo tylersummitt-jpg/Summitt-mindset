@@ -18,7 +18,22 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_001_image_03.png",
-          "alt": "Lesson image"
+          "alt": "Rise course cover image shown on the course start screen"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Loyalty is a self-less proposition. You won’t ever have it unless you’re willing to give it away first.”"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
+          "alt": ""
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877815",
+          "visible_title": "How to Be Loyal to Your Team",
+          "speaker": "Petra Dunn"
         },
         {
           "type": "reflection",
@@ -29,21 +44,6 @@
           "type": "reflection",
           "question_id": "potl_mp_11_st_001_reflection_02",
           "prompt": "If you don’t have confidence in your current employee base and overall hiring processes to find good people, that’s the first place to start. But let’s assume that you do — that your human resources team is doing a good job of finding quality employees to fit open roles. How do you start showing loyalty to people you’ve hired?"
-        },
-        {
-          "type": "markdown",
-          "markdown": "Loyalty is a self-less proposition. You won’t ever have it unless you’re willing to give it away first.”"
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
-          "alt": "Lesson image"
-        },
-        {
-          "type": "video",
-          "vimeo_video_id": "1150877815",
-          "visible_title": "How to Be Loyal to Your Team",
-          "speaker": "Petra Dunn"
         }
       ]
     },
@@ -63,51 +63,26 @@
             {
               "id": "everyone_a_star",
               "title": "Everyone a Star",
-              "body": "Everyone a Star"
-            },
-            {
-              "id": "the_simplest_way_to_show_loyalty_is_to_s",
-              "title": "The simplest way to show loyalty is to start by letting people do their jobs.",
               "body": "The simplest way to show loyalty is to start by letting people do their jobs. In other words, a certain level of trust comes with the job. The message is clear: “We hired you. We believe in you.”\nThis sounds obvious, but many well-meaning organizations are crippled by inadvertent traditions of micromanagement or unreasonable expectations of seniority.\nLet’s look at a few examples of what this can look like."
             },
             {
               "id": "summary",
               "title": "Summary",
-              "body": "Summary"
-            },
-            {
-              "id": "there_are_nuances_to_every_story_but_the",
-              "title": "There are nuances to every story, but the one thing all these examples have in common is…",
               "body": "There are nuances to every story, but the one thing all these examples have in common is that the companies who hired Tyson, Shelby, and Juan didn’t have much initial loyalty to them as they tried to perform in their roles. There’s an old saying, “See everyone as a star.” In the workplace, this means remembering why you hired someone and looking for the ways they shine. It means celebrating what makes them unique, rather than trying to force them into the mold of their counterparts or predecessors.\nPat asked herself, What do my athletes need to deliver? So, ask yourself: What do my employees need to deliver in their roles?, How can I help?, and sometimes, How can I get out of their way?"
             },
             {
               "id": "tyson",
               "title": "Tyson",
-              "body": "Tyson"
-            },
-            {
-              "id": "let_s_say_tyson_a_highly_skilled_associa",
-              "title": "Let’s say Tyson, a highly skilled, associate-level marketer, has been hired to create a m…",
               "body": "Let’s say Tyson, a highly skilled, associate-level marketer, has been hired  to create a marketing funnel for a new division of the company. The problem is, the director of marketing doesn’t really trust Tyson to execute.\nTyson patiently sits in meeting after meeting while the director explains what he would do. Tyson tries his best to follow through, including giving a few additional ideas that are new and innovative. The marketing director sends them to the board of directors for review, but they’re quickly shot down in an email. Six months later, Tyson is still struggling to build a funnel that will appease everyone. Tyson was hired to do a specific job, but the very people who hired him don’t show much loyalty to the expertise they hired him for. After 10 more months, he gets frustrated and quits."
             },
             {
               "id": "shelby",
               "title": "Shelby",
-              "body": "Shelby"
-            },
-            {
-              "id": "in_another_example_shelby_has_been_worki",
-              "title": "In another example, Shelby has been working as an entry-level graphic designer for three…",
               "body": "In another example, Shelby has been working as an entry-level graphic designer for three years, eagerly accepting every new project and working on improving the company’s brand standards. She helps her colleagues out consistently and is always willing to take on extra work. Her designs are well-received by stakeholders and have improved the customer experience on the website dramatically.\nWhen it comes time to hire an associate design director, the company looks at outside candidates, settling on someone the same age and skill level as Shelby but who came highly recommended from a competitor. Shelby is crushed. It will be years until the department is big enough to hire another associate design director. She quietly starts putting in resumes elsewhere."
             },
             {
               "id": "juan",
               "title": "Juan",
-              "body": "Juan"
-            },
-            {
-              "id": "juan_is_a_highly_sought_after_product_ma",
-              "title": "Juan is a highly sought-after product manager with 10 years of experience.",
               "body": "Juan is a highly sought-after product manager with 10 years of experience. He joins a company looking to take their existing line of products to the next level and expand into two new markets. The problem is, Juan is consistently left out of key conversations about the product by the C-suite team. They meet regularly to discuss the gaps and flaws in the current product, telling Juan what they would like him to do about it.\nWhen Juan does manage to get invited to a meeting and share his thoughts, he’s told: “When you’ve been here at least five years, your opinion will count more.” Juan doesn’t want to wait five years to have a voice in his own role. When a recruiter calls two months later, he accepts a similar role at another company."
             }
           ]
@@ -119,17 +94,17 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "sort",
@@ -221,17 +196,17 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_003_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": "Pat Summitt speaking to seated players in front of a whiteboard"
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_003_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "A person reading a document on a laptop"
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_003_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": "Wooden blocks spelling CAREER, arranged as rising steps"
         }
       ]
     },
@@ -358,71 +333,36 @@
             {
               "id": "verbal_praise_and_appreciation",
               "title": "Verbal Praise and Appreciation",
-              "body": "Verbal Praise and Appreciation"
-            },
-            {
-              "id": "one_of_the_simplest_yet_most_effective_w",
-              "title": "One of the simplest yet most effective ways is through sincere verbal praise.",
               "body": "One of the simplest yet most effective ways is through sincere verbal praise. Acknowledge their accomplishments and express gratitude for their efforts."
             },
             {
               "id": "public_recognition",
               "title": "Public Recognition",
-              "body": "Public Recognition"
-            },
-            {
-              "id": "publicly_recognizing_employees_achieveme",
-              "title": "Publicly recognizing employees' achievements during team meetings, company-wide announcem…",
               "body": "Publicly recognizing employees' achievements during team meetings, company-wide announcements, or newsletters can amplify the recognition… and inspire others to strive for excellence as well."
             },
             {
               "id": "written_recognition",
               "title": "Written Recognition",
-              "body": "Written Recognition"
-            },
-            {
-              "id": "it_sounds_traditional_but_a_handwritten",
-              "title": "It sounds traditional, but a handwritten note, an email, or a personalized message can ha…",
               "body": "It sounds traditional, but a handwritten note, an email, or a personalized message can have a significant impact. Some people keep cards of appreciation at their desk for years! Seize the opportunity to provide detailed feedback, and express appreciation in writing."
             },
             {
               "id": "awards",
               "title": "Awards",
-              "body": "Awards"
-            },
-            {
-              "id": "to_standardize_recognition_efforts_many",
-              "title": "To standardize recognition efforts, many companies choose to institute a series of weekly…",
               "body": "To standardize recognition efforts, many companies choose to institute a series of weekly, monthly or annual awards to recognize outstanding achievement in a certain area."
             },
             {
               "id": "reward_programs",
               "title": "Reward Programs",
-              "body": "Reward Programs"
-            },
-            {
-              "id": "consider_implementing_reward_programs_th",
-              "title": "Consider implementing reward programs that provide tangible incentives for exceptional pe…",
               "body": "Consider implementing reward programs that provide tangible incentives for exceptional performance. These can include gift cards, bonuses, extra time off or other rewards."
             },
             {
               "id": "peer_to_peer_recognition",
               "title": "Peer-to-Peer Recognition",
-              "body": "Peer-to-Peer Recognition"
-            },
-            {
-              "id": "encourage_a_culture_of_peer_to_peer_reco",
-              "title": "Encourage a culture of peer-to-peer recognition where employees can acknowledge and appre…",
               "body": "Encourage a culture of peer-to-peer recognition where employees can acknowledge and appreciate each other's contributions."
             },
             {
               "id": "celebrate_ordinary_accomplishments",
               "title": "Celebrate Ordinary Accomplishments",
-              "body": "Celebrate Ordinary Accomplishments"
-            },
-            {
-              "id": "organize_celebrations_to_mark_significan",
-              "title": "Organize celebrations to mark significant milestones, project completions or team success…",
               "body": "Organize celebrations to mark significant milestones, project completions or team successes. Birthdays or company anniversaries are a start. These events can be formal or informal, such as team lunches and happy hours."
             }
           ]
@@ -434,42 +374,42 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_04.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_05.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_06.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_07.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_08.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -626,47 +566,27 @@
       "title": "Showing Loyalty With Benefits",
       "blocks": [
         {
-          "type": "sections",
-          "sections": [
+          "type": "flashcard",
+          "cards": [
             {
-              "id": "do_employees_have_to_show_outstanding_pe",
-              "title": "Do employees have to show outstanding performance, just get what equates to a cost-of-liv…",
-              "body": "Do employees have to show outstanding performance, just get what equates to a cost-of-living raise, or is there room for outstanding compensation?"
+              "id": "do_employees_have_to_show_outstanding_perf",
+              "front": "Do employees have to show outstanding performance, just get what equates to a cost-of-living raise, or is there room for outstanding compensation?",
+              "back": "Healthy pay increases"
             },
             {
-              "id": "healthy_pay_increases",
-              "title": "Healthy pay increases",
-              "body": "Healthy pay increases"
+              "id": "otherwise_known_as_you_do_good_work_for_us",
+              "front": "Otherwise known as “you do good work for us, we’ll let you rest.\"",
+              "back": "PTO/Sick time"
             },
             {
-              "id": "otherwise_known_as_you_do_good_work_for",
-              "title": "Otherwise known as “you do good work for us, we’ll let you rest.\"",
-              "body": "Otherwise known as “you do good work for us, we’ll let you rest.\""
+              "id": "this_can_include_dental_vision_life_insura",
+              "front": "This can include dental, vision, life insurance, disability, long-term care, etc.",
+              "back": "Health benefits"
             },
             {
-              "id": "pto_sick_time",
-              "title": "PTO/Sick time",
-              "body": "PTO/Sick time"
-            },
-            {
-              "id": "this_can_include_dental_vision_life_insu",
-              "title": "This can include dental, vision, life insurance, disability, long-term care, etc.",
-              "body": "This can include dental, vision, life insurance, disability, long-term care, etc."
-            },
-            {
-              "id": "health_benefits",
-              "title": "Health benefits",
-              "body": "Health benefits"
-            },
-            {
-              "id": "this_says_we_value_you_and_you_won_t_hav",
-              "title": "This says, “We value you, and you won’t have to leave to be able to save well for retirem…",
-              "body": "This says, “We value you, and you won’t have to leave to be able to save well for retirement.” Consider adding a company match."
-            },
-            {
-              "id": "retirement_plans",
-              "title": "Retirement plans",
-              "body": "Retirement plans"
+              "id": "this_says_we_value_you_and_you_won_t_have_",
+              "front": "This says, “We value you, and you won’t have to leave to be able to save well for retirement.” Consider adding a company match.",
+              "back": "Retirement plans"
             }
           ]
         },
@@ -677,12 +597,12 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_007_image_01.png",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_007_image_02.png",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -699,14 +619,18 @@
           "speaker": "Corinne Milien"
         },
         {
-          "type": "reflection",
-          "question_id": "potl_mp_11_st_008_reflection_01",
-          "prompt": "If you were one of your own team members, would you feel like the company is loyal to you?"
+          "type": "heading",
+          "level": 2,
+          "text": "Exercises"
+        },
+        {
+          "type": "callout",
+          "text": "When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention."
         },
         {
           "type": "reflection",
-          "question_id": "potl_mp_11_st_008_reflection_02",
-          "prompt": "How loyal on a scale of 1 to 10?"
+          "question_id": "potl_mp_11_st_008_reflection_01",
+          "prompt": "If you were one of your own team members, would you feel like the company is loyal to you? How loyal on a scale of 1 to 10?"
         },
         {
           "type": "reflection",

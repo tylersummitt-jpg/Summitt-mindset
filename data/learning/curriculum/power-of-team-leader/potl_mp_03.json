@@ -18,7 +18,7 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_001_image_02.png",
-          "alt": "Lesson image"
+          "alt": "Rise course cover image shown on the course start screen"
         },
         {
           "type": "markdown",
@@ -43,16 +43,17 @@
           "markdown": "As a leader, how many times have you heard or experienced any of the following among your team:"
         },
         {
+          "type": "audio",
+          "src": "/learning/power-of-team-leader/potl_mp_03_st_002_audio.mp3",
+          "label": "Pat Summitt on ownership",
+          "transcript": "A sense of ownership is the most powerful weapon a team or organization can have.”"
+        },
+        {
           "type": "sections",
           "sections": [
             {
               "id": "don_t_look_at_me_i_just_answer_the_phone",
               "title": "“Don’t look at me — I just answer the phones.”",
-              "body": "“Don’t look at me — I just answer the phones.”"
-            },
-            {
-              "id": "a_team_member_does_what_they_re_told_to",
-              "title": "A team member does what they’re told to do … but if they weren’t told, they wouldn’t real…",
               "body": "A team member does what they’re told to do … but if they weren’t told, they wouldn’t really be doing anything."
             },
             {
@@ -63,16 +64,11 @@
             {
               "id": "a_team_member_executing_in_an_area_witho",
               "title": "A team member executing in an area without being bought-in to the overall result.",
-              "body": "A team member executing in an area without being bought-in to the overall result."
-            },
-            {
-              "id": "team_members_sit_silently_in_meetings_wi",
-              "title": "Team members sit silently in meetings, without contributing or giving any feedback.",
               "body": "Team members sit silently in meetings, without contributing or giving any feedback."
             },
             {
               "id": "someone_has_been_at_the_organization_for",
-              "title": "Someone has been at the organization for 10 years but progressed very little career-wise…",
+              "title": "Someone has been at the organization for 10 years but progressed very little car",
               "body": "Someone has been at the organization for 10 years but progressed very little career-wise in that time."
             }
           ]
@@ -84,12 +80,12 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_002_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -104,159 +100,89 @@
           "markdown": "Put yourself in your employee’s shoes for a moment. Has the team been told super-serving is an expectation, for example, or are they simply going “by-the-book?” Are team members rewarded for going the extra mile, or are the consequences and rewards for average service and above-average service basically the same? Are there ways to step into greater levels of responsibility in each role before actually being promoted, or do you have to wait for the title? Are employees encouraged to speak up in a professional way with suggestions for improvement, or rebuked when they say anything?\n\nThere’s a famous saying, “You get what you promote.” The reverse can be true as well: “You get what you allow.” If you treat your team members like order-takers or pencil-pushers, that’s generally what you’ll get. If you teach them that they aren’t supposed to think for themselves … they won’t. If you allow mediocre behavior to be the norm, it will become the norm.\n\nOn the flip side, if you teach them that they are responsible for the outcome — that their actions have a direct effect on the outcomes of the business and their daily environment — they’re more likely to feel motivated to work hard. The elusive quality we’re talking about here is ownership."
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "flashcard",
+          "cards": [
             {
-              "id": "exercise",
-              "title": "Exercise",
-              "body": "Which of these characterize qualities of ownership vs. no ownership?"
-            }
-          ]
-        },
-        {
-          "type": "sections",
-          "sections": [
-            {
-              "id": "no_ownership_owners_understand_the_organ",
-              "title": "No ownership!",
-              "body": "No ownership! Owners understand the organization’s priorities and goals."
+              "id": "no_ownership_owners_understand_the_organiz",
+              "front": "Ignorance of the business’s priorities",
+              "back": "No ownership! Owners understand the organization’s priorities and goals."
             },
             {
-              "id": "ignorance_of_the_business_s_priorities",
-              "title": "Ignorance of the business’s priorities",
-              "body": "Ignorance of the business’s priorities"
+              "id": "ownership_owners_have_a_sense_of_purpose_i",
+              "front": "Enthusiasm for their work",
+              "back": "Ownership! Owners have a sense of purpose in their daily routine."
             },
             {
-              "id": "ownership_owners_have_a_sense_of_purpose",
-              "title": "Ownership!",
-              "body": "Ownership! Owners have a sense of purpose in their daily routine."
+              "id": "no_ownership_owners_prioritize_quality_res",
+              "front": "Lack of attention to detail",
+              "back": "No ownership! Owners prioritize quality results."
             },
             {
-              "id": "enthusiasm_for_their_work",
-              "title": "Enthusiasm for their work",
-              "body": "Enthusiasm for their work"
+              "id": "no_ownership_owners_prioritize_quality_res_2",
+              "front": "Poor customer service",
+              "back": "No ownership! Owners prioritize quality results."
             },
             {
-              "id": "no_ownership_owners_prioritize_quality_r",
-              "title": "No ownership!",
-              "body": "No ownership! Owners prioritize quality results."
+              "id": "ownership_owners_focus_on_improvement_and_",
+              "front": "Being solution-oriented",
+              "back": "Ownership! Owners focus on improvement and overcome obstacles."
             },
             {
-              "id": "lack_of_attention_to_detail",
-              "title": "Lack of attention to detail",
-              "body": "Lack of attention to detail"
+              "id": "no_ownership_all_team_members_are_working_",
+              "front": "Employees vs. leadership mentality",
+              "back": "No ownership! All team members are working toward a shared outcome."
             },
             {
-              "id": "poor_customer_service",
-              "title": "Poor customer service",
-              "body": "Poor customer service"
+              "id": "ownership_owners_understand_the_big_pictur",
+              "front": "Contributing toward the goal",
+              "back": "Ownership! Owners understand the big picture and how to get there."
             },
             {
-              "id": "ownership_owners_focus_on_improvement_an",
-              "title": "Ownership!",
-              "body": "Ownership! Owners focus on improvement and overcome obstacles."
+              "id": "no_ownership_owners_prioritize_timeliness_",
+              "front": "Chronic tardiness",
+              "back": "No ownership! Owners prioritize timeliness and punctuality."
             },
             {
-              "id": "being_solution_oriented",
-              "title": "Being solution-oriented",
-              "body": "Being solution-oriented"
+              "id": "ownership_owners_are_able_to_put_themselve",
+              "front": "Empathy with the customer",
+              "back": "Ownership! Owners are able to put themselves in the customer’s shoes."
             },
             {
-              "id": "no_ownership_all_team_members_are_workin",
-              "title": "No ownership!",
-              "body": "No ownership! All team members are working toward a shared outcome."
+              "id": "no_ownership_ownership_often_means_going_a",
+              "front": "Doing the minimum output",
+              "back": "No ownership! Ownership often means going above and beyond."
             },
             {
-              "id": "employees_vs_leadership_mentality",
-              "title": "Employees vs.",
-              "body": "Employees vs. leadership mentality"
+              "id": "no_ownership_owners_understand_the_need_to",
+              "front": "Poor Communication",
+              "back": "No ownership! Owners understand the need to communicate clearly with other team members."
             },
             {
-              "id": "ownership_owners_understand_the_big_pict",
-              "title": "Ownership!",
-              "body": "Ownership! Owners understand the big picture and how to get there."
+              "id": "ownership_owners_speak_up_when_they_see_a_",
+              "front": "Giving feedback",
+              "back": "Ownership! Owners speak up when they see a problem or opportunity arise."
             },
             {
-              "id": "contributing_toward_the_goal",
-              "title": "Contributing toward the goal",
-              "body": "Contributing toward the goal"
-            },
-            {
-              "id": "no_ownership_owners_prioritize_timelines",
-              "title": "No ownership!",
-              "body": "No ownership! Owners prioritize timeliness and punctuality."
-            },
-            {
-              "id": "chronic_tardiness",
-              "title": "Chronic tardiness",
-              "body": "Chronic tardiness"
-            },
-            {
-              "id": "ownership_owners_are_able_to_put_themsel",
-              "title": "Ownership!",
-              "body": "Ownership! Owners are able to put themselves in the customer’s shoes."
-            },
-            {
-              "id": "empathy_with_the_customer",
-              "title": "Empathy with the customer",
-              "body": "Empathy with the customer"
-            },
-            {
-              "id": "no_ownership_ownership_often_means_going",
-              "title": "No ownership!",
-              "body": "No ownership! Ownership often means going above and beyond."
-            },
-            {
-              "id": "doing_the_minimum_output",
-              "title": "Doing the minimum output",
-              "body": "Doing the minimum output"
-            },
-            {
-              "id": "no_ownership_owners_understand_the_need",
-              "title": "No ownership!",
-              "body": "No ownership! Owners understand the need to communicate clearly with other team members."
-            },
-            {
-              "id": "poor_communication",
-              "title": "Poor Communication",
-              "body": "Poor Communication"
-            },
-            {
-              "id": "ownership_owners_speak_up_when_they_see",
-              "title": "Ownership!",
-              "body": "Ownership! Owners speak up when they see a problem or opportunity arise."
-            },
-            {
-              "id": "giving_feedback",
-              "title": "Giving feedback",
-              "body": "Giving feedback"
-            },
-            {
-              "id": "ownership_owners_are_always_thinking_wha",
-              "title": "Ownership!",
-              "body": "Ownership! Owners are always thinking, “What more can I do?” to help the team."
-            },
-            {
-              "id": "asking_what_else",
-              "title": "Asking, “What else?”",
-              "body": "Asking, “What else?”"
+              "id": "ownership_owners_are_always_thinking_what_",
+              "front": "Asking, “What else?”",
+              "back": "Ownership! Owners are always thinking, “What more can I do?” to help the team."
             }
           ]
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_003_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_003_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_003_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -267,25 +193,23 @@
       "title": "Learning RAO",
       "blocks": [
         {
+          "type": "heading",
+          "level": 2,
+          "text": "Responsibility = Accountability = Ownership"
+        },
+        {
           "type": "markdown",
           "markdown": "People don’t just wake up each day with a sense of ownership. Whether it’s in business or our personal lives, there is a natural progression from responsibility to ownership. When teaching the Definite Dozen, Pat used the simple formula below:"
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "process",
+          "steps": [
             {
-              "id": "it_s_in_your_jurisdiction_and_you_have_b",
               "title": "It’s in your jurisdiction, and you have both the blessing and ability to control it.",
-              "body": "It’s in your jurisdiction, and you have both the blessing and ability to control it."
-            },
-            {
-              "id": "you_realize_you_are_answerable_for_the_o",
-              "title": "You realize you are answerable for the outcome of the task.",
               "body": "You realize you are answerable for the outcome of the task. “The buck stops with you,” to use the classic phrase. In other words, responsibility is task-oriented, while accountability is outcome-based."
             },
             {
-              "id": "the_dictionary_defines_ownership_as_the",
-              "title": "The dictionary defines ownership as “the act, state, or right of possessing something.” I…",
+              "title": "The dictionary defines ownership as “the act, state, or right of possessing some",
               "body": "The dictionary defines ownership as “the act, state, or right of possessing something.” It means claiming a particular process, situation, or outcome as your own. Not only are you responsible for it in general, the way a guardian or steward might be, but you actually own it. You are bought-in and fully invested in the outcome or task at hand because it is yours — whether we’re talking about a sports team, a building, or a business. Managers may have responsibility to see that the deck gets polished, but owners are responsible for how the ship looks."
             }
           ]
@@ -297,7 +221,7 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_004_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -400,56 +324,26 @@
       "title": "Creating a Sense of Ownership",
       "blocks": [
         {
-          "type": "sections",
-          "sections": [
+          "type": "process",
+          "steps": [
             {
-              "id": "creating_a_sense_of_ownership_among_your",
               "title": "Creating a Sense of Ownership Among Your Team",
-              "body": "Creating a Sense of Ownership Among Your Team"
-            },
-            {
-              "id": "when_it_comes_to_the_formula_above_pat_k",
-              "title": "When it comes to the formula above, Pat knew you couldn’t skip steps.",
               "body": "When it comes to the formula above, Pat knew you couldn’t skip steps.\nCommanding people to simply be owners usually doesn’t work. Start where you are — meaning, cultivate responsibility first.\n(Scroll through to complete this element)"
             },
             {
-              "id": "summary",
               "title": "Summary",
-              "body": "Summary"
-            },
-            {
-              "id": "in_a_way_ownership_forces_team_members_t",
-              "title": "In a way, ownership forces team members to think about the big picture — and helps you th…",
               "body": "In a way, ownership forces team members to think about the big picture — and helps you think about the big picture in a way you may not have been able to before. You have a myriad of owners looking at the goals from a diversity of angles now, in a way that one department manager or leader couldn’t hope to cover alone. You don’t have to preach buy-in; you already have it. All by not being afraid to instill responsibility in your team … and committing to champion them as they step into it."
             },
             {
-              "id": "does_everyone_on_the_team_know_what_they",
               "title": "Does everyone on the team know what they’re responsible for?",
-              "body": "Does everyone on the team know what they’re responsible for?"
-            },
-            {
-              "id": "not_merely_what_they_re_supposed_to_be_d",
-              "title": "Not merely what they’re supposed to be doing or not doing with their time “on the clock,”…",
               "body": "Not merely what they’re supposed to be doing or not doing with their time “on the clock,” but do they know what exact areas they’re responsible for?"
             },
             {
-              "id": "is_everyone_uniquely_responsible_for_som",
               "title": "Is everyone uniquely responsible for something?",
-              "body": "Is everyone uniquely responsible for something?"
-            },
-            {
-              "id": "this_may_vary_by_organization_but_take_a",
-              "title": "This may vary by organization, but take a step back.",
               "body": "This may vary by organization, but take a step back. Do you have six people responsible for steps 1, 2, and 5, for example, but no one responsible for steps 3 and 4? Sometimes articulating responsibility means making some corrections or implementing temporary duties to make sure every person is responsible for something that’s driving toward the bottom line, and no task or area is left without an owner."
             },
             {
-              "id": "does_everyone_understand_that_they_are_n",
-              "title": "Does everyone understand that they are not only responsible, but also accountable for the…",
-              "body": "Does everyone understand that they are not only responsible, but also accountable for the results of the tasks?"
-            },
-            {
-              "id": "does_the_person_stocking_the_grocery_bag",
-              "title": "Does the person stocking the grocery bags understand that they aren’t simply putting bags…",
+              "title": "Does everyone understand that they are not only responsible, but also accountable for the results of the tasks?",
               "body": "Does the person stocking the grocery bags understand that they aren’t simply putting bags in holsters, but that if the registers run out, they are accountable? Being accountable prompts an entirely new level of thought: How many bags are we going through per day? Do we have enough in the back to last through the week? We went through bags much faster than expected yesterday; should I tell our supply purchaser? Such thoughts are well on their way to ownership.\nDoes the person responsible for running the social media account understand that they aren’t simply responsible for making posts, but accountable for how those posts are performing — and making the necessary adjustment if the results are subpar? Does the person designing the website know they will be held accountable for the bounce rate — how many customers visit the site and abandon the page without engaging or clicking on anything? Or are they too absorbed with slick graphics and a nice logo? You get the idea."
             }
           ]
@@ -461,17 +355,17 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_006_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_006_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_006_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "video",
@@ -588,6 +482,15 @@
           "vimeo_video_id": "1150875488",
           "visible_title": "The Power of the T-Shirt Cannon",
           "speaker": "Jimmy Delaney"
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Exercises"
+        },
+        {
+          "type": "callout",
+          "text": "When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention."
         },
         {
           "type": "reflection",

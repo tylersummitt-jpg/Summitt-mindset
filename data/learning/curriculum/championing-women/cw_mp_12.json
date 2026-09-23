@@ -25,41 +25,21 @@
             {
               "id": "rachel",
               "title": "Rachel",
-              "body": "Rachel"
-            },
-            {
-              "id": "take_for_example_rachel_who_has_an_upcom",
-              "title": "Take, for example, Rachel who has an upcoming annual review.",
               "body": "Take, for example, Rachel who has an upcoming annual review. She feels strongly that she is underpaid in her position, but is afraid to negotiate a salary increase beyond the standard 3 to 5 percent; what if it doesn’t go over well?"
             },
             {
               "id": "jayla",
               "title": "Jayla",
-              "body": "Jayla"
-            },
-            {
-              "id": "and_then_there_s_jayla_who_has_been_in_h",
-              "title": "And then there’s Jayla, who has been in her position for two years and has consistently d…",
               "body": "And then there’s Jayla, who has been in her position for two years and has consistently delivered exceptional results in her role, but has a hard time approaching the subject of promotion with her managing director. Leadership roles are limited at her organization, and who is she to imply that she is more qualified than some of her peers?"
             },
             {
               "id": "lynn",
               "title": "Lynn",
-              "body": "Lynn"
-            },
-            {
-              "id": "elsewhere_lynn_is_starting_to_notice_tha",
-              "title": "Elsewhere, Lynn is starting to notice that certain projects aligning with her specific ex…",
               "body": "Elsewhere, Lynn is starting to notice that certain projects aligning with her specific expertise are often assigned to other team members. She wants to advocate for a different set of job duties but is afraid to be perceived as rocking the boat."
             },
             {
               "id": "carmen",
               "title": "Carmen",
-              "body": "Carmen"
-            },
-            {
-              "id": "finally_there_s_carmen_a_dedicated_profe",
-              "title": "Finally there’s Carmen, a dedicated professional and new mom who loves her job, but wants…",
               "body": "Finally there’s Carmen, a dedicated professional and new mom who loves her job, but wants to negotiate for a more flexible work schedule.\nAny of these sound familiar?"
             }
           ]
@@ -67,22 +47,22 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_001_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_001_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_001_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_001_image_04.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "video",
@@ -99,136 +79,58 @@
       "title": "Negotiation Tips & Techniques",
       "blocks": [
         {
-          "type": "sections",
-          "sections": [
+          "type": "process",
+          "steps": [
             {
-              "id": "negotiation_tips_and_techniques",
               "title": "Negotiation Tips and Techniques",
-              "body": "Negotiation Tips and Techniques"
-            },
-            {
-              "id": "maybe_the_thought_of_negotiation_intimid",
-              "title": "Maybe the thought of negotiation intimidates you, and you see yourself in one of the four…",
               "body": "Maybe the thought of negotiation intimidates you, and you see yourself in one of the four examples in the previous lesson. Or maybe you work in sales, event planning, or use negotiation regularly in your role. Either way, here are a few negotiation practices and strategies for women specifically so you can take your skills to the next level."
             },
             {
-              "id": "in_conclusion",
               "title": "In Conclusion",
-              "body": "In Conclusion"
-            },
-            {
-              "id": "utilize_these_tips_techniques_to_elevate",
-              "title": "Utilize these tips & techniques to elevate your negotiation skills.",
               "body": "Utilize these tips & techniques to elevate your negotiation skills."
             },
             {
-              "id": "silence_is_key_in_a_negotiation",
               "title": "Silence is key in a negotiation.",
-              "body": "Silence is key in a negotiation."
-            },
-            {
-              "id": "only_talk_as_much_as_you_need_to_pause_d",
-              "title": "Only talk as much as you need to!",
               "body": "Only talk as much as you need to! Pause. Don’t rush. Give the other person time to process your offer. People don’t think at lightning speed, especially when they’re trying to negotiate. It’s fine for there to be silences and long pauses while they process what’s being said. Don’t assume silence is disapproval and cut yourself off trying to fill in the gaps with a better offer."
             },
             {
-              "id": "don_t_underestimate_the_art_of_congenial",
               "title": "Don’t underestimate the art of congeniality.",
-              "body": "Don’t underestimate the art of congeniality."
-            },
-            {
-              "id": "even_if_things_are_tense_with_the_other",
-              "title": "Even if things are tense with the other party or you feel like you hold most of the cards…",
               "body": "Even if things are tense with the other party or you feel like you hold most of the cards, you never want to walk into a negotiation with a closed perception, or like The Godfather: “I’m going to make him an offer he can’t refuse.”The more likable you are, the more likely the other person will be disarmed and come around to your side. Or if you are negotiating for three to five weeks of PTO in a new position instead of two, don’t say, “I was hoping for at least three weeks.” Explain your reason for needing more PTO in the package and listen to what the other side says. They may surprise you with more than what you are asking."
             },
             {
-              "id": "know_the_range_you_are_willing_to_negoti",
-              "title": "Know the range you are willing to negotiate in, but don’t give the other person your rang…",
-              "body": "Know the range you are willing to negotiate in, but don’t give the other person your range."
-            },
-            {
-              "id": "for_example_if_you_are_negotiating_salar",
-              "title": "For example, if you are negotiating salary or cost, don’t say “I’d be willing to accept $…",
+              "title": "Know the range you are willing to negotiate in, but don’t give the other person your range.",
               "body": "For example, if you are negotiating salary or cost, don’t say “I’d be willing to accept $7,000 to $10,000.” All the other person will hear is $7,000. Say $10,000, and go from there. Give yourself room! Don’t start negotiating at $7,500 if $7,000 is the lowest you’ll take, even if the initial offer seems high to you. That’s why it’s called a negotiation."
             },
             {
-              "id": "use_specific_numbers_if_possible",
               "title": "Use specific numbers, if possible.",
-              "body": "Use specific numbers, if possible."
-            },
-            {
-              "id": "when_it_comes_to_business_negotiations_o",
-              "title": "When it comes to business negotiations or even personal negotiations like the price of a…",
               "body": "When it comes to business negotiations or even personal negotiations like the price of a used car, saying that it’s valued at $4,588 sounds more precise and leaves less room for grandiose negotiation than round numbers like $5,000 or $7,000. Similarly, $1,852,245 sounds more precise with less wiggle room than simply tossing out $1.8 million."
             },
             {
-              "id": "listen_for_their_no",
               "title": "Listen for their “no.”",
-              "body": "Listen for their “no.”"
-            },
-            {
-              "id": "listen_for_their_no_in_a_negotiation_the",
-              "title": "Listen for their no.",
               "body": "Listen for their no. In a negotiation, the no is the starting point. Specifically, why are they saying no? Is it the cost? Is it the timeline? Is it convenience? Many times we assume they don’t like one part of the bargain. They may even pretend they don’t like one part of the bargain, but upon listening further you realize the hang-up is actually another factor entirely."
             },
             {
-              "id": "avoid_black_and_white_yes_or_no_question",
               "title": "Avoid black-and-white “yes” or “no” questions.",
-              "body": "Avoid black-and-white “yes” or “no” questions."
-            },
-            {
-              "id": "for_example_rather_than_saying_is_this_t",
-              "title": "For example, rather than saying, “Is this the best you can do?” or “Is this the highest y…",
               "body": "For example, rather than saying, “Is this the best you can do?” or “Is this the highest you can go?” leave room for the other side to be creative by saying things like, “What if I told you I just can’t make that number work with my manager?” or, “If we had to come up with another option, what would you suggest?” Then listen to what they say. Again, they just may surprise you."
             },
             {
-              "id": "give_concise_reasons_for_your_offers",
               "title": "Give (concise) reasons for your offers.",
-              "body": "Give (concise) reasons for your offers."
-            },
-            {
-              "id": "you_don_t_want_to_give_too_much_informat",
-              "title": "You don’t want to give too much information, but in general, giving the other person a re…",
               "body": "You don’t want to give too much information, but in general, giving the other person a reason for your proposition shows you care enough to treat them like a person and provide context, rather than simply stonewalling or saying, “That’s the best I can do,” or “That’s just what I need.” The key word here is concise. Simply saying, “We don’t have enough floor space at my facility to bring on any more people,” will suffice, rather than “It’s not happening” or “That’s a nonstarter.”"
             },
             {
-              "id": "don_t_expect_the_other_person_to_be_won",
               "title": "Don’t expect the other person to be won over by your logic.",
-              "body": "Don’t expect the other person to be won over by your logic."
-            },
-            {
-              "id": "ever_have_the_most_logical_argument_in_t",
-              "title": "Ever have the most logical argument in the world but still couldn’t get the other side to…",
               "body": "Ever have the most logical argument in the world but still couldn’t get the other side to come to an agreement? Negotiations aren’t 100 percent logical. They’re emotional, just like any other form of communication. You can have the most rational argument in the negotiation, but that doesn’t mean the other side is going to automatically agree. You have to keep the mood light and emotions managed enough for the negotiation to continue in a productive way, and reach a settlement that both parties agree on."
             },
             {
-              "id": "clarify_what_you_re_hearing_from_the_oth",
               "title": "Clarify what you’re hearing from the other side at each step of the negotiation.",
-              "body": "Clarify what you’re hearing from the other side at each step of the negotiation."
-            },
-            {
-              "id": "it_sounds_like_i_m_hearing_you_say_you_w",
-              "title": "“It sounds like I’m hearing you say you want more travel days worked into the package, ri…",
               "body": "“It sounds like I’m hearing you say you want more travel days worked into the package, right?” or “It seems like you are OK with the venue, but have concerns about the entertainment being offered, is that right?” Doing this frequently eliminates the chance for misunderstandings, and makes it less likely the other side will do an about-face later and try to renege on their deal."
             },
             {
-              "id": "avoid_tossing_a_bomb_or_ultimatum_into_t",
               "title": "Avoid tossing a “bomb” or ultimatum into the negotiation.",
-              "body": "Avoid tossing a “bomb” or ultimatum into the negotiation."
-            },
-            {
-              "id": "if_things_are_going_slow_resist_the_urge",
-              "title": "If things are going slow, resist the urge to shake things up or get their attention.",
               "body": "If things are going slow, resist the urge to shake things up or get their attention. The minute one party says, “That’s it, I’m out,” or “I’m going to get management on the phone,” the conversation ceases to be a negotiation."
             },
             {
-              "id": "get_the_terms_of_the_arrangement_in_writ",
               "title": "Get the terms of the arrangement in writing.",
-              "body": "Get the terms of the arrangement in writing."
-            },
-            {
-              "id": "once_an_agreement_is_reached_even_if_the",
-              "title": "Once an agreement is reached, even if the situation doesn’t warrant a contract, do your b…",
               "body": "Once an agreement is reached, even if the situation doesn’t warrant a contract, do your best to get the outcome in writing, even if it’s an email recap of what was discussed. Having it in writing eliminates the chance that one party can renege on what was decided upon later."
             }
           ]
@@ -236,7 +138,7 @@
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_002_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -350,128 +252,69 @@
             {
               "id": "negotiating_salary",
               "title": "Negotiating Salary",
-              "body": "Negotiating Salary"
-            },
-            {
-              "id": "when_it_comes_to_negotiating_salary_is_o",
-              "title": "When it comes to negotiating, salary is one of the most common negotiations women leaders…",
               "body": "When it comes to negotiating, salary is one of the most common negotiations women leaders face. Negotiating your salary is more than just a financial discussion; it's a reflection of your value, skills, and contributions to the organization, which makes it feel very personal."
             },
             {
               "id": "review",
               "title": "Review",
-              "body": "Review"
-            },
-            {
-              "id": "in_short_with_a_little_practice_negotiat",
-              "title": "In short, with a little practice, negotiation won’t seem so foreign.",
               "body": "In short, with a little practice, negotiation won’t seem so foreign. If you’re able, practice some of these guidelines on smaller negotiations where the stakes aren’t so high. Every female leader needs negotiation at some point in her career (if not regularly) and practice makes perfect!"
             },
             {
               "id": "know_your_worth",
               "title": "Know your worth.",
-              "body": "Know your worth."
-            },
-            {
-              "id": "the_first_step_in_successful_salary_nego",
-              "title": "The first step in successful salary negotiation is understanding your market value.",
               "body": "The first step in successful salary negotiation is understanding your market value. Studies show that women routinely dismiss or undervalue their own skills in the workplace, which is problematic when advocating for pay increases. Arm yourself with data by researching industry standards. Consider your qualifications, experience, and the responsibilities of the role. Many times the first number in a salary negotiation is based on what the previous person was paid or what the department can afford for the role, and may not be based on market value or your skills specifically. Confidence stems from preparation."
             },
             {
               "id": "be_armed_with_a_range_not_a_finite_numbe",
               "title": "Be armed with a range, not a finite number.",
-              "body": "Be armed with a range, not a finite number."
-            },
-            {
-              "id": "what_s_the_lowest_you_would_accept_and_w",
-              "title": "What’s the lowest you would accept, and what is your ideal range?",
               "body": "What’s the lowest you would accept, and what is your ideal range? Your dream number? The three might be very different, but it’s important to think about where the bottom is and what you’re working toward in advance of the negotiation. As stated earlier, don’t give out your range."
             },
             {
               "id": "be_open_and_flexible",
               "title": "Be open and flexible.",
-              "body": "Be open and flexible."
-            },
-            {
-              "id": "negotiation_is_a_two_way_street_be_open",
-              "title": "Negotiation is a two-way street.",
               "body": "Negotiation is a two-way street. Be open to discussion and compromise. If the employer can't meet your salary expectations, explore other areas such as additional benefits, flexible work arrangements, or performance-based bonuses. You don’t have to automatically accept, but it’s important to be open-minded."
             },
             {
               "id": "maintain_a_positive_tone",
               "title": "Maintain a positive tone.",
-              "body": "Maintain a positive tone."
-            },
-            {
-              "id": "to_keep_the_negotiation_positive_emphasi",
-              "title": "To keep the negotiation positive, emphasize your enthusiasm for the role and the company…",
               "body": "To keep the negotiation positive, emphasize your enthusiasm for the role and the company while discussing compensation. Let them know that you’re coming from a place of excitement about the role, not implying that you need to be compensated for the grunt work, stress, or long hours involved. Frame your negotiation in positive terms. Instead of saying, \"I can't accept this offer,\" try, \"I’m excited about the opportunity and my role here, and I believe a slight adjustment in the salary would better align with my skills and experience.\""
             },
             {
               "id": "quantify_your_achievements",
               "title": "Quantify your achievements.",
-              "body": "Quantify your achievements."
-            },
-            {
-              "id": "provide_concrete_examples_of_your_accomp",
-              "title": "Provide concrete examples of your accomplishments and their impact on the company (or for…",
               "body": "Provide concrete examples of your accomplishments and their impact on the company (or for previous employers). Salary shouldn’t be a hypothetical number. Use metrics and specific examples to demonstrate the value you bring to the table."
             },
             {
               "id": "don_t_expect_an_answer_on_the_spot",
               "title": "Don’t expect an answer on the spot.",
-              "body": "Don’t expect an answer on the spot."
-            },
-            {
-              "id": "don_t_be_too_frustrated_if_the_other_par",
-              "title": "Don’t be too frustrated if the other party needs to review your salary offer.",
               "body": "Don’t be too frustrated if the other party needs to review your salary offer. There may be other implications to consider, such as salary increases given within 90 days of your professional review or salary constraints for a particular position. Many times your direct leader or supervisor isn’t the only person who has to sign off, so be prepared for a slight delay. But be prepared with an acceptable time frame: “I know my annual review isn’t for eight months, but I’ve taken on a new role with increased work. What can you do in the next 90 days?”\nIn short, with a little practice, negotiation won’t seem so foreign. If you’re able, practice some of these guidelines on smaller negotiations where the stakes aren’t so high. Every female leader needs negotiation at some point in her career (if not regularly) and practice makes perfect!"
             }
           ]
         },
         {
-          "type": "markdown",
-          "markdown": "storyline"
-        },
-        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_004_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_004_image_02.png",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_004_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_004_image_04.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "reflection",
           "question_id": "cw_mp_12_st_004_reflection_01",
-          "prompt": "What’s the lowest you would accept, and what is your ideal range?"
-        },
-        {
-          "type": "reflection",
-          "question_id": "cw_mp_12_st_004_reflection_02",
-          "prompt": "Your dream number?"
-        },
-        {
-          "type": "reflection",
-          "question_id": "cw_mp_12_st_004_reflection_03",
-          "prompt": "Provide concrete examples of your accomplishments and their impact on the company (or for previous employers). Salary shouldn’t be a hypothetical number. Use metrics and specific examples to demonstrate the value you bring to the table."
-        },
-        {
-          "type": "reflection",
-          "question_id": "cw_mp_12_st_004_reflection_04",
-          "prompt": "But be prepared with an acceptable time frame: “I know my annual review isn’t for eight months, but I’ve taken on a new role with increased work. What can you do in the next 90 days?"
+          "prompt": "How do you feel about your current negotiation skills? Where do you feel you can improve?"
         }
       ]
     },
@@ -576,7 +419,7 @@
         {
           "type": "reflection",
           "question_id": "cw_mp_12_st_006_reflection_01",
-          "prompt": "On a scale of 1-10, how would you rate your current comfort level with negotiating?"
+          "prompt": "On a scale of 1-10, how would you rate your current comfort level with negotiating? Why?"
         },
         {
           "type": "reflection",
@@ -591,12 +434,7 @@
         {
           "type": "reflection",
           "question_id": "cw_mp_12_st_006_reflection_04",
-          "prompt": "Have you ever had to negotiate your salary at work?"
-        },
-        {
-          "type": "reflection",
-          "question_id": "cw_mp_12_st_006_reflection_05",
-          "prompt": "What was the outcome?"
+          "prompt": "Have you ever had to negotiate your salary at work? What was the outcome?"
         },
         {
           "type": "reflection",

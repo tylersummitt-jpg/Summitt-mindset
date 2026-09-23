@@ -13,9 +13,6 @@ import { buildVimeoPlayerEmbedUrl } from "../vimeo-player-embed";
 
 const ROOT = path.resolve(__dirname, "../../..");
 
-const MINDFULNESS_BOILERPLATE =
-  "When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.";
-
 describe("all live Programs collections", () => {
   it("registers Definite Dozen, Championing Women, and The Power of Team only", () => {
     const collections = listLearningCollections();
@@ -134,10 +131,24 @@ describe("all live Programs collections", () => {
           expect(stepIds.has(step.id)).toBe(false);
           stepIds.add(step.id);
           for (const block of step.blocks) {
-            if (block.type === "image") {
+            if (block.type === "image" || block.type === "audio") {
               expect(block.src.startsWith("/learning/")).toBe(true);
               expect(block.src).not.toContain("data/learning/source");
               expect(existsSync(path.join(ROOT, "public", block.src.slice(1)))).toBe(true);
+            }
+            if (block.type === "gallery") {
+              expect(block.images.length).toBeGreaterThan(1);
+              for (const image of block.images) {
+                expect(image.src.startsWith("/learning/")).toBe(true);
+                expect(existsSync(path.join(ROOT, "public", image.src.slice(1)))).toBe(true);
+              }
+            }
+            if (block.type === "flashcard") {
+              expect(block.cards.length).toBeGreaterThan(0);
+              for (const card of block.cards) {
+                expect(card.front).not.toMatch(/\{['"]front['"]/);
+                expect(card.back).not.toMatch(/\{['"]front['"]/);
+              }
             }
             if (block.type === "video") {
               matchedVideos += 1;
@@ -249,7 +260,6 @@ describe("all live Programs collections", () => {
     for (const name of ["Katy Kvalvik", "Christina Reckard", "Patty Hoppenstedt", "Christina Gradillas"]) {
       expect(runtimeText).not.toContain(name);
     }
-    expect(runtimeText).not.toContain(MINDFULNESS_BOILERPLATE);
     for (const phrase of [
       "EXIT COURSE",
       "EXIT LESSON",

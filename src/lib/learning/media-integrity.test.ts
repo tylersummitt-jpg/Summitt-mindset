@@ -53,6 +53,37 @@ describe("Programs media integrity", () => {
     expect(video("dd_mp_02_st_014")).toBe("1150754397");
   });
 
+  it("rejects generic placeholder alt text on every registered image", () => {
+    const placeholders = new Set([
+      "lesson image",
+      "original docebo lesson image",
+      "course image",
+    ]);
+    const violations: string[] = [];
+    for (const collection of listLearningCollections()) {
+      for (const card of collection.miniPrograms) {
+        const program = getLearningMiniProgram(card.id);
+        if (!program) continue;
+        for (const step of program.steps) {
+          for (const block of step.blocks) {
+            const alts =
+              block.type === "image"
+                ? [block.alt]
+                : block.type === "gallery"
+                  ? block.images.map((image) => image.alt)
+                  : [];
+            for (const alt of alts) {
+              if (placeholders.has(alt.trim().toLowerCase())) {
+                violations.push(`${step.id} ${alt}`);
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
   it("rejects implementation placeholder alt text on repaired images", () => {
     const violations: string[] = [];
     for (const collection of listLearningCollections()) {

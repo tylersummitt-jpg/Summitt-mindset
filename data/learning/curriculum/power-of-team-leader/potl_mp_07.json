@@ -18,7 +18,7 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_07_st_001_image_04.png",
-          "alt": "Lesson image"
+          "alt": "Rise course cover image shown on the course start screen"
         },
         {
           "type": "markdown",
@@ -41,12 +41,12 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_07_st_001_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "video",
@@ -67,27 +67,34 @@
           "markdown": "Pat was famous for her authoritative presence on the sidelines but would be the first to clarify that it wasn’t the only communication style she employed as a leader.\n\n“I employ three completely different modes of communication as a coach,” she once said. “Off the court, I am a confidante and substitute mother. In that situation, my chief role is to listen, advise and comfort. In practice, I speak as a teacher who sometimes needs to employ severe methods in order to maintain the attention of the students.”\n\n“In a game, I issue blunt commands and motivate our players to endure adverse situations. It’s a competitive situation with no time for politeness or misunderstanding. My different tones, taken out of context, would be counterproductive or even downright offensive in any other situation.”"
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "sort",
+          "prompt": "Match the type of tone or vocal variety with the appropriate emotion or sentiment.",
+          "categories": [
+            "Loud and slow",
+            "Loud and fast",
+            "Low and slow",
+            "Soft and fast"
+          ],
+          "cards": [
             {
-              "id": "loud_and_slow",
-              "title": "Loud and slow",
-              "body": "Authority"
+              "id": "authority",
+              "text": "Authority",
+              "correct_category": "Loud and slow"
             },
             {
-              "id": "loud_and_fast",
-              "title": "Loud and fast",
-              "body": "Enthusiasm"
+              "id": "enthusiasm",
+              "text": "Enthusiasm",
+              "correct_category": "Loud and fast"
             },
             {
-              "id": "low_and_slow",
-              "title": "Low and slow",
-              "body": "Sincerity and empathy"
+              "id": "sincerity",
+              "text": "Sincerity and empathy",
+              "correct_category": "Low and slow"
             },
             {
-              "id": "soft_and_fast",
-              "title": "Soft and fast",
-              "body": "Anticipation"
+              "id": "anticipation",
+              "text": "Anticipation",
+              "correct_category": "Soft and fast"
             }
           ]
         },
@@ -96,28 +103,14 @@
           "markdown": "Knowing how and when to use different tones appropriately can be the difference between coming off as authoritative or weak, sensitive or insensitive, excited, or unenthusiastic."
         },
         {
-          "type": "sections",
-          "sections": [
-            {
-              "id": "exercise",
-              "title": "Exercise",
-              "body": "Match the type of tone or vocal variety with the appropriate emotion or sentiment:"
-            }
-          ]
-        },
-        {
-          "type": "markdown",
-          "markdown": "Low and slow\n\nSoft and fast\n\nLoud and slow\n\nLoud and fast"
-        },
-        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_07_st_002_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_07_st_002_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         }
       ]
     },
@@ -132,46 +125,22 @@
           "markdown": "The second component of personal communication is being able to appropriately assess each unique situation to determine the right level of communication. “Frequently, knowing what to say to someone is all about time and location,” Pat once said. “You don’t always make the right call. There’s a judgment involved. You have to ask yourself, ‘What does this person need today?’ And you have to watch his or her body language.”"
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "process",
+          "steps": [
             {
-              "id": "context_of_the_communication",
               "title": "Context of the Communication",
-              "body": "Context of the Communication"
-            },
-            {
-              "id": "understanding_the_context_of_a_conversat",
-              "title": "Understanding the context of a conversation includes not only the physical setting but al…",
               "body": "Understanding the context of a conversation includes not only the physical setting but also the emotional backdrop of the communication."
             },
             {
-              "id": "knowing_your_audience",
               "title": "Knowing Your Audience",
-              "body": "Knowing Your Audience"
-            },
-            {
-              "id": "audience_awareness_is_at_the_heart_of_si",
-              "title": "Audience awareness is at the heart of situational communication.",
               "body": "Audience awareness is at the heart of situational communication. Different audiences require different approaches, vocabulary, and levels of formality."
             },
             {
-              "id": "timing_of_the_communication",
               "title": "Timing of the Communication",
-              "body": "Timing of the Communication"
-            },
-            {
-              "id": "timing_can_significantly_influence_commu",
-              "title": "Timing can significantly influence communication effectiveness.",
               "body": "Timing can significantly influence communication effectiveness. Not every moment is ideal for every type of message; situational communicators recognize when to wait and when to act."
             },
             {
-              "id": "nonverbal_communication",
               "title": "Nonverbal Communication",
-              "body": "Nonverbal Communication"
-            },
-            {
-              "id": "body_language_eye_contact_posture_gestur",
-              "title": "Body language, eye contact, posture, gestures and facial expressions—plays an equally imp…",
               "body": "Body language, eye contact, posture, gestures and facial expressions—plays an equally important role in situational communication. Research shows that a large portion of human communication is non-verbal, meaning that words alone do not fully capture the message being conveyed. The non-verbal cues of the receiver can also help you gauge how your communication is being received. Are they sitting with their arms crossed? Scowling? etc."
             }
           ]
@@ -293,7 +262,7 @@
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_07_st_005_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": ""
         },
         {
           "type": "video",
@@ -338,6 +307,15 @@
           "speaker": "Corinne Milien"
         },
         {
+          "type": "heading",
+          "level": 2,
+          "text": "Exercises"
+        },
+        {
+          "type": "callout",
+          "text": "When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention."
+        },
+        {
           "type": "reflection",
           "question_id": "potl_mp_07_st_008_reflection_01",
           "prompt": "Pat identified three situations — off-court, during practice, during a game — that were a regular part of her weekly routine as a head coach. What three predictable situations do you find yourself in most often in your own role?"
@@ -356,6 +334,16 @@
           "type": "reflection",
           "question_id": "potl_mp_07_st_008_reflection_04",
           "prompt": "How can you work on incorporating at least two of the lesser-used quadrants into your daily routine?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_07_st_008_reflection_05",
+          "prompt": "Which two of the above would you consider yourself weaker in?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_07_st_008_reflection_06",
+          "prompt": "Take it to the next level: Ask a colleague you trust for their opinion on the question above. Continue to reflect. What are three ways you can get better in each of your weaker areas?"
         }
       ]
     }
