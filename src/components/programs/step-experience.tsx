@@ -65,7 +65,6 @@ type QuizResult = {
 export function StepExperience({
   miniProgramId,
   collectionTitle,
-  programTitle,
   step,
   stepCount,
   previousHref,
@@ -75,7 +74,6 @@ export function StepExperience({
 }: {
   miniProgramId: string;
   collectionTitle: string;
-  programTitle: string;
   step: PublicLearningStep;
   stepCount: number;
   previousHref: string | null;
@@ -317,7 +315,6 @@ export function StepExperience({
     <article className="max-w-full">
       <ProgramsLessonHeader
         collectionTitle={collectionTitle}
-        programTitle={programTitle}
         groupLabel={
           step.group_label ||
           (miniProgramId === "dd_mp_02" ? lessonGroupForSequence(step.sequence) : "")

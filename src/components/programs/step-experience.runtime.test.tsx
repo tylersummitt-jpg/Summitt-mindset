@@ -3,7 +3,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getLearningStepForClient } from "@/lib/learning/load-curriculum";
+import { getLearningMiniProgram, getLearningStepForClient } from "@/lib/learning/load-curriculum";
 import {
   PROGRAMS_COPY,
   sortCardLabel,
@@ -67,7 +67,6 @@ function renderStep(
     <StepExperience
       miniProgramId="dd_mp_02"
       collectionTitle="Definite Dozen"
-      programTitle="Respect Yourself and Others"
       step={step}
       stepCount={18}
       previousHref={options?.previousHref ?? null}
@@ -104,7 +103,6 @@ describe("step experience", () => {
       <StepExperience
         miniProgramId="cw_mp_10"
         collectionTitle="Championing Women in Leadership"
-        programTitle="Communicate for Success"
         step={step}
         stepCount={6}
         previousHref={null}
@@ -138,11 +136,67 @@ describe("step experience", () => {
     expect(progress.getAttribute("aria-valuemax")).toBe("18");
     expect(progress.getAttribute("aria-label")).toBe("Step 1 of 18");
     expect(screen.getByText("1.1 Pat in Her Own Words")).toBeTruthy();
+    const header = container.querySelector("header");
+    expect(header?.textContent).not.toContain("Programs");
+    expect(header?.textContent).not.toContain("Principle 1: Respect Yourself & Others");
     const quote = container.querySelector("blockquote");
     expect(quote?.textContent).toContain(
       "There is no such thing as self-respect without respect for others."
     );
     expect(quote?.textContent).toContain("Pat Summitt");
+  });
+
+  it("keeps the step title and drops the Programs and mini-program header lines", () => {
+    const cases = [
+      {
+        miniProgramId: "dd_mp_02",
+        stepId: "dd_mp_02_st_001",
+        groupLabel: "1.1 Pat in Her Own Words",
+      },
+      {
+        miniProgramId: "cw_mp_01",
+        stepId: "cw_mp_01_st_002",
+        groupLabel: null,
+      },
+      {
+        miniProgramId: "potl_mp_07",
+        stepId: "potl_mp_07_st_001",
+        groupLabel: null,
+      },
+    ];
+
+    for (const item of cases) {
+      const program = getLearningMiniProgram(item.miniProgramId);
+      const step = getLearningStepForClient(item.miniProgramId, item.stepId);
+      if (!program || !step) throw new Error(`missing ${item.stepId}`);
+      const view = render(
+        <StepExperience
+          miniProgramId={program.id}
+          collectionTitle={program.collection_title}
+          step={step}
+          stepCount={program.steps.length}
+          previousHref={null}
+          initialAnswers={{}}
+          enforceRequirements
+          isLastStep={false}
+        />
+      );
+      const header = view.container.querySelector("header");
+      if (!header) throw new Error("missing header");
+      const paragraphs = [...header.querySelectorAll("p")].map((node) => node.textContent);
+      expect(header.querySelector("a")).toBeNull();
+      expect(header.textContent).not.toContain("Programs");
+      expect(paragraphs).not.toContain(program.title);
+      expect(header.querySelector("h1")?.textContent).toBe(step.title);
+      expect(paragraphs).toContain(program.collection_title);
+      if (item.groupLabel) expect(paragraphs).toContain(item.groupLabel);
+      expect(header.textContent).toContain(`Step ${step.sequence} of ${program.steps.length}`);
+      const progress = header.querySelector("[role='progressbar']");
+      expect(progress?.getAttribute("aria-valuenow")).toBe(String(step.sequence));
+      expect(progress?.getAttribute("aria-valuemax")).toBe(String(program.steps.length));
+      expect(header.querySelector("[aria-hidden='true']")?.className).toContain("bg-[var(--brand)]");
+      cleanup();
+    }
   });
 
   it("shows a completion state before leaving the last step", async () => {
@@ -443,7 +497,6 @@ describe("step experience", () => {
       <StepExperience
         miniProgramId="dd_mp_03"
         collectionTitle="Definite Dozen"
-        programTitle="Take Responsibility"
         step={step}
         stepCount={step.sequence}
         previousHref={null}

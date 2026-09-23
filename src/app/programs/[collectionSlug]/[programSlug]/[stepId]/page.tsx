@@ -120,7 +120,6 @@ export default async function LearningStepPage({
         key={step.id}
         miniProgramId={program.id}
         collectionTitle={program.collection_title}
-        programTitle={program.title}
         step={toPublicLearningStep(step)}
         stepCount={program.steps.length}
         previousHref={previous ? learningStepPath(program.id, previous.id) : null}
