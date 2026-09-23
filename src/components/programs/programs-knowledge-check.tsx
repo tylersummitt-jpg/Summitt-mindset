@@ -148,7 +148,6 @@ export function ProgramsKnowledgeCheck({
             {quizScoreLine(result.correctCount, result.questionCount)}
           </p>
           <p>{PROGRAMS_COPY.quizReview}</p>
-          <p>{PROGRAMS_COPY.quizAnotherTry}</p>
           <button
             type="button"
             className={`${utSecondaryBtn} mt-1 w-full sm:w-auto`}

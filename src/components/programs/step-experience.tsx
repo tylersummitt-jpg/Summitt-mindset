@@ -32,6 +32,7 @@ import type { PublicLearningBlock, PublicLearningStep } from "@/lib/learning/cur
 import { lessonGroupForSequence } from "@/lib/learning/lesson-groups";
 import {
   PROGRAMS_COPY,
+  quizPrimaryLabel,
   sortCardLabel,
   sortCompleteMessage,
 } from "@/lib/learning/programs-copy";
@@ -286,7 +287,7 @@ export function StepExperience({
   }
 
   function toggleChoice(questionId: string, choiceIdValue: string, multiple: boolean) {
-    releaseQuizHold();
+    if (quizResult) return;
     setQuizAnswers((current) => {
       const existing = current[questionId] ?? [];
       if (!multiple) return { ...current, [questionId]: [choiceIdValue] };
@@ -298,16 +299,14 @@ export function StepExperience({
   }
 
   const hasQuiz = step.blocks.some((block) => block.type === "quiz");
-  const quizNeedsResults = enforceRequirements && hasQuiz && quizResult === null;
-  const continueLabel = phase === "saving"
-    ? "Saving…"
-    : quizNeedsResults
-      ? PROGRAMS_COPY.quizSeeResults
-      : isLastStep && enforceRequirements
-        ? "Finish"
-        : isLastStep
-          ? "Back to Programs"
-          : "Continue";
+  const quizGraded = quizResult !== null;
+  const continueLabel = quizPrimaryLabel({
+    saving: phase === "saving",
+    hasQuiz,
+    graded: quizGraded,
+    isLastStep,
+    enforceRequirements,
+  });
 
   const lastReflectionId = reflectionBlocks.at(-1)?.question_id ?? null;
 

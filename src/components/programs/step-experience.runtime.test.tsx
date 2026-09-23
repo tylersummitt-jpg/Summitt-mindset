@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLearningMiniProgram, getLearningStepForClient } from "@/lib/learning/load-curriculum";
 import {
   PROGRAMS_COPY,
+  quizPrimaryLabel,
   sortCardLabel,
   sortCompleteMessage,
 } from "@/lib/learning/programs-copy";
@@ -269,6 +270,93 @@ describe("step experience", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("keeps Continue available after a graded miss on the lesson footer", async () => {
+    const user = userEvent.setup();
+    const step = publicStep("dd_mp_02_st_002");
+    const quiz = step.blocks.find((block) => block.type === "quiz");
+    if (!quiz || quiz.type !== "quiz") throw new Error("missing quiz");
+    const belowThreshold = {
+      correctCount: 1,
+      questionCount: 3,
+      minimumCorrect: 3,
+      questions: quiz.questions.map((question, index) => ({
+        questionId: question.question_id,
+        correct: index === 0,
+        selectedChoiceIds: [question.choices[0]?.id ?? ""],
+        correctChoiceIds: [question.choices[index === 0 ? 0 : 1]?.id ?? ""],
+      })),
+    };
+    expect(belowThreshold.correctCount).toBeLessThan(belowThreshold.minimumCorrect);
+    expect(
+      quizPrimaryLabel({
+        saving: false,
+        hasQuiz: true,
+        graded: true,
+        isLastStep: false,
+        enforceRequirements: true,
+      })
+    ).toBe("Continue");
+
+    gradeLearningStep.mockResolvedValueOnce({
+      ok: false,
+      message: "Your score 1 of 3 correct. Failed. Passing: 3 of 3.",
+      quiz: belowThreshold,
+    });
+    renderStep("dd_mp_02_st_002");
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toContain("Your score");
+    expect(status.textContent).toContain("1 of 3 correct");
+    expect(status.textContent).not.toContain("Failed");
+    expect(status.textContent).not.toContain("Passing:");
+    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizSeeResults })).toBeNull();
+    expect(screen.queryByText(/You must/i)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain }));
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults })).toBeTruthy();
+
+    gradeLearningStep.mockResolvedValueOnce({
+      ok: true,
+      quiz: { ...belowThreshold, correctCount: 0 },
+    });
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    expect(await screen.findByText("0 of 3 correct")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizSeeResults })).toBeNull();
+  });
+
+  it("shows Continue after a perfect quiz score", async () => {
+    const user = userEvent.setup();
+    const step = publicStep("dd_mp_02_st_002");
+    const quiz = step.blocks.find((block) => block.type === "quiz");
+    if (!quiz || quiz.type !== "quiz") throw new Error("missing quiz");
+    gradeLearningStep.mockResolvedValueOnce({
+      ok: true,
+      quiz: {
+        correctCount: 3,
+        questionCount: 3,
+        minimumCorrect: 3,
+        questions: quiz.questions.map((question) => ({
+          questionId: question.question_id,
+          correct: true,
+          selectedChoiceIds: [question.choices[0]?.id ?? ""],
+          correctChoiceIds: [question.choices[0]?.id ?? ""],
+        })),
+      },
+    });
+    renderStep("dd_mp_02_st_002");
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    expect(await screen.findByText("3 of 3 correct")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizSeeResults })).toBeNull();
+    expect(screen.queryByText("Failed")).toBeNull();
+    expect(screen.queryByText(/Passing:/)).toBeNull();
+  });
+
   it("shows quiz results before continue, including a miss", async () => {
     const user = userEvent.setup();
     const step = publicStep("dd_mp_02_st_002");
@@ -318,7 +406,6 @@ describe("step experience", () => {
     expect(miss.textContent).toContain(PROGRAMS_COPY.quizYourScore);
     expect(miss.textContent).toContain("1 of 3 correct");
     expect(miss.textContent).toContain(PROGRAMS_COPY.quizReview);
-    expect(miss.textContent).toContain(PROGRAMS_COPY.quizAnotherTry);
     expect(miss.textContent).not.toContain("Failed");
     expect(miss.textContent).not.toContain("Passing:");
     expect(screen.getAllByText("Correct").length).toBeGreaterThan(0);

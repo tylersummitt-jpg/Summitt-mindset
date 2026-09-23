@@ -14,9 +14,8 @@ export const PROGRAMS_COPY = {
   scenarioStartOver: "Start over",
   quizTakeAgain: "Try again",
   quizSeeResults: "See results",
-  quizYourScore: "Here's how you did.",
+  quizYourScore: "Your score",
   quizReview: "Review your answers below.",
-  quizAnotherTry: "Want another try?",
   finishedProgram:
     "Congratulations! That concludes this lesson. You can revisit the completed course material at any time.",
   stepLocked: "This step isn't available yet.",
@@ -33,6 +32,20 @@ export function quizInstructions(): string {
 
 export function quizScoreLine(correctCount: number, questionCount: number): string {
   return `${correctCount} of ${questionCount} correct`;
+}
+
+export function quizPrimaryLabel(input: {
+  saving: boolean;
+  hasQuiz: boolean;
+  graded: boolean;
+  isLastStep: boolean;
+  enforceRequirements: boolean;
+}): "Saving…" | "See results" | "Finish" | "Back to Programs" | "Continue" {
+  if (input.saving) return "Saving…";
+  if (input.enforceRequirements && input.hasQuiz && !input.graded) return "See results";
+  if (input.isLastStep && input.enforceRequirements) return "Finish";
+  if (input.isLastStep) return "Back to Programs";
+  return "Continue";
 }
 
 export function sortCompleteMessage(count: number): string {
