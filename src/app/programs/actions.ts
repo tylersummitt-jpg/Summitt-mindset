@@ -1,5 +1,6 @@
 "use server";
 
+import { parseContinuePayload } from "@/lib/learning/continue-payload";
 import { getLearningMiniProgram, getLearningStep } from "@/lib/learning/load-curriculum";
 import { checkSortPlacement, gradeQuizBlock, type QuizClientScore } from "@/lib/learning/grade-step";
 import { continueMiniProgramStep } from "@/lib/learning/continue-step";
@@ -18,7 +19,7 @@ type ActionResult =
 
 export async function continueLearningStep(input: unknown): Promise<ActionResult> {
   const memberId = await requireProgramsMemberId();
-  const parsed = parseContinueInput(input);
+  const parsed = parseContinuePayload(input);
   if (!parsed) return { ok: false, message: PROGRAMS_COPY.unavailable };
 
   const program = getLearningMiniProgram(parsed.miniProgramId);
@@ -50,7 +51,7 @@ export async function gradeLearningStep(input: unknown): Promise<
   { ok: true; quiz: QuizClientScore } | { ok: false; message: string; quiz?: QuizClientScore }
 > {
   const memberId = await requireProgramsMemberId();
-  const parsed = parseContinueInput(input);
+  const parsed = parseContinuePayload(input);
   if (!parsed) return { ok: false, message: PROGRAMS_COPY.unavailable };
 
   const step = getLearningStep(parsed.miniProgramId, parsed.stepId);
@@ -127,23 +128,6 @@ async function memberCanPersist(
   return { ok: true };
 }
 
-function parseContinueInput(input: unknown): {
-  miniProgramId: string;
-  stepId: string;
-  reflections: Record<string, string>;
-  quizAnswers: Record<string, string[]>;
-  sortPlacements: Record<string, string>;
-} | null {
-  if (!isRecord(input)) return null;
-  const miniProgramId = readId(input.miniProgramId);
-  const stepId = readId(input.stepId);
-  const reflections = readStringMap(input.reflections, 12);
-  const quizAnswers = readChoiceMap(input.quizAnswers);
-  const sortPlacements = readStringMap(input.sortPlacements, 20);
-  if (!miniProgramId || !stepId || !reflections || !quizAnswers || !sortPlacements) return null;
-  return { miniProgramId, stepId, reflections, quizAnswers, sortPlacements };
-}
-
 function parseReflectionInput(input: unknown): {
   miniProgramId: string;
   stepId: string;
@@ -173,38 +157,6 @@ function parseSortInput(input: unknown): {
   if (typeof input.category !== "string" || input.category.trim().length === 0) return null;
   if (input.category.length > 200) return null;
   return { miniProgramId, stepId, cardId, category: input.category };
-}
-
-function readChoiceMap(value: unknown): Record<string, string[]> | null {
-  if (!isRecord(value)) return null;
-  const entries = Object.entries(value);
-  if (entries.length > 20) return null;
-  const map: Record<string, string[]> = {};
-  for (const [key, choices] of entries) {
-    if (!readId(key)) return null;
-    if (!Array.isArray(choices) || choices.length > 20) return null;
-    const ids: string[] = [];
-    for (const choice of choices) {
-      const id = readId(choice);
-      if (!id) return null;
-      ids.push(id);
-    }
-    map[key] = ids;
-  }
-  return map;
-}
-
-function readStringMap(value: unknown, maxEntries: number): Record<string, string> | null {
-  if (!isRecord(value)) return null;
-  const entries = Object.entries(value);
-  if (entries.length > maxEntries) return null;
-  const map: Record<string, string> = {};
-  for (const [key, answer] of entries) {
-    if (!readId(key)) return null;
-    if (typeof answer !== "string" || answer.length > 4500) return null;
-    map[key] = answer;
-  }
-  return map;
 }
 
 function readId(value: unknown): string | null {

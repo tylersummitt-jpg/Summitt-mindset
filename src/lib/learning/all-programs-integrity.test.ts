@@ -7,6 +7,7 @@ import {
   listLearningCollections,
 } from "./load-curriculum";
 import { learningProgramEntryPath, resolveLearningRoute } from "./program-paths";
+import { MAX_CONTINUE_REFLECTIONS } from "./continue-payload";
 import { decideContinue } from "./step-access";
 import { buildVimeoPlayerEmbedUrl } from "../vimeo-player-embed";
 
@@ -355,6 +356,33 @@ describe("all live Programs collections", () => {
         `${stepId}_q01`,
         `${stepId}_q02`,
       ]);
+    }
+  });
+
+  it("completes every mini-program on its last runtime step", () => {
+    const programs = listLearningCollections().flatMap((collection) => collection.miniPrograms);
+    expect(programs).toHaveLength(37);
+    for (const card of programs) {
+      const program = getLearningMiniProgram(card.id);
+      expect(program, card.id).toBeTruthy();
+      if (!program) continue;
+      const last = program.steps.at(-1);
+      expect(last, card.id).toBeTruthy();
+      if (!last) continue;
+      expect(program.steps.map((step) => step.sequence)).toEqual(
+        program.steps.map((_, index) => index + 1)
+      );
+      expect(
+        decideContinue(
+          { status: "in_progress", current_step_id: last.id },
+          program.steps,
+          last.id
+        )
+      ).toEqual({ kind: "complete" });
+      const persisted = last.blocks.filter(
+        (block) => block.type === "reflection" && block.persist !== false
+      ).length;
+      expect(persisted, last.id).toBeLessThanOrEqual(MAX_CONTINUE_REFLECTIONS);
     }
   });
 });
