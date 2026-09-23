@@ -155,6 +155,11 @@ function toPublicBlock(block: LearningStep["blocks"][number]): PublicLearningBlo
         })),
       };
     case "markdown":
+    case "heading":
+    case "list":
+    case "table":
+    case "callout":
+    case "process":
     case "video":
     case "image":
     case "reflection":

@@ -22,38 +22,49 @@
           "speaker": "Coach Pat Summitt"
         },
         {
-          "type": "markdown",
-          "markdown": "Trust me, you have more within you than you realize. Competition is one of the great tools for exploring yourself and surprising yourself.\n\n— Pat Summitt\n\nBe a Competitor: Pat in Her Own Words\n\nAre You Ready to Compete? Do You Believe Your Own Answer?\n\nIn the video, Coach Summitt talked about a rather famous moment with a team of her All-American players where she challenged them to communicate their readiness to compete.\n\nThere is a great exercise that you can do, too, to achieve more, develop a stronger mindset, stay focused on your goals, believe in your abilities, and improve mental readiness and determination to compete as a leader or as an individual performer.\n\nCompetitiveness Affirmation Mirror Technique"
+          "type": "callout",
+          "text": "Trust me, you have more within you than you realize. Competition is one of the great tools for exploring yourself and surprising yourself."
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "heading",
+          "level": 2,
+          "text": "Are You Ready to Compete? Do You Believe Your Own Answer?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "In the video, Coach Summitt talked about a rather famous moment with a team of her All-American players where she challenged them to communicate their readiness to compete.\n\nThere is a great exercise that you can do, too, to achieve more, develop a stronger mindset, stay focused on your goals, believe in your abilities, and improve mental readiness and determination to compete as a leader or as an individual performer."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Competitiveness Affirmation Mirror Technique"
+        },
+        {
+          "type": "process",
+          "steps": [
             {
-              "id": "set_the_competition_goal_express_your_co",
-              "title": "Set the Competition Goal: Express your competition goal as an affirmative, decl…",
-              "body": "Set the Competition Goal: Express your competition goal as an affirmative, declarative statement. For example, \"I will lead my state in life insurance policy sales next year.\""
+              "title": "Set the Competition Goal",
+              "body": "Express your competition goal as an affirmative, declarative statement. For example, \"I will lead my state in life insurance policy sales next year.\""
             },
             {
-              "id": "say_your_goal_out_loud_in_front_of_the_m",
-              "title": "Say Your Goal Out Loud in Front of the Mirror: Stand in front of a mirror and m…",
-              "body": "Say Your Goal Out Loud in Front of the Mirror: Stand in front of a mirror and make the statement out loud as if you were greeting yourself and sharing the news."
+              "title": "Say Your Goal Out Loud in Front of the Mirror",
+              "body": "Stand in front of a mirror and make the statement out loud as if you were greeting yourself and sharing the news."
             },
             {
-              "id": "repeat_the_affirmation_until_you_firmly",
-              "title": "Repeat the Affirmation Until You Firmly Believe It: As you state your goal you…",
-              "body": "Repeat the Affirmation Until You Firmly Believe It: As you state your goal you want to achieve, look into your own eyes and see the expression on your face. Do you believe your own answer? Do you believe that the person in the mirror is capable of what you are saying you're going to achieve? Continue to double down on the certainty of that statement. Apply this technique to many things you are trying to achieve."
+              "title": "Repeat the Affirmation Until You Firmly Believe It",
+              "body": "As you state your goal you want to achieve, look into your own eyes and see the expression on your face. Do you believe your own answer? Do you believe that the person in the mirror is capable of what you are saying you're going to achieve? Continue to double down on the certainty of that statement. Apply this technique to many things you are trying to achieve."
             }
           ]
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_001_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "Person saying a competition goal aloud in front of a mirror"
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_001_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": "Person repeating an affirmation in the mirror until they believe it"
         },
         {
           "type": "reflection",
@@ -165,13 +176,26 @@
           "speaker": "Roberto Fernandez"
         },
         {
-          "type": "markdown",
-          "markdown": "You can't always be the most talented person in the room. But you can be the most competitive.\n\n— Pat Summitt\n\nBe a Competitor: Introduction, featuring Roberto Fernandez\n\nCompetition Is Coming\n\nCompetition is one of the key elements in outstanding work. No one stays on top forever, and opportunities are always up for grabs. Your competitor is always either rising or will be rising soon. It comes down to how much you are willing to embrace competition to reach the most exalted level of performance.\n\nWhile sports may only crown one winner a year, in business and other elements of our lives, we often have more than one winner. A burning sense of \"competition\" encourages organizations to create outstanding products and services. The message here is clear. Striving to be the best is important. And the best way to ignite that pursuit is to ignite the sense of competition.\n\nHow Competitive Are You and Your Team?\n\nPart of what can help you learn to compete more often and with enthusiasm is to recognize that competition is an important part of what it means to lead. If you read these words and feel like you \"don't like to compete,\" you may want to ask yourself, how bad do you want to win?"
+          "type": "callout",
+          "text": "You can't always be the most talented person in the room. But you can be the most competitive."
         },
         {
-          "type": "reflection",
-          "question_id": "dd_mp_11_st_003_reflection_01",
-          "prompt": "This is where leadership truly matters. When a coach inspires a team at halftime, challenging them to ignite their energies and actions, they are pressing the buttons of competition. When a longstanding champion sees a rival rising up and feels threatened, that sense of competition comes alive. The question is, how competitive are you as a leader? Do you feel that same sense of competitive juice when you observe a competitor gaining on you? Do you feel yourself wanting to overtake the champion? These are honest questions that you must reflect upon."
+          "type": "heading",
+          "level": 2,
+          "text": "Competition Is Coming"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Competition is one of the key elements in outstanding work. No one stays on top forever, and opportunities are always up for grabs. Your competitor is always either rising or will be rising soon. It comes down to how much you are willing to embrace competition to reach the most exalted level of performance.\n\nWhile sports may only crown one winner a year, in business and other elements of our lives, we often have more than one winner. A burning sense of \"competition\" encourages organizations to create outstanding products and services. The message here is clear. Striving to be the best is important. And the best way to ignite that pursuit is to ignite the sense of competition."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "How Competitive Are You and Your Team?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "This is where leadership truly matters. When a coach inspires a team at halftime, challenging them to ignite their energies and actions, they are pressing the buttons of competition. When a longstanding champion sees a rival rising up and feels threatened, that sense of competition comes alive. The question is, how competitive are you as a leader? Do you feel that same sense of competitive juice when you observe a competitor gaining on you? Do you feel yourself wanting to overtake the champion? These are honest questions that you must reflect upon.\n\nPart of what can help you learn to compete more often and with enthusiasm is to recognize that competition is an important part of what it means to lead. If you read these words and feel like you \"don't like to compete,\" you may want to ask yourself, how bad do you want to win?"
         },
         {
           "type": "image",
@@ -193,71 +217,74 @@
           "prompt": "In your team or organization, how can the leader ignite a sense of competitiveness?"
         },
         {
-          "type": "markdown",
-          "markdown": "You have to love your adversaries. They make you better. They force you to improve, to stretch your capacities.\n\n— Pat Summitt"
+          "type": "callout",
+          "text": "You have to love your adversaries. They make you better. They force you to improve, to stretch your capacities."
         },
         {
-          "type": "sections",
-          "sections": [
-            {
-              "id": "harnessing_the_power_of_competitiveness",
-              "title": "Harnessing the Power of Competitiveness",
-              "body": "Harnessing the Power of Competitiveness"
-            },
-            {
-              "id": "don_t_seek_out_weak_competition_compete",
-              "title": "Don't Seek Out Weak Competition.",
-              "body": "Don't Seek Out Weak Competition. Compete Against the Best: Coach Pat Summitt said, \"If you want to be the best, you have to compete against the best, even if it means risking a loss. Why seek out weak competition?\" Rigorous competition makes competitors stronger and brings the winners more valuable rewards. Hoping for the competitors' failure or weakness is a sign of weakness. Rather than praying for weakness within a competitor, develop your own strength and skill that is capable of beating even the most formidable competition."
-            },
-            {
-              "id": "identify_the_rival_the_rival_or_the_comp",
-              "title": "Identify the Rival: The rival, or the competition, is absolutely key in this fo…",
-              "body": "Identify the Rival: The rival, or the competition, is absolutely key in this formula. Can you identify a rival in your business? We all have rivals in our lives. Maybe you are in line for a promotion at work. Is there a rival for that position? Maybe you and your team are trying to break a sales record, and the rival company just opened a new office in your area. Recognizing the presence of a rival — small or large — is key to igniting that sense of competition."
-            },
-            {
-              "id": "keep_your_rival_in_sight_to_motivate_you",
-              "title": "Keep Your Rival in Sight to Motivate You: One of the most motivating things you…",
-              "body": "Keep Your Rival in Sight to Motivate You: One of the most motivating things you can do to help maintain your discipline and focus is to picture your rival and imagine that they are one step ahead of you. When businesses are run poorly or teams are poorly led, there is a habit of forgetting about the rival. For example, if you own a restaurant and your staff members are embroiled in a number of internal battles, those problems could negatively impact the service to your diners. In this context, instead of focusing on your business and staying ahead of your rival, you might forget about your rival, allowing it to go after your most important asset...your diners. If you're a competitive person, what are you going to do? Keep your rival in sight."
-            },
-            {
-              "id": "appreciate_your_rival_our_rivals_make_us",
-              "title": "Appreciate Your Rival: Our rivals make us better.",
-              "body": "Appreciate Your Rival: Our rivals make us better. The most competitive leaders and peak performers have come to realize that appreciating your rival is one of the healthiest, most forward-thinking, competitive things you can do. Rather than being driven crazy by the achievements of your rival, appreciate their grace and strength, admire what they are doing to stay competitive, and then recognize that they are there in your life to, indeed, make you better. The presence of your rival will force you to raise your standard and improve your game."
-            }
-          ]
-        },
-        {
-          "type": "markdown",
-          "markdown": "Let's Summarize\n\nDon't seek out weak competition. Compete against the best.\n\nIdentify the rival.\n\nKeep your rival in sight to motivate you.\n\nAppreciate your rival."
-        },
-        {
-          "type": "markdown",
-          "markdown": "Don't seek out weak competition. Compete against the best.; Identify the rival.; Keep your rival in sight to motivate you.; Appreciate your rival."
+          "type": "heading",
+          "level": 2,
+          "text": "Harnessing the Power of Competitiveness"
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_003_image_04.jpg",
-          "alt": "Lesson image"
+          "alt": "Harnessing the Power of Competitiveness process cover"
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Don't Seek Out Weak Competition. Compete Against the Best",
+              "body": "Coach Pat Summitt said, \"If you want to be the best, you have to compete against the best, even if it means risking a loss. Why seek out weak competition?\" Rigorous competition makes competitors stronger and brings the winners more valuable rewards. Hoping for the competitors' failure or weakness is a sign of weakness. Rather than praying for weakness within a competitor, develop your own strength and skill that is capable of beating even the most formidable competition."
+            },
+            {
+              "title": "Identify the Rival",
+              "body": "The rival, or the competition, is absolutely key in this formula. Can you identify a rival in your business? We all have rivals in our lives. Maybe you are in line for a promotion at work. Is there a rival for that position? Maybe you and your team are trying to break a sales record, and the rival company just opened a new office in your area. Recognizing the presence of a rival — small or large — is key to igniting that sense of competition."
+            },
+            {
+              "title": "Keep Your Rival in Sight to Motivate You",
+              "body": "One of the most motivating things you can do to help maintain your discipline and focus is to picture your rival and imagine that they are one step ahead of you. When businesses are run poorly or teams are poorly led, there is a habit of forgetting about the rival. For example, if you own a restaurant and your staff members are embroiled in a number of internal battles, those problems could negatively impact the service to your diners. In this context, instead of focusing on your business and staying ahead of your rival, you might forget about your rival, allowing it to go after your most important asset...your diners. If you're a competitive person, what are you going to do? Keep your rival in sight."
+            },
+            {
+              "title": "Appreciate Your Rival",
+              "body": "Our rivals make us better. The most competitive leaders and peak performers have come to realize that appreciating your rival is one of the healthiest, most forward-thinking, competitive things you can do. Rather than being driven crazy by the achievements of your rival, appreciate their grace and strength, admire what they are doing to stay competitive, and then recognize that they are there in your life to, indeed, make you better. The presence of your rival will force you to raise your standard and improve your game."
+            }
+          ]
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_003_image_05.jpg",
-          "alt": "Lesson image"
+          "alt": "Compete Against the Best process image"
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_003_image_06.jpg",
-          "alt": "Lesson image"
+          "alt": "Identify the Rival process image"
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_003_image_07.jpg",
-          "alt": "Lesson image"
+          "alt": "Keep Your Rival in Sight process image"
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_003_image_08.jpg",
-          "alt": "Lesson image"
+          "alt": "Appreciate Your Rival process image"
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "Let's Summarize"
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "Don't seek out weak competition. Compete against the best.",
+            "Identify the rival.",
+            "Keep your rival in sight to motivate you.",
+            "Appreciate your rival."
+          ]
         }
       ]
     },
@@ -358,12 +385,19 @@
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_005_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": "Lesson image for Leadership Reflections: Inspiring Rivals"
         },
         {
-          "type": "reflection",
-          "question_id": "dd_mp_11_st_005_reflection_01",
-          "prompt": "Think about the rivals in your own working environment:"
+          "type": "markdown",
+          "markdown": "Think about the rivals in your own working environment:"
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "What do they bring to the table that makes them special?",
+            "What can you learn about their strengths that could inspire you to grow?"
+          ]
         },
         {
           "type": "markdown",
@@ -384,8 +418,12 @@
           "speaker": "Phillip Fulmer"
         },
         {
-          "type": "markdown",
-          "markdown": "You have to set high goals in order to achieve. That's why we routinely require overachievement at Tennessee. We don't always get it. But my experience is that when you ask for a lot, you just might get some of it.\n\n— Pat Summitt\n\nBe a Competitor: Set High Goals, featuring Phillip Fulmer\n\nAt Tennessee, we expect to go to the Final Four. ... The reason we get there so often is because we demand it, and we say it out loud.\n\n— Pat Summitt"
+          "type": "callout",
+          "text": "You have to set high goals in order to achieve. That's why we routinely require overachievement at Tennessee. We don't always get it. But my experience is that when you ask for a lot, you just might get some of it."
+        },
+        {
+          "type": "callout",
+          "text": "At Tennessee, we expect to go to the Final Four. ... The reason we get there so often is because we demand it, and we say it out loud."
         },
         {
           "type": "image",
@@ -393,17 +431,79 @@
           "alt": "Michelle Tafoya interviews Coach Pat Summitt at the Women's Final Four in 2000."
         },
         {
+          "type": "quiz",
+          "minimum_correct": 1,
+          "questions": [
+            {
+              "question_id": "dd_mp_11_st_006_q01",
+              "prompt": "Winners and high achievers often publicly declare their goal and commitment to win. It helps them to _____. Select all that applies.",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "increase their drive to succeed"
+                },
+                {
+                  "id": "c2",
+                  "text": "discover their full potential"
+                },
+                {
+                  "id": "c3",
+                  "text": "persevere in reaching the goal"
+                },
+                {
+                  "id": "c4",
+                  "text": "build a stronger version of themselves"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c2",
+                "c3",
+                "c4"
+              ]
+            }
+          ]
+        },
+        {
           "type": "markdown",
-          "markdown": "Don't Be Afraid to Say You Want to Win\n\nWhen you declare that you want to win, you put yourself in a position of either winning or publicly failing to do so. It is, however, that public declaration that often drives peak athletic performers to practice and compete at a higher level. The same is true in business. Some of the best business leaders are famous for making extraordinarily intense promises that require a significant commitment in order to achieve. This public declaration drives unusual levels of success through an enhanced commitment to rising up and meeting the publicly declared standard.\n\nThe reason so many people underachieve, instead of overachieve, is simply because they are afraid to make a mistake, or to fail, or to be wrong. They are afraid to find out what's inside of them. Competitiveness is the opposite of complacency. It's disquieting and uncomfortable. It requires commitment, and risk, and soul-searching. When you choose to compete, you take a huge gamble.\n\n— Pat Summitt\n\nYou Find Out What's Inside\n\nAnother reason that public declaration of a goal is so terrifying is that it reveals an opportunity to expose what's inside. In other words, if on the inside beats \"the heart of a champion,\" capable of rising up and delivering, even if winning eludes the competitor, we find out that the potential to win is there. Or you may find out on the inside that the person can't compete at all. After all, failure happens every day, and true competition will reveal it. Peak performers and the very best leaders are always on a relentless search for what's inside. They have an optimistic view of who they are and what they can become under the weight of competition. They believe that the best version of themselves will emerge under the scrutiny of the opportunity to compete and win."
+          "markdown": "In fact, all of these factors contribute to the peak performer's success, through an enhanced commitment to reaching a winning goal."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Don't Be Afraid to Say You Want to Win"
+        },
+        {
+          "type": "markdown",
+          "markdown": "When you declare that you want to win, you put yourself in a position of either winning or publicly failing to do so. It is, however, that public declaration that often drives peak athletic performers to practice and compete at a higher level. The same is true in business. Some of the best business leaders are famous for making extraordinarily intense promises that require a significant commitment in order to achieve. This public declaration drives unusual levels of success through an enhanced commitment to rising up and meeting the publicly declared standard."
+        },
+        {
+          "type": "callout",
+          "text": "The reason so many people underachieve, instead of overachieve, is simply because they are afraid to make a mistake, or to fail, or to be wrong. They are afraid to find out what's inside of them. Competitiveness is the opposite of complacency. It's disquieting and uncomfortable. It requires commitment, and risk, and soul-searching. When you choose to compete, you take a huge gamble."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "You Find Out What's Inside"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Another reason that public declaration of a goal is so terrifying is that it reveals an opportunity to expose what's inside. In other words, if on the inside beats \"the heart of a champion,\" capable of rising up and delivering, even if winning eludes the competitor, we find out that the potential to win is there. Or you may find out on the inside that the person can't compete at all. After all, failure happens every day, and true competition will reveal it. Peak performers and the very best leaders are always on a relentless search for what's inside. They have an optimistic view of who they are and what they can become under the weight of competition. They believe that the best version of themselves will emerge under the scrutiny of the opportunity to compete and win."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Timidity or Tenacity?"
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_006_image_03.jpg",
-          "alt": "Lesson image"
+          "alt": "Stock lesson image accompanying Timidity or Tenacity"
         },
         {
           "type": "markdown",
-          "markdown": "Timidity or Tenacity?\n\nIn the roar of the fight, there will always be those who retreat for the quiet shade. They will let somebody else fight the fight and claim the ring. The best leaders understand that they must commit to remaining enormously tenacious in the face of competition to advance their skills."
+          "markdown": "In the roar of the fight, there will always be those who retreat for the quiet shade. They will let somebody else fight the fight and claim the ring. The best leaders understand that they must commit to remaining enormously tenacious in the face of competition to advance their skills."
         },
         {
           "type": "reflection",

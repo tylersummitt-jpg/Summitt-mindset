@@ -80,7 +80,7 @@ export function validateStepRequirements(
   | { ok: true; quiz: QuizClientScore | null }
   | { ok: false; message: string; quiz?: QuizClientScore } {
   for (const block of step.blocks) {
-    if (block.type !== "reflection") continue;
+    if (block.type !== "reflection" || block.persist === false) continue;
     const normalized = normalizeReflectionAnswer(submission.reflections[block.question_id] ?? "");
     if (!normalized.ok) return normalized;
   }

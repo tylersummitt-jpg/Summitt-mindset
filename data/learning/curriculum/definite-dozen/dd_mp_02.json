@@ -29,8 +29,13 @@
           "speaker": "Pat Summitt"
         },
         {
+          "type": "heading",
+          "level": 3,
+          "text": "Defining leadership self-respect"
+        },
+        {
           "type": "markdown",
-          "markdown": "Defining leadership self-respect\n\nLeadership self-respect includes both the level of respect leaders have for themselves, and the level of respect teammates observe the leader has for themselves.\n\nFor example, a leader who shows up looking professional, in a good state of health, rested and ready, sends the message to the team that they care enough about themselves to bring the best version of who they are to the team. Then, the team will often respond well to the leader, and they become more likely to respect themselves in the same way.\n\nThis creates a success cycle that builds momentum and begins to improve results."
+          "markdown": "Leadership self-respect includes both the level of respect leaders have for themselves, and the level of respect teammates observe the leader has for themselves.\n\nFor example, a leader who shows up looking professional, in a good state of health, rested and ready, sends the message to the team that they care enough about themselves to bring the best version of who they are to the team. Then, the team will often respond well to the leader, and they become more likely to respect themselves in the same way.\n\nThis creates a success cycle that builds momentum and begins to improve results."
         }
       ]
     },
@@ -140,7 +145,15 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Respect is essential to building group cohesion.\n\n— Pat Summitt\n\nIn this section, we will share Pat Summitt’s simple truths of respect and self-respect. As you reflect on these truths, think about their application in your work.\n\nBe the boss you would want for yourself.\n\nEarn and cultivate respect by demonstrating competence, staying strong in difficult situations, and thoughtfully advocating for the team.\n\nYou can't demand it or whack it out of them!\n\n— Pat Summitt\n\nPat Summitt was a notoriously demanding coach. Creating a demanding environment with respect, high standards, and rigor brings good outcomes.\n\nHowever, imposing hard work or punitive measures on others to gain respect is futile. She used the example of forcing her players to run suicides and push themselves physically as a mechanism for earning respect. That demand, she went on to realize, would never build the kind of respect she needed to build a championship team. She learned that respect must be cultivated and earned.\n\nConversely, the leader must communicate to the team that they too must work hard to earn the respect of each other and of the leaders. This expectation helps teams to pull together to create the reciprocal support needed to establish mutual respect all around."
+          "markdown": "Respect is essential to building group cohesion.\n\n— Pat Summitt\n\nIn this section, we will share Pat Summitt’s simple truths of respect and self-respect. As you reflect on these truths, think about their application in your work."
+        },
+        {
+          "type": "callout",
+          "text": "Be the boss you would want for yourself."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Earn and cultivate respect by demonstrating competence, staying strong in difficult situations, and thoughtfully advocating for the team.\n\nYou can't demand it or whack it out of them!\n\n— Pat Summitt\n\nPat Summitt was a notoriously demanding coach. Creating a demanding environment with respect, high standards, and rigor brings good outcomes.\n\nHowever, imposing hard work or punitive measures on others to gain respect is futile. She used the example of forcing her players to run suicides and push themselves physically as a mechanism for earning respect. That demand, she went on to realize, would never build the kind of respect she needed to build a championship team. She learned that respect must be cultivated and earned.\n\nConversely, the leader must communicate to the team that they too must work hard to earn the respect of each other and of the leaders. This expectation helps teams to pull together to create the reciprocal support needed to establish mutual respect all around."
         },
         {
           "type": "video",
@@ -302,7 +315,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "The purpose of these reflections is to give you the opportunity to take what you're learning and get ready to apply it to your professional practice. The most essential element to the first two units revolves around the ability as a leader to cultivate and earn respect."
+          "markdown": "The purpose of these reflections is to give you the opportunity to take what you're learning and get ready to apply it to your professional practice. The most essential idea in this mini-program revolves around the ability as a leader to cultivate and earn respect."
         },
         {
           "type": "reflection",
@@ -329,7 +342,7 @@
       "blocks": [
         {
           "type": "video",
-          "vimeo_video_id": "1150754397",
+          "vimeo_video_id": "1150754357",
           "visible_title": "Respect Yourself and Others: It Starts with You, featuring Doug Buce",
           "speaker": "Doug Buce"
         }
@@ -343,7 +356,21 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Physical Habits for Building Self-Respect from Within\n\nCoach Summitt found that several physical habits help build and sustain self-respect from within:\n\nKeep moving\n\nMeet standing up\n\nHave a brain break each hour\n\nGo exercise\n\nEat well\n\nHydrate\n\nSleep\n\nRemove technology from where you sleep"
+          "markdown": "Coach Summitt found that several physical habits help build and sustain self-respect from within:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Keep moving",
+            "Meet standing up",
+            "Have a brain break each hour",
+            "Go exercise",
+            "Eat well",
+            "Hydrate",
+            "Sleep",
+            "Remove technology from where you sleep"
+          ]
         },
         {
           "type": "sections",
@@ -351,7 +378,7 @@
             {
               "id": "keep_moving",
               "title": "Keep moving",
-              "body": "In a world where you can run a business from a computer or mobile device, it’s easy to begin to become sedentary. The world is a better place when we are healthy, so resisting remaining sedentary is good for your long-term physical health.\n\nThe habit of Keeping Moving does even more!\n\nMoving on a consistent basis:\n\nchanges your emotional and mental states\n\nenhances blood-flow, and in some cases, moves blood away from your legs and feet and toward the most important destination: your brain"
+              "body": "In a world where you can run a business from a computer or mobile device, it’s easy to begin to become sedentary. The world is a better place when we are healthy, so resisting remaining sedentary is good for your long-term physical health.\n\nThe habit of Keeping Moving does even more!\n\nMoving on a consistent basis:\n\n• changes your emotional and mental states\n• enhances blood-flow, and in some cases, moves blood away from your legs and feet and toward the most important destination: your brain"
             },
             {
               "id": "meet_standing",
@@ -371,7 +398,7 @@
             {
               "id": "eat_well",
               "title": "Eat well",
-              "body": "There is no shortage of information on healthy eating today. Although there is a wide variety of purported, healthy diets, what’s important for our purposes is that you do your own research and select eating habits that give you energy and allow you to be your absolute best.\n\nMost research-based, healthy diets include:\n\na healthy observation of portion sizes\n\ncareful restrictions on fast food\n\nthe avoidance of an overindulgence of fat and sugar, and\n\nthe habit of enjoying food that provides nutrients and vitamins to help us stay healthy and replenished.\n\nPhysically, we’ve all seen people that begin to either embrace or depart from the habit of eating well. Leaders who have teams that follow successfully and eagerly recognize that their leader has self-respect, as demonstrated by how they choose to feed themselves."
+              "body": "There is no shortage of information on healthy eating today. Although there is a wide variety of purported, healthy diets, what’s important for our purposes is that you do your own research and select eating habits that give you energy and allow you to be your absolute best.\n\nMost research-based, healthy diets include:\n\n• a healthy observation of portion sizes\n• careful restrictions on fast food\n• the avoidance of an overindulgence of fat and sugar, and\n• the habit of enjoying food that provides nutrients and vitamins to help us stay healthy and replenished.\n\nPhysically, we’ve all seen people that begin to either embrace or depart from the habit of eating well. Leaders who have teams that follow successfully and eagerly recognize that their leader has self-respect, as demonstrated by how they choose to feed themselves."
             },
             {
               "id": "hydrate",
@@ -392,7 +419,21 @@
         },
         {
           "type": "markdown",
-          "markdown": "To summarize, there are several important physical habits that can help you establish and build self-respect from within:\n\nKeep moving\n\nMeet standing up\n\nHave a brain break each hour\n\nGo exercise\n\nEat well\n\nHydrate\n\nSleep\n\nRemove technology from where you sleep"
+          "markdown": "To summarize, there are several important physical habits that can help you establish and build self-respect from within:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Keep moving",
+            "Meet standing up",
+            "Have a brain break each hour",
+            "Go exercise",
+            "Eat well",
+            "Hydrate",
+            "Sleep",
+            "Remove technology from where you sleep"
+          ]
         }
       ]
     },
@@ -404,7 +445,17 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Four Mental Habits for Building Self-Respect from Within\n\nIn addition to physical approaches to building self-respect, four key mental habits can help establish self-respect from within:\n\nMinimize multitasking\n\nLeverage mornings\n\nTake distraction-free vacations\n\nTurn off notifications"
+          "markdown": "Four Mental Habits for Building Self-Respect from Within\n\nIn addition to physical approaches to building self-respect, four key mental habits can help establish self-respect from within:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Minimize multitasking",
+            "Leverage mornings",
+            "Take distraction-free vacations",
+            "Turn off notifications"
+          ]
         },
         {
           "type": "sections",
@@ -422,7 +473,7 @@
             {
               "id": "distraction_free_vacations",
               "title": "Take distraction-free vacations",
-              "body": "The video specifically recommends that you take your vacation time and refrain from taking your work with you. It’s often a sign of honor in hyper-competitive work environments to check in on work during vacation, responding to copious emails and checking in on key performance indicators. This is not necessarily a sign of strength or self-respect.\n\nBy always checking in, there is an implied suggestion that the system can’t work for a while without you, and that’s not a good sign if you’re a leader. Checking in during vacations also deviates from your commitment to taking care of yourself and giving yourself the gift of rest.\n\nGreat leaders and top performers often take vacations that are more engaging and rigorous than their work. They may trek a challenging landscape or engage in some interesting and rigorous retreat. While a few emails may take longer to respond to, there is a recognition of self-care and the expansion of personal interests that only serve to make a leader or top performer more valuable to the system and the team. Refraining from staying attached to laptops and other devices goes back to our recommendation about technology as well. Taking a sabbatical from technology for a week definitely has physical, emotional, and spiritual advantages."
+              "body": "This habit asks you to take your vacation time and refrain from taking your work with you. It’s often a sign of honor in hyper-competitive work environments to check in on work during vacation, responding to copious emails and checking in on key performance indicators. This is not necessarily a sign of strength or self-respect.\n\nBy always checking in, there is an implied suggestion that the system can’t work for a while without you, and that’s not a good sign if you’re a leader. Checking in during vacations also deviates from your commitment to taking care of yourself and giving yourself the gift of rest.\n\nGreat leaders and top performers often take vacations that are more engaging and rigorous than their work. They may trek a challenging landscape or engage in some interesting and rigorous retreat. While a few emails may take longer to respond to, there is a recognition of self-care and the expansion of personal interests that only serve to make a leader or top performer more valuable to the system and the team. Refraining from staying attached to laptops and other devices goes back to our recommendation about technology as well. Taking a sabbatical from technology for a week definitely has physical, emotional, and spiritual advantages."
             },
             {
               "id": "turn_off_notifications",
@@ -433,7 +484,17 @@
         },
         {
           "type": "markdown",
-          "markdown": "To summarize, there are four important mental habits that can help you establish and build self-respect from within:\n\nMinimize multitasking\n\nLeverage mornings\n\nTake distraction-free vacations\n\nTurn off notifications"
+          "markdown": "To summarize, there are four important mental habits that can help you establish and build self-respect from within:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Minimize multitasking",
+            "Leverage mornings",
+            "Take distraction-free vacations",
+            "Turn off notifications"
+          ]
         }
       ]
     },
@@ -445,7 +506,16 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Three Emotional Habits for Building Self-Respect from Within\n\nWe've gone over both physical and mental habits for building self-respect. There's yet another dimension: emotional habits. There are three important emotional habits that can help you establish and build self-respect from within:\n\nEstablish weekly and daily gratitude practice\n\nUnleash laughter\n\nDeclare appreciation"
+          "markdown": "Three Emotional Habits for Building Self-Respect from Within\n\nWe've gone over both physical and mental habits for building self-respect. There's yet another dimension: emotional habits. There are three important emotional habits that can help you establish and build self-respect from within:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Establish weekly and daily gratitude practice",
+            "Unleash laughter",
+            "Declare appreciation"
+          ]
         },
         {
           "type": "sections",
@@ -469,7 +539,16 @@
         },
         {
           "type": "markdown",
-          "markdown": "To summarize, there are three important emotional habits that can help you establish and build self-respect from within:\n\nEstablish weekly and daily gratitude practice\n\nUnleash laughter\n\nDeclare appreciation"
+          "markdown": "To summarize, there are three important emotional habits that can help you establish and build self-respect from within:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Establish weekly and daily gratitude practice",
+            "Unleash laughter",
+            "Declare appreciation"
+          ]
         }
       ]
     },
@@ -583,13 +662,22 @@
       "blocks": [
         {
           "type": "video",
-          "vimeo_video_id": "1150754357",
+          "vimeo_video_id": "1150754332",
           "visible_title": "Respect Yourself and Others: Respect and Accountability, featuring Doug Buce",
           "speaker": "Doug Buce"
         },
         {
           "type": "markdown",
-          "markdown": "One of the most powerful elements of being a team is the possibility of supporting each other to improve individual and collective performance and outcomes. This improvement is generated by respect and accountability, thoughtfully established by both leaders and committed team members who work together for excellence.\n\nTwo Truths about Team Respect and Accountability\n\nHere are two important truths to keep in mind:"
+          "markdown": "One of the most powerful elements of being a team is the possibility of supporting each other to improve individual and collective performance and outcomes. This improvement is generated by respect and accountability, thoughtfully established by both leaders and committed team members who work together for excellence."
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "Two Truths about Team Respect and Accountability"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Here are two important truths to keep in mind:"
         },
         {
           "type": "image",
@@ -615,13 +703,31 @@
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_02_st_011_quote_4.jpg",
-          "alt": "Storm clouds",
+          "alt": "Heavy dark storm clouds under a lighter overcast sky",
           "quote": "Teamwork allows common people to obtain uncommon results.",
           "attribution": "Pat Summitt"
         },
         {
+          "type": "heading",
+          "level": 3,
+          "text": "Pat Summitt's 3 Keys to Team Accountability"
+        },
+        {
           "type": "markdown",
-          "markdown": "Pat Summitt's 3 Keys to Team Accountability\n\nTeam, or peer-to-peer accountability, is the most powerful form of accountability that helps teams dramatically improve their production and output. Let's look at Pat Summitt’s keys to developing this accountability with teams or groups:\n\nAuthentic trust\n\nHealthy debate\n\nCommitment\n\nWhich of these 3 approaches do you already use in your team?"
+          "markdown": "Team, or peer-to-peer accountability, is the most powerful form of accountability that helps teams dramatically improve their production and output. Let's look at Pat Summitt’s keys to developing this accountability with teams or groups:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Authentic trust",
+            "Healthy debate",
+            "Commitment"
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Which of these 3 approaches do you already use in your team?"
         },
         {
           "type": "sections",
@@ -745,7 +851,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "As discussed in these last two units, one of the best ways you can improve your game and be a better leader or peak performer is to bring a healthier version of yourself to your work. Remember, you can get healthier by being stronger, more fit, having better sleep habits, and even a better relationship with your own technological devices, ensuring focus, not distraction."
+          "markdown": "As discussed in this mini-program, one of the best ways you can improve your game and be a better leader or peak performer is to bring a healthier version of yourself to your work. Remember, you can get healthier by being stronger, more fit, having better sleep habits, and even a better relationship with your own technological devices, ensuring focus, not distraction."
         },
         {
           "type": "reflection",
@@ -766,7 +872,7 @@
         },
         {
           "type": "video",
-          "vimeo_video_id": "1150754332",
+          "vimeo_video_id": "1150754397",
           "visible_title": "Respect Yourself and Others: Respect-Busting Behaviors, featuring Doug Buce",
           "speaker": "Doug Buce"
         },
@@ -818,7 +924,7 @@
           "questions": [
             {
               "question_id": "dd_mp_02_st_015_q01",
-              "prompt": "Pat Summitt said that ___was like a magnet. Once present, it would attack more and more!",
+              "prompt": "Pat Summitt said that ___ was like a magnet. Once present, it would attract more and more!",
               "question_type": "single_choice",
               "choices": [
                 {

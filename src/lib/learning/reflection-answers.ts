@@ -94,7 +94,7 @@ export async function saveStepReflections(args: {
   let failure: string | null = null;
 
   for (const block of args.step.blocks) {
-    if (block.type !== "reflection") continue;
+    if (block.type !== "reflection" || block.persist === false) continue;
     const raw = args.answers[block.question_id] ?? "";
     const normalized = normalizeReflectionAnswer(raw);
     if (!normalized.ok) {

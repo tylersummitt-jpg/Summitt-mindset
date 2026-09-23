@@ -16,7 +16,7 @@ export function splitProgramsProse(text: string): ProgramsProseBlock[] {
   for (let index = 0; index < parts.length; index += 1) {
     const part = parts[index];
     const next = parts[index + 1];
-    if (!part) continue;
+    if (!part || /^Page \d+ of \d+$/.test(part)) continue;
     if (next && ATTRIBUTION.test(next)) {
       blocks.push({
         kind: "quote",

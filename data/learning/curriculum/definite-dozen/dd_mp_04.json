@@ -17,7 +17,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Page 1 of 15\nPat in Her Own Words\n\nI tell our players right off that loyalty is so big. Loyalty. I would not hire anyone I couldn't trust. I would struggle with any player that wasn't loyal to our system.\n\nPat Summitt"
+          "markdown": "I tell our players right off that loyalty is so big. Loyalty. I would not hire anyone I couldn't trust. I would struggle with any player that wasn't loyal to our system.\n\nPat Summitt"
         },
         {
           "type": "video",
@@ -27,7 +27,34 @@
         },
         {
           "type": "markdown",
-          "markdown": "Paul proposes an organizational change. The learner agrees it is good but determines the timing is wrong and that senior leadership may not support it, then explains that decision to Paul. Prompts: (1) If Paul is a disloyal employee, what are some ways you think he might respond in this situation? (2) Let’s assume that you, as the leader, are right, and better outcomes emerge by ignoring Paul's advised changes. Let's also assume that Paul is a loyal employee. From that experience, what could both the leader and follower learn? (3) Now let’s assume yet another outcome. What if Paul, as the follower, was right about his suggestion? What if Paul’s prediction was correct and your team or group falters because the leader made the wrong choice?"
+          "markdown": "Until we become a leader with a certain level of responsibility, it’s essential within the organization to remain loyal. It would be very easy for somebody to observe some dynamic within an organization, or on a team, and quietly whisper to those around them that they have better ideas than the leader. This only serves to diminish the overall momentum and fluidity of the team."
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "Scenario"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Paul, one of your employees, has just come to you with an idea for a change he'd like to see made in the organization.\n\nYou think about it. While you agree it's a good idea, the timing just doesn't seem right for making such a change. And you're not even sure that senior leadership will buy into it at this point.\n\nYou thank Paul for sharing his idea, but you respectfully let him know this is not a change the organization will be able to implement any time soon. You give him some rationale for your reasoning."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_001_reflection_01",
+          "prompt": "If Paul is a disloyal employee, what are some ways you think he might respond in this situation?",
+          "persist": false
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_001_reflection_02",
+          "prompt": "Let’s assume that you, as the leader, are right, and better outcomes emerge by ignoring Paul's advised changes. Let's also assume that Paul is a loyal employee. From that experience, what could both the leader and follower learn?",
+          "persist": false
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_001_reflection_03",
+          "prompt": "Now let’s assume yet another outcome. What if Paul, as the follower, was right about his suggestion? What if Paul’s prediction was correct and your team or group falters because the leader made the wrong choice?",
+          "persist": false
         }
       ]
     },
@@ -129,10 +156,6 @@
       "sequence": 3,
       "title": "Develop & Demonstrate Loyalty",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "Page 3 of 15\nDevelop & Demonstrate Loyalty"
-        },
         {
           "type": "video",
           "vimeo_video_id": "1150854664",
@@ -245,7 +268,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Page 5 of 15\nLeadership Reflections: Loyalty on Display\n\nOnce again, these principles are far more likely to be replicated in your organization when they are practiced and applied rather than just talked about. Loyalty is far more likely to show up if it is specifically demonstrated by the leader."
+          "markdown": "Once again, these principles are far more likely to be replicated in your organization when they are practiced and applied rather than just talked about. Loyalty is far more likely to show up if it is specifically demonstrated by the leader."
         },
         {
           "type": "reflection",
@@ -265,10 +288,6 @@
       "sequence": 6,
       "title": "A Family Model",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "Page 6 of 15\nA Family Model"
-        },
         {
           "type": "video",
           "vimeo_video_id": "1150854693",
@@ -382,66 +401,188 @@
       "title": "The EQ Wacky Stack",
       "blocks": [
         {
-          "type": "markdown",
-          "markdown": "Page 8 of 15\nThe EQ Wacky Stack"
-        },
-        {
           "type": "video",
           "vimeo_video_id": "1150854736",
           "visible_title": "Develop & Demonstrate Loyalty: The EQ Wacky Stack, featuring Joan Cronan",
           "speaker": "Joan Cronan"
         },
         {
+          "type": "markdown",
+          "markdown": "IQ, or Intelligence Quotient, allows us to assess a person's mental or intellectual capacity. A person with a high IQ has the ability to understand complex issues and apply what they are learning at a higher level due to their intelligence. Certainly, IQ testing is an imperfect science, but generally speaking, the scientific community is pretty good in the modern era at identifying human potential by measuring intelligence with an IQ test and other measures.\n\nHowever, like Joan Cronan suggested in the video, it isn’t all about our IQ, is it? Our heads and our hearts work together in ways that can’t always be easily predicted.\n\nIn fact, there was a rather famous mistake in the scientific community many decades ago where a handful of students were accidentally told that they had a much higher IQ than they were able to demonstrate. With this knowledge, these students performed at a much higher level than their IQ would have predicted. After this rather famous discovery, it became clear that human potential was more than intellectual potential alone. We’ve come to realize that it is more about the heart and head connection when it comes to making a difference. In other words, human performance is both an emotional and intellectual proposition. As a result, we have become fascinated with the concept of both: IQ (Intelligence Quotient), and EQ (Emotional Quotient, or \"emotional intelligence\")."
+        },
+        {
           "type": "reflection",
           "question_id": "dd_mp_04_st_008_reflection_01",
-          "prompt": "The two sides of that card describe two very different types of organization, don't they? One of the quickest ways to differentiate between them is by really reflecting on how it feels to be there. Feelings are just the signal. But being aware of the feelings is the first step in addressing the concerns behind them. Because of the importance of emotions, the term emotional intelligence has emerged. Emotional intelligence refers to an individual’s ability to recognize their own emotional state and likewise to recognize the emotional states of others."
+          "prompt": "Think about this: For the most part, teachers and school leaders don't tell children their IQ. Why do you think that is?",
+          "persist": false
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "What is Emotion?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Simply put, your emotions are your feelings, and they are key to survival. Let’s start with the obvious. Human beings are always ebbing and flowing from one emotional state to the next.\n\nEmotions play a critical role in our very existence. As you work your way through this learning material, we hope you are energized and curious. Those are emotional states. If, while you're reading this, the roof of your house starts caving in, it would be very logical for you to shift from curiosity to fear and terror! In fact, your ancestors responded emotionally to life-threatening situations, shifted their state, and made choices that enabled them to live another day. Had they not done so, you wouldn't be here today, going through this lesson! That's right — emotions aren’t merely ‘mushy’ things reserved for romance, birthdays, or rare poignant moments, as some believe. Emotions are lived each day, and the best leaders understand that they are shared experiences, and that people all around you are constantly experiencing emotional states that will make them more or less effective."
         },
         {
           "type": "reflection",
           "question_id": "dd_mp_04_st_008_reflection_02",
-          "prompt": "How EQ Shows Up. Leaders with high levels of EQ can sense what their team is feeling and can reflect on the appropriateness of that feeling. What if the team failed to achieve expectations and the team members didn’t seem very frustrated? Might the leader worry more about that? Indeed, the best leaders understand that emotions are a signal, and what to do with that signal might be different depending on the circumstances. Leaders must be able to sense these emotions if they are going to make the right choices for the team."
+          "prompt": "Think about this: As you're working your way through this section of the material, what are you feeling right now?",
+          "persist": false
         },
         {
           "type": "markdown",
-          "markdown": "IQ, or Intelligence Quotient, allows us to assess a person's mental or intellectual capacity. A person with a high IQ has the ability to understand complex issues and apply what they are learning at a higher level due to their intelligence. Certainly, IQ testing is an imperfect science, but generally speaking, the scientific community is pretty good in the modern era at identifying human potential by measuring intelligence with an IQ test and other measures.\n\nHowever, like Joan Cronan suggested in the video, it isn’t all about our IQ, is it? Our heads and our hearts work together in ways that can’t always be easily predicted.\n\nIn fact, there was a rather famous mistake in the scientific community many decades ago where a handful of students were accidentally told that they had a much higher IQ than they were able to demonstrate. With this knowledge, these students performed at a much higher level than their IQ would have predicted. After this rather famous discovery, it became clear that human potential was more than intellectual potential alone. We’ve come to realize that it is more about the heart and head connection when it comes to making a difference. In other words, human performance is both an emotional and intellectual proposition. As a result, we have become fascinated with the concept of both: IQ (Intelligence Quotient), and EQ (Emotional Quotient, or \"emotional intelligence\").\n\nWhat is Emotion? Simply put, your emotions are your feelings, and they are key to survival. Let’s start with the obvious. Human beings are always ebbing and flowing from one emotional state to the next.\n\nEmotions play a critical role in our very existence. As you work your way through this learning material, we hope you are energized and curious. Those are emotional states. If, while you're reading this, the roof of your house starts caving in, it would be very logical for you to shift from curiosity to fear and terror! In fact, your ancestors responded emotionally to life-threatening situations, shifted their state, and made choices that enabled them to live another day. Had they not done so, you wouldn't be here today, going through this lesson! That's right — emotions aren’t merely ‘mushy’ things reserved for romance, birthdays, or rare poignant moments, as some believe. Emotions are lived each day, and the best leaders understand that they are shared experiences, and that people all around you are constantly experiencing emotional states that will make them more or less effective.\n\nIf you missed the announcement and had at least some small degree of emotional intelligence, you would walk into the room and immediately recognize that something was different. You could tell by people’s facial expressions or by the tone of their voice that something had happened. If you had poor emotional intelligence, you might miss the emotional signals being put out by all of the sad people in the room and begin to be boisterous or act in a way that's completely out of touch with what’s going on. We’ve all been imperfect in understanding the emotional mood others are experiencing at one point or another, but really trying to be emotionally intelligent is helpful because it allows you to be more aware of exactly how people are feeling and, as a result, more responsive. Therefore, the term \"EQ\" is simply another way of discussing emotional intelligence or awareness. If you have high levels of emotional intelligence, you have the ability to sense emotions in others, and you know your own emotions.\n\nEmotional Intelligence Is Knowing the Difference. When you have advanced levels of emotional intelligence, you have the ability to understand the difference between one emotional state and another. For example, most people understand the difference between being happy and being deeply satisfied. You could eat a piece of chocolate when you’re hungry before dinner and enjoy the impact of the cocoa on your taste buds. You can appreciate the sugar and carbohydrate surge in your bloodstream and feel good, even for just a second. That might give you a ‘happy’ feeling. You could also cross the finish line after training for a year to run in the Boston Marathon, collapsing in the arms of your partner, weeping in exhaustion. The happiness you feel after eating a piece of chocolate versus the deep sense of satisfaction after training and running a marathon represent two very different emotional experiences. It's also understanding the difference between being angry versus being disappointed in an outcome that didn't quite turn out the way it should. The better you're able to understand these emotional reactions and channel them, the more successful you will be as a leader.\n\nDeveloping Emotional Intelligence. Yes, emotional intelligence can be developed! The keys are four building blocks: Understand Yourself; Manage Yourself; Understand Others; Manage Relationships."
-        },
-        {
-          "type": "markdown",
-          "markdown": "The Accident: It's a Tuesday morning. Collette, a coworker, is spending the day—perhaps the next week or more—at the hospital. Her partner was in a terrible car accident last night and is in critical condition. The Meeting: As the workday begins, Alejandra, the manager, shares the news with the team. They're deeply moved and feeling empathy for Collette and her partner. Devastated by the news, everyone in the room has a collective sense of palpable sadness and concern. Your Morning: On that same Tuesday, you oversleep and get stuck in traffic. Your Response: You missed your manager's announcement and you're a little late for the meeting."
-        },
-        {
-          "type": "markdown",
-          "markdown": "The keys to developing emotional intelligence are: 1. Understand Yourself; 2. Manage Yourself; 3. Understand Others; 4. Manage Relationships."
+          "markdown": "The two sides of that card describe two very different types of organization, don't they? One of the quickest ways to differentiate between them is by really reflecting on how it feels to be there. Feelings are just the signal. But being aware of the feelings is the first step in addressing the concerns behind them. Because of the importance of emotions, the term emotional intelligence has emerged. Emotional intelligence refers to an individual’s ability to recognize their own emotional state and likewise to recognize the emotional states of others."
         },
         {
           "type": "sections",
           "sections": [
             {
-              "id": "how_does_it_feel_to_work_in_my_organizat",
-              "title": "How does it feel to work in my organization? Do people come to work and feel a sense of excitement, curiosity, and anticipation? Are they...",
-              "body": "How does it feel to work in my organization? Do people come to work and feel a sense of excitement, curiosity, and anticipation? Are they a little bit nervous because they know they’re going to grow? Are they smiling as they think about the friendly interaction from their coworkers?\n\n-OR- Are they fearful because they're overwhelmed and afraid people are going to criticize and throw them under the bus? Are they lonely because they feel isolated?"
+              "id": "workplace_feelings_flashcard",
+              "title": "How does it feel to work in my organization? Do people come to work and feel a sense of excitement, curiosity, and anticipation? Are they a little bit nervous because they know they’re going to grow? Are they smiling as they think about the friendly interaction from their coworkers?",
+              "body": "-OR- Are they fearful because they're overwhelmed and afraid people are going to criticize and throw them under the bus? Are they lonely because they feel isolated?"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "Emotional Intelligence Is Knowing the Difference."
+        },
+        {
+          "type": "markdown",
+          "markdown": "When you have advanced levels of emotional intelligence, you have the ability to understand the difference between one emotional state and another. For example, most people understand the difference between being happy and being deeply satisfied. You could eat a piece of chocolate when you’re hungry before dinner and enjoy the impact of the cocoa on your taste buds. You can appreciate the sugar and carbohydrate surge in your bloodstream and feel good, even for just a second. That might give you a ‘happy’ feeling. You could also cross the finish line after training for a year to run in the Boston Marathon, collapsing in the arms of your partner, weeping in exhaustion. The happiness you feel after eating a piece of chocolate versus the deep sense of satisfaction after training and running a marathon represent two very different emotional experiences. It's also understanding the difference between being angry versus being disappointed in an outcome that didn't quite turn out the way it should. The better you're able to understand these emotional reactions and channel them, the more successful you will be as a leader.\n\nIf you missed the announcement and had at least some small degree of emotional intelligence, you would walk into the room and immediately recognize that something was different. You could tell by people’s facial expressions or by the tone of their voice that something had happened. If you had poor emotional intelligence, you might miss the emotional signals being put out by all of the sad people in the room and begin to be boisterous or act in a way that's completely out of touch with what’s going on. We’ve all been imperfect in understanding the emotional mood others are experiencing at one point or another, but really trying to be emotionally intelligent is helpful because it allows you to be more aware of exactly how people are feeling and, as a result, more responsive. Therefore, the term \"EQ\" is simply another way of discussing emotional intelligence or awareness. If you have high levels of emotional intelligence, you have the ability to sense emotions in others, and you know your own emotions."
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "The Accident"
+        },
+        {
+          "type": "markdown",
+          "markdown": "It's a Tuesday morning. Collette, a coworker, is spending the day—perhaps the next week or more—at the hospital. Her partner was in a terrible car accident last night and is in critical condition."
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "The Meeting"
+        },
+        {
+          "type": "markdown",
+          "markdown": "As the workday begins, Alejandra, the manager, shares the news with the team. They're deeply moved and feeling empathy for Collette and her partner. Devastated by the news, everyone in the room has a collective sense of palpable sadness and concern."
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "Your Morning"
+        },
+        {
+          "type": "markdown",
+          "markdown": "On that same Tuesday, you oversleep and get stuck in traffic."
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "Your Response"
+        },
+        {
+          "type": "markdown",
+          "markdown": "You missed your manager's announcement and you're a little late for the meeting."
+        },
+        {
+          "type": "sort",
+          "prompt": "Sort each response into Showing Emotional Intelligence or Lacking Emotional Intelligence.",
+          "categories": [
+            "Showing Emotional Intelligence",
+            "Lacking Emotional Intelligence"
+          ],
+          "cards": [
+            {
+              "id": "notice_collette_missing",
+              "text": "You notice Collette is missing and you ask if something is wrong.",
+              "correct_category": "Showing Emotional Intelligence"
             },
             {
-              "id": "understand_yourself",
+              "id": "you_all_seem_upset",
+              "text": "You say, ‘You all seem upset. What's going on? Is everything okay?’",
+              "correct_category": "Showing Emotional Intelligence"
+            },
+            {
+              "id": "recognize_team_upset",
+              "text": "You recognize the team is upset. Clearly something bad has happened.",
+              "correct_category": "Showing Emotional Intelligence"
+            },
+            {
+              "id": "wonder_why_upset_about_late",
+              "text": "You wonder why the team is so upset that you are running a bit late.",
+              "correct_category": "Lacking Emotional Intelligence"
+            },
+            {
+              "id": "sorry_late_waiting_collette",
+              "text": "You say, ‘Sorry I'm late, but I see we're also waiting for Collette anyway!’",
+              "correct_category": "Lacking Emotional Intelligence"
+            },
+            {
+              "id": "fuming_about_freeway",
+              "text": "You run into the meeting, fuming about the freeway congestion this morning.",
+              "correct_category": "Lacking Emotional Intelligence"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "How EQ Shows Up. Leaders with high levels of EQ can sense what their team is feeling and can reflect on the appropriateness of that feeling. What if the team failed to achieve expectations and the team members didn’t seem very frustrated? Might the leader worry more about that? Indeed, the best leaders understand that emotions are a signal, and what to do with that signal might be different depending on the circumstances. Leaders must be able to sense these emotions if they are going to make the right choices for the team."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_04_st_008_reflection_03",
+          "prompt": "Suppose your team just had a major failure. It fell short of expectations by a mile! Team members feel frustrated and anxious. Is their collective response a good thing or a bad thing? Why? Think about it and respond below.",
+          "persist": false
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "Developing Emotional Intelligence."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Yes, emotional intelligence can be developed! The keys are four building blocks:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Understand Yourself",
+            "Manage Yourself",
+            "Understand Others",
+            "Manage Relationships"
+          ]
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
               "title": "Understand yourself",
               "body": "To understand yourself, recognize that you experience a variety of emotions throughout each day. Understanding your recurring states helps identify contributing habits or unresolved issues. Personality assessments can also reveal your emotional tendencies and how you address problems."
             },
             {
-              "id": "manage_yourself",
               "title": "Manage yourself",
               "body": "Once you understand yourself better, manage your work life accordingly. If many choices, voices, and stress overwhelm you, moving somewhere quiet to reflect may help you stay productive."
             },
             {
-              "id": "understand_others",
               "title": "Understand others",
               "body": "Recognize that other people also move among emotional states. By understanding the mood of the room and distinctions such as happiness versus deep satisfaction, leaders can make better decisions and encourage productive direction."
             },
             {
-              "id": "manage_relationships",
               "title": "Manage relationships",
               "body": "Good leaders provide personalized support. Some people need verbal praise and motivation; others prefer one-on-one contact and quiet observation. Emotional intelligence in action requires listening, flexibility, and practice."
             }
           ]
+        },
+        {
+          "type": "callout",
+          "text": "The keys to developing emotional intelligence are: 1. Understand Yourself; 2. Manage Yourself; 3. Understand Others; 4. Manage Relationships."
         }
       ]
     },
@@ -562,7 +703,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Page 10 of 15\nLeadership Reflections: The Emotionally Intelligent Leader\n\nIn the last two units, you had the chance to learn about the merits of emotional intelligence. Leaders who are emotionally intelligent set themselves apart by their ability to understand and motivate those around them."
+          "markdown": "In the last two units, you had the chance to learn about the merits of emotional intelligence. Leaders who are emotionally intelligent set themselves apart by their ability to understand and motivate those around them."
         },
         {
           "type": "reflection",
@@ -572,11 +713,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_04_st_010_reflection_02",
-          "prompt": "How can you demonstrate your awareness and understanding of the emotions of others, and how could that ultimately lead to accelerated levels of performance? What are the steps?"
-        },
-        {
-          "type": "markdown",
-          "markdown": "Get specific and be clear about this important topic!"
+          "prompt": "How can you demonstrate your awareness and understanding of the emotions of others, and how could that ultimately lead to accelerated levels of performance? What are the steps? Get specific and be clear about this important topic!"
         }
       ]
     },
@@ -587,10 +724,6 @@
       "title": "Being Loyal While Managing Conflict",
       "blocks": [
         {
-          "type": "markdown",
-          "markdown": "Page 11 of 15\nBeing Loyal While Managing Conflict"
-        },
-        {
           "type": "video",
           "vimeo_video_id": "1150854768",
           "visible_title": "Develop & Demonstrate Loyalty: Being Loyal While Managing Conflict, featuring Joan Cronan",
@@ -598,7 +731,76 @@
         },
         {
           "type": "markdown",
-          "markdown": "In the previous section, we discussed the importance of emotions. Throughout this learning experience, we’ve discussed the advantage of positive emotions and the simple truth that the best organizations are consistently experiencing a collective set of emotions that lead to better outcomes. The best teams experience emotions like pride, curiosity, joy, and excitement more than less successful organizations. This being said, it’s a mistake for a leader to assume that other types of emotions aren't going to emerge constantly. This is part of what it means to be human. A great place to start reflecting on this comes in the inevitable moment when a leader must deal with conflict.\n\nAre You in Denial? Some leaders see it as a strength to avoid conflict. In reality, the avoidance of conflict can actually create even deeper chasms and do more to hurt an organizational culture than help it. While none of us likes the discomfort of dealing with a difficult circumstance, the ultimate opportunity for growth makes it worthwhile. Don’t deny the opportunity to grow by being afraid to deal with conflict! Indeed, in many cases after dealing with the conflict, better feelings will emerge, and in some cases, warring factions will actually become loyal allies!\n\nThe 6-Step Process for Dealing with Conflict. Dealing with conflict isn't easy. Emotions can get amped up, and you may not think as clearly as you normally would in a given situation. To that end, having a plan or a process to effectively deal with conflict can help."
+          "markdown": "In the previous section, we discussed the importance of emotions. Throughout this learning experience, we’ve discussed the advantage of positive emotions and the simple truth that the best organizations are consistently experiencing a collective set of emotions that lead to better outcomes. The best teams experience emotions like pride, curiosity, joy, and excitement more than less successful organizations. This being said, it’s a mistake for a leader to assume that other types of emotions aren't going to emerge constantly. This is part of what it means to be human. A great place to start reflecting on this comes in the inevitable moment when a leader must deal with conflict."
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "Are You in Denial?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Some leaders see it as a strength to avoid conflict. In reality, the avoidance of conflict can actually create even deeper chasms and do more to hurt an organizational culture than help it. While none of us likes the discomfort of dealing with a difficult circumstance, the ultimate opportunity for growth makes it worthwhile. Don’t deny the opportunity to grow by being afraid to deal with conflict! Indeed, in many cases after dealing with the conflict, better feelings will emerge, and in some cases, warring factions will actually become loyal allies!"
+        },
+        {
+          "type": "heading",
+          "level": 3,
+          "text": "The 6-Step Process for Dealing with Conflict"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Dealing with conflict isn't easy. Emotions can get amped up, and you may not think as clearly as you normally would in a given situation. To that end, having a plan or a process to effectively deal with conflict can help."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "own_the_conversation",
+              "title": "Own the conversation",
+              "body": "When you own the conversation when dealing with conflict, you don’t begin the discussion by saying, ‘Do you know what your problem is?’ It’s important to enter a conflict conversation without the burden of initial blame. The leader should immediately own, without accusation or assumption, their desire to address the issue and their desire first and foremost to understand, to listen, and to learn. It’s important when doing this, however, to be honest about the situation. For example, if a leader is addressing a circumstance where someone they work with didn’t take responsibility for a mistake they made, they would start by benignly communicating what they heard, and describing how it made them feel, while once again clarifying the desire to learn about the other person’s perspective or experience."
+            },
+            {
+              "id": "disarm_the_tension",
+              "title": "Disarm the tension",
+              "body": "Even if a leader assumes that they have a reputation for being a good listener and giving people a chance, it’s important in a situation like this to reiterate these facts. Remind those involved that they are important to the organization; their feelings matter; and even if this conversation is challenging, the goal is to learn and for everyone (including the leader) to continue to grow and get better. This type of disarming will free the participants from being defensive, preparing them instead for personal and career growth."
+            },
+            {
+              "id": "describe_the_situation_factually",
+              "title": "Describe the situation factually, without emotion",
+              "body": "As a leader, when you bring the situation to the attention of those involved, it’s important to describe that situation as benignly as possible. This isn’t always easy, but it also is important to discuss these issues without accusation. For example, if the leader had observed a team member acting in a cruel and thoughtless way towards another, it would be important in that discussion to describe what was observed in careful detail without qualifying statements (‘And then, you RUDELY said...’). Notice, with that statement, you’ve already judged the action and intention. This can be difficult, because in some cases, maybe the rude behavior is obvious to everyone. Remember that the goal of dealing with conflict isn’t to assert the leader's observation. The goal is to bring behaviors to light and learn what those behaviors mean. A much better outcome is when those involved recognize on their own that they were being rude rather than a supervisor declaring the obvious. If leaders want excellence in others, they have to be consistently engaged in showing them how to grow. In this case, pointing out an opportunity to grow and letting them absorb it and declare it will result in more growth."
+            },
+            {
+              "id": "describe_the_impact",
+              "title": "Describe the impact",
+              "body": "After a factual recitation of what was observed, the leader then needs to once again benignly describe the impact, without accusation. In the previous example, let’s assume the team member was rude in a public way to another team member. It would be a mistake to say, ‘And after you said that awful thing, you got your wish. Your team member was humiliated.’ The mistake here is that you’ve already assumed intention. After all, maybe the person was trying to be funny or was just clueless and truly missed the mark. To make that person feel like they would intentionally hurt another person could be enormously hurtful to them, even after an egregious mistake. Though you don’t want to assume intent, it is important to describe the impact as thoroughly as possible. If feelings were hurt, or people were discouraged, it’s important to share the absolute truth about that impact. Remember, you can be truthful without being accusatory."
+            },
+            {
+              "id": "ask_for_a_response",
+              "title": "Ask for a response",
+              "body": "Early in the conversation, it’s helpful to remind the individual being addressed that they will be given a chance to share their version of the facts and to respond. After sharing the facts and the impact above, it’s important to allow the person to gather their thoughts and respond. Remember, if you are initiating a difficult conversation, you have had the advantage of preparing in advance for the discussion. The person at the center of the conversation may not have had that luxury, so slow down and give them time to reflect. This might keep them from overreacting or acting out further."
+            },
+            {
+              "id": "conclude_and_state_your_request",
+              "title": "Conclude and state your request",
+              "body": "Making sure things are clear at the end is important. The leader may decide to provide a summarized overview of what they just heard, in terms of what was presented, what other perspectives were shared, and what the next steps are. If the leader is forced to make some recommendations at this point, factually and thoughtfully lay them out. Put these requests in gentle terms such as, ‘It would really help me if...,’ allowing the conversation to conclude in a less confrontational way."
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "text": "While dealing with conflict isn't easy, having a plan or process to effectively deal with it can be very helpful:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Own the conversation.",
+            "Disarm the tension.",
+            "Describe the situation factually, without emotion.",
+            "Describe the impact.",
+            "Ask for a response.",
+            "Conclude and state your request."
+          ]
         }
       ]
     },
@@ -704,10 +906,6 @@
       "sequence": 13,
       "title": "Conclusion",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "Page 13 of 15\nConclusion"
-        },
         {
           "type": "video",
           "vimeo_video_id": "1150854719",
@@ -819,22 +1017,17 @@
       "title": "Leadership Reflections: Can You Deal with Conflict?",
       "blocks": [
         {
-          "type": "reflection",
-          "question_id": "dd_mp_04_st_015_reflection_01",
-          "prompt": "Leadership Reflections: Can You Deal with Conflict?"
-        },
-        {
           "type": "markdown",
           "markdown": "The best leaders or peak performers have a unique ability to manage conflict. In other words, they learn to not only minimize or eliminate the debilitating aspects of dealing with conflict, but they actually learn to use conflict to identify areas of growth, clarify potential misunderstandings, and build better relationships. This takes a unique level of commitment, and this learning experience offers a six-step process for dealing with conflict."
         },
         {
           "type": "reflection",
-          "question_id": "dd_mp_04_st_015_reflection_02",
+          "question_id": "dd_mp_04_st_015_reflection_01",
           "prompt": "For reflection, think about the six-step process and your overall understanding of how to apply it. How would you make this process work in your organization?"
         },
         {
           "type": "reflection",
-          "question_id": "dd_mp_04_st_015_reflection_03",
+          "question_id": "dd_mp_04_st_015_reflection_02",
           "prompt": "What do you see as the opportunity for the culture if you consistently operationalized this approach to dealing with conflict?"
         }
       ]

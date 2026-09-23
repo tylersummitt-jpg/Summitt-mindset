@@ -122,7 +122,7 @@ describe("step experience", () => {
   it("embeds only a confirmed Vimeo id", () => {
     const { container } = renderStep("dd_mp_02_st_006");
     const iframe = container.querySelector("iframe");
-    expect(iframe?.getAttribute("src")).toContain("player.vimeo.com/video/1150754397");
+    expect(iframe?.getAttribute("src")).toContain("player.vimeo.com/video/1150754357");
     expect(iframe?.getAttribute("src")).not.toContain("autoplay");
     expect(iframe?.parentElement?.className).toContain("aspect-video");
   });
@@ -295,7 +295,7 @@ describe("step experience", () => {
         isLastStep: false,
         enforceRequirements: true,
       })
-    ).toBe("Check Results");
+    ).toBe("See results");
     expect(
       quizPrimaryLabel({
         saving: false,
@@ -764,5 +764,140 @@ describe("step experience", () => {
     renderStep("dd_mp_02_st_016");
     expect(screen.getByText(/one behavior at a time/i)).toBeTruthy();
     expect(screen.queryByText(/stack of cards/i)).toBeNull();
+  });
+
+  it("grades both questions in one quiz and still allows Continue at every score", async () => {
+    const user = userEvent.setup();
+    const step = getLearningStepForClient("dd_mp_06", "dd_mp_06_st_003");
+    if (!step) throw new Error("missing discipline quiz");
+    const quizzes = step.blocks.filter((block) => block.type === "quiz");
+    expect(quizzes).toHaveLength(1);
+    const quiz = quizzes[0];
+    if (!quiz || quiz.type !== "quiz") throw new Error("missing quiz");
+    expect(quiz.questions.map((question) => question.question_id)).toEqual([
+      "dd_mp_06_st_003_q01",
+      "dd_mp_06_st_003_q02",
+    ]);
+    const [first, second] = quiz.questions;
+    if (!first || !second) throw new Error("missing questions");
+    const firstCorrect = first.choices.map((choice) => choice.id);
+    const secondWrong = second.choices[0];
+    const secondCorrect = second.choices[1];
+    if (!secondWrong || !secondCorrect) throw new Error("missing choices");
+
+    const grade = (
+      results: Array<{
+        questionId: string;
+        correct: boolean;
+        selectedChoiceIds: string[];
+        correctChoiceIds: string[];
+      }>
+    ) => ({
+      ok: true as const,
+      quiz: {
+        correctCount: results.filter((result) => result.correct).length,
+        questionCount: 2,
+        minimumCorrect: quiz.minimum_correct,
+        questions: results,
+      },
+    });
+
+    gradeLearningStep.mockResolvedValueOnce(
+      grade([
+        {
+          questionId: first.question_id,
+          correct: true,
+          selectedChoiceIds: firstCorrect,
+          correctChoiceIds: firstCorrect,
+        },
+        {
+          questionId: second.question_id,
+          correct: false,
+          selectedChoiceIds: [secondWrong.id],
+          correctChoiceIds: [secondCorrect.id],
+        },
+      ])
+    );
+
+    render(
+      <StepExperience
+        miniProgramId="dd_mp_06"
+        collectionTitle="Definite Dozen"
+        step={step}
+        stepCount={15}
+        previousHref={null}
+        initialAnswers={{}}
+        enforceRequirements
+        isLastStep={false}
+      />
+    );
+
+    expect(screen.getByText(first.prompt)).toBeTruthy();
+    expect(screen.getByText(second.prompt)).toBeTruthy();
+    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(document.body.innerHTML).not.toContain("correct_choice_ids");
+
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
+    expect(await screen.findByText("1 of 2 correct")).toBeTruthy();
+    expect(
+      screen.getByText(first.prompt).closest("[data-question-card]")?.getAttribute("data-question-result")
+    ).toBe("correct");
+    expect(
+      screen.getByText(second.prompt).closest("[data-question-card]")?.getAttribute("data-question-result")
+    ).toBe("incorrect");
+    expect(screen.getByText(secondWrong.text).closest("label")?.textContent).toContain("Your answer");
+    expect(screen.getByText(secondCorrect.text).closest("label")?.textContent).toContain("Correct answer");
+    expect(screen.getByText(first.choices[0]?.text ?? "").closest("label")?.textContent).toContain(
+      "Correct answer"
+    );
+    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeNull();
+    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
+
+    gradeLearningStep.mockResolvedValueOnce(
+      grade([
+        {
+          questionId: first.question_id,
+          correct: false,
+          selectedChoiceIds: [],
+          correctChoiceIds: firstCorrect,
+        },
+        {
+          questionId: second.question_id,
+          correct: false,
+          selectedChoiceIds: [secondWrong.id],
+          correctChoiceIds: [secondCorrect.id],
+        },
+      ])
+    );
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain }));
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
+    expect(await screen.findByText("0 of 2 correct")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeNull();
+
+    gradeLearningStep.mockResolvedValueOnce(
+      grade([
+        {
+          questionId: first.question_id,
+          correct: true,
+          selectedChoiceIds: firstCorrect,
+          correctChoiceIds: firstCorrect,
+        },
+        {
+          questionId: second.question_id,
+          correct: true,
+          selectedChoiceIds: [secondCorrect.id],
+          correctChoiceIds: [secondCorrect.id],
+        },
+      ])
+    );
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain }));
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
+    expect(await screen.findByText("2 of 2 correct")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
+    expect(screen.queryByText("Failed")).toBeNull();
+    expect(screen.queryByText(/Passing:/)).toBeNull();
   });
 });

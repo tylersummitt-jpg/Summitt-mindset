@@ -324,4 +324,37 @@ describe("all live Programs collections", () => {
     expect(getLearningMiniProgram("cw_mp_15")).toBeNull();
     expect(getLearningMiniProgram("potl_mp_14")).toBeNull();
   });
+
+  it("allows at most one quiz block on every step", () => {
+    const violations: string[] = [];
+    for (const collection of listLearningCollections()) {
+      for (const card of collection.miniPrograms) {
+        const program = getLearningMiniProgram(card.id);
+        if (!program) continue;
+        for (const step of program.steps) {
+          const quizBlocks = step.blocks.filter((block) => block.type === "quiz").length;
+          if (quizBlocks > 1) {
+            violations.push(`${program.id} ${step.id} ${quizBlocks} quiz blocks`);
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it("keeps the two discipline checks as one quiz with both questions", () => {
+    const program = getLearningMiniProgram("dd_mp_06");
+    for (const stepId of ["dd_mp_06_st_003", "dd_mp_06_st_011"]) {
+      const step = program?.steps.find((candidate) => candidate.id === stepId);
+      const quizzes = step?.blocks.filter((block) => block.type === "quiz") ?? [];
+      expect(quizzes).toHaveLength(1);
+      const quiz = quizzes[0];
+      if (!quiz || quiz.type !== "quiz") throw new Error(stepId);
+      expect(quiz.minimum_correct).toBe(2);
+      expect(quiz.questions.map((question) => question.question_id)).toEqual([
+        `${stepId}_q01`,
+        `${stepId}_q02`,
+      ]);
+    }
+  });
 });

@@ -21,9 +21,9 @@ const LEARNING_LIB = path.join(ROOT, "src/lib/learning");
 const PRINCIPLE_1_VIMEO: Array<[string, string]> = [
   ["dd_mp_02_st_001", "1150754411"],
   ["dd_mp_02_st_003", "1150754378"],
-  ["dd_mp_02_st_006", "1150754397"],
-  ["dd_mp_02_st_011", "1150754357"],
-  ["dd_mp_02_st_014", "1150754332"],
+  ["dd_mp_02_st_006", "1150754357"],
+  ["dd_mp_02_st_011", "1150754332"],
+  ["dd_mp_02_st_014", "1150754397"],
   ["dd_mp_02_st_016", "1150754314"],
 ];
 

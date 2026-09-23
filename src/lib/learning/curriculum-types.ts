@@ -8,6 +8,11 @@
 
 export const LEARNING_BLOCK_TYPES = [
   "markdown",
+  "heading",
+  "list",
+  "table",
+  "callout",
+  "process",
   "video",
   "image",
   "quiz",
@@ -39,6 +44,40 @@ export type LearningMarkdownBlock = {
   markdown: string;
 };
 
+export type LearningHeadingBlock = {
+  type: "heading";
+  level: 2 | 3;
+  text: string;
+};
+
+export type LearningListBlock = {
+  type: "list";
+  ordered: boolean;
+  items: string[];
+};
+
+export type LearningTableBlock = {
+  type: "table";
+  caption?: string;
+  headers: string[];
+  rows: string[][];
+};
+
+export type LearningCalloutBlock = {
+  type: "callout";
+  text: string;
+};
+
+export type LearningProcessStep = {
+  title: string;
+  body: string;
+};
+
+export type LearningProcessBlock = {
+  type: "process";
+  steps: LearningProcessStep[];
+};
+
 export type LearningVideoBlock = {
   type: "video";
   vimeo_video_id: string | null;
@@ -65,6 +104,8 @@ export type LearningReflectionBlock = {
   type: "reflection";
   question_id: string;
   prompt: string;
+  /** False when the source says the response is not saved. Omitted means persisted. */
+  persist?: boolean;
 };
 
 export type LearningChoicePromptBlock = {
@@ -103,6 +144,11 @@ export type LearningSectionsBlock = {
 
 export type LearningBlock =
   | LearningMarkdownBlock
+  | LearningHeadingBlock
+  | LearningListBlock
+  | LearningTableBlock
+  | LearningCalloutBlock
+  | LearningProcessBlock
   | LearningVideoBlock
   | LearningImageBlock
   | LearningQuizBlock
@@ -152,6 +198,11 @@ export type PublicSortBlock = {
 
 export type PublicLearningBlock =
   | LearningMarkdownBlock
+  | LearningHeadingBlock
+  | LearningListBlock
+  | LearningTableBlock
+  | LearningCalloutBlock
+  | LearningProcessBlock
   | LearningVideoBlock
   | LearningImageBlock
   | PublicQuizBlock
@@ -300,6 +351,78 @@ function parseBlock(
         type: "markdown",
         markdown: requireString(value.markdown, `${label}.markdown`),
       };
+    case "heading": {
+      const level = value.level;
+      if (level !== 2 && level !== 3) {
+        throw new Error(`Invalid curriculum: ${label}.level`);
+      }
+      return {
+        type: "heading",
+        level,
+        text: requireString(value.text, `${label}.text`),
+      };
+    }
+    case "list": {
+      if (!Array.isArray(value.items) || value.items.length === 0) {
+        throw new Error(`Invalid curriculum: ${label}.items`);
+      }
+      return {
+        type: "list",
+        ordered: value.ordered === true,
+        items: value.items.map((item, index) => requireString(item, `${label}.items[${index}]`)),
+      };
+    }
+    case "table": {
+      if (!Array.isArray(value.headers) || value.headers.length === 0) {
+        throw new Error(`Invalid curriculum: ${label}.headers`);
+      }
+      const headers = value.headers.map((header, index) =>
+        requireString(header, `${label}.headers[${index}]`)
+      );
+      if (!Array.isArray(value.rows) || value.rows.length === 0) {
+        throw new Error(`Invalid curriculum: ${label}.rows`);
+      }
+      const rows = value.rows.map((row, rowIndex) => {
+        if (!Array.isArray(row) || row.length !== headers.length) {
+          throw new Error(`Invalid curriculum: ${label}.rows[${rowIndex}]`);
+        }
+        return row.map((cell, cellIndex) => {
+          if (typeof cell !== "string") {
+            throw new Error(`Invalid curriculum: ${label}.rows[${rowIndex}][${cellIndex}]`);
+          }
+          return cell;
+        });
+      });
+      const caption = optionalString(value.caption, `${label}.caption`);
+      return {
+        type: "table",
+        ...(caption ? { caption } : {}),
+        headers,
+        rows,
+      };
+    }
+    case "callout":
+      return {
+        type: "callout",
+        text: requireString(value.text, `${label}.text`),
+      };
+    case "process": {
+      if (!Array.isArray(value.steps) || value.steps.length === 0) {
+        throw new Error(`Invalid curriculum: ${label}.steps`);
+      }
+      return {
+        type: "process",
+        steps: value.steps.map((stepValue, index) => {
+          if (!isRecord(stepValue)) {
+            throw new Error(`Invalid curriculum: ${label}.steps[${index}]`);
+          }
+          return {
+            title: requireString(stepValue.title, `${label}.steps[${index}].title`),
+            body: requireString(stepValue.body, `${label}.steps[${index}].body`),
+          };
+        }),
+      };
+    }
     case "video": {
       const vimeo = requireStringOrNull(value.vimeo_video_id, `${label}.vimeo_video_id`);
       if (vimeo !== null && !/^\d+$/.test(vimeo)) {
@@ -314,6 +437,9 @@ function parseBlock(
     }
     case "image": {
       const src = requireString(value.src, `${label}.src`);
+      if (typeof value.alt !== "string") {
+        throw new Error(`Invalid curriculum: ${label}.alt must be a string`);
+      }
       const blockedArchive = ["data", "learning", "source"].join("/");
       if (!src.startsWith("/") || src.includes(blockedArchive)) {
         throw new Error(`Invalid curriculum: ${label}.src must be a curated public path`);
@@ -327,7 +453,7 @@ function parseBlock(
       return {
         type: "image",
         src,
-        alt: requireString(value.alt, `${label}.alt`),
+        alt: value.alt,
         ...(quote ? { quote } : {}),
         ...(attribution ? { attribution } : {}),
         ...(role === "completion" ? { role: "completion" as const } : {}),
@@ -341,10 +467,14 @@ function parseBlock(
         throw new Error(`Invalid curriculum: duplicate question id ${questionId}`);
       }
       questionIds.add(questionId);
+      if (value.persist != null && typeof value.persist !== "boolean") {
+        throw new Error(`Invalid curriculum: ${label}.persist`);
+      }
       return {
         type: "reflection",
         question_id: questionId,
         prompt: requireString(value.prompt, `${label}.prompt`),
+        ...(value.persist === false ? { persist: false as const } : {}),
       };
     }
     case "choice_prompt":

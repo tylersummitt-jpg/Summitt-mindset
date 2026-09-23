@@ -18,6 +18,13 @@ import {
 import { ProgramsKnowledgeCheck } from "@/components/programs/programs-knowledge-check";
 import { ProgramsLessonHeader } from "@/components/programs/programs-lesson-header";
 import { ProgramsProse } from "@/components/programs/programs-prose";
+import {
+  ProgramsCallout,
+  ProgramsHeading,
+  ProgramsList,
+  ProgramsProcess,
+  ProgramsTable,
+} from "@/components/programs/programs-structured";
 import { ProgramsQuoteImage } from "@/components/programs/programs-quote-image";
 import { ProgramsReveal } from "@/components/programs/programs-reveal";
 import { ProgramsTeaching } from "@/components/programs/programs-teaching";
@@ -91,7 +98,7 @@ export function StepExperience({
     () =>
       step.blocks.filter(
         (block): block is Extract<PublicLearningBlock, { type: "reflection" }> =>
-          block.type === "reflection"
+          block.type === "reflection" && block.persist !== false
       ),
     [step.blocks]
   );
@@ -458,6 +465,12 @@ function BlockView({
   showBanner: boolean;
   nearbySectionTitles: string[];
 }) {
+  if (block.type === "heading") return <ProgramsHeading block={block} />;
+  if (block.type === "list") return <ProgramsList block={block} />;
+  if (block.type === "table") return <ProgramsTable block={block} />;
+  if (block.type === "callout") return <ProgramsCallout block={block} />;
+  if (block.type === "process") return <ProgramsProcess block={block} />;
+
   if (block.type === "markdown") {
     const text = proseBesideReveal(block.markdown, nearbySectionTitles);
     if (!text) return null;
@@ -539,6 +552,15 @@ function BlockView({
   }
 
   if (block.type === "reflection") {
+    if (block.persist === false) {
+      return (
+        <div className={programsSectionCard}>
+          <p className={programsEyebrow}>Reflection</p>
+          <p className={`${utBody} mt-3 break-words text-stone-100`}>{block.prompt}</p>
+          <p className={`mt-3 ${utBodyMuted}`}>This response is not saved.</p>
+        </div>
+      );
+    }
     return (
       <div className={programsSectionCard}>
         <label className="block space-y-3">

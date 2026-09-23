@@ -16,8 +16,8 @@
       "title": "Pat in Her Own Words",
       "blocks": [
         {
-          "type": "markdown",
-          "markdown": "Page 1 of 15\nPat in Her Own Words\n\nDon't ever believe that you've ‘arrived.’ You never, ever ‘arrive.’ If you get to the top, it can be very temporary if you think you just belong there. You've got to remember how you got there. Don't ever forget how you got there, and that's what can inspire you to strive to be on top all the time.\n\n— Pat Summitt"
+          "type": "callout",
+          "text": "Don't ever believe that you've ‘arrived.’ You never, ever ‘arrive.’ If you get to the top, it can be very temporary if you think you just belong there. You've got to remember how you got there. Don't ever forget how you got there, and that's what can inspire you to strive to be on top all the time.\n\n— Pat Summitt"
         },
         {
           "type": "video",
@@ -27,7 +27,46 @@
         },
         {
           "type": "markdown",
-          "markdown": "Coach Summitt discovered the hard way the importance for leaders to know their people. Her program used a yearly Predictive Index — a personality profile — to better understand her players. This not only informed how she interacted with her team, but also how she could best leverage individual team member strengths for a more effective team overall. The best leaders today have a solid understanding of themselves and their teams. There a few ways this can be done:\n\nPersonality Assessments and Insights\n\nLeaders today have learned about the advantages of personality assessments and using those assessments to make critical decisions about team interaction. There is a wide variety of assessments available to choose from. Successful leaders use them all the time and use the information gathered to shape their strategies, understandings, and engagement with their team.\n\nSelf-Assessments — Leaders Go First\n\nOne of the best first steps a leader can do is to take the assessment themselves. Coming away with an analysis such as the Predictive Index used by Coach Summitt creates an increased sense of knowledge and understanding of your own communication and personality styles. Forward-thinking leaders are usually willing to take these assessments and share them with their team so that they can have a better idea about how to work with the leader or CEO.\n\nTesting Others and Sharing\n\nOf course, taking these same assessments with others in your organization is helpful. Many forward-thinking organizations today maintain databases or files of the personality and assessment profiles of everyone who works for the organization. Sometimes they will even use this information to help coordinate and build different types of teams.\n\nAvoid “Arrival”\n\nOne of the most important elements of developing a comprehensive awareness of personality types is to \"avoid arrival.\" The best leaders understand that the only way to remain competitive is to ensure that no one in the organization ever feels they have learned all they need to know in a particular area. It's quite the opposite, in fact. The best organizations understand that situations and personalities evolve, and they are on a never-ending journey of growth and discovery.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded."
+          "markdown": "Coach Summitt discovered the hard way the importance for leaders to know their people. Her program used a yearly Predictive Index — a personality profile — to better understand her players. This not only informed how she interacted with her team, but also how she could best leverage individual team member strengths for a more effective team overall. The best leaders today have a solid understanding of themselves and their teams. There a few ways this can be done:"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "personality_assessments",
+              "title": "Personality Assessments and Insights",
+              "body": "Leaders today have learned about the advantages of personality assessments and using those assessments to make critical decisions about team interaction. There is a wide variety of assessments available to choose from. Successful leaders use them all the time and use the information gathered to shape their strategies, understandings, and engagement with their team."
+            },
+            {
+              "id": "leaders_go_first",
+              "title": "Self-Assessments — Leaders Go First",
+              "body": "One of the best first steps a leader can do is to take the assessment themselves. Coming away with an analysis such as the Predictive Index used by Coach Summitt creates an increased sense of knowledge and understanding of your own communication and personality styles. Forward-thinking leaders are usually willing to take these assessments and share them with their team so that they can have a better idea about how to work with the leader or CEO."
+            },
+            {
+              "id": "testing_and_sharing",
+              "title": "Testing Others and Sharing",
+              "body": "Of course, taking these same assessments with others in your organization is helpful. Many forward-thinking organizations today maintain databases or files of the personality and assessment profiles of everyone who works for the organization. Sometimes they will even use this information to help coordinate and build different types of teams."
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Avoid “Arrival”"
+        },
+        {
+          "type": "markdown",
+          "markdown": "One of the most important elements of developing a comprehensive awareness of personality types is to \"avoid arrival.\" The best leaders understand that the only way to remain competitive is to ensure that no one in the organization ever feels they have learned all they need to know in a particular area. It's quite the opposite, in fact. The best organizations understand that situations and personalities evolve, and they are on a never-ending journey of growth and discovery."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_001_reflection_01",
+          "prompt": "What are the potential risks involved with a leader getting the sense they have \"arrived\" and have no more to learn? What could happen if you, as a leader, have team members who have this sense of arrival? How might you address them?",
+          "persist": false
         }
       ]
     },
@@ -142,35 +181,35 @@
           "speaker": "Marie Mouchet"
         },
         {
-          "type": "markdown",
-          "markdown": "Page 3 of 15\nDon't Just Work Hard, Work Smart\n\nDon't Just Work Hard, Work Smart: Introduction, featuring Marie Mouchet\n\nWorking Smart Is Just as Important as Working Hard\n\nYou won't get anywhere as a leader or a peak performer without working hard. Conversely, you can work really hard at the wrong things and never make progress. This is why, after a leader conceptualizes the merits of hard work, they need to learn to work smart. Let's consider the following example to reflect on the concept of working smarter, not harder."
+          "type": "heading",
+          "level": 2,
+          "text": "Working Smart Is Just as Important as Working Hard"
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "markdown",
+          "markdown": "You won't get anywhere as a leader or a peak performer without working hard. Conversely, you can work really hard at the wrong things and never make progress. This is why, after a leader conceptualizes the merits of hard work, they need to learn to work smart. Let's consider the following example to reflect on the concept of working smarter, not harder."
+        },
+        {
+          "type": "process",
+          "steps": [
             {
-              "id": "maria_is_the_vp_of_strategy_at_her_corpo",
               "title": "Maria is the VP of Strategy at her corporation.",
               "body": "Maria is the VP of Strategy at her corporation."
             },
             {
-              "id": "the_company_has_been_losing_ground_to_it",
               "title": "The company has been losing ground to its competition.",
               "body": "The company has been losing ground to its competition."
             },
             {
-              "id": "maria_s_expertise_is_in_strategy_certain",
               "title": "Maria's expertise is in strategy, certainly.",
               "body": "Maria's expertise is in strategy, certainly. And she knows her company's existing products and services pretty well."
             },
             {
-              "id": "however_she_hasn_t_kept_up_with_the_late",
-              "title": "However, she hasn't kept up with the latest emerging technologies — while the c…",
+              "title": "However, she hasn't kept up with the latest emerging technologies — while the competition has.",
               "body": "However, she hasn't kept up with the latest emerging technologies — while the competition has. It turns out that their losses to the competition are due to a technological deficit."
             },
             {
-              "id": "still_maria_is_working_hard_to_revamp_th",
-              "title": "Still, Maria is working hard to revamp their strategies and figure out how to m…",
+              "title": "Still, Maria is working hard to revamp their strategies and figure out how to make a strong comeback.",
               "body": "Still, Maria is working hard to revamp their strategies and figure out how to make a strong comeback."
             }
           ]
@@ -180,12 +219,61 @@
           "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
         },
         {
-          "type": "markdown",
-          "markdown": "Maria's knowledge of technology and emerging possibilities would need to be substantial enough to help her make the right decisions. If she is hard at work to resolve the technology deficit without any knowledge of the technology options available, Maria would be working hard, but not necessarily smart. The best leaders understand that they must continuously learn, grow, and make decisions on a consistent basis with new, emerging knowledge flowing through them continuously. So what is ‘working smart?’\n\nTo Work Smart, Commit to Learning and Growth\n\nLeaders and top performers understand that leaders must have the ability to make a number of critical decisions on the growth trajectory. In order to make those decisions, the leader has to be knowledgeable and prepared. There are numerous ways to build that knowledge base, but simply the conscious act of remaining committed to expanding your knowledge in the first place allows you to be in a better position than most.\n\nReading and Professional Development\n\nCEOs and peak performers are voracious readers. They are well aware of the trends in their industry and are constantly mining thought leadership and new technological opportunities for new insights. It would be very rare to find highly successful, competitive leaders and performers who didn’t read the news each day and carefully monitor essential trends that specifically relate to their goal. Highly impactful leaders always prioritize such professional development activities. They take classes, even if they have elevated degrees and experiences. They go to webinars or seminars and are always honing their craft by acting as a student.\n\nLearning from Mentors\n\nGreat leaders almost always have a network of mentors at their disposal. In many cases, they are more experienced and give advice that helps in the moment. Sometimes having a variety of mentors is helpful as well. But some mentors don’t have to be older than you. You might have a mentor who simply knows more than you do about a topic and is willing to share. You also are probably somebody’s mentor right now, even if you don’t know it yet. What’s important about having a mentor is being open to behaving like a student. Strong leaders and peak performers desire to be taught and to learn from the masters.\n\nLearning from Peers and Competitors\n\nYour competition can tell you a lot. Studying the trends, tendencies, strengths, and weaknesses of your competitors will also help you to grow as a leader. This might involve studying a team or an entire organization; examining the peak performance skills of individuals you know. For example, if you are a CEO of a company that competes with another company thousands of miles away, you may try to study the moves of that competitor’s CEO. This could be to help anticipate their next step or better understand what they are doing to be successful. Does your competitor’s CEO have some skills that you’re not able to demonstrate? Are they skills that you could develop? Or, are they skills that you could bring in through a valued vice president or specialist? The message here is pretty simple. The strongest leaders and peak performers are not self-absorbed. They look around and try to figure out what they can learn from other people, even from those they compete against. Even those who are at the absolute top of their game must remain doggedly committed to learning from others and elevating what they bring to the table.\n\nLearning from Strong Assistants, VPs, or Team Members\n\nAnother great place to learn is from those you work with. In corporate America, it’s common to perform a series of confidential, 360-degree assessments. An outside agent comes into the organization and interviews individuals who work with various leaders or top performers. These interviews are designed to establish perception checks throughout the organization to give leaders or peak performers feedback on how their engagement with others is affecting morale and performance. These exercises are incredibly helpful because they give leaders unfettered feedback and allow them to make adjustments that can make an impact. Leaders can also gain formal and/or informal feedback from other members of the organization. Administrative assistants who feel secure in their positions might provide valuable input. A CEO’s vice president or a coach’s assistant can provide helpful feedback. In other words, the best leaders understand that surrounding themselves with strong people only makes them better, and listening to their advice will only make them wiser. Finding people around you who are good at things that you’re not good at will not only grow your competency in those areas, but may also serve the team. We all have our strengths. Part of being a great leader is letting the people around you show theirs.\n\nThe best leaders and top performers are knowledgeable, prepared, and always learning and growing. Some powerful sources of learning include: Reading and Professional Development; Learning from Mentors; Learning from Peers and Competitors; Learning from Strong Assistants, VPs, or Team Members.\n\nRemain Open to Growth, Forever\n\nReceiving a degree from a university is a wonderful blessing. It indicates the conclusion of a learning journey. However, we live in a world today where the commitment to learning is continuous. With so much changing so fast, it's clear that the commitment to continuous learning is a non-negotiable, not just to be excellent, but to even remain competitive. The most competitive systems and teams understand that they must remain open to the opportunity to learn and grow, and grow and learn continuously both on their own and through the hearts and efforts of others around them if they're going to be at their best, and help the organization to perform at its best."
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_003_reflection_01",
+          "prompt": "What could Maria have done differently to be better-positioned to help resolve this issue?",
+          "persist": false
         },
         {
           "type": "markdown",
-          "markdown": "Coach Pat Summitt poses for a photograph with former Lady Vols players Laurie Milligan and Brynae Laxton following their graduation from the University of Tennessee. (c. 1998)"
+          "markdown": "Maria's knowledge of technology and emerging possibilities would need to be substantial enough to help her make the right decisions. If she is hard at work to resolve the technology deficit without any knowledge of the technology options available, Maria would be working hard, but not necessarily smart. The best leaders understand that they must continuously learn, grow, and make decisions on a consistent basis with new, emerging knowledge flowing through them continuously. So what is ‘working smart?’"
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "To Work Smart, Commit to Learning and Growth"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Leaders and top performers understand that leaders must have the ability to make a number of critical decisions on the growth trajectory. In order to make those decisions, the leader has to be knowledgeable and prepared. There are numerous ways to build that knowledge base, but simply the conscious act of remaining committed to expanding your knowledge in the first place allows you to be in a better position than most."
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Reading and Professional Development",
+              "body": "CEOs and peak performers are voracious readers. They are well aware of the trends in their industry and are constantly mining thought leadership and new technological opportunities for new insights. It would be very rare to find highly successful, competitive leaders and performers who didn’t read the news each day and carefully monitor essential trends that specifically relate to their goal. Highly impactful leaders always prioritize such professional development activities. They take classes, even if they have elevated degrees and experiences. They go to webinars or seminars and are always honing their craft by acting as a student."
+            },
+            {
+              "title": "Learning from Mentors",
+              "body": "Great leaders almost always have a network of mentors at their disposal. In many cases, they are more experienced and give advice that helps in the moment. Sometimes having a variety of mentors is helpful as well. But some mentors don’t have to be older than you. You might have a mentor who simply knows more than you do about a topic and is willing to share. You also are probably somebody’s mentor right now, even if you don’t know it yet. What’s important about having a mentor is being open to behaving like a student. Strong leaders and peak performers desire to be taught and to learn from the masters."
+            },
+            {
+              "title": "Learning from Peers and Competitors",
+              "body": "Your competition can tell you a lot. Studying the trends, tendencies, strengths, and weaknesses of your competitors will also help you to grow as a leader. This might involve studying a team or an entire organization; examining the peak performance skills of individuals you know. For example, if you are a CEO of a company that competes with another company thousands of miles away, you may try to study the moves of that competitor’s CEO. This could be to help anticipate their next step or better understand what they are doing to be successful. Does your competitor’s CEO have some skills that you’re not able to demonstrate? Are they skills that you could develop? Or, are they skills that you could bring in through a valued vice president or specialist? The message here is pretty simple. The strongest leaders and peak performers are not self-absorbed. They look around and try to figure out what they can learn from other people, even from those they compete against. Even those who are at the absolute top of their game must remain doggedly committed to learning from others and elevating what they bring to the table."
+            },
+            {
+              "title": "Learning from Strong Assistants, VPs, or Team Members",
+              "body": "Another great place to learn is from those you work with. In corporate America, it’s common to perform a series of confidential, 360-degree assessments. An outside agent comes into the organization and interviews individuals who work with various leaders or top performers. These interviews are designed to establish perception checks throughout the organization to give leaders or peak performers feedback on how their engagement with others is affecting morale and performance. These exercises are incredibly helpful because they give leaders unfettered feedback and allow them to make adjustments that can make an impact. Leaders can also gain formal and/or informal feedback from other members of the organization. Administrative assistants who feel secure in their positions might provide valuable input. A CEO’s vice president or a coach’s assistant can provide helpful feedback. In other words, the best leaders understand that surrounding themselves with strong people only makes them better, and listening to their advice will only make them wiser. Finding people around you who are good at things that you’re not good at will not only grow your competency in those areas, but may also serve the team. We all have our strengths. Part of being a great leader is letting the people around you show theirs."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "The best leaders and top performers are knowledgeable, prepared, and always learning and growing. Some powerful sources of learning include: Reading and Professional Development; Learning from Mentors; Learning from Peers and Competitors; Learning from Strong Assistants, VPs, or Team Members."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Remain Open to Growth, Forever"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Receiving a degree from a university is a wonderful blessing. It indicates the conclusion of a learning journey. However, we live in a world today where the commitment to learning is continuous. With so much changing so fast, it's clear that the commitment to continuous learning is a non-negotiable, not just to be excellent, but to even remain competitive. The most competitive systems and teams understand that they must remain open to the opportunity to learn and grow, and grow and learn continuously both on their own and through the hearts and efforts of others around them if they're going to be at their best, and help the organization to perform at its best."
+        },
+        {
+          "type": "callout",
+          "text": "Coach Pat Summitt poses for a photograph with former Lady Vols players Laurie Milligan and Brynae Laxton following their graduation from the University of Tennessee. (c. 1998)"
         }
       ]
     },
@@ -289,26 +377,35 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Leadership Reflections: Working Smart\n\nKeep learning! Competent professionals are always trying to work in a way that’s efficient, effective, or in this case, smart. We often think of working smart as making efficient choices and picking the right objectives. Pat took this aspiration further, suggesting that the only way that you can work smart is to consistently challenge yourself to fuel your mind with insights and innovations that shape your journey. This includes:\n\ncommitting to growing;\n\nestablishing and connecting with mentors;\n\nlearning from your peers, colleagues, and competitors; and\n\ncommitting to professional learning."
+          "markdown": "Keep learning! Competent professionals are always trying to work in a way that’s efficient, effective, or in this case, smart. We often think of working smart as making efficient choices and picking the right objectives. Pat took this aspiration further, suggesting that the only way that you can work smart is to consistently challenge yourself to fuel your mind with insights and innovations that shape your journey. This includes:"
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "committing to growing;",
+            "establishing and connecting with mentors;",
+            "learning from your peers, colleagues, and competitors; and",
+            "committing to professional learning."
+          ]
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_08_st_005_image_01.jpg",
-          "alt": "Lesson image"
-        },
-        {
-          "type": "reflection",
-          "question_id": "dd_mp_08_st_005_reflection_01",
-          "prompt": "For this reflection, think about the education or new skills that you're going to need over the next 18 months. What skills or knowledge do you need to develop if you're going to achieve the goals you have set?"
+          "alt": "Illustration between the working-smart principles and the reflection."
         },
         {
           "type": "markdown",
-          "markdown": "For this reflection, lay out at least three essential learning objectives in your life and identify how you might pursue expanding your expertise in these areas. Maybe you need to know more about web optimization and you decide to read a book or take an online class. Maybe you need to pursue a degree from a formal university, or simply commit to intensively reading a handful of important publications. Whatever it may be, lay out your plan here for helping expand your knowledge so you can work smart as a result."
+          "markdown": "For this reflection, think about the education or new skills that you're going to need over the next 18 months. What skills or knowledge do you need to develop if you're going to achieve the goals you have set?"
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_08_st_005_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "Illustration beside the second working-smart reflection."
+        },
+        {
+          "type": "markdown",
+          "markdown": "For this reflection, lay out at least three essential learning objectives in your life and identify how you might pursue expanding your expertise in these areas. Maybe you need to know more about web optimization and you decide to read a book or take an online class. Maybe you need to pursue a degree from a formal university, or simply commit to intensively reading a handful of important publications. Whatever it may be, lay out your plan here for helping expand your knowledge so you can work smart as a result.\n\nLay out at least three essential learning goals for yourself."
         }
       ]
     },
@@ -325,22 +422,88 @@
           "speaker": "Sue Nokes"
         },
         {
+          "type": "callout",
+          "text": "While I preach hard work, I also preach smart work. What do I mean by smart work? I mean the combination of efficiency and effectiveness that will help me succeed without wasted motion, and with perspective. Smart work is a matter of sizing up the job that has to be done and deciding on the best way of doing it.\n\n— Pat Summitt"
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Creating Focused Energy"
+        },
+        {
           "type": "markdown",
-          "markdown": "Strategize Smart\n\nDon't Just Work Hard, Work Smart: Strategize Smart, featuring Sue Nokes\n\nWhile I preach hard work, I also preach smart work. What do I mean by smart work? I mean the combination of efficiency and effectiveness that will help me succeed without wasted motion, and with perspective. Smart work is a matter of sizing up the job that has to be done and deciding on the best way of doing it. Pat Summitt\n\n— Pat Summitt\n\nCreating Focused Energy\n\nWhen team members are clear about the direction they are headed, have trust for one another, and are free to innovate, a synergistic energy is built. These types of teams are more likely to take risks, solve problems, reveal blind spots before those blind spots can hurt them, and focus their energies on growth. By creating this focused energy, the team has a greater chance at reaching its objective.\n\nBe Sure to Define \"Success\"\n\nArticulating a goal is not the same as defining success. Although they can be aligned, it's important to define both topics within a team or an organization. Consider a common sports example by reviewing both sides of the following card:"
+          "markdown": "When team members are clear about the direction they are headed, have trust for one another, and are free to innovate, a synergistic energy is built. These types of teams are more likely to take risks, solve problems, reveal blind spots before those blind spots can hurt them, and focus their energies on growth. By creating this focused energy, the team has a greater chance at reaching its objective."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Be Sure to Define \"Success\""
+        },
+        {
+          "type": "markdown",
+          "markdown": "Articulating a goal is not the same as defining success. Although they can be aligned, it's important to define both topics within a team or an organization. Consider a common sports example by reviewing both sides of the following card:"
         },
         {
           "type": "sections",
           "sections": [
             {
-              "id": "team_a_lacks_talent_but_has_unbelievable",
-              "title": "Team A lacks talent, but has unbelievable passion.",
+              "id": "team_a",
+              "title": "Team A",
+              "body": "Team A lacks talent, but has unbelievable passion. They go out and lose in triple overtime to a much more successful team."
+            },
+            {
+              "id": "team_b",
+              "title": "Team B",
               "body": "Team B is extraordinarily talented but riddled with discipline issues and challenges. They go out and win a game by seven points — a game they should have won by more than 20."
             }
           ]
         },
         {
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_006_reflection_01",
+          "prompt": "In this sports example, would it be appropriate for these two teams to define success based on the number of wins and losses? Why or why not? What other success measures might be possible?",
+          "persist": false
+        },
+        {
           "type": "markdown",
-          "markdown": "Defining success for Team A and Team B simply by \"wins\" and \"losses\" may not be appropriate. In many cases, success can be defined at a more specific level by focusing on progress and growth. In some cases, as momentum is being built, organizations carefully track the critical factors that drive their success. For example, suppose:\n\nYou take over a leadership position within an organization.\n\nYou observe that customer deliveries are not being made in a timely manner, and upon researching it, you determine it has been a historical problem.\n\nYou begin strategizing and working toward fixing this problem to increase customer satisfaction. This might qualify as a small success to the business.\n\nTry to Make Success a Familiar Face\n\nConsider a team or organization that hasn't seen much success in a while. A leader is then faced with the tough challenge of trying to make success common in an organization that may struggle with the very concept.\n\nIn that example, a good leader would once again begin to introduce small levels of success and work diligently to reward it. This can sometimes be difficult because a leader doesn't want to be seen as rewarding the obvious. However, it's arguably better to celebrate and build on even small victories than for the organization to remain unfamiliar with \"success.\"\n\nMuscle Memory\n\nCoach Summitt talked about the importance of muscle memory within an organization. For example, if she were coaching her team and practicing what to do if the team were down by three points with seven seconds left and no timeouts, she would rehearse the expectation enough times so that when faced with the actual situation, their brains would be free to work from muscle memory. The players would be so well-schooled that they simply go into action and execute as they have been taught. With muscle memory, you can avoid spinning your wheels, thinking about what comes next — and simply go into action. Muscle memory doesn't necessarily guarantee you'll get exactly where you want to go. However, a long history of preparation and a focus on execution powered by muscle memory brings a much better chance at getting the most out of everyone on the team or in the organization."
+          "markdown": "Defining success for Team A and Team B simply by \"wins\" and \"losses\" may not be appropriate. In many cases, success can be defined at a more specific level by focusing on progress and growth. In some cases, as momentum is being built, organizations carefully track the critical factors that drive their success. For example, suppose:"
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "You take over a leadership position within an organization.",
+            "You observe that customer deliveries are not being made in a timely manner, and upon researching it, you determine it has been a historical problem.",
+            "You begin strategizing and working toward fixing this problem to increase customer satisfaction. This might qualify as a small success to the business."
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Try to Make Success a Familiar Face"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Consider a team or organization that hasn't seen much success in a while. A leader is then faced with the tough challenge of trying to make success common in an organization that may struggle with the very concept."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_006_reflection_02",
+          "prompt": "What might a strong leader do in this situation?",
+          "persist": false
+        },
+        {
+          "type": "markdown",
+          "markdown": "In that example, a good leader would once again begin to introduce small levels of success and work diligently to reward it. This can sometimes be difficult because a leader doesn't want to be seen as rewarding the obvious. However, it's arguably better to celebrate and build on even small victories than for the organization to remain unfamiliar with \"success.\""
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Muscle Memory"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Coach Summitt talked about the importance of muscle memory within an organization. For example, if she were coaching her team and practicing what to do if the team were down by three points with seven seconds left and no timeouts, she would rehearse the expectation enough times so that when faced with the actual situation, their brains would be free to work from muscle memory. The players would be so well-schooled that they simply go into action and execute as they have been taught. With muscle memory, you can avoid spinning your wheels, thinking about what comes next — and simply go into action. Muscle memory doesn't necessarily guarantee you'll get exactly where you want to go. However, a long history of preparation and a focus on execution powered by muscle memory brings a much better chance at getting the most out of everyone on the team or in the organization."
         }
       ]
     },
@@ -449,25 +612,214 @@
           "speaker": "Sue Nokes"
         },
         {
+          "type": "heading",
+          "level": 2,
+          "text": "Shared Values Allow for Personal Investment"
+        },
+        {
           "type": "markdown",
-          "markdown": "Build Smart\n\nDon't Just Work Hard, Work Smart: Build Smart, featuring Sue Nokes\n\nShared Values Allow for Personal Investment\n\nLeaders must establish shared values within the organization. While every individual in the organization may have their own learning style and learning preference, it is important that organizations establish the values that they will live by collectively.\n\nIf, say, your organization values timeliness, honesty, lifelong learning, and gratitude, those values will have a deep and significant impact on everything you do. Even though each individual may express those values differently, maintaining shared, collective values is extremely important."
+          "markdown": "Leaders must establish shared values within the organization. While every individual in the organization may have their own learning style and learning preference, it is important that organizations establish the values that they will live by collectively."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_008_reflection_01",
+          "prompt": "What values does your organization collectively share? How do they impact your approach to your work?",
+          "persist": false
+        },
+        {
+          "type": "markdown",
+          "markdown": "If, say, your organization values timeliness, honesty, lifelong learning, and gratitude, those values will have a deep and significant impact on everything you do. Even though each individual may express those values differently, maintaining shared, collective values is extremely important."
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_08_st_008_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "A highway running between a cliff and a river"
         },
         {
           "type": "markdown",
-          "markdown": "When presented and shared, values create guardrails for behaviors and may ultimately shape strategy. For example, if honesty is one of the more important shared values, and a company can advance its interests by lying to their clients, it's a non-starter. Even if a short-term benefit can be observed by violating a set of values, the long-term implications are drastic because without alignment to a set of values, then values have no place in the organization. Everyone's values then become only situationally applied. Worse yet, the lack of shared values almost always results in a gradual lowering of the bar. Think of it this way. You have values in your life that guide you and (hopefully) allow you the pleasure of a good, honest life. If you begin ignoring those values when making decisions, you will undermine your long-term progress and, ultimately, diminish who you are as a human being.\n\nWhat If the Values in the Organization Don't Align With My Own?\n\nThis is the question every leader should ask before they take a new job. Consider two potential sources of value misalignment:\n\nThe organization hasn't articulated the values, or they haven't been challenged in quite some time. A new leader may come in and create value alignment, helping things improve.\n\nThe organization has values in place, but an individual team member disagrees with them. A leader may establish values and articulate them, but if an individual team member doesn't believe in those values, a misalignment has occurred. Usually, that means the team member will have to either operate within this value system or find a new job.\n\nObviously, not every organization is the same. But in general, leaders shouldn't sacrifice their values. They should clearly articulate values, and seek to build an organization that meets and exceeds those values.\n\nPersonal Investment Is Enhanced Through Values\n\nWhen we have aspirational value statements guiding us, we become aspirational people capable of doing and becoming more. And with that aspirational growth comes the opportunity to become more enhanced, personally invested, and aligned together. Organizations that do deep dives on values and consideration of collective value statements are far more likely to develop deep and sustaining commitments to one another.\n\nValues and Personal Investment Create Ownership\n\nOne of the most powerful ways to determine whether or not an organization will be successful is to evaluate the degree to which ownership exists."
+          "markdown": "When presented and shared, values create guardrails for behaviors and may ultimately shape strategy. For example, if honesty is one of the more important shared values, and a company can advance its interests by lying to their clients, it's a non-starter. Even if a short-term benefit can be observed by violating a set of values, the long-term implications are drastic because without alignment to a set of values, then values have no place in the organization. Everyone's values then become only situationally applied. Worse yet, the lack of shared values almost always results in a gradual lowering of the bar. Think of it this way. You have values in your life that guide you and (hopefully) allow you the pleasure of a good, honest life. If you begin ignoring those values when making decisions, you will undermine your long-term progress and, ultimately, diminish who you are as a human being."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "What If the Values in the Organization Don't Align With My Own?"
         },
         {
           "type": "markdown",
-          "markdown": "Ownership: What It Is Not and What It Is\n\nLet's start with what ownership is not. In organizations that are largely disconnected, individuals within the group likely:\n\ntalk about the system as if they are detached from it;\n\nreflect on weak points in the organization as if they have absolutely no influence on doing something about them; and\n\nreflect on their own performance and think of change as largely impossible due to political or structural factors they believe are in the way.\n\nIn this instance, there is very little ownership in either the results or the vehicle designed to deliver the results. And this is regrettable. On the other hand, great leaders and top performers in high-functioning organizations:\n\nown both their results and the processes that drive them;\n\nown every part of the process and system, even if they aren't directly involved in delivering the results;\n\nembrace both the victories and the areas for growth; and\n\nspeak in terms of \"we\" when describing the results — things like, \"We have struggled lately with accounting, but we are doing really well with logistics and customer satisfaction.\"\n\nThese are clear indicators of organizations that are strong in the area of ownership."
+          "markdown": "This is the question every leader should ask before they take a new job. Consider two potential sources of value misalignment:"
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "The organization hasn't articulated the values, or they haven't been challenged in quite some time. A new leader may come in and create value alignment, helping things improve.",
+            "The organization has values in place, but an individual team member disagrees with them. A leader may establish values and articulate them, but if an individual team member doesn't believe in those values, a misalignment has occurred. Usually, that means the team member will have to either operate within this value system or find a new job."
+          ]
         },
         {
           "type": "markdown",
-          "markdown": "You Win in Life with People\n\nIf innovation of the human spirit is such a key driving factor for organizational success, then recruiting, retaining, encouraging, training, and improving upon people is indeed the lifeblood of every organization today. Centuries ago, the success of a business might rest almost entirely on access to water systems and wood. Today, access to creative hearts and minds and the establishment of nurturing environments that makes the most of their expertise is the lifeblood of so many businesses. We've always won with people. Today more than ever, businesses can't win without a focus on developing, supporting, and improving the people they recruit and maintain in their organization.\n\nKnow Your Team\n\nBecause people are so important to the health and vitality of an organization, it's important to know them. Creating systems where teams are interactive helps you both know and engage your team. This is why leaders sometimes invest in retreats or team outings to have shared experiences together. By getting to know one another, there's a greater likelihood of developing trust and understanding."
+          "markdown": "Obviously, not every organization is the same. But in general, leaders shouldn't sacrifice their values. They should clearly articulate values, and seek to build an organization that meets and exceeds those values."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Personal Investment Is Enhanced Through Values"
+        },
+        {
+          "type": "markdown",
+          "markdown": "When we have aspirational value statements guiding us, we become aspirational people capable of doing and becoming more. And with that aspirational growth comes the opportunity to become more enhanced, personally invested, and aligned together. Organizations that do deep dives on values and consideration of collective value statements are far more likely to develop deep and sustaining commitments to one another."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Values and Personal Investment Create Ownership"
+        },
+        {
+          "type": "markdown",
+          "markdown": "One of the most powerful ways to determine whether or not an organization will be successful is to evaluate the degree to which ownership exists."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_008_reflection_02",
+          "prompt": "What comes to mind when you think about ownership within a team or organization? What does ownership look like in an organization?",
+          "persist": false
+        },
+        {
+          "type": "markdown",
+          "markdown": "To expand your thinking about what ownership is and is not, each card in the following stack contains a behavior exhibited by individuals within an organization or on a team. Sort the cards into the categories of either shows ownership or lacks ownership."
+        },
+        {
+          "type": "sort",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Shows Ownership” or “Lacks Ownership.”",
+          "categories": [
+            "Shows Ownership",
+            "Lacks Ownership"
+          ],
+          "cards": [
+            {
+              "id": "views_results_and_processes",
+              "text": "Views both the results and the driving processes as theirs",
+              "correct_category": "Shows Ownership"
+            },
+            {
+              "id": "reflects_weak_points_no_influence",
+              "text": "Reflects on weak points in the organization as if they can do nothing about them",
+              "correct_category": "Lacks Ownership"
+            },
+            {
+              "id": "reflects_collective_success",
+              "text": "Reflects on collective success even when they were not directly involved",
+              "correct_category": "Shows Ownership"
+            },
+            {
+              "id": "uses_we_language",
+              "text": "Uses \"we\" language when describing results and processes",
+              "correct_category": "Shows Ownership"
+            },
+            {
+              "id": "embraces_victories_and_growth",
+              "text": "Embraces both the victories and opportunities for growth",
+              "correct_category": "Shows Ownership"
+            },
+            {
+              "id": "talks_detached",
+              "text": "Talks about the system as if they are detached from it",
+              "correct_category": "Lacks Ownership"
+            },
+            {
+              "id": "views_improvement_impossible",
+              "text": "Views improvement as largely impossible due to political or structural factors",
+              "correct_category": "Lacks Ownership"
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Ownership: What It Is Not and What It Is"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Let's start with what ownership is not. In organizations that are largely disconnected, individuals within the group likely:"
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "talk about the system as if they are detached from it;",
+            "reflect on weak points in the organization as if they have absolutely no influence on doing something about them; and",
+            "reflect on their own performance and think of change as largely impossible due to political or structural factors they believe are in the way."
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "In this instance, there is very little ownership in either the results or the vehicle designed to deliver the results. And this is regrettable. On the other hand, great leaders and top performers in high-functioning organizations:"
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "own both their results and the processes that drive them;",
+            "own every part of the process and system, even if they aren't directly involved in delivering the results;",
+            "embrace both the victories and the areas for growth; and",
+            "speak in terms of \"we\" when describing the results — things like, \"We have struggled lately with accounting, but we are doing really well with logistics and customer satisfaction.\""
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "These are clear indicators of organizations that are strong in the area of ownership."
+        },
+        {
+          "type": "choice_prompt",
+          "prompt": "Which of the following do you think has the greatest impact on corporate success and profitability?",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "Technological advances",
+              "response": "Incorrect. Correct answer: Innovation of the human spirit. Your answer: Technological advances. Not quite. All of these can play a role in corporate success and profitability, but in a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
+            },
+            {
+              "id": "c2",
+              "label": "Historic performance data",
+              "response": "Incorrect. Correct answer: Innovation of the human spirit. Your answer: Historic performance data. Not quite. All of these can play a role in corporate success and profitability, but in a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
+            },
+            {
+              "id": "c3",
+              "label": "A strong mission statement",
+              "response": "Incorrect. Correct answer: Innovation of the human spirit. Your answer: A strong mission statement. Not quite. All of these can play a role in corporate success and profitability, but in a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
+            },
+            {
+              "id": "c4",
+              "label": "Innovation of the human spirit",
+              "response": "Correct. Correct answer: Innovation of the human spirit. Your answer: Innovation of the human spirit. That's right! In a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "You Win in Life with People"
+        },
+        {
+          "type": "markdown",
+          "markdown": "If innovation of the human spirit is such a key driving factor for organizational success, then recruiting, retaining, encouraging, training, and improving upon people is indeed the lifeblood of every organization today. Centuries ago, the success of a business might rest almost entirely on access to water systems and wood. Today, access to creative hearts and minds and the establishment of nurturing environments that makes the most of their expertise is the lifeblood of so many businesses. We've always won with people. Today more than ever, businesses can't win without a focus on developing, supporting, and improving the people they recruit and maintain in their organization."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Know Your Team"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Because people are so important to the health and vitality of an organization, it's important to know them. Creating systems where teams are interactive helps you both know and engage your team. This is why leaders sometimes invest in retreats or team outings to have shared experiences together. By getting to know one another, there's a greater likelihood of developing trust and understanding."
         },
         {
           "type": "image",
@@ -482,72 +834,6 @@
         {
           "type": "markdown",
           "markdown": "Regardless of the type of work a team does, the better the leader and team members know each other, the more they trust, engage, and learn and grow together. This helps develop personal relationships that make learning fun and creates that human touch that can bring people together for a lifetime. Often, these relationships sustain us and become some of the most important bonds in our entire life. By taking the time as a leader to create situations where those bonds can be built, you create generational influence."
-        },
-        {
-          "type": "sort",
-          "prompt": "You'll see one item at a time. Decide whether it belongs with “ownership_not_examples” or “ownership_examples.”",
-          "categories": [
-            "ownership_not_examples",
-            "ownership_examples",
-            "embedded_question"
-          ],
-          "cards": [
-            {
-              "id": "talk_about_the_system_as_if_they_are_detac",
-              "text": "talk about the system as if they are detached from it",
-              "correct_category": "ownership_not_examples"
-            },
-            {
-              "id": "reflect_on_weak_points_in_the_organization",
-              "text": "| reflect on weak points in the organization as if they have absolutely no influence on doing something about them",
-              "correct_category": "ownership_not_examples"
-            },
-            {
-              "id": "and_reflect_on_their_own_performance_and_t",
-              "text": "and | reflect on their own performance and think of change as largely impossible due to political or structural factors they believe are in the way.",
-              "correct_category": "ownership_not_examples"
-            },
-            {
-              "id": "own_both_their_results_and_the_processes_t",
-              "text": "own both their results and the processes that drive them",
-              "correct_category": "ownership_examples"
-            },
-            {
-              "id": "own_every_part_of_the_process_and_system_e",
-              "text": "| own every part of the process and system, even if they aren't directly involved in delivering the results",
-              "correct_category": "ownership_examples"
-            },
-            {
-              "id": "embrace_both_the_victories_and_the_areas_f",
-              "text": "| embrace both the victories and the areas for growth",
-              "correct_category": "ownership_examples"
-            },
-            {
-              "id": "and_speak_in_terms_of_we_when_describing_t",
-              "text": "and | speak in terms of \"we\" when describing the results — things like, \"We have struggled lately with accounting, but we are doing really well with logistics and customer satisfaction.\"",
-              "correct_category": "ownership_examples"
-            },
-            {
-              "id": "which_of_the_following_do_you_think_has_th",
-              "text": "Which of the following do you think has the greatest impact on corporate success and profitability? Choices: Technological advances",
-              "correct_category": "embedded_question"
-            },
-            {
-              "id": "historic_performance_data",
-              "text": "Historic performance data",
-              "correct_category": "embedded_question"
-            },
-            {
-              "id": "a_strong_mission_statement",
-              "text": "A strong mission statement",
-              "correct_category": "embedded_question"
-            },
-            {
-              "id": "innovation_of_the_human_spirit",
-              "text": "Innovation of the human spirit.",
-              "correct_category": "embedded_question"
-            }
-          ]
         }
       ]
     },
@@ -661,26 +947,25 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Leadership Reflections: Defining Success for You\n\nAs discussed, defining success can be harder than it looks. As humans, we often think in very linear terms about next steps, such as promotion opportunities. However, getting really clear about what \"success\" actually means to you is altogether different than goals or even promotions. Put another way, getting a promotion doesn't automatically mean you are \"successful.\" If, however, a certain job or position is your dream job, then it's your definition of success. This distinction makes all the difference. For example, you have likely known someone who became angry, toxic, and despondent because they didn't get a particular job they wanted. It might have been at a particular company and they began to believe that success was limited to that position at that moment."
+          "markdown": "As discussed, defining success can be harder than it looks. As humans, we often think in very linear terms about next steps, such as promotion opportunities. However, getting really clear about what \"success\" actually means to you is altogether different than goals or even promotions. Put another way, getting a promotion doesn't automatically mean you are \"successful.\" If, however, a certain job or position is your dream job, then it's your definition of success. This distinction makes all the difference. For example, you have likely known someone who became angry, toxic, and despondent because they didn't get a particular job they wanted. It might have been at a particular company and they began to believe that success was limited to that position at that moment."
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_08_st_010_image_01.jpg",
-          "alt": "Lesson image"
-        },
-        {
-          "type": "reflection",
-          "question_id": "dd_mp_08_st_010_reflection_01",
-          "prompt": "For this reflection, we want you to get clear about what success means to you. Set aside a career path you might have read about, or a lifestyle that you are imagining, and define what success looks like. What will you look back on someday and be proud of in terms of accomplishment and priorities? What does \"success\" mean to you?"
+          "alt": "A roadside sign reading Success Ahead"
         },
         {
           "type": "markdown",
-          "markdown": "Leaders and peak performers who understand this factor usually become far more successful. This is because people are usually far more accomplished when they are pursuing their own success rather than being locked in to a moment-by-moment perspective on what's next. For this reflection, allow yourself the flexibility to pause and get in touch with what makes you satisfied."
+          "markdown": "For this reflection, we want you to get clear about what success means to you. Set aside a career path you might have read about, or a lifestyle that you are imagining, and define what success looks like. What will you look back on someday and be proud of in terms of accomplishment and priorities? What does \"success\" mean to you?"
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_08_st_010_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "An arrow aimed at the center of a target"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Leaders and peak performers who understand this factor usually become far more successful. This is because people are usually far more accomplished when they are pursuing their own success rather than being locked in to a moment-by-moment perspective on what's next. For this reflection, allow yourself the flexibility to pause and get in touch with what makes you satisfied."
         }
       ]
     },
@@ -697,32 +982,94 @@
           "speaker": "Sue Nokes"
         },
         {
-          "type": "markdown",
-          "markdown": "Balance Smart\n\nDon't Just Work Hard, Work Smart: Balance Smart, featuring Sue Nokes\n\nThe greatest strength any human being can have is to recognize his or her own weaknesses. Pat Summitt\n\n— Pat Summitt\n\nSolicit (a.k.a. Demand) Feedback and the Declaration of Blind Spots\n\nWhen it comes to feedback, weak leaders tend to:\n\navoid feedback that fails to glorify the leader's performance;\n\nseek out individuals in the organization who will find a way to directly or indirectly complement them; and\n\navoid any scenario that might bring some sort of growth-generating criticism.\n\nConversely, strong leaders tend to actively solicit honest feedback from others. This feedback might be:\n\nFormal, such as a \"360-degree\" assessment, discussed earlier. These can be very valuable forms of feedback as to how others perceive a leader's behavior.\n\nInformal, through conversations with team members, colleagues, other leaders, customers, etc."
+          "type": "callout",
+          "text": "The greatest strength any human being can have is to recognize his or her own weaknesses.\n\n— Pat Summitt"
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "heading",
+          "level": 2,
+          "text": "Solicit (a.k.a. Demand) Feedback and the Declaration of Blind Spots"
+        },
+        {
+          "type": "markdown",
+          "markdown": "When it comes to feedback, weak leaders tend to:"
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "avoid feedback that fails to glorify the leader's performance;",
+            "seek out individuals in the organization who will find a way to directly or indirectly complement them; and",
+            "avoid any scenario that might bring some sort of growth-generating criticism."
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Conversely, strong leaders tend to actively solicit honest feedback from others. This feedback might be:"
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "Formal, such as a \"360-degree\" assessment, discussed earlier. These can be very valuable forms of feedback as to how others perceive a leader's behavior.",
+            "Informal, through conversations with team members, colleagues, other leaders, customers, etc."
+          ]
+        },
+        {
+          "type": "process",
+          "steps": [
             {
-              "id": "amparo_is_a_relatively_new_ceo_who_is_tr",
               "title": "Amparo is a relatively new CEO who is trying to turn around her organization.",
               "body": "Amparo is a relatively new CEO who is trying to turn around her organization."
             },
             {
-              "id": "she_has_several_high_achieving_vice_pres",
               "title": "She has several high-achieving vice presidents on her team.",
               "body": "She has several high-achieving vice presidents on her team. She's come to rely on them while working through her first year."
             },
             {
-              "id": "in_that_time_the_vice_presidents_have_go",
-              "title": "In that time, the vice presidents have gotten to know Amparo and have begun bui…",
+              "title": "In that time, the vice presidents have gotten to know Amparo and have begun building relationships with her.",
               "body": "In that time, the vice presidents have gotten to know Amparo and have begun building relationships with her. They know her well enough to observe her strengths, as well as some weak spots."
             }
           ]
         },
         {
+          "type": "choice_prompt",
+          "prompt": "What would likely benefit Amparo most in this situation?",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "Continue operating as she has been, since it seems to be working well",
+              "response": "Incorrect. Correct answer: Collect feedback from her team on weak spots and blind spots. Your answer: Continue operating as she has been, since it seems to be working well. Not quite! If Amparo has developed enough of a relationship with the vice presidents, the goal would be to collect feedback on weak spots and blind spots."
+            },
+            {
+              "id": "c2",
+              "label": "Collect feedback from her team on weak spots and blind spots",
+              "response": "Correct. Correct answer: Collect feedback from her team on weak spots and blind spots. Your answer: Collect feedback from her team on weak spots and blind spots. Yes, that's correct! If Amparo has developed enough of a relationship with the vice presidents, the goal would be to collect feedback on weak spots and blind spots."
+            },
+            {
+              "id": "c3",
+              "label": "Lead a team workshop on identifying and fixing blind spots",
+              "response": "Incorrect. Correct answer: Collect feedback from her team on weak spots and blind spots. Your answer: Lead a team workshop on identifying and fixing blind spots. Not quite! If Amparo has developed enough of a relationship with the vice presidents, the goal would be to collect feedback on weak spots and blind spots."
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "ordered": false,
+          "items": [
+            "It shows a desire to have an intimate conversation with executives on a similar level.",
+            "By letting them know that you are deeply committed to growth and are willing to listen to their feedback, you're sending a clear message to everybody that growth is not negotiable and everyone is fallible.",
+            "If handled with integrity, the relationship between the CEO and vice presidents could likely improve, as honest feedback was shared."
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Prioritize Problems"
+        },
+        {
           "type": "markdown",
-          "markdown": "It shows a desire to have an intimate conversation with executives on a similar level.\n\nBy letting them know that you are deeply committed to growth and are willing to listen to their feedback, you're sending a clear message to everybody that growth is not negotiable and everyone is fallible.\n\nIf handled with integrity, the relationship between the CEO and vice presidents could likely improve, as honest feedback was shared.\n\nPrioritize Problems\n\nIn an organization with very little communication, where the leader is largely disconnected from the group, the leader may be unaware of problems in the organization. As a leader, this is not working under some sort of happy, blissful ignorance. It's like floating on a ship without awareness of the iceberg ahead. Keeping lines of communication open and desiring growth will help ensure problems are more readily revealed. Blind spots, skill deficits, and other problems are going to emerge eventually. Teams need to learn to resolve these problems once they've been identified through problem prioritization. By prioritizing the problems in front of us, we have a much better chance of potentially resolving them. The priority helps us determine the order in which we will attend to certain problems. This allows the organization to understand where to put its energy, the problems to address, and in which order. There are several possible approaches to prioritizing problems:"
+          "markdown": "In an organization with very little communication, where the leader is largely disconnected from the group, the leader may be unaware of problems in the organization. As a leader, this is not working under some sort of happy, blissful ignorance. It's like floating on a ship without awareness of the iceberg ahead. Keeping lines of communication open and desiring growth will help ensure problems are more readily revealed. Blind spots, skill deficits, and other problems are going to emerge eventually. Teams need to learn to resolve these problems once they've been identified through problem prioritization. By prioritizing the problems in front of us, we have a much better chance of potentially resolving them. The priority helps us determine the order in which we will attend to certain problems. This allows the organization to understand where to put its energy, the problems to address, and in which order. There are several possible approaches to prioritizing problems:"
         },
         {
           "type": "sections",
@@ -731,22 +1078,12 @@
               "id": "pick_a_strategic_priority",
               "title": "Pick a Strategic Priority",
               "body": "Pick an objective that is entirely strategic. Think of playing a game of Jenga — pull out the wrong block and the entire column will fall. When you are strategic in making changes, you may have limited time and resources, but picking the right change can sometimes have a huge impact in the organization. In some cases, a simple realignment in work process or the elimination of a key obstacle, or in some cases, a toxic individual, can create momentum."
-            }
-          ]
-        },
-        {
-          "type": "sections",
-          "sections": [
+            },
             {
               "id": "pick_an_easily_executed_priority",
               "title": "Pick an Easily-Executed Priority",
               "body": "Establish a priority that is perhaps simpler, shorter, and more easily achieved. In other words, a leader may be facing a dilemma and observe a number of problems that need to be solved. When a team is relatively new in working together, or its members are stuck and haven't made progress in a while, sometimes a leader is wise to pick a more easily-resolved priority for the team to tackle first. The advantages here are obvious. Choosing smaller commitments helps the team build confidence and momentum, leading to even more confidence before taking on bigger and more challenging objectives."
-            }
-          ]
-        },
-        {
-          "type": "sections",
-          "sections": [
+            },
             {
               "id": "decide_if_the_problem_is_short_term_or_l",
               "title": "Decide If the Problem Is Short-Term or Long-Term",
@@ -755,22 +1092,90 @@
           ]
         },
         {
+          "type": "heading",
+          "level": 2,
+          "text": "Example: An Auto Manufacturer"
+        },
+        {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_08_st_011_image_02.jpg",
-          "alt": "Lesson image"
+          "alt": "Cars stacked in a multi-level parking structure"
         },
         {
           "type": "markdown",
-          "markdown": "Example: An Auto Manufacturer\n\nSuppose the auto maker has been in business for more than 100 years. They've been dealing with a particular problem for several decades. Leaders expect it will take at least five years to address the problem, but the outcome would be game-changing for the company. Strong leaders in this company would have to decide if this long-term problem should be a priority. Since it will take at least five years, these leaders may need to break the problem down into shorter-term challenges that will lead to progress toward solving that longer-term problem. This is the stuff of leadership — reflecting on these different possibilities to better understand how to strategically solve problems and help their organization win.\n\nLeaders Know When to Compromise\n\nOne of the mistakes that leaders make is assuming that strength is shown by will and absolute rigidity. In fact, one of the greatest signs of strength and confidence is a leader's ability to learn, grow, and compromise. Leaders should remain steadfast when it comes to values, ethics, and commitments. However, they should remain flexible when it comes to business strategies and approaches. The ability to compromise as a leader demonstrates your ability to grow. It's also a wonderful way to demonstrate the expectations of compromise throughout the organization. Organizations are worse off when warring factions within won't compromise. The healthiest organizations have significant debates at times about the best pathway forward. Well-intended and completely loyal team members may have diametrically opposed positions, but this does not mean that they can't still be valued teammates, friends, and valued confidants. These diametrically opposed individuals must also learn to compromise."
+          "markdown": "Suppose the auto maker has been in business for more than 100 years. They've been dealing with a particular problem for several decades. Leaders expect it will take at least five years to address the problem, but the outcome would be game-changing for the company. Strong leaders in this company would have to decide if this long-term problem should be a priority. Since it will take at least five years, these leaders may need to break the problem down into shorter-term challenges that will lead to progress toward solving that longer-term problem. This is the stuff of leadership — reflecting on these different possibilities to better understand how to strategically solve problems and help their organization win."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_011_reflection_01",
+          "prompt": "What are some strategies you use for prioritizing problems in your organization? Do you plan to optimize your approach in any way based on what we've covered so far?",
+          "persist": false
+        },
+        {
+          "type": "choice_prompt",
+          "prompt": "As we near the end of this section on \"balancing smart,\" which of the following would you say is most accurate about strong leaders?",
+          "choices": [
+            {
+              "id": "c1",
+              "label": "They show strength and confidence by will and absolute rigidity.",
+              "response": "Incorrect. Correct answer: They show strength and confidence through learning, growth, and compromise. Your answer: They show strength and confidence by will and absolute rigidity."
+            },
+            {
+              "id": "c2",
+              "label": "They are flexible when it comes to their values, ethics, and commitments.",
+              "response": "Incorrect. Correct answer: They show strength and confidence through learning, growth, and compromise. Your answer: They are flexible when it comes to their values, ethics, and commitments."
+            },
+            {
+              "id": "c3",
+              "label": "They are steadfast when it comes to business strategies and approaches.",
+              "response": "Incorrect. Correct answer: They show strength and confidence through learning, growth, and compromise. Your answer: They are steadfast when it comes to business strategies and approaches."
+            },
+            {
+              "id": "c4",
+              "label": "They show strength and confidence through learning, growth, and compromise.",
+              "response": "Correct. Correct answer: They show strength and confidence through learning, growth, and compromise. Your answer: They show strength and confidence through learning, growth, and compromise."
+            }
+          ]
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Leaders Know When to Compromise"
+        },
+        {
+          "type": "markdown",
+          "markdown": "One of the mistakes that leaders make is assuming that strength is shown by will and absolute rigidity. In fact, one of the greatest signs of strength and confidence is a leader's ability to learn, grow, and compromise. Leaders should remain steadfast when it comes to values, ethics, and commitments. However, they should remain flexible when it comes to business strategies and approaches. The ability to compromise as a leader demonstrates your ability to grow. It's also a wonderful way to demonstrate the expectations of compromise throughout the organization. Organizations are worse off when warring factions within won't compromise. The healthiest organizations have significant debates at times about the best pathway forward. Well-intended and completely loyal team members may have diametrically opposed positions, but this does not mean that they can't still be valued teammates, friends, and valued confidants. These diametrically opposed individuals must also learn to compromise."
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_08_st_011_image_03.jpg",
-          "alt": "How many times have peak performers on a basketball team had to sacrifice points per game in order to keep their teammates involved in the game plan? These sacrifices make everyone"
+          "alt": "How many times have peak performers on a basketball team had to sacrifice points per game in order to keep their teammates involved in the game plan? These sacrifices make everyone stronger and more evolved."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "You Can’t Fix Everything at Once"
         },
         {
           "type": "markdown",
-          "markdown": "You Can’t Fix Everything at Once\n\nEspecially with new leaders, there's a tendency sometimes try to fix everything at once. This is a mistake. Recall our automobile example. If the manufacturer has faced many decades of challenges in a certain area of product development, that problem likely won't be resolved overnight. This doesn't mean that heroic steps can't be taken — but trying to fix everything at once can sometimes cause a great deal of confusion and leave the organization feeling overwhelmed.\n\nTrust Is the Key\n\nWhen leaders build trust, they once again create increased levels of momentum. As discussed earlier, momentum can be created when expectations are clear. When trust is developed, there is less hesitation and fear. When team members are operating from a position of fear, they are less courageous and innovative.\n\nWorking smart is about understanding what you are best at, what you are worst at, and what you will settle for in the interest of progress. It's about arriving at a balance.\n\n— Pat Summitt"
+          "markdown": "Especially with new leaders, there's a tendency sometimes try to fix everything at once. This is a mistake. Recall our automobile example. If the manufacturer has faced many decades of challenges in a certain area of product development, that problem likely won't be resolved overnight. This doesn't mean that heroic steps can't be taken — but trying to fix everything at once can sometimes cause a great deal of confusion and leave the organization feeling overwhelmed."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Trust Is the Key"
+        },
+        {
+          "type": "markdown",
+          "markdown": "When leaders build trust, they once again create increased levels of momentum. As discussed earlier, momentum can be created when expectations are clear. When trust is developed, there is less hesitation and fear. When team members are operating from a position of fear, they are less courageous and innovative."
+        },
+        {
+          "type": "callout",
+          "text": "Working smart is about understanding what you are best at, what you are worst at, and what you will settle for in the interest of progress. It's about arriving at a balance.\n\n— Pat Summitt"
         }
       ]
     },
@@ -879,8 +1284,17 @@
           "speaker": "Marie Mouchet"
         },
         {
+          "type": "callout",
+          "text": "The blueprint is this: knowledge, confidence, relaxation, results. Knowledge builds confidence, which causes you to be relaxed, which gives you good results.\n\n— Pat Summitt"
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Strategy and Clear Communication"
+        },
+        {
           "type": "markdown",
-          "markdown": "The blueprint is this: knowledge, confidence, relaxation, results. Knowledge builds confidence, which causes you to be relaxed, which gives you good results. Pat Summitt\n\n— Pat Summitt\n\nDon't Just Work Hard, Work Smart: Wrap-Up, featuring Marie Mouchet\n\nStrategy and Clear Communication\n\nWorking frantically doesn't take you anywhere. Working hard on the right things makes all the difference. This is why it is so essential for leaders to develop clear and actionable strategies. These strategies must be easily communicated throughout the organization. This clarity has two important benefits:"
+          "markdown": "Working frantically doesn't take you anywhere. Working hard on the right things makes all the difference. This is why it is so essential for leaders to develop clear and actionable strategies. These strategies must be easily communicated throughout the organization. This clarity has two important benefits:"
         },
         {
           "type": "sections",
@@ -889,12 +1303,7 @@
               "id": "with_clarity_comes_momentum",
               "title": "With Clarity Comes Momentum",
               "body": "As discussed earlier, one of the most significant hindrances to building momentum is the lack of clarity. If your team members are uncertain about the strategy, expectation, goals, and aspirations, they are left with the difficult dilemma of trying to look like they're working hard towards a destination that they're just not sure about. Unfortunately, this dynamic is more common than any of us would like to admit. Confusion over the goal creates disconnects, and, under the worst of circumstances, can create situations where the strategy is hijacked and individuals begin to insert their own agendas."
-            }
-          ]
-        },
-        {
-          "type": "sections",
-          "sections": [
+            },
             {
               "id": "team_clarity_creates_team_culture",
               "title": "Team Clarity Creates Team Culture",
@@ -903,8 +1312,23 @@
           ]
         },
         {
+          "type": "heading",
+          "level": 2,
+          "text": "Happy Cultures, Predictability, and Progress"
+        },
+        {
           "type": "markdown",
-          "markdown": "Happy Cultures, Predictability, and Progress\n\nA happy culture is not solely dedicated to having fun. A happy culture is a content culture, and that contentment can come from the predictability of working under conditions that everyone knows. For example, Coach Summitt expected nothing less than rigorous engagement from everyone who ever played basketball at the University of Tennessee. Because everyone knew and shared in those ideas and expectations, the culture was established and excellence emerged as a result."
+          "markdown": "A happy culture is not solely dedicated to having fun. A happy culture is a content culture, and that contentment can come from the predictability of working under conditions that everyone knows. For example, Coach Summitt expected nothing less than rigorous engagement from everyone who ever played basketball at the University of Tennessee. Because everyone knew and shared in those ideas and expectations, the culture was established and excellence emerged as a result."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_013_reflection_01",
+          "prompt": "What comes to mind when you think of the phrase happy culture? Does your organization or team have a happy culture? How so?",
+          "persist": false
         },
         {
           "type": "image",
@@ -912,8 +1336,22 @@
           "alt": "Players celebrate Coach Summitt's 500th career victory."
         },
         {
+          "type": "heading",
+          "level": 2,
+          "text": "Invest in Deep, Collaborative Planning"
+        },
+        {
           "type": "markdown",
-          "markdown": "Invest in Deep, Collaborative Planning\n\nAnother element of working hard and smart is the investment in deep and collaborative planning. This effort involves the establishment of goals and collaborative development of the step-by-step process required to make those goals come to fruition. It puts participants in the position of owning the journey and owning the plan. By being part of the planning process, the commitment to the goal increases dramatically.\n\nFind Smart People to Surround You\n\nIneffective leaders sometimes have reputations for surrounding themselves with people who are less talented than them. Perhaps a leader lacks confidence or mistakenly assumes they need to know more than everyone else around them. In fact, nothing could be further from the truth. Ineffective leaders will likely stay that way if they follow this model because intentionally surrounding themselves with less-talented people will deny them opportunities for valuable insight. The very best leaders surround themselves with incredibly smart people. Ideally, they like to find people who are actually better than they are in areas where they are weak."
+          "markdown": "Another element of working hard and smart is the investment in deep and collaborative planning. This effort involves the establishment of goals and collaborative development of the step-by-step process required to make those goals come to fruition. It puts participants in the position of owning the journey and owning the plan. By being part of the planning process, the commitment to the goal increases dramatically."
+        },
+        {
+          "type": "heading",
+          "level": 2,
+          "text": "Find Smart People to Surround You"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Ineffective leaders sometimes have reputations for surrounding themselves with people who are less talented than them. Perhaps a leader lacks confidence or mistakenly assumes they need to know more than everyone else around them. In fact, nothing could be further from the truth. Ineffective leaders will likely stay that way if they follow this model because intentionally surrounding themselves with less-talented people will deny them opportunities for valuable insight. The very best leaders surround themselves with incredibly smart people. Ideally, they like to find people who are actually better than they are in areas where they are weak."
         },
         {
           "type": "image",
@@ -922,25 +1360,36 @@
         },
         {
           "type": "markdown",
-          "markdown": "For example, if you are a leader in corporate America and have a blind spot when it comes to logistics, you might bring in a vice president with a truly world-class understanding of logistics. This would not be announcing your weakness, but rather announcing your ability to identify a need and recruit people who can meet that need. In an era where information is ever-expanding, it is frankly absurd to assume a leader can always know it all. The more information expands, the more we need expansive people willing to lead.\n\nInfluence and Example"
+          "markdown": "For example, if you are a leader in corporate America and have a blind spot when it comes to logistics, you might bring in a vice president with a truly world-class understanding of logistics. This would not be announcing your weakness, but rather announcing your ability to identify a need and recruit people who can meet that need. In an era where information is ever-expanding, it is frankly absurd to assume a leader can always know it all. The more information expands, the more we need expansive people willing to lead."
         },
         {
-          "type": "sections",
-          "sections": [
+          "type": "heading",
+          "level": 2,
+          "text": "Influence and Example"
+        },
+        {
+          "type": "choice_prompt",
+          "prompt": "Based on what we've covered so far, which of these do you think is the most powerful way to get an organization to work both hard and smart?",
+          "choices": [
             {
-              "id": "an_organization_brings_in_a_new_leader_w",
-              "title": "An organization brings in a new leader who presents a highly polished and profe…",
-              "body": "An organization brings in a new leader who presents a highly polished and professional demeanor."
+              "id": "c1",
+              "label": "Compromise values that get in the way of productivity.",
+              "response": "Incorrect. Correct answer: Influence a hard and smart working culture by being an example. Your answer: Compromise values that get in the way of productivity. Of these options, a leader can capitalize on influence and being an example of working both hard and smart."
             },
             {
-              "id": "this_new_leader_has_a_really_positive_at",
-              "title": "This new leader has a really positive attitude with everyone they meet.",
-              "body": "This new leader has a really positive attitude with everyone they meet. They remember details about people's personal lives. They're friendly and engaging, never missing an opportunity to make people feel good."
+              "id": "c2",
+              "label": "Publish policies requiring employees to work both hard and smart.",
+              "response": "Incorrect. Correct answer: Influence a hard and smart working culture by being an example. Your answer: Publish policies requiring employees to work both hard and smart. Of these options, a leader can capitalize on influence and being an example of working both hard and smart."
             },
             {
-              "id": "this_individual_is_clearly_a_strong_lead",
-              "title": "This individual is clearly a strong leader for the organization, not only showi…",
-              "body": "This individual is clearly a strong leader for the organization, not only showing both talent and hard work, but also a commitment to the entire team."
+              "id": "c3",
+              "label": "Fill your team with people with less talent than you.",
+              "response": "Incorrect. Correct answer: Influence a hard and smart working culture by being an example. Your answer: Fill your team with people with less talent than you. Of these options, a leader can capitalize on influence and being an example of working both hard and smart."
+            },
+            {
+              "id": "c4",
+              "label": "Influence a hard and smart working culture by being an example.",
+              "response": "Correct. Correct answer: Influence a hard and smart working culture by being an example. Your answer: Influence a hard and smart working culture by being an example. Of these options, a leader can capitalize on influence and being an example of working both hard and smart."
             }
           ]
         },
@@ -948,18 +1397,33 @@
           "type": "sections",
           "sections": [
             {
-              "id": "a_new_leader_comes_into_an_organization",
-              "title": "A new leader comes into an organization.",
+              "id": "positive_leader_1",
+              "title": "Positive example",
+              "body": "An organization brings in a new leader who presents a highly polished and professional demeanor."
+            },
+            {
+              "id": "positive_leader_2",
+              "title": "Positive example — continued",
+              "body": "This new leader has a really positive attitude with everyone they meet. They remember details about people's personal lives. They're friendly and engaging, never missing an opportunity to make people feel good."
+            },
+            {
+              "id": "positive_leader_3",
+              "title": "Positive example — result",
+              "body": "This individual is clearly a strong leader for the organization, not only showing both talent and hard work, but also a commitment to the entire team."
+            },
+            {
+              "id": "negative_leader_1",
+              "title": "Negative example",
               "body": "A new leader comes into an organization. This person seems rather angry and is secretive about their work."
             },
             {
-              "id": "employees_begin_to_notice_this_leader_ha",
-              "title": "Employees begin to notice this leader has a political agenda to drive certain p…",
+              "id": "negative_leader_2",
+              "title": "Negative example — continued",
               "body": "Employees begin to notice this leader has a political agenda to drive certain people out of the organization."
             },
             {
-              "id": "this_leader_has_great_talent_for_the_wor",
-              "title": "This leader has great talent for the work, but clearly brings some baggage and…",
+              "id": "negative_leader_3",
+              "title": "Negative example — result",
               "body": "This leader has great talent for the work, but clearly brings some baggage and negativity with them."
             }
           ]
@@ -967,6 +1431,16 @@
         {
           "type": "markdown",
           "markdown": "That negativity is just as contagious as the positivity in the earlier example, isn't it? Perhaps it is even more contagious. Others will likely start operating this way and bring more of the same to the organization. Positively or negatively, no matter what a leader does, their leadership style, preferences, and habits will create influence and serve as examples. As such, leaders must be very thoughtful and self-aware of their actions and the messages they send to those around them."
+        },
+        {
+          "type": "markdown",
+          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
+        },
+        {
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_013_reflection_02",
+          "prompt": "How have you seen the power of influence and example play out in your team or organization, or in the world? What can you do to replicate that positivity or prevent that negativity in your own leadership practices?",
+          "persist": false
         }
       ]
     },
@@ -1073,13 +1547,35 @@
           "markdown": "In this module, we discussed that we all have weaknesses and blind spots and the importance of being able to identify them. Equally important, in turn, is identifying strategies to help prevent your weaknesses and blind spots from impeding your success. Put another way, your blind spots aren't going to harm you, as long as you acknowledge them and strategize accordingly."
         },
         {
-          "type": "markdown",
-          "markdown": "Some examples include:\n\nyou struggle with communicating in writing — consistently using an editor and planning accordingly\n\nyou consistently get anxious when speaking to large groups — allowing extra time to prepare\n\npart of your job is evaluating marketing opportunities, and you don't have much experience or expertise in that area — identifying learning and professional development opportunities in the area of marketing and allowing extra time to develop"
+          "type": "heading",
+          "level": 2,
+          "text": "Some examples include:"
+        },
+        {
+          "type": "table",
+          "headers": [
+            "If...",
+            "Then you might consider..."
+          ],
+          "rows": [
+            [
+              "you struggle with communicating in writing",
+              "consistently using an editor and planning accordingly"
+            ],
+            [
+              "you consistently get anxious when speaking to large groups",
+              "allowing extra time to prepare"
+            ],
+            [
+              "part of your job is evaluating marketing opportunities, and you don't have much experience or expertise in that area",
+              "identifying learning and professional development opportunities in the area of marketing and allowing extra time to develop"
+            ]
+          ]
         },
         {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_08_st_015_image_01.jpg",
-          "alt": "Lesson image"
+          "alt": "Eyeglasses resting on an open book"
         },
         {
           "type": "markdown",
