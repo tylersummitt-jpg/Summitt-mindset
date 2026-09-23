@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { utBody, utBodyMuted, utSecondaryBtn } from "@/components/utility-page-visual";
+import { utBody, utBodyMuted } from "@/components/utility-page-visual";
 import {
   programsChoiceCorrect,
   programsChoiceIdle,
@@ -31,13 +31,11 @@ export function ProgramsKnowledgeCheck({
   answers,
   result,
   onToggleChoice,
-  onTakeAgain,
 }: {
   block: PublicQuizBlock;
   answers: Record<string, string[]>;
   result: KnowledgeCheckResult | null;
   onToggleChoice: (questionId: string, choiceId: string, multiple: boolean) => void;
-  onTakeAgain: () => void;
 }) {
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
@@ -148,13 +146,6 @@ export function ProgramsKnowledgeCheck({
             {quizScoreLine(result.correctCount, result.questionCount)}
           </p>
           <p>{PROGRAMS_COPY.quizReview}</p>
-          <button
-            type="button"
-            className={`${utSecondaryBtn} mt-1 w-full sm:w-auto`}
-            onClick={onTakeAgain}
-          >
-            {PROGRAMS_COPY.quizTakeAgain}
-          </button>
         </div>
       ) : null}
     </div>

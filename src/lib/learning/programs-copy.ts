@@ -13,7 +13,7 @@ export const PROGRAMS_COPY = {
   scenarioComplete: "Scenario Complete!",
   scenarioStartOver: "Start over",
   quizTakeAgain: "Try again",
-  quizSeeResults: "See results",
+  quizCheckResults: "Check Results",
   quizYourScore: "Your score",
   quizReview: "Review your answers below.",
   finishedProgram:
@@ -40,9 +40,9 @@ export function quizPrimaryLabel(input: {
   graded: boolean;
   isLastStep: boolean;
   enforceRequirements: boolean;
-}): "Saving…" | "See results" | "Finish" | "Back to Programs" | "Continue" {
+}): "Saving…" | "Check Results" | "Finish" | "Back to Programs" | "Continue" {
   if (input.saving) return "Saving…";
-  if (input.enforceRequirements && input.hasQuiz && !input.graded) return "See results";
+  if (input.hasQuiz && !input.graded) return "Check Results";
   if (input.isLastStep && input.enforceRequirements) return "Finish";
   if (input.isLastStep) return "Back to Programs";
   return "Continue";

@@ -83,6 +83,10 @@ export function StepExperience({
   isLastStep: boolean;
 }) {
   const router = useRouter();
+  const hasQuiz = useMemo(
+    () => step.blocks.some((block) => block.type === "quiz"),
+    [step.blocks]
+  );
   const reflectionBlocks = useMemo(
     () =>
       step.blocks.filter(
@@ -174,7 +178,8 @@ export function StepExperience({
     return () => window.clearTimeout(handle);
   }, [phase, persistReflections, reflectionBlocks, texts]);
 
-  async function onSeeResults() {
+  async function onCheckResults() {
+    if (phase !== "idle" || quizResult) return;
     setPhase("saving");
     setFormError(null);
     const result = await gradeLearningStep({
@@ -195,10 +200,7 @@ export function StepExperience({
 
   async function onContinue() {
     if (phase !== "idle") return;
-    if (enforceRequirements && hasQuiz && quizResult === null) {
-      await onSeeResults();
-      return;
-    }
+    if (hasQuiz && quizResult === null) return;
     setPhase("saving");
     setFormError(null);
     const saved = await persistReflections(texts);
@@ -298,7 +300,6 @@ export function StepExperience({
     });
   }
 
-  const hasQuiz = step.blocks.some((block) => block.type === "quiz");
   const quizGraded = quizResult !== null;
   const continueLabel = quizPrimaryLabel({
     saving: phase === "saving",
@@ -343,7 +344,6 @@ export function StepExperience({
             checkingCardId={checkingCardId}
             onChooseCategory={(cardId, category) => void chooseCategory(cardId, category)}
             onReplaySort={replaySort}
-            onTakeAgain={retryQuiz}
             choiceId={choiceId}
             onChoice={setChoiceId}
             saveState={saveState}
@@ -372,7 +372,7 @@ export function StepExperience({
         {previousHref ? (
           <button
             type="button"
-            className={utSecondaryBtn}
+            className={`${utSecondaryBtn} w-full sm:w-auto`}
             onClick={() => void onPrevious()}
             disabled={phase !== "idle"}
           >
@@ -381,14 +381,37 @@ export function StepExperience({
         ) : (
           <span className="hidden sm:block" />
         )}
-        <button
-          type="button"
-          className={`${utPrimaryBtn} w-full sm:w-auto`}
-          onClick={() => void onContinue()}
-          disabled={phase !== "idle"}
-        >
-          {continueLabel}
-        </button>
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:justify-end">
+          {hasQuiz && quizGraded ? (
+            <button
+              type="button"
+              className={`${utSecondaryBtn} w-full sm:w-auto`}
+              onClick={retryQuiz}
+              disabled={phase !== "idle"}
+            >
+              {PROGRAMS_COPY.quizTakeAgain}
+            </button>
+          ) : null}
+          {hasQuiz && !quizGraded ? (
+            <button
+              type="button"
+              className={`${utPrimaryBtn} w-full sm:w-auto`}
+              onClick={() => void onCheckResults()}
+              disabled={phase !== "idle"}
+            >
+              {continueLabel}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`${utPrimaryBtn} w-full sm:w-auto`}
+              onClick={() => void onContinue()}
+              disabled={phase !== "idle"}
+            >
+              {continueLabel}
+            </button>
+          )}
+        </div>
       </div>
     </article>
   );
@@ -408,7 +431,6 @@ function BlockView({
   checkingCardId,
   onChooseCategory,
   onReplaySort,
-  onTakeAgain,
   choiceId,
   onChoice,
   saveState,
@@ -429,7 +451,6 @@ function BlockView({
   checkingCardId: string | null;
   onChooseCategory: (cardId: string, category: string) => void;
   onReplaySort: () => void;
-  onTakeAgain: () => void;
   choiceId: string | null;
   onChoice: (choiceId: string | null) => void;
   saveState: "idle" | "saving" | "saved" | "error";
@@ -513,7 +534,6 @@ function BlockView({
         answers={quizAnswers}
         result={quizResult}
         onToggleChoice={onToggleChoice}
-        onTakeAgain={onTakeAgain}
       />
     );
   }

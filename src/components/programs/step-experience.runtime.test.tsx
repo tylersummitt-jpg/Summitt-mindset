@@ -291,6 +291,15 @@ describe("step experience", () => {
       quizPrimaryLabel({
         saving: false,
         hasQuiz: true,
+        graded: false,
+        isLastStep: false,
+        enforceRequirements: true,
+      })
+    ).toBe("Check Results");
+    expect(
+      quizPrimaryLabel({
+        saving: false,
+        hasQuiz: true,
         graded: true,
         isLastStep: false,
         enforceRequirements: true,
@@ -303,7 +312,9 @@ describe("step experience", () => {
       quiz: belowThreshold,
     });
     renderStep("dd_mp_02_st_002");
-    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
     const status = await screen.findByRole("status");
     expect(status.textContent).toContain("Your score");
     expect(status.textContent).toContain("1 of 3 correct");
@@ -311,22 +322,31 @@ describe("step experience", () => {
     expect(status.textContent).not.toContain("Passing:");
     expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizSeeResults })).toBeNull();
+    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeNull();
     expect(screen.queryByText(/You must/i)).toBeNull();
+    expect(continueLearningStep).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain }));
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
-    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults })).toBeTruthy();
+    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeTruthy();
 
     gradeLearningStep.mockResolvedValueOnce({
       ok: true,
       quiz: { ...belowThreshold, correctCount: 0 },
     });
-    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
     expect(await screen.findByText("0 of 3 correct")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizSeeResults })).toBeNull();
+    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeNull();
+    expect(continueLearningStep).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => {
+      expect(continueLearningStep).toHaveBeenCalledTimes(1);
+      expect(push).toHaveBeenCalled();
+    });
   });
 
   it("shows Continue after a perfect quiz score", async () => {
@@ -349,12 +369,20 @@ describe("step experience", () => {
       },
     });
     renderStep("dd_mp_02_st_002");
-    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
     expect(await screen.findByText("3 of 3 correct")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizSeeResults })).toBeNull();
+    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeNull();
     expect(screen.queryByText("Failed")).toBeNull();
     expect(screen.queryByText(/Passing:/)).toBeNull();
+    expect(continueLearningStep).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() => {
+      expect(continueLearningStep).toHaveBeenCalledTimes(1);
+      expect(push).toHaveBeenCalled();
+    });
   });
 
   it("shows quiz results before continue, including a miss", async () => {
@@ -401,7 +429,7 @@ describe("step experience", () => {
     await user.click(screen.getByText("feel important"));
     expect(choice?.getAttribute("data-selected")).toBe("true");
 
-    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
     const miss = await screen.findByRole("status");
     expect(miss.textContent).toContain(PROGRAMS_COPY.quizYourScore);
     expect(miss.textContent).toContain("1 of 3 correct");
@@ -420,10 +448,10 @@ describe("step experience", () => {
     await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain }));
     expect(screen.queryByText(PROGRAMS_COPY.quizYourScore)).toBeNull();
     expect(screen.queryByText("Correct answer")).toBeNull();
-    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults })).toBeTruthy();
+    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeTruthy();
 
     gradeLearningStep.mockResolvedValueOnce({ ok: true, quiz: earned });
-    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
     expect(await screen.findByText("2 of 3 correct")).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
 
@@ -491,7 +519,7 @@ describe("step experience", () => {
     const view = renderStep("dd_mp_02_st_002");
     expect(view.container.querySelector("[data-choice-result]")).toBeNull();
     expect(view.container.innerHTML).not.toContain("correct_choice_ids");
-    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
     const singleWrongLabel = await screen.findByText(singleWrong.text).then((node) => node.closest("label"));
     const singleCorrectLabel = screen.getByText(singleCorrect.text).closest("label");
     const singleNeutralLabel = screen.getByText(singleNeutral.text).closest("label");
@@ -545,7 +573,7 @@ describe("step experience", () => {
       },
     });
     await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain }));
-    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
     const correctLabel = (await screen.findAllByText(singleCorrect.text))
       .map((node) => node.closest("label"))
       .find((label) => label?.getAttribute("data-choice-result") === "correct");
@@ -592,8 +620,15 @@ describe("step experience", () => {
         isLastStep
       />
     );
-    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Finish" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
     expect(await screen.findByText("0 of 3 correct")).toBeTruthy();
+    expect(screen.getAllByText("Correct answer").length).toBeGreaterThan(0);
+    expect(continueLearningStep).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: PROGRAMS_COPY.quizCheckResults })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Finish" }));
     expect(await screen.findByText(PROGRAMS_COPY.finishedProgram)).toBeTruthy();
     await waitFor(() => {
