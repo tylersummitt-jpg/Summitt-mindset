@@ -18,13 +18,14 @@ const SOURCE_PROGRAM = path.join(
 );
 const LEARNING_LIB = path.join(ROOT, "src/lib/learning");
 
-const DOUG_VIMEO_BY_SOURCE_STEP: Record<string, string> = {
-  dd_mp_02_st_006: "1150754357",
-  dd_mp_02_st_011: "1150754332",
-  dd_mp_02_st_014: "1150754397",
-};
-
-const MISSING_VIDEO_STEPS = ["dd_mp_02_st_001", "dd_mp_02_st_003", "dd_mp_02_st_016"];
+const PRINCIPLE_1_VIMEO: Array<[string, string]> = [
+  ["dd_mp_02_st_001", "1150754411"],
+  ["dd_mp_02_st_003", "1150754378"],
+  ["dd_mp_02_st_006", "1150754397"],
+  ["dd_mp_02_st_011", "1150754357"],
+  ["dd_mp_02_st_014", "1150754332"],
+  ["dd_mp_02_st_016", "1150754314"],
+];
 
 const REFLECTION_IDS = [
   "dd_mp_02_st_005_reflection_01",
@@ -174,23 +175,18 @@ describe("Principle 1 curriculum", () => {
     }
   });
 
-  it("uses the three Doug Buce Vimeo ids and allows missing Pat and Teela videos", () => {
-    for (const [stepId, vimeoId] of Object.entries(DOUG_VIMEO_BY_SOURCE_STEP)) {
+  it("uses the verified Principle 1 Vimeo ids on their source steps", () => {
+    for (const [stepId, vimeoId] of PRINCIPLE_1_VIMEO) {
       const step = getLearningStep("dd_mp_02", stepId);
       const video = step?.blocks.find((block) => block.type === "video");
       expect(video).toMatchObject({ type: "video", vimeo_video_id: vimeoId });
-    }
-    for (const stepId of MISSING_VIDEO_STEPS) {
-      const step = getLearningStep("dd_mp_02", stepId);
-      const video = step?.blocks.find((block) => block.type === "video");
-      expect(video).toMatchObject({ type: "video", vimeo_video_id: null });
     }
     const ids = program().steps.flatMap((step) =>
       step.blocks.flatMap((block) =>
         block.type === "video" && block.vimeo_video_id ? [block.vimeo_video_id] : []
       )
     );
-    expect(ids).toEqual(["1150754357", "1150754332", "1150754397"]);
+    expect(ids).toEqual(PRINCIPLE_1_VIMEO.map(([, vimeoId]) => vimeoId));
   });
 
   it("removes quiz and sort answer keys from the client payload", () => {

@@ -79,10 +79,29 @@ describe("step experience", () => {
   });
 
   it("renders teaching content without an iframe when the video is unresolved", () => {
-    for (const stepId of ["dd_mp_02_st_001", "dd_mp_02_st_003", "dd_mp_02_st_016"]) {
-      const { container } = renderStep(stepId);
+    for (const stepId of ["dd_mp_03_st_003", "dd_mp_03_st_013"] as const) {
+      const step = getLearningStepForClient("dd_mp_03", stepId);
+      if (!step) throw new Error(`missing ${stepId}`);
+      const video = step.blocks.find((block) => block.type === "video");
+      const { container } = render(
+        <StepExperience
+          miniProgramId="dd_mp_03"
+          collectionTitle="Definite Dozen"
+          programTitle="Principle 2: Take Full Responsibility"
+          step={step}
+          stepCount={15}
+          previousHref={null}
+          initialAnswers={{}}
+          enforceRequirements
+          isLastStep={false}
+        />
+      );
       expect(container.querySelector("iframe"), stepId).toBeNull();
-      expect(container.textContent?.length ?? 0).toBeGreaterThan(40);
+      expect(video?.type === "video" ? video.vimeo_video_id : "missing").toBeNull();
+      if (video?.type === "video") {
+        expect(container.textContent).toContain(video.visible_title);
+        expect(container.textContent).toContain(video.speaker);
+      }
       cleanup();
     }
   });
@@ -90,7 +109,7 @@ describe("step experience", () => {
   it("embeds only a confirmed Vimeo id", () => {
     const { container } = renderStep("dd_mp_02_st_006");
     const iframe = container.querySelector("iframe");
-    expect(iframe?.getAttribute("src")).toContain("player.vimeo.com/video/1150754357");
+    expect(iframe?.getAttribute("src")).toContain("player.vimeo.com/video/1150754397");
     expect(iframe?.getAttribute("src")).not.toContain("autoplay");
     expect(iframe?.parentElement?.className).toContain("aspect-video");
   });
