@@ -1,0 +1,744 @@
+{
+  "id": "potl_mp_11",
+  "collection_id": "power_of_team_leader",
+  "collection_title": "The Power of Team",
+  "title": "How to Be Loyal to Your Team",
+  "description": "Loyalty is a self-less proposition. You won’t ever have it unless you’re willing to give it away first.”",
+  "sequence": 11,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "potl_mp_11",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "potl_mp_11_st_001",
+      "source_step_id": "potl_mp_11_st_001",
+      "sequence": 1,
+      "title": "How to Be Loyal to Your Team",
+      "blocks": [
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_001_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_11_st_001_reflection_01",
+          "prompt": "If showing loyalty is the first step to growing loyalty, it’s worth taking a step back to examine your current organizational culture. Take a moment to pause and reflect: If you were one of your team members, would you feel like the company is loyal to you? How loyal on a scale of 1 to 10?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_11_st_001_reflection_02",
+          "prompt": "If you don’t have confidence in your current employee base and overall hiring processes to find good people, that’s the first place to start. But let’s assume that you do — that your human resources team is doing a good job of finding quality employees to fit open roles. How do you start showing loyalty to people you’ve hired?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Loyalty is a self-less proposition. You won’t ever have it unless you’re willing to give it away first.”"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877815",
+          "visible_title": "How to Be Loyal to Your Team",
+          "speaker": "Petra Dunn"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_11_st_002",
+      "source_step_id": "potl_mp_11_st_002",
+      "sequence": 2,
+      "title": "Everyone a Star",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Scroll through to complete this element."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "everyone_a_star",
+              "title": "Everyone a Star",
+              "body": "Everyone a Star"
+            },
+            {
+              "id": "the_simplest_way_to_show_loyalty_is_to_s",
+              "title": "The simplest way to show loyalty is to start by letting people do their jobs.",
+              "body": "The simplest way to show loyalty is to start by letting people do their jobs. In other words, a certain level of trust comes with the job. The message is clear: “We hired you. We believe in you.”\nThis sounds obvious, but many well-meaning organizations are crippled by inadvertent traditions of micromanagement or unreasonable expectations of seniority.\nLet’s look at a few examples of what this can look like."
+            },
+            {
+              "id": "summary",
+              "title": "Summary",
+              "body": "Summary"
+            },
+            {
+              "id": "there_are_nuances_to_every_story_but_the",
+              "title": "There are nuances to every story, but the one thing all these examples have in common is…",
+              "body": "There are nuances to every story, but the one thing all these examples have in common is that the companies who hired Tyson, Shelby, and Juan didn’t have much initial loyalty to them as they tried to perform in their roles. There’s an old saying, “See everyone as a star.” In the workplace, this means remembering why you hired someone and looking for the ways they shine. It means celebrating what makes them unique, rather than trying to force them into the mold of their counterparts or predecessors.\nPat asked herself, What do my athletes need to deliver? So, ask yourself: What do my employees need to deliver in their roles?, How can I help?, and sometimes, How can I get out of their way?"
+            },
+            {
+              "id": "tyson",
+              "title": "Tyson",
+              "body": "Tyson"
+            },
+            {
+              "id": "let_s_say_tyson_a_highly_skilled_associa",
+              "title": "Let’s say Tyson, a highly skilled, associate-level marketer, has been hired to create a m…",
+              "body": "Let’s say Tyson, a highly skilled, associate-level marketer, has been hired  to create a marketing funnel for a new division of the company. The problem is, the director of marketing doesn’t really trust Tyson to execute.\nTyson patiently sits in meeting after meeting while the director explains what he would do. Tyson tries his best to follow through, including giving a few additional ideas that are new and innovative. The marketing director sends them to the board of directors for review, but they’re quickly shot down in an email. Six months later, Tyson is still struggling to build a funnel that will appease everyone. Tyson was hired to do a specific job, but the very people who hired him don’t show much loyalty to the expertise they hired him for. After 10 more months, he gets frustrated and quits."
+            },
+            {
+              "id": "shelby",
+              "title": "Shelby",
+              "body": "Shelby"
+            },
+            {
+              "id": "in_another_example_shelby_has_been_worki",
+              "title": "In another example, Shelby has been working as an entry-level graphic designer for three…",
+              "body": "In another example, Shelby has been working as an entry-level graphic designer for three years, eagerly accepting every new project and working on improving the company’s brand standards. She helps her colleagues out consistently and is always willing to take on extra work. Her designs are well-received by stakeholders and have improved the customer experience on the website dramatically.\nWhen it comes time to hire an associate design director, the company looks at outside candidates, settling on someone the same age and skill level as Shelby but who came highly recommended from a competitor. Shelby is crushed. It will be years until the department is big enough to hire another associate design director. She quietly starts putting in resumes elsewhere."
+            },
+            {
+              "id": "juan",
+              "title": "Juan",
+              "body": "Juan"
+            },
+            {
+              "id": "juan_is_a_highly_sought_after_product_ma",
+              "title": "Juan is a highly sought-after product manager with 10 years of experience.",
+              "body": "Juan is a highly sought-after product manager with 10 years of experience. He joins a company looking to take their existing line of products to the next level and expand into two new markets. The problem is, Juan is consistently left out of key conversations about the product by the C-suite team. They meet regularly to discuss the gaps and flaws in the current product, telling Juan what they would like him to do about it.\nWhen Juan does manage to get invited to a meeting and share his thoughts, he’s told: “When you’ve been here at least five years, your opinion will count more.” Juan doesn’t want to wait five years to have a voice in his own role. When a recruiter calls two months later, he accepts a similar role at another company."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Exercise"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "sort",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Loyalty” or “Disloyalty”.",
+          "categories": [
+            "Loyalty",
+            "Disloyalty"
+          ],
+          "cards": [
+            {
+              "id": "promoting_from_within",
+              "text": "Promoting from within",
+              "correct_category": "Loyalty"
+            },
+            {
+              "id": "excessive_feedback_and_approval_loops",
+              "text": "Excessive feedback and approval loops",
+              "correct_category": "Disloyalty"
+            },
+            {
+              "id": "telling_team_members_how_to_perform_their",
+              "text": "Telling team members how to perform their job duties",
+              "correct_category": "Disloyalty"
+            },
+            {
+              "id": "trusting_team_members_who_are_subject_matt",
+              "text": "Trusting team members who are subject matter experts",
+              "correct_category": "Loyalty"
+            },
+            {
+              "id": "having_your_employees_back_during_both_suc",
+              "text": "Having your employees’ back during both success and failure",
+              "correct_category": "Loyalty"
+            },
+            {
+              "id": "hiring_from_the_outside_when_qualified_int",
+              "text": "Hiring from the outside, when qualified internal candidates exist",
+              "correct_category": "Disloyalty"
+            },
+            {
+              "id": "encouraging_a_culture_of_experimentation_w",
+              "text": "Encouraging a culture of experimentation, without retribution",
+              "correct_category": "Loyalty"
+            },
+            {
+              "id": "leaving_junior_level_team_members_out_of_i",
+              "text": "Leaving junior-level team members out of important discussions",
+              "correct_category": "Disloyalty"
+            },
+            {
+              "id": "finger_pointing_when_things_fail",
+              "text": "Finger-pointing when things fail",
+              "correct_category": "Disloyalty"
+            },
+            {
+              "id": "asking_those_you_manage_how_can_i_help_you",
+              "text": "Asking those you manage, “How can I help you?”",
+              "correct_category": "Loyalty"
+            },
+            {
+              "id": "only_listening_to_senior_level_management",
+              "text": "Only listening to senior-level management",
+              "correct_category": "Disloyalty"
+            },
+            {
+              "id": "clear_communication_across_all_position_le",
+              "text": "Clear communication across all position-levels",
+              "correct_category": "Loyalty"
+            },
+            {
+              "id": "clarifying_the_goals_and_trusting_team_mem",
+              "text": "Clarifying the goals and trusting team members to deliver",
+              "correct_category": "Loyalty"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_11_st_003",
+      "source_step_id": "potl_mp_11_st_003",
+      "sequence": 3,
+      "title": "Championing Team Member Growth",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "The second step in showing loyalty is a fairly obvious one: To show loyalty to your team, you have to invest in the growth of your team members. What does this look like specifically? For Pat and her players, it started with increasing levels of responsibility, as we discussed in the previous module on Responsibility. For your organization, it may mean delegating freely and giving team members a chance to increase their influence or responsibilities in their current roles, before being promoted.\n\nMany times, this involves providing training and continuing education opportunities on the job to help people grow in their skills. A person who is on the cutting edge of a particular industry will quickly grow stale five to eight years later (through no character flaw of their own) if not given the opportunity to further their skills and stay current with the latest trends and technology. Don’t inadvertently punish talented and loyal employees for staying at your company for years by hiring someone from the outside solely because they know the latest trends. Give current employees the opportunity to further their skills on the job.\n\nA large part of employee growth is providing opportunities for advancement. As we saw in Shelby’s example, nothing erodes loyalty faster than competent employees who have been with the company for several years being passed over for internal positions. Internal promotions may not always be feasible, but it’s worth taking a firm look at what the career paths are for your current employees. First, decide if ample opportunities exist. Then look around your own department or ask your HR team for what percentage of promotions are being hired externally and what percentage are being promoted from within — are those opportunities being realized?"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_003_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_003_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_003_image_03.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_11_st_004",
+      "source_step_id": "potl_mp_11_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_11_st_004_q01",
+              "prompt": "Which of these is not a part of championing team member growth?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Investing in the growth of your team members"
+                },
+                {
+                  "id": "c2",
+                  "text": "Increasing professional levels of responsibility"
+                },
+                {
+                  "id": "c3",
+                  "text": "Unspoken seniority perks"
+                },
+                {
+                  "id": "c4",
+                  "text": "Providing opportunities for advancement"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "potl_mp_11_st_004_q02",
+              "prompt": "Which of these is part of providing opportunities for advancement? (check all that apply)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Hiring liberally from the outside"
+                },
+                {
+                  "id": "c2",
+                  "text": "Examining what career paths exist for each role or position"
+                },
+                {
+                  "id": "c3",
+                  "text": "Examining what percentage of promotions are external vs. internal"
+                },
+                {
+                  "id": "c4",
+                  "text": "Capping certain career paths at entry-level"
+                },
+                {
+                  "id": "c5",
+                  "text": "Providing continuing education training for employees"
+                },
+                {
+                  "id": "c6",
+                  "text": "Frequent and unexpected downsizing"
+                },
+                {
+                  "id": "c7",
+                  "text": "Allowing employees to attend external conferences and seminars"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2",
+                "c3",
+                "c5",
+                "c7"
+              ]
+            },
+            {
+              "question_id": "potl_mp_11_st_004_q03",
+              "prompt": "How might you increase the levels of responsibility for your team members?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Outline a career path from entry-level to director-level positions"
+                },
+                {
+                  "id": "c2",
+                  "text": "Demand that more work be done on time"
+                },
+                {
+                  "id": "c3",
+                  "text": "Give team members unrealistic workloads to see who floats to the top"
+                },
+                {
+                  "id": "c4",
+                  "text": "Encourage competition and rivalry among the team"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_11_st_005",
+      "source_step_id": "potl_mp_11_st_005",
+      "sequence": 5,
+      "title": "Recognizing Your Stars",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Being Slow to Offboard\n\nOK, that’s all fine when you’ve got employees who are great at their jobs, you might think. But when you’ve worked hard to get an employee hired, and it’s not quite working out in a particular role, what do you do? Many employers simply cut their losses and move on. Employees are expendable, right? Not so fast!\n\nIf an employee is a good culture fit, it’s worth examining whether there might be another role that would be a better fit before jumping straight to a termination plan. As Pat would say, you’ve got to get people “in the right seat on the bus.” Being quick to promote and slow to offboard shows employees that the company is committed to them and will make every effort to ensure they can have a career at the organization.\n\nRecognizing Your Rock Stars"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "verbal_praise_and_appreciation",
+              "title": "Verbal Praise and Appreciation",
+              "body": "Verbal Praise and Appreciation"
+            },
+            {
+              "id": "one_of_the_simplest_yet_most_effective_w",
+              "title": "One of the simplest yet most effective ways is through sincere verbal praise.",
+              "body": "One of the simplest yet most effective ways is through sincere verbal praise. Acknowledge their accomplishments and express gratitude for their efforts."
+            },
+            {
+              "id": "public_recognition",
+              "title": "Public Recognition",
+              "body": "Public Recognition"
+            },
+            {
+              "id": "publicly_recognizing_employees_achieveme",
+              "title": "Publicly recognizing employees' achievements during team meetings, company-wide announcem…",
+              "body": "Publicly recognizing employees' achievements during team meetings, company-wide announcements, or newsletters can amplify the recognition… and inspire others to strive for excellence as well."
+            },
+            {
+              "id": "written_recognition",
+              "title": "Written Recognition",
+              "body": "Written Recognition"
+            },
+            {
+              "id": "it_sounds_traditional_but_a_handwritten",
+              "title": "It sounds traditional, but a handwritten note, an email, or a personalized message can ha…",
+              "body": "It sounds traditional, but a handwritten note, an email, or a personalized message can have a significant impact. Some people keep cards of appreciation at their desk for years! Seize the opportunity to provide detailed feedback, and express appreciation in writing."
+            },
+            {
+              "id": "awards",
+              "title": "Awards",
+              "body": "Awards"
+            },
+            {
+              "id": "to_standardize_recognition_efforts_many",
+              "title": "To standardize recognition efforts, many companies choose to institute a series of weekly…",
+              "body": "To standardize recognition efforts, many companies choose to institute a series of weekly, monthly or annual awards to recognize outstanding achievement in a certain area."
+            },
+            {
+              "id": "reward_programs",
+              "title": "Reward Programs",
+              "body": "Reward Programs"
+            },
+            {
+              "id": "consider_implementing_reward_programs_th",
+              "title": "Consider implementing reward programs that provide tangible incentives for exceptional pe…",
+              "body": "Consider implementing reward programs that provide tangible incentives for exceptional performance. These can include gift cards, bonuses, extra time off or other rewards."
+            },
+            {
+              "id": "peer_to_peer_recognition",
+              "title": "Peer-to-Peer Recognition",
+              "body": "Peer-to-Peer Recognition"
+            },
+            {
+              "id": "encourage_a_culture_of_peer_to_peer_reco",
+              "title": "Encourage a culture of peer-to-peer recognition where employees can acknowledge and appre…",
+              "body": "Encourage a culture of peer-to-peer recognition where employees can acknowledge and appreciate each other's contributions."
+            },
+            {
+              "id": "celebrate_ordinary_accomplishments",
+              "title": "Celebrate Ordinary Accomplishments",
+              "body": "Celebrate Ordinary Accomplishments"
+            },
+            {
+              "id": "organize_celebrations_to_mark_significan",
+              "title": "Organize celebrations to mark significant milestones, project completions or team success…",
+              "body": "Organize celebrations to mark significant milestones, project completions or team successes. Birthdays or company anniversaries are a start. These events can be formal or informal, such as team lunches and happy hours."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "With just a little intentionality, you can make your team members feel valued and appreciated on a regular basis."
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_05.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_06.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_07.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_08.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_11_st_006",
+      "source_step_id": "potl_mp_11_st_006",
+      "sequence": 6,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_11_st_006_q01",
+              "prompt": "When it comes to showing loyalty, what should you do with a team member who is underperforming in their role, despite being coached?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Terminate them"
+                },
+                {
+                  "id": "c2",
+                  "text": "See if there is another position on the team that would be a better fit"
+                },
+                {
+                  "id": "c3",
+                  "text": "Put them on a performance improvement plan"
+                },
+                {
+                  "id": "c4",
+                  "text": "Give them more coaching"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "potl_mp_11_st_006_q02",
+              "prompt": "Which of these are ways to recognize and celebrate your team members? (check any that apply)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Verbal praise"
+                },
+                {
+                  "id": "c2",
+                  "text": "Public recognition"
+                },
+                {
+                  "id": "c3",
+                  "text": "Written recognition"
+                },
+                {
+                  "id": "c4",
+                  "text": "Public critiques and feedback"
+                },
+                {
+                  "id": "c5",
+                  "text": "Internal awards ceremonies"
+                },
+                {
+                  "id": "c6",
+                  "text": "Give more work to the top performers"
+                },
+                {
+                  "id": "c7",
+                  "text": "Allow peer-to-peer recognition"
+                },
+                {
+                  "id": "c8",
+                  "text": "Limit official recognition, to create prestige"
+                },
+                {
+                  "id": "c9",
+                  "text": "Reward programs"
+                },
+                {
+                  "id": "c10",
+                  "text": "Celebrating personal and professional milestones"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c2",
+                "c3",
+                "c5",
+                "c7",
+                "c9",
+                "c10"
+              ]
+            },
+            {
+              "question_id": "potl_mp_11_st_006_q03",
+              "prompt": "What type of rewards or incentives can you use to recognize excellence? (check any that apply)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Gift cards"
+                },
+                {
+                  "id": "c2",
+                  "text": "Bonuses"
+                },
+                {
+                  "id": "c3",
+                  "text": "Standard benefits"
+                },
+                {
+                  "id": "c4",
+                  "text": "Plum assignments"
+                },
+                {
+                  "id": "c5",
+                  "text": "Extra time off"
+                },
+                {
+                  "id": "c6",
+                  "text": "Training lower performing team members"
+                },
+                {
+                  "id": "c7",
+                  "text": "Incentive trips"
+                },
+                {
+                  "id": "c8",
+                  "text": "Official awards/plaques"
+                },
+                {
+                  "id": "c9",
+                  "text": "More attention from leadership"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c2",
+                "c5",
+                "c7",
+                "c8"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_11_st_007",
+      "source_step_id": "potl_mp_11_st_007",
+      "sequence": 7,
+      "title": "Showing Loyalty With Benefits",
+      "blocks": [
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "do_employees_have_to_show_outstanding_pe",
+              "title": "Do employees have to show outstanding performance, just get what equates to a cost-of-liv…",
+              "body": "Do employees have to show outstanding performance, just get what equates to a cost-of-living raise, or is there room for outstanding compensation?"
+            },
+            {
+              "id": "healthy_pay_increases",
+              "title": "Healthy pay increases",
+              "body": "Healthy pay increases"
+            },
+            {
+              "id": "otherwise_known_as_you_do_good_work_for",
+              "title": "Otherwise known as “you do good work for us, we’ll let you rest.\"",
+              "body": "Otherwise known as “you do good work for us, we’ll let you rest.\""
+            },
+            {
+              "id": "pto_sick_time",
+              "title": "PTO/Sick time",
+              "body": "PTO/Sick time"
+            },
+            {
+              "id": "this_can_include_dental_vision_life_insu",
+              "title": "This can include dental, vision, life insurance, disability, long-term care, etc.",
+              "body": "This can include dental, vision, life insurance, disability, long-term care, etc."
+            },
+            {
+              "id": "health_benefits",
+              "title": "Health benefits",
+              "body": "Health benefits"
+            },
+            {
+              "id": "this_says_we_value_you_and_you_won_t_hav",
+              "title": "This says, “We value you, and you won’t have to leave to be able to save well for retirem…",
+              "body": "This says, “We value you, and you won’t have to leave to be able to save well for retirement.” Consider adding a company match."
+            },
+            {
+              "id": "retirement_plans",
+              "title": "Retirement plans",
+              "body": "Retirement plans"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "It sounds like a no-brainer, but very few businesses manage to do all of the above. Some only do two or three and try to make up for a deficiency in one area by giving away free sports tickets or adding a gym plan. Such perks are appreciated – but do not mistake the small things for big things. Employees won’t work for a company with subpar health insurance simply because they get a discount on live event tickets.\n\nYour company benefits may or may not be directly up to you as a leader, but as a member of the leadership team, encourage upper management to consistently reevaluate what’s being offered and how to show employees that the company is dedicated to their long-term growth. By championing your team members, publicly recognizing them, encouraging their growth, and providing first-class benefits, you’ll cultivate a culture of loyalty that’s hard to beat."
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_007_image_01.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_007_image_02.png",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_11_st_008",
+      "source_step_id": "potl_mp_11_st_008",
+      "sequence": 8,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877900",
+          "visible_title": "Once a Lady Vol, Always a Lady Vol",
+          "speaker": "Corinne Milien"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_11_st_008_reflection_01",
+          "prompt": "If you were one of your own team members, would you feel like the company is loyal to you?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_11_st_008_reflection_02",
+          "prompt": "How loyal on a scale of 1 to 10?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_11_st_008_reflection_03",
+          "prompt": "How do you currently champion team member growth?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_11_st_008_reflection_04",
+          "prompt": "What percentage of promotions in the last 12 months have been internal vs. external in your department?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_11_st_008_reflection_05",
+          "prompt": "Which of the below do you currently do to recognize current employees?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_11_st_008_reflection_06",
+          "prompt": "What new methods of recognition might you implement to build on the current list?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_11_st_008_reflection_07",
+          "prompt": "What benefits do you currently offer employees?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_11_st_008_reflection_08",
+          "prompt": "How might the company consider adding to its current benefits package?"
+        }
+      ]
+    }
+  ]
+}

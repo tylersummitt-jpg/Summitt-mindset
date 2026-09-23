@@ -1,0 +1,449 @@
+{
+  "id": "cw_mp_08",
+  "collection_id": "championing_women",
+  "collection_title": "Championing Women in Leadership",
+  "title": "Owning Your Game",
+  "description": "If Pat were here, she might say, “Own your own game.” Don’t hold back who you are and what you can contribute to your team or as a leader in your workplace. In other words, be your authentic self. So what does it mean to be your authentic self?",
+  "sequence": 8,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "cw_mp_08",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "cw_mp_08_st_002",
+      "source_step_id": "cw_mp_08_st_002",
+      "sequence": 1,
+      "title": "Be Your Authentic Self",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "If Pat were here, she might say, “Own your own game.” Don’t hold back who you are and what you can contribute to your team or as a leader in your workplace. In other words, be your authentic self. So what does it mean to be your authentic self?\n\nClick on the buttons below to expand the full text."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "know_yourself",
+              "title": "Know Yourself",
+              "body": "Know Yourself"
+            },
+            {
+              "id": "know_your_strengths_and_don_t_hide_them",
+              "title": "Know your strengths and don’t hide them.",
+              "body": "Know your strengths and don’t hide them. What are you good at? What are you great at? How can you help your team or your leadership team right now? What problems are you uniquely positioned to solve? Whose permission are you waiting for? Step into your own shoes, and be comfortable in your own skin! Know your weaknesses and work on them… but don’t apologize for them."
+            },
+            {
+              "id": "know_your_brand",
+              "title": "Know Your Brand",
+              "body": "Know Your Brand"
+            },
+            {
+              "id": "your_personal_style_is_an_extension_of_y",
+              "title": "Your personal style is an extension of your authenticity.",
+              "body": "Your personal style is an extension of your authenticity. While it’s important to always be professional, authenticity is often expressed in attire or personal brand. When you see someone wearing pearls and heels, you have one perception of that person. When you see someone wearing slacks and sneakers, you make another perception about their personality. What do you want to project?\nAside from people’s outward perceptions, dressing authentically allows you to feel confident and comfortable in your professional skin. Do you prefer heels and tights? Do blazers make you feel like a rock star? Maybe you prefer sweaters and slacks. Think about how you want to be perceived and craft your professional image from there.\nOn an internal note, reflect on what aspects of your personal life you want to include as part of your image or personal brand and what you want to keep private.\nOverall, a good question to ask yourself is: What words do I want people to associate with me when they think of my personal brand?"
+            },
+            {
+              "id": "set_boundaries",
+              "title": "Set Boundaries",
+              "body": "Set Boundaries"
+            },
+            {
+              "id": "similar_to_knowing_your_nonnegotiables_s",
+              "title": "Similar to knowing your nonnegotiables, setting boundaries means knowing lines you will a…",
+              "body": "Similar to knowing your nonnegotiables, setting boundaries means knowing lines you will and won’t cross—here you’re willing to fake it till you make it and where you won’t (although no one is suggesting anyone be fake!). Think about what you’ll speak up about and what you won’t, when you’ll stay late and when you won’t.\nConsider these your core values. Nothing is less authentic than allowing yourself to be pushed around outside of your boundaries at work."
+            },
+            {
+              "id": "speak_up",
+              "title": "Speak Up",
+              "body": "Speak Up"
+            },
+            {
+              "id": "finally_express_your_voice_you_don_t_hav",
+              "title": "Finally, express your voice.",
+              "body": "Finally, express your voice. You don’t have to speak up on everything, but offer your opinions and expertise on the things that matter. No one will ever know the authentic you if you don’t let them! Sometimes we are our own worst censor."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Finding the right fit at work is a must for both personal satisfaction and career satisfaction. When it comes to being unapologetically authentic, the concept of \"fit\" goes beyond just matching your skills with the job description; it involves aligning your talents, values, and work style with the broader team and company culture.\n\nThe first step is ensuring that your unique talents complement the needs of the overall team and ultimately, the organization. Every work team is a unique blend of individuals with diverse strengths, and the most effective teams are those where members’ skills are complementary.\n\nBeyond the technical skills, cultural fit is equally important. Every organization and team has its own culture, which is shaped by shared behaviors, norms, and values. Finding a workplace where your personal values align with the company’s culture is essential for long-term success and happiness. For example, if you thrive in a collaborative environment but find yourself in a company that values competition over cooperation, or a remote, independent producer type of career, you may struggle to feel comfortable and perform at your best. Or if you have a more informal approach to your work and your company has a highly corporate, more formal environment (or vice versa), you’ll spend a large part of your time simply trying to “fit in,” rather than playing to your strengths.\n\nTo sum it up, finding the right fit at work is important for your long-term career development! When your talents are aligned with your role and the organizational culture, you’re more likely to receive opportunities for growth, whether through promotions or new responsibilities. A good fit means that you’re not just performing a job, but actively contributing to and growing with the organization."
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_08_st_002_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_08_st_002_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_08_st_002_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_08_st_002_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1151015186",
+          "visible_title": "Deep Dive: Finding the Right Fit",
+          "speaker": "Sue Nokes"
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_08_st_003",
+      "source_step_id": "cw_mp_08_st_003",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "cw_mp_08_st_003_q01",
+              "prompt": "What are some ways women may tend to curb their behavior at work to fit in?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Underplaying accomplishments"
+                },
+                {
+                  "id": "c2",
+                  "text": "Not speaking up when they have a solution to a problem"
+                },
+                {
+                  "id": "c3",
+                  "text": "Downplaying personal brand to look “friendlier” or “nicer”"
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "cw_mp_08_st_003_q02",
+              "prompt": "As part of being your authentic self at work, “knowing yourself” means to know ____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Your strengths"
+                },
+                {
+                  "id": "c2",
+                  "text": "How you can help your leadership team"
+                },
+                {
+                  "id": "c3",
+                  "text": "Which problems you can uniquely solve"
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "cw_mp_08_st_003_q03",
+              "prompt": "Which is not a part of being your authentic self, as discussed in this lesson? (Select all that apply.)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Knowing your strengths"
+                },
+                {
+                  "id": "c2",
+                  "text": "Having no boundaries"
+                },
+                {
+                  "id": "c3",
+                  "text": "Having a personal brand"
+                },
+                {
+                  "id": "c4",
+                  "text": "Speaking up when necessary"
+                },
+                {
+                  "id": "c5",
+                  "text": "Downplaying your strengths"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2",
+                "c5"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_08_st_004",
+      "source_step_id": "cw_mp_08_st_004",
+      "sequence": 3,
+      "title": "The Inner Struggle",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "What are some of the ways women suppress their authentic self? (Click on the icons to expand the text.)"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "fear_of_judgement",
+              "title": "Fear of Judgement",
+              "body": "Fear of Judgement"
+            },
+            {
+              "id": "the_fear_of_judgment_especially_in_male",
+              "title": "The fear of judgment, especially in male-dominated industries, can stifle authenticity.",
+              "body": "The fear of judgment, especially in male-dominated industries, can stifle authenticity. Women may hesitate to express their true opinions, showcase their skills, or even take on a leadership role to begin with out of fear of being judged or not taken seriously."
+            },
+            {
+              "id": "conforming_to_gender_norms",
+              "title": "Conforming to Gender Norms",
+              "body": "Conforming to Gender Norms"
+            },
+            {
+              "id": "many_of_us_grew_up_with_gender_norms_we",
+              "title": "Many of us grew up with gender norms we tried to fit into and it’s hard to erase decades…",
+              "body": "Many of us grew up with gender norms we tried to fit into and it’s hard to erase decades of learned behavior, and it can be doubly hard to put that aside when it comes to expectations in the workplace."
+            },
+            {
+              "id": "an_endless_balancing_act",
+              "title": "An Endless Balancing Act",
+              "body": "An Endless Balancing Act"
+            },
+            {
+              "id": "juggling_multiple_roles_and_responsibili",
+              "title": "Juggling multiple roles and responsibilities, particularly for working mothers, can lead…",
+              "body": "Juggling multiple roles and responsibilities, particularly for working mothers, can lead to the pressure of a constant balancing act while striving to appear composed and unflustered, resulting in a polished facade."
+            },
+            {
+              "id": "avoiding_conflict",
+              "title": "Avoiding Conflict",
+              "body": "Avoiding Conflict"
+            },
+            {
+              "id": "conditioned_to_prioritize_harmony_and_av",
+              "title": "Conditioned to prioritize harmony and avoid confrontation, women often suppress their aut…",
+              "body": "Conditioned to prioritize harmony and avoid confrontation, women often suppress their authentic views to maintain a semblance of peace."
+            },
+            {
+              "id": "over_apologizing",
+              "title": "Over-apologizing",
+              "body": "Over-apologizing"
+            },
+            {
+              "id": "women_often_have_a_tendency_to_over_apol",
+              "title": "Women often have a tendency to over-apologize, even when not at fault.",
+              "body": "Women often have a tendency to over-apologize, even when not at fault. This habit may stem from a desire to avoid being perceived as demanding, leading to a less assertive presence in the workplace."
+            },
+            {
+              "id": "downplaying_achievements",
+              "title": "Downplaying Achievements",
+              "body": "Downplaying Achievements"
+            },
+            {
+              "id": "a_reluctance_to_highlight_personal_achie",
+              "title": "A reluctance to highlight personal achievements is a common phenomenon among women.",
+              "body": "A reluctance to highlight personal achievements is a common phenomenon among women. The fear of being perceived as boastful or arrogant may result in downplaying accomplishments and suppressing the authentic acknowledgment of their contributions."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Of the examples listed above, which do you find yourself guilty of, and why?"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "conclusion",
+              "title": "Conclusion",
+              "body": "In short, stay true to your vision. Take calculated risks. No one benefits when you curb your talents and skills, especially to fit inside a preconceived mold that was created decades ago. Let the best parts of yourself shine. Know how to navigate office etiquette, but also how to be real and valuable to your team."
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_08_st_004_image_01.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_08_st_005",
+      "source_step_id": "cw_mp_08_st_005",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "cw_mp_08_st_005_q01",
+              "prompt": "When it comes to being your authentic self at work, which of these are women prone to in the workplace, as discussed in this lesson:",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Over-apologizing"
+                },
+                {
+                  "id": "c2",
+                  "text": "Fear of judgment"
+                },
+                {
+                  "id": "c3",
+                  "text": "Avoiding conflict"
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "cw_mp_08_st_005_q02",
+              "prompt": "When it comes to “the inner struggle,” it can be hard to put ______ aside when it comes to expectations in the workplace:",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Conforming to gender norms"
+                },
+                {
+                  "id": "c2",
+                  "text": "Co-workers’ weaknesses"
+                },
+                {
+                  "id": "c3",
+                  "text": "A good attitude"
+                },
+                {
+                  "id": "c4",
+                  "text": "The tendency to overreact"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "cw_mp_08_st_005_q03",
+              "prompt": "Downplaying achievements in the workplace might mean:",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Being overconfident"
+                },
+                {
+                  "id": "c2",
+                  "text": "Telling a team member they did a great job"
+                },
+                {
+                  "id": "c3",
+                  "text": "A reluctance to acknowledge when you’ve done something well"
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_08_st_006",
+      "source_step_id": "cw_mp_08_st_006",
+      "sequence": 5,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "remembering_pat_going_into_labor_on_a_re",
+              "title": "Remembering Pat: Going into Labor on a Recruiting Visit",
+              "body": "Pat was nothing, if not unapologetically authentic! In this video, listen to Michelle Marciniak recall how Coach Summitt’s trademark passion and drive almost led her to have her firstborn son, Tyler, in her living room."
+            }
+          ]
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_08_st_006_reflection_01",
+          "prompt": "Take a moment to reflect. In what ways might you have not been true to yourself this month at work? List at least two scenarios."
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_08_st_006_reflection_02",
+          "prompt": "What was the difference between the scenarios in question 1 and question 2?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_08_st_006_reflection_03",
+          "prompt": "Why did you feel the need to hide your authentic self? And why did you feel safe enough to be your authentic self?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_08_st_006_reflection_04",
+          "prompt": "Of the list discussed in this lesson, which of these do you find yourself being guilty of, and why?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_08_st_006_reflection_05",
+          "prompt": "What are three unique traits you have that no one else on your team has?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_08_st_006_reflection_06",
+          "prompt": "Do you regularly operate in those areas?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_08_st_006_reflection_07",
+          "prompt": "What are your boundaries or nonnegotiables at work?"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1151015343",
+          "visible_title": "Remembering Pat: Going into Labor on a Recruiting Visit",
+          "speaker": "Michelle Marciniak"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_08_st_006_reflection_08",
+          "prompt": "List two scenarios where you did display your authentic self at work."
+        }
+      ]
+    }
+  ]
+}

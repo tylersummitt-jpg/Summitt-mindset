@@ -1,0 +1,2694 @@
+{
+  "course": {
+    "id": "FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "AfiUuXbiNyI-2QGM4QgcGOQxQwxizqx1",
+    "copyOf": "Uo2mGzIvbyJqXkqS7OKa7R3gL0ewxK-Q",
+    "order": "1755615138192",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/SRf8bprSj_azbJVr-PoT_Thumbnails_Leader_Course%25203.png",
+          "crushedKey": "T7HF7oYgGoREHzde.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Course 3.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH",
+        "createdAt": "2025-01-28T20:29:22.520Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "EQBtfjMKerZs-_CYBJN66qM0oCq5GyZo",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Learning to Macromanage",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:30:27.581Z",
+        "items": [
+          {
+            "id": "cm6jn1p0200023b7abzps6s3x",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jn1p0300033b7a54v6gsy8",
+                "media": {
+                  "video": {
+                    "key": "v4_pot_petra_dunn_learning_to_macromanage_clip_03%20%281080p%29.mp4",
+                    "url": "transcoded-PkHIJTfrdY6IhM8J-v4_pot_petra_dunn_learning_to_macromanage_clip_03%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_pot_petra_dunn_learning_to_macromanage_clip_03%20%281080p%29.jpg",
+                    "duration": 187,
+                    "inputKey": "rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/PkHIJTfrdY6IhM8J-v4_pot_petra_dunn_learning_to_macromanage_clip_03%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/transcoded-PkHIJTfrdY6IhM8J-v4_pot_petra_dunn_learning_to_macromanage_clip_03%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_pot_petra_dunn_learning_to_macromanage_clip_03 (1080p).mp4",
+                    "transcodeId": "1754792918388-jb8n26"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah7byqo001r3b78sv16vprt",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah7byqp001s3b787r57r65p",
+                "paragraph": "<div data-editor-id=\"519785da-9e22-4d33-9b5b-e0a8ba592765\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jn1sun000j3b7aw9gwdcwi",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jn1sun000k3b7ak8m36f5j",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%203%20Learning%20To%20Macromanage.pdf",
+                    "size": 253568,
+                    "type": "attachment",
+                    "filename": "VxmR8TKHisMivYJK-Lesson%203%20Learning%20To%20Macromanage.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 3 Learning To Macromanage.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jn1uyf00103b7ar12ij66p",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jn1uyf00163b7a55b9xer2",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"f1f787d7-3d41-41ed-8bd5-4b4f88c1c321\"><p><span style=\"color: black; text-decoration: inherit\">OK, so, you’re responsible for your area. The buck stops with you. You have accountability. You have ownership. Now, how do you take responsibility for all the moving parts without micromanaging the details?</span></p><p><span style=\"color: black; text-decoration: inherit\">If you’re going to be responsible for everything, you have to make sure everything is running smoothly. If you’re going to be responsible for making sure everything is running smoothly, you need to be involved in the details, right? I mean, how can you ensure a successful outcome if you don’t know </span><em>everything</em> that’s<span style=\"color: black; text-decoration: inherit\"> going on?</span></p><p><span style=\"color: black; text-decoration: inherit\">Not so fast…</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jn29bh001r3b7a0h5hjzlk",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jn29bh001s3b7ay8b190w8",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH",
+        "createdAt": "2025-01-28T20:29:29.768Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "YPhiXZ9Ro0gyslvPRObsRtpTRQIQihCO",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Knowing the Signs",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:26:38.202Z",
+        "items": [
+          {
+            "id": "cm6jn2shp00293b7azjxeeyom",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jn2shp002f3b7avnkunc72",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"34e81f10-676a-448e-8fc0-62357ba33fbd\"><p><span style=\"color: black; text-decoration: inherit\">The truth is, some leaders </span>—<span style=\"color: black; text-decoration: inherit\"> well-meaning leaders </span>—<span style=\"color: black; text-decoration: inherit\"> get this far into understanding responsibility and ownership and then get stuck. Their extreme sense of responsibility spills over into the dreaded world of micromanaging.</span></p><p><span style=\"color: black; text-decoration: inherit\">Click on each circle in the illustration below for examples of micromanaging.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jn340100303b7abmjveqev",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "11.91136232718894",
+                "y": "42.85011200868916",
+                "id": "cm6jn340100313b7af5x0y3y6",
+                "icon": "01",
+                "title": "",
+                "isActive": false,
+                "description": "<div data-editor-id=\"cbbe1052-33fb-4ec4-b544-d96c1ac33f39\"><p><strong>Being in every meeting</strong></p></div>"
+              },
+              {
+                "x": "21.863599270353305",
+                "y": "82.00224017378318",
+                "id": "cm8905tck00bo3b77a7ghbh8j",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"fa5d15f3-48d3-4231-b491-f8937c93c400\"><p><strong>Approving every marketing asset</strong></p></div>",
+                "isNewlyInserted": true
+              },
+              {
+                "x": "38.04483486943164",
+                "y": "41.36175412395629",
+                "id": "cm8903jc000883b77bvmljov3",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"7aff50e7-47fd-4fe3-b0f8-630e61d14ccd\"><p><strong>Being copied on every email</strong></p></div>"
+              },
+              {
+                "x": "47.94006816436252",
+                "y": "81.91738510623856",
+                "id": "cm8903uyy008a3b77vmj8g0kr",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"d55bd04d-4ca2-4be6-8d14-89963732b41d\"><p><strong>Weighing in on every problem</strong></p></div>"
+              },
+              {
+                "x": "62.319988479262676",
+                "y": "38.36127893557803",
+                "id": "cm89048zf008c3b772pml24ts",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"37621135-ea2f-4549-90c0-9971ccf33d7c\"><p><strong>Making every decision</strong></p></div>"
+              },
+              {
+                "x": "72.58964573732719",
+                "y": "76.42047383069716",
+                "id": "cm8904gdb008e3b777b6ba46s",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"a6e591fc-32aa-40e1-8b93-a360788857cb\"><p><strong>Sitting in on every new hire interview</strong></p></div>"
+              },
+              {
+                "x": "85.2030529953917",
+                "y": "38.685425293598534",
+                "id": "cm8904r9f008g3b77ckxk64tv",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"314535de-46b8-4141-8bae-fb26ecbc3a88\"><p><strong>Approving every purchase</strong></p></div>"
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/HqH65baRSGI-3y63-AdobeStock_507966750%2520%255BConverted%255D.png",
+                "type": "image",
+                "crushedKey": "AdobeStock_507966750%20%5BConverted_.png",
+                "dimensions": {
+                  "originalWidth": 1680,
+                  "originalHeight": 594
+                },
+                "originalUrl": "AdobeStock_507966750 [Converted].png",
+                "sourcedFrom": "USER",
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jn3dit003i3b7auo7bg2x0",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jn3dit003o3b7ap797kj1q",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"02f2e136-c4c4-4df3-b469-4e31c48c47bd\"><p><span style=\"color: black; text-decoration: inherit\">Maybe this rings a bell with you or someone you know. After all, that’s unconditional<em> ownership</em>, right?</span></p><p><span style=\"color: black; text-decoration: inherit\">Not necessarily.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jn4i1t00493b7abrt8c36r",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jn4i1u004a3b7afzjowsa1",
+                "date": "Now, depending on the size of your company, some of this may be necessary.",
+                "title": "",
+                "description": "<div data-editor-id=\"00053ab0-9b75-486e-ae55-e6a6ab84f7b5\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">If you have a company of 10 people total, maybe some of these responsibilities do fall on you. Chances are, though, you’re not in that category. Or maybe </span>you<span style=\"color: black; text-decoration: inherit\"> started in that category and grew out of it long ago, but you</span>’re<span style=\"color: black; text-decoration: inherit\"> still operating like you’re a </span>one<span style=\"color: black; text-decoration: inherit\">-person band.</span></span></p></div>"
+              },
+              {
+                "id": "cm6jn4i1u004b3b7ave6ei3z7",
+                "date": "All jokes aside, not only is all of the above exhausting … it’s unscalable. You could do it for a very short season, but before long, the weight will start to crush you.",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/UsA5ij1bySXeZG-v-stock_image.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 2520
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "sourcedFrom": "LIBRARY",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "",
+                "description": "<div data-editor-id=\"92e40053-b99d-4792-8fec-33fd7e3c1fb6\"><p><span style=\"color: black; text-decoration: inherit\">And know what’s worse? <em>It starts to crush those you lead</em>. With your fingers in every pie, the team never learns how to cook, metaphorically speaking. People either gravitate toward two areas</span>:<span style=\"color: black; text-decoration: inherit\"> </span>T<span style=\"color: black; text-decoration: inherit\">hey don’t think for themselves (why would they, if you’re going to wind up making every decision for the group?) or they’re so terrified to make a mistake they can’t do anything without approval. They default to order</span>-<span style=\"color: black; text-decoration: inherit\">takers, and any unique characteristics or skills you hired them for in the first place get buried.</span></p></div>"
+              },
+              {
+                "id": "cm6jn6qzi004r3b7acl9790sm",
+                "date": "Not only that, but being overextended takes away from other more important duties you may have, like keeping your department in the black, outlining your vision, working on the hiring plan, or opening a new branch. ",
+                "title": "",
+                "description": "<div data-editor-id=\"8bc5271c-c223-41d3-8fa1-06802eff3abe\"><p><span style=\"color: black; text-decoration: inherit\">If your time had a dollar amount of what you’re worth to the company</span> <span style=\"color: black; text-decoration: inherit\">(not your literal hourly wage, but the amount of money your decisions bring in per month</span>),<span style=\"color: black; text-decoration: inherit\"> would the best use of your time be researching costs for a new type of coffee in the break room or rewriting the second paragraph of the company newsletter? </span>What about s<span style=\"color: black; text-decoration: inherit\">itting in four meetings each week </span>about<span style=\"color: black; text-decoration: inherit\"> processes and procedures? Deciding whether a button on a website will be green or blue? What picture should go in the new brochure?</span><br class=\"break-when-trailing\"><br class=\"break-when-trailing\"><span style=\"color: black; text-decoration: inherit\">Probably no</span>ne of the above<span style=\"color: black; text-decoration: inherit\">. There are certain things that <em>only</em> you can do, and </span>it’s most important<span style=\"color: black; text-decoration: inherit\"> to make time for those.</span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "timeline",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jn7zri00783b7a2a9crnu2",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jn7zri007e3b7a01upbtmr",
+                "heading": "<div data-editor-id=\"a68221b6-612e-4ad2-9171-e7527a20eded\"><p><span style=\"color: #ffffff; text-decoration: inherit\"><strong>Exercise</strong></span></p></div>",
+                "paragraph": "<div data-editor-id=\"af548661-07bd-47bd-8ed1-36cfe514e2f7\"><p><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\">Which of these is an unintended outcome of micromanaging?</span></p><p><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\">Drag and drop each card&nbsp;to complete this element.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jn7wi1006p3b7adh3l0ad8",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jn7wi2006q3b7alypckhyh",
+                "title": "It takes your time away from other more important duties.",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jn7wi2006r3b7al97mo7q2",
+                "title": "Your team learns to do things on their own.",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jna8ut008j3b7ahp3rez4d",
+                "title": "It starts to crush those you lead.",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnafwl008l3b7ajlm44202",
+                "title": "It’s unscalable.",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnam7g008n3b7arsewl0vv",
+                "title": "Your team won’t learn to think for themselves.",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnawxt008p3b7auwh6dl07",
+                "title": "Your team will be terrified to make mistakes.",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnb4bh008r3b7ajoe4kt8n",
+                "title": "The team becomes order-takers.",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnb7jn008t3b7aurr0suxr",
+                "title": "The team will be hesitant to do anything without approval.",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnblvl008v3b7a2441t4ao",
+                "title": "Your teammates learn when to consult you and when to take risks.",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jnbswh008x3b7a3uykayja",
+                "title": "Team members like it.",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jnbz9i008z3b7ar7eesayj",
+                "title": "You will have more free time in your day.",
+                "pileId": 2,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Outcome of Micromanaging"
+              },
+              {
+                "id": 2,
+                "title": "Outcome of Macromanaging"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnceaj00bq3b7ab3h83i8y",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jnceaj00br3b7awwdifigy",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH",
+        "createdAt": "2025-01-28T20:29:35.898Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "-Dk_aFXBth40-ec8uMOtBWjOeb_4Q9wm",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 4,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Manage Things, Lead People",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:26:38.202Z",
+        "items": [
+          {
+            "id": "cm6jnd6u400c83b7afr3ey3nx",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jnd6u400ce3b7a1xsynvkv",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"c7321c85-a9e0-4e70-805e-53726aa9d6df\"><p><span style=\"color: black; text-decoration: inherit\">When leaders realize that wearing themselves out over details like the above is not only making them tired, but squashing their team, it can be a freeing revelation.</span></p><p><span style=\"color: black; text-decoration: inherit\">So, how <em>do</em> you hold yourself responsible for all the things that can go right or wrong without being involved in the day-to-day operations?</span></p><p><span style=\"color: black; text-decoration: inherit\">Part of it goes back to the classic definition of leadership. You may have heard it before:</span></p><p><span style=\"color: black; text-decoration: inherit\">You manage <em>things</em>, and you lead <em>people</em>.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnd98f00cz3b7afsejlrx4",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jnd98g00d03b7afrduqo1o",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/oRJ-leMzGvM5evZT-AdobeStock_687335207.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_687335207.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_687335207.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"6e244a2f-d641-410f-8184-e457dee684f4\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">The people as a team do the thing, whether it’s running a company or winning a national championship, and you<em> lead</em> them to do it well, like Pat did. Their achievement is your achievement, the <em>team’s</em> achievement, so you train them to do it well. Then get out of the way.</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnddtz00dk3b7a633iafmz",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jnddtz00dl3b7a2dvpthp3",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/zPKUJ1z0r0Hf0w0g-AdobeStock_525215214.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_525215214.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1038
+                    },
+                    "originalUrl": "AdobeStock_525215214.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"70c4323d-c8ab-4f5c-b5ee-90bea6b85f55\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">That’s it. That doesn’t mean you don’t step in in an emergency. That doesn’t mean you’re always in the dark. You don’t do it <em>for</em> them, you don’t do it <em>with</em> them. You hire smart people, people who are a good fit, and make sure they have what they need to do their job well.</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jneo0f00e93b7a9ose1qbw",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jneo0f00ea3b7azi74dixp",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH",
+        "createdAt": "2025-01-28T20:29:41.983Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "f6f_CuE_cUMC8kH-Sr6JL4oENPWj9YFJ",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 5,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Being Hands Off",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-20T19:26:49.310Z",
+        "items": [
+          {
+            "id": "cmah7i10d00hh3b78p0t2pbxc",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah7i10d00hp3b78uij8pez7",
+                "heading": "<div data-editor-id=\"a0887382-cb2e-436d-a7ad-66b8477b3fa7\"><p><strong>What Does It Take to Be \"Hands-Off\"?</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnf1bb00er3b7anag3u7jl",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jnf1bc00ex3b7ausbuamoi",
+                "heading": "<div data-editor-id=\"9bef1f45-cb91-4caa-826d-47c90fa38b71\"></div>",
+                "paragraph": "<div data-editor-id=\"d96613e5-dd62-46ca-8a5c-53bae3679ed7\"><p>Understanding the importance of being “hands off” is one of the most fundamental (and often overlooked) tenets of good leadership.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jng88u00fi3b7a5q0klhpt",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jng88u00fj3b7acd6khbbr",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/EKEiXNpAmUCpjFZN-AdobeStock_4074685_Preview.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_4074685_Preview.jpg",
+                    "dimensions": {
+                      "originalWidth": 1000,
+                      "originalHeight": 667
+                    },
+                    "originalUrl": "AdobeStock_4074685_Preview.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"528902d4-2b3a-481e-a109-2e36ca46120f\"><p><span style=\"color: black; text-decoration: inherit\">Sometimes as a leader, we think our strength lies in getting the team to produce a certain level of output </span>—<span style=\"color: black; text-decoration: inherit\"> after all, it’s what we’re all responsible for. You may even be tempted to jump in and help them. But at the end of the day, you can’t <em>make</em> people do things. You have to <em>lead</em> them. All you can really do is hire well.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jngheg00g33b7atlc0i1im",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jngheh00g43b7ad7vi05p5",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/HSWVCmahF7_x9Rz_-Hug%2520pic%2520Pat%252C%2520Holly%252C%2520Nikki_CROP.png",
+                    "type": "image",
+                    "crushedKey": "Hug%20pic%20Pat%2C%20Holly%2C%20Nikki_CROP.jpg",
+                    "dimensions": {
+                      "originalWidth": 600,
+                      "originalHeight": 424
+                    },
+                    "originalUrl": "Hug pic Pat, Holly, Nikki_CROP.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"818fe020-8201-447f-8e4b-5e2f70a2ceb0\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">We’ll say it again. All you can <em>really</em> do is get the right people in the right seat on the bus and lead them well to do their jobs. You can’t force<em> </em>them to do it with excellence, innovation, positivity, super-service, or creativity. All you can do is fire them if they don’t and replace them with someone else who will. Then the cycle starts again.</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "small",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnh8le00gv3b7av336if8b",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jnh8le00h13b7ae6gc9qxv",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"5f54f6f3-d340-413a-9019-bb7d116e459b\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">As the leader, you have to <em>lead </em>them in attitude, vision, excellence, motivation </span>—<span style=\"color: black; text-decoration: inherit\"> all the principles Pat championed in </span>t<span style=\"color: black; text-decoration: inherit\">he Definite Dozen </span>—<span style=\"color: black; text-decoration: inherit\"> guiding them to the level of self-discipline, autonomy, or ingenuity you want.</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">They will know what that level is because it will be modeled </span>by<span style=\"color: black; text-decoration: inherit\"> you. Not done by<em> </em>you on behalf of the team or for the team but encouraged by the level of leadership you provide.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahbcpks00ap3b78ovt767lm",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahbcpks00ax3b78ubiw1k09",
+                "heading": "<div data-editor-id=\"df95df17-4a2c-4bd8-a2ed-1195ff705ef1\"><p><strong>Exercise</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnj2w400i53b7a2nscaql7",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jnj2w400ib3b7aiczbt6lt",
+                "heading": "<div data-editor-id=\"62894246-2207-4342-8ee2-4205d84799e6\"></div>",
+                "paragraph": "<div data-editor-id=\"21986994-b2b2-4c84-baf5-e7981e4690df\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these is an example of being “hands-off” vs “hands-on”?</span></span></p><p><span style=\"font-size: 1.6rem\"><span style=\"color: #000000; text-decoration: inherit\">Drag and drop each card&nbsp;to complete this element.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnicfm00hm3b7a8wzhebhi",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jnicfn00hn3b7auuzuuz9t",
+                "title": "Letting team members experiment with new methods",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnicfn00ho3b7a9hhk6uym",
+                "title": "Daily status meetings",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jnkmbz00iw3b7aotaatw1g",
+                "title": "Focusing on results, not minute-by-minute activity",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnkrn100iy3b7aa9f7uanq",
+                "title": "Not needing to approve every small decision",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnkw2o00j03b7amchptrl8",
+                "title": "Overseeing each step of a project",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jnl0vm00j23b7a4qawhnyy",
+                "title": "Excessive reporting",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jnl97v00j43b7ajkcp0wao",
+                "title": "Encouraging problem-solving",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnlehj00j63b7aw578t7a5",
+                "title": "Dictating how to do things",
+                "pileId": 2,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Hands-off"
+              },
+              {
+                "id": 2,
+                "title": "Hands-on"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnm5j200m93b7aimh747tc",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jnm5j200ma3b7az3wunthv",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH",
+        "createdAt": "2025-01-28T20:29:48.550Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "wTQ1d8_N8747KlItTD7v82vESAwCKcMo",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 6,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Micromanaging vs. Macromanaging",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-20T19:28:48.539Z",
+        "items": [
+          {
+            "id": "cm6jnxa5700mr3b7ajcmhmtxa",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jnxa5700ms3b7avdos5dra",
+                "media": {
+                  "video": {
+                    "key": "v2_pot_petra_dunn_delegating__clip_06%20%281080p%29.mp4",
+                    "url": "transcoded-sOJWh10Sx132uJ2k-v2_pot_petra_dunn_delegating__clip_06%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v2_pot_petra_dunn_delegating__clip_06%20%281080p%29.jpg",
+                    "duration": 116,
+                    "inputKey": "rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/sOJWh10Sx132uJ2k-v2_pot_petra_dunn_delegating__clip_06%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH/transcoded-sOJWh10Sx132uJ2k-v2_pot_petra_dunn_delegating__clip_06%2520(1080p).0000000.jpg",
+                    "originalUrl": "v2_pot_petra_dunn_delegating__clip_06 (1080p).mp4",
+                    "transcodeId": "1754793073095-h93as0"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah7kxes010j3b78qygortys",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah7kxes010k3b78uuf8ytp3",
+                "paragraph": "<div data-editor-id=\"95a822b5-06ce-4dd7-9402-37bdb503d2f5\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnxs6f00nr3b7ab1067x7k",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jnxs6f00ns3b7a25pta8so",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%203%20Delegating.pdf",
+                    "size": 227678,
+                    "type": "attachment",
+                    "filename": "hmQ6M3hDQ5JJesI2-Lesson%203%20Delegating.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 3 Delegating.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jny72g00o83b7a7689au5e",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jny72g00oe3b7a5lw199o9",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"742f3ad2-2340-4adf-be58-52e4f60e540f\"><p><span style=\"color: black; text-decoration: inherit\">Listen to Sr. Vice President Petra Dunn of Merrill Lynch Wealth Management remember how she learned to delegate and become more “hands off” in her early career.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahbdmy500jn3b78xgs7v74x",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahbdmy500jv3b78stnx00vo",
+                "heading": "<div data-editor-id=\"7d200f07-110d-4df8-a4a0-5455b346c38f\"><p><strong>Exercise</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnyowv00oz3b7arcyj9m3l",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jnyowv00p53b7aicdlrxl6",
+                "heading": "<div data-editor-id=\"9a2f0411-8670-4551-81e8-2fa237355af6\"></div>",
+                "paragraph": "<div data-editor-id=\"b687dafa-8eaf-41c0-954d-1e776a172922\"><p><span style=\"font-size: 1.6rem\">Which of the following is an example of <span style=\"color: rgb(0, 0, 0); text-decoration: inherit\"><em>micromanaging</em></span> vs. <em>macromanaging</em>?</span></p><p><span style=\"font-size: 1.6rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Drag and drop each card&nbsp;to complete this element.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jnzu5500pq3b7a29h73p5e",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jnzu5500pr3b7a1btkcn39",
+                "title": "Approving minor updates to the website",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jnzu5500ps3b7ae8ol2pem",
+                "title": "Asking for a monthly update report from your team",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jo11ml00q93b7a7ctpove3",
+                "title": "Showing the writing team how to write articles",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jo1ap500qb3b7atebyozpf",
+                "title": "Picking out the wine options for an incentive lunch",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jo5ira00qd3b7au39us0bh",
+                "title": "Having your employees keep an hourly log",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jo5qhi00qf3b7agc4e2i8b",
+                "title": "Approving major product initiatives",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jo5xed00qh3b7atzoe04hm",
+                "title": "Making sure the team knows that without you, they'd be lost",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jo65bc00qj3b7am2wz511q",
+                "title": "Stepping in to take over a project when a team member stumbles",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jo6bcm00ql3b7ali45xj22",
+                "title": "Leading a quarterly meeting for your team",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jo6iab00qn3b7an63tc6wa",
+                "title": "Being copied on the test send of every outgoing email",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jo6r8400qp3b7amyz93zic",
+                "title": "Outlining the one-, five-, and 10-year vision for your area",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jo73k900qr3b7ayrfeuzkx",
+                "title": "Making sure all ideas for the product come from you",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jo7sbw00qt3b7amx0rh8b5",
+                "title": "Having an open-door policy",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jobeml00qx3b7aw7xxza7n",
+                "title": "Hosting an offsite retreat for your team members",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jobm2000qz3b7a6ylrfxtd",
+                "title": "Making a note of the time the admin spends away from their desk",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jobuep00r13b7a07hkefzk",
+                "title": "Overtaking the new-hire training to make sure it’s done \"right\"",
+                "pileId": 1
+              },
+              {
+                "id": "cm6joddh200r33b7as1dpusij",
+                "title": "Asking the finance team to cc you on every invoice, no matter how small",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jodlbt00r53b7apxwxv3rn",
+                "title": "Having one-on-ones with team members you manage",
+                "pileId": 2
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Micromanaging"
+              },
+              {
+                "id": 2,
+                "title": "Macromanaging "
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6joeazs00tj3b7a7988m2j2",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6joeazs00tk3b7aeejebnn0",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"973a9429-abd1-4b47-9745-421cd7e7c2f5\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "triLdr1KfFQzM4YTX1vldvmEgHSu1_9A",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:31:19.958Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"8d5df7f9-4273-4b6a-b106-868d5a8437cc\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Micromanaging is_________________.</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"49b7e067-afbe-46c4-b43a-9c74d6ece280\"><p><span style=\"color: #000000; text-decoration: inherit\">The desire to control every part, however small, of an enterprise or activity.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"368a59c0-9aea-4155-b20d-0a2cd82ccf39\"><p><span style=\"color: black; text-decoration: inherit\">Caring about the quality of your team’s work.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6joespq00u13b7alk8ql5az",
+                "title": "<div data-editor-id=\"28f7b38e-6d2f-4a03-b76f-deb84d8656ae\"><p><span style=\"color: black; text-decoration: inherit\">Accepting responsibility.</span></p></div>"
+              },
+              {
+                "id": "cm6jofjdw00u33b7auh9ocblx",
+                "title": "<div data-editor-id=\"2a3fedbd-4bb6-41e1-9405-68b222a82c65\"><p><span style=\"color: black; text-decoration: inherit\">Training team members to have attention to the detail.</span></p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400we3b79k59kq8pi",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6gvw2f400wg3b798oenzg94",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"8dec9bcf-6e34-488f-9e1f-6a16a5763f6a\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these is an example of micromanaging?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"d94e6a09-bdf3-47d8-86d4-fb5f8dc8ea5d\"><p><span style=\"color: black; text-decoration: inherit\">Setting clear goals for the team</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"e9256b2c-00ea-47a1-8a0c-0462728c9c92\"><p><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Asking your admin to automatically include you on every department meeting</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"69645513-6695-46f6-8ba9-fc7b72d232b9\"><p><span style=\"color: black; text-decoration: inherit\">Asking for quarterly progress reports</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"5b218391-54f7-4a47-8a73-e35c083b9957\"><p><span style=\"color: black; text-decoration: inherit\">Letting your team present new ideas</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wj3b793d4kqpg0",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6johf2b00ue3b7ad09cf6g3",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"a56a9abe-6ae8-41c8-bc34-84975af7673d\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">What are some of the disadvantages of micromanaging as a leader</span></span><span style=\"font-size: 1.9rem\"><span style=\"color: black; text-decoration: inherit\">?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6johf2c00uf3b7awdayame3",
+                "title": "<div data-editor-id=\"2b962aa3-625c-4c54-b1b0-59ac5858f3dd\"><p><span style=\"color: black; text-decoration: inherit\">It’s exhausting.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6johf2c00ug3b7a1qddoagp",
+                "title": "<div data-editor-id=\"6ac8dc2d-87fe-447a-9ad3-7ac16b0dc861\"><p><span style=\"color: black; text-decoration: inherit\">It’s not scalable.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6johf3f00uh3b7ahf5d2hur",
+                "title": "<div data-editor-id=\"2aef182f-1c52-4a52-a3e1-286fd72fbcb9\"><p><span style=\"color: black; text-decoration: inherit\">Your team won’t learn to think for themselves.</span></p></div>"
+              },
+              {
+                "id": "cm6johzl900uj3b7akghpzuun",
+                "title": "<div data-editor-id=\"dbad7422-3b4b-4fd8-9f9c-533730bac4ee\"><p><span style=\"color: #000000; text-decoration: inherit\">All of the above.</span></p></div>"
+              }
+            ],
+            "correct": "cm6johzl900uj3b7akghpzuun",
+            "corrects": [
+              "cm6johf2c00uf3b7awdayame3"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "zu_r3-tSsWl4riX9Qv8BWbS-3E4_r3wg",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T02:16:11.020Z",
+        "items": [
+          {
+            "id": "cme6hdhox001v3j794qzh0i0f",
+            "type": "text",
+            "items": [
+              {
+                "id": "cme6hdhox001w3j79vtlmcg1m",
+                "paragraph": "<div data-editor-id=\"a5f7b1b1-3baa-462a-b997-5ee36c7dbe21\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Refer to your workbook for the reflection questions below.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "audioPosition": "bottom",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6joj38o00vd3b7aqkndo6ys",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6joj38o00ve3b7a5qcf735e",
+                "paragraph": "<div data-editor-id=\"0139b75a-e00b-4ab2-aff3-0a8a15e69f76\"><p><span style=\"color: black; text-decoration: inherit\">On a scale of 1 to 10, how much do you micromanage vs. macromanage?</span></p></div>"
+              },
+              {
+                "id": "cm6joj38o00vf3b7a9q17cf9v",
+                "paragraph": "<div data-editor-id=\"7cbff467-8630-4e7e-a818-041cf72d2b1f\"><p><span style=\"color: black; text-decoration: inherit\">In what particular areas might you be exerting too much control?</span><br class=\"break-when-trailing\"><br class=\"break-when-trailing\"><span style=\"color: black; text-decoration: inherit\">Why? What is the fear?</span></p></div>"
+              },
+              {
+                "id": "cm6joj38o00vg3b7a0o7kmapb",
+                "paragraph": "<div data-editor-id=\"ba9bd75a-3477-4809-8119-29e160b70c07\"><p><span style=\"color: black; text-decoration: inherit\">Is there anyone on </span><span style=\"color: windowtext; text-decoration: inherit\">your</span><span style=\"color: black; text-decoration: inherit\"> team who could be entrusted with more responsibility?</span></p></div>"
+              },
+              {
+                "id": "cm6jok8oj00wj3b7a50ic5dig",
+                "paragraph": "<div data-editor-id=\"a3126b12-a7d8-47d3-9f59-e663ccc404b1\"><p><span style=\"color: black; text-decoration: inherit\">Are there any areas that might need more leadership oversight?</span></p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6joknj600wk3b7a2loeclv3",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6joknj600wl3b7av9rmmdn2",
+                "paragraph": "<div data-editor-id=\"04d73a37-4906-41e5-a246-587da2cd6959\"><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Sources:</strong></span></span></p><ol type=\"1\"><li><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from, <em>Reach for the Summitt</em>, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998.</span></span></p></li></ol></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah7qd7e01hl3b7834shrk56",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmah7qd7e01hm3b785tnwfmjo",
+                "type": "exit-course",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"dbbd6fe2-9dd9-4ca4-9261-d8b5c14aa710\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": "exit-course"
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:28:35.043Z",
+    "updatedAt": "2025-08-20T19:28:48.539Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Course 3: Learning to Macromanage",
+      "format": "zip",
+      "quizId": "triLdr1KfFQzM4YTX1vldvmEgHSu1_9A",
+      "target": "scorm12",
+      "shareId": "AfiUuXbiNyI-2QGM4QgcGOQxQwxizqx1",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "FhI7NYhKQD522rTZzO4Ka2lcIzARc5gH_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:33:58.282Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "",
+    "title": "Course 3: Learning to Macromanage",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}

@@ -1,0 +1,2280 @@
+{
+  "course": {
+    "id": "QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "5TwpJHDsGTyZJB4ffzdYpCf4eid-xPSS",
+    "copyOf": "GZnWoKtoZoda5TcaEQs7nqX8fX2fsAxI",
+    "order": "1756503495433",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/G32oBLEVN_cMRWmF-PoT_Thumbnails_Leader_Course%25201.png",
+          "crushedKey": "8Gm4tx_gZEl_I1CB.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Course 1.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I",
+        "createdAt": "2025-01-30T16:09:07.784Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "ktYp_6axZR00dmvoe8oCTAh-G8TO9M2R",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "XzlxgcLrPNS76bKSp9LC3rhppBQNNaj7",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 5,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "The Big Chair",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-13T17:24:04.962Z",
+        "items": [
+          {
+            "id": "cm6jisw1j002a3b7a5z8rehds",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6jisw1k002b3b7aq3ssrazn",
+                "name": "<div data-editor-id=\"35731031-780c-4243-a1c6-37e9d277a5c1\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: #ffffff; text-decoration: inherit\"><strong><em>— Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"4ab5dd91-b1e5-4504-838d-5abea5805ecf\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>If you don’t want responsibility, don’t sit in the big chair.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/CUe1_AQq9b9fPGxl-Orange%2520Big%2520Chair%2520-%2520quote%2520gen%2520fill3.png",
+                      "type": "image",
+                      "alpha": 0.27,
+                      "crushedKey": "Orange%20Big%20Chair%20-%20quote%20gen%20fill3.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 318
+                      },
+                      "originalUrl": "Orange Big Chair - quote gen fill3.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "ff5a1163-b9a7-49eb-a0f2-009245e93022"
+          },
+          {
+            "id": "cm6jis7v8000l3b7akcm5xqcp",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jis7v8000m3b7aiawklisi",
+                "media": {
+                  "video": {
+                    "key": "v4_pot_dr_fernandez_the_big_chair_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-mHOf-ZHsp13UeYvE-v4_pot_dr_fernandez_the_big_chair_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_pot_dr_fernandez_the_big_chair_clip_01%20%281080p%29.jpg",
+                    "duration": 181,
+                    "inputKey": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/mHOf-ZHsp13UeYvE-v4_pot_dr_fernandez_the_big_chair_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/transcoded-mHOf-ZHsp13UeYvE-v4_pot_dr_fernandez_the_big_chair_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_pot_dr_fernandez_the_big_chair_clip_01 (1080p).mp4",
+                    "transcodeId": "1754791526931-bwk0zw"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "db6add8c-ed40-4593-bbff-57dc17539f4d"
+          },
+          {
+            "id": "cmah5vruc004v3b78k59hwi87",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah5vruc004w3b78l47ymo59",
+                "paragraph": "<div data-editor-id=\"eafe165f-2247-46a5-abe6-2de0ab3994dc\"><p><em>(Download the transcript below)</em></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "d8bb6a3e-9859-480c-84f2-694dcbfacefa"
+          },
+          {
+            "id": "cm6jisdfy00123b7ay5g8skhs",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jisdfy00133b7ay48w3363",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%201%20The%20Big%20Chair.pdf",
+                    "size": 208376,
+                    "type": "attachment",
+                    "filename": "9Gilm8GAS8l3l6Es-Lesson%201%20The%20Big%20Chair.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 1 The Big Chair.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "ac239391-224d-41e6-9310-c44287be3b54"
+          },
+          {
+            "id": "cm6jit061002y3b7ateb8u4ez",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jit06100343b7a4dpkg3hx",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"9d5646ec-3940-42ef-860d-d9fac7c6a670\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">In <em>Reach for the Summitt</em>, Coach Summitt is famous for saying, “If you don’t want responsibility, don’t sit in the big chair.”<sup>1</sup> Whether it’s a corner office, an executive board room, or a mere cubicle away from the people you manage, “the big chair” comes in all shapes and sizes nowadays.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "0963a517-ad85-4cf0-a0be-aef8897a9e65"
+          },
+          {
+            "id": "cm6jitylz004a3b7ai2viujlj",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jitylz004b3b7a7h2zg2g6",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/yO_EZ_NC5ExAWknv-Responsibility%25201.png",
+                    "type": "image",
+                    "crushedKey": "Responsibility%201.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 941
+                    },
+                    "originalUrl": "Responsibility 1.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"b49beec1-32cd-4622-8e2a-690906597410\"><p><span style=\"color: black; text-decoration: inherit\">“Here’s part two,” Pat admonishe</span>d<span style=\"color: black; text-decoration: inherit\">. “The most successful you are, the more responsibility you must assume. Responsibility never ends… you don’t finish it and move on to something more interesting. Responsibility is a constant state of being.”</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "c1f7b24e-9497-4efc-ba60-4f349df319fd"
+          },
+          {
+            "id": "cm6jiub09004v3b7aj9x8tt56",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jiub09004w3b7a035wposr",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/qRycIVtMjlnqmZ50-AdobeStock_800653776.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_800653776.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_800653776.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"98d18004-1e77-43f3-868a-7155fe2d56b0\"><p><span style=\"color: black; text-decoration: inherit\">“You want to talk about responsibility, let’s talk about [college] kids,” she quipped. “You really want to talk about responsibility, let’s talk about being in charge of 12 kids at a time, a dozen young women from all over the country, each with their own varying dispositions, backgrounds, problems, quarrels, and love interests. Some of them with cars.”</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "81005621-0ba7-4ab6-b33a-c2fb9e1b67b3"
+          },
+          {
+            "id": "cm6jiuuub00683b7ags7eb65g",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jiuuuc006e3b7axym74gth",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"899278ff-36db-4acb-a84e-e8e342468d36\"><p><span style=\"color: black; text-decoration: inherit\"><span style=\"background-color: white\">Pat once famously told a story about her friends deciding to throw her a 16th birthday party at a country club in Ashland City when she was in high school. Thrilled, she told her dad she needed the day off from her chores around the farm, but he told her she couldn’t go because they needed to load hay bales.</span></span> </p><p><span style=\"color: black; text-decoration: inherit\">“I spent that birthday sitting on the tractor. There were about 1,000 bales of hay that needed loading,” she recalled. “My father’s point was, you can’t pick and choose the days you feel like being responsible. It’s not something that disappears when you’re tired.”</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "afe4739f-18ca-485e-a44e-de5ea9f8fdd7"
+          },
+          {
+            "id": "cm6jiusx2005n3b7abpsf73z0",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jiusx2005o3b7axsz8dgut",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/A6WeVG4hYEsP0hwX-old_pictures_0006_a_EDIT.png",
+                    "type": "image",
+                    "crushedKey": "old_pictures_0006_a_EDIT.jpg",
+                    "dimensions": {
+                      "originalWidth": 900,
+                      "originalHeight": 571
+                    },
+                    "originalUrl": "old_pictures_0006_a_EDIT.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "5cff9afa-514f-4021-93f7-2d2deab22a5b"
+          },
+          {
+            "id": "cmea8oy4f005007fh7jp56e9v",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6nv9vl400033b78h9k6mvv3",
+                "name": "<div data-editor-id=\"3d229242-27bc-4bb5-81a9-aa2337e16649\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em> — Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"d646eeae-9785-4f4b-acc7-44f3b9a22294\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>You can’t pick and choose the days you feel like being responsible. It’s not something that disappears when you’re tired.\"</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/CSAO4Vr8fuv73MoP-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "attachedToNextBlock": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "da4e856c-6f9d-408f-9052-4e29fc0ade59"
+          },
+          {
+            "id": "cm6jjiloc00hl3b78yoduk96k",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jjilod00hm3b78u4wov2fz",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e1179420-d113-48dc-9d7e-b2051538ec26"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"29ee3468-5320-4b17-b286-df60fc2d58bc\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "Er6rivYOJDMlvorY5Rfv8z358u3JSrFl",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": false
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T19:08:38.050Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"d54aea11-2a03-44ec-9177-d8d556804996\"><p>The <span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">more successful you are, _____________.</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"c7064176-205f-43d9-89fe-4afb1f03193d\"><p><span style=\"color: black; text-decoration: inherit\">The more money you make.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"73af77d5-3049-4f03-9405-fc0d00055ea7\"><p><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">The more responsibility you assume.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jj6t6u004h3b78ijvgb8ns",
+                "title": "<div data-editor-id=\"1a29979e-e10b-4c0c-8a48-70ff045a612a\"><p><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\">&nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">The more you must lead.</span></p></div>"
+              },
+              {
+                "id": "cm6jj7nte004j3b785tzb6220",
+                "title": "<div data-editor-id=\"a3e92998-034a-4d40-acab-bef154ab1861\"><p>None of the above.</p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400wf3b79z4rpzttq",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": "",
+            "globalBlockId": "cbebd553-8cc7-4ce2-b173-63f7702f9f28"
+          },
+          {
+            "id": "cm6gvw2f400wg3b798oenzg94",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"8d3b82a5-5a9c-4cf3-acfe-16c2bddfff24\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Finish this quote: “If you don’t want responsibility, ____________.”</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"d5615e6a-081e-45d0-b52b-c73258a1617e\"><p><span style=\"color: black; text-decoration: inherit\">Don’t have kids</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"fbe70ec1-3b56-42d2-80ae-fbd5031443be\"><p><span style=\"color: black; text-decoration: inherit\">Life will be simpler</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"4f7e24df-6fc7-4e28-aa8d-8dab08e2a6ca\"><p><span style=\"color: black; text-decoration: inherit\">Ask someone else to help</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"92060211-184b-4f4a-b8ed-2b278baf0c73\"><p><span style=\"color: #000000; text-decoration: inherit\">Don’t sit in the big chair</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wi3b79oh3jujac",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": "",
+            "globalBlockId": "5d654a98-a435-47e1-86a6-86b678b1f361"
+          },
+          {
+            "id": "cm6jj99j6004s3b78dl8zsyl3",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"47eeae56-d607-4157-9d03-09fec2b4953e\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Responsibility is a ____________.</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6jj99j6004t3b78do12iiy5",
+                "title": "<div data-editor-id=\"62c3a1c2-5aa9-479a-bd93-b36297dbd199\"><p><span style=\"color: #000000; text-decoration: inherit\">Constant state of being</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6jj99j6004u3b78uhecndr7",
+                "title": "<div data-editor-id=\"6ce2e7b3-8513-480b-aae3-046fdcb81f0b\"><p><span style=\"color: black; text-decoration: inherit\">Privilege for leaders</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jj99k7004v3b78hx49qc7v",
+                "title": "<div data-editor-id=\"55f501fd-226d-4469-a052-8817c0fe3478\"><p><span style=\"color: black; text-decoration: inherit\">Requirement for service</span></p></div>"
+              },
+              {
+                "id": "cm6jj9ss9004x3b78r7199ke4",
+                "title": "<div data-editor-id=\"eb707e82-d10b-4181-8ff4-8ad421ae6d0c\"><p><span style=\"color: black; text-decoration: inherit\">None of the above</span></p></div>"
+              }
+            ],
+            "correct": "cm6jj99j6004t3b78do12iiy5",
+            "corrects": [
+              "cm6jj99j6004t3b78do12iiy5"
+            ],
+            "feedback": "",
+            "globalBlockId": "8b203e09-4f44-491d-94db-95160d9cc581"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I",
+        "createdAt": "2025-01-28T20:25:43.941Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "fyNLvkpTa5acV6yu9D6safot342Jl2Eg",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Sitting in the Chair",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-09-03T21:28:05.713Z",
+        "items": [
+          {
+            "id": "cm9ud6pqy002o3b79n9qj2n8p",
+            "type": "image",
+            "items": [
+              {
+                "id": "cm9ud6pqz002p3b79ajpe1pdh",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/x08SjoBJcbLAQrjo-Freshmen.2002.Jackson%252C%2520Munoz%252C%2520Ely%252C%2520Moore_CROP.png",
+                    "type": "image",
+                    "crushedKey": "Freshmen.2002.Jackson%2C%20Munoz%2C%20Ely%2C%20Moore_CROP.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1297
+                    },
+                    "originalUrl": "Freshmen.2002.Jackson, Munoz, Ely, Moore_CROP.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "globalBlockId": "4c0f9c8c-4106-4cea-b691-034766e9280d"
+          },
+          {
+            "id": "cm6jjdhg8009l3b782ngrszoe",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jjdhg9009m3b78v74uhjvc",
+                "type": "intro",
+                "title": "Sitting in the Chair",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"f58b8551-69e3-4bcf-a411-36dd61e7e583\"><p><span style=\"color: black; text-decoration: inherit\">In a nutshell, Pat believed that to have responsibility and overall success as a leader, you had to consider these main elements.</span></p><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">(Scroll through to complete this element)</span></span></p></div>"
+              },
+              {
+                "id": "cm6jjdhg9009n3b781qqnp2g7",
+                "type": "summary",
+                "title": "Conclusion: ",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"104bd798-f6cc-4a7a-b0af-b8a544b186c1\"><p><span style=\"color: black; text-decoration: inherit\">Consider how you can implement these main points with your team in order to cultivate increasing levels of responsibility.</span></p></div>"
+              },
+              {
+                "id": "cm6jjdhg9009o3b78zyga2t6q",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/swLcUGRns3fxOdgK-AdobeStock_658563324.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_658563324.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "cm6jjdhg8009l3b782ngrszoe",
+                    "originalUrl": "AdobeStock_658563324.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "You have to have responsibility. For everything.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"3a351a3d-b497-406d-8afe-bd8611ae9462\"><p><span style=\"color: black; text-decoration: inherit\">Pat’s message was simple: You have to have responsibility. For everything. “To be successful, you must accept full responsibility,” she said. “For everything. Headaches, problems, crises. Even when it doesn’t seem fair.”</span></p></div>"
+              },
+              {
+                "id": "cm6jjdhg9009p3b785trrz8m4",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/tNGJ7At2DsP5foWO-AdobeStock_586898476.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_586898476.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1145
+                    },
+                    "trackingId": "cm6jjdhg8009l3b782ngrszoe",
+                    "originalUrl": "AdobeStock_586898476.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "You have to instill responsibility in your team.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"47a2bbc9-9829-486f-83a1-76bfb174f9fd\"><p><span style=\"color: black; text-decoration: inherit\">Pat believed the best way to do this was bit by bit, one task at a time, rather than projecting a lot of responsibility on one person overnight. At the University of Tennessee, she famously increased her players</span>’<span style=\"color: black; text-decoration: inherit\"> responsibilities to each other slowly</span> and <span style=\"color: black; text-decoration: inherit\">incrementally over four years. By the time each player was a senior, they were assigned mentoring roles and had personal charge of an incoming freshman.</span></p></div>"
+              },
+              {
+                "id": "cm6jjf78300a83b78mgvii1ek",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/ekuJDyVKNbP_tUtM-Coach%2520Instructing%2520Catchings.2001.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "Coach%20Instructing%20Catchings.2001.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1136
+                    },
+                    "trackingId": "cm6jjdhg8009l3b782ngrszoe",
+                    "originalUrl": "Coach Instructing Catchings.2001.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "You have to clearly define who is responsible for what.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"266cebf4-f636-4905-bbb6-bf5a78d117d8\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">“I must make sure that the responsibilities of our players and staff are clearly delineated and that everyone understands them. That way, when there is a breakdown, we know what happened,” Pat once said. If you don’t know who is responsible for what, when there</span>’<span style=\"color: black; text-decoration: inherit\">s a problem in a particular area, you won’t know who the clear, “wringable neck” is for that area.</span></span></p></div>"
+              },
+              {
+                "id": "cm6jjf7ni00aa3b78ok2zesfo",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/JY8KfCjV0R13yLw7-AdobeStock_948561.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_948561.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "isSkipCrush": false,
+                    "originalUrl": "AdobeStock_948561.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "You have to actively cultivate different levels of responsibility.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"f8379a2b-de84-477f-88b8-7a52abd709fa\"><p><span style=\"color: black; text-decoration: inherit\">Granting your team responsibility doesn’t have to be like switching a faucet on and off, or delegating entire areas at a time. This sounds like common sense, but it’s amazing how many companies do just that </span>—<span style=\"color: black; text-decoration: inherit\"> tak</span>e<span style=\"color: black; text-decoration: inherit\"> a team member with little responsibility and abruptly thrust them into the spotlight where all or most of the responsibility for a particular area now falls on them. Pat would argue that responsibility </span>should<span style=\"color: black; text-decoration: inherit\"> be like gradually watering a plant</span>, whereas <span style=\"color: black; text-decoration: inherit\">weeks of drought followed by a deluge of water is over</span>whelming<span style=\"color: black; text-decoration: inherit\">. Sometimes “too</span> <span style=\"color: black; text-decoration: inherit\">much</span> <span style=\"color: black; text-decoration: inherit\">too</span> <span style=\"color: black; text-decoration: inherit\">fast” even sinks team members with the most potential.</span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "13613d84-f4c2-4ef1-b194-94ecbc580b0a"
+          },
+          {
+            "id": "cm7ffb0w001063b78rs3x4qpg",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm7ffb0w2010d3b78dwpcuqbz",
+                "heading": "<div data-editor-id=\"55457c37-c11e-4517-b3fd-d71e8ebaf01d\"><p><strong>In the following lessons:</strong></p></div>",
+                "paragraph": "<div data-editor-id=\"1dcbbda5-9d2f-46a9-aa38-a2349682fb1d\"><p>We'll explore more of the view from the big chair, including:</p><ul><li><p>How to instill responsibility in your team</p></li><li><p>How to own your area without micromanaging</p></li><li><p>Responsibility for your personal brand, and why it matters</p></li></ul></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "subheading paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "globalBlockId": "ca3b1d3b-037a-433a-ae52-8b33fe032c8c"
+          },
+          {
+            "id": "cm6jjgxoc00as3b78g5qs6f0d",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jjgxoc00at3b78jbhjgm4j",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_dr_fernandez_tales_from_the_sidelines__pat%27s_legacy_clip_03%20%281080p%29.mp4",
+                    "url": "transcoded-IGc3ez75a0mcjjTW-v5_pot_dr_fernandez_tales_from_the_sidelines__pat's_legacy_clip_03%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_dr_fernandez_tales_from_the_sidelines__pat%27s_legacy_clip_03%20%281080p%29.jpg",
+                    "duration": 72,
+                    "inputKey": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/IGc3ez75a0mcjjTW-v5_pot_dr_fernandez_tales_from_the_sidelines__pat's_legacy_clip_03%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/transcoded-IGc3ez75a0mcjjTW-v5_pot_dr_fernandez_tales_from_the_sidelines__pat's_legacy_clip_03%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_dr_fernandez_tales_from_the_sidelines__pat's_legacy_clip_03 (1080p).mp4",
+                    "transcodeId": "1754791959727-tny305"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "b0171e0a-d6ae-4d75-8022-6a60a3f65bbb"
+          },
+          {
+            "id": "cmah6cc8200kg3b7870gpxibj",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah6cc8200kh3b78hmulf633",
+                "paragraph": "<div data-editor-id=\"05a94cbe-0d1c-47a4-8acc-a83568905b34\"><p><em>(Download the transcript below)</em></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "fb74cd91-540d-44e6-872e-c4a8caf35d2a"
+          },
+          {
+            "id": "cm6jjh7ui00c03b780mo8kkt2",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jjh7ui00c13b78y5ex9o0h",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%201%20Pat%27s%20Legacy.pdf",
+                    "size": 237240,
+                    "type": "attachment",
+                    "filename": "N9zE4at2knO03gfQ-Lesson%201%20Pat's%20Legacy.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 1 Pat's Legacy.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "ed636642-22e2-415e-b4fd-06bceffed55d"
+          },
+          {
+            "id": "cm6jjh0a200b93b782q5la4ja",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jjh0a300bf3b786f633g9c",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"4dcbbd2a-80a8-4007-9d57-a32cb1d511b2\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">In the video above, listen to neurologist Dr. Roberto Fernandez-Romero talk about Pat and the&nbsp;impact she made in “The Big Chair.”</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "4ac2754d-530e-43b7-9f3f-8ce680dcf073"
+          },
+          {
+            "id": "cm6jjhpn100ch3b784dd695qj",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jjhpn100ci3b78gw8zkj77",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "fedaa9d5-0bd7-477a-9ffe-07021ce475e3"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I",
+        "createdAt": "2025-01-28T20:25:50.075Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"5b770dfe-d4ef-46d5-8209-e3d9f181710a\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "az36g1n5zx-5KZLAhOT_Kc901qQJPEfo",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "RLUiAw7QoHg3j1v_B896Miyqb7wpRbwy",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": false
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T19:08:44.912Z",
+        "items": [
+          {
+            "id": "8Rba0_9Leu4MSjjrpBj1OauMRMsM4qQZ",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"16e113d7-60fc-412e-a912-8842299ddd96\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">According to Pat, which of these is important to success as a leader? (check all that apply)</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"2b8226c8-2a85-499f-97fa-be7bffb0fff6\"><p><span style=\"color: #000000; text-decoration: inherit\">You have to instill responsibility in your team.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"82e6c204-7342-4e77-8e1c-f1628c43df5f\"><p><span style=\"color: #000000; text-decoration: inherit\">You have to clearly define who is responsible for what.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jk480n00513b79jowo6673",
+                "title": "<div data-editor-id=\"12263130-74a1-410d-8086-fc8fc155ee0b\"><p><span style=\"color: black; text-decoration: inherit\">You have to have the right connections.</span></p></div>"
+              },
+              {
+                "id": "cm6jk51zy00563b7929tlv6ju",
+                "title": "<div data-editor-id=\"25a9b4d7-d4ed-4fe6-93ea-9479799d9154\"><p><span style=\"color: #000000; text-decoration: inherit\">You have to actively cultivate different levels of responsibility.</span></p></div>"
+              },
+              {
+                "id": "cm6jk58b000593b79ttiyid85",
+                "title": "<div data-editor-id=\"828480d6-a86d-47b6-9380-a9eeeeda8c27\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">None of the above.</span></span></p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400we3b79k59kq8pi",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi",
+              "cm6gvw2f400wf3b79z4rpzttq",
+              "cm6jk51zy00563b7929tlv6ju"
+            ],
+            "feedback": "",
+            "globalBlockId": "afd6353b-516d-46d8-97b1-ff13f4427e32"
+          },
+          {
+            "id": "6qnB2AXLopczXeX7oCHeeGkTCAitn9qo",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"09ce7bb8-c046-467e-9e9e-f9e24b9454c4\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these must a leader accept responsibility for? (check all that apply)</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"37b9eca5-0f5f-4c89-b13a-3f987557ea49\"><p>Headaches</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"fa6c2541-7a69-47e3-b9c2-0ff35559bf03\"><p>Praise</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"404a0586-d0b3-440f-bd50-bb1481255fe5\"><p>Problems</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"25c54eeb-8cd4-45a0-95db-ad14579637ef\"><p>Crises</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6jk5ty2005e3b79vgl8rugi",
+                "title": "<div data-editor-id=\"c4158050-4dcb-45f8-a0d8-0a2f931dfa1f\"><p>None of the above</p></div>"
+              }
+            ],
+            "correct": "",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac",
+              "cm6gvw2f400wk3b79q9mcjkdv"
+            ],
+            "feedback": "",
+            "globalBlockId": "948b3777-57d6-4ec6-acc3-2de17f14ef8f"
+          },
+          {
+            "id": "cm6jk7dg1005n3b791buzk4md",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"0c1eddfb-c83d-4e18-86ea-a562d9d7fffe\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">According to Pat, why is it important to know who is responsible for what?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6jk7dg1005o3b79pzc9wg94",
+                "title": "<div data-editor-id=\"c951e54a-42fc-4092-8bfd-5828d16cd4a7\"><p><span style=\"color: black; text-decoration: inherit\">It ensures the responsibilities of each team member is clear and understood by everyone.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6jk7dg1005p3b79edmk9trg",
+                "title": "<div data-editor-id=\"bd251754-96d6-4d49-b2dd-e73e0f5bf229\"><p><span style=\"color: black; text-decoration: inherit\">When there is a breakdown, everyone will know what happened.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jk7dh5005q3b79rqcpyvwu",
+                "title": "<div data-editor-id=\"75f1288d-9ac0-4dac-b183-d1d26b5b5c03\"><p><span style=\"color: black; text-decoration: inherit\">If there’s a problem, you’ll know who the “wringable neck” is.</span></p></div>"
+              },
+              {
+                "id": "cm6jk840x005s3b79tt9wfeoy",
+                "title": "<div data-editor-id=\"da9d5dbc-83b7-47e0-9268-247ee0e25736\"><p><span style=\"color: #000000; text-decoration: inherit\">All of the above.</span></p></div>"
+              }
+            ],
+            "correct": "cm6jk840x005s3b79tt9wfeoy",
+            "corrects": [
+              "cm6jk7dg1005o3b79pzc9wg94"
+            ],
+            "feedback": "",
+            "globalBlockId": "c59aecd0-5d66-449b-8183-58da3227e125"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "Ey5O_7EIseO0jwYP5RJghMPzr1WDoNAJ",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:17:30.355Z",
+        "items": [
+          {
+            "id": "cm6jk068w00023b79mxvqeu1a",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jk068x00033b79aeeph9lp",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_joan_cronan_-_tales_from_the_sidelines__knowing_your_priorities__clip_04%20%281080p%29.mp4",
+                    "url": "transcoded-HwtRoxVM1bvaNJQF-v5_pot_joan_cronan_-_tales_from_the_sidelines__knowing_your_priorities__clip_04%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_joan_cronan_-_tales_from_the_sidelines__knowing_your_priorities__clip_04%20%281080p%29.jpg",
+                    "duration": 286,
+                    "inputKey": "rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/HwtRoxVM1bvaNJQF-v5_pot_joan_cronan_-_tales_from_the_sidelines__knowing_your_priorities__clip_04%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I/transcoded-HwtRoxVM1bvaNJQF-v5_pot_joan_cronan_-_tales_from_the_sidelines__knowing_your_priorities__clip_04%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_joan_cronan_-_tales_from_the_sidelines__knowing_your_priorities__clip_04 (1080p).mp4",
+                    "transcodeId": "1754792154408-6ogcze"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "60ff339b-3a80-4fcb-b92a-2b2165d498b0"
+          },
+          {
+            "id": "cmah6fnm4016l3b78rsgnukf1",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah6fnm4016m3b784i1mvlw7",
+                "paragraph": "<div data-editor-id=\"0a1c57a7-1088-4f46-9a54-57a47241a253\"><p><em>(Download the transcript below)</em></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "ef574b91-985f-45b5-9175-9755ad23c326"
+          },
+          {
+            "id": "cm6jk3hwq004k3b79njqz1r83",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jk3hwr004l3b794mwf8uw2",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%201%20Knowing%20Your%20Priorities.pdf",
+                    "size": 250359,
+                    "type": "attachment",
+                    "filename": "ZUIphpSMCyGo-YXj-Lesson%201%20Knowing%20Your%20Priorities.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 1 Knowing Your Priorities.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "76ddb148-9ff1-4a02-a05d-3b0fe6b3e0b5"
+          },
+          {
+            "id": "cm6jk09r0000j3b79lgd2jrm6",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jk09r0000p3b79pq4fxecu",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"aa046017-34a5-488f-87e6-0b007c599c42\"><p><span style=\"color: black; text-decoration: inherit\">Listen to UT Women’s Athletic Director Emeritus&nbsp;Joan Cronan talk about knowing your priorities as a leader and staying focused on the overall mission.</span></p><p><span style=\"color: black; text-decoration: inherit\">Refer to your workbook for the reflection questions and exercise below.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "daaeb830-33cf-4a2c-af26-8a711661e856"
+          },
+          {
+            "id": "cm6jk0d74001a3b79qopjry22",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6jk0d75001b3b79q2zhi08s",
+                "paragraph": "<div data-editor-id=\"9d7c5acb-b883-4bd5-a202-86fc36f8e072\"><p><span style=\"color: black; text-decoration: inherit\">What do you currently have responsibility for?</span></p></div>"
+              },
+              {
+                "id": "cm6jk0d75001c3b79i2ccjh5x",
+                "paragraph": "<div data-editor-id=\"2a00f517-b7be-48af-beba-ed640d132929\"><p><span style=\"color: black; text-decoration: inherit\">In your opinion, what is the hardest part of your current responsibilities? Why?</span></p></div>"
+              },
+              {
+                "id": "cm6jk0d75001d3b79w4u6bwrn",
+                "paragraph": "<div data-editor-id=\"11f6cc0b-6c6f-435a-a396-ccd0bd8b1041\"><p><span style=\"color: black; text-decoration: inherit\">How do you currently instill responsibility in your team?</span></p></div>"
+              },
+              {
+                "id": "cm6jk2nsa004j3b79yujza1l7",
+                "paragraph": "<div data-editor-id=\"be79c395-20fa-44cb-8981-2be01ddc0801\"><p><span style=\"color: black; text-decoration: inherit\">On your own team, how have you clearly defined who is responsible for what? <br class=\"break-when-trailing\"><br class=\"break-when-trailing\">Are there any areas that are gray or “shared” responsibilities?</span></p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "a58762a9-4d71-4975-a797-fb30f101fcb8"
+          },
+          {
+            "id": "cm6jk0r1t001v3b79is3btcae",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jk0r1u00213b79s6kk0g15",
+                "heading": "<div data-editor-id=\"1821003f-7f9b-49db-96e0-b490f5bb2fac\"><p><span style=\"font-size: 2rem\"><strong>Exercise</strong></span></p></div>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "subheading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "d030af56-4828-4d96-91fb-bdbe1c5048fb"
+          },
+          {
+            "id": "cmah6g0np017t3b78t2yf285u",
+            "type": "list",
+            "items": [
+              {
+                "id": "cmah6g0np017u3b78kmdzfwy7",
+                "paragraph": "<div data-editor-id=\"c1d00cda-552c-4801-a5da-a8551345d786\"><p><span style=\"color: black; text-decoration: inherit\">Think about your current team and the levels of responsibility each team member has. How might you actively cultivate different, increasing “levels” of responsibility? List in your workbook.</span></p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "02b7e914-7695-452f-92be-8f001a9f56ff"
+          },
+          {
+            "id": "cm6jk1isc003i3b79nf4dmgih",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jk1isc003j3b79c9xsu5w0",
+                "paragraph": "<div data-editor-id=\"5a6f0d15-a4d6-4a4c-8dc8-e53d39118ae2\"><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Sources:</strong></span></span></p><ol type=\"1\"><li><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from, <em>Reach for the Summitt</em>, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998.</span></span></p></li></ol></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "3b531666-b410-4bee-bdc8-cd437e83edc6"
+          },
+          {
+            "id": "cmah6h5dz018h3b78pbqml1sc",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmah6h5e0018i3b78mdevpwiv",
+                "type": "exit-course",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"4bf38f3a-381e-48e1-ac2f-fd6e6a462450\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": "exit-course"
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {},
+            "globalBlockId": "dfd9d401-265f-4899-8dc6-4be283802fd9"
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:28:00.658Z",
+    "updatedAt": "2025-09-03T21:28:05.713Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Course 1: The Big Chair",
+      "format": "zip",
+      "quizId": "Er6rivYOJDMlvorY5Rfv8z358u3JSrFl",
+      "target": "scorm12",
+      "shareId": "5TwpJHDsGTyZJB4ffzdYpCf4eid-xPSS",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "QXJ5H_lTsLtUo-KfG6AbajcPu5v4VV7I_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:34:58.351Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "",
+    "title": "Course 1: The Big Chair",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}

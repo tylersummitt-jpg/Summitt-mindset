@@ -1,0 +1,423 @@
+{
+  "id": "potl_mp_02",
+  "collection_id": "power_of_team_leader",
+  "collection_title": "The Power of Team",
+  "title": "The Big Chair",
+  "description": "“Here’s part two,” Pat admonished. “The most successful you are, the more responsibility you must assume. Responsibility never ends… you don’t finish it and move on to something more interesting. Responsibility is a constant state of being.”",
+  "sequence": 2,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "potl_mp_02",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "potl_mp_02_st_001",
+      "source_step_id": "potl_mp_02_st_001",
+      "sequence": 1,
+      "title": "The Big Chair",
+      "blocks": [
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_001_image_07.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "If you don’t want responsibility, don’t sit in the big chair.”\n\nIn Reach for the Summitt, Coach Summitt is famous for saying, “If you don’t want responsibility, don’t sit in the big chair.”1 Whether it’s a corner office, an executive board room, or a mere cubicle away from the people you manage, “the big chair” comes in all shapes and sizes nowadays.\n\n“Here’s part two,” Pat admonished. “The most successful you are, the more responsibility you must assume. Responsibility never ends… you don’t finish it and move on to something more interesting. Responsibility is a constant state of being.”\n\n“You want to talk about responsibility, let’s talk about [college] kids,” she quipped. “You really want to talk about responsibility, let’s talk about being in charge of 12 kids at a time, a dozen young women from all over the country, each with their own varying dispositions, backgrounds, problems, quarrels, and love interests. Some of them with cars.”\n\nPat once famously told a story about her friends deciding to throw her a 16th birthday party at a country club in Ashland City when she was in high school. Thrilled, she told her dad she needed the day off from her chores around the farm, but he told her she couldn’t go because they needed to load hay bales. “I spent that birthday sitting on the tractor. There were about 1,000 bales of hay that needed loading,” she recalled. “My father’s point was, you can’t pick and choose the days you feel like being responsible. It’s not something that disappears when you’re tired.”\n\nYou can’t pick and choose the days you feel like being responsible. It’s not something that disappears when you’re tired.\""
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_001_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_001_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_001_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_001_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150875025",
+          "visible_title": "The Big Chair",
+          "speaker": "Dr. Roberto Fernandez-Romero"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_02_st_002",
+      "source_step_id": "potl_mp_02_st_002",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_02_st_002_q01",
+              "prompt": "The more successful you are, _____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "The more money you make."
+                },
+                {
+                  "id": "c2",
+                  "text": "The more responsibility you assume."
+                },
+                {
+                  "id": "c3",
+                  "text": "The more you must lead."
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "potl_mp_02_st_002_q02",
+              "prompt": "Finish this quote: “If you don’t want responsibility, ____________.”",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Don’t have kids"
+                },
+                {
+                  "id": "c2",
+                  "text": "Life will be simpler"
+                },
+                {
+                  "id": "c3",
+                  "text": "Ask someone else to help"
+                },
+                {
+                  "id": "c4",
+                  "text": "Don’t sit in the big chair"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_02_st_002_q03",
+              "prompt": "Responsibility is a ____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Constant state of being"
+                },
+                {
+                  "id": "c2",
+                  "text": "Privilege for leaders"
+                },
+                {
+                  "id": "c3",
+                  "text": "Requirement for service"
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_02_st_003",
+      "source_step_id": "potl_mp_02_st_003",
+      "sequence": 3,
+      "title": "Sitting in the Chair",
+      "blocks": [
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "sitting_in_the_chair",
+              "title": "Sitting in the Chair",
+              "body": "Sitting in the Chair"
+            },
+            {
+              "id": "in_a_nutshell_pat_believed_that_to_have",
+              "title": "In a nutshell, Pat believed that to have responsibility and overall success as a leader,…",
+              "body": "In a nutshell, Pat believed that to have responsibility and overall success as a leader, you had to consider these main elements.\n(Scroll through to complete this element)"
+            },
+            {
+              "id": "conclusion",
+              "title": "Conclusion:",
+              "body": "Conclusion:"
+            },
+            {
+              "id": "consider_how_you_can_implement_these_mai",
+              "title": "Consider how you can implement these main points with your team in order to cultivate inc…",
+              "body": "Consider how you can implement these main points with your team in order to cultivate increasing levels of responsibility."
+            },
+            {
+              "id": "you_have_to_have_responsibility_for_ever",
+              "title": "You have to have responsibility.",
+              "body": "You have to have responsibility. For everything."
+            },
+            {
+              "id": "pat_s_message_was_simple_you_have_to_hav",
+              "title": "Pat’s message was simple: You have to have responsibility.",
+              "body": "Pat’s message was simple: You have to have responsibility. For everything. “To be successful, you must accept full responsibility,” she said. “For everything. Headaches, problems, crises. Even when it doesn’t seem fair.”"
+            },
+            {
+              "id": "you_have_to_instill_responsibility_in_yo",
+              "title": "You have to instill responsibility in your team.",
+              "body": "You have to instill responsibility in your team."
+            },
+            {
+              "id": "pat_believed_the_best_way_to_do_this_was",
+              "title": "Pat believed the best way to do this was bit by bit, one task at a time, rather than proj…",
+              "body": "Pat believed the best way to do this was bit by bit, one task at a time, rather than projecting a lot of responsibility on one person overnight. At the University of Tennessee, she famously increased her players’ responsibilities to each other slowly and incrementally over four years. By the time each player was a senior, they were assigned mentoring roles and had personal charge of an incoming freshman."
+            },
+            {
+              "id": "you_have_to_clearly_define_who_is_respon",
+              "title": "You have to clearly define who is responsible for what.",
+              "body": "You have to clearly define who is responsible for what."
+            },
+            {
+              "id": "i_must_make_sure_that_the_responsibiliti",
+              "title": "“I must make sure that the responsibilities of our players and staff are clearly delineat…",
+              "body": "“I must make sure that the responsibilities of our players and staff are clearly delineated and that everyone understands them. That way, when there is a breakdown, we know what happened,” Pat once said. If you don’t know who is responsible for what, when there’s a problem in a particular area, you won’t know who the clear, “wringable neck” is for that area."
+            },
+            {
+              "id": "you_have_to_actively_cultivate_different",
+              "title": "You have to actively cultivate different levels of responsibility.",
+              "body": "You have to actively cultivate different levels of responsibility."
+            },
+            {
+              "id": "granting_your_team_responsibility_doesn",
+              "title": "Granting your team responsibility doesn’t have to be like switching a faucet on and off,…",
+              "body": "Granting your team responsibility doesn’t have to be like switching a faucet on and off, or delegating entire areas at a time. This sounds like common sense, but it’s amazing how many companies do just that — take a team member with little responsibility and abruptly thrust them into the spotlight where all or most of the responsibility for a particular area now falls on them. Pat would argue that responsibility should be like gradually watering a plant, whereas weeks of drought followed by a deluge of water is overwhelming. Sometimes “too much too fast” even sinks team members with the most potential."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "in_the_following_lessons",
+              "title": "In the following lessons",
+              "body": "We'll explore more of the view from the big chair, including:\nHow to instill responsibility in your team\nHow to own your area without micromanaging\nResponsibility for your personal brand, and why it matters"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "In the video above, listen to neurologist Dr. Roberto Fernandez-Romero talk about Pat and the impact she made in “The Big Chair.”"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_05.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150875059",
+          "visible_title": "Pat's Legacy",
+          "speaker": "Dr. Roberto Fernandez-Romero"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_02_st_004",
+      "source_step_id": "potl_mp_02_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_02_st_004_q01",
+              "prompt": "According to Pat, which of these is important to success as a leader? (check all that apply)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "You have to instill responsibility in your team."
+                },
+                {
+                  "id": "c2",
+                  "text": "You have to clearly define who is responsible for what."
+                },
+                {
+                  "id": "c3",
+                  "text": "You have to have the right connections."
+                },
+                {
+                  "id": "c4",
+                  "text": "You have to actively cultivate different levels of responsibility."
+                },
+                {
+                  "id": "c5",
+                  "text": "None of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c2",
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_02_st_004_q02",
+              "prompt": "Which of these must a leader accept responsibility for? (check all that apply)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Headaches"
+                },
+                {
+                  "id": "c2",
+                  "text": "Praise"
+                },
+                {
+                  "id": "c3",
+                  "text": "Problems"
+                },
+                {
+                  "id": "c4",
+                  "text": "Crises"
+                },
+                {
+                  "id": "c5",
+                  "text": "None of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c3",
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_02_st_004_q03",
+              "prompt": "According to Pat, why is it important to know who is responsible for what?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "It ensures the responsibilities of each team member is clear and understood by everyone."
+                },
+                {
+                  "id": "c2",
+                  "text": "When there is a breakdown, everyone will know what happened."
+                },
+                {
+                  "id": "c3",
+                  "text": "If there’s a problem, you’ll know who the “wringable neck” is."
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_02_st_005",
+      "source_step_id": "potl_mp_02_st_005",
+      "sequence": 5,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Sources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150875089",
+          "visible_title": "Knowing Your Priorities",
+          "speaker": "Joan Cronan"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_02_st_005_reflection_01",
+          "prompt": "What do you currently have responsibility for?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_02_st_005_reflection_02",
+          "prompt": "In your opinion, what is the hardest part of your current responsibilities?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_02_st_005_reflection_03",
+          "prompt": "How do you currently instill responsibility in your team?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_02_st_005_reflection_04",
+          "prompt": "On your own team, how have you clearly defined who is responsible for what?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_02_st_005_reflection_05",
+          "prompt": "Are there any areas that are gray or “shared” responsibilities?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_02_st_005_reflection_06",
+          "prompt": "Think about your current team and the levels of responsibility each team member has. How might you actively cultivate different, increasing “levels” of responsibility?"
+        }
+      ]
+    }
+  ]
+}

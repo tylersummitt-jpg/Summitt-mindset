@@ -1,0 +1,736 @@
+{
+  "id": "potl_mp_09",
+  "collection_id": "power_of_team_leader",
+  "collection_title": "The Power of Team",
+  "title": "Listening to Lead",
+  "description": "How many of us go through a day without saying a word? None of us. But maybe we ought to try it. Communicating is not just about giving great speeches. It’s about allowing others to express themselves.”",
+  "sequence": 9,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "potl_mp_09",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "potl_mp_09_st_001",
+      "source_step_id": "potl_mp_09_st_001",
+      "sequence": 1,
+      "title": "Listening to Lead",
+      "blocks": [
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_001_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "A final step to becoming an excellent communicator that Pat always emphasized is the act of listening to lead. As a leader, listening is one of the most overlooked skills you can have. But what does it really mean to listen as a leader? Is it just about nodding your head and pretending to hear what your team is saying? Absolutely not. True listening is about connecting with your team on a deeper level and attempting to understand their perspectives and needs.\n\nHow many of us go through a day without saying a word? None of us. But maybe we ought to try it. Communicating is not just about giving great speeches. It’s about allowing others to express themselves.”"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150890414",
+          "visible_title": "Listening to Lead",
+          "speaker": "Steve Hamer"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_09_st_002",
+      "source_step_id": "potl_mp_09_st_002",
+      "sequence": 2,
+      "title": "Listening as a Leader",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Now, we know what you're thinking. I already have too much on my plate. Who has time to listen? Well, my friend, if you don't make the time to listen to your team, you're going to have a lot more on your plate in the long run. Trust us.\n\nSo, let's talk about what it means to listen as a leader. First and foremost, it means being present. That means putting down your phone, closing your laptop, and actually looking at the person speaking to you. But listening isn't just about being physically present — it's also about being mentally present. That means clearing your mind of distractions and focusing on what the person is saying. That can be tough. Sometimes, it feels like our minds are like a web browser with dozens of tabs open at once. But just like how we close some tabs to avoid a crash, we need to focus on one thing at a time to avoid a “mental crash.”\n\nAs a leader, your job isn't to have all the answers. It's to help your team find the answers themselves. That means listening to their ideas and helping them think through solutions. And if they come up with a solution that's different from what you would have done, that's OK. In fact, it might even be better. Leaders who are too afraid to listen to their teams risk stifling creativity and innovation. “Often a strong, dominant leader is the worst listener. He or she is too busy telling everyone else what to do and what to think,” Pat once noted.1"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "active_listening",
+              "title": "Active Listening",
+              "body": "Giving someone your undivided attention"
+            },
+            {
+              "id": "passive_listening",
+              "title": "Passive Listening",
+              "body": "Allowing distractions to interfere or disengaging"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "While you are listening to someone, don’t just take in the words. Study the speaker. Be aware of the speaker’s voice and mannerisms. Notice what his or her effect is on you. Be aware of your own voice and body language, too.”"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_002_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_002_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_09_st_003",
+      "source_step_id": "potl_mp_09_st_003",
+      "sequence": 3,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_09_st_003_q01",
+              "prompt": "According to this lesson, as a leader, _____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "You have to learn to be dominant."
+                },
+                {
+                  "id": "c2",
+                  "text": "Listening is an overlooked skill."
+                },
+                {
+                  "id": "c3",
+                  "text": "You are responsible for having the answers."
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "potl_mp_09_st_003_q02",
+              "prompt": "Why is it important to listen to your employees?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "It makes them feel valued and respected."
+                },
+                {
+                  "id": "c2",
+                  "text": "It helps you make more informed decisions."
+                },
+                {
+                  "id": "c3",
+                  "text": "It allows your team members to suggest solutions."
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_09_st_003_q03",
+              "prompt": "Which is a part of active listening? (check any that apply)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Fully concentrating on what someone is saying"
+                },
+                {
+                  "id": "c2",
+                  "text": "Giving someone your full attention"
+                },
+                {
+                  "id": "c3",
+                  "text": "Multi-tasking on projects while listening"
+                },
+                {
+                  "id": "c4",
+                  "text": "Nodding to show you understand"
+                },
+                {
+                  "id": "c5",
+                  "text": "Listening to background noise"
+                },
+                {
+                  "id": "c6",
+                  "text": "Checking your phone"
+                },
+                {
+                  "id": "c7",
+                  "text": "Taking notes while listening"
+                },
+                {
+                  "id": "c8",
+                  "text": "Minimizing distractions"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c2",
+                "c4",
+                "c7",
+                "c8"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_09_st_004",
+      "source_step_id": "potl_mp_09_st_004",
+      "sequence": 4,
+      "title": "Having 1:1 Conversations",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Scroll through to complete this element."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "set_aside_time_for_1_1_conversations",
+              "title": "Set Aside Time for 1:1 Conversations",
+              "body": "Set Aside Time for 1:1 Conversations"
+            },
+            {
+              "id": "one_on_one_conversations_are_a_great_way",
+              "title": "One-on-one conversations are a great way to get to know your employees on a personal leve…",
+              "body": "One-on-one conversations are a great way to get to know your employees on a personal level and understand their perspective. As your schedule allows, make it a priority to work them into your regular routine.\nHere are some tips to make the most of the time in your 1:1s."
+            },
+            {
+              "id": "summary",
+              "title": "Summary",
+              "body": "Summary"
+            },
+            {
+              "id": "consider_which_of_these_you_can_work_in",
+              "title": "Consider which of these you can work in to meetings with your team to help model active l…",
+              "body": "Consider which of these you can work in to meetings with your team to help model active listening the most."
+            },
+            {
+              "id": "avoid_distractions",
+              "title": "Avoid distractions.",
+              "body": "Avoid distractions."
+            },
+            {
+              "id": "when_you_re_having_a_conversation_with_a",
+              "title": "When you're having a conversation with an employee, avoid distractions like checking your…",
+              "body": "When you're having a conversation with an employee, avoid distractions like checking your phone or looking at your computer. Give them your undivided attention."
+            },
+            {
+              "id": "ask_open_ended_questions",
+              "title": "Ask open-ended questions.",
+              "body": "Ask open-ended questions."
+            },
+            {
+              "id": "open_ended_questions_can_help_you_get_a",
+              "title": "Open-ended questions can help you get a better understanding of your employee's perspecti…",
+              "body": "Open-ended questions can help you get a better understanding of your employee's perspective. Ask questions like, \"How do you feel about this situation?\" or \"What do you think we can do to improve?\""
+            },
+            {
+              "id": "don_t_interrupt",
+              "title": "Don't interrupt.",
+              "body": "Don't interrupt."
+            },
+            {
+              "id": "interrupting_someone_when_they_re_speaki",
+              "title": "Interrupting someone when they’re speaking makes them feel like their opinions aren’t val…",
+              "body": "Interrupting someone when they’re speaking makes them feel like their opinions aren’t valued. Wait until they have finished speaking before responding."
+            },
+            {
+              "id": "take_notes",
+              "title": "Take notes.",
+              "body": "Take notes."
+            },
+            {
+              "id": "taking_notes_during_a_conversation_shows",
+              "title": "Taking notes during a conversation shows the other person that you’re taking their concer…",
+              "body": "Taking notes during a conversation shows the other person that you’re taking their concerns seriously and you value their input. It also helps you remember important details."
+            },
+            {
+              "id": "be_empathetic",
+              "title": "Be empathetic.",
+              "body": "Be empathetic."
+            },
+            {
+              "id": "empathy_is_the_ability_to_understand_and",
+              "title": "Empathy is the ability to understand and share someone else's feelings.",
+              "body": "Empathy is the ability to understand and share someone else's feelings. When you're listening to an employee, try to put yourself in their shoes and understand how they are feeling."
+            },
+            {
+              "id": "repeat_confirm_the_issue",
+              "title": "Repeat/confirm the issue.",
+              "body": "Repeat/confirm the issue."
+            },
+            {
+              "id": "to_show_the_speaker_you_understand_the_i",
+              "title": "To show the speaker you understand the issue being communicated and to avoid any miscommu…",
+              "body": "To show the speaker you understand the issue being communicated and to avoid any miscommunication, listen to the employee as they share, then repeat back the problem or issue being discussed. (“Just to make sure I understand, you’re saying the problem is with the new supply chain. Is that the issue?”) This shows the employee that you’re listening and gives them a chance to clarify any additional details if needed. (“Yes, it’s mainly the supply chain, but there’s also an issue with the details on the packages out of the Denver office.”)"
+            },
+            {
+              "id": "follow_up",
+              "title": "Follow up.",
+              "body": "Follow up."
+            },
+            {
+              "id": "after_a_conversation_follow_up_with_your",
+              "title": "After a conversation, follow up with your employee to let them know that you have taken t…",
+              "body": "After a conversation, follow up with your employee to let them know that you have taken their concerns into consideration. This helps build trust and shows that you are committed to addressing their concerns."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Exercise"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_05.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_06.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_07.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "sort",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Active Listening” or “Passive Listening”.",
+          "categories": [
+            "Active Listening",
+            "Passive Listening"
+          ],
+          "cards": [
+            {
+              "id": "empathizing_with_a_problem_or_concern",
+              "text": "Empathizing with a problem or concern",
+              "correct_category": "Active Listening"
+            },
+            {
+              "id": "taking_a_phone_call_in_the_middle_of_a_dis",
+              "text": "Taking a phone call in the middle of a discussion",
+              "correct_category": "Passive Listening"
+            },
+            {
+              "id": "clarifying_the_main_point_to_make_sure_you",
+              "text": "Clarifying the main point to make sure you understand",
+              "correct_category": "Active Listening"
+            },
+            {
+              "id": "following_up_after_the_conversation",
+              "text": "Following up after the conversation",
+              "correct_category": "Active Listening"
+            },
+            {
+              "id": "asking_open_ended_questions",
+              "text": "Asking open-ended questions",
+              "correct_category": "Active Listening"
+            },
+            {
+              "id": "interrupting_with_related_ideas",
+              "text": "Interrupting with related ideas",
+              "correct_category": "Passive Listening"
+            },
+            {
+              "id": "interjecting_with_a_proposed_solution",
+              "text": "Interjecting with a proposed solution",
+              "correct_category": "Passive Listening"
+            },
+            {
+              "id": "eating_a_sandwich_in_the_middle_of_a_meeti",
+              "text": "Eating a sandwich in the middle of a meeting",
+              "correct_category": "Passive Listening"
+            },
+            {
+              "id": "checking_your_email_while_listening",
+              "text": "Checking your email while listening",
+              "correct_category": "Passive Listening"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_09_st_005",
+      "source_step_id": "potl_mp_09_st_005",
+      "sequence": 5,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_09_st_005_q01",
+              "prompt": "Why is it important to set aside time for 1:1 conversations with your employees?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "To understand their perspective and build trust"
+                },
+                {
+                  "id": "c2",
+                  "text": "To delegate tasks more efficiently"
+                },
+                {
+                  "id": "c3",
+                  "text": "To avoid distractions during team meetings"
+                },
+                {
+                  "id": "c4",
+                  "text": "To ensure employees follow company policies"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "potl_mp_09_st_005_q02",
+              "prompt": "Which of the following is a key practice for active listening during a 1:1 conversation?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Avoiding distractions like checking your phone"
+                },
+                {
+                  "id": "c2",
+                  "text": "Interrupting to share your perspective"
+                },
+                {
+                  "id": "c3",
+                  "text": "Taking a phone call during the conversation"
+                },
+                {
+                  "id": "c4",
+                  "text": "Focusing on formulating your response while the other person speaks"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "potl_mp_09_st_005_q03",
+              "prompt": "Why is it important to follow up with an employee after a one-on-one conversation?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "It shows that you value their input and are committed to addressing their concerns."
+                },
+                {
+                  "id": "c2",
+                  "text": "It allows you to avoid having future one-on-one conversations."
+                },
+                {
+                  "id": "c3",
+                  "text": "It ensures that the employee feels their opinions are not important."
+                },
+                {
+                  "id": "c4",
+                  "text": "It gives you an opportunity to delegate their concerns to someone else."
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_09_st_006",
+      "source_step_id": "potl_mp_09_st_006",
+      "sequence": 6,
+      "title": "Create a Culture of Open Communication",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Scroll through to complete this element."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "create_a_culture_of_open_communication",
+              "title": "Create a Culture of Open Communication",
+              "body": "Create a Culture of Open Communication"
+            },
+            {
+              "id": "encourage_your_employees_to_speak_up_and",
+              "title": "Encourage your employees to speak up and share their ideas by creating a culture of open…",
+              "body": "Encourage your employees to speak up and share their ideas by creating a culture of open communication.\nHere are some things to keep in mind when encouraging openness."
+            },
+            {
+              "id": "summary",
+              "title": "Summary",
+              "body": "Summary"
+            },
+            {
+              "id": "in_the_end_listening_as_a_leader_is_abou",
+              "title": "In the end, listening as a leader is about creating a culture of openness and respect.",
+              "body": "In the end, listening as a leader is about creating a culture of openness and respect. It's about being willing to hear perspectives that are different from your own and using those perspectives to make better decisions. So, take the time to listen to your team — you might just be surprised by what you hear!"
+            },
+            {
+              "id": "seek_regular_feedback",
+              "title": "Seek regular feedback.",
+              "body": "Seek regular feedback."
+            },
+            {
+              "id": "asking_your_employees_for_feedback_on_yo",
+              "title": "Asking your employees for feedback on your leadership style shows that you’re open to gro…",
+              "body": "Asking your employees for feedback on your leadership style shows that you’re open to growth and improvement. It also helps you better understand their needs."
+            },
+            {
+              "id": "don_t_punish_solicited_feedback",
+              "title": "Don’t punish solicited feedback.",
+              "body": "Don’t punish solicited feedback."
+            },
+            {
+              "id": "even_if_feedback_may_be_negative_in_natu",
+              "title": "Even if feedback may be negative in nature, avoid punishing honest feedback that you aske…",
+              "body": "Even if feedback may be negative in nature, avoid punishing honest feedback that you asked for, as long as it’s given respectfully."
+            },
+            {
+              "id": "thank_them_for_sharing",
+              "title": "Thank them for sharing.",
+              "body": "Thank them for sharing."
+            },
+            {
+              "id": "thanking_your_employees_for_sharing_thei",
+              "title": "Thanking your employees for sharing their concerns or ideas shows that you value their in…",
+              "body": "Thanking your employees for sharing their concerns or ideas shows that you value their input and appreciate their willingness to speak up."
+            },
+            {
+              "id": "go_on_a_listening_tour",
+              "title": "Go on a listening tour.",
+              "body": "Go on a listening tour."
+            },
+            {
+              "id": "to_get_a_full_sense_of_issues_facing_tho",
+              "title": "To get a full sense of issues facing those you manage, once or twice a year go on a \"list…",
+              "body": "To get a full sense of issues facing those you manage, once or twice a year go on a \"listening tour\" of your workplace to understand the perspectives and concerns of your team members. Make listening a conscious priority, whether by a series of structured feedback sessions or informal 1:1s. This helps uncover problems or feedback that may not arise solely through casual conversation."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Exercise\n\nWhich of these behaviors can leaders use to encourage open communication, versus closed communication? Flip each card to complete this element."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "open_this_allows_communication_to_flow_f",
+              "title": "Open!",
+              "body": "Open! This allows communication to flow freely between teams."
+            },
+            {
+              "id": "cross_department_collaboration",
+              "title": "Cross-department collaboration",
+              "body": "Cross-department collaboration"
+            },
+            {
+              "id": "closed_when_communication_is_unnecessari",
+              "title": "Closed!",
+              "body": "Closed! When communication is unnecessarily siloed, it creates closed communication loops."
+            },
+            {
+              "id": "emphasizing_hierarchy",
+              "title": "Emphasizing hierarchy",
+              "body": "Emphasizing hierarchy"
+            },
+            {
+              "id": "open_this_allows_everyone_to_hear_import",
+              "title": "Open!",
+              "body": "Open! This allows everyone to hear important communication from the source, in person."
+            },
+            {
+              "id": "regular_department_meetings",
+              "title": "Regular department meetings",
+              "body": "Regular department meetings"
+            },
+            {
+              "id": "closed_if_leaders_respond_negatively_to",
+              "title": "Closed!",
+              "body": "Closed! If leaders respond negatively to mistakes, employees may avoid speaking up or for fear of criticism."
+            },
+            {
+              "id": "emphasizing_perfectionism",
+              "title": "Emphasizing perfectionism",
+              "body": "Emphasizing perfectionism"
+            },
+            {
+              "id": "open_this_allows_leaders_to_hear_feedbac",
+              "title": "Open!",
+              "body": "Open! This allows leaders to hear feedback, good news and concerns in an informal setting."
+            },
+            {
+              "id": "walking_the_floor",
+              "title": "Walking the floor",
+              "body": "Walking the floor"
+            },
+            {
+              "id": "closed_over_monitoring_communication_cha",
+              "title": "Closed!",
+              "body": "Closed! Over-monitoring communication channels or tools stifles employees ability to speak freely when working."
+            },
+            {
+              "id": "micromanaging_communication_channels",
+              "title": "Micromanaging communication channels",
+              "body": "Micromanaging communication channels"
+            },
+            {
+              "id": "open_when_you_share_both_the_good_and_th",
+              "title": "Open!",
+              "body": "Open! When you share both the good and the bad with team members, it builds trust."
+            },
+            {
+              "id": "sharing_both_good_and_bad_news",
+              "title": "Sharing both good and bad news",
+              "body": "Sharing both good and bad news"
+            },
+            {
+              "id": "closed_if_feedback_is_only_solicited_thr",
+              "title": "Closed!",
+              "body": "Closed! If feedback is only solicited through forms or emails, communication will be stifled."
+            },
+            {
+              "id": "discouraging_informality",
+              "title": "Discouraging informality",
+              "body": "Discouraging informality"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_006_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_006_image_02.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_006_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_006_image_04.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_09_st_007",
+      "source_step_id": "potl_mp_09_st_007",
+      "sequence": 7,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "give_yourself_a_grade_for_listening_on_a",
+              "title": "Give yourself a grade for listening on a scale of 1 to 10.",
+              "body": "Now, how good are you at active listening?\n\nWhat are three things you can do to improve?1.2.3."
+            }
+          ]
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_09_st_007_reflection_01",
+          "prompt": "What are three ways you can get better in each of your weaker areas?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Sources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150890450",
+          "visible_title": "My First Meeting with Pat",
+          "speaker": "Petra Dunn"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_09_st_007_reflection_02",
+          "prompt": "How much do you currently practice listening as a leader?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_09_st_007_reflection_03",
+          "prompt": "What percentage of your communication style involves actively communicating vs. actively listening?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_09_st_007_reflection_04",
+          "prompt": "Think about someone you know who was one of the worst listeners you’ve encountered. What traits did they have that made them this way?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_09_st_007_reflection_05",
+          "prompt": "Think about two individuals you know who are great listeners. What specific traits do each have?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_09_st_007_reflection_06",
+          "prompt": "Now, how good are you at active listening?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_09_st_007_reflection_07",
+          "prompt": "What are three things you can do to improve?"
+        }
+      ]
+    }
+  ]
+}

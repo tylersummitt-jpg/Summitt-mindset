@@ -1,0 +1,2089 @@
+{
+  "course": {
+    "id": "gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs",
+    "originalId": null,
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "selectedAuthorId": "none",
+    "color": "#4267a9",
+    "navigationMode": "",
+    "title": "Championing Women in Leadership - Negotiation for Women",
+    "sharePassword": "",
+    "description": "",
+    "shareId": "gGmfjmj5L-4m4o9xvbP3yz-ryU7rbgLf",
+    "copyOf": "1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn",
+    "order": "1728405740835",
+    "fonts": null,
+    "media": {
+      "image": {
+        "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/bhbWj6Z9_cRXewk4-CWILLogo_Color_Transparent.png",
+        "type": "image",
+        "width": 166,
+        "height": 40,
+        "scalar": 2,
+        "crushedKey": "VF4UxDq8JWwBBwE6.png",
+        "originalUrl": "CWILLogo_Color_Transparent.png",
+        "useCrushedKey": true
+      }
+    },
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/9EI_eghYGSUwHbn6-PSLG_CWIL_TItleGraphic.png",
+          "crushedKey": "jc1SVeZ02KTAoLgu.jpg",
+          "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "id": "i6XEWUPBsTCBgcPV-HjhnA8gXqYUMpOv",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs",
+        "title": "Negotiation for Women",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clw8a0nd800023b79ln8nxeuy",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clw8a0nd800033b7986tzdzmv",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_nikki_fargas_negotiation_for_women_clip_02%20%281080p%29.mp4",
+                    "url": "transcoded-sEU_TWh_xHE_Gz3M-v4_wil_nikki_fargas_negotiation_for_women_clip_02%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_nikki_fargas_negotiation_for_women_clip_02%20%281080p%29.jpg",
+                    "inputKey": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/sEU_TWh_xHE_Gz3M-v4_wil_nikki_fargas_negotiation_for_women_clip_02%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/transcoded-sEU_TWh_xHE_Gz3M-v4_wil_nikki_fargas_negotiation_for_women_clip_02%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_nikki_fargas_negotiation_for_women_clip_02 (1080p).mp4",
+                    "transcodeId": "1727980082292-idvtn9"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clw8a0sdf000g3b79etk4azb9",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clw8a0sdf000h3b79qgpji7co",
+                "media": {
+                  "attachment": {
+                    "key": "L11%20Transcript%20Negotiation%20for%20Women.pdf",
+                    "size": 63341,
+                    "type": "attachment",
+                    "filename": "-0vUrqOdUOq2BjfI-L11%20Transcript%20Negotiation%20for%20Women.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L11 Transcript Negotiation for Women.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxknrlmq00153b791ty9wj5n",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clxknrlmr00183b79uu7o8u6m",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/K8ZF5nT7sUdGgYJ--stock_image.jpg",
+                    "type": "image",
+                    "align": "left",
+                    "crushedKey": "stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>Negotiation is a life skill. Whether you are in business, sales, or any other profession, you will need negotiation at some point in your life. Maybe you already use it regularly. The point is, don&rsquo;t be afraid of it, and don&rsquo;t take it personally.</p><p>Unfortunately, gender expectations can impact how women in particular approach negotiation. Many women feel intimidated by the very thought of having to negotiate, or being labeled as &quot;difficult&quot; or &quot;pushy.&quot;</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxknsnhw001n3b79s2h550l9",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clxknsnhx001p3b7952oa57bh",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/kRIcG0HwwOruAIjd-AdobeStock_114548778.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_114548778.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "clxknsnhw001n3b79s2h550l9",
+                    "originalUrl": "AdobeStock_114548778.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:tabs"
+                  }
+                },
+                "title": "Rachel",
+                "description": "<p>Take, for example, Rachel who has an upcoming annual review. She feels strongly that she is underpaid in her position, but is afraid to negotiate a salary increase beyond the standard 3 to 5 percent; what if it doesn&rsquo;t go over well?</p>"
+              },
+              {
+                "id": "clxknsnhx001q3b79evhxnz2y",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/gdCPDVVYp7PmMOL8-stock_image.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "wGUnrA/stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "sourcedFrom": "LIBRARY",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Jayla",
+                "description": "<p>And then there&rsquo;s Jayla, who has been in her position for two years and has consistently delivered exceptional results in her role, but has a hard time approaching the subject of promotion with her managing director. Leadership roles are limited at her organization, and who is she to imply that she is more qualified than some of her peers?</p>"
+              },
+              {
+                "id": "clzsyc9mp00773b7do8kuf0yw",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/CdB7HYnXEPqMGJWM-AdobeStock_106555867.jpeg",
+                    "type": "image",
+                    "align": "left",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_106555867.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "clxknsnhw001n3b79s2h550l9",
+                    "originalUrl": "AdobeStock_106555867.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:tabs"
+                  }
+                },
+                "title": "Lynn",
+                "description": "<p>Elsewhere, Lynn is starting to notice that certain projects aligning with her specific expertise are often assigned to other team members. She wants to advocate for a different set of job duties but is afraid to be perceived as rocking the boat.&nbsp;</p>"
+              },
+              {
+                "id": "clzsydejb007c3b7d9msx5n25",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/P0nj8P0jaJQg9IdZ-AdobeStock_503960816.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_503960816.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "clxknsnhw001n3b79s2h550l9",
+                    "originalUrl": "AdobeStock_503960816.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:tabs"
+                  }
+                },
+                "title": "Carmen",
+                "description": "<p>Finally there&rsquo;s Carmen, a dedicated professional and new mom who loves her job, but wants to negotiate for a more flexible work schedule.</p><p><br></p><p>Any of these sound familiar?</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive",
+            "variant": "tabs",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca3dzg001u3b79azx8ig41",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca3dzg001v3b79wrowbqdw",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-03-28T15:15:00.692Z",
+        "updatedAt": "2024-11-11T00:21:49.242Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 0,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Negotiation for Women"
+      },
+      {
+        "id": "bMa_iUg0dHoFHvvI3s1FtJ9eCivXrZgq",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs",
+        "title": "Negotiation Tips & Techniques",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clw8a24fo001g3b79j0tt5j3m",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clw8a24fp001h3b791qu9gijq",
+                "type": "intro",
+                "title": "Negotiation Tips and Techniques",
+                "isHidden": false,
+                "description": "<p>Maybe the thought of negotiation intimidates you, and you see yourself in one of the four examples in the previous lesson. Or maybe you work in sales, event planning, or use negotiation regularly in your role. Either way, here are a few negotiation practices and strategies for women specifically so you can take your skills to the next level.</p>"
+              },
+              {
+                "id": "clw8a24fp001i3b79hdp9m0ow",
+                "type": "summary",
+                "title": "In Conclusion",
+                "isHidden": false,
+                "description": "<p>Utilize these tips &amp; techniques to elevate your negotiation skills.</p>"
+              },
+              {
+                "id": "clw8a24fp001j3b79dmjbf0u2",
+                "type": "step",
+                "media": {
+                  "tmp": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/beach_rocks.jpg",
+                      "src": "https://articulateusercontent.com/assets/rise/assets/block-defaults/beach_rocks.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/beach_rocks_thumb.jpg",
+                      "originalUrl": "beach_rocks.jpg"
+                    }
+                  }
+                },
+                "title": "Silence is key in a negotiation.",
+                "isHidden": false,
+                "description": "<p>Only talk as much as you need to! Pause. Don&rsquo;t rush. Give the other person time to process your offer. People don&rsquo;t think at lightning speed, especially when they&rsquo;re trying to negotiate. It&rsquo;s fine for there to be silences and long pauses while they process what&rsquo;s being said. Don&rsquo;t assume silence is disapproval and cut yourself off trying to fill in the gaps with a better offer.</p>"
+              },
+              {
+                "id": "clw8a24fp001k3b79dokxiya4",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/LPnRqztkiygTqCtz-stock_image.jpg",
+                    "type": "image",
+                    "crushedKey": "LJzxk4/stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Don’t underestimate the art of congeniality. ",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"fcf34fe0-c201-41d8-9096-3128177a6622\"><p>Even if things are tense with the other party or you feel like you hold most of the cards, you never want to walk into a negotiation with a closed perception, or like <em>The Godfather</em>: “I’m going to make him an offer he can’t refuse.”<br class=\"break-when-trailing\"><br class=\"break-when-trailing\">The more likable you are, the more likely the other person will be disarmed and come around to your side. Or if you are negotiating for three to five weeks of PTO in a new position instead of two, don’t say, “I was hoping for at least three weeks.” Explain your reason for needing more PTO in the package and listen to what the other side says. They may surprise you with more than what you are asking.</p></div>"
+              },
+              {
+                "id": "clw8a6sbv001x3b79s91qvu1a",
+                "type": "step",
+                "media": {
+                  "tmp": {
+                    "image": {
+                      "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/nIuGx_8UQeessQbM-AdobeStock_515450780.jpeg",
+                      "type": "image",
+                      "align": "center",
+                      "fillWidth": false,
+                      "crushedKey": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/5B0Mg6p7gDSByXjn.jpg",
+                      "trackingId": "clw8a24fo001g3b79j0tt5j3m",
+                      "originalUrl": "AdobeStock_515450780.jpeg",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    }
+                  }
+                },
+                "title": "Know the range you are willing to negotiate in, but don’t give the other person your range. ",
+                "isHidden": false,
+                "description": "<p>For example, if you are negotiating salary or cost, don’t say “I’d be willing to accept $7,000 to $10,000.” All the other person will hear is $7,000. Say $10,000, and go from there. Give yourself room! Don’t start negotiating at $7,500 if $7,000 is the lowest you’ll take, even if the initial offer seems high to you. That’s why it’s called a negotiation.</p>"
+              },
+              {
+                "id": "clw8a7cmb001z3b7906dgi896",
+                "type": "step",
+                "media": {
+                  "tmp": {},
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/ixdnE-VAAsH-435--AdobeStock_310213759.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_310213759.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 560
+                    },
+                    "trackingId": "clw8a24fo001g3b79j0tt5j3m",
+                    "originalUrl": "AdobeStock_310213759.jpeg",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Use specific numbers, if possible.",
+                "isHidden": false,
+                "description": "<p>When it comes to business negotiations or even personal negotiations like the price of a used car, saying that it&rsquo;s valued at $4,588 sounds more precise and leaves less room for grandiose negotiation than round numbers like $5,000 or $7,000. Similarly, $1,852,245 sounds more precise with less wiggle room than simply tossing out $1.8 million.</p>"
+              },
+              {
+                "id": "clw8a7sus00213b79npscze4p",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/uFMvmEG-hT9kgU70-stock_image.jpg",
+                    "type": "image",
+                    "crushedKey": "QGTv9F/stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1117
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Listen for their “no.”",
+                "isHidden": false,
+                "description": "<p>Listen for their no. In a negotiation, the no is the starting point. Specifically, why are they saying no? Is it the cost? Is it the timeline? Is it convenience? Many times we assume they don&rsquo;t like one part of the bargain. They may even pretend they don&rsquo;t like one part of the bargain, but upon listening further you realize the hang-up is actually another factor entirely.</p>"
+              },
+              {
+                "id": "clw8a889r00233b79cjenidez",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/ma6KloTDdBP5wyB--stock_image.jpg",
+                    "type": "image",
+                    "crushedKey": "-PUJgT/stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1117
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Avoid black-and-white “yes” or “no” questions.",
+                "isHidden": false,
+                "description": "<p>For example, rather than saying, &ldquo;Is this the best you can do?&rdquo; or &ldquo;Is this the highest you can go?&rdquo; leave room for the other side to be creative by saying things like, &ldquo;What if I told you I just can&rsquo;t make that number work with my manager?&rdquo; or, &ldquo;If we had to come up with another option, what would you suggest?&rdquo; Then listen to what they say. Again, they just may surprise you.</p>"
+              },
+              {
+                "id": "clw8a945j00253b79d6dmat3p",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/URn15uWlLULnf13i.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "n0cLzb/stock-image.jpg",
+                    "dimensions": {
+                      "top": 235,
+                      "left": 0,
+                      "width": 1680,
+                      "height": 1832,
+                      "originalWidth": 1680,
+                      "originalHeight": 2517
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "originalImage": {
+                      "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/BKQHI_niqdpi3XEK-stock_image.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/5JaQL66brT8Y03_g.jpg",
+                      "originalUrl": "stock-image.jpg",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Give (concise) reasons for your offers.",
+                "isHidden": false,
+                "description": "<p>You don&rsquo;t want to give too much information, but in general, giving the other person a reason for your proposition shows you care enough to treat them like a person and provide context, rather than simply stonewalling or saying, &ldquo;That&rsquo;s the best I can do,&rdquo; or &ldquo;That&rsquo;s just what I need.&rdquo; The key word here is concise. Simply saying, &ldquo;We don&rsquo;t have enough floor space at my facility to bring on any more people,&rdquo; will suffice, rather than &ldquo;It&rsquo;s not happening&rdquo; or &ldquo;That&rsquo;s a nonstarter.&rdquo;</p>"
+              },
+              {
+                "id": "clw8a9jtg00273b79uuoxq752",
+                "type": "step",
+                "title": "Don’t expect the other person to be won over by your logic. ",
+                "isHidden": false,
+                "description": "<p>Ever have the most logical argument in the world but still couldn&rsquo;t get the other side to come to an agreement? Negotiations aren&rsquo;t 100 percent logical. They&rsquo;re emotional, just like any other form of communication. You can have the most rational argument in the negotiation, but that doesn&rsquo;t mean the other side is going to automatically agree. You have to keep the mood light and emotions managed enough for the negotiation to continue in a productive way, and reach a settlement that both parties agree on.</p>"
+              },
+              {
+                "id": "clw8a9xke00293b79yqv1d94z",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/p996t1JGO5pFZq0z-stock_image.jpg",
+                    "type": "image",
+                    "crushedKey": "bdzn5T/stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Clarify what you’re hearing from the other side at each step of the negotiation. ",
+                "isHidden": false,
+                "description": "<p>&ldquo;It sounds like I&rsquo;m hearing you say you want more travel days worked into the package, right?&rdquo; or &ldquo;It seems like you are OK with the venue, but have concerns about the entertainment being offered, is that right?&rdquo; Doing this frequently eliminates the chance for misunderstandings, and makes it less likely the other side will do an about-face later and try to renege on their deal.</p>"
+              },
+              {
+                "id": "clw8aagyo002b3b798ccjteg6",
+                "type": "step",
+                "title": "Avoid tossing a “bomb” or ultimatum into the negotiation.",
+                "isHidden": false,
+                "description": "<p>If things are going slow, resist the urge to shake things up or get their attention. The minute one party says, &ldquo;That&rsquo;s it, I&rsquo;m out,&rdquo; or &ldquo;I&rsquo;m going to get management on the phone,&rdquo; the conversation ceases to be a negotiation.</p>"
+              },
+              {
+                "id": "clw8aatn8002d3b796ot1hlmd",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/i4Np9c3K7s4pertr-stock_image.jpg",
+                    "type": "image",
+                    "crushedKey": "Cjr2wR/stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1260
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Get the terms of the arrangement in writing.",
+                "isHidden": false,
+                "description": "<p>Once an agreement is reached, even if the situation doesn&rsquo;t warrant a contract, do your best to get the outcome in writing, even if it&rsquo;s an email recap of what was discussed. Having it in writing eliminates the chance that one party can renege on what was decided upon later.</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "stepLabel": "Tip #",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca3lhd002s3b79vdxabkwf",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca3lhd002t3b79ccfe9zbx",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-15T16:45:08.360Z",
+        "updatedAt": "2024-11-11T00:21:59.061Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Negotiation Tips & Techniques"
+      },
+      {
+        "id": "1HMtGdvA-p2CSjjz187gzmdlgcjhF6AO",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d6ciac00033b7bahiq5ik4",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is an effective rule for negotiating?</p>",
+            "answers": [
+              {
+                "id": "cm0d6ciac00043b7bm421vz80",
+                "title": "<p>Give the other person time to process.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6ciac00053b7bhikc2jrd",
+                "title": "<p>Be congenial throughout the negotiation process.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6danw000z3b7bew9tdqtd",
+                "title": "<p>Avoid black-and-white questions.</p>"
+              },
+              {
+                "id": "cm0d6duh500113b7byq121nyx",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d6duh500113b7byq121nyx",
+            "corrects": [
+              "cm0d6ciac00043b7bm421vz80"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6ciac00063b7bwtjj9hav",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is not an important part of an effective negotiation?</p>",
+            "answers": [
+              {
+                "id": "cm0d6ciac00073b7bd7d31581",
+                "title": "<p>Assert your authority at every step of the negotiation.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6ciac00093b7bzzydxzqr",
+                "title": "<p>Give concise reasons for your offers.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6ciac000a3b7bh1b0u22i",
+                "title": "<p>Use specific numbers, if possible, to show exact value.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6ciac00083b7bsyssadwp",
+                "title": "<p>Don&rsquo;t assume you will win the other person over with your logic.</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d6ciac00073b7bd7d31581",
+            "corrects": [
+              "cm0d6ciac00073b7bd7d31581",
+              "cm0d6ciac00083b7bsyssadwp"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6hrfp001c3b7bi8seibz0",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>When it comes to negotiation __________________.</p>",
+            "answers": [
+              {
+                "id": "cm0d6hrfp001d3b7bs5qrz2vo",
+                "title": "<p>Don&rsquo;t be afraid of it, and don&rsquo;t take it personally.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6hrfp001e3b7bgm9n7s0k",
+                "title": "<p>Be as aggressive as possible.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6hrgb001f3b7b3hemm2x9",
+                "title": "<p>Visualize the other side as your enemy.</p>"
+              },
+              {
+                "id": "cm0d6ifpx001h3b7bwszswv8d",
+                "title": "<p>All the above</p>"
+              }
+            ],
+            "correct": "cm0d6hrfp001d3b7bs5qrz2vo",
+            "corrects": [
+              "cm0d6hrfp001d3b7bs5qrz2vo"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T01:25:29.984Z",
+        "updatedAt": "2024-10-17T20:50:45.670Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "Hy7TCBwUZFUjWf6nYfelbJhgZQMKugYH",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs",
+        "title": "Negotiating Salary",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm0h7zn2i000w3b7c6ha2iwgy",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h7zn2j000x3b7caduzs2ou",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_nikki_fargas_negotiating_salary_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-g7b6EtaVsaO2223N-v4_wil_nikki_fargas_negotiating_salary_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_nikki_fargas_negotiating_salary_clip_01%20%281080p%29.jpg",
+                    "inputKey": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/g7b6EtaVsaO2223N-v4_wil_nikki_fargas_negotiating_salary_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/transcoded-g7b6EtaVsaO2223N-v4_wil_nikki_fargas_negotiating_salary_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_nikki_fargas_negotiating_salary_clip_01 (1080p).mp4",
+                    "transcodeId": "1727980134316-6ki2cg"
+                  }
+                },
+                "caption": "<p>Deep Dive: Negotiating Salary</p>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19uzx36003l3b74viczj7y2",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19uzx37003m3b74argmox2a",
+                "media": {
+                  "attachment": {
+                    "key": "L11.1%20Transcript%20Negotiating%20Salary.pdf",
+                    "size": 56584,
+                    "type": "attachment",
+                    "filename": "p3-94PjDZK5MPg5t-L11.1%20Transcript%20Negotiating%20Salary.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L11.1 Transcript Negotiating Salary.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clw8ajmle00413b79s312x578",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clw8ajmle00423b79ecd9mwyw",
+                "type": "intro",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/gCfn3QlFMhVvWZaX.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "m520OB/stock-image.jpg",
+                    "dimensions": {
+                      "top": 1076,
+                      "left": 0,
+                      "width": 1680,
+                      "height": 966,
+                      "originalWidth": 1680,
+                      "originalHeight": 2520
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "sourcedFrom": "LIBRARY",
+                    "originalImage": {
+                      "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/lzRd-55CRvJfepu6-stock_image.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/bxCdyvOC_3Q6-JAk.jpg",
+                      "originalUrl": "stock-image.jpg",
+                      "sourcedFrom": "LIBRARY",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Negotiating Salary",
+                "isHidden": false,
+                "description": "<p>When it comes to negotiating, salary is one of the most common negotiations women leaders face. Negotiating your salary is more than just a financial discussion; it&#39;s a reflection of your value, skills, and contributions to the organization, which makes it feel very personal.</p>"
+              },
+              {
+                "id": "clw8ajmlf00433b79zmc7deij",
+                "type": "summary",
+                "title": "Review",
+                "isHidden": false,
+                "description": "<p>In short, with a little practice, negotiation won&rsquo;t seem so foreign. If you&rsquo;re able, practice some of these guidelines on smaller negotiations where the stakes aren&rsquo;t so high. Every female leader needs negotiation at some point in her career (if not regularly) and practice makes perfect!</p><p><br></p>"
+              },
+              {
+                "id": "clw8ajwd0004i3b796lyqwmds",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/KhDKbEqFmu1Ivzuo-AdobeStock_477371241.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_477371241.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1078
+                    },
+                    "trackingId": "clw8ajmle00413b79s312x578",
+                    "originalUrl": "AdobeStock_477371241.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Know your worth.",
+                "isHidden": false,
+                "description": "<p>The first step in successful salary negotiation is understanding your market value. Studies show that women routinely dismiss or undervalue their own skills in the workplace, which is problematic when advocating for pay increases. Arm yourself with data by researching industry standards. Consider your qualifications, experience, and the responsibilities of the role. Many times the first number in a salary negotiation is based on what the previous person was paid or what the department can afford for the role, and may not be based on market value or your skills specifically. Confidence stems from preparation.</p>"
+              },
+              {
+                "id": "clw8akzob004k3b79w81vpxk2",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/7RNM_bM13P1FEoyf-AdobeStock_625223102.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_625223102.png",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1200
+                    },
+                    "trackingId": "clw8ajmle00413b79s312x578",
+                    "originalUrl": "AdobeStock_625223102.jpeg",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Be armed with a range, not a finite number.",
+                "isHidden": false,
+                "description": "<p>What&rsquo;s the lowest you would accept, and what is your ideal range? Your dream number? The three might be very different, but it&rsquo;s important to think about where the bottom is and what you&rsquo;re working toward in advance of the negotiation. As stated earlier, <em>don&rsquo;t</em> give out your range.</p>"
+              },
+              {
+                "id": "clw8alqx2004o3b79aanm1ju9",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/KI0LTc6rfjbEwywK-stock_image.jpg",
+                    "type": "image",
+                    "crushedKey": "cVwkL2/stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "sourcedFrom": "LIBRARY",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Be open and flexible.",
+                "isHidden": false,
+                "description": "<p>Negotiation is a two-way street. Be open to discussion and compromise. If the employer can&#39;t meet your salary expectations, explore other areas such as additional benefits, flexible work arrangements, or performance-based bonuses. You don&rsquo;t have to automatically accept, but it&rsquo;s important to be open-minded.</p>"
+              },
+              {
+                "id": "clw8am63q004q3b79iu8ac2ph",
+                "type": "step",
+                "media": {
+                  "tmp": {},
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/MvVLfu3fdkr1KU6f-stock_image.jpg",
+                    "type": "image",
+                    "crushedKey": "hAWw-A/stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "sourcedFrom": "LIBRARY",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Maintain a positive tone.",
+                "isHidden": false,
+                "description": "<p>To keep the negotiation positive, emphasize your enthusiasm for the role and the company while discussing compensation. Let them know that you&rsquo;re coming from a place of excitement about the role, not implying that you need to be compensated for the grunt work, stress, or long hours involved. Frame your negotiation in positive terms. Instead of saying, &quot;I can&#39;t accept this offer,&quot; try, &quot;I&rsquo;m excited about the opportunity and my role here, and I believe a slight adjustment in the salary would better align with my skills and experience.&quot;</p>"
+              },
+              {
+                "id": "clw8amljh004s3b799xrcctue",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/kDdSOlcD_q2UwmmV.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "isSquare": false,
+                    "crushedKey": "AdobeStock_503876626.jpg",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 0,
+                      "width": 1656,
+                      "height": 757,
+                      "originalWidth": 1680,
+                      "originalHeight": 1068
+                    },
+                    "trackingId": "clw8ajmle00413b79s312x578",
+                    "originalUrl": "AdobeStock_503876626.jpeg",
+                    "originalImage": {
+                      "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/12oytQ2vOfwvXm9G-AdobeStock_503876626.jpeg",
+                      "type": "image",
+                      "align": "center",
+                      "crushedKey": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/ilE8n1tVrYuaEnaC.jpg",
+                      "trackingId": "clw8ajmle00413b79s312x578",
+                      "originalUrl": "AdobeStock_503876626.jpeg",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    },
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Quantify your achievements.",
+                "isHidden": false,
+                "description": "<p>Provide concrete examples of your accomplishments and their impact on the company (or for previous employers). Salary shouldn&rsquo;t be a hypothetical number. Use metrics and specific examples to demonstrate the value you bring to the table.&nbsp;</p>"
+              },
+              {
+                "id": "clw8amz68004u3b791urgv4y2",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/sWHs8eVTErKdd2gR-AdobeStock_492739126.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_492739126.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 741
+                    },
+                    "trackingId": "clw8ajmle00413b79s312x578",
+                    "originalUrl": "AdobeStock_492739126.jpeg",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Don’t expect an answer on the spot.",
+                "isHidden": false,
+                "description": "<p>Don&rsquo;t be too frustrated if the other party needs to review your salary offer. There may be other implications to consider, such as salary increases given within 90 days of your professional review or salary constraints for a particular position. Many times your direct leader or supervisor isn&rsquo;t the only person who has to sign off, so be prepared for a slight delay. But be prepared with an acceptable time frame: &ldquo;I know my annual review isn&rsquo;t for eight months, but I&rsquo;ve taken on a new role with increased work. What can you do in the next 90 days?&rdquo;</p><p>In short, with a little practice, negotiation won&rsquo;t seem so foreign. If you&rsquo;re able, practice some of these guidelines on smaller negotiations where the stakes aren&rsquo;t so high. Every female leader needs negotiation at some point in her career (if not regularly) and practice makes perfect!</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm07i1t2q000x3j75s23o5hm7",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm07i1t2q000y3j75i89s9cfv",
+                "media": {
+                  "storyline": {
+                    "src": "Zb7lqwROdYkYfAfT/story.html",
+                    "meta": {
+                      "stage": {
+                        "width": 720,
+                        "height": 540
+                      },
+                      "title": "I’m not where I need to be.",
+                      "player": {
+                        "name": "unified",
+                        "width": 740,
+                        "height": 635
+                      },
+                      "scenes": [
+                        {
+                          "title": "Untitled Scene"
+                        }
+                      ],
+                      "slides": [
+                        {
+                          "id": "6bVAjMbQpVs",
+                          "title": "How do you feel about your current negotiation skills? Where do you feel you can improve?",
+                          "scene_index": "1.1"
+                        },
+                        {
+                          "id": "6rPMuyk3tMV",
+                          "title": "Results Slide",
+                          "scene_index": "1.2"
+                        }
+                      ],
+                      "version": "3.77.30587.0",
+                      "course_id": "5jJ0yklSWHQ",
+                      "thumbnail": "story_content/thumbnail.jpg"
+                    },
+                    "type": "storyline",
+                    "title": "Negotiating Salary",
+                    "thumbnail": "review/uploads/BzeuWy3UGz_4ZPIB/5-vfsp-dwz-2-as.png",
+                    "processing": false,
+                    "contentPrefix": "rise/courses/gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs/Zb7lqwROdYkYfAfT"
+                  }
+                }
+              }
+            ],
+            "family": "360",
+            "variant": "storyline",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca3sky004z3b79g3xirs3w",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca3sky00503b79wo1ed9p5",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-15T16:45:14.131Z",
+        "updatedAt": "2024-11-11T00:22:08.062Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Negotiating Salary"
+      },
+      {
+        "id": "8HjDfnxM-03oW_vvSzILkxEjHLRHelw5",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d6cujb000c3b7b26vqqikh",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>For a successful salary negotiation, make sure you ___________.</p>",
+            "answers": [
+              {
+                "id": "cm0d6cujb000d3b7bx6irfewn",
+                "title": "<p>Know your worth.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6cujb000e3b7bxc44qilp",
+                "title": "<p>Maintain a positive tone.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6jf8o001m3b7byplywa4j",
+                "title": "<p>Quantify your achievements.</p>"
+              },
+              {
+                "id": "cm0d6kbyj001o3b7bmhjuhkj1",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d6kbyj001o3b7bmhjuhkj1",
+            "corrects": [
+              "cm0d6cujb000d3b7bx6irfewn"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6cujb000f3b7bgeb1i5p5",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is another tip in negotiating salary?</p>",
+            "answers": [
+              {
+                "id": "cm0d6cujb000g3b7bvcf6w084",
+                "title": "<p>Ask your co-workers how much they make, to get a baseline.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6cujb000i3b7bolz0o020",
+                "title": "<p>Threaten to leave if you don&rsquo;t get a raise.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6cujb000j3b7bp1m9qh9p",
+                "title": "<p>Take the first offer.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6cujb000h3b7bnxplhay4",
+                "title": "<p>None of the above</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d6cujb000h3b7bnxplhay4",
+            "corrects": [
+              "cm0d6cujb000g3b7bvcf6w084",
+              "cm0d6cujb000h3b7bnxplhay4"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6lpg000243b7ba5moanf2",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is these is not true in negotiating salary?</p>",
+            "answers": [
+              {
+                "id": "cm0d6lpg100253b7by79z2oow",
+                "title": "<p>It gets easier with practice.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6lpg100263b7bw29eskds",
+                "title": "<p>Don&rsquo;t expect a lot.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6lpgp00273b7b6xg2xb1v",
+                "title": "<p>Stay open to compromise.</p>"
+              },
+              {
+                "id": "cm0d6mc0i00293b7bvll96p4m",
+                "title": "<p>Don&rsquo;t expect an answer on the spot.</p>"
+              }
+            ],
+            "correct": "cm0d6lpg100263b7bw29eskds",
+            "corrects": [
+              "cm0d6lpg100253b7by79z2oow"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T01:25:45.657Z",
+        "updatedAt": "2024-10-17T20:51:27.904Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 4,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "MoDw_Zv98ZVKH1mVrQvUbhgw2J2d1l2u",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs",
+        "title": "Personal Reflections",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clw8au28d00683b79fmm0iv6n",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clw8au28e006h3b79jogy8e21",
+                "heading": "<p>Refer to your workbook for the following questions and reflections.</p>",
+                "paragraph": "<p>Refer to your workbook for the following questions and reflections.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clw8ashog005q3b79vatnc1vc",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clw8ashog005r3b79mghwpmm6",
+                "paragraph": "<div data-editor-id=\"b86300bf-768f-4d6f-915e-57a7531ca68e\"><p>On a scale of 1-10, how would you rate your current comfort level with negotiating? Why?</p></div>"
+              },
+              {
+                "id": "clw8ashog005s3b79fv36izav",
+                "paragraph": "<p>What is the most challenging thing you face personally when attempting to negotiate?</p>"
+              },
+              {
+                "id": "clw8ashog005t3b79ggfm2b0n",
+                "paragraph": "<p>List three areas of your life (professional or personal) where you have to negotiate on a daily basis?</p>"
+              },
+              {
+                "id": "clw8ataem00663b79tyz8tkae",
+                "paragraph": "<p>Have you ever had to negotiate your salary at work? What was the outcome?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clw8atm2500673b79qn3hezc2",
+                "paragraph": "<p>List the areas you can work on to improve in the area of negotiation.</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca456a008k3b79mpkswgxk",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca456a008l3b798554k3x9",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-15T16:45:19.476Z",
+        "updatedAt": "2024-11-11T00:22:24.536Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Personal Reflections"
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2024-04-04T16:21:43.447Z",
+    "updatedAt": "2024-11-11T00:22:24.536Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Championing Women in Leadership - Negotiation for Women",
+      "format": "zip",
+      "quizId": "8HjDfnxM-03oW_vvSzILkxEjHLRHelw5",
+      "target": "scorm12",
+      "shareId": "gGmfjmj5L-4m4o9xvbP3yz-ryU7rbgLf",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": "cm07i1t2q000x3j75s23o5hm7",
+      "completeWith": "reporting",
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "completionPercentage": 100
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": null,
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": false,
+      "allowSearch": true,
+      "colorAccent": "#4267a9",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "ACCENT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "SPLIT_LEFT_IMAGE",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "TINT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": true,
+      "buttonNavigationStyle": "FLOATING",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "defaultLocaleId": null,
+    "description_vNext": "",
+    "title_vNext": "Championing Women in Leadership - Negotiation for Women",
+    "features": {
+      "rise-a-11-y-img-gallery-carousel": true,
+      "rise-block-controls-phase-three": true,
+      "rise-course-navigation": true,
+      "rise-img-dimensions": true,
+      "rise-img-zoom": true,
+      "rise-lazy-load-imgs": true,
+      "rise-scenario-a-11-y": true,
+      "rise-timed-quizzes": true
+    },
+    "authors": [
+      {
+        "id": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "authorName": "Brittni Herron"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "bodyTypeface": "Montserrat",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "mondrian": {}
+  },
+  "labelSet": {
+    "id": "YSzfDyNB2NBkeg1ZTnLw_nmm",
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryStartOver": "Start Over",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY",
+      "tabGroup": "Tab",
+      "codeGroup": "Code",
+      "noteGroup": "Note",
+      "quoteGroup": "Quote",
+      "buttonGroup": "Button",
+      "courseDetails": "DETAILS",
+      "feedbackGroup": "Feedback",
+      "accordionGroup": "Accordion",
+      "statementGroup": "Statement",
+      "storylineGroup": "Storyline",
+      "attachmentGroup": "File Attachment",
+      "embedPhotoGroup": "Embedded photo",
+      "embedVideoGroup": "Embedded video",
+      "audioPlayerGroup": "Audio player",
+      "buttonStackGroup": "Button stack",
+      "textOnImageGroup": "Text on image",
+      "timelineLandmark": "Timeline",
+      "urlEmbedLandmark": "URL/Embed",
+      "videoPlayerGroup": "Video player",
+      "bulletedListGroup": "Bulleted list",
+      "checkboxListGroup": "Checkbox list",
+      "imageAndTextGroup": "Image and text",
+      "imageGalleryGroup": "Image gallery",
+      "numberedListGroup": "Numbered list",
+      "flashcardBackLabel": "Flashcard back",
+      "flashcardGridGroup": "Flashcard grid",
+      "nextFlashCardLabel": "Next flashcard",
+      "flashcardFrontLabel": "Flashcard front",
+      "flashcardStackGroup": "Flashcard stack",
+      "knowledgeCheckGroup": "Knowledge check",
+      "hamburgerButtonLabel": "Course Overview Sidebar",
+      "lessonContentLandmark": "Lesson Content",
+      "lessonSidebarLandmark": "Lesson Sidebar",
+      "labeledGraphicLandmark": "Labeled Graphic",
+      "previousFlashCardLabel": "Previous flashcard",
+      "timelineCardGroupPrefix": "Timeline Card",
+      "labeledGraphicBubbleLabel": "Labeled graphic bubble",
+      "labeledGraphicNextMarkerLabel": "Next marker",
+      "labeledGraphicPreviousMarkerLabel": "Previous marker"
+    },
+    "deleted": false,
+    "createdAt": "2023-12-28T17:20:20.171Z",
+    "updatedAt": "2023-12-28T17:20:20.171Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    }
+  ],
+  "media": []
+}

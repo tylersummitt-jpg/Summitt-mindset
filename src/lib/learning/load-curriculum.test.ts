@@ -45,8 +45,16 @@ function program() {
 describe("Principle 1 curriculum", () => {
   it("registers the Definite Dozen principles and no coming-soon rows", () => {
     const collections = listLearningCollections();
-    expect(collections.map((collection) => collection.id)).toEqual(["definite_dozen"]);
-    expect(collections[0]?.title).toBe("Definite Dozen");
+    expect(collections.map((collection) => collection.id)).toEqual([
+      "definite_dozen",
+      "championing_women",
+      "power_of_team_leader",
+    ]);
+    expect(collections.map((collection) => collection.title)).toEqual([
+      "Definite Dozen",
+      "Championing Women in Leadership",
+      "The Power of Team",
+    ]);
     expect(collections[0]?.miniPrograms.map((item) => item.id)).toEqual([
       "dd_mp_02",
       "dd_mp_03",

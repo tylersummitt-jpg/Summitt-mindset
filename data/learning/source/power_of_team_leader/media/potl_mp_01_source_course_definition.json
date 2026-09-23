@@ -1,0 +1,2734 @@
+{
+  "course": {
+    "id": "oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "crQSRtARRZwOjHKPJO-Luj9XvZRugOYP",
+    "copyOf": "U-3ia25-KUN3UtDABKujYOO15weuMl8O",
+    "order": "1754956387663",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/JhSREgDNUdz5hmBt-PoT_Thumbnails_Leader_Intro.png",
+          "crushedKey": "oCmRMxuqYZ9gW8FB.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Intro.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc",
+        "createdAt": "2025-01-28T20:23:05.582Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "2D7uLevp_64NyRbqir6sLDujqgQEsjuW",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "The Power of Team",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:01:51.473Z",
+        "items": [
+          {
+            "id": "cm6h0c22400023b79x7ikwil7",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6h0c22500033b795j3iictr",
+                "media": {
+                  "video": {
+                    "key": "v4_pot_joan_cronan_introduction__the_power_of_team_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-OHnZ0DfWTJ4t2kmh-v4_pot_joan_cronan_introduction__the_power_of_team_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_pot_joan_cronan_introduction__the_power_of_team_clip_01%20%281080p%29.jpg",
+                    "duration": 228,
+                    "inputKey": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/OHnZ0DfWTJ4t2kmh-v4_pot_joan_cronan_introduction__the_power_of_team_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/transcoded-OHnZ0DfWTJ4t2kmh-v4_pot_joan_cronan_introduction__the_power_of_team_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_pot_joan_cronan_introduction__the_power_of_team_clip_01 (1080p).mp4",
+                    "transcodeId": "1743564851775-2q3zpy"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "71d0ce4a-71fd-40ca-a6a6-ab27ebc10fc0"
+          },
+          {
+            "id": "cmah5cjp400983b787lnjwtwe",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah5cjp500993b788n6hkl6w",
+                "paragraph": "<div data-editor-id=\"ad3b7e68-2d21-4bdc-ab41-5bab043e1ecb\"><p><em>(Download the transcript below)</em></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "f7e2d8ab-01b9-4706-8848-72766134aadb"
+          },
+          {
+            "id": "cm6jizvkv002r3b7amab1nko8",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jizvkw002s3b7aqew86ih6",
+                "media": {
+                  "attachment": {
+                    "key": "Introduction%20The%20Power%20of%20Team.pdf",
+                    "size": 227965,
+                    "type": "attachment",
+                    "filename": "mrV0GjQXGYDypzhc-Introduction%20The%20Power%20of%20Team.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Introduction The Power of Team.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "84a285f0-19e6-410d-9bb3-a5a6787b5d79"
+          },
+          {
+            "id": "cm6h0c45l000j3b79bp7sfao9",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6h0c45l000p3b792gj9iany",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"dc09160a-57db-4c92-baf3-69b4136353d1\"><p><span style=\"color: black; text-decoration: inherit\">We live in the era of entrepreneurship, the solo enterprise, the gig economy, the individual contributor, etc. There’s been a shift over the last </span>five to <span style=\"color: black; text-decoration: inherit\">10 years that places a premium on individual autonomy and flexibility. Workplaces are scrambling to catch up with this new normal, including retention of their current team members.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e0c9ca55-ded4-42c0-959a-03337fc1fa38"
+          },
+          {
+            "id": "cm6h0d3vn001v3b79s6e5kr92",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6h0d3vn001w3b79eg37m8ur",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/tYqSKRMddWkrMjKR-AdobeStock_341567015.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_341567015.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_341567015.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"1f9bf0f5-dd85-4901-ae76-538c7700d5b5\"><p><span style=\"color: black; text-decoration: inherit\">But going it solo can be a lonely place! While some thrive on it, others are forsaking the world of freelance and contractorship only to re-plug into the dynamic of a team. Many employees never left in the first place and are wondering if their current environment can hold up to the ideals of</span> <span style=\"color: black; text-decoration: inherit\">culture, loyalty, and sense of shared accomplishment that we all crave when we join a company.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "baf20d4e-4fe1-4a4b-bb6f-0f9069d30a20"
+          },
+          {
+            "id": "cm6h0crc3001a3b79uj15bjs7",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6h0crc4001b3b7922zuuii5",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/LMx1oVPuy4KMb2hj-Pat%2520with%25208%2520trophies.JPG",
+                    "type": "image",
+                    "crushedKey": "Pat%20with%208%20trophies.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1145
+                    },
+                    "originalUrl": "Pat with 8 trophies.JPG",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"4a7a0475-2add-4546-8925-b369edb9c75b\"><p><span style=\"color: black; text-decoration: inherit\">Pat Summitt was no stranger to the power of team. Not only did she excel in taking freshmen athletes from vastly different backgrounds and turning them into well-oiled championship machines, she went beyond the traditional requirements of a functioning team with her infamous Definite Dozen. Coach Summitt embraced these unique principles as the 12 requirements for success in any organization, including the teams she coached.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "9942084d-ebc1-4373-9921-7571eeeff3da"
+          },
+          {
+            "id": "cm6h0duiy00383b79a7hjl4up",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6h0duiy00393b79w78qze79",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"981be579-374f-441d-8689-11fbb5fcb5e2\"><p><span style=\"color: black; text-decoration: inherit\">As we learned in the previous course, all 12 of these principles are important. But now it’s time to take a closer look at one of the bedrocks of the modern workforce that </span>seems<span style=\"color: black; text-decoration: inherit\"> to erode with each passing year</span> — <span style=\"color: black; text-decoration: inherit\">one that is still vital to a well-oiled organization and the overall health and satisfaction of those who work there: </span>T<span style=\"color: black; text-decoration: inherit\">he Power of Team.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "381d5af2-6b34-4cdd-91b7-16de162856f2"
+          },
+          {
+            "id": "cm6h17u9200mb3b79e6h2qbwb",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6h17u9200mc3b79nee20rrm",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "f934957e-fa5b-4401-b84f-c469098cd97c"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc",
+        "createdAt": "2025-01-28T20:23:15.019Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "yaB4sQqqIHE1xbVmAnphPxtHwS3mEVo4",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Why Is Team Important?",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T01:17:19.516Z",
+        "items": [
+          {
+            "id": "cm9nf1vnp00ep3b75vho9he6l",
+            "type": "image",
+            "items": [
+              {
+                "id": "cm9nf1vnq00eq3b75f5ogaijr",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/-DI-nNUyXsw85noA-Summitt%2520Huddle%25202002.jpg",
+                    "type": "image",
+                    "crushedKey": "Summitt%20Huddle%202002.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1114
+                    },
+                    "originalUrl": "Summitt Huddle 2002.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e30e6c7c-ef91-47f4-a623-119a2570da69"
+          },
+          {
+            "id": "cmafq9s4z00vj3b75k95gk9qh",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmafq9s4z00vr3b754vlwkm6b",
+                "heading": "<div data-editor-id=\"5aba48da-3634-4d5f-9ca7-354ed2e3a0d2\"><p><strong>Why Is the Concept of Team More Important Than Ever? </strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "38ac42c8-67c4-443f-ade5-b89ccb4b8771"
+          },
+          {
+            "id": "cm6h0i7y300833b79ig1lv3ah",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6h0i7y400893b79fzo1vwbg",
+                "heading": "<div data-editor-id=\"449e52a7-d742-4af9-8b9e-b837f7df3bd6\"></div>",
+                "paragraph": "<div data-editor-id=\"e7c4403b-0d06-4822-8266-524a71013577\"><p><span style=\"color: black; text-decoration: inherit\">You’ve heard the old saying, “People don’t leave<em> jobs</em>, they leave <em>leaders</em>.” It could equally be said that </span>p<span style=\"color: black; text-decoration: inherit\">eople don’t leave<em> missions, </em>they leave <em>dysfunctional teams</em>.&nbsp;</span></p><p><span style=\"color: black; text-decoration: inherit\">Show me a person who is healthy, functional, plugged in to an organization’s overall mission — someone who truly enjoys working with their fellow team members <em>and</em> feels valued by the organization </span>—<span style=\"color: black; text-decoration: inherit\"> and I’ll show you someone who is harder to entice away for a few thousand dollars more per year. These people aren’t even<em> looking</em> elsewhere. It’s the team member who feels isolated, undervalued, and disconnected from the overall mission who is looking over the fence for greener pastures.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "31888f7b-3c91-4d50-95c6-86923b81aeea"
+          },
+          {
+            "id": "cm6h0kjz3009r3b79c7k9bhli",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6h0kjz4009s3b79ztyurhdv",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/NziIwFkHazA6pKW8-AdobeStock_1257861796.png",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_1257861796.png",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1680
+                    },
+                    "originalUrl": "AdobeStock_1257861796.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"d926007a-a39d-49b9-a99b-0929aebd9dbc\"><p><span style=\"color: black; text-decoration: inherit\"><em>So how do you build great teams?</em> Pat would be the first to tell us that people aren’t born great team players. “Teamwork does not come naturally,” she once noted. “How do you convince a group of highly talented individual performers to set aside their personal feelings, ambitions, and agendas in favor of a unified effort?”<sup>1</sup> As a coach, it was a problem she personally faced on an annual basis.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "small",
+              "paddingTop": 0,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e1c463de-3f9f-4170-939c-f401f1e82e23"
+          },
+          {
+            "id": "cm6h0ld7400ac3b79mapnqi79",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6h0ld7500ad3b79qu1kbutl",
+                "name": "<div data-editor-id=\"065d1444-362a-4b32-a633-db3879b693aa\"><p><span style=\"font-size: 2.4rem\"><strong><em>– Pat Summitt</em></strong></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"cd0a6ff0-96b2-4024-ab12-5d7df7c44d22\"><p style=\"text-align: left\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>Teamwork does not come naturally. How do you convince a group of highly talented individual performers to set aside their personal feelings, ambitions, and agendas in favor of a unified effort?”</em></strong></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/FJTXG50OgKC67qKS-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "d7f6634a-9a2c-422d-aeaf-dc9aecaf75f3"
+          },
+          {
+            "id": "cm6h0qb3q00ew3b79jea6yx6p",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6h0qb3r00ex3b79gpnz942k",
+                "media": {
+                  "audio": {
+                    "key": "01.mp3",
+                    "url": "transcoded-xT-RwUGO-dznra7R-01.mp3",
+                    "type": "audio",
+                    "duration": 12,
+                    "inputKey": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/xT-RwUGO-dznra7R-01.mp3",
+                    "thumbnail": "",
+                    "originalUrl": "01.mp3",
+                    "transcodeId": "1738101554452-wziwc8"
+                  }
+                },
+                "caption": "<div data-editor-id=\"6aa8602d-71b0-4dc3-90bc-3b86c5cec27f\"><p>Click to hear the above quote.</p></div>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "audio",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e7025e0c-f827-4293-aa83-f365500ca2d5"
+          },
+          {
+            "id": "cm6h0pmm600dr3b79n32lr9ip",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6h0pmm600ds3b79z7sg48mp",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/JogC6_SQ1c8G5NKk.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "AdobeStock_316826953.jpg",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 299,
+                      "width": 809,
+                      "height": 538,
+                      "originalWidth": 1680,
+                      "originalHeight": 538
+                    },
+                    "originalUrl": "AdobeStock_316826953.jpeg",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/xJ7Kxf05mX-7xDEK-AdobeStock_316826953.jpeg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/y1JCln9GIxyGxWuu.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 538
+                      },
+                      "originalUrl": "AdobeStock_316826953.jpeg",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"fc2dc311-23aa-450d-b954-d53309e0d07a\"><p style=\"text-align: left\"><span style=\"color: black; text-decoration: inherit\">The truth is, not everyone grew up playing sports where we were taught the power of team. It’s not a skill you necessarily learn in school, </span>as<span style=\"color: black; text-decoration: inherit\"> academic performance is up to one’s individual efforts. By contrast, some people grew up playing on dysfunctional teams or participating in extracurricular activities where there were only one or two stars and everyone else on the team was merely an accessory. Yet, if people were honest, it’s the very thing most of us crave </span>—<span style=\"color: black; text-decoration: inherit\"> to join with others in pursuit of a healthy, fulfilling mission.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "small",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "left",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 3,
+              "entranceAnimation": true,
+              "customPaddingBottom": 3,
+              "customPaddingLinked": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "d22bdf79-da2f-4012-ad45-18803a33aba3"
+          },
+          {
+            "id": "cm6h185xl00p13b79uef6ri8g",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6h185xl00p23b79i3thmz4r",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "9c581553-09ae-45db-b3a2-b0f531f512f6"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"6364c0dd-b2fa-4c70-8ca0-e1712e1fe030\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "YdPjxGzkYJ5YSoTXIjIo0wptxqcaN3V1",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": false
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-09-17T15:04:25.645Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"13d39299-0bbf-4598-a7a8-8f9fa1bf3374\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Finish this saying: “People don’t leave __________, they leave ___________.”</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"67b75f38-0339-433b-a2fa-d9739dd7e06f\"><p><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\"> &nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">managers, companies</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"95942ff1-6af1-4187-ae8e-a55233cda5bf\"><p>paychecks, benefits</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6h0szvq00fm3b79iiv72gdd",
+                "title": "<div data-editor-id=\"8cce8ea2-140e-48e3-bd4b-d58e4cd060e6\"><p>jobs, leaders</p></div>"
+              },
+              {
+                "id": "cm6h0u0hx00fo3b79k7k83st1",
+                "title": "<div data-editor-id=\"08775a4e-61ba-4f9b-ae6d-2a0536a7bd21\"><p>None of the above</p></div>"
+              }
+            ],
+            "correct": "cm6h0szvq00fm3b79iiv72gdd",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": "",
+            "globalBlockId": "1c37456d-fd8d-4ccf-8a1e-05b88a682e64"
+          },
+          {
+            "id": "cm6h0ui7w00fr3b79y7ho4aao",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"ddff61c0-b566-4297-bfcf-07b01750b339\"><p><span style=\"color: black; text-decoration: inherit\">According to Coach Summitt, which of these statements is true?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6h0ui7w00fs3b7963bqhqtv",
+                "title": "<div data-editor-id=\"061653ce-8a7d-4bfb-8fb2-a9c94558c83a\"><p><span style=\"color: black; text-decoration: inherit\">Everyone is a natural born leader.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6h0ui7w00ft3b79g4prmuxa",
+                "title": "<div data-editor-id=\"a2d64eac-2eca-4e8e-a7c4-1e00919b7e6e\"><p><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\"><span style=\"color: #000000; text-decoration: inherit\">Teamwork does not come naturally.</span></span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6h0ui9200fu3b79wrtv8x78",
+                "title": "<div data-editor-id=\"a3f0933f-c9af-4451-8e12-a17063bbe10d\"><p><span style=\"color: black; text-decoration: inherit\">Teamwork is always easy.</span></p></div>"
+              },
+              {
+                "id": "cm6h0vq6800fw3b7926jr2kjw",
+                "title": "<div data-editor-id=\"ff1df334-a110-4a04-88a1-b7a230ea7262\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Conflict should always be avoided.</span></span></p></div>"
+              }
+            ],
+            "correct": "cm6h0ui7w00ft3b79g4prmuxa",
+            "corrects": [
+              "cm6h0ui7w00fs3b7963bqhqtv"
+            ],
+            "feedback": "",
+            "globalBlockId": "7cddabe5-dcc6-49e6-a116-29a94fee48d3"
+          },
+          {
+            "id": "cm6h0w1sb00fz3b79ldd52spr",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"6c255017-6306-449e-9da0-43d21ce339d9\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Why is collaboration harder for some people than others?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6h0w1sb00g03b796euggbtu",
+                "title": "<div data-editor-id=\"f04e7b5f-b447-46c0-8a7f-69fc3674da9c\"><p><span style=\"color: black; text-decoration: inherit\">Teamwork often isn’t a skill you learn in school.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6h0w1sb00g13b7962iwnlu7",
+                "title": "<div data-editor-id=\"84cf3c81-1e98-4a67-aa8f-acc906882360\"><p><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\">&nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">Not everyone grew up participating in team extracurriculars.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6h0w1tf00g23b792iz9q29v",
+                "title": "<div data-editor-id=\"cca403a1-c75c-4ff3-8cd1-5b987bcf195d\"><p><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\">&nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">Some people grew up on dysfunctional teams.</span></p></div>"
+              },
+              {
+                "id": "cm6h0wqjz00g43b79u9ay7qkh",
+                "title": "<div data-editor-id=\"2dcaf6bf-32e8-4239-b090-62f13c42f3ae\"><p>All of the above.</p></div>"
+              }
+            ],
+            "correct": "cm6h0wqjz00g43b79u9ay7qkh",
+            "corrects": [
+              "cm6h0w1sb00g03b796euggbtu"
+            ],
+            "feedback": "",
+            "globalBlockId": "61993c24-2d12-482d-a4fc-6f65644d1d96"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc",
+        "createdAt": "2025-01-28T20:23:21.648Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "UdYdiiQcWkj9SpOZZrcXdIsl4Qf5G7rw",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 4,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Team Involves More Than Output",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T01:23:42.980Z",
+        "items": [
+          {
+            "id": "cmafqbows015n3b75go6cbf7a",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmafqbows015v3b7591zda8ra",
+                "heading": "<div data-editor-id=\"d13dd680-ccf9-4811-b7f0-de6a3f0b49c2\"><p><strong>The Concept of Team Involves More Than Output</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "36889cb0-7d8d-4f5c-afc1-6148dc7c33b6"
+          },
+          {
+            "id": "cm6h0xcqh00g73b79n2kaf710",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6h0xcqi00gd3b794h3wrcmv",
+                "heading": "<div data-editor-id=\"3c097c92-360f-492e-9318-b954e842798b\"></div>",
+                "paragraph": "<div data-editor-id=\"cb5dd882-a6b6-4e1a-a06c-e37ca21dd7a1\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">The goal of Pat’s championship programs wasn’t to develop star players</span>;<span style=\"color: black; text-decoration: inherit\"> it was to have an unbeatable team year after year. “Team-building starts by recruiting good people and turning them into willing role players early on,” she taught.</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Self-discipline, responsibility, hard work, and individual performance may come naturally to some, but how do you teach shared ownership, respect for others, loyalty, good communication, respect for the leader, and no gossip, just to name a few?</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">While <em>all </em>the Definite Dozen principles are important, there are three principles in particular whose lack arguably causes a majority of the problems for teams in the modern workforce.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "4411ea1a-7b9e-4a34-af74-12ffcb1d753a"
+          },
+          {
+            "id": "cme6fi3f900a93j7bk2kn9ahc",
+            "type": "text",
+            "items": [
+              {
+                "id": "cme6fi3f900aa3j7b1oikmsol",
+                "paragraph": "<div data-editor-id=\"9de9ea39-2120-4733-93db-3b2f30f49175\"><p style=\"text-align: center\"><em>Click to expand and complete this element.</em></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "audioPosition": "bottom",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "TINT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {},
+            "globalBlockId": "3b68017e-22b9-40a7-aefa-5ec0a1641e18"
+          },
+          {
+            "id": "cm6h0yjr300gy3b79n75dykl6",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6h0yjr300gz3b7983y5s3xk",
+                "title": "Responsibility",
+                "description": "<div data-editor-id=\"434894b1-8d45-4664-a80a-6a73c0260065\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><em>How do you encourage your employees to take ownership for their work and embrace/internalize the shared vision of the company?</em></span></span></p></div>"
+              },
+              {
+                "id": "cm6h0yjr300h03b796mhgdpdw",
+                "title": "Loyalty",
+                "description": "<div data-editor-id=\"684dbbc9-0dce-4734-a1af-a3edea317be4\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><em>How do you cultivate employees who are loyal to the company and its mission?</em><strong> </strong></span></span></p></div>"
+              },
+              {
+                "id": "cm6h0yjr300h13b798ka5kdct",
+                "title": "Communication",
+                "description": "<div data-editor-id=\"bdff9e13-536e-466d-a228-7ac54ca46bbf\"><p><span style=\"color: black; text-decoration: inherit\"><em>Organizations move at the speed of communication</em></span><em> and </em><span style=\"color: black; text-decoration: inherit\"><em>trust. How do you foster team communication </em></span><em>—</em><span style=\"color: black; text-decoration: inherit\"><em> from the top down, from the bottom up, and from side</em></span><em>-</em><span style=\"color: black; text-decoration: inherit\"><em>to</em></span><em>-</em><span style=\"color: black; text-decoration: inherit\"><em>side among peers?</em></span></p></div>"
+              }
+            ],
+            "family": "interactive",
+            "variant": "accordion",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "headingLevel": 2,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "f3d8c535-c753-4ccc-8705-395af733edde"
+          },
+          {
+            "id": "cm6h11rsz00i83b79wx211cp6",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6h11rsz00i93b79m0fnu4wf",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/7RVgD0wbc1dHfrW3.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "Dc2hC4bVMAEHWKU.jpg",
+                    "dimensions": {
+                      "top": 76,
+                      "left": 410,
+                      "width": 699,
+                      "height": 704,
+                      "originalWidth": 1201,
+                      "originalHeight": 1204
+                    },
+                    "originalUrl": "Dc2hC4bVMAEHWKU.jpg",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/7u5SAXTI45waJ1k8-Dc2hC4bVMAEHWKU.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/QitRKcmWdwdjBgHG.jpg",
+                      "dimensions": {
+                        "originalWidth": 1201,
+                        "originalHeight": 1204
+                      },
+                      "originalUrl": "Dc2hC4bVMAEHWKU.jpg",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"a42d9cff-6b8c-4258-837c-37f5c7518096\"><p><span style=\"color: black; text-decoration: inherit\">There</span>’<span style=\"color: black; text-decoration: inherit\">s a reason these are principles #2</span> to #<span style=\"color: black; text-decoration: inherit\">4 on the Definite Dozen<sup>(c) </sup>wheel. We’ll call them the LCR (Loyalty, Communication, Responsibility) of team-building.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "f20b50b8-7686-4100-856b-77aed91cb06d"
+          },
+          {
+            "id": "cm6h16q3g00iv3b79p7ewozom",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6h16q3g00iw3b797xvnotka",
+                "name": "<div data-editor-id=\"227713a9-bd04-405c-9d01-a918f4113054\"><p><span style=\"font-size: 2.4rem\"><strong><em>– Pat Summitt</em></strong></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"74117623-efdf-4579-bdea-3e2b71b276d4\"><p><span style=\"font-size: 2.4rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>Team-building starts by recruiting good people and turning them into willing role players early on.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/ETEsLp4BYhbjNeyW-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "LMiAeb/Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "f9c82bf7-71ad-419a-aa0a-a157c42817f1"
+          },
+          {
+            "id": "cm6h17nrn00jk3b7952u8gu7h",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6h17nro00jl3b79szzp6uon",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "8ff76730-877f-4a9e-832d-673254072142"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc",
+        "createdAt": "2025-01-28T20:23:28.836Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"7c88a738-7862-47a6-8d1c-f0b09e0e7386\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "X3FEBFEC-7vmkuFOy30ZAOxBDWyPOn8I",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "EPd4NPlk6gb8vV36xjVXtbey6kbI3Jyr",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": false
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:46:46.323Z",
+        "items": [
+          {
+            "id": "DGkXKwfTvrwZF15dDqf3TjntFlqS9EUR",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"3cbcc832-b1ba-45dd-9732-140862ce7c67\"><p><span style=\"font-size: 1.6rem\">What is one of the primary questions behind employee responsibility?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"c86549f5-bdfd-44ec-884d-81bd2bb514b4\"><p>How do you ensure employees have equal access to skill development?</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"979ee355-794a-4eba-9457-2d9b15d7d4b3\"><p>How do you provide great benefits for employees?</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6h18uso00rw3b79m77lv21e",
+                "title": "<div data-editor-id=\"1cfff7e3-9b50-4532-8191-56b1d0d1ec19\"><p>How do you make sure your hiring practices are fair?</p></div>"
+              },
+              {
+                "id": "cm6h19l3l00ry3b79grsx2nw4",
+                "title": "<div data-editor-id=\"ee93b433-3e65-47b6-bd9f-60aaa71bb342\"><p><span style=\"color: #000000; text-decoration: inherit\">How do you encourage employees to take ownership for their work?</span></p></div>"
+              }
+            ],
+            "correct": "cm6h19l3l00ry3b79grsx2nw4",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": "",
+            "globalBlockId": "4b9a938c-3c10-4bab-bbae-882397c78f7e"
+          },
+          {
+            "id": "cm6h1acx900s73b79z7t4zu1y",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"b5bc7dbc-aa7f-421e-9577-d626eda05022\"><p>What is a primary driver of loyalty?</p></div>",
+            "answers": [
+              {
+                "id": "cm6h1acxa00s83b79fxrqlxst",
+                "title": "<div data-editor-id=\"d39b8561-6a77-4364-afbd-fb5d90c6436f\"><p><span style=\"color: #000000; text-decoration: inherit\">How do you cultivate employees who are loyal to the company and its mission?</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6h1acxa00s93b79z5yucpvx",
+                "title": "<div data-editor-id=\"db1d87cb-530e-4dad-8d8d-5306dd3c0985\"><p><span style=\"color: black; text-decoration: inherit\">How do you show loyalty to employee favorites?</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6h1acy800sa3b79rrnjty0s",
+                "title": "<div data-editor-id=\"a332eb88-d5a9-42a7-9d42-2ebcc9dbd699\"><p><span style=\"color: black; text-decoration: inherit\">How do you reward employees who report wrongdoing amongst their peers?</span></p></div>"
+              },
+              {
+                "id": "cm6h1bad800sc3b79fu697dnz",
+                "title": "<div data-editor-id=\"b9ba9b93-77fd-441f-b659-3509e83401f3\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">How do you build a team of employees who tell management what they want to hear?</span></span></p></div>"
+              }
+            ],
+            "correct": "cm6h1acxa00s83b79fxrqlxst",
+            "corrects": [
+              "cm6h1acxa00s83b79fxrqlxst"
+            ],
+            "feedback": "",
+            "globalBlockId": "8fb00e1d-6fda-4fae-8090-303e38a24df0"
+          },
+          {
+            "id": "cm6h1bow600sh3b793ds34t2h",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"d6b66af1-3a8e-498f-8dfb-aaa20840799a\"><p><span style=\"font-size: 1.6rem\">Fill in the blanks: <span style=\"color: black; text-decoration: inherit\">Organizations move at the speed of ________</span> and <span style=\"color: black; text-decoration: inherit\">__________.</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6h1bow600si3b79kiphten3",
+                "title": "<div data-editor-id=\"a05e25a2-303c-4ef7-b3b3-d6b500282c51\"><p><span style=\"color: black; text-decoration: inherit\">Coffee and teamwork</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6h1bow600sj3b79vlzxov0j",
+                "title": "<div data-editor-id=\"1f0a2bfe-14d8-4ee7-8160-bc16b271554e\"><p><span style=\"color: black; text-decoration: inherit\">Time and energy</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6h1box800sk3b79df8xpbfc",
+                "title": "<div data-editor-id=\"f869e1ef-2f21-47d2-927a-6c3efe005bf3\"><p><span style=\"color: #000000; text-decoration: inherit\">Communication and trust</span></p></div>"
+              },
+              {
+                "id": "cm6h1cc2q00sm3b791xu4zxcw",
+                "title": "<div data-editor-id=\"70ed653e-e305-41e3-b3dc-8110810c4269\"><p><span style=\"color: black; text-decoration: inherit\">Profit and brand recognition</span></p></div>"
+              }
+            ],
+            "correct": "cm6h1box800sk3b79df8xpbfc",
+            "corrects": [
+              "cm6h1bow600si3b79kiphten3"
+            ],
+            "feedback": "",
+            "globalBlockId": "c04bb618-9cc7-41ad-9c56-e8ceb19cb253"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc",
+        "createdAt": "2025-01-28T20:24:51.850Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "l5mGJMOG9vcmMtg6N31ZnFtjwpJJE1vF",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 6,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Learning to Master LCR",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-29T21:36:22.752Z",
+        "items": [
+          {
+            "id": "cm9rjrehu002r3b79xafzrhm0",
+            "type": "image",
+            "items": [
+              {
+                "id": "cm9rjrehw002s3b79r53wvui9",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc/7IoNP3U6M-l0bNwU-20120304_WBB_SEC_LSU_JOHNSON%252C%2520G_SUMMITT%252C%2520P_pmr_080.jpg",
+                    "type": "image",
+                    "crushedKey": "20120304_WBB_SEC_LSU_JOHNSON%2C%20G_SUMMITT%2C%20P_pmr_080.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1113
+                    },
+                    "originalUrl": "20120304_WBB_SEC_LSU_JOHNSON, G_SUMMITT, P_pmr_080.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "8ad8fc77-153b-47d2-b0f5-7872282afca6"
+          },
+          {
+            "id": "cmafqcp2x01cd3b751er37zij",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmafqcp2x01cl3b75w7f81xoe",
+                "heading": "<div data-editor-id=\"b84db317-2b6c-4d45-9c32-b9fb9c4e9e9e\"><p><strong>How Do You Develop Winning Teams by Mastering LCR?</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "84c08ffa-61cd-4635-ab59-9ce67a6f7250"
+          },
+          {
+            "id": "cm6h1dcl700sp3b79g108ns95",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6h1dcl700sv3b79jibwn6rv",
+                "heading": "<div data-editor-id=\"224849f5-fdd1-4b50-a3af-8165693ce046\"></div>",
+                "paragraph": "<div data-editor-id=\"1b30d2f1-395c-4aa7-9fe6-6e852659a7c9\"><p><span style=\"color: black; text-decoration: inherit\">In the upcoming modules, we’ll take a closer look at these three Summitt principles, specifically:</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "d8b49f1b-cf18-4fb7-92f9-a14edff44011"
+          },
+          {
+            "id": "cm6h1dzul00tg3b79xa5flp61",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6h1dzul00th3b79ktkanthe",
+                "paragraph": "<div data-editor-id=\"9e034dec-dd2a-4bd0-987f-9f74a41bf31e\"><p><span style=\"color: black; text-decoration: inherit\">How to encourage responsibility in your team members</span></p></div>"
+              },
+              {
+                "id": "cm6h1dzul00ti3b79ub1zh2w8",
+                "paragraph": "<div data-editor-id=\"1dd22c3f-5aff-4bfa-abb5-7318af287a6d\"><p><span style=\"color: black; text-decoration: inherit\">How to take responsibility for your area (without micromanaging)</span></p></div>"
+              },
+              {
+                "id": "cm6h1dzul00tj3b79tglt7sbn",
+                "paragraph": "<div data-editor-id=\"481d36e2-5201-4898-b913-ad2af0aba955\"><p><span style=\"color: black; text-decoration: inherit\">How to be an excellent communicator</span></p></div>"
+              },
+              {
+                "id": "cm6h1fgvl00u13b792aimhvw9",
+                "paragraph": "<div data-editor-id=\"07587e41-0f70-48a1-a14f-ebc9c928c5a3\"><p><span style=\"color: black; text-decoration: inherit\">The right balance of positive/negative communication</span></p></div>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "cm6h1ft9j00u23b79b02u29pm",
+                "paragraph": "<div data-editor-id=\"6ccf8dd8-134b-44c3-9e85-67807aa0aa3c\"><p><span style=\"color: black; text-decoration: inherit\">How to show loyalty to your team</span></p></div>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "cm6h1fufp00u33b79dzwf80vl",
+                "paragraph": "<div data-editor-id=\"9bc1b471-2dd7-48da-ba21-8ee4dc7fb8de\"><p><span style=\"color: black; text-decoration: inherit\">How to be a leader employees will never want to leave</span></p></div>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "cm6h1g2g600u43b79eoj7cmsx",
+                "paragraph": "<div data-editor-id=\"7bededd0-2291-47c2-9cbd-38171fb0ce12\"><p>And more!</p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "bulleted",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "bf825d79-ae1d-4f86-a7e8-3a163dd100ff"
+          },
+          {
+            "id": "cm6h1g7vm00u53b792rs28kwq",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6h1g7vm00ub3b79d47o6pka",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"cef2ab11-1774-4e4a-999d-a413e058b69d\"><p>But first, let’s take a look at some reflections and exercises around the concept of <em>team</em>.&nbsp;</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "98a0d94d-2d95-4c72-a9f9-1497073e3d6e"
+          },
+          {
+            "id": "cm6h1heks00vd3b79qlxkrh2d",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6h1heks00ve3b79we5u5gls",
+                "paragraph": "<div data-editor-id=\"cbba119f-8f3b-45bc-8865-d170db7fecbd\"><p>This course also comes with a downloadable workbook. Refer to your workbook for the personal reflection questions and exercises at the end of each lesson.</p></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e6714755-4f3e-4ed8-b4e5-86f494856678"
+          },
+          {
+            "id": "cmafqfrdz01d53b75zzli0am7",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmafqfre001de3b75ml7dnk93",
+                "heading": "<div data-editor-id=\"c3b39db8-f45b-4919-9d51-cfded15781ac\"><p><strong>Download the workbook below:</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "subheading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "424b258c-ccbc-4b34-a00e-b4844fda6753"
+          },
+          {
+            "id": "cm6h1gtqf00uw3b79ox3tr94o",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6h1gtqf00ux3b79jyfkg91c",
+                "media": {
+                  "attachment": {
+                    "key": "PSLG%20Power%20of%20Team%20Workbook.pdf",
+                    "size": 719367,
+                    "type": "attachment",
+                    "filename": "ZFyu0lh-XKxPVL9L-PSLG%20Power%20of%20Team%20Workbook.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "PSLG Power of Team Workbook.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e6a3425c-ee38-4742-8b43-cfe098af27d7"
+          },
+          {
+            "id": "cmafsailw008j3b78uebm4r1k",
+            "type": "divider",
+            "items": [
+              {
+                "id": "cmafsaoyr00913b78dbtq601j",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "06279a6c-5382-43b6-ba15-c7ba851923b3"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "NgYLbyW6-5zHbsQoUXn6E2hcL7LWUi94",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T01:20:54.740Z",
+        "items": [
+          {
+            "id": "cme6fep99006q3j7bn8y5midc",
+            "type": "text",
+            "items": [
+              {
+                "id": "cme6fep9a006r3j7b92wtsyrf",
+                "paragraph": "<div data-editor-id=\"0e9636f1-0bc3-4c65-bb07-3bd5c8a0989f\"><p>Refer to these questions in your workbook. Take a minute to sit down and assess your starting point. Where are you currently as a team and as a leader?</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "audioPosition": "bottom",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "08ecc6e9-9490-420d-a244-087924249cb4"
+          },
+          {
+            "id": "cm6h1mw9e00x53b793aalhlm8",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6h1mw9e00x63b79tkifwjjf",
+                "paragraph": "<div data-editor-id=\"28199ebe-d352-41d8-8288-23695c417f43\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Who are the key players on your organizational team?</span></span></p></div>"
+              },
+              {
+                "id": "cm6h1mw9e00x73b79ur5nn5cb",
+                "paragraph": "<div data-editor-id=\"01dc3516-fa4f-4295-a5c5-eedd831026ce\"><p style=\"text-align: left\"><span style=\"color: black; text-decoration: inherit\">On a scale of 1</span> to <span style=\"color: black; text-decoration: inherit\">10, how well do you think they currently pull together as a team:</span></p></div>"
+              },
+              {
+                "id": "cm6h1slx800xq3b7979frbfd9",
+                "paragraph": "<div data-editor-id=\"ad798330-8ae6-4960-8e04-418b01b82608\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">What are some of the team’s areas of strength?</span><br class=\"break-when-trailing\"><br class=\"break-when-trailing\"><span style=\"color: black; text-decoration: inherit\">What are areas of team weakness?</span></span></p></div>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "cm6h1mw9e00x83b790exopcsu",
+                "paragraph": "<div data-editor-id=\"940aa87b-bba7-4327-a8b8-04d65355a91a\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Of the LCR principles, in which area is your team the strongest?</span></span></p></div>"
+              },
+              {
+                "id": "cm6h204pi00xr3b79cxucrhz5",
+                "paragraph": "<div data-editor-id=\"ec231f58-9eaa-412e-820d-a808e96145ae\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Who is the person on your team who seems the most natural in their role? </span><span style=\"color: windowtext; text-decoration: inherit\">L</span><span style=\"color: black; text-decoration: inherit\">ist up to </span><span style=\"color: windowtext; text-decoration: inherit\">three. </span>Which team members need<span style=\"color: black; text-decoration: inherit\"> more development? </span>L<span style=\"color: black; text-decoration: inherit\">ist up to</span> three.</span></p></div>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "cm6h20tuj00xs3b79t9rx1070",
+                "paragraph": "<div data-editor-id=\"d03d5b8f-e699-483e-b055-a99904549542\"><p><span style=\"color: black; text-decoration: inherit\">How well do you know your team outside of work</span><span style=\"color: windowtext; text-decoration: inherit\">:</span><span style=\"color: black; text-decoration: inherit\"> birthdays, hobbies, families, favorite sports teams, etc.</span></p><p style=\"text-align: center\"><span style=\"color: rgb(245, 121, 38); text-decoration: inherit\"><strong>1 ----------------------------------------------- 5 ------------------------------------------------ 10</strong></span></p><p style=\"text-align: center\"><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Not very well &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Somewhat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Pretty well</span></span></p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "0bfca215-973f-4a33-af22-71f98d930745"
+          },
+          {
+            "id": "cm6h21yxy00xt3b79lukbugn0",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6h21yxz00xz3b79re4ml17d",
+                "heading": "<div data-editor-id=\"bd994bc8-8200-4baa-9383-ddd8529a31b2\"><p><span style=\"font-size: 2rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Exercises</strong></span></span></p></div>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "subheading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "c81eda56-6880-46d6-aff9-a2e642717da6"
+          },
+          {
+            "id": "cmah5m0lc01ak3b7891uxctl5",
+            "type": "list",
+            "items": [
+              {
+                "id": "cmah5m0ld01al3b78rhjhfwo2",
+                "paragraph": "<div data-editor-id=\"fd81ff3b-893d-415e-bf06-a5e5bd7d6e4c\"><p><span style=\"color: black; text-decoration: inherit\">What are your three biggest obstacles or questions around the concept of team?</span></p></div>"
+              },
+              {
+                "id": "cmah5m0ld01am3b78timy77y0",
+                "paragraph": "<div data-editor-id=\"29fd8a07-bc57-4b8a-9eb6-35623f871bf0\"><p><span style=\"color: black; text-decoration: inherit\">How would you like to grow more as the leader of the team? Take five minutes and jot your thoughts in your workbook.</span></p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "c1979a26-7fed-4bcf-b5ac-e7cf6b0579da"
+          },
+          {
+            "id": "cm6jif9az00660c8u4w133mzv",
+            "data": {},
+            "type": "divider",
+            "items": [],
+            "family": "divider",
+            "variant": "divider",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "5c865972-0c97-4111-9dc5-ce26b6873897"
+          },
+          {
+            "id": "cm6jjjep3005j3b7a4xu7ex80",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jjjep4005k3b7addayrv1k",
+                "paragraph": "<div data-editor-id=\"456d0628-9bf1-4785-9434-f211c2dcd049\"><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Sources:</strong></span></span></p><ol type=\"1\"><li><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from <em>Reach for the Summitt</em>, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998.</span></span></p></li></ol></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "1192bb21-be0e-4fa3-a6cf-3df52ee998de"
+          },
+          {
+            "id": "cmafs79qd003o3b78ttbo2nna",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmafs79qe003p3b787lunsp15",
+                "type": "exit-course",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"904be540-7814-43c3-bb9c-b15e0d7f7a7a\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": "exit-course"
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {},
+            "globalBlockId": "a44550d1-b16d-4aa5-a171-9e51ca18edb5"
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:27:46.351Z",
+    "updatedAt": "2025-09-17T15:04:25.645Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "The Power of Team: Introduction",
+      "format": "zip",
+      "quizId": "EPd4NPlk6gb8vV36xjVXtbey6kbI3Jyr",
+      "target": "scorm12",
+      "shareId": "crQSRtARRZwOjHKPJO-Luj9XvZRugOYP",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "oAxo3M6qFgwL9UVFBcS0_A697jgVqpdc_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:29:39.532Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "<div data-editor-id=\"a4b7a85f-a251-42ea-8051-c2b3ebb90b9d\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: rgb(40, 40, 40); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><span>Whether you’re leading a team of five or 50, this course is designed to help you unlock one of the most powerful forces in leadership…teamwork! As you begin this journey, you’re stepping into something bigger than an online program; you’re stepping into a legacy. Inspired by Coach Summitt’s championship-level ability to bring people together toward a shared goal, the following lessons will guide you through practical strategies and mindsets that build trust, inspire collaboration, loyalty and overall success for your team. Let’s get started!</span></span></span></span></p></div>",
+    "title": "The Power of Team: Introduction",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockCodeSnippet": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}

@@ -1,0 +1,3254 @@
+{
+  "course": {
+    "id": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+    "originalId": null,
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "selectedAuthorId": "none",
+    "color": "#4267a9",
+    "navigationMode": "",
+    "title": "Championing Women in Leadership - The Glass Cubicle",
+    "sharePassword": "",
+    "description": "",
+    "shareId": "oPN4AKS6DoRZAi-fLkHXB0s8SxgIp8Iz",
+    "copyOf": "UrjC_dORMFiJrfVPaH48_usVCRnLZdau",
+    "order": "1728333067987",
+    "fonts": null,
+    "media": {
+      "image": {
+        "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/J66Hl6L1bWCJpxxd-CWILLogo_Color_Transparent.png",
+        "type": "image",
+        "width": 166,
+        "height": 40,
+        "scalar": 2,
+        "crushedKey": "v08hHB6lqx3EcPV7.png",
+        "originalUrl": "CWILLogo_Color_Transparent.png",
+        "useCrushedKey": true
+      }
+    },
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/2_1QtXeDKe76njzB-PSLG_CWIL_TItleGraphic.png",
+          "crushedKey": "Brpj_nF2GKAK9KJl.jpg",
+          "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "id": "eax7V_ayVEkvdrARROnFXqJHo5feT2Qo",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+        "title": "The Glass Cubicle",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5dhpw100023b78e586dupj",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv5dhpw200033b78epprbh45",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_patty_hoppenstedt_the_glass_cubicle__gender_microaggressions_clip_03%20%281080p%29%20%281%29.mp4",
+                    "url": "transcoded-VI5al3R-4xWkQ0Da-v4_wil_patty_hoppenstedt_the_glass_cubicle__gender_microaggressions_clip_03%2520(1080p)%2520(1).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_patty_hoppenstedt_the_glass_cubicle__gender_microaggressions_clip_03%20%281080p%29%20%281%29.jpg",
+                    "duration": 187,
+                    "inputKey": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/VI5al3R-4xWkQ0Da-v4_wil_patty_hoppenstedt_the_glass_cubicle__gender_microaggressions_clip_03%20(1080p)%20(1).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/transcoded-VI5al3R-4xWkQ0Da-v4_wil_patty_hoppenstedt_the_glass_cubicle__gender_microaggressions_clip_03%2520(1080p)%2520(1).0000000.jpg",
+                    "originalUrl": "v4_wil_patty_hoppenstedt_the_glass_cubicle__gender_microaggressions_clip_03 (1080p) (1).mp4",
+                    "transcodeId": "1727973613659-5hwtau"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5dhumd000g3b787ulf6syj",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv5dhumd000h3b787n9iwk8n",
+                "media": {
+                  "attachment": {
+                    "key": "L4%20Transcription%20-%20The%20Glass%20Cubicle%20Gender%20Microaggressions.pdf",
+                    "size": 227727,
+                    "type": "attachment",
+                    "filename": "ICF8DXNjaUUJOd5M-L4%20Transcription%20-%20The%20Glass%20Cubicle%20Gender%20Microaggressions.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L4 Transcription - The Glass Cubicle Gender Microaggressions.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02o44w3001c3b7cyw8h54lz",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm02o44w4001d3b7ce7b05ij2",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/-WdGjZWOd3Pqp9gB-AdobeStock_207696609.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_207696609.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 945
+                    },
+                    "originalUrl": "AdobeStock_207696609.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>The first step in making the playing field more even for women was making it legally equal. The second step is making sure women are treated without bias in the workplace&mdash;that both sexes are treated without bias for that matter. For that, we have to take a closer look at the hidden world of microaggressions.</p><p>This is one of the most important lessons so far, as one of the most common practical ways discrimination plays out in the workplace every day is through the act of microaggressions, whether towards genders or minorities.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca9j74001c3b7amo0szaak",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca9j74001d3b7apjm3qkj5",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-03-28T15:15:00.692Z",
+        "updatedAt": "2024-11-11T00:26:36.482Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 0,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "The Glass Cubicle"
+      },
+      {
+        "id": "AfWWC9u2qLFLqTsI7bJNj6bi9XXDW5jR",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+        "title": "What Is a Microaggression?",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5dyjcj009k3b78qgdb7jul",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clv5dyjcj009l3b78q46geblh",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/v4HUuCClKqnuhHGX-AdobeStock_695994335.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_695994335.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_695994335.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"03369ba8-35d0-472f-adb2-7847dcb36a09\"><p>The term <strong>microaggression</strong> refers to everyday verbal, behavioral, or environmental actions that communicate subtle messages toward an individual or groups.</p><p>Microaggressions are different from <strong>macroaggressions</strong>. A macroaggression might look like a female leader being blatantly turned down for a job, denied a promotion, sexually harassed, passed over for an assignment, or paid less than a man despite having &nbsp;the same qualifications. Many of these actions are now illegal, making these biases rarer than in previous decades.</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5dnfbw001l3b787qld0r1c",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5dnfbw001r3b785zcurp1d",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>We typically measure society&rsquo;s progress toward diversity at the macroaggression level, because there are generally more statistics available to measure macroaggressions. But refusing to acknowledge unhealthy <em>microaggressions</em> can be just as damaging to the overall progress of gender equality.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5doicm00273b78pmkikg41",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5doicn002d3b78yv9rziw6",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p><span style=\"font-size: 22px;\"><strong><span style=\"color: rgb(255, 255, 255);\"><em>Microaggression refers to everyday verbal, behavioral, or&nbsp;</em></span></strong><strong><span style=\"color: rgb(255, 255, 255);\"><em>environmental actions that communicate subtle messages toward an individual or groups.</em></span></strong></span></p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "b",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02orf6a00ao3b7cj31yduf1",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm02orf6b00ap3b7cx90tn76x",
+                "paragraph": "<p>So what exactly <em>are</em> some examples of microaggressions? A few practical examples might include:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02o7jjc005n3b7cho1sk4ah",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "16.95219494047619",
+                "y": "11.671626984126984",
+                "id": "cm02o7jjd005o3b7c1zs0y6ir",
+                "icon": "02",
+                "title": "",
+                "isActive": false,
+                "description": "<p>Using masculine language or job titles by default, such as using &quot;guys&quot; to refer to everyone instead of &ldquo;team,&rdquo; or saying &quot;salesman&quot; instead of &quot;salesperson.&quot;</p>"
+              },
+              {
+                "x": "14.785621279761903",
+                "y": "29.518022486772487",
+                "id": "cm02o7jjd005p3b7c0mcllg4d",
+                "icon": "02",
+                "title": "",
+                "isActive": false,
+                "description": "<p>Expecting women to organize the office housekeeping tasks, like planning birthday parties or cleaning the communal kitchen.</p>"
+              },
+              {
+                "x": "11.785714285714285",
+                "y": "48.67724867724868",
+                "id": "cm02om9ej00663b7cawselguh",
+                "icon": "02",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Praising a man running late for a meeting due to having to drop off the kids at school for being a good dad, while a female was scolded for tardiness in the same circumstance a week earlier.</p>"
+              },
+              {
+                "x": "13.750000000000002",
+                "y": "67.3015873015873",
+                "id": "cm02ommsg00683b7cd0m4ul92",
+                "icon": "02",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Asking a female colleague to take notes or to write notes on a whiteboard, because &ldquo;she would have the best handwriting.&rdquo;</p>"
+              },
+              {
+                "x": "34.285714285714285",
+                "y": "67.3015873015873",
+                "id": "cm02onlqh006c3b7c3i74kzda",
+                "icon": "02",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Automatically assuming women are weaker in math and science than men and need help.</p>"
+              },
+              {
+                "x": "14.702380952380953",
+                "y": "83.3862433862434",
+                "id": "cm02on06g006a3b7cbunj9yg3",
+                "icon": "02",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Explaining something publicly to a woman that she didn&rsquo;t ask to be enlightened on.</p>"
+              },
+              {
+                "x": "34.345238095238095",
+                "y": "79.57671957671958",
+                "id": "cm02onyu6006e3b7c43qfkeuy",
+                "icon": "02",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Telling a woman she is too sensitive or overreacting when she raises concerns about discrimination or equality.</p>"
+              },
+              {
+                "x": "66.01190476190476",
+                "y": "11.322751322751323",
+                "id": "cm02ooe6j006g3b7c1p7w4xwj",
+                "icon": "02",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Privately making fun of a male colleague for getting emotional in a meeting and tearing up.</p>"
+              },
+              {
+                "x": "62.38095238095238",
+                "y": "25.71428571428571",
+                "id": "cm02op2al006i3b7c4bct3rrr",
+                "icon": "02",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Joking about a man&rsquo;s testosterone levels after he brings homemade banana bread to the office.</p>"
+              },
+              {
+                "x": "83.39285714285715",
+                "y": "20",
+                "id": "cm02opo0l006k3b7c3ynqjq57",
+                "icon": "02",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Expecting a man to assemble an office bookshelf and then joking that his &ldquo;man card&rdquo; is on the line for doing it right.</p>"
+              },
+              {
+                "x": "83.33333333333334",
+                "y": "44.338624338624335",
+                "id": "cm02oq2oc006m3b7clp3kgawb",
+                "icon": "02",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Expecting the only man in the room to squash a bug.</p>"
+              },
+              {
+                "x": "83.0952380952381",
+                "y": "63.06878306878308",
+                "id": "cm02oqbzy006o3b7c5h90x7n7",
+                "icon": "02",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Assuming a man likes to watch sports and if he doesn&rsquo;t want to go to a professional sporting event mixer after hours, there&rsquo;s something wrong with him.</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/2lkGtOlIEkcyR7iw-Microagressions_Graphic.png",
+                "type": "image",
+                "crushedKey": "Microagressions_Graphic.jpg",
+                "dimensions": {
+                  "originalWidth": 1680,
+                  "originalHeight": 945
+                },
+                "originalUrl": "Microagressions_Graphic.png",
+                "sourcedFrom": "USER",
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#ffffff",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5dwp3i008c3b78rxoaxm02",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5dwp3i008i3b787ioto2ef",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>All these behaviors are rooted in stereotypes and microaggressions that arise from gender bias. &nbsp;But it&rsquo;s important to note, microaggressions aren&rsquo;t exclusive to women&mdash;they can be directed at any group, at any time.</p><p>The truth is, <em>no one likes microaggressions!&nbsp;</em>And because they are more subtle, harder to prove, and generally more frequent than macroaggressions, they often fly under the radar.</p><p>Oftentimes the people reporting microaggressions are told they&rsquo;re being too sensitive or can&rsquo;t take a joke. But it&rsquo;s not a joke if it makes someone uncomfortable in the workplace&mdash; regardless of gender.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5dxqfe008y3b78blqyn3py",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5dxqff00943b78fo2ccwro",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p><strong><em><span style=\"font-size: 22px; color: rgb(255, 255, 255);\">Because they are more subtle, harder to prove, and generally more frequent than macroaggressions, microaggressions often fly under the radar.</span></em></strong></p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "b",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca9qcp00523b7a8vauibc8",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca9qcp00533b7a7ip6zn2b",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T15:07:23.815Z",
+        "updatedAt": "2024-11-11T00:26:45.447Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "What Is a Microaggression?"
+      },
+      {
+        "id": "3AoxxYyHySM_9dPv5fsh5nxB14p8ctoY",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm05lpnih00053b7cptrtbydh",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What is a microaggression?</p>",
+            "answers": [
+              {
+                "id": "cm05lpnih00063b7cstxg363d",
+                "title": "<p>A behavior that goes against a company&rsquo;s specific code of conduct</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05lpnih00073b7c2k7p9xs9",
+                "title": "<p>Small victories for women at work in a particular industry</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05mkgrv00173b7c2c6x5uc0",
+                "title": "<p>Actions that communicate subtle messages toward certain groups</p>"
+              },
+              {
+                "id": "cm05ml7nf00193b7cbfpdoc8f",
+                "title": "<p>Insisting everyone be judged on their skills and merits</p>"
+              }
+            ],
+            "correct": "cm05mkgrv00173b7c2c6x5uc0",
+            "corrects": [
+              "cm05lpnih00063b7cstxg363d"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05lpnii00083b7ctm1ttbyp",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which of the following is <em>not</em> an example of a microaggression?</p>",
+            "answers": [
+              {
+                "id": "cm05lpnii00093b7cjdp2m4cz",
+                "title": "<p>Asking the only woman in the room to take notes</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05lpnii000b3b7c4zt7jxfx",
+                "title": "<p>Expecting employees to be on time</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05lpnii000c3b7cyjr4e9ra",
+                "title": "<p>Expecting women to always clean up after a team event</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05lpnii000a3b7cs2l9ytel",
+                "title": "<p>All of the above</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm05lpnii000b3b7c4zt7jxfx",
+            "corrects": [
+              "cm05lpnii00093b7cjdp2m4cz",
+              "cm05lpnii000a3b7cs2l9ytel"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05mo31t001i3b7cnggm6u6q",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which of these statements is true?</p>",
+            "answers": [
+              {
+                "id": "cm05mo31x001j3b7ckoewivt6",
+                "title": "<p>Microaggressions are easy to spot.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05mo31x001k3b7cp2dmjidg",
+                "title": "<p>True microaggressions are rare.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05mo32h001l3b7crgxuj7fy",
+                "title": "<p>No gender really likes microaggressions.</p>"
+              },
+              {
+                "id": "cm05mrgn4001n3b7c802ur3x4",
+                "title": "<p>Microaggressions are always intentional.</p>"
+              }
+            ],
+            "correct": "cm05mo32h001l3b7crgxuj7fy",
+            "corrects": [
+              "cm05mo31x001j3b7ckoewivt6"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-22T18:13:02.327Z",
+        "updatedAt": "2024-10-17T21:00:10.031Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "S9LwKoImTdfx8JkXUNx_5sKb-5JPqYMI",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+        "title": "Eliminating Microaggressions",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm02qawki00lq3b7calh6wuty",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm02qawki00ls3b7cg70y17km",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/saYoZ-L-GVhdlsWU-TypesofMicro_Graphic.png",
+                    "type": "image",
+                    "crushedKey": "TypesofMicro_Graphic.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 2456
+                    },
+                    "originalUrl": "TypesofMicro_Graphic.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>There are several kinds of microaggressions: verbal, nonverbal, and institutional. An example of a nonverbal microaggression might be mimicking a female coworker&rsquo;s mannerisms to make her look unprofessional. Or seating women in the back of the room in chairs, balancing their work materials in their laps, while allowing men a seat at the board table so they can participate better. An institutional microaggression might be having a cigar night or traditionally male event as a sales reward for high achievers.</p><p>It&rsquo;s important to note that half or more of all microaggressions may be completely unintentional! Many times the colleague who committed the infraction isn&rsquo;t even aware of it &hellip; and would be embarrassed if they were. Left unchecked, however, microaggressions can create a culture that is alienating to the minority gender, and the more normal it becomes, the harder it is to eliminate from an organization&rsquo;s culture.&nbsp;</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5edgcp00ap3b78zdk140ex",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5edgcp00as3b78wz3gz4wl",
+                "paragraph": "<p><strong><em><span style=\"font-size: 22px; color: rgb(255, 255, 255);\">There are several kinds of microaggressions: verbal, nonverbal, and institutional.</span></em></strong></p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "b",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5g6xc400gd3b78qjqt6co8",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clv5g6xc500ge3b78731yw0kv",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/jsqHbQ2GIqB3lsai-AdobeStock_484301372.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_484301372.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_484301372.jpeg",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p><span style=\"font-size: 30px;\"><strong>Verbal</strong></span><br>Let&rsquo;s take a look at some tips for dealing with microaggressions and how to begin to create a gender-neutral environment, starting with verbal microaggressions. A good rule of thumb when it comes to eliminating verbal microaggressions is to flip the script&mdash;meaning, if you couldn&rsquo;t easily say it to both genders, don&rsquo;t say it to women.</p><p>For example:</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02q1qzq00kh3b7cmlia7kq9",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm02q1qzr00ki3b7cao4ls1np",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 20px;\">It&rsquo;s hard to imagine saying this to a man, as it implies a parent-child-like relationship. The same critique to a man would probably be delivered as &ldquo;let&rsquo;s work on your communication,&rdquo; or &ldquo;your communication is coming off as forceful, etc.&rdquo;</span></p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>&quot;I don&#39;t like your tone.&quot;</p>"
+                }
+              },
+              {
+                "id": "cm02q1qzr00kj3b7cuyco7jj9",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>Unless the men in the office are also being told they should smile more, women shouldn&rsquo;t be singled out as having to look perpetually happy.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>&quot;You should smile more.&quot;</p>"
+                }
+              },
+              {
+                "id": "cm02q1qzr00kk3b7cn8cvnomo",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>A man might get a critique on his presentation, but probably wouldn&rsquo;t be told it looks too manly. He would get specific feedback like &ldquo;the PowerPoint fonts are too boxy,&rdquo; or &ldquo;you need more graphics,&rdquo; etc.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>&quot;Your presentation is too girly.&quot;</p>"
+                }
+              },
+              {
+                "id": "cm02q3ry500l43b7caj9dj8mr",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>Men are rarely accused of being emotional, even when angry. Instead, try: &ldquo;I can see that you&rsquo;re frustrated, but let&rsquo;s take a step back.&rdquo;</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>&quot;Don&#39;t be so emotional.&quot;</p>"
+                },
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5ehq5w00cn3b78k4bj2w8u",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5ehq5w00ct3b781rd8vktg",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Not sure where to start when it comes to microaggressions? For starters, it&rsquo;s a good rule of thumb to stay away from these verbal microaggressions:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5ei6v900d93b78wd7nx1s9",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clv5ei6v900da3b78zlg5o5gv",
+                "media": {
+                  "tmp": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/paraglide.jpg",
+                      "src": "https://articulateusercontent.com/assets/rise/assets/block-defaults/paraglide.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/paraglide_thumb.jpg",
+                      "originalUrl": "paraglide.jpg"
+                    }
+                  }
+                },
+                "title": "Avoid terms of endearment.",
+                "description": "<p>Avoid terms of endearment (honey, sweetie, darling) the same way you would avoid similar terms for men (like junior or buddy).</p>"
+              },
+              {
+                "id": "clv5ei6v900db3b78zlwywp93",
+                "title": "Stay away from anything with sexual undertones.",
+                "description": "<p>Stay away from anything with sexual undertones, such as commenting on appearance. When in doubt, avoid commenting. But if you do, keep comments to a neutral statement, rather than something you might say to a significant other. For example, &ldquo;That blouse looks nice on you&rdquo; vs. &ldquo;Hey, Steve, looking sharp today.&rdquo;&nbsp;</p><p><br></p><p>The latter merely indicates someone looks professional. &nbsp;Or &ldquo;Dig the new haircut!&rdquo; (acknowledging someone&rsquo;s drastic new do) instead of &ldquo;That haircut brings out your eyes&rdquo; or &ldquo;You have such pretty hair.&rdquo;&nbsp;</p>"
+              },
+              {
+                "id": "clv5ei6v900dc3b78rrh7mlil",
+                "title": "Don't reference hormones.",
+                "description": "<p>We all have hormones (men included!). But keep hormones out of it when it comes to addressing behavior in the workplace. &ldquo;It must be the pregnancy hormones&rdquo; or &ldquo;She seemed grouchy today &hellip; it must be that time of the month&rdquo; is as unfair and unprofessional as referring to a man&rsquo;s hormones: &ldquo;Damon got a bit angry after that meeting. His testosterone must be out of control.&rdquo;</p>"
+              }
+            ],
+            "family": "interactive",
+            "variant": "accordion",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5gidlt00ov3b78v20umzun",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clv5gidlu00ow3b78ni9xccik",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/XLZPR8gxMyICAsg6.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "AdobeStock_250378807.jpg",
+                    "dimensions": {
+                      "top": 125,
+                      "left": 90,
+                      "width": 1590,
+                      "height": 643,
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_250378807.jpeg",
+                    "originalImage": {
+                      "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/FlpNVn63DX7iLhvE-AdobeStock_250378807.jpeg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/St4C7kO1xLwoJ-65.jpg",
+                      "originalUrl": "AdobeStock_250378807.jpeg",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"8551d42e-c70d-49fb-98ce-3dc2939ac5bb\"><p><span style=\"font-size: 3rem\"><strong>Nonverbal</strong></span><br class=\"break-when-trailing\">Not as overt as the spoken word, nonverbal microaggressions are less of a direct statement, and more in the form of body language or an unintended slight:</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "large",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5g4wvy00fi3b78uj1q7zt2",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clv5g4wvz00fj3b78gcn2miwv",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p>Interrupting a woman multiple times (while letting long-winded male counterparts drone on).</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p>Making eye contact in a meeting with only the men, ignoring the women.</p>"
+                }
+              },
+              {
+                "id": "clv5g4wvz00fl3b78i4j9spr9",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p>Asking women to hang back and clean up after the meeting, while the men are excused to go to their next appointment.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "bSvzMJ/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p>Talking in a huddle, stopping abruptly when someone of the opposite gender walks up, excluding them from the conversation.</p>"
+                }
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5gbn9e00gv3b780ypsq92l",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5gbn9f00h13b782z0ygz69",
+                "heading": "<p><strong>Institutional</strong></p>",
+                "paragraph": "<p>Finally, there are microaggressions at the institutional level. Most of the time these aren&rsquo;t outright discrimination (macroaggressions), but more subtle, systemic signs of an organization&rsquo;s culture.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02qpwci00uq3b7chz65msi2",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "18.618861607142854",
+                "y": "78.52306547619048",
+                "id": "cm02qpwcj00ur3b7cvbssez2j",
+                "icon": "01",
+                "title": "Example 1",
+                "isActive": false,
+                "description": "<p>Job postings listed with gender-biased language like &ldquo;able to have direct, man-to-man conversations&rdquo; or &ldquo;must be pleasant and friendly&rdquo; or &ldquo;you&rsquo;re a sales superman.&rdquo;</p>"
+              },
+              {
+                "x": "34.488002232142854",
+                "y": "78.73790922619047",
+                "id": "cm02qpwcj00us3b7cez4eaosp",
+                "icon": "01",
+                "title": "Example 2",
+                "isActive": false,
+                "description": "<p>Bias seen in the dress code, such as women can have earrings, but men can&rsquo;t, or men can wear comfortable shoes like sneakers while women must wear heels, etc.</p>"
+              },
+              {
+                "x": "49.94047619047619",
+                "y": "78.57142857142857",
+                "id": "cm02qqg4i00v93b7c6chx28wk",
+                "icon": "01",
+                "title": "Example 3",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>The company sends men to sexual harassment training, but not women.</p>"
+              },
+              {
+                "x": "65.89192708333333",
+                "y": "78.45145089285714",
+                "id": "cm02qqgx000vb3b7cv719d35b",
+                "icon": "01",
+                "title": "Example 4",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Team-building events like hockey games or ax-throwing that lean toward one gender (ask yourself: How might men respond to a pedicure afternoon or jewelry-making class?).</p>"
+              },
+              {
+                "x": "81.54761904761905",
+                "y": "78.0952380952381",
+                "id": "cm02qqhps00vd3b7ctja9fzze",
+                "icon": "01",
+                "title": "Example 5",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Keeping the thermostat on an extreme setting that caters to one gender, such as men in suits or women in short sleeves.</p>"
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/qsF3yWjzUp_kZC8R-InstMicro_Graphic.png",
+                "type": "image",
+                "crushedKey": "InstMicro_Graphic.jpg",
+                "dimensions": {
+                  "originalWidth": 1680,
+                  "originalHeight": 840
+                },
+                "originalUrl": "InstMicro_Graphic.png",
+                "sourcedFrom": "USER",
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#ffffff",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5gdntq00hh3b784kp7ezox",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clv5gdntr00hi3b78ivgk638t",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/fu3gLW-36ouxvj7a-Summitt%2520Greatness%25201.JPG",
+                    "type": "image",
+                    "crushedKey": "Summitt%20Greatness%201.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "Summitt Greatness 1.JPG",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "<p>1974 - Pat&#39;s First Team</p>",
+                "paragraph": "<p>Summitt herself ran into several institutional microaggressions during her tenure as a head coach. As mentioned in the intro, women were allowed to play high school basketball in the 1970s, but relegated to only a half-court game. In her very first year at the University of Tennessee, her team finished with 16 wins and three losses. The prize for such a winning season was an invitation to attend the men&rsquo;s awards banquet as guests. The men&rsquo;s team had three wins and 20 losses, by comparison.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca9ywj00ao3b7awnkjistj",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca9ywj00ap3b7a7x9m82fm",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T15:07:44.034Z",
+        "updatedAt": "2024-11-11T00:26:56.735Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Eliminating Microaggressions"
+      },
+      {
+        "id": "jL4ks-Y4R6zuGqM8-R4HogRwliUbTT0f",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm05lq0m9000d3b7c5woxg758",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What are the three kinds of microaggressions discussed in this lesson?</p>",
+            "answers": [
+              {
+                "id": "cm05lq0m9000e3b7cf2wzwhq7",
+                "title": "<p>Verbal, non-verbal, institutional</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05lq0m9000f3b7cxghv9eyg",
+                "title": "<p>Mild, moderate, severe</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05ms67r001s3b7ch6naj9lp",
+                "title": "<p>Casual, informal, and illegal</p>"
+              },
+              {
+                "id": "cm05mswnw001u3b7ct5jcbi1n",
+                "title": "<p>None of the above</p>"
+              }
+            ],
+            "correct": "cm05lq0m9000e3b7cf2wzwhq7",
+            "corrects": [
+              "cm05lq0m9000e3b7cf2wzwhq7"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05lq0m9000g3b7c0xl2w3lq",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What is an example of a nonverbal microaggression?</p>",
+            "answers": [
+              {
+                "id": "cm05lq0m9000h3b7cxdxa4mh5",
+                "title": "<p>Ignoring the women in a meeting</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05lq0m9000j3b7csg8q7dfd",
+                "title": "<p>Not inviting men to an office baby shower</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05lq0m9000k3b7celsh2rxi",
+                "title": "<p>Putting all-women on office culture committees because &ldquo;they like that touchy-feely sort of thing&rdquo;</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm188fibn00023b74c6rzpurv",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm188fibn00023b74c6rzpurv",
+            "corrects": [
+              "cm05lq0m9000h3b7cxdxa4mh5",
+              "cm05lq0m9000j3b7csg8q7dfd",
+              "cm05lq0m9000k3b7celsh2rxi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05mufep00273b7cva5l9twd",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is <em>not</em> an example of an institutional microaggression?</p>",
+            "answers": [
+              {
+                "id": "cm05mufep00283b7chbap764e",
+                "title": "<p>Job postings with gender-biased language</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05mufep00293b7cmcg8l4j4",
+                "title": "<p>Requiring employees to clock in and out</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05muff9002a3b7czg6026e1",
+                "title": "<p>Sending men to sexual harassment training, but not women</p>"
+              },
+              {
+                "id": "cm05mv69r002c3b7c49t6w2rl",
+                "title": "<p>Allowing men to have tattoos in the dress code, but not women (or vice versa)</p>"
+              }
+            ],
+            "correct": "cm05mufep00293b7cmcg8l4j4",
+            "corrects": [
+              "cm05mufep00283b7chbap764e"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-22T18:13:10.478Z",
+        "updatedAt": "2024-10-17T21:00:26.358Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 4,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "go1hkmMjae45gcY7Bssq9hRj3DzEeL7P",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+        "title": "Handling Microaggressions",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5gjj5100pe3b788sod55pa",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5gjj5100pk3b78n8m5iwev",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>With a little intentionality, you can take a step toward eliminating unchecked microaggressions from your organization&rsquo;s culture. Here&rsquo;s how:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5gk5r500q03b78ynf9evo2",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clv5gk5r500q13b780i61j9zp",
+                "media": {
+                  "tmp": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/paraglide.jpg",
+                      "src": "https://articulateusercontent.com/assets/rise/assets/block-defaults/paraglide.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/paraglide_thumb.jpg",
+                      "originalUrl": "paraglide.jpg"
+                    }
+                  }
+                },
+                "title": "Educate your team thoroughly on what microaggressions are...",
+                "description": "<p>...and why they are undesirable (for either sex). Remember, people come from a variety of backgrounds, and you can&rsquo;t expect modified behavior if you haven&rsquo;t clarified what the desired behavior is.</p>"
+              },
+              {
+                "id": "clv5gk5r500q23b78wxndnm3l",
+                "title": "When microaggressions occur, call them out and move on.",
+                "description": "<p>This is an open-opportunity call-out policy&mdash;not just for one gender or just for leaders, etc. Take a quick moment to acknowledge what was said or done (&ldquo;Aaron, you said &lsquo;guys&rsquo; just now, and we happen to have six females in the room.&rdquo;), then apply gentle correction (&ldquo;We know what you meant, but next time let&rsquo;s just say <em>team</em>.&rdquo;), and move on.</p>"
+              },
+              {
+                "id": "clv5gk5r500q33b781tofbk8i",
+                "title": "Assume innocent intent, especially on the first few infractions.",
+                "description": "<p>Most people aren&rsquo;t aware of some of the nuances of microaggressions and genuinely didn&rsquo;t intend to offend. No one needs to be publicly shamed or embarrassed. Just call it out, keep it matter-of-fact, and move on.&nbsp;</p>"
+              }
+            ],
+            "family": "interactive",
+            "variant": "accordion",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5gmbhg00qm3b78mfj40zh7",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5gmbhh00qs3b78h8z0nboq",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>We recommend instituting the Rule of Three: If something happens once, assume innocent intent. Someone could be oblivious or just having a bad day. If it happens again, assume the same thing. Someone could be in a rush and not have a filter on their speech. But if it happens three times, it&rsquo;s hard to argue that there isn&rsquo;t a pattern developing, and it may warrant a private conversation with the individual.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "alpha": 0.5,
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5gn29q00ro3b782l1o65hk",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clv5gn29q00rp3b78miyiqlyd",
+                "date": "Things to Avoid:",
+                "title": "Over-exaggerating the issue",
+                "description": "<p>Politely correct the behavior and move on. It shouldn&rsquo;t be a showstopper or something the office talks about for days. Try to avoid giving someone an in-depth rebuke in front of other employees. If it warrants further conversation, do it one-on-one away from the rest of the group.</p>"
+              },
+              {
+                "id": "clv5gn29q00rq3b7829mn9c4p",
+                "date": "",
+                "title": "Name-calling. ",
+                "description": "<p>Avoid saying things like, &ldquo;That&rsquo;s a sexist remark,&rdquo; &ldquo;You&rsquo;re behaving like a chauvinist,&rdquo; or &ldquo;Were you raised in a barn?&rdquo;</p>"
+              },
+              {
+                "id": "clv5goga500s33b78n02glwmr",
+                "date": "",
+                "title": "Excusing certain employees/groups based on age, industry etc. ",
+                "description": "<p>For example, ignoring microaggressions from a baby boomer because they grew up in a different time or implementing gender-neutral policies at the corporate headquarters, but not the trucking division because there aren&rsquo;t that many females.</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "timeline",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5gpat800tk3b78obzsdpp8",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5gpat800tq3b78x8tpiz9l",
+                "heading": "<p><strong>Two-Way Street</strong></p>",
+                "paragraph": "<div data-editor-id=\"08b3f3c0-37ea-448a-842e-fb629132a966\"><p><em>Now, aren’t you taking it a little too far?</em>, you may be thinking. In a word, <em>no</em>. A culture war on microaggressions in the workplace has to be just that—for the whole workplace and all genders. It doesn’t matter if “no one in the room was offended.” They weren’t this time, but someone could be next time. And one microaggression or bias usually leads to another.</p><p>Remember, microaggressions go both ways! Women don’t want to be volunteered to clean out the office refrigerator because they’re women any more than men want to stand out in a 90-degree parking lot directing traffic at a corporate event just because they’re men. Women don’t want to always write on the whiteboard because “their handwriting probably looks better” any more than men want to always speak in public “because their voice is louder and can be heard better.” Hire a cleaning service. Get a microphone.</p><p>There are always ways to be more gender-neutral than you think.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzk46c9a002b3b7dw1xx2mqo",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clzk46c9b002d3b7dip6fu7ru",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k/4QAs_MGP6AFsUiHl-WIL_PatQuote-1.png",
+                    "type": "image",
+                    "crushedKey": "WIL_PatQuote-1.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 497
+                    },
+                    "originalUrl": "WIL_PatQuote-1.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02r0dw3014a3b7c64cz7w7j",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm02r0dwa014b3b7csvaek9up",
+                "paragraph": "<p><strong>Handling Microaggressions: Sort the cards below into their correct categories.</strong></p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02qzwxv013d3b7cyx2c5z54",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm02qzwxv013e3b7coq53w94m",
+                "title": "Over-exaggerate the issue",
+                "pileId": 1
+              },
+              {
+                "id": "cm02qzwxv013f3b7c5nea8zcr",
+                "title": "Educate your team on microaggressions.",
+                "pileId": 2
+              },
+              {
+                "id": "cm02r1w4f014u3b7c0z6nkgfm",
+                "title": "Assume innocent intent",
+                "pileId": 2
+              },
+              {
+                "id": "cm02r2oej014w3b7ckdez0ykq",
+                "title": "Name-call the agressor",
+                "pileId": 1
+              },
+              {
+                "id": "cm02r30g9014y3b7c5fwaohys",
+                "title": "Excuse the behavior",
+                "pileId": 1
+              },
+              {
+                "id": "cm02r3hg101503b7cc559vk9o",
+                "title": "Identify the behavior and then move on",
+                "pileId": 2,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Avoid"
+              },
+              {
+                "id": 2,
+                "title": "Do"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3caacgu00kh3b7a0vqda309",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3caacgv00ki3b7ah9r3u6cz",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T15:08:13.943Z",
+        "updatedAt": "2024-11-11T00:27:14.314Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Handling Microaggressions"
+      },
+      {
+        "id": "j3g7OAApKENAttEG-yXmO__ItdyZEwhR",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm05lqial000s3b7cyhvywodh",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What is an important step in addressing microaggressions?</p>",
+            "answers": [
+              {
+                "id": "cm05lqial000t3b7cb874o8kg",
+                "title": "<p>Making sure the Discrimination section in the handbook is compliant</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05lqial000u3b7cccxfjkx6",
+                "title": "<p>Avoiding conflict at all costs</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05mvno8002f3b7cglzwe805",
+                "title": "<p>Incorporating fair hiring practices</p>"
+              },
+              {
+                "id": "cm05mwa61002h3b7ctoll47q5",
+                "title": "<p>Educating your team on what microaggressions are</p>"
+              }
+            ],
+            "correct": "cm05mwa61002h3b7ctoll47q5",
+            "corrects": [
+              "cm05lqial000t3b7cb874o8kg"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05lqial000v3b7cg2edu3j6",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>With regard to microaggressions, which of these is something to avoid?</p>",
+            "answers": [
+              {
+                "id": "cm05lqial000w3b7ckqe0et53",
+                "title": "<p>Excusing employee groups based on age/industry</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05lqial000y3b7ce8p4rybe",
+                "title": "<p>Having a conversation with repeat offenders</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05lqial000z3b7ck5m5nbid",
+                "title": "<p>Commenting on microaggressions in real time </p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05lqial000x3b7cwf1vyf6o",
+                "title": "<p>Asking employees to practice gender-neutral language</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm05lqial000w3b7ckqe0et53",
+            "corrects": [
+              "cm05lqial000w3b7ckqe0et53",
+              "cm05lqial000x3b7cwf1vyf6o"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05mylmn002l3b7cnbev0khx",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>As mentioned in this lesson, what is the &ldquo;Rule of Three?&rdquo;</p>",
+            "answers": [
+              {
+                "id": "cm05mylmo002m3b7c78s6051t",
+                "title": "<p>Each occurrence needs three witnesses.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05mylmo002n3b7c5qrvbvxq",
+                "title": "<p>If something has happened three times, it may indicate a pattern.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05myln8002o3b7cc0fnilkp",
+                "title": "<p>Don&rsquo;t say anything unless it&rsquo;s happened three times.</p>"
+              },
+              {
+                "id": "cm05mzckv002q3b7cdyibrvk1",
+                "title": "<p>None of the above.</p>"
+              }
+            ],
+            "correct": "cm05mylmo002n3b7c5qrvbvxq",
+            "corrects": [
+              "cm05mylmo002m3b7c78s6051t"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-22T18:13:25.618Z",
+        "updatedAt": "2024-10-17T21:00:43.127Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 6,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "m-xBUUav2k9AgXZrUj417ri2X4TV6IOH",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+        "title": "Exercise",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5grz8a00uv3b78348tsffl",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5grz8a00v13b78a0pouldq",
+                "heading": "<p style=\"text-align: center;\">Microaggression or Macroaggression?</p>",
+                "paragraph": "<p style=\"text-align: center;\">Which of the following is an example of a microaggression vs. a macroaggression?</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02r7lbz01a23b7cbem1fldz",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm02r8cvr01ak3b7cv2ktbok0",
+                "title": "Giving male leaders higher quality sales accounts than their female counterpart",
+                "pileId": 1
+              },
+              {
+                "id": "cm02ra9kh01ao3b7c011t02ml",
+                "title": "Making comments about the attractiveness of a female coworker’s attire.",
+                "pileId": 1
+              },
+              {
+                "id": "cm02rbq8o01as3b7cahcnruul",
+                "title": "Denying women traveling with a male leader for inconvenience/expenses",
+                "pileId": 2
+              },
+              {
+                "id": "cm0mq32n6000x3b7c8u1ss1n5",
+                "title": "Installing a men’s locker room on-site for men (only) who want to work out",
+                "pileId": 2
+              },
+              {
+                "id": "cm0mq3eeu000z3b7c9o0ay0ci",
+                "title": "Refusing to hire a qualified female developer because she “wouldn’t fit in”",
+                "pileId": 2
+              },
+              {
+                "id": "cm0mq3mv000113b7c0cekviq0",
+                "title": "Referring to the only female in the room as “honey.”",
+                "pileId": 1
+              },
+              {
+                "id": "cm0mq46oi00133b7c3fyi35yr",
+                "title": "Assuming the woman in the room sitting next to the CFO must be his secretary.",
+                "pileId": 1
+              },
+              {
+                "id": "cm0mq4fhf00153b7ckt58zphb",
+                "title": "A law requiring only male teachers to go through sensitivity and sexual training",
+                "pileId": 2
+              },
+              {
+                "id": "cm0mq4qpp00173b7cohlnjjau",
+                "title": "Repeatedly calling a female doctor “nurse.”",
+                "pileId": 1,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Microaggressions"
+              },
+              {
+                "id": 2,
+                "title": "Macroaggressions"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3caal1000lw3b7aortefwtm",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3caal1000lx3b7amy94ab50",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T15:08:31.568Z",
+        "updatedAt": "2024-11-11T00:27:24.805Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 4,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Exercise"
+      },
+      {
+        "id": "YJGGYpsTq--0lliy2Q6CSuz_ph_j4vzp",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+        "title": "Personal Reflections",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5h1r9e01013b78wurzltg5",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5h1r9l01073b78ndktb6rw",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Refer to your workbook for the following questions and reflections, including an additional exercise, <em>Flip the Script.</em></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5h1s71010n3b78pc0aiu71",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clv5h1s72010o3b78h79muszl",
+                "paragraph": "<p>What microaggressions have you noticed in your workplace or on your team? Are they one-offs, or are any reoccurring?</p>"
+              },
+              {
+                "id": "clv5h1s72010p3b78jz5j3vo8",
+                "paragraph": "<p>How can you take a step in eliminating these?</p>"
+              },
+              {
+                "id": "clv5h1s72010q3b785hotakx9",
+                "paragraph": "<p>Of the three types of microaggressions, which do you feel are the most common in the workplace?<br><span style=\"color: rgb(36, 103, 178); text-decoration: inherit\"><strong>1. Verbal</strong></span><br><span style=\"color: rgb(36, 103, 178); text-decoration: inherit\"><strong>2. Nonverbal</strong></span><br><span style=\"color: rgb(36, 103, 178); text-decoration: inherit\"><strong>3. Institutional</strong></span></p>"
+              },
+              {
+                "id": "clv5h2yja01133b78m7zsyt1g",
+                "paragraph": "<p>If you are female, which microaggressions have affected you the most personally?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv5h4bvl01143b78pgugyrwf",
+                "paragraph": "<p>What are some microaggressions you&rsquo;ve noticed toward the men on your team?</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5h4tmh01153b78j51otuow",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5h4tmi011b3b78obdth26q",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Sources used for this course:</p><p>Unless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York.</p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3caat1400nt3b7a9n7xggun",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3caat1400nu3b7a31w942o5",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T15:08:48.233Z",
+        "updatedAt": "2024-11-11T00:27:35.931Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 5,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Personal Reflections"
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2024-04-04T16:17:06.882Z",
+    "updatedAt": "2024-11-11T00:27:35.931Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Championing Women in Leadership - The Glass Cubicle",
+      "format": "zip",
+      "quizId": "j3g7OAApKENAttEG-yXmO__ItdyZEwhR",
+      "target": "scorm12",
+      "shareId": "oPN4AKS6DoRZAi-fLkHXB0s8SxgIp8Iz",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "completionPercentage": 100
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": null,
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": false,
+      "allowSearch": true,
+      "colorAccent": "#4267a9",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "ACCENT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "SPLIT_LEFT_IMAGE",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "TINT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": true,
+      "buttonNavigationStyle": "FLOATING",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "defaultLocaleId": null,
+    "description_vNext": "",
+    "title_vNext": "Championing Women in Leadership - The Glass Cubicle",
+    "features": {
+      "rise-a-11-y-img-gallery-carousel": true,
+      "rise-block-controls-phase-three": true,
+      "rise-course-navigation": true,
+      "rise-img-dimensions": true,
+      "rise-img-zoom": true,
+      "rise-lazy-load-imgs": true,
+      "rise-scenario-a-11-y": true,
+      "rise-timed-quizzes": true
+    },
+    "authors": [
+      {
+        "id": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "authorName": "Brittni Herron"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      }
+    ],
+    "bodyTypeface": "Montserrat",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "mondrian": {}
+  },
+  "labelSet": {
+    "id": "YSzfDyNB2NBkeg1ZTnLw_nmm",
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryStartOver": "Start Over",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY",
+      "tabGroup": "Tab",
+      "codeGroup": "Code",
+      "noteGroup": "Note",
+      "quoteGroup": "Quote",
+      "buttonGroup": "Button",
+      "courseDetails": "DETAILS",
+      "feedbackGroup": "Feedback",
+      "accordionGroup": "Accordion",
+      "statementGroup": "Statement",
+      "storylineGroup": "Storyline",
+      "attachmentGroup": "File Attachment",
+      "embedPhotoGroup": "Embedded photo",
+      "embedVideoGroup": "Embedded video",
+      "audioPlayerGroup": "Audio player",
+      "buttonStackGroup": "Button stack",
+      "textOnImageGroup": "Text on image",
+      "timelineLandmark": "Timeline",
+      "urlEmbedLandmark": "URL/Embed",
+      "videoPlayerGroup": "Video player",
+      "bulletedListGroup": "Bulleted list",
+      "checkboxListGroup": "Checkbox list",
+      "imageAndTextGroup": "Image and text",
+      "imageGalleryGroup": "Image gallery",
+      "numberedListGroup": "Numbered list",
+      "flashcardBackLabel": "Flashcard back",
+      "flashcardGridGroup": "Flashcard grid",
+      "nextFlashCardLabel": "Next flashcard",
+      "flashcardFrontLabel": "Flashcard front",
+      "flashcardStackGroup": "Flashcard stack",
+      "knowledgeCheckGroup": "Knowledge check",
+      "hamburgerButtonLabel": "Course Overview Sidebar",
+      "lessonContentLandmark": "Lesson Content",
+      "lessonSidebarLandmark": "Lesson Sidebar",
+      "labeledGraphicLandmark": "Labeled Graphic",
+      "previousFlashCardLabel": "Previous flashcard",
+      "timelineCardGroupPrefix": "Timeline Card",
+      "labeledGraphicBubbleLabel": "Labeled graphic bubble",
+      "labeledGraphicNextMarkerLabel": "Next marker",
+      "labeledGraphicPreviousMarkerLabel": "Previous marker"
+    },
+    "deleted": false,
+    "createdAt": "2023-12-28T17:20:20.171Z",
+    "updatedAt": "2023-12-28T17:20:20.171Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    }
+  ],
+  "media": []
+}

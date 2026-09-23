@@ -1,0 +1,1616 @@
+{
+  "course": {
+    "id": "at-Pscpoy07NkOs1lg6y1_O1m204dzPy",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "jAI02mNn9ttV17ZslWs5FSxcondGB4N3",
+    "copyOf": "kkL6K5qp0jiGbvuVyWTX57oZyGOK4_n_",
+    "order": "1756508089473",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/at-Pscpoy07NkOs1lg6y1_O1m204dzPy/Fy2VnlL2M4yxigJJ-PoT_Thumbnails_Leader_Course%252011.png",
+          "crushedKey": "lpAiEBCpQUBz4jTn.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Course 11.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "at-Pscpoy07NkOs1lg6y1_O1m204dzPy",
+        "createdAt": "2025-01-28T20:44:33.894Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "AFo0gpGDX2B7JJaoQ6jp-VnvnlGCnpci",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "How to Be a Leader No One Will Want to Leave",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T16:18:08.016Z",
+        "items": [
+          {
+            "id": "cm6o16yr200023b782ij04huw",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6o16yr200033b78z9hg6s8p",
+                "media": {
+                  "video": {
+                    "key": "v4_pot_nikki_fargas_how_to_be_a_leader_no_one_wants_to_leave%20%281080p%29.mp4",
+                    "url": "transcoded-KDG4YBtjWra2QSIq-v4_pot_nikki_fargas_how_to_be_a_leader_no_one_wants_to_leave%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_pot_nikki_fargas_how_to_be_a_leader_no_one_wants_to_leave%20%281080p%29.jpg",
+                    "duration": 180,
+                    "inputKey": "rise/courses/at-Pscpoy07NkOs1lg6y1_O1m204dzPy/KDG4YBtjWra2QSIq-v4_pot_nikki_fargas_how_to_be_a_leader_no_one_wants_to_leave%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/at-Pscpoy07NkOs1lg6y1_O1m204dzPy/transcoded-KDG4YBtjWra2QSIq-v4_pot_nikki_fargas_how_to_be_a_leader_no_one_wants_to_leave%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_pot_nikki_fargas_how_to_be_a_leader_no_one_wants_to_leave (1080p).mp4",
+                    "transcodeId": "1743560610892-pwt3th"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar1uo0c001r3b7849qm24p5",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar1uo0c001s3b78c6ofaai9",
+                "paragraph": "<div data-editor-id=\"c37e6373-d0a0-4d99-a800-2eb55515605b\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6o172wl000j3b78xfrz2833",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6o172wl000k3b78luddrxbj",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%2011%20How%20to%20Be%20a%20Leader%20No%20One%20Will%20Want%20to%20Leave.pdf",
+                    "size": 254816,
+                    "type": "attachment",
+                    "filename": "2JYsTVYoAdp0cMGS-Lesson%2011%20How%20to%20Be%20a%20Leader%20No%20One%20Will%20Want%20to%20Leave.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 11 How to Be a Leader No One Will Want to Leave.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6o175js00103b78mcken4n7",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6o175jt00163b78juwapvnq",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"b0c34842-4610-4270-b844-233c5929cbaa\"><p><span style=\"font-size: 1.7rem\">Author John Maxwell once said, “People don’t leave companies. They leave leaders.”</span></p><p><span style=\"font-size: 1.7rem\">So how do you become a leader no one will want to leave?</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6o17rr5001r3b78kmlbjw1s",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6o17rr5001s3b78jig0cx6d",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "at-Pscpoy07NkOs1lg6y1_O1m204dzPy",
+        "createdAt": "2025-01-28T20:44:38.192Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "x1pgze3bOaFFK7lOHAtRO6FnW1v8j7en",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Building Trust",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-12T12:38:57.552Z",
+        "items": [
+          {
+            "id": "cmar1ve2w00433b789org75l5",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar1ve2w00443b78q10gz93m",
+                "paragraph": "<div data-editor-id=\"8637e580-2d8b-4a68-a076-a7e83599f004\"><p><span style=\"font-size: 1.5rem\"><em>Scroll through to complete this element.</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 2,
+              "accentColor": null,
+              "quotesInline": false,
+              "isCustomColor": true,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "customPaddingTop": 2,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          },
+          {
+            "id": "cm6o18r7000293b78igteq9q1",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6o18r71002a3b78cndfwkjb",
+                "type": "intro",
+                "title": "How to Build Trust",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"c57e9494-0a61-4865-acd5-a913b3f4d92c\"><p style=\"text-align: left\"><span style=\"font-size: 1.7rem\">When it comes to loyalty, the first thing a leader can do is create a culture of trust.&nbsp;</span></p><p style=\"text-align: left\"><span style=\"font-size: 1.7rem\">There are five basic principles to creating a culture of trust:</span></p><ol type=\"1\"><li><p style=\"text-align: left\"><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Trust is automatically assumed.</strong></span></span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Team members are defended.</strong></span></span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Team members are allowed to do their jobs.</strong></span></span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Team members are allowed to give feedback.</strong></span></span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Good stewards are rewarded.</strong></span></span></p></li></ol><p style=\"text-align: left\"><span style=\"font-size: 1.7rem\">&nbsp;Let’s look at each of these in a little more detail.</span></p></div>"
+              },
+              {
+                "id": "cm6o18r71002b3b787rvow37j",
+                "type": "summary",
+                "title": "Conclusion",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"301d6ae3-57c9-4a0f-9d86-c0e25968ab40\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\"><span style=\"color: black\">By putting these principles into action, you too can be a leader no one will ever want to leave.</span></span></span></p></div>"
+              },
+              {
+                "id": "cm6o18r71002c3b78upjepzdg",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/at-Pscpoy07NkOs1lg6y1_O1m204dzPy/4AeXXR1J1fbL9Pkz-AdobeStock_296510962.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_296510962.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 647
+                    },
+                    "trackingId": "cm6o18r7000293b78igteq9q1",
+                    "originalUrl": "AdobeStock_296510962.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Trust is automatically assumed.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"81f0ca40-a139-49ce-94b5-75cfe7b33915\"><p><span style=\"font-size: 1.7rem\">Assuming you’re hiring adults over the age of 21, everyone who works for your company is essentially an adult. And not just any adult — an adult with a sought-after skill. Otherwise, they wouldn’t be working at your great organization, right? You’d be surprised at how often leaders fail to recognize this, treating employees like they’re teenagers looking for any excuse to misbehave when the boss turns their head. Team members pick up on a vibe of management distrust quicker than almost anything. Most of the time they don’t have to imagine it — it’s outlined in a dense set of departmental rules aimed at the lowest common denominator.</span></p><p><span style=\"font-size: 1.7rem\">This distrust is the first layer of loyalty that threatens to unravel. Ask any employee and they’ll tell you it’s hard to be loyal to an organization that doesn’t trust you to be on time, avoid gossip, work throughout the workday, communicate clearly, adhere to deadlines, etc. Truth be told, you may have 20 highly skilled, high-functioning employees, and two that you… well, have to keep an eye on. But we humbly recommend dealing with discipline violations or performance pitfalls individually, not with blanket policy or a culture of intense scrutiny. A certain amount of trust should be assumed upon hire, not “earned.”</span></p></div>"
+              },
+              {
+                "id": "cm6o18r71002d3b787kaxgmcd",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/at-Pscpoy07NkOs1lg6y1_O1m204dzPy/n1sFJJEIwXZxDHkd-AdobeStock_206997611.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_206997611.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1292
+                    },
+                    "trackingId": "cm6o18r7000293b78igteq9q1",
+                    "originalUrl": "AdobeStock_206997611.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Team members are defended.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"a2a07f99-fdbd-45b0-bfc4-4c31a3e11a73\"><p><span style=\"font-size: 1.7rem\">Part of being loyal to people is defending them in public and disciplining them in private. Any parent with children has probably seen this principle play out over and over. It’s no different in a work family. When a team member makes a visible mistake, are they chastised publicly for it? If someone criticizes one of your employees, are you quick to join in, or do you defend the team member? Even the most loyal team member will waver if they learn they will be publicly crucified when they make a mistake. After all, it’s hard to show loyalty to someone who won’t be loyal to you when it counts.</span></p></div>"
+              },
+              {
+                "id": "cm6o1c3qm002y3b78be6j4y42",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/at-Pscpoy07NkOs1lg6y1_O1m204dzPy/RN6dyULLjJDzQwmo-AdobeStock_344477813.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_344477813.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "cm6o18r7000293b78igteq9q1",
+                    "originalUrl": "AdobeStock_344477813.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Team members are allowed to do their job.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"7467e0ba-90b2-438d-a3f0-6bb33d3a3a72\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">We talked about this briefly in the previous lesson, but it’s worth stating again. Pat advised, “If you are both strong and selective, if you seek out quality people and convince them to be loyal to your organization, then you will succeed, and you will eliminate a lot of trouble, mistakes and wasted energy along the way. But you must be willing to acknowledge their talents and let them do their jobs.”</span><sup>1</sup></span></p></div>",
+                "isNewlyInserted": true
+              },
+              {
+                "id": "cm6o1av2z002u3b78vwc2fdp6",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/at-Pscpoy07NkOs1lg6y1_O1m204dzPy/QE-VmAVGKdLMyFUs-AdobeStock_1090975404.png",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_1090975404.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1127
+                    },
+                    "trackingId": "cm6o18r7000293b78igteq9q1",
+                    "originalUrl": "AdobeStock_1090975404.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Team members are allowed to give feedback.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"d56f32d8-81f4-4d61-94e2-9d4235e54935\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">A lack of feedback always keeps a relationship one-sided. It takes a certain level of maturity and trust to be prepared for whatever that feedback might be. But the highest-functioning teams have a high level of trust that allows for feedback to be given when necessary </span>— <span style=\"color: black; text-decoration: inherit\">for the overall good of the team or organization.</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Pat </span>put it this way:<span style=\"color: black; text-decoration: inherit\"> “When I say surround yourself with loyal people, I don’t mean ‘yes people.’ I want to make that clear. In fact, it’s a crucial distinction… You have to allow for differences and entertain the opinions of others, without accusing them of disloyalty.”</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">“People who say yes to you all the time are, in my opinion, insulting you. They assume you are either too immature or unstable or egotistical to handle the truth,” she said.</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Employees must have a safe place to </span>voice their concerns and give feedback<span style=\"color: black; text-decoration: inherit\"> </span>so they<span style=\"color: black; text-decoration: inherit\"> feel like they’re part of a </span>team<span style=\"color: black; text-decoration: inherit\">. </span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Note</strong>: A key distinction here is “feedback,” not “complaints.” Assuming the feedback is constructive and given in the right spirit, never criticize an employee for giving feedback when it’s been encouraged or solicited.</span></span></p></div>"
+              },
+              {
+                "id": "cm6o1bq0j002w3b789ffjrhk4",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/at-Pscpoy07NkOs1lg6y1_O1m204dzPy/nmq7ezwmzjL0wPOZ-AdobeStock_444789172.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_444789172.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "cm6o18r7000293b78igteq9q1",
+                    "originalUrl": "AdobeStock_444789172.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Good stewards are rewarded.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"92c62fd3-9962-49ea-9f11-81446f9342fe\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Nothing increases loyalty like rewarding competent people for a job well done. When team members see a direct relationship between work and reward, it makes them more motivated and more loyal to an organization.</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">With a little intentionality, you can use the steps above to help lay a foundation of trust as</span> a<span style=\"color: black; text-decoration: inherit\"> leader. Think back on the best leaders you’ve had over the course of your own career. What made them so great? Most likely, the common denominator was that you felt like they trusted you. They earned your loyalty by first giving you trust and/or loyalty in return.</span></span></p></div>"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 0,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "showStepLabel": false,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6o1e8rt003w3b78fbd0es4y",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6o1e8ru003x3b78gzz70kr6",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "at-Pscpoy07NkOs1lg6y1_O1m204dzPy",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"32c88bf5-c0af-4d10-aee3-dc0038bf47c1\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "_fhkqBhp559jyODfg1VozCr4iaqAzOwD",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T19:05:14.015Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"83099920-f6ad-4054-a4e8-d0df159701d7\"><p><span style=\"font-size: 1.6rem\">When it comes to loyalty, which is a part of principle #1, “Trust is automatically assumed”?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"4b2472ac-f104-40d1-bdfe-a923a7225fe0\"><p>Trust should be earned, not assumed upon hire</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"1be37f73-899b-401e-a582-32a0bb54a907\"><p>Micromanaging everyone equally to keep work up to standards</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6o1emlw004g3b78i33xuiv6",
+                "title": "<div data-editor-id=\"9a30594a-0b07-4e25-b06f-7a4e557629f3\"><p>Making sure discipline standards are strict, to ensure low-performers level up their game.</p></div>"
+              },
+              {
+                "id": "cm6o1faj5004i3b78y66w6c5f",
+                "title": "<div data-editor-id=\"ca401e64-9ae7-4f25-ae10-b1e1656f5a93\"><p><span style=\"color: #000000; text-decoration: inherit\">None of the above</span></p></div>"
+              }
+            ],
+            "correct": "cm6o1faj5004i3b78y66w6c5f",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6gvw2f400wg3b798oenzg94",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"a1a23c28-eba1-46de-9d25-9c1ed17185da\"><p><span style=\"font-size: 1.6rem\">Which are a part of the basic principles of trust, as mentioned in this lesson? (check any that apply)</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"124cf4f1-e17a-49f5-ad91-4e473394739c\"><p><span style=\"color: #000000; text-decoration: inherit\">Team members are defended.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"b2bf4217-907e-471f-9ccc-a2403ef09cac\"><p><span style=\"color: black; text-decoration: inherit\">Team members are highly scrutinized.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"ca453556-3602-4b3c-9c82-6b3e82a7727c\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: #000000; text-decoration: inherit\">Team members are allowed to do their jobs.</span></span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"d8319feb-974d-4a0d-bdbb-643981b07a44\"><p><span style=\"color: black; text-decoration: inherit\">Team members are disciplined swiftly.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6o1ftm0004l3b78cqiy4c44",
+                "title": "<div data-editor-id=\"2f1faed7-59b1-43cb-b2c8-0aad3aee583d\"><p><span style=\"color: #000000; text-decoration: inherit\">Team members are allowed to give feedback.</span></p></div>"
+              },
+              {
+                "id": "cm6o1ghn6004s3b78futmpsrc",
+                "title": "<div data-editor-id=\"a0656c62-4cae-47c8-9c5c-ff848acbb5f5\"><p><span style=\"color: #000000; text-decoration: inherit\">Good stewards are rewarded<strong>.</strong></span></p></div>"
+              },
+              {
+                "id": "cm6o1gkuo004v3b7830ini646",
+                "title": "<div data-editor-id=\"aa6b5d37-4899-4dc1-ab09-8eb38ab46411\"><p><span style=\"color: black; text-decoration: inherit\">Hourly activity reports are required.</span></p></div>"
+              }
+            ],
+            "correct": "",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6o1ghn6004s3b78futmpsrc",
+              "cm6o1ftm0004l3b78cqiy4c44",
+              "cm6gvw2f400wk3b79q9mcjkdv"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6o1hdql00503b78qj5oirbo",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"58e04cb1-9ac8-44be-ba28-3848084644ce\"><p><span style=\"font-size: 1.6rem\">Pat once said,<span style=\"color: black; text-decoration: inherit\"> “When I say surround yourself with loyal people, I don’t mean ‘yes people.’ You have to allow for differences and ____________.”</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6o1hdql00513b780x16lc9t",
+                "title": "<div data-editor-id=\"267cf0b6-fab9-4236-8d80-2b80d9fdedd7\"><p><span style=\"color: black; text-decoration: inherit\">Make sure you’re getting only the most qualified advice.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6o1hdql00523b78kz3uasf2",
+                "title": "<div data-editor-id=\"7b6d3eb0-5bd0-40ee-9158-6a7ea07e68d3\"><p><span style=\"color: #000000; text-decoration: inherit\">Entertain the opinions of others, without accusing them of disloyalty.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6o1hdrl00533b78gsvlxz9n",
+                "title": "<div data-editor-id=\"7d29280b-d3d3-4c38-8b15-02c360cbd31a\"><p><span style=\"color: black; text-decoration: inherit\">Insist on positive thinking at all times.</span></p></div>"
+              },
+              {
+                "id": "cm6o1hxu100553b78rd9h7jm6",
+                "title": "<div data-editor-id=\"9400e7ba-c504-4693-837a-c8d8ff9b964d\"><p><span style=\"color: black; text-decoration: inherit\">Have consequences for those who disagree.</span></p></div>"
+              }
+            ],
+            "correct": "cm6o1hdql00523b78kz3uasf2",
+            "corrects": [
+              "cm6o1hdql00513b780x16lc9t"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "at-Pscpoy07NkOs1lg6y1_O1m204dzPy",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "sK3BDigI8hN9_55tMv3qcXcFsRw84GvG",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections & Exercise",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-12T12:40:39.660Z",
+        "items": [
+          {
+            "id": "cme7bhmuu0090357e3gyh8lt0",
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cme7bhmuu0091357et1dl6tfg",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_joan_cronan_tales_from_the_sidelines_a_leader_for_the_ages%20%282160p%29.mp4",
+                    "url": "transcoded-4jBZIDHk5K1JpQLl-v5_pot_joan_cronan_tales_from_the_sidelines_a_leader_for_the_ages%2520(2160p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_joan_cronan_tales_from_the_sidelines_a_leader_for_the_ages%20%282160p%29.jpg",
+                    "duration": 75,
+                    "inputKey": "rise/courses/at-Pscpoy07NkOs1lg6y1_O1m204dzPy/4jBZIDHk5K1JpQLl-v5_pot_joan_cronan_tales_from_the_sidelines_a_leader_for_the_ages%20(2160p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/at-Pscpoy07NkOs1lg6y1_O1m204dzPy/transcoded-4jBZIDHk5K1JpQLl-v5_pot_joan_cronan_tales_from_the_sidelines_a_leader_for_the_ages%2520(2160p).0000000.jpg",
+                    "originalUrl": "v5_pot_joan_cronan_tales_from_the_sidelines_a_leader_for_the_ages (2160p).mp4",
+                    "transcodeId": "1754929179224-ax05kk"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            }
+          },
+          {
+            "id": "cme7bhrzf02ha07ku7ti754pp",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah5vruc004w3b78l47ymo59",
+                "paragraph": "<div data-editor-id=\"eafe165f-2247-46a5-abe6-2de0ab3994dc\"><p><em>(Download the transcript below)</em></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "attachedToNextBlock": false,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cme7bhrx4004j07b3ez9f0w6h",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jisdfy00133b7ay48w3363",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%2011%20A%20Leader%20for%20the%20Ages.pdf",
+                    "size": 224576,
+                    "type": "attachment",
+                    "filename": "4p_QkVR0rKzebCLK-Lesson%2011%20A%20Leader%20for%20the%20Ages.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 11 A Leader for the Ages.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "attachedToNextBlock": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cme8j4pvt009x3j7dheyr78r0",
+            "type": "text",
+            "items": [
+              {
+                "id": "cme8j4pvu009y3j7dh7o828fw",
+                "paragraph": "<div data-editor-id=\"a7ebb41c-c428-498b-a4c5-096290fe66bc\"><p>Refer to your workbook for the reflection questions and exercise below.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "audioPosition": "bottom",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6o1ihuk00613b78ozg51xsf",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6o1ihuk00623b78e16xz2gu",
+                "paragraph": "<div data-editor-id=\"049eb2fb-4e9f-46d4-8888-7beee163eb54\"><p><span style=\"color: black; text-decoration: inherit\">Think back on your own career. Of the five areas of trust mentioned in this lesson, which two do you appreciate the most? Why?</span><br class=\"break-when-trailing\"><br class=\"break-when-trailing\"><span style=\"color: black; text-decoration: inherit\">Which one has been the hardest to come by at previous or current employers? Why do you think this is?</span></p></div>"
+              },
+              {
+                "id": "cm6o1ihuk00633b781wtkjp18",
+                "paragraph": "<div data-editor-id=\"95b5ab0a-b740-4195-a848-b73945c931e6\"><p><span style=\"color: black; text-decoration: inherit\">Which do <em>you</em> struggle with most?</span></p></div>"
+              },
+              {
+                "id": "cm9xla96t00663b79r0ios2us",
+                "paragraph": "<div data-editor-id=\"d3733204-585c-40d5-8f90-1c9331d003c7\"><p><span style=\"color: black; text-decoration: inherit\">On a scale of 1</span><span style=\"color: windowtext; text-decoration: inherit\"> to </span><span style=\"color: black; text-decoration: inherit\">10, rate yourself and/or your department in the five core areas of trust. Be honest.</span><br class=\"break-when-trailing\">Trust is automatically assumed: __________________</p><p style=\"margin-left: 0.05rem\">Team members are defended: __________________</p><p style=\"margin-left: 0.05rem\">Team members are allowed to do their jobs: __________________</p><p style=\"margin-left: 0.05rem\">Team members are allowed to give feedback: __________________</p><p style=\"margin-left: 0.05rem\">Good stewards are rewarded: __________________</p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6o1ij08006m3b78jwxsth3s",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6o1ij08006s3b78u3k9tpcz",
+                "heading": "<div data-editor-id=\"1bd97ac7-795a-4518-9739-9e411b91604f\"><p><span style=\"font-size: 2rem\"><strong>Exercise</strong></span></p></div>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar1wu6j00a63b78r2yrcvcg",
+            "type": "list",
+            "items": [
+              {
+                "id": "cmar1wu6j00a73b78ru8a0ran",
+                "paragraph": "<div data-editor-id=\"f8fded27-5ca6-4e12-8a00-8bffc429a765\"><p><span style=\"color: black; text-decoration: inherit\">What are two practical things you can do this month to improve in one of the areas?</span></p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 5,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 5,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6o1lboa008r3b78vsm48p91",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6o1lboa008s3b78ejtpq7uf",
+                "paragraph": "<div data-editor-id=\"753eab20-9134-4685-9481-f72984c69a32\"><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Sources:</strong></span></span></p><ol type=\"1\"><li><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from, <em>Reach for the Summitt</em>, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998.</span></span></p></li></ol></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar1xn2200bi3b781syldy5p",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmar1xn2200bj3b78yprt0ur7",
+                "type": "exit-course",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"194332b8-0ca4-45c6-8633-5ae13a89748b\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": "exit-course"
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:30:31.765Z",
+    "updatedAt": "2025-08-29T22:54:49.473Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Course 11: How to Be a Leader No One Will Want to Leave",
+      "format": "zip",
+      "quizId": "_fhkqBhp559jyODfg1VozCr4iaqAzOwD",
+      "target": "scorm12",
+      "shareId": "jAI02mNn9ttV17ZslWs5FSxcondGB4N3",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "at-Pscpoy07NkOs1lg6y1_O1m204dzPy_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": true,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:30:46.770Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "",
+    "title": "Course 11: How to Be a Leader No One Will Want to Leave",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": true
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}

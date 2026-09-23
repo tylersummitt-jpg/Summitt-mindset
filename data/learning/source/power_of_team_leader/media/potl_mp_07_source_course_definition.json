@@ -1,0 +1,3687 @@
+{
+  "course": {
+    "id": "tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "H0R3HoPD25WJYOvVssdGJdcfsaT9Lc6k",
+    "copyOf": "fgX7m6YQci7UBDD5K9wZYqXORdrXWSRb",
+    "order": "1757358121387",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/0gOUZbqEM5onr_aC-PoT_Thumbnails_Leader_Course%25206.png",
+          "crushedKey": "A5tPcns-pxpl_rmd.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Course 6.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs",
+        "createdAt": "2025-01-28T20:35:49.609Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "QthKKnGHBZgF8etUoAFtdYToNnXq-kp1",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Fairways and Forest Fires",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-22T21:52:37.135Z",
+        "items": [
+          {
+            "id": "cm6nsprk9000q3b78gixoqz7c",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nsprka000r3b78nd7wcegc",
+                "media": {
+                  "video": {
+                    "key": "v4_pot_michelle_marciniak_fairways_and_forest_fires_clip_03%20%281080p%29.mp4",
+                    "url": "transcoded-wzBA2yG0eH460lif-v4_pot_michelle_marciniak_fairways_and_forest_fires_clip_03%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_pot_michelle_marciniak_fairways_and_forest_fires_clip_03%20%281080p%29.jpg",
+                    "duration": 221,
+                    "inputKey": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/wzBA2yG0eH460lif-v4_pot_michelle_marciniak_fairways_and_forest_fires_clip_03%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/transcoded-wzBA2yG0eH460lif-v4_pot_michelle_marciniak_fairways_and_forest_fires_clip_03%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_pot_michelle_marciniak_fairways_and_forest_fires_clip_03 (1080p).mp4",
+                    "transcodeId": "1754794586376-s1badp"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "4e6e93ab-8e48-497c-8b60-f0805d3e0fde"
+          },
+          {
+            "id": "cmahcfaw200423b78zsmhasux",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahcfaw200433b78kwgqrthp",
+                "paragraph": "<div data-editor-id=\"4e934791-06fc-4762-b3fa-79062d0f4de0\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "28d18cee-0db2-443c-9565-e537c668898a"
+          },
+          {
+            "id": "cm6nspx2o00173b78yb3evdoo",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nspx2o00183b78qa69d8ld",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%206%20Fairways%20and%20Forest%20Fires.pdf",
+                    "size": 233770,
+                    "type": "attachment",
+                    "filename": "-FM7vtrCsCcs7Wmb-Lesson%206%20Fairways%20and%20Forest%20Fires.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 6 Fairways and Forest Fires.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "52465dcc-6bb4-4765-8ab0-ea0e5270dbe5"
+          },
+          {
+            "id": "cm6nsqb5n001o3b78xw7dtr0v",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nsqb5n001u3b78pv54di92",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"7bb2f8a4-0a2c-42a9-8b6e-aeb673840d28\"><p>Now that we understand the importance of overcommunicating, the next step is understanding <em>how </em>to effectively communicate.</p><p><span style=\"color: black; text-decoration: inherit\">“By communicat</span>e<span style=\"color: black; text-decoration: inherit\"> effectively, what I mean is, how can you best command the attention of those you are speaking to?” Pat once said. “Should you employ high decibels or low? Are you talking to your boss or your employee? Would a touch of humor help? Decide what you are trying to accomplish, whether you are trying to motivate, elicit a confession, ask for a raise, or instill confidence. Be clear on what you want to say, and say it in a way that is appropriate to your surroundings. </span><span style=\"font-size: 1.7rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\">Circumstances dictate how you need to speak. You don't holler at a golf tournament. And you don't whisper at a forest fire.</span></span></span><span style=\"color: black; text-decoration: inherit\">”</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "5221244c-136a-4d23-b710-348e5ce7d51b"
+          },
+          {
+            "id": "cm6nst2s4004l3b789ii0f8aw",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nst2s5004o3b788giwn1q0",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/AihZnJtlQXIeLYq6-Pat%2520and%2520player.JPG",
+                    "type": "image",
+                    "crushedKey": "Pat%20and%20player.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1143
+                    },
+                    "originalUrl": "Pat and player.JPG",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"2fea126a-409e-4487-a9dd-5df8aa5b0898\"></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "4cd69321-2ab9-462d-b44c-78a01a2f0ccc"
+          },
+          {
+            "id": "cm6nssw3u00423b78g3jqg07b",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nssw3u00433b78tnz0fcs9",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"f15c6823-bf20-4869-9c92-9379116511ac\"><p><span style=\"color: black; text-decoration: inherit\">Pat believed there are three key components to effective personal communication:</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "32de8123-d66c-43f3-b0ac-238d6283408c"
+          },
+          {
+            "id": "cm6nsr5iz002f3b78mglqb6ip",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6nsr5j0002g3b78dmqsunrh",
+                "paragraph": "<div data-editor-id=\"69085ceb-7f9f-4c78-85fd-0a24105d5999\"><p>Tone</p></div>"
+              },
+              {
+                "id": "cm6nsr5j0002h3b78c01wfpyg",
+                "paragraph": "<div data-editor-id=\"8d8cdb1d-0fd4-4b57-a5c7-3987e5905ae8\"><p>Situation</p></div>"
+              },
+              {
+                "id": "cm6nsr5j0002i3b78xzttxrcb",
+                "paragraph": "<div data-editor-id=\"8e733117-f17b-440d-9c70-5f33a3a5e5b3\"><p>Nonverbal Communication</p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "bulleted",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "680dc4e9-c37a-4216-8355-cd5a9191a4c9"
+          },
+          {
+            "id": "cm6nss7kg003b3b78uv9x7gsj",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nss7kh003h3b78rtgvkse2",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"cf84f215-feed-4d7f-bd3b-e37847091eae\"><p><span style=\"color: black; text-decoration: inherit\">We’ll discuss all three a little more in the next lesson.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "7296f6c4-177b-4fe3-a353-e5f530e74fb7"
+          },
+          {
+            "id": "cm6nspoth00023b78lwj4risx",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6nspoti00033b78lygotp93",
+                "name": "<div data-editor-id=\"8ff607aa-fbc8-41c6-8e35-a8a7d5d40b2d\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: #ffffff; text-decoration: inherit\"><strong><em>— Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"58361346-8bcd-4520-90b4-58b39e46d176\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>I wouldn’t speak to a player in my office the same way I would on the court. Circumstances dictate how you need to speak, or whether you need to just shut up and listen. You don’t holler at a golf tournament. You don’t whisper in a forest fire.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/lnd1Hhhf1oplR-0u-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "0a9eb57e-cdc0-4a13-998e-c120541d102d"
+          },
+          {
+            "id": "cm6nstj6s00563b7856nypf7q",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nstj6s00573b78xe6boxn0",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "8f8bde7e-ba36-4530-9b44-b1d0d9f7ce83"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs",
+        "createdAt": "2025-01-28T20:35:56.022Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "RZS-hU8rdZhQ1mL_OmFHQhcUMFnBuGUZ",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Tone",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-22T21:53:13.085Z",
+        "items": [
+          {
+            "id": "cm6nsuzay005p3b78xghbca9w",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nsuzaz005v3b78094g9dln",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"2fc00987-c053-4632-a59d-8ddf87eb0c88\"><p style=\"text-align: left\"><span style=\"color: black; text-decoration: inherit\">Pat was famous for her authoritative presence on the sidelines but would be the first to clarify that it wasn’t the only communication style she employed as a leader.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "4003ccbc-8672-488f-a8bb-5b186105dfd0"
+          },
+          {
+            "id": "cm6nsv6wr006g3b785ywxxy5b",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nsv6wr006h3b780gggkdti",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/6404ikyM8WP8OKt6-Graduates.December%25202000.Randall%2520%2526%2520Catchings_CROP.png",
+                    "type": "image",
+                    "crushedKey": "Graduates.December%202000.Randall%20%26%20Catchings_CROP.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1229
+                    },
+                    "originalUrl": "Graduates.December 2000.Randall & Catchings_CROP.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"a47f58c6-0f31-44e2-b619-d218191cf2b7\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">“I employ three completely different modes of communication as a coach,” she once said. “Off the court, I am a confidante and substitute mother. In that situation, my chief role is to listen, advise and comfort. In practice, I speak as a teacher who sometimes needs to employ severe methods in order to maintain the attention of the students.”</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "small",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "029ebb34-a26e-4287-9780-299795aa7bc9"
+          },
+          {
+            "id": "cm6nsvufi00713b789k00tkdn",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nsvufj00723b78tr0x4afh",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/asNqJCD0I-cQrUII-Pat%2520intense_CROP.png",
+                    "type": "image",
+                    "crushedKey": "Pat%20intense_CROP.jpg",
+                    "dimensions": {
+                      "originalWidth": 1171,
+                      "originalHeight": 843
+                    },
+                    "originalUrl": "Pat intense_CROP.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"6f54322c-c407-4ae4-a03c-e03bb12985c9\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">“In a game, I issue blunt commands and motivate our players to endure adverse situations. It’s a competitive situation with no time for politeness or misunderstanding. My different tones, taken out of context, would be counterproductive or even downright offensive in any other situation.”</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "small",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "left",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "c1c088ba-b3df-4f50-af25-8740c4dbeb60"
+          },
+          {
+            "id": "cm6nswbq800803b787x11vf9p",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nswbq800863b78gzoodnua",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"3f454265-d4ba-4daf-9761-1ea99df2f2a2\"><p>In the video we just watched, we went over four types of inflection and pitch and how each communicates a different sentiment when used properly:</p><p>Please click each to complete this element.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "4a4d8160-78c2-422e-8882-3ecb39c49d13"
+          },
+          {
+            "id": "cm6nswo9i008r3b782ziaj0l4",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6nswo9i008s3b78ifc1zski",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "88P6Q8/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"0c253763-3d4b-4e1d-a90f-0e25201ab8f1\"><p>Authority</p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "88P6Q8/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"5a9431da-07d4-4eb8-8408-d46f4595ab24\"><p>Loud and slow</p></div>"
+                }
+              },
+              {
+                "id": "cm6nswo9i008t3b78tjyiz9gs",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "88P6Q8/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"d14022be-476a-4c5d-b181-df3d38b120b8\"><p>Enthusiasm</p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "88P6Q8/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"29f4c8c3-0163-4866-88c5-4fdfcf5c99e6\"><p>Loud and fast</p></div>"
+                }
+              },
+              {
+                "id": "cm6nswo9i008u3b784jn5mlbm",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "88P6Q8/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"1a2b7527-8dcb-4d0c-8497-57ba717bb7bb\"><p>Sincerity and empathy</p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "88P6Q8/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"11c25ce0-e42c-489c-8afb-e7c122f11684\"><p>Low and slow</p></div>"
+                }
+              },
+              {
+                "id": "cm6nsxa5h009f3b78p4qsrged",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "88P6Q8/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"3ffe9311-5fc1-4eb6-ae24-e7e348cacbd1\"><p>Anticipation</p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "88P6Q8/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"3b87aba0-f00d-480a-a52e-56e43ce6c31d\"><p>Soft and fast</p></div>"
+                },
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "73d22362-b90d-49b7-87f9-8ccb27e4e815"
+          },
+          {
+            "id": "cm6nsydv0009h3b78mcs6w5zn",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nsydv0009n3b78azjktdhk",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"39d8b165-127b-4625-98ec-572d8f2fa888\"><p><span style=\"color: black; text-decoration: inherit\">Knowing how and when to use different tones appropriately can be the difference between coming off as authoritative or weak, sensitive or insensitive, excited, or unenthusiastic.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "24f87102-c967-4f89-b5db-07910bba283e"
+          },
+          {
+            "id": "cm6nsynyj00a83b788rw483jo",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nsynyj00ae3b78md3duzt1",
+                "heading": "<div data-editor-id=\"50465854-367d-4992-bfe2-587dc286f859\"><p><strong>Exercise</strong></p></div>",
+                "paragraph": "<div data-editor-id=\"1b8f6ae9-d171-4f6f-a277-594b69e696ef\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Match the type of tone or vocal variety with the appropriate emotion or sentiment:</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 1,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 1,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "c429ab8c-f715-42d0-a35e-87b437998d9e"
+          },
+          {
+            "id": "cme6jicml00813j7b7zytl80k",
+            "type": "text",
+            "items": [
+              {
+                "id": "cme6jicmm00823j7bquvv3zyi",
+                "paragraph": "<div data-editor-id=\"9e66f32d-3c03-4d10-9281-cbd674b66341\"><p>Drag and drop the type of tone and pace with the appropriate emotion or sentiment.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "audioPosition": "bottom",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "7400bd35-17cf-4a47-a99f-b05f251b1cdd"
+          },
+          {
+            "id": "cm6nszcfl00az3b78w8nj9y0h",
+            "data": {},
+            "type": "knowledgeCheck",
+            "items": [
+              {
+                "id": "cm6nszcfm00ba3b78wqwetguo",
+                "type": "MATCHING",
+                "title": "<div data-editor-id=\"f7bfbcba-0c83-4fc1-9b11-9b6242e53f06\"><p><span style=\"font-size: 1.5rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><span>Drag and drop the type of tone or vocal variety with the appropriate emotion or sentiment</span></span></span></span><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">:</span></span></p></div>",
+                "answers": [
+                  {
+                    "id": "cm6nszcfm00bb3b78omaf252u",
+                    "title": "Low and slow",
+                    "correct": true,
+                    "matchTitle": "Sincerity"
+                  },
+                  {
+                    "id": "cm6nszcfm00bc3b782kzp6nsi",
+                    "title": "Soft and fast",
+                    "correct": true,
+                    "matchTitle": "Anticipation"
+                  },
+                  {
+                    "id": "cm6nszcfm00bd3b78yyst9tys",
+                    "title": "Loud and slow",
+                    "correct": true,
+                    "matchTitle": "Authority"
+                  },
+                  {
+                    "id": "cm6nt0jcn00bx3b7846djhfic",
+                    "title": "Loud and fast",
+                    "correct": false,
+                    "matchTitle": "Enthusiasm"
+                  }
+                ],
+                "feedback": ""
+              }
+            ],
+            "family": "knowledgeCheck",
+            "variant": "matching",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "requireCorrectAnswer": true,
+              "revealCorrectAnswers": false,
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "b0440a0c-9421-4bee-a9a9-d87c9ac3abbe"
+          },
+          {
+            "id": "cm6nt3dbw00g63b787i6x4zsw",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nt3dbx00g73b78a9us7pqq",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "615664f9-1d57-4be8-8699-4fc2158da76e"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs",
+        "createdAt": "2025-02-02T15:58:56.684Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "3wynGWdub_Mp_rVSbU-N0egeBZ6OYCHu",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 7,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Situation",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-09-08T19:00:16.491Z",
+        "items": [
+          {
+            "id": "cm6nt4j3r00gp3b78ghxkboqn",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nt4j3r00gv3b78c4ef7qt6",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"abf63100-289a-4d26-bab3-5de70b83e537\"><p><span style=\"color: black; text-decoration: inherit\">The second component of personal communication is being able to appropriately assess each unique situation to determine the right level of communication.</span></p><p><span style=\"color: black; text-decoration: inherit\">“Frequently, knowing what to say to someone is all about time and location,” Pat once said. “You don’t always make the right call. There’s a judgment involved. You have to ask yourself, ‘What does this person need today?’ And you have to watch his or her body language.”</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "3d3780c9-01c5-4389-984c-da3164d6ee3b"
+          },
+          {
+            "id": "cm6nt4x7v00hg3b78o6yrbdye",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nt4x7w00hh3b78envaizfi",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_michelle_marciniak_-_remembering_pat_-_pat%27s_communication_style_clip_06%20%281080p%29.mp4",
+                    "url": "transcoded-VA3T-I_FtBaRmNMz-v5_pot_michelle_marciniak_-_remembering_pat_-_pat's_communication_style_clip_06%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_michelle_marciniak_-_remembering_pat_-_pat%27s_communication_style_clip_06%20%281080p%29.jpg",
+                    "duration": 77,
+                    "inputKey": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/VA3T-I_FtBaRmNMz-v5_pot_michelle_marciniak_-_remembering_pat_-_pat's_communication_style_clip_06%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/transcoded-VA3T-I_FtBaRmNMz-v5_pot_michelle_marciniak_-_remembering_pat_-_pat's_communication_style_clip_06%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_michelle_marciniak_-_remembering_pat_-_pat's_communication_style_clip_06 (1080p).mp4",
+                    "transcodeId": "1757357821094-vofune"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "f3596805-43a6-4765-b967-d64be59a8f39"
+          },
+          {
+            "id": "cmahcxnv200pz3b78bxyxf7mx",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahcxnv200q03b784egchqfk",
+                "paragraph": "<div data-editor-id=\"834c8b63-5b20-44bd-bc7b-6be8e99a3fb7\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "6c24d19b-d91d-4966-b194-2e511e4b1b15"
+          },
+          {
+            "id": "cm6nt53wm00hx3b78d7751mcz",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nt53wm00hy3b78vpz3zrjp",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%206%20Pat%E2%80%99s%20Communication%20Style.pdf",
+                    "size": 215434,
+                    "type": "attachment",
+                    "filename": "g_SeHJZaGcbIGFcx-Lesson%206%20Pat%E2%80%99s%20Communication%20Style.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 6 Pat’s Communication Style.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "2be5157b-7da4-403f-9eb9-5eb14471ec23"
+          },
+          {
+            "id": "cm6nt64r100ie3b789wgz6org",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6nt64r100if3b78v6njpij7",
+                "date": "Here are a few elements to consider when it comes to situational communication:",
+                "title": "Context of the Communication",
+                "description": "<div data-editor-id=\"6e623745-7523-413c-9070-4cbda752ebe4\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Understanding the context of a conversation includes not only the physical setting but also the emotional backdrop of the communication.</span></span></p></div>"
+              },
+              {
+                "id": "cm6nt64r100ig3b78xvofm3wb",
+                "date": "",
+                "title": "Knowing Your Audience",
+                "description": "<div data-editor-id=\"2f7d121b-18bc-4397-b4ed-224dcdbc5cec\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Audience awareness is at the heart of situational communication. Different audiences require different approaches, vocabulary, and levels of formality.</span></span></p></div>"
+              },
+              {
+                "id": "cm6nt7acp00iw3b78g91ho9wf",
+                "date": "",
+                "title": "Timing of the Communication",
+                "description": "<div data-editor-id=\"61eb0bc9-d761-48a5-b09f-08311278b6d2\"><p><span style=\"color: black; text-decoration: inherit\">Timing can significantly influence communication effectiveness. Not every moment is ideal for every type of message; situational communicators recognize when to wait and when to act.</span></p></div>"
+              },
+              {
+                "id": "cm6nt7jxm00iy3b78cuuaus5h",
+                "date": "",
+                "title": "Nonverbal Communication",
+                "description": "<div data-editor-id=\"73b12eae-921e-43f9-a954-a5c6304b0fef\"><p><span style=\"color: black; text-decoration: inherit\">Body language, eye contact, posture, gestures and facial expressions—plays an equally important role in situational communication. Research shows that a large portion of human communication is non-verbal, meaning that words alone do not fully capture the message being conveyed. The non-verbal cues of the receiver can also help you gauge how your communication is being received. Are they sitting with their arms crossed? Scowling? etc.</span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "timeline",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "771df2dd-fac6-46e5-abdc-84ca5b48ad4d"
+          },
+          {
+            "id": "cm6nt8rpw00mk3b78usykkyae",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nt8rpw00mq3b78qn01uh2k",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"e47985b1-3393-4c36-9ae9-96b5bbd7cd4a\"><p><span style=\"color: black; text-decoration: inherit\">The point is, context can <em>significantly </em>affect how a message is received.<br class=\"break-when-trailing\"><br class=\"break-when-trailing\">We’ll go over this more in the upcoming lesson.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "6d8e4c2d-c4c7-4111-b985-da0803514396"
+          },
+          {
+            "id": "cm6nt9g8s00nb3b78dv21m1tc",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nt9g8s00nc3b786p826hxp",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "312aeb65-6f8a-4c50-8abb-627d466eff1f"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"a7c487fe-6ce8-49ba-9438-20bd799ca58a\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "odT0d1HixAlUekuxwKatpND_GQBGrwRI",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:40:49.946Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"1d196c46-ba80-41d9-81d4-dea79eed1ed5\"><p><span style=\"font-size: 1.6rem\">Which of these is an example of context, when considering situational communication?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"3e63b3ab-aeee-4349-a90a-d5ff59e33bd9\"><p><span style=\"font-size: 1.6rem\">What has taken place directly before the communication</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"6751c447-6b5c-45e8-9eb0-fe6ac88a0425\"><p><span style=\"font-size: 1.6rem\">What is taking place during the communication</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nt9yqb00nv3b7812xetgnf",
+                "title": "<div data-editor-id=\"869c515f-1487-4291-bc6b-480edf4194cc\"><p><span style=\"font-size: 1.6rem\">What may be taking place after the communication</span></p></div>"
+              },
+              {
+                "id": "cm6ntalgz00nx3b78xq4gdece",
+                "title": "<div data-editor-id=\"b8b32195-1ae0-490b-9bad-66c49be3e4d1\"><p>All of the above</p></div>"
+              }
+            ],
+            "correct": "cm6ntalgz00nx3b78xq4gdece",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": "",
+            "globalBlockId": "00f98ab8-2209-41d4-9933-0968014ab24f"
+          },
+          {
+            "id": "cm6gvw2f400wg3b798oenzg94",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"d2eccc4a-cf3f-4bd0-a848-1d4c76d631b9\"><p><span style=\"font-size: 1.6rem\">Which of these is an example of considering the right timing, when it comes to communication?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"281b411c-742d-4260-b801-2fd5e8cfa7d5\"><p><span style=\"font-size: 1.6rem\">Giving someone bad news right before a stressful meeting</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"9b2b76d3-6bdc-4084-a69d-db8ea6b35d82\"><p><span style=\"font-size: 1.6rem\">Scheduling an important conversation in the middle of a very busy day</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"4e58c523-d465-4dc5-b819-ca733ba18faf\"><p>Giving negative feedback in a public setting</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"7f0ffab3-7255-4940-b261-fdfee5c5a41d\"><p>None of the above</p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wi3b79oh3jujac",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": "",
+            "globalBlockId": "bf66b87e-961d-4da8-9875-4828c5a8138b"
+          },
+          {
+            "id": "cm6ntbwfa00o63b782kdwfaf0",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"7843f48f-bd75-43e1-9d67-92b69ef2e89a\"><p><span style=\"font-size: 1.6rem\">Research shows that a large part of communication is: _____________.</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6ntbwfa00o73b78dvsfmw25",
+                "title": "<div data-editor-id=\"e7d1e539-92af-4d52-93de-ad819ff11194\"><p>Social</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6ntbwfa00o83b78u4nsrvho",
+                "title": "<div data-editor-id=\"30046c79-68e8-4f6c-ae8c-6e0a71ae66d4\"><p>Verbal</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6ntbwg900o93b78fcmvdjcv",
+                "title": "<div data-editor-id=\"ad750101-8f6d-41f2-a6b0-51e024700584\"><p>Nonverbal</p></div>"
+              },
+              {
+                "id": "cm6ntcgjt00ob3b78qntky4qq",
+                "title": "<div data-editor-id=\"cd25e2fa-2028-49ce-a83d-db2a142eded7\"><p>Cultural</p></div>"
+              }
+            ],
+            "correct": "cm6ntbwg900o93b78fcmvdjcv",
+            "corrects": [
+              "cm6ntbwfa00o73b78dvsfmw25"
+            ],
+            "feedback": "",
+            "globalBlockId": "5d2a2831-cd94-40a2-94c3-205cdb74115e"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs",
+        "createdAt": "2025-01-28T20:36:02.689Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "J_YtisAfeOr1i1StLtBsddIK5i341-nm",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 4,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Nonverbal",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-12T14:51:07.327Z",
+        "items": [
+          {
+            "id": "cme6j84cq00sl3j7a6l92hgul",
+            "type": "text",
+            "items": [
+              {
+                "id": "cme6j84cr00sm3j7asimvi2ck",
+                "paragraph": "<div data-editor-id=\"586ba910-c530-4c03-a07f-02f7085dd863\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><span>Listen to leadership coach Christina Gradillas give practical tips on improving tone and nonverbal communication habits.</span></span></span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "audioPosition": "bottom",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "00d9b7d3-d869-4d3f-83e9-58b847c049cb"
+          },
+          {
+            "id": "cm6ntdb8300oe3b78cspwb7ef",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ntdb8300of3b78ud4fag8c",
+                "media": {
+                  "video": {
+                    "key": "v4_pot_christina_gradillas_-_tone_and_nonverbal_communication_clip_03%20%281080p%29.mp4",
+                    "url": "transcoded-MSJj4pQ63r2NzSBu-v4_pot_christina_gradillas_-_tone_and_nonverbal_communication_clip_03%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_pot_christina_gradillas_-_tone_and_nonverbal_communication_clip_03%20%281080p%29.jpg",
+                    "duration": 423,
+                    "inputKey": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/MSJj4pQ63r2NzSBu-v4_pot_christina_gradillas_-_tone_and_nonverbal_communication_clip_03%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/transcoded-MSJj4pQ63r2NzSBu-v4_pot_christina_gradillas_-_tone_and_nonverbal_communication_clip_03%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_pot_christina_gradillas_-_tone_and_nonverbal_communication_clip_03 (1080p).mp4",
+                    "transcodeId": "1743117870287-wwh6ne"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "42d02dce-26a7-4bdc-b7c5-1b8fab1c5664"
+          },
+          {
+            "id": "cmahd3ot5012b3b78z7fjj1dk",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahd3ot5012c3b78w4mozbe0",
+                "paragraph": "<div data-editor-id=\"b1b5128e-0253-4fa1-99a2-3a3e9aee4dd5\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "6ff08997-ece4-42d2-aaf1-f95ff8f61b14"
+          },
+          {
+            "id": "cm6ntdfd900ov3b78e6k9864u",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ntdfd900ow3b78nfq2vo4g",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%206%20Tone%20and%20Nonverbal%20Communication.pdf",
+                    "size": 268768,
+                    "type": "attachment",
+                    "filename": "BlIsz1KM9CiVzyRY-Lesson%206%20Tone%20and%20Nonverbal%20Communication.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 6 Tone and Nonverbal Communication.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "0192b1c1-057b-41e9-bfab-b29bdb360c10"
+          },
+          {
+            "id": "cme6jasjn00tc3j7axoqqfjt3",
+            "type": "divider",
+            "items": [],
+            "family": "divider",
+            "variant": "divider",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "de6f3b86-f474-4c84-8591-4e01edc3b870"
+          },
+          {
+            "id": "cm6ntdi2900pc3b788sggt5gu",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6ntdi2a00pi3b78ql3nakre",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"9d6aced6-246d-4c82-aa08-6c2d95eac706\"><p><span style=\"color: black; text-decoration: inherit\">Pat once told a story of how the 1977 team had stayed up late one night drinking and partying until 4 a.m. in violation of team policies. When they showed up for practice the next day completely hungover, she debated how to respond. She considered giving them a tongue lashing but thought the better of it. Instead, she put trash cans on the baseline at the corners of the gym and conducted practice for four hours, by the end of which almost every player had vomited into one of the trash cans.</span></p><p><span style=\"color: black; text-decoration: inherit\">Her point was made.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "8d9351b9-166d-4993-a0d9-c79791e21c54"
+          },
+          {
+            "id": "cm6ntdt1500q33b7864t9hi8p",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6ntdt1500q43b784jpq3y35",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/9Zu4qrT5-rznEFmq-Pat%2520the%2520look_CROP.png",
+                    "type": "image",
+                    "crushedKey": "Pat%20the%20look_CROP.jpg",
+                    "dimensions": {
+                      "originalWidth": 1162,
+                      "originalHeight": 1052
+                    },
+                    "originalUrl": "Pat the look_CROP.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"c2be6a84-5189-4da1-854a-78190c5a45e1\"><p><span style=\"color: black; text-decoration: inherit\">“If all you ever do is yell, then you will be heard less and less,” she said. “That’s why sometimes, saying nothing at all can be just as powerful.”</span></p><p><span style=\"color: black; text-decoration: inherit\">One of Pat’s famous mannerisms is the “Summitt Stare” </span>—<span style=\"color: black; text-decoration: inherit\"> a famous glare she often employed on the sidelines. The stare is said to have been so intense that it could make players and officials alike feel nervous or unsettled. Players and opponents knew that when they saw the stare, they were in for a tough game.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "small",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "c8c7c7c0-f086-4a04-a509-5c4ce216b255"
+          },
+          {
+            "id": "cm6nte5au00qo3b78sjfh3x67",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nte5au00qp3b78zsmzadb4",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/_Ccm_QODyGRyn0vn-Pat%2520sideline%2520pointing_CROP.png",
+                    "type": "image",
+                    "crushedKey": "Pat%20sideline%20pointing_CROP.jpg",
+                    "dimensions": {
+                      "originalWidth": 1009,
+                      "originalHeight": 689
+                    },
+                    "originalUrl": "Pat sideline pointing_CROP.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"a2e91b3d-52e6-4852-a85b-aa36803ee1e8\"><p><span style=\"color: black; text-decoration: inherit\">As a coach, Pat knew when to speak</span> <span style=\"color: black; text-decoration: inherit\">and when to be silent. The habit of communicating through body language is one that the best communicators have intentionally worked on over time, choosing which postures, attitude, or gestures to use in which situation </span>so they<span style=\"color: black; text-decoration: inherit\"> convey their message in the most effective way.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "small",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "33f1a4b6-daab-4bb5-9036-2da392502d0e"
+          },
+          {
+            "id": "cm6nteg0y00rf3b78kj6d56r5",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nteg0y00rg3b787tgrfwad",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_michelle_marciniak_tales_from_the_sidelines_the_power_of_eye_contact__clip_06%20%281080p%29.mp4",
+                    "url": "transcoded-LtcUcxe9zViteTWp-v5_pot_michelle_marciniak_tales_from_the_sidelines_the_power_of_eye_contact__clip_06%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_michelle_marciniak_tales_from_the_sidelines_the_power_of_eye_contact__clip_06%20%281080p%29.jpg",
+                    "duration": 82,
+                    "inputKey": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/LtcUcxe9zViteTWp-v5_pot_michelle_marciniak_tales_from_the_sidelines_the_power_of_eye_contact__clip_06%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/transcoded-LtcUcxe9zViteTWp-v5_pot_michelle_marciniak_tales_from_the_sidelines_the_power_of_eye_contact__clip_06%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_michelle_marciniak_tales_from_the_sidelines_the_power_of_eye_contact__clip_06 (1080p).mp4",
+                    "transcodeId": "1754795571556-ooj8c9"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "ec4c2ffd-3fad-49be-91d6-39d4d9e0215c"
+          },
+          {
+            "id": "cm6ntelof00rw3b7868njv3p5",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ntelof00rx3b78inwak8s5",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%206%20The%20Power%20of%20Eye%20Contact.pdf",
+                    "size": 228409,
+                    "type": "attachment",
+                    "filename": "pZaZe2sd5JTrmfHR-Lesson%206%20The%20Power%20of%20Eye%20Contact.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 6 The Power of Eye Contact.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "8a4e228e-cc9b-4529-9cbf-54b10de45c9e"
+          },
+          {
+            "id": "cmahd58ue013t3b78uzum7yew",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahd58ue013u3b78nydv89k8",
+                "paragraph": "<div data-editor-id=\"3baa1189-65b3-4f4b-adda-a6ce1713d512\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "cc0e6f84-6505-42e6-812f-24b39f71e3fb"
+          },
+          {
+            "id": "cm6ntenk300sd3b786o2uxyso",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6ntenk300sj3b78ymfocds7",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"e67d873e-8792-43dd-a9e4-54e00b54563c\"><p><span style=\"color: black; text-decoration: inherit\">In the video above, listen to Michelle Marciniak, CEO of SHEEX and former WNBA player recall Pat’s emphasis on maintaining good eye contact.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "d2a23009-38d1-463d-a177-348c9122d1ee"
+          },
+          {
+            "id": "cm6ntewt500t43b780u9b4an0",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6ntewt600t53b78jjwp43g7",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "c46dccc1-cda3-4441-8856-a573223e4cff"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs",
+        "createdAt": "2025-01-28T20:36:31.038Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"6670a45c-991b-47f8-be3e-27acbb7e0ec4\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "lZBLUCnxCsI1LQ7ztE-6_z3UVN288y40",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "WqPT9m4qtDUi2cnWdBgJAz6pTC-XWY1A",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": false
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:40:57.712Z",
+        "items": [
+          {
+            "id": "I29Z3YS_g-EePxQnPyyNsm4LjGkdy5_F",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"45f6255b-24e2-4215-90c8-71917ca0070f\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">One way to learn good body language is by ________________.</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"447499b0-7b99-475d-927b-20ba9294bac4\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Overcompensating when you’re around new people.</span></span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"72d71ada-8053-424f-8c3a-3e8efe1d4d11\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: #000000; text-decoration: inherit\">Watching others around you.</span></span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6ntfnxq00tv3b781gt5c8ki",
+                "title": "<div data-editor-id=\"9423d578-df87-4a97-b717-314f305a0d36\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Crossing your arms, to avoid nervous gestures.</span></span></p></div>"
+              },
+              {
+                "id": "cm6ntg4oc00tx3b78v6pyynzt",
+                "title": "<div data-editor-id=\"2e398433-5df4-413e-a194-bf5c7addd72c\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Trying not to think about it.</span></span></p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400wf3b79z4rpzttq",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": "",
+            "globalBlockId": "f8d40b07-9e57-4253-9aab-e30e02e4b0de"
+          },
+          {
+            "id": "kgb0lYEDaj18JsklN46-ij203XYJaeQ2",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"5963f4f5-9756-405e-a4d7-de62c8cbddde\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these gestures projects non-verbal confidence? (check any that apply)</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"8be9be3d-0499-4df8-99d3-80c117ce11cd\"><p><span style=\"color: #000000; text-decoration: inherit\">Standing up straight</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"77cde45c-b9f9-49d6-b6a8-5c234a389551\"><p><span style=\"color: #000000; text-decoration: inherit\">A firm handshake</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"10d39e2e-e919-4e09-8eae-d5537d424e18\"><p><span style=\"color: black; text-decoration: inherit\">A loud greeting</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"c36bbfe1-b05a-4b43-a130-ad17d2e8a7ab\"><p><span style=\"color: black; text-decoration: inherit\">Fidgeting with your clothes</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6ntghkd00u03b7873b3luwu",
+                "title": "<div data-editor-id=\"499ca494-3c6d-4cf2-8427-963f58db7236\"><p><span style=\"color: #000000; text-decoration: inherit\">A friendly smile</span></p></div>"
+              },
+              {
+                "id": "cm6nthdlx00u73b78eax35f9s",
+                "title": "<div data-editor-id=\"5d565c9c-17e2-43e8-80df-54e1bcd1d68b\"><p><span style=\"color: black; text-decoration: inherit\">Playing with your hair</span></p></div>"
+              },
+              {
+                "id": "cm6nthh2a00ua3b78xfpqjxkn",
+                "title": "<div data-editor-id=\"2c459876-261c-42d4-ae60-1349a59f6437\"><p><span style=\"color: #000000; text-decoration: inherit\">Good eye contact</span></p></div>"
+              }
+            ],
+            "correct": "",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6ntghkd00u03b7873b3luwu",
+              "cm6gvw2f400wj3b793d4kqpg0",
+              "cm6nthh2a00ua3b78xfpqjxkn"
+            ],
+            "feedback": "",
+            "globalBlockId": "62dbfab5-abfe-44a0-b4dd-c0b7267c66eb"
+          },
+          {
+            "id": "cm6ntid9400uf3b78j9mucup3",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"bbe7a9dd-73ba-4612-a969-d561215d0f09\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these is a good way to improve eye contact? &nbsp;(check any that apply)</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6ntid9400ug3b78x16tuvog",
+                "title": "<div data-editor-id=\"42542fdb-d4cc-46d3-b24d-ad6cc70d7857\"><p><span style=\"color: #000000; text-decoration: inherit\">Make eye contact 50% of the time when speaking and 70% when listening</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6ntid9400uh3b78qgib0fal",
+                "title": "<div data-editor-id=\"4d18a6c5-7163-4316-a6e4-a2c6de6e8951\"><p><span style=\"color: black; text-decoration: inherit\">Don’t blink</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6ntid9z00ui3b78s2bqn0cq",
+                "title": "<div data-editor-id=\"c11bf69b-5fc8-46ad-bfc8-41266a8f9d69\"><p><span style=\"color: #000000; text-decoration: inherit\">Practice noticing the color of people’s eyes</span></p></div>"
+              },
+              {
+                "id": "cm6ntj8ty00un3b78uwp2x633",
+                "title": "<div data-editor-id=\"090af15b-2c47-419e-b3dd-6935fac71f01\"><p><span style=\"color: black; text-decoration: inherit\">Try to wear glasses as little as possible</span></p></div>"
+              },
+              {
+                "id": "cm6ntjeuf00uq3b7894txq551",
+                "title": "<div data-editor-id=\"90c99f21-f71b-4212-8c37-6b96a23da05e\"><p><span style=\"color: #000000; text-decoration: inherit\">If looking at people is too stressful, look at the spot between their eyes, or their nose</span></p></div>"
+              },
+              {
+                "id": "cm6ntjm8900ut3b78y1h1v417",
+                "title": "<div data-editor-id=\"f214cc01-e3b3-453c-80a6-2228122cfe8a\"><p><span style=\"color: black; text-decoration: inherit\">Don’t break eye contact while speaking</span></p></div>"
+              }
+            ],
+            "correct": "cm6ntid9400ug3b78x16tuvog",
+            "corrects": [
+              "cm6ntid9400ug3b78x16tuvog",
+              "cm6ntjeuf00uq3b7894txq551",
+              "cm6ntid9z00ui3b78s2bqn0cq"
+            ],
+            "feedback": "",
+            "globalBlockId": "afacc063-5a84-47a9-b02d-1583825042c0"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs",
+        "createdAt": "2025-01-28T20:36:20.044Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "opsYIJIXAbQZ7gTOY8GBlYxUABTfN0R5",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 5,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Practice Makes Perfect",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T02:43:54.848Z",
+        "items": [
+          {
+            "id": "cm6ntkiey00v03b78tl2cxzmc",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6ntkiez00v63b78c49ajean",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"2e3b232d-8f16-4d7c-9cff-5d686c836353\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Finally, all three of these communication principles </span>—<span style=\"color: black; text-decoration: inherit\"> tone, situation, and nonverbal communication </span>—<span style=\"color: black; text-decoration: inherit\"> take lifelong practice. Your skills will evolve as you do in your role, and new situations will constantly present themselves. You never reach the finish line of perfect communication, but with a little awareness and intentionality, you can make sure you’re prepared to communicate wisely and effectively in any situation.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "9808a89a-f33e-4dd7-b147-ba8923bbb42d"
+          },
+          {
+            "id": "cm6ntkpdf00wf3b78d25v6k6u",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ntkpdf00wg3b78df5b0plh",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_michelle_marciniak_tales_from_the_sidelines_you%27ll_have_to_get_over_that%20%281080p%29.mp4",
+                    "url": "transcoded-Jnc9VCkaVLIJLE7O-v5_pot_michelle_marciniak_tales_from_the_sidelines_you'll_have_to_get_over_that%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_michelle_marciniak_tales_from_the_sidelines_you%27ll_have_to_get_over_that%20%281080p%29.jpg",
+                    "duration": 276,
+                    "inputKey": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/Jnc9VCkaVLIJLE7O-v5_pot_michelle_marciniak_tales_from_the_sidelines_you'll_have_to_get_over_that%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/transcoded-Jnc9VCkaVLIJLE7O-v5_pot_michelle_marciniak_tales_from_the_sidelines_you'll_have_to_get_over_that%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_michelle_marciniak_tales_from_the_sidelines_you'll_have_to_get_over_that (1080p).mp4",
+                    "transcodeId": "1743118497797-hfs3lq"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "cff9784c-affb-44ca-92d3-6aab20475420"
+          },
+          {
+            "id": "cmahd7e09017z3b78434p5pj0",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahd7e0901803b78q823qko7",
+                "paragraph": "<div data-editor-id=\"e4c035e1-3eb8-47d0-8e72-7cf58e1b2b9c\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "8bb3da12-ef3c-4fc6-8b8d-35f9367688b9"
+          },
+          {
+            "id": "cm6ntkv4h00ww3b78b5dbq1t2",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ntkv4h00wx3b787vwuxkkh",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%206%20You%27re%20Going%20to%20Have%20to%20Get%20Over%20That.pdf",
+                    "size": 244141,
+                    "type": "attachment",
+                    "filename": "EmffY-aTRZMWjldh-Lesson%206%20You're%20Going%20to%20Have%20to%20Get%20Over%20That.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 6 You're Going to Have to Get Over That.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "769b964d-e619-4974-ad29-2d120a888714"
+          },
+          {
+            "id": "cm6ntkxp100xd3b7818xd7x5u",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6ntkxp100xj3b78t66y7oxs",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"290a4a13-8086-4db1-9c97-6982ba42d671\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Listen to Michelle Marciniak remember a one-on-one pep talk from Pat on the importance of communication.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "908aec08-4bd7-4068-ae1c-096259cff8d2"
+          },
+          {
+            "id": "cm6ntkn8z00vr3b7873gvifzr",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6ntkn9000vs3b78icjicuxa",
+                "name": "<div data-editor-id=\"9fd87259-46cd-49a4-a6c8-e55e71ac9fcc\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em> — Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"192fff06-52eb-4f7f-86f8-14a5676d0676\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>Each situation requires a different tone. We all know people who yell at every opportunity. They yell in the office, at home, in a restaurant. After a while, we tune them out. Too much of one thing tends to dull your listener’s sensibilities.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/9pv-cOY3n7O2PCZF-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "HXDuRg/Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "6690923c-da7d-4fa8-8d48-d96f56248a42"
+          },
+          {
+            "id": "cm6ntl3gr00y43b78zu6o1ht6",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6ntl3gr00y53b78ejl3v830",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "67328906-f3e9-40bc-b57d-bb59577f7aa6"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "KaBzT7NuwYfZegdwOG6KqiGPhh8ku1k_",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T03:14:44.000Z",
+        "items": [
+          {
+            "id": "cm6ntmlr500yn3b781gob5g7u",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ntmlr600yo3b78yk1uq19v",
+                "media": {
+                  "video": {
+                    "key": "v4_pot_corinne_milien_tales_from_the_sidelines_transparency%20%281080p%29.mp4",
+                    "url": "transcoded-KEXT2N6vr3tKVeX4-v4_pot_corinne_milien_tales_from_the_sidelines_transparency%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_pot_corinne_milien_tales_from_the_sidelines_transparency%20%281080p%29.jpg",
+                    "duration": 76,
+                    "inputKey": "rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/KEXT2N6vr3tKVeX4-v4_pot_corinne_milien_tales_from_the_sidelines_transparency%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs/transcoded-KEXT2N6vr3tKVeX4-v4_pot_corinne_milien_tales_from_the_sidelines_transparency%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_pot_corinne_milien_tales_from_the_sidelines_transparency (1080p).mp4",
+                    "transcodeId": "1743118628829-lk6ehz"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "6dd7fac8-e80d-4533-9e56-f9ebc5f3ba82"
+          },
+          {
+            "id": "cmahd8q3b01dj3b786m3crdte",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahd8q3b01dk3b78x0v13en8",
+                "paragraph": "<div data-editor-id=\"43750e52-bf2b-4e2c-8c4f-8deb80a98d2b\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "1bd88988-7a59-4b69-87f7-2c362a9aa9e3"
+          },
+          {
+            "id": "cm6ntmsgc00z43b78s2i0xnvh",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ntmsgc00z53b780h2v41yz",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%206%20Transparency.pdf",
+                    "size": 220003,
+                    "type": "attachment",
+                    "filename": "tU4wgo8NbA1fWXpr-Lesson%206%20Transparency.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 6 Transparency.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "f0cda022-fafc-423c-b65e-2b8652f986a1"
+          },
+          {
+            "id": "cm6ntn0bv00zl3b78ntc3uz1n",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6ntn0bv00zr3b78uvgq4zq9",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"a01b205b-8a13-4010-8b0b-80dccddf6a1e\"><p>Listen to CEO of WRK Corinne Milien remember one of Pat’s trademarks, authenticity in communication, even around hard topics.</p><p><span style=\"color: black; text-decoration: inherit\">Refer to your workbook for the reflection questions and exercises below.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "73da7b1b-fcf9-4ea2-bcc6-e8db6470dd4b"
+          },
+          {
+            "id": "cm6ntndwh010c3b78daxgl3ar",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6ntndwi010d3b789khe6x8y",
+                "paragraph": "<div data-editor-id=\"ab23fba4-5276-45ce-b81a-3d4eda9b6b07\"><p><span style=\"color: black; text-decoration: inherit\">Pat identified three situations </span>—<span style=\"color: black; text-decoration: inherit\"> off-court, during practice, during a game </span>—<span style=\"color: black; text-decoration: inherit\"> that were a regular part of her weekly routine as a head coach. What three predictable situations do you find yourself in most often in your own role?</span></p></div>"
+              },
+              {
+                "id": "cm6ntndwi010e3b782fwdk8jb",
+                "paragraph": "<div data-editor-id=\"d8e0d266-df92-4e3a-87a2-d50ee9b8a5ce\"><p><span style=\"color: black; text-decoration: inherit\">Of the four vocal quadrants, which do you fit into most naturally?</span><br class=\"break-when-trailing\"><br class=\"break-when-trailing\"><span style=\"color: black; text-decoration: inherit\">Which is the least natural to you?</span></p></div>"
+              },
+              {
+                "id": "cm6ntndwi010f3b78j79y4w4x",
+                "paragraph": "<div data-editor-id=\"2b76f40d-4496-45d1-9eeb-a7aa3981c7b6\"><p><span style=\"color: black; text-decoration: inherit\">How can you work on incorporating at least two of the lesser</span>-<span style=\"color: black; text-decoration: inherit\">used quadrants into your daily routine?</span></p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e7c93019-2ae7-4b62-993c-c270e5a50a6f"
+          },
+          {
+            "id": "cm6ntohhr010x3b78jc001ewh",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6ntohhr01133b78ztrf83tu",
+                "heading": "<div data-editor-id=\"7df28be1-8f02-4dfd-bfee-4707abc6b074\"><p><span style=\"font-size: 2rem\"><strong>Exercises</strong></span></p></div>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "abf5f02e-2bb0-4d10-a3d0-71982c2df0c3"
+          },
+          {
+            "id": "cm6ntp5an011o3b78vgocpqad",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6ntp5an011p3b78qwmnm2rt",
+                "paragraph": "<div data-editor-id=\"f465c097-9b01-429c-9b1b-1a2c40a72fe4\"><p>Of the three key components mentioned in the lesson, which is your greatest strength?</p><p style=\"margin-left: 0.05rem; line-height: 1\"><span style=\"color: black; text-decoration: inherit\">●</span><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">Tone</span></p><p style=\"margin-left: 0.05rem; line-height: 1\"><span style=\"color: black; text-decoration: inherit\">●</span><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">Situation</span></p><p style=\"margin-left: 0.05rem; line-height: 1\"><span style=\"color: black; text-decoration: inherit\">●</span><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">Nonverbal</span> communication</p></div>"
+              },
+              {
+                "id": "cm6ntp5an011q3b78gonegakr",
+                "paragraph": "<div data-editor-id=\"1fdb4148-8a78-48c5-91cd-ffba73be04a8\"><p><span style=\"font-size: 1.7rem\">Which two of the above&nbsp;would you consider yourself weaker in?</span></p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 5,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 5,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "1f735cd8-465d-41fb-b6b2-ac198dd06193"
+          },
+          {
+            "id": "cm9xhp43m01fu3b79j383iuxv",
+            "type": "text",
+            "items": [
+              {
+                "id": "cm9xhp43n01g13b799j1j5atn",
+                "heading": "<strong>Subheading</strong>",
+                "paragraph": "<div data-editor-id=\"a5d7d821-46fc-46d6-9051-0efce3b28a78\"><p><span style=\"color: #F6922D; text-decoration: inherit\"><strong>Take it to the next level:</strong></span><strong> </strong>Ask a colleague you trust for their opinion on the question above. Continue to reflect.</p><p><span style=\"font-size: 1.7rem\">What are three ways you can get better in each of your weaker areas?</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 5,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 5,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 5,
+              "entranceAnimation": true,
+              "customPaddingBottom": 5,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e4e1f7ec-3fb9-4ce2-a0ab-ca89a6bc42d5"
+          },
+          {
+            "id": "cm6ntrj5401363b783t5gdyve",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6ntrj5501373b78me1rhfge",
+                "paragraph": "<div data-editor-id=\"eeb68dbf-5ec8-4e55-9933-a02997d8f16b\"><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Sources:</strong></span></span></p><ol type=\"1\"><li><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from, <em>Reach for the Summitt</em>, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998.</span></span></p></li></ol></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "3ac6cdf7-bdd8-4a7a-a091-dad07de48e85"
+          },
+          {
+            "id": "cmahdao5101gc3b78ympjrarq",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmahdao5101gd3b78el2nqd4s",
+                "type": "exit-course",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"183bc7ff-2415-4c38-8c3e-cf81347063d8\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": "exit-course"
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {},
+            "globalBlockId": "6e4a095e-81cd-4b66-93c4-992003fa6dae"
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:29:32.523Z",
+    "updatedAt": "2025-09-08T19:02:01.387Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Course 6: Fairways and Forest Fires",
+      "format": "zip",
+      "quizId": "odT0d1HixAlUekuxwKatpND_GQBGrwRI",
+      "target": "scorm12",
+      "shareId": "H0R3HoPD25WJYOvVssdGJdcfsaT9Lc6k",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "tEEwVlez2hnSHnWM2ADvrq7YpEQHCEjs_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:32:52.309Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "",
+    "title": "Course 6: Fairways and Forest Fires",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}

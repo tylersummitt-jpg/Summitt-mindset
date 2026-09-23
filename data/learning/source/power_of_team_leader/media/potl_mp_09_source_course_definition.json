@@ -1,0 +1,3173 @@
+{
+  "course": {
+    "id": "b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "fZDY8D-1Ozdjzh2a0mbjcIy7qY45RqT2",
+    "copyOf": "8qR7JyhQRL-LkKufDm2UnxzvsK3IQEho",
+    "order": "1756505947817",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/1Wu_E8EGzDgrTWDD-PoT_Thumbnails_Leader_Course%25208.png",
+          "crushedKey": "FUgKzXa1nAHk_Ta5.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Course 8.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm",
+        "createdAt": "2025-01-28T20:40:04.483Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "vTodExZQh0R8IP-YJUPpLYADbkY2Mfdp",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Listening to Lead",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T15:57:58.479Z",
+        "items": [
+          {
+            "id": "cm6nv9ybz000q3b78wd4shlp6",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nv9ybz000r3b78o2publmt",
+                "media": {
+                  "video": {
+                    "key": "v4_pot_steve_hamer_listening_to_lead_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-bipsEsagLnNX7EVQ-v4_pot_steve_hamer_listening_to_lead_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_pot_steve_hamer_listening_to_lead_clip_01%20%281080p%29.jpg",
+                    "duration": 192,
+                    "inputKey": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/bipsEsagLnNX7EVQ-v4_pot_steve_hamer_listening_to_lead_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/transcoded-bipsEsagLnNX7EVQ-v4_pot_steve_hamer_listening_to_lead_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_pot_steve_hamer_listening_to_lead_clip_01 (1080p).mp4",
+                    "transcodeId": "1754917406056-4kosw5"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar0ks8i00273b79vhfcsxck",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar0ks8j00283b79ht5m5gw9",
+                "paragraph": "<div data-editor-id=\"ae8dde3c-390e-4584-a5ae-e40e1e777e97\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nva2d500173b78jkulf1bu",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nva2d600183b78r0u1yy8m",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%208%20Listening%20to%20Lead.pdf",
+                    "size": 226930,
+                    "type": "attachment",
+                    "filename": "ldLUbfjogUkMVe4t-Lesson%208%20Listening%20to%20Lead.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 8 Listening to Lead.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nva58t001o3b78oiu59jy6",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nva58t001u3b78731nc7yl",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"541c4d3d-a6bb-4399-9234-66e136c6f58d\"><p><span style=\"color: black; text-decoration: inherit\">A final step to be</span>coming<span style=\"color: black; text-decoration: inherit\"> an excellent communicator that Pat always emphasized is the act of listening to lead. </span>As a leader, listening is one of the most overlooked skills you can have. But what does it really mean to listen as a leader? Is it just about nodding your head and pretending to hear what your team is saying? Absolutely not. True listening is about connecting with your team on a deeper level and attempting to understand their perspectives and needs.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nv9vl300023b787vla404s",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6nv9vl400033b78h9k6mvv3",
+                "name": "<div data-editor-id=\"3d229242-27bc-4bb5-81a9-aa2337e16649\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em> — Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"6d525810-40d6-475b-a958-34ef090ed14b\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>How many of us go through a day without saying a word? None of us. But maybe we ought to try it. Communicating is not just about giving great speeches. It’s about allowing others to express themselves.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/CSAO4Vr8fuv73MoP-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nvajxf002f3b7861m6idlh",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nvajxf002g3b78tmyedhdn",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm",
+        "createdAt": "2025-01-28T20:40:11.375Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "e5btPRKDOp1bRQgcHwSf2zDBhJnU-Nx7",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Listening as a Leader",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T16:05:28.688Z",
+        "items": [
+          {
+            "id": "cm6nvccy4002y3b786lennatf",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nvccy500343b78xieqgz0l",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"a568381d-31a4-4b40-94bf-1c325f195a15\"><p>Now, we know what you're thinking. <em>I already have too much on my plate. Who has time to listen?</em> Well, my friend, if you don't make the time to listen to your team, you're going to have a lot more on your plate in the long run. Trust us.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nvcfkh003p3b78olcniya3",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nvcfkh003q3b78q4c66921",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/6Vmfq_b0-lkCypmK-AdobeStock_238749462.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_238749462.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_238749462.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"dc580f8e-5150-4293-9d52-f1993daf10ea\"><p>So, let's talk about what it means to listen as a leader. First and foremost, it means being present. That means putting down your phone, closing your laptop, and actually looking at the person speaking to you. But listening isn't just about being physically present — it's also about being mentally present. That means clearing your mind of distractions and focusing on what the person is saying. That can be tough. Sometimes, it feels like our minds are like a web browser with dozens of tabs open at once. But just like how we close some tabs to avoid a crash, we need to focus on one thing at a time to avoid a “mental crash.”</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nvcrvk004a3b782hdwue8t",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nvcrvk004b3b78xrbxnv1g",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/x2nn0jYBU31EuniD-AdobeStock_604233703.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_604233703.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 922
+                    },
+                    "originalUrl": "AdobeStock_604233703.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"6f4b86aa-d84d-4245-b8c1-275397ae3730\"><p><span style=\"font-size: 1.7rem\">As a leader, your job isn't to have all the answers. It's to help your team find the answers themselves. That means listening to their ideas and helping them think through solutions. And if they come up with a solution that's different from what you would have done, that's OK. In fact, it might even be better. Leaders who are too afraid to listen to their teams risk stifling creativity and innovation.</span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">“Often a strong, dominant leader is the worst listener. He or she is too busy telling everyone else what to do and what to think,” Pat once noted.<sup>1</sup></span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nvdm2j00513b78m6f7h5h9",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nvdm2j00573b78hxuo1gb5",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"3d890e9a-6d91-476b-b041-5691d041f664\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">As a leader, it's important to listen to your employees. Not only does it make them feel valued and respected, but it also helps you make more informed decisions.</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\"><em>Active listening</em> is a technique that involves concentrating on what someone is saying and being fully present. </span><em>Passive listening</em> is when the listener isn’t actively engaging in the conversation. The listener may be physically present, but their mind is elsewhere.</span></p><p><span style=\"font-size: 1.6rem\">Please click each to complete this element.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nve9hi005s3b78zm2aylcw",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6nve9hj005t3b78u24c7tjb",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"1703b292-3992-44e9-a8b6-dd3ecdbf4e36\"><p>Giving someone your undivided attention</p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"807a0af7-5367-4bfd-bc0b-ac88caf3c7b6\"><p>Active Listening</p></div>"
+                }
+              },
+              {
+                "id": "cm6nve9hj005v3b78shwcpxyu",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"5237373e-c5d6-4bbe-a277-68e6b3fbde67\"><p>Allowing distractions to interfere or disengaging</p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"b0944af5-1a94-4b00-baf1-ae07f76da3bb\"><p>Passive Listening</p></div>"
+                }
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 3,
+              "entranceAnimation": true,
+              "customPaddingLinked": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nvfdh8006h3b78lc4th109",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6nvfdh9006i3b781cnp598h",
+                "name": "<div data-editor-id=\"e3cdac37-c258-43cd-9884-12712db8edf5\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: #ffffff; text-decoration: inherit\"><strong><em>— Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"b8fdbdb3-91c3-48e5-a7b8-1bc540b6fe63\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>While you are listening to someone, don’t just take in the words. Study the speaker. Be aware of the speaker’s voice and mannerisms. Notice what his or her effect is on you. Be aware of your own voice and body language, too.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/a2utVMvQ9rauam8q-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "3UMEGm/Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nvg85300763b78dw2b2f3m",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nvg85400773b782rbpbhf6",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"9d29ac26-5757-401c-b89d-8e73230f628f\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "tY0HCR4_vpdYaGlQc1nJp5hII4aNnlGY",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:43:34.101Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"dcaba54b-1b13-4c45-8134-f4d87cfe3631\"><p><span style=\"font-size: 1.6rem\">According to this lesson, as a leader, _____________.</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"48e150a6-1216-421c-bcbb-630ae4c2570d\"><p><span style=\"color: black; text-decoration: inherit\">You have to learn to be dominant.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"ced13453-2c3e-4099-a01c-d49fff41887f\"><p><span style=\"color: #000000; text-decoration: inherit\">Listening is an overlooked skill.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nvgnbe007o3b7896j8ewqe",
+                "title": "<div data-editor-id=\"4f11c59a-6041-428f-897e-ebaaae3f3475\"><p><span style=\"color: black; text-decoration: inherit\">You are responsible for having the answers.</span></p></div>"
+              },
+              {
+                "id": "cm6nvhhl3007q3b78q7vwqzie",
+                "title": "<div data-editor-id=\"cb7436cd-8082-4f5b-bb81-e2c48a9dae40\"><p><span style=\"color: black; text-decoration: inherit\">All of the above.</span></p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400wf3b79z4rpzttq",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6gvw2f400wg3b798oenzg94",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"4bb06724-24cd-41f1-a108-dcd225a8cf55\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Why is it important to listen to your employees?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"a7c5571d-26de-414e-9518-1b5acb965c1a\"><p><span style=\"color: black; text-decoration: inherit\">It makes them feel valued and respected.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"c0ebc4b3-ec2c-4492-9658-ea1d3f623be6\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">It helps you make more informed decisions.</span></span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"cdcc0e3b-eef8-4f41-9d8e-ee0b55cd9b9d\"><p><span style=\"color: black; text-decoration: inherit\">It allows your team members to suggest solutions.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"0282ef78-c0d1-40a4-ad25-945e4276c90b\"><p><span style=\"color: #000000; text-decoration: inherit\">All of the above.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wi3b79oh3jujac",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6nvj9xk007z3b784n78yvk6",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"3d3d73ae-11b2-4342-a628-e5ae736e5ebb\"><p><span style=\"color: black; text-decoration: inherit\">Which is a part of active listening? &nbsp;(check any that apply)</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6nvj9xk00803b78eym6odiy",
+                "title": "<div data-editor-id=\"1714ea18-cce9-44c3-ae7f-de56a4553eeb\"><p><span style=\"color: #000000; text-decoration: inherit\">Fully concentrating on what someone is saying</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6nvj9xk00823b7841c15xe1",
+                "title": "<div data-editor-id=\"56ba63a9-328e-49fe-9e31-c26c753f7ccd\"><p><span style=\"color: #000000; text-decoration: inherit\">Giving someone your full attention</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nvj9xk00833b78e3sgj2ln",
+                "title": "<div data-editor-id=\"a4571e7c-0c1c-4126-9822-5fb0e523bc98\"><p><span style=\"color: black; text-decoration: inherit\">Multi-tasking on projects while listening</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nvj9xk00813b789vlx9ztc",
+                "title": "<div data-editor-id=\"e5e447f6-b407-446c-8791-d1d50bec8d75\"><p><span style=\"color: #000000; text-decoration: inherit\">Nodding to show you understand</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6nvj9yl00843b78pw9kcs8k",
+                "title": "<div data-editor-id=\"e04e00ef-ecde-440a-8f8d-dd72fb19adee\"><p><span style=\"color: black; text-decoration: inherit\">Listening to background noise</span></p></div>"
+              },
+              {
+                "id": "cm6nvkxab008b3b787n690xij",
+                "title": "<div data-editor-id=\"9ed34ba1-4277-4aef-a5a1-28739a288566\"><p><span style=\"color: black; text-decoration: inherit\">Checking your phone</span></p></div>"
+              },
+              {
+                "id": "cm6nvl1dd008e3b78vthjqg8z",
+                "title": "<div data-editor-id=\"b90928b3-72ea-48d2-bc35-952406296f91\"><p><span style=\"color: #000000; text-decoration: inherit\">Taking notes while listening</span></p></div>"
+              },
+              {
+                "id": "cm6nvl4ap008h3b788kuk1ffo",
+                "title": "<div data-editor-id=\"93049fdc-08d0-4452-9899-c0c4731bab8f\"><p><span style=\"color: #000000; text-decoration: inherit\">Minimizing distractions</span></p></div>"
+              }
+            ],
+            "correct": "",
+            "corrects": [
+              "cm6nvj9xk00803b78eym6odiy",
+              "cm6nvj9xk00813b789vlx9ztc",
+              "cm6nvj9xk00823b7841c15xe1",
+              "cm6nvl1dd008e3b78vthjqg8z",
+              "cm6nvl4ap008h3b788kuk1ffo"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm",
+        "createdAt": "2025-01-28T20:40:20.532Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "9fybISn1vmTzB7IAHuU-D9bbz0Uu8b_w",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 4,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Having 1:1 Conversations",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T15:57:40.941Z",
+        "items": [
+          {
+            "id": "cmar0oqnd00a13b7994sjxd7t",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar0oqnd00a23b797erv0s4q",
+                "paragraph": "<div data-editor-id=\"9d18835b-b521-4db5-8ee9-689a6f39939f\"><p><span style=\"font-size: 1.5rem\">Scroll through to complete this element.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 2,
+              "accentColor": null,
+              "quotesInline": false,
+              "isCustomColor": true,
+              "paddingBottom": 2,
+              "paddingLinked": false,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "customPaddingTop": 2,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          },
+          {
+            "id": "cm6nvm90u008o3b78ojajv09x",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6nvm90v008p3b78jqbjwz3e",
+                "type": "intro",
+                "title": "Set Aside Time for 1:1 Conversations",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"0a934986-2800-48c9-8ca1-69ae9a0486b2\"><p><span style=\"color: black; text-decoration: inherit\">One-on-one conversations are a great way to get to know your employees on a personal level and understand their perspective. As your schedule allows, make it a priority to work them into your regular routine.</span></p><p><span style=\"color: black; text-decoration: inherit\">Here are some tips to make the most of the time in your 1:1s.</span></p></div>"
+              },
+              {
+                "id": "cm6nvm90v008q3b78xcef5vjv",
+                "type": "summary",
+                "title": "Summary",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"89691081-159e-4e6c-a611-020dc8fc580b\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\"><span style=\"color: black\">Consider which of these you can work in to meetings with your team to help model active listening the most.</span></span></span></p></div>"
+              },
+              {
+                "id": "cm6nvm90v008r3b78h4th93oy",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/DoeK7cheWHlqq8TC-AdobeStock_310725186.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_310725186.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1121
+                    },
+                    "trackingId": "cm6nvm90u008o3b78ojajv09x",
+                    "originalUrl": "AdobeStock_310725186.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Avoid distractions. ",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"e7c3651a-65e3-4650-aa0d-e161029130ba\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">When you're having a conversation with an employee, avoid distractions like checking your phone or looking at your computer. Give them your undivided attention.</span></span></p></div>"
+              },
+              {
+                "id": "cm6nvm90v008s3b78txyr4wp3",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/hWFdTRZ3eX3pGOD0-AdobeStock_47163590.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_47163590.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "cm6nvm90u008o3b78ojajv09x",
+                    "originalUrl": "AdobeStock_47163590.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Ask open-ended questions.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"1d0444de-c76a-46dd-be25-4a6a377340e3\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Open-ended questions can help you get a better understanding of your employee's perspective. Ask questions like, \"How do you feel about this situation?\" or \"What do you think we can do to improve?\"</span></span></p></div>"
+              },
+              {
+                "id": "cm6nvnm8000993b78otdnld6h",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/SxPvYB1b-hYC2S6Y-AdobeStock_132644175.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_132644175.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "cm6nvm90u008o3b78ojajv09x",
+                    "originalUrl": "AdobeStock_132644175.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Don't interrupt.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"b61484df-57d1-41bd-a483-d1c6f9cb8aeb\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Interrupting someone when they</span>’<span style=\"color: black; text-decoration: inherit\">re speaking makes them feel like their opinions aren’t valued. Wait until they have finished speaking before responding.</span></span></p></div>"
+              },
+              {
+                "id": "cm6nvo2b7009b3b78utckutd2",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/Y5lirCNj6Qjc1O0x-AdobeStock_626455977.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_626455977.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 945
+                    },
+                    "trackingId": "cm6nvm90u008o3b78ojajv09x",
+                    "originalUrl": "AdobeStock_626455977.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Take notes.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"e015280d-d50b-4e2f-9af7-f75452e4874e\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Taking notes during a conversation shows the other person that you</span>’<span style=\"color: black; text-decoration: inherit\">re taking their concerns seriously and you value their input. It also helps you remember important details.</span></span></p></div>"
+              },
+              {
+                "id": "cm6nvoln2009d3b784ffkthsi",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/yMa98gPD0E1UTtK_-AdobeStock_611603310.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_611603310.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1121
+                    },
+                    "trackingId": "cm6nvm90u008o3b78ojajv09x",
+                    "originalUrl": "AdobeStock_611603310.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Be empathetic.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"44d8a23d-7c82-4199-abf9-efd315c9e8d2\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Empathy is the ability to understand and share someone else's feelings. When you're listening to an employee, try to put yourself in their shoes and understand how they are feeling.</span></span></p></div>"
+              },
+              {
+                "id": "cm6nvoy60009f3b786m5dtdso",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/K3a6c5X7sGKTpWp--AdobeStock_991926558.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_991926558.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 886
+                    },
+                    "trackingId": "cm6nvm90u008o3b78ojajv09x",
+                    "originalUrl": "AdobeStock_991926558.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Repeat/confirm the issue.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"b59c2b6c-8d28-48dc-93ba-6a89db141655\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">To show the speaker you understand the issue being communicated and to avoid any miscommunication, listen to the employee as they share, then repeat back the problem or issue being discussed. (“Just to make sure I understand, you’re saying the problem is with the new supply chain. Is that the issue?”) This shows the employee that you’re listening and gives them a chance to clarify any additional details if needed. (“Yes, it’s mainly the supply chain, but there’s also an issue with the details on the packages out of the Denver office.”)</span></span></p></div>"
+              },
+              {
+                "id": "cm6nvphk2009h3b780onz89fw",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/a0KkafSYT_sQ8aNw-AdobeStock_139007420.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_139007420.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1007
+                    },
+                    "trackingId": "cm6nvm90u008o3b78ojajv09x",
+                    "originalUrl": "AdobeStock_139007420.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Follow up.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"81a41d72-a22b-477a-9896-ed483ce75d10\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">After a conversation, follow up with your employee to let them know that you have taken their concerns into consideration. This helps build trust and shows that you are committed to addressing their concerns.</span></span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 0,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "showStepLabel": false,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar0qjrx00gw3b790ni5gj64",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar0qjry00h43b79rhavac1h",
+                "heading": "<div data-editor-id=\"61f0d9b8-c0fc-409e-b2a9-d0af67fd5e55\"><p><strong>Exercise</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nvr0yk00bz3b78tz08paya",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nvr0yk00c53b78ianfkl4h",
+                "heading": "<div data-editor-id=\"f8a8e54f-5ddc-417a-ba9f-bbf4d6f8cef7\"></div>",
+                "paragraph": "<div data-editor-id=\"b07f1ae7-7347-44e7-baad-7ea4598f46d3\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Drag and drop the following behaviors into a column for active listening or passive listening to complete this element.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nvqlap00ak3b78tqg5drcu",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6nvqlaq00al3b7862q6nsss",
+                "title": "Empathizing with a problem or concern",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nvqlaq00am3b783kawfkf2",
+                "title": "Taking a phone call in the middle of a discussion",
+                "pileId": 2
+              },
+              {
+                "id": "cm6nvs5d800d83b78a4jvqyke",
+                "title": "Clarifying the main point to make sure you understand",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nvs8j100da3b78q3ywpkj5",
+                "title": "Following up after the conversation",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nvsc9400dc3b78hy7vbs8k",
+                "title": "Asking open-ended questions",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nvsnrq00de3b78l66akkdk",
+                "title": "Interrupting with related ideas",
+                "pileId": 2
+              },
+              {
+                "id": "cm6nvsr2p00dg3b78l8n023pi",
+                "title": "Interjecting with a proposed solution",
+                "pileId": 2
+              },
+              {
+                "id": "cm6nvsudp00di3b786c9eff8m",
+                "title": "Eating a sandwich in the middle of a meeting",
+                "pileId": 2
+              },
+              {
+                "id": "cm6nvsxmd00dk3b78c02x0acs",
+                "title": "Checking your email while listening",
+                "pileId": 2,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Active Listening"
+              },
+              {
+                "id": 2,
+                "title": "Passive Listening"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nvrj6p00cq3b78ryun7r8s",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nvrj6p00cr3b78q8t1f5p7",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm",
+        "createdAt": "2025-01-28T20:40:45.746Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"19b89472-8c06-4e60-b6c3-e9e187d0e680\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "7hM_J7MstW1FEvO8j3i7dv6b6Pn0FLbM",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "K0ihjf_5IYjhmgZPKUEiammzDTolr4gM",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:43:38.742Z",
+        "items": [
+          {
+            "id": "cm6nvup7n00fp3b78o4zorq5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "Why is it important to set aside time for 1:1 conversations with your employees?",
+            "answers": [
+              {
+                "id": "b167d4f3-1616-4333-bb0b-57f77c980c29",
+                "title": "To understand their perspective and build trust",
+                "correct": true,
+                "feedback": "Setting aside time for 1:1 conversations helps you understand your employees' perspectives and builds trust by showing you value their input."
+              },
+              {
+                "id": "6bbf6578-d86b-43dc-981b-4fc36a129127",
+                "title": "To delegate tasks more efficiently",
+                "correct": false,
+                "feedback": "While delegation is important, the primary purpose of 1:1 conversations is to connect with employees and understand their concerns."
+              },
+              {
+                "id": "7ab59199-5dad-4a2f-b2ea-ab12f4ad3bc8",
+                "title": "To avoid distractions during team meetings",
+                "correct": false,
+                "feedback": "Avoiding distractions is a good practice during any meeting, but it is not the main reason for having 1:1 conversations."
+              },
+              {
+                "id": "3f8ae539-d61d-4d5c-92a3-6c1bf73d43a7",
+                "title": "To ensure employees follow company policies",
+                "correct": false,
+                "feedback": "1:1 conversations are not primarily about enforcing company policies but about understanding and supporting employees."
+              }
+            ],
+            "correct": "b167d4f3-1616-4333-bb0b-57f77c980c29",
+            "corrects": [
+              "b167d4f3-1616-4333-bb0b-57f77c980c29"
+            ],
+            "settings": {},
+            "feedbackType": "CHOICE"
+          },
+          {
+            "id": "cm6nvv2uu00fr3b783lz0mev2",
+            "type": "MULTIPLE_CHOICE",
+            "title": "Which of the following is a key practice for active listening during a 1:1 conversation?",
+            "answers": [
+              {
+                "id": "2f616562-3635-44ff-ad0f-57e5e7d15cf3",
+                "title": "Avoiding distractions like checking your phone",
+                "correct": true,
+                "feedback": "Avoiding distractions ensures you give your full attention to the speaker, which is essential for active listening."
+              },
+              {
+                "id": "840a683b-a1d3-41bc-8c4f-8572adcd4d61",
+                "title": "Interrupting to share your perspective",
+                "correct": false,
+                "feedback": "Interrupting can make the speaker feel undervalued and disrupts the flow of the conversation."
+              },
+              {
+                "id": "3e7b44b6-306c-4631-9bd0-ed8219faf890",
+                "title": "Taking a phone call during the conversation",
+                "correct": false,
+                "feedback": "Taking a phone call during a conversation is a distraction and demonstrates passive listening."
+              },
+              {
+                "id": "909b62e6-e56e-4887-9829-7d550eefe27d",
+                "title": "Focusing on formulating your response while the other person speaks",
+                "correct": false,
+                "feedback": "Focusing on your response instead of listening attentively can lead to missing important details."
+              }
+            ],
+            "correct": "2f616562-3635-44ff-ad0f-57e5e7d15cf3",
+            "corrects": [
+              "2f616562-3635-44ff-ad0f-57e5e7d15cf3"
+            ],
+            "settings": {},
+            "feedbackType": "CHOICE"
+          },
+          {
+            "id": "cm6nvvgdu00ft3b78ndmz1z8a",
+            "type": "MULTIPLE_CHOICE",
+            "title": "Why is it important to follow up with an employee after a one-on-one conversation?",
+            "answers": [
+              {
+                "id": "9a9f6954-2341-495b-9c60-4e73942f88eb",
+                "title": "It shows that you value their input and are committed to addressing their concerns.",
+                "correct": true,
+                "feedback": "Following up demonstrates that you take their concerns seriously and helps build trust."
+              },
+              {
+                "id": "8c638863-4e5c-4334-bd06-745cf469b6a1",
+                "title": "It allows you to avoid having future one-on-one conversations.",
+                "correct": false,
+                "feedback": "Avoiding future conversations does not foster trust or effective communication."
+              },
+              {
+                "id": "9db45fc7-6a34-4f3b-a867-1da700ae8b8e",
+                "title": "It ensures that the employee feels their opinions are not important.",
+                "correct": false,
+                "feedback": "This is incorrect as following up actually shows that their opinions are valued."
+              },
+              {
+                "id": "9b59d08a-fdb8-4a7d-8c28-4671d5b3c49e",
+                "title": "It gives you an opportunity to delegate their concerns to someone else.",
+                "correct": false,
+                "feedback": "Delegating concerns without addressing them yourself can undermine trust and accountability."
+              }
+            ],
+            "correct": "9a9f6954-2341-495b-9c60-4e73942f88eb",
+            "corrects": [
+              "9a9f6954-2341-495b-9c60-4e73942f88eb"
+            ],
+            "settings": {},
+            "feedbackType": "CHOICE"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm",
+        "createdAt": "2025-01-28T20:40:27.999Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "k1qybTq8rppf0ai5krmKHczKshy_btBx",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 5,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Create a Culture of Open Communication",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T15:56:48.178Z",
+        "items": [
+          {
+            "id": "cmar0u30y00jt3b79agbmcc5r",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar0u30y00ju3b79am3fh09x",
+                "paragraph": "<div data-editor-id=\"547296c0-498d-49f5-9ac8-49892c8c83a4\"><p><span style=\"font-size: 1.5rem\">Scroll through to complete this element.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 2,
+              "accentColor": null,
+              "quotesInline": false,
+              "isCustomColor": true,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "customPaddingTop": 2,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          },
+          {
+            "id": "cm6nvw66b00fx3b78c1p4deqk",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6nvw66b00fy3b788zqg8xwp",
+                "type": "intro",
+                "title": "Create a Culture of Open Communication",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"f8c7ddf4-808a-4c03-9954-545eb96ded89\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Encourage your employees to speak up and share their ideas by creating a culture of open communication.</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\"><span style=\"color: black\">Here are some things to keep in mind when encouraging openness.</span></span></span></p></div>"
+              },
+              {
+                "id": "cm6nvw66b00fz3b78410z2eso",
+                "type": "summary",
+                "title": "Summary",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"987cbfb1-e191-4af5-8935-4b48761b9f3d\"><p><span style=\"font-size: 1.7rem\">In the end, listening as a leader is about creating a culture of openness and respect. It's about being willing to hear perspectives that are different from your own and using those perspectives to make better decisions. So, take the time to listen to your team — you might just be surprised by what you hear!</span></p></div>"
+              },
+              {
+                "id": "cm6nvw66b00g03b78w4tosgxj",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/8XVGrdvc826SNH5t-AdobeStock_512517362.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_512517362.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "cm6nvw66b00fx3b78c1p4deqk",
+                    "originalUrl": "AdobeStock_512517362.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Seek regular feedback.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"16a43150-f413-4017-a417-a8575cc429a5\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Asking your employees for feedback on your leadership style shows that you</span>’<span style=\"color: black; text-decoration: inherit\">re open to growth and improvement. It also helps you better understand their needs.</span></span></p></div>"
+              },
+              {
+                "id": "cm6nvw66b00g13b78mlpi78lc",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/ZY2kmGWBFbOmsf0D-AdobeStock_1325533168.png",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_1325533168.png",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1680
+                    },
+                    "trackingId": "cm6nvw66b00fx3b78c1p4deqk",
+                    "originalUrl": "AdobeStock_1325533168.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Don’t punish solicited feedback.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"adab80d3-148c-48e2-ab15-d93a5f31ae66\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Even if feedback may be negative in nature, avoid punishing honest feedback that you asked for, as long as it’s given respectfully.</span></span></p></div>"
+              },
+              {
+                "id": "cm6nvxvnu00gi3b785gqhij7i",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/fXGS9lwP2Q5URTKJ-AdobeStock_76398030.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_76398030.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1065
+                    },
+                    "trackingId": "cm6nvw66b00fx3b78c1p4deqk",
+                    "originalUrl": "AdobeStock_76398030.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Thank them for sharing.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"8fb3290c-bb9c-4c9a-aa31-6006238c1037\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Thanking your employees for sharing their concerns or ideas shows that you value their input and appreciate their willingness to speak up.</span></span></p></div>"
+              },
+              {
+                "id": "cm6nvyb2r00gk3b784avd3qvu",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/6P6kgIohH_1B-Ke--AdobeStock_412967644.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_412967644.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1067
+                    },
+                    "trackingId": "cm6nvw66b00fx3b78c1p4deqk",
+                    "originalUrl": "AdobeStock_412967644.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Go on a listening tour.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"95699db9-1e2f-4591-b601-6bf150f040de\"><p><span style=\"font-size: 1.7rem\">To get a full sense of issues facing those you manage, once or twice a year go on a \"listening tour\" of your workplace to understand the perspectives and concerns of your team members. Make listening a conscious priority, whether by a series of structured feedback sessions or informal 1:1s. This helps uncover problems or feedback that may not arise solely through casual conversation.</span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 0,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "showStepLabel": false,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar0urbt00lx3b79etnkszqq",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar0urbt00m53b79had4pjq8",
+                "heading": "<div data-editor-id=\"903f5195-dee8-4c6d-baef-63af47048ed4\"><p><strong>Exercise</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nvz7pz00h23b788vmkzlqc",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nvz7pz00h83b78y7kkzze4",
+                "heading": "<div data-editor-id=\"cdbef900-7ede-418d-b947-34f43368918f\"></div>",
+                "paragraph": "<div data-editor-id=\"1eccb0f5-407e-4482-94f1-822cd3b38471\"><p>Which of these behaviors can leaders use to encourage open communication, versus closed communication?</p><p><span style=\"font-size: 1.6rem\">Flip each card to complete this element.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nw03fv00ht3b78k5c5ujhg",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6nw03fw00hu3b78drgj2e9p",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"1eb82015-a507-4960-8f0e-91882dad501d\"><p><span style=\"font-size: 1.6rem\"><strong>Open!</strong> This allows communication to flow freely between teams.</span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"0dddcfa4-167c-4f05-bf4e-a84758cbec65\"><p><span style=\"font-size: 2.2rem\">Cross-department collaboration</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6nw03fw00hv3b78t4hbb62w",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"15bf42e9-da90-4539-938a-e1b182a0c287\"><p style=\"text-align: center\"><span style=\"font-size: 1.6rem\"><strong>Closed!</strong> When communication is unnecessarily siloed, it creates closed communication loops.</span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"1879e280-bd17-4c61-a38a-6c4a3f21dc2d\"><p><span style=\"font-size: 2.2rem\">Emphasizing hierarchy</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6nw03fw00hw3b785tclkw9z",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"7fa92eef-72e5-48c8-b72a-7af8fc7efe92\"><p><span style=\"font-size: 1.6rem\"><strong>Open!</strong> This allows everyone to hear important communication from the source, in person.</span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"8fe58d2b-0fcf-4f65-94c6-41753df9516a\"><p><span style=\"font-size: 2.2rem\">Regular department meetings</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6nw0s7f00ih3b78ao2is52n",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"74815592-af0c-48fc-b555-c80113b1e63f\"><p style=\"text-align: center\"><span style=\"font-size: 1.6rem\"><strong>Closed!</strong> If leaders respond negatively to mistakes, employees may avoid speaking up or for fear of criticism.</span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"f5e123f0-3edd-4191-adaf-3de320787fce\"><p><span style=\"font-size: 2.2rem\">Emphasizing perfectionism</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6nw0zt500ij3b78yds3toyq",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"74a73fe2-31ae-4157-9986-14e6d11d471d\"><p><span style=\"font-size: 1.6rem\"><strong>Open!</strong> This allows leaders to hear feedback, good news and concerns in an informal setting.</span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"c5b3c5b8-889f-476a-a189-d3b35ac8f598\"><p><span style=\"font-size: 2.2rem\">Walking the floor</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6nw16eu00il3b788w7zgwo6",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"8f970631-bc46-4fe4-b0e1-87c0074baf97\"><p style=\"text-align: center\"><span style=\"font-size: 1.6rem\"><strong>Closed!</strong> Over-monitoring communication channels or tools stifles employees ability to speak freely when working.</span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"06329249-8d59-4ad7-8804-7031daecd447\"><p><span style=\"font-size: 2.2rem\">Micromanaging communication channels</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6nw1fju00in3b78fjn4x6ne",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"ab6c0857-2d53-42f2-b04b-0107a0a2498f\"><p><span style=\"font-size: 1.6rem\"><strong>Open!</strong> When you share both the good and the bad with team members, it builds trust.</span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"dbbe1047-0729-46c5-a832-603fa4fa20de\"><p><span style=\"font-size: 2.2rem\">Sharing both good and bad news</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6nw1i7600ip3b78jfynv2u8",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"ac5eb206-fcae-4d1b-ba73-2840118b3a96\"><p><span style=\"font-size: 1.6rem\"><strong>Closed!</strong> If feedback is only solicited through forms or emails, communication will be stifled.</span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "9f2i1K/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"e3a1236c-2c88-40c3-a134-8577765bad0a\"><p><span style=\"font-size: 2.2rem\">Discouraging informality</span></p></div>"
+                },
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nw5w6o00iz3b780j0no9be",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nw5w6o00j03b78ltiqu5ce",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "r04hEp-71ryRLJlWDKuvPw82b99Im4BZ",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T16:03:48.407Z",
+        "items": [
+          {
+            "id": "cm6nw91ys00jz3b789o87mfvb",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nw91yt00k03b780lqco4l8",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_petra_dunn_tales_from_the_sidelines_my_first_meeting_with_pat%20%281080p%29.mp4",
+                    "url": "transcoded-4RWlG7G8ir6lewe0-v5_pot_petra_dunn_tales_from_the_sidelines_my_first_meeting_with_pat%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_petra_dunn_tales_from_the_sidelines_my_first_meeting_with_pat%20%281080p%29.jpg",
+                    "duration": 85,
+                    "inputKey": "rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/4RWlG7G8ir6lewe0-v5_pot_petra_dunn_tales_from_the_sidelines_my_first_meeting_with_pat%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm/transcoded-4RWlG7G8ir6lewe0-v5_pot_petra_dunn_tales_from_the_sidelines_my_first_meeting_with_pat%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_petra_dunn_tales_from_the_sidelines_my_first_meeting_with_pat (1080p).mp4",
+                    "transcodeId": "1754917757776-22oidh"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar0w2gz00rb3b7987td97ds",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar0w2gz00rc3b79ebhpinwy",
+                "paragraph": "<div data-editor-id=\"bb0ca018-4fe3-479b-87dd-04fc382435dd\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nw95zp00kg3b780hdw8qre",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nw95zq00kh3b78bmyip4nq",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%208%C2%A0My%20First%20Meeting%20with%20Pat.pdf",
+                    "size": 222740,
+                    "type": "attachment",
+                    "filename": "77Vs985PGJJ9YC0I-Lesson%208%C2%A0My%20First%20Meeting%20with%20Pat.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 8 My First Meeting with Pat.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nw97gj00kx3b78ei9ixlc0",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nw97gj00l33b7866e0g01j",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"5d549385-71ce-4740-a56c-34beb4086c47\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Listen to Sr. Vice President Petra Dunn of Merrill Lynch remember her first meeting with Pat and how she prioritized listening.</span></span></p><p><span style=\"color: black; text-decoration: inherit\">Refer to your workbook for the reflection questions and exercises below.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nw9bhq00lo3b785wqkopn5",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6nw9bhq00lp3b78cul48opo",
+                "paragraph": "<div data-editor-id=\"ef21afa5-1a5a-43b4-9151-8eb0e2de58a1\"><p><span style=\"color: black; text-decoration: inherit\">How much do you currently practice listening as a leader? (Be honest!)</span></p></div>"
+              },
+              {
+                "id": "cm6nw9bhq00lq3b78d9gh6m8j",
+                "paragraph": "<div data-editor-id=\"749c3b2a-c5dc-4aa7-814a-967b094b2ec6\"><p><span style=\"color: black; text-decoration: inherit\">What percentage </span>of your communication style involves<span style=\"color: black; text-decoration: inherit\"> actively communicating v</span>s.<span style=\"color: black; text-decoration: inherit\"> actively listening?</span></p></div>"
+              },
+              {
+                "id": "cm6nw9bhq00lr3b78qsjnizam",
+                "paragraph": "<div data-editor-id=\"adeae96e-8a98-425e-949e-85ea0ceeac42\"><p><span style=\"color: black; text-decoration: inherit\">Think about someone you know who was one of the worst listeners you’ve encountered. What traits did they have that made them this way?</span></p></div>"
+              },
+              {
+                "id": "cm6nwaly200n03b78t4k1o6va",
+                "paragraph": "<div data-editor-id=\"e7d18193-a99d-4948-94e5-02cfe5acdbd1\"><p><span style=\"color: black; text-decoration: inherit\">Think about two individuals you know </span>who<span style=\"color: black; text-decoration: inherit\"> are great listeners. What specific traits do each have?</span></p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nw9ddq00m93b7874cmgpyi",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nw9ddq00mf3b78k3tnj1zb",
+                "heading": "<div data-editor-id=\"d0e756da-be11-4516-854a-85b45ade4abc\"><p><span style=\"font-size: 2rem\"><strong>Exercise</strong></span></p></div>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 1,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 1,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nwb26n00n13b78w3zcer5o",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6nwb26o00n23b78fk4w41sw",
+                "paragraph": "<div data-editor-id=\"805155dc-c56f-43b4-9e06-71d6e02a6ca4\"><p><span style=\"color: black; text-decoration: inherit\">Give yourself a grade for <em>listening</em> on a scale of 1</span> to <span style=\"color: black; text-decoration: inherit\">10.</span></p></div>"
+              },
+              {
+                "id": "cm6nwb26o00n33b78sypk5rqx",
+                "paragraph": "<div data-editor-id=\"f15004f5-a1b7-4482-badf-7dd19d7c7ea7\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Now, how good are you at <em>active listening</em>?</span></span></p></div>"
+              },
+              {
+                "id": "cm6nwb26o00n43b78cqtneyt1",
+                "paragraph": "<div data-editor-id=\"6fb3734e-770f-483b-8e25-30a122a72a14\"><p><span style=\"color: black; text-decoration: inherit\">What are three things you can do to improve?</span><br class=\"break-when-trailing\"><span style=\"color: black; text-decoration: inherit\">1.</span><br class=\"break-when-trailing\"><br class=\"break-when-trailing\"><span style=\"color: black; text-decoration: inherit\">2.</span><br class=\"break-when-trailing\"><br class=\"break-when-trailing\"><span style=\"color: black; text-decoration: inherit\">3.</span></p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 3,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar0yqvk00ty3b79wjoi6ffv",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar0yqvk00tz3b79lu4xvjyw",
+                "paragraph": "<div data-editor-id=\"d8fb66a7-3715-4cc3-8e24-4d21a32b9380\"><p><span style=\"color: rgb(246, 146, 45); text-decoration: inherit\"><strong>Take it to the next level:</strong></span><strong> </strong>Ask a colleague you trust for their opinion on the question above. Continue to reflect.</p><p><span style=\"font-size: 1.7rem\">What are three ways you can get better in each of your weaker areas?</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 5,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 3,
+              "entranceAnimation": true,
+              "customPaddingBottom": 5,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nwdz1l00oi3b78ao190iji",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nwdz1l00oj3b7816fq4uo3",
+                "paragraph": "<div data-editor-id=\"664d7ca7-8382-4ace-856d-36dec1a26f65\"><p>&nbsp;<span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Sources:</strong></span></span></p><ol type=\"1\"><li><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from, <em>Reach for the Summitt</em>, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998.</span></span></p></li></ol></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar0zujk00wb3b79jx2w9d1t",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmar0zujl00wc3b79sfcxxubi",
+                "type": "exit-course",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"e455ba82-1835-4931-8649-f8b36180e922\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": "exit-course"
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:29:51.173Z",
+    "updatedAt": "2025-08-29T22:19:07.817Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Course 8: Listening to Lead",
+      "format": "zip",
+      "quizId": "K0ihjf_5IYjhmgZPKUEiammzDTolr4gM",
+      "target": "scorm12",
+      "shareId": "fZDY8D-1Ozdjzh2a0mbjcIy7qY45RqT2",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "b8SgvdMH_Aqoz21pCTLXR9T8t0fk6JFm_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:31:59.948Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "",
+    "title": "Course 8: Listening to Lead",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}

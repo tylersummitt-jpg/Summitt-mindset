@@ -1,0 +1,1715 @@
+{
+  "course": {
+    "id": "tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU",
+    "originalId": null,
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "selectedAuthorId": "none",
+    "color": "#4267a9",
+    "navigationMode": "",
+    "title": "Championing Women in Leadership: Conclusion",
+    "sharePassword": "",
+    "description": "",
+    "shareId": "QTXKdojZO0sCiDn6sD-mJsXEYClZy9KF",
+    "copyOf": "j831KfxSF7fu1c8xFTjaV_vnyQdLVakb",
+    "order": "1728406146221",
+    "fonts": null,
+    "media": {
+      "image": {
+        "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/WmZe-Zn1KrIuMxbZ-CWILLogo_Color_Transparent.png",
+        "type": "image",
+        "width": 166,
+        "height": 40,
+        "scalar": 2,
+        "crushedKey": "Jp_MJAJTZfQPm4iF.png",
+        "originalUrl": "CWILLogo_Color_Transparent.png",
+        "useCrushedKey": true
+      }
+    },
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/L3H3zwi8gf3__erY-PSLG_CWIL_TItleGraphic.png",
+          "crushedKey": "X-_7jUakNQW657mb56.jpg",
+          "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "id": "TsxIDpGZJsWi7uPBYTf4JV-ziKUr7pZV",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU",
+        "title": "Supporting Female Leaders at Your Organization",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clwtfpc4300023b79ddxp72ei",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clwtfpc4300033b79u37vn4z5",
+                "media": {
+                  "video": {
+                    "key": "v5_wil_michelle_marciniak_how_to_create_an_environment_that_supports_female_leaders_clip_02%20%281080p%29.mp4",
+                    "url": "transcoded-oJGpr4rXjeVhRz3u-v5_wil_michelle_marciniak_how_to_create_an_environment_that_supports_female_leaders_clip_02%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_wil_michelle_marciniak_how_to_create_an_environment_that_supports_female_leaders_clip_02%20%281080p%29.jpg",
+                    "duration": 213,
+                    "inputKey": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/oJGpr4rXjeVhRz3u-v5_wil_michelle_marciniak_how_to_create_an_environment_that_supports_female_leaders_clip_02%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/transcoded-oJGpr4rXjeVhRz3u-v5_wil_michelle_marciniak_how_to_create_an_environment_that_supports_female_leaders_clip_02%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_wil_michelle_marciniak_how_to_create_an_environment_that_supports_female_leaders_clip_02 (1080p).mp4",
+                    "transcodeId": "1727980501988-7hklag"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19v6g35002a3b73psi5b8ya",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19v6g35002b3b73m9qu68h0",
+                "media": {
+                  "attachment": {
+                    "key": "Conclusion_Transcript%20How%20to%20Create%20an%20Environment%20that%20Supports%20Female%20Leaders.pdf",
+                    "size": 66163,
+                    "type": "attachment",
+                    "filename": "ft3Ylcr-52WHTjqT-Conclusion_Transcript%20How%20to%20Create%20an%20Environment%20that%20Supports%20Female%20Leaders.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Conclusion_Transcript How to Create an Environment that Supports Female Leaders.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwtgcgzl00253b79lezcoa2q",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clwtgcgzm00263b79fhxvy7qt",
+                "type": "intro",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/R-pHZPKJvvV1-16w-29906170001_5002079664001_5002091084001-vs.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "29906170001_5002079664001_5002091084001-vs.jpg",
+                    "dimensions": {
+                      "originalWidth": 1280,
+                      "originalHeight": 720
+                    },
+                    "trackingId": "clwtgcgzl00253b79lezcoa2q",
+                    "originalUrl": "29906170001_5002079664001_5002091084001-vs.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Summarizing what we've covered...",
+                "isHidden": false,
+                "description": "<p>Now knowing the hidden challenges and stereotypes women face, how can an organization intentionally support the women they manage and employ? Here are eight approaches and principles organizations can use to support female leaders at their own organization.</p>"
+              },
+              {
+                "id": "clwtgcgzm00273b79uew6wg9g",
+                "type": "summary",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/GV18vAE4b3zyGATy-AdobeStock_442815932.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_442815932.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 560
+                    },
+                    "trackingId": "clwtgcgzl00253b79lezcoa2q",
+                    "originalUrl": "AdobeStock_442815932.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Summary",
+                "isHidden": false,
+                "description": "<ol><li><p style=\"text-align: left\"><span style=\"font-size: 1.4rem\">Be mindful of microaggressions and stereotypes, and address them when they occur.</span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.4rem\">Eliminate gender bias in the hiring process.</span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.4rem\">Make sure performance reviews are wholistic and don’t reward gender-biased attributes.</span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.4rem\">Offer flexibility and predictability with hours and workspace.</span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.4rem\">Avoid team-building activities or performance awards that favor one gender.</span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.4rem\">Ensure benefits are generous and conducive to families.</span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.4rem\">Have a zero-tolerance sexual harassment policy.</span></p></li><li><p style=\"text-align: left\"><span style=\"font-size: 1.4rem\">Include both genders on workplace committees.</span></p></li></ol>"
+              },
+              {
+                "id": "clwtgcgzm00283b79gvrbqsmr",
+                "type": "step",
+                "media": {
+                  "tmp": {
+                    "image": {
+                      "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/i5eQlxyR3ZCpwEwZ-AdobeStock_384021701.jpeg",
+                      "type": "image",
+                      "align": "center",
+                      "fillWidth": false,
+                      "crushedKey": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/28a9A1B6hnp-pXZh.jpg",
+                      "trackingId": "clwtgcgzl00253b79lezcoa2q",
+                      "originalUrl": "AdobeStock_384021701.jpeg",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    }
+                  }
+                },
+                "title": "Be mindful of microaggressions and stereotypes, and address them when they occur.",
+                "isHidden": false,
+                "description": "<p>This is an everyday challenge, but doesn’t have to be a particularly disruptive one. The first step is making sure all employees are educated in common biases and stereotypes and aware that inclusivity of both genders is a priority. The next step is having a policy to address missteps quickly and succinctly. It could be as simple as stopping someone who is a chronic interrupter: “Let’s let Tamara finish her thought.” Or asking a male to take notes instead of volunteering the only female in the room: “Cindy did the recap for us last time. Juan, will you do the honors this time?” &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</p><p>Be especially mindful of microaggressions and stereotypes in meetings. Why? Because workplace culture is inherently learned, and nothing subconsciously sets the tone for interactions quite like team interactions in meetings. Stop both genders from comfortably falling into gender stereotyped roles.</p><p style=\"text-align: center\"><span style=\"color: #000000; text-decoration: inherit\"><strong><em>Make sure all employees are educated in common biases and stereotypes and aware that inclusivity of both genders is a priority.</em></strong></span></p>"
+              },
+              {
+                "id": "clwtgcgzm00293b79xt5t99g4",
+                "type": "step",
+                "media": {
+                  "tmp": {},
+                  "image": {
+                    "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/0lZ9ihWpLhFOjq5E-AdobeStock_519773847.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_519773847.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 712
+                    },
+                    "trackingId": "clwtgcgzl00253b79lezcoa2q",
+                    "originalUrl": "AdobeStock_519773847.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Eliminate gender bias in the hiring process.",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"42ecdff6-a3fd-473e-98ac-f9eb3111c5c1\"><p>Keeping gender bias out of the hiring process can be done in several ways.</p><p><span style=\"font-size: 1.8rem\"><span style=\"color: rgb(36, 103, 178); text-decoration: inherit\"><strong>Avoiding Gender-Biased Language</strong></span></span></p><p>The language used in job descriptions can unintentionally discourage women from applying for certain positions, and research has shown that the choice of words and phrases can influence whether women perceive themselves as qualified for a role. To avoid this, organizations should develop clear and gender-neutral job descriptions that focus on qualifications, responsibilities, and skills rather than emphasizing traditionally masculine traits:</p><ul><li><p>Avoid defaulting to one-sided pronouns, such as, “The ideal candidate will have strong organization skills. He will be able to decipher complex situations and make decisions quickly.”</p></li><li><p>Stay away from using male-oriented words like hunter mentality, maverick, and looking for an alpha-male mentality or someone who can bring home the bacon.</p></li><li><p>Avoid similarly female-biased descriptions like, “the ideal candidate is cheerful and friendly,” or “sensitive to other’s needs.”</p></li></ul><p style=\"text-align: center\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\"><strong><em>Develop clear and gender-neutral job descriptions that focus on qualifications, responsibilities, and skills rather than emphasizing traditionally masculine traits.</em></strong></span></p><p style=\"text-align: center\"></p><p><span style=\"font-size: 1.8rem\"><span style=\"color: rgb(36, 103, 178); text-decoration: inherit\"><strong>Keeping Gender Out of Applicant Screenings</strong></span></span></p><p>Blind hiring is an increasingly popular practice that removes identifiable information from resumes and job applications to minimize bias during the initial screening stages. This includes redacting names and other personal details that may indicate the candidate's gender. By evaluating candidates based solely on their skills, experience, and qualifications, it can help ensure that gender is not a factor in the early stages of the hiring process.</p><p><span style=\"font-size: 1.8rem\"><span style=\"color: rgb(36, 103, 178); text-decoration: inherit\"><strong>Conducting Structured Interviews</strong></span></span></p><p>Unstructured interviews are more susceptible to bias, as they allow for inconsistencies and personal judgments. Structured interviews, on the other hand, involve asking all candidates the same set of questions in the same order and evaluating their responses against predefined criteria. This ensures each applicant is evaluated fairly, and avoids pitfalls like asking male candidates performance-driven questions while spending the majority of the time asking female applicants about their interpersonal skills, or vice versa.</p><p><span style=\"font-size: 1.8rem\"><span style=\"color: rgb(36, 103, 178); text-decoration: inherit\"><strong>Diversifying the Hiring Team</strong></span></span></p><p>Include both sexes in interviews for open roles. This doesn’t always lend itself naturally if the two or three hiring managers are men only (or women only). But if possible, always have someone from the opposite sex sit in the interviews for perspective, even if they aren’t the decision-maker. Why? Women tend to notice things men don’t notice, and vice versa. Men tend to ask different questions and vet employees from a different perspective than women do.</p><p><span style=\"font-size: 1.8rem\"><span style=\"color: rgb(36, 103, 178); text-decoration: inherit\"><strong>Encouraging Equal Sexes to Apply</strong></span></span></p><p>Did you interview any men for the open administrative assistant position? Did you interview any women for the open developer or accounting position? Specifically look for ways to add to the diversity of some of your non-diverse work teams, assuming qualifications are met.</p><p></p></div>"
+              },
+              {
+                "id": "clwtgnkgd005j3b7943j0fa53",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/uUX3N5PcYDQTvth4-AdobeStock_459180246.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_459180246.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "clwtgcgzl00253b79lezcoa2q",
+                    "originalUrl": "AdobeStock_459180246.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Make sure performance reviews are wholistic and don’t reward gender-biased attributes.",
+                "isHidden": false,
+                "description": "<p>Ensure performance reviews take into account a diversity of strengths and don’t only reward traditionally male characteristics. For example, grading someone on the following attributes:</p><ul><li><p>Dominant</p></li><li><p>Ambitious</p></li><li><p>Competitive</p></li><li><p>Confident</p></li><li><p>Decisive</p></li><li><p>Independent</p></li><li><p>Outspoken</p></li><li><p>Results-driven</p></li><li><p>Takes charge</p></li><li><p>Hard-hitting</p></li><li><p>Assertive</p></li></ul><p><span style=\"color: #000000; text-decoration: inherit\">As opposed to more gender-neutral attributes such as:</span></p><ul><li><p><span style=\"color: #000000; text-decoration: inherit\">Subject-matter expertise</span></p></li><li><p><span style=\"color: #000000; text-decoration: inherit\">Collaboration</span></p></li><li><p><span style=\"color: #000000; text-decoration: inherit\">Productivity</span></p></li><li><p><span style=\"color: #000000; text-decoration: inherit\">Communication</span></p></li><li><p><span style=\"color: #000000; text-decoration: inherit\">Initiative</span></p></li><li><p><span style=\"color: #000000; text-decoration: inherit\">Problem-solving</span></p></li><li><p><span style=\"color: #000000; text-decoration: inherit\">Interpersonal skills</span></p></li><li><p><span style=\"color: #000000; text-decoration: inherit\">Dependability</span></p></li><li><p><span style=\"color: #000000; text-decoration: inherit\">Attention-to-detail</span></p></li><li><p><span style=\"color: #000000; text-decoration: inherit\">Creativity and innovation</span></p></li><li><p><span style=\"color: #000000; text-decoration: inherit\">Conflict resolution</span></p></li></ul>"
+              },
+              {
+                "id": "clwtgp5fu005l3b792h7y8jrt",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/Zlnuzqk3ikKqazbV.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "isSquare": false,
+                    "crushedKey": "AdobeStock_865013479.jpg",
+                    "dimensions": {
+                      "top": 62,
+                      "left": 0,
+                      "width": 1663,
+                      "height": 780,
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "clwtgcgzl00253b79lezcoa2q",
+                    "originalUrl": "AdobeStock_865013479.jpeg",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/bRDP3Bn5fNDZCxMi-AdobeStock_865013479.jpeg",
+                      "type": "image",
+                      "align": "center",
+                      "crushedKey": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/DQgMqOXxvpmkC3Y7.jpg",
+                      "trackingId": "clwtgcgzl00253b79lezcoa2q",
+                      "originalUrl": "AdobeStock_865013479.jpeg",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    },
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Offer flexibility and predictability with hours and workspace.",
+                "isHidden": false,
+                "description": "<p>Flexibility can come in a variety of forms, but specifically, this includes:</p><ul><li><strong><em>Flexible hours:</em></strong> When possible, offer flexible hours that allow individuals with caregiving responsibilities to work around them as needed.</li><li><strong><em>Predictable schedules: </em></strong>Make sure work schedules are predictable and not subject to wild variations on short notice.</li><li><strong><em>Flexible workspace:</em></strong> If the role permits, flexibility in offering remote, hybrid, or on-site options.</li></ul>"
+              },
+              {
+                "id": "clwtgq071005n3b79l4bgeeaq",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/loPleQ7hdpUdvqNq-stock_image.jpg",
+                    "type": "image",
+                    "crushedKey": "stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "sourcedFrom": "LIBRARY",
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Avoid team-building activities or performance awards that favor one gender.",
+                "isHidden": false,
+                "description": "<p>This can be tricky, and may take an offline examination of your current organization&rsquo;s activities. (When in doubt, ask a committee of both genders.) For example, does your company plan traditionally masculine events like a retreat at a fly-fishing camp? This is not to say women don&rsquo;t enjoy fishing&mdash;some do&mdash;and you can&rsquo;t make generalizations about <em>all</em> women. But female employees often view masculine-leaning corporate outings, like cigar nights, poker tournaments, or rock-wall climbing, the same way male employees might view a company-sponsored spa getaway, musical, or art class.</p><p>Similarly, avoid gender-biased incentives, prizes, and rewards such as box tickets to a professional sporting event, or custom business suit for hitting a sales goal. It may be &ldquo;tradition&rdquo; at your organization, but creating a gender-equal workplace may require some new traditions. Consider more gender-neutral activities like an escape room, boating cruise, movie night, outdoor picnic, local tour, or food tasting. In addition, keep in mind team-building events or happy hours after work may be disadvantageous to those with families or to nondrinkers.</p>"
+              },
+              {
+                "id": "clwtgrfby005p3b7925vwvp81",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/tmwG2LwtGhCAmD0_-AdobeStock_510218928.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_510218928.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 826
+                    },
+                    "trackingId": "clwtgcgzl00253b79lezcoa2q",
+                    "originalUrl": "AdobeStock_510218928.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Ensure benefits are generous and conducive to families.",
+                "isHidden": false,
+                "description": "<p>Benefits are important and their availability can often shape the careers of female caregivers. &nbsp;This includes:</p><ul><li>Paid maternity leave and spousal leave&nbsp;</li><li>Adoption benefits</li><li>Ample sick time/time off for caregiving responsibilities</li><li>Health insurance</li><li>Counseling to combat stress and burnout</li><li>Inclusion of on-site facilities such as nursing rooms, childcare, fitness areas etc. &nbsp; &nbsp; &nbsp;&nbsp;</li><li>Company events conducive to caregivers&nbsp;</li></ul><p>Take, for example, a company with below average health insurance. A female leader was unable to qualify for other independent insurance options and pools because, technically, her employer offered coverage, so she was unable to see herself supporting a family long term on her company&rsquo;s subpar insurance. A leader at another organization found that the insurance coverage was good, but insurance premiums were too high. She could cover herself, but the premiums weren&rsquo;t conducive to supporting a family.</p>"
+              },
+              {
+                "id": "clwtgtq1r005r3b79eok1idfl",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/_Gux88FiJsndRcxZ-AdobeStock_753557978.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_753557978.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 840
+                    },
+                    "trackingId": "clwtgcgzl00253b79lezcoa2q",
+                    "originalUrl": "AdobeStock_753557978.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Have a zero-tolerance sexual harassment policy.",
+                "isHidden": false,
+                "description": "<p>Anti-harassment policies are now mandatory and sexual harassment is illegal, but make sure employees know it won&rsquo;t be tolerated on any level. This includes locker-room talk, derogatory slurs, or jokes even without females present. It doesn&rsquo;t have to become a full-blown incident, but needs to be addressed. Handle any matters with confidentiality and minimal disruption.</p><p>This is important: Ensure female employees know that there won&rsquo;t be social or career implications for bringing sexual harassment issues to an organization&rsquo;s attention. The last thing any woman wants is to have to speak up because she was propositioned or harassed, then become the center of weeks of unwanted attention while the incident is investigated.</p>"
+              },
+              {
+                "id": "clwtgtq3y005t3b79guj7lwtu",
+                "type": "step",
+                "title": "Include both genders on workplace committees.",
+                "isHidden": false,
+                "description": "<p>For example, avoid having six women and two token males on the committee responsible for planning office events, outings, or culture. Aside from stereotyping women into gender roles, this eliminates valuable perspectives from both sides. It also sends the unintentional messages that women are better suited for nonbusiness, extracurricular work, and that the men have more valuable things to do with their time.</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h5t8t6001w3b7c2qj2fx3c",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h5t8t600233b7ck97p2y3r",
+                "heading": "<p><strong>Deep Dive: Benefits That Support Female Leaders</strong></p>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h5t0gl001f3b7c7rdo1jj9",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h5t0gm001g3b7c6d5q2qi7",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_patty_hoppenstedt_-_benefits_that_attract_female_leaders_clip_02%20%281080p%29.mp4",
+                    "url": "transcoded-6lw1XFyp-1MGORl3-v4_wil_patty_hoppenstedt_-_benefits_that_attract_female_leaders_clip_02%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_patty_hoppenstedt_-_benefits_that_attract_female_leaders_clip_02%20%281080p%29.jpg",
+                    "duration": 643,
+                    "inputKey": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/6lw1XFyp-1MGORl3-v4_wil_patty_hoppenstedt_-_benefits_that_attract_female_leaders_clip_02%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/transcoded-6lw1XFyp-1MGORl3-v4_wil_patty_hoppenstedt_-_benefits_that_attract_female_leaders_clip_02%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_patty_hoppenstedt_-_benefits_that_attract_female_leaders_clip_02 (1080p).mp4",
+                    "transcodeId": "1727980751272-uujtay"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19v7gca008c3b73or357x84",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19v7gcb008d3b73teo8w6oj",
+                "media": {
+                  "attachment": {
+                    "key": "Conclusion_Transcript%20Benefits%20that%20Attract%20Female%20Leaders.pdf",
+                    "size": 70224,
+                    "type": "attachment",
+                    "filename": "DbChQSCXFfjNCU3V-Conclusion_Transcript%20Benefits%20that%20Attract%20Female%20Leaders.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Conclusion_Transcript Benefits that Attract Female Leaders.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h5v3p8004b3b7ciee06asw",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h5v3p8004h3b7cgbyi9hoe",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"43c16fad-04f6-4bcb-b2d1-858205abcc79\"><p>In summary, when it comes to creating an environment that supports female leaders, start where you are and do what you can.</p><p>While implementing the steps in this lesson may take time and intentionality, the best part is, <strong><em>these policies are good for everyone, not just women</em>. </strong>We’ll say it again.<strong> </strong>Men enjoy flexible hours too! They want to be valued for the variety of skills they bring to the table too, and not just the traditionally masculine ones. And not every male would consider professional football tickets or a mountain bike a sufficiently motivating reward.</p><p>You get the idea. By supporting women and attempting to bring balance to the workplace, <em>everyone</em> benefits!</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cafncu00343b79tmvs5ve2",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cafncu00353b79mayhmslx",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-03-28T15:15:00.692Z",
+        "updatedAt": "2024-11-11T00:31:21.215Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 0,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Supporting Female Leaders at Your Organization"
+      },
+      {
+        "id": "pcPpSpOM1BArDSsEcNcmOMczpEHfutBJ",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU",
+        "title": "Personal Reflections",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clwtgxusp007u3b79564sqgw9",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clwtgxusq00803b79b3z19x0q",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Refer to your workbook for the following questions and reflections.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwtgxvo7008h3b79cai2omtk",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clwtgxvo7008i3b79u0szcn5i",
+                "paragraph": "<p>On a scale of 1 to 10, how would you rate gender-neutrality in your current hiring process?</p><p>What are some steps you could take to further eliminate any room for gender bias?</p>"
+              },
+              {
+                "id": "clwtgyllu008y3b79svv00zyl",
+                "paragraph": "<p>Which roles at your organization have been traditionally held by one particular gender?<br><br>What are some things you can do to encourage an equal mix of genders to apply?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clwtgxvo7008j3b79zqf2dcna",
+                "paragraph": "<p>Do you have a standardized performance review template at your organization? Why or why not?<br><br>What steps could you take to make sure review criteria are equal and gender-neutral?</p>"
+              },
+              {
+                "id": "clwtgxvo7008k3b7922g6w8gd",
+                "paragraph": "<p>Take a moment to reflect on your team-building and extracurricular activities. Are they geared toward traditionally male activities, female activities, or both?</p>"
+              },
+              {
+                "id": "clwth04nw008z3b7933kve4mk",
+                "paragraph": "<p>What are three additional steps you can take today to move toward gender equality in your workplace culture?</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cag8ia006x3b79rahjfp87",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cag8ia006y3b79f6zqw4y8",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-30T16:27:24.030Z",
+        "updatedAt": "2024-11-11T00:31:48.375Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 4,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Personal Reflections"
+      },
+      {
+        "id": "4EG8_aFvY-hlsR7lg8kWCLIp40C9fhbQ",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d6v8h800033b7cocca8bfp",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is not a way to eliminate gender bias in the hiring process?</p>",
+            "answers": [
+              {
+                "id": "cm0d6v8h800043b7cocswyjm8",
+                "title": "<p>Make sure you hire an equal number of men vs. women.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6v8h800053b7cfiz0bvuf",
+                "title": "<p>Avoid gender-biased language.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6vnd8000h3b7cfhg0krab",
+                "title": "<p>Diversify your hiring team.</p>"
+              },
+              {
+                "id": "cm0d6w9do000j3b7cy4l0l8dt",
+                "title": "<p>Keep gender out of applicant screenings.</p>"
+              }
+            ],
+            "correct": "cm0d6v8h800043b7cocswyjm8",
+            "corrects": [
+              "cm0d6v8h800043b7cocswyjm8"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6v8h800063b7c14610rah",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What is an example of non-gender biased attributes in a job description or performance review?</p>",
+            "answers": [
+              {
+                "id": "cm0d6v8h800073b7ct98b6tys",
+                "title": "<p>Dominant, competitive, brings home the bacon</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6v8h800093b7c8ae3n9z9",
+                "title": "<p>Decisive, independent, outspoken</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6v8h8000a3b7cnkko97aw",
+                "title": "<p>Dependable, collaborative, productive</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6v8h800083b7cgteegrrt",
+                "title": "<p>Assertive, results-driven, no-nonsense</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d6v8h8000a3b7cnkko97aw",
+            "corrects": [
+              "cm0d6v8h800073b7ct98b6tys",
+              "cm0d6v8h800083b7cgteegrrt"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6xk11000u3b7c5mwgnps3",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is a way employers can offer a work environment more accommodating to caregivers?</p>",
+            "answers": [
+              {
+                "id": "cm0d6xk12000v3b7cumns64vm",
+                "title": "<p>Predictable schedules</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6xk12000w3b7cugao55hd",
+                "title": "<p>Flexible hours</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6xk1o000x3b7c655qer3d",
+                "title": "<p>Flexible work environment</p>"
+              },
+              {
+                "id": "cm0d6yc8x000z3b7c0dy7q2bn",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d6yc8x000z3b7c0dy7q2bn",
+            "corrects": [
+              "cm0d6xk12000v3b7cumns64vm"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6yqiq00123b7ckqzpjdr4",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is an example of a benefit that is generous and conducive to families?</p>",
+            "answers": [
+              {
+                "id": "cm0d6yqiq00133b7crcx42ef0",
+                "title": "<p>Paid spousal leave</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6yqiq00143b7cnarv0ekb",
+                "title": "<p>Sporting-event boxed tickets</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6yqj600153b7cstgaf6wj",
+                "title": "<p>Discounts to art and entertainment exhibitions</p>"
+              },
+              {
+                "id": "cm0d6zcgf00173b7cufaxiwev",
+                "title": "<p>Pet insurance</p>"
+              }
+            ],
+            "correct": "cm0d6yqiq00133b7crcx42ef0",
+            "corrects": [
+              "cm0d6yqiq00133b7crcx42ef0"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T01:40:03.811Z",
+        "updatedAt": "2024-10-17T20:47:37.345Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "fRfaUv-4VDO9w5lQpPi_OYVWmxGv1yNN",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU",
+        "title": "Conclusion",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm0h63box009b3b7clhqxaw8u",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm0h63boy009c3b7c0g7mqm48",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU/1mbbQ2DRM590_hCt-PSLG_CWIL_TItleGraphic.png",
+                    "type": "image",
+                    "crushedKey": "PSLG_CWIL_TItleGraphic.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1024
+                    },
+                    "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h63e7a009w3b7cj20vpowj",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h63e7a00a23b7cf4dp55ws",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">You’ve made it to the end, and we hope you’ve enjoyed Championing Women in Leadership with Pat Summitt. By putting the principles in this program to practice, you’ll be well on your way to understanding some of the issues facing women in the workplace, some of the areas for opportunity and how to thrive in your role!</span></span></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h65tjq00bq3b7cgnq17c4n",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h65tjq00bs3b7ccqpixfxa",
+                "media": {
+                  "image": {
+                    "key": "assets/rise/assets/block-defaults/mountains_mist.jpg",
+                    "type": "image",
+                    "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_mist_thumb.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "mountains_mist.jpg",
+                    "sourcedFrom": "DEFAULT"
+                  }
+                },
+                "paragraph": "<div data-editor-id=\"79bfeaa3-bdb4-465c-b6d0-acd8d2a84ceb\"><p><strong>Lesson 1: Women at Work - The Current Situation </strong><br class=\"break-when-trailing\"><strong>Lesson 2: How Did We Get Here?</strong><br class=\"break-when-trailing\"><strong>Lesson 3: Roadblocks for Women in Leadership </strong><br class=\"break-when-trailing\"><strong>Lesson 4: The Glass Cubicle - Gender Microaggressions</strong><br class=\"break-when-trailing\"><strong>Lesson 5: The Strength of Female Leadership</strong></p></div>"
+              },
+              {
+                "id": "cm0h65tjq00bt3b7cpli4caow",
+                "media": {
+                  "image": {
+                    "key": "assets/rise/assets/block-defaults/dandelion_puff.jpg",
+                    "type": "image",
+                    "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/dandelion_puff_thumb.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "dandelion_puff.jpg",
+                    "sourcedFrom": "DEFAULT"
+                  }
+                },
+                "paragraph": "<div data-editor-id=\"d6f82413-68bf-4b5f-b064-fbf553b72501\"><p><strong>Lesson 6: Climbing with Confidence</strong><br class=\"break-when-trailing\"><strong>Lesson 7: Owning Your Game</strong><br class=\"break-when-trailing\"><strong>Lesson 8: In It for the Long Haul</strong><br class=\"break-when-trailing\"><strong>Lesson 9: Communicating for Success</strong><br class=\"break-when-trailing\"><strong>Lesson 10: Powerful Conversations</strong><br class=\"break-when-trailing\"><strong>Lesson 11: Negotiation for Women</strong><br class=\"break-when-trailing\"><strong>Lesson 12: Thriving Together: Women Supporting Women</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "two column",
+            "settings": {
+              "v": 2,
+              "images": false,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 1,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 1,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h69pq900es3b7cgoj9mj3c",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h69pqa00ey3b7cmegy1d6c",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Now on to the Final Exam and Wrap-Up!</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cag1pl005h3b79u8gvgyx0",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cag1pl005i3b796mmjmfqv",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-30T20:20:31.189Z",
+        "updatedAt": "2024-11-11T00:31:39.995Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 4,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Conclusion"
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2024-05-30T16:09:50.908Z",
+    "updatedAt": "2024-11-11T00:31:48.375Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Championing Women in Leadership: Conclusion",
+      "format": "zip",
+      "quizId": "4EG8_aFvY-hlsR7lg8kWCLIp40C9fhbQ",
+      "target": "scorm12",
+      "shareId": "QTXKdojZO0sCiDn6sD-mJsXEYClZy9KF",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "tHcAHmwWhZz7FHCtzS7-2_Ao4p9IYYsU_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "completionPercentage": 100
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": null,
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": false,
+      "allowSearch": true,
+      "colorAccent": "#4267a9",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "ACCENT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "SPLIT_LEFT_IMAGE",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "TINT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": true,
+      "buttonNavigationStyle": "FLOATING",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "defaultLocaleId": null,
+    "description_vNext": "",
+    "title_vNext": "Championing Women in Leadership: Conclusion",
+    "features": {
+      "rise-a-11-y-img-gallery-carousel": true,
+      "rise-block-controls-phase-three": true,
+      "rise-course-navigation": true,
+      "rise-img-dimensions": true,
+      "rise-img-zoom": true,
+      "rise-lazy-load-imgs": true,
+      "rise-scenario-a-11-y": true,
+      "rise-timed-quizzes": true
+    },
+    "authors": [
+      {
+        "id": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "authorName": "Brittni Herron"
+      }
+    ],
+    "bodyTypeface": "Montserrat",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "mondrian": {}
+  },
+  "labelSet": {
+    "id": "YSzfDyNB2NBkeg1ZTnLw_nmm",
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryStartOver": "Start Over",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY",
+      "tabGroup": "Tab",
+      "codeGroup": "Code",
+      "noteGroup": "Note",
+      "quoteGroup": "Quote",
+      "buttonGroup": "Button",
+      "courseDetails": "DETAILS",
+      "feedbackGroup": "Feedback",
+      "accordionGroup": "Accordion",
+      "statementGroup": "Statement",
+      "storylineGroup": "Storyline",
+      "attachmentGroup": "File Attachment",
+      "embedPhotoGroup": "Embedded photo",
+      "embedVideoGroup": "Embedded video",
+      "audioPlayerGroup": "Audio player",
+      "buttonStackGroup": "Button stack",
+      "textOnImageGroup": "Text on image",
+      "timelineLandmark": "Timeline",
+      "urlEmbedLandmark": "URL/Embed",
+      "videoPlayerGroup": "Video player",
+      "bulletedListGroup": "Bulleted list",
+      "checkboxListGroup": "Checkbox list",
+      "imageAndTextGroup": "Image and text",
+      "imageGalleryGroup": "Image gallery",
+      "numberedListGroup": "Numbered list",
+      "flashcardBackLabel": "Flashcard back",
+      "flashcardGridGroup": "Flashcard grid",
+      "nextFlashCardLabel": "Next flashcard",
+      "flashcardFrontLabel": "Flashcard front",
+      "flashcardStackGroup": "Flashcard stack",
+      "knowledgeCheckGroup": "Knowledge check",
+      "hamburgerButtonLabel": "Course Overview Sidebar",
+      "lessonContentLandmark": "Lesson Content",
+      "lessonSidebarLandmark": "Lesson Sidebar",
+      "labeledGraphicLandmark": "Labeled Graphic",
+      "previousFlashCardLabel": "Previous flashcard",
+      "timelineCardGroupPrefix": "Timeline Card",
+      "labeledGraphicBubbleLabel": "Labeled graphic bubble",
+      "labeledGraphicNextMarkerLabel": "Next marker",
+      "labeledGraphicPreviousMarkerLabel": "Previous marker"
+    },
+    "deleted": false,
+    "createdAt": "2023-12-28T17:20:20.171Z",
+    "updatedAt": "2023-12-28T17:20:20.171Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    }
+  ],
+  "media": []
+}

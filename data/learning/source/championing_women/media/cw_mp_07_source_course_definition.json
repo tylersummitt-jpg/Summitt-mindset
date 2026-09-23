@@ -1,0 +1,3241 @@
+{
+  "course": {
+    "id": "kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS",
+    "originalId": null,
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "selectedAuthorId": "none",
+    "color": "#4267a9",
+    "navigationMode": "",
+    "title": "Championing Women in Leadership - Climbing With Confidence",
+    "sharePassword": "",
+    "description": "",
+    "shareId": "0aoldUqjn88f618GIP_UHRWViFBabatX",
+    "copyOf": "P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B",
+    "order": "1730742975206",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/aig38v0Qkfy6N4xt-PSLG_CWIL_TItleGraphic.png",
+          "crushedKey": "AhYeaQa01SD6BbsP.jpg",
+          "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "id": "Y8ulCKXy4O_BGUNjPjjXyKOpf_sZdBMJ",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS",
+        "title": "Climbing With Confidence",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5hn9i400023b78qpy6i6rc",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv5hn9i500033b782tshpto3",
+                "media": {
+                  "video": {
+                    "key": "v5_wil_nicky_anosike_-_climbing_with_confidence_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-nvEjYG2Nxqf2wk-x-v5_wil_nicky_anosike_-_climbing_with_confidence_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_wil_nicky_anosike_-_climbing_with_confidence_clip_01%20%281080p%29.jpg",
+                    "duration": 154,
+                    "inputKey": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/nvEjYG2Nxqf2wk-x-v5_wil_nicky_anosike_-_climbing_with_confidence_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/transcoded-nvEjYG2Nxqf2wk-x-v5_wil_nicky_anosike_-_climbing_with_confidence_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_wil_nicky_anosike_-_climbing_with_confidence_clip_01 (1080p).mp4",
+                    "transcodeId": "1727975239214-lq8bk3"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5hndzu000g3b78s0dpygyr",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv5hndzu000h3b78zvuha8zl",
+                "media": {
+                  "attachment": {
+                    "key": "L6%20Transcript%20Climbing%20With%20Confidence.pdf",
+                    "size": 232906,
+                    "type": "attachment",
+                    "filename": "9je_tsbqZnDFIAnc-L6%20Transcript%20Climbing%20With%20Confidence.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L6 Transcript Climbing With Confidence.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzsmka2r002a3b7cg8rbz6ct",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clzsmka2r002c3b7cjhj0xhzf",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/1ihJTUPKXdwk7NVI-WIL_PatQuote-2.png",
+                    "type": "image",
+                    "crushedKey": "WIL_PatQuote-2.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 497
+                    },
+                    "originalUrl": "WIL_PatQuote-2.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzsmifuw001v3b7cnbqf76es",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clzsmifuw001w3b7c2teohmmj",
+                "media": {
+                  "audio": {
+                    "key": "23a.mp3",
+                    "url": "transcoded-7tj5GOA8IObHh2-U-23a.mp3",
+                    "type": "audio",
+                    "duration": 8,
+                    "inputKey": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/7tj5GOA8IObHh2-U-23a.mp3",
+                    "thumbnail": "",
+                    "originalUrl": "23a.mp3",
+                    "transcodeId": "1723565875357-cy9hqa"
+                  }
+                },
+                "caption": "<p>Click play to hear the quote above.</p>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "audio",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5ho38x001d3b78gfxv48up",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5ho38x001j3b786dbs38p3",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Now it’s time to take a look at some special areas of growth or opportunity for female leaders. We just outlined several of the challenges facing women in the workplace, so don’t let them take you by surprise! As Pat would say, knowing the opposition you are going to face in any situation never hurts. Rather, take things in stride, and learn how to navigate the workplace <em>as it is</em>, even as we all strive for improvement</p><p>This is important because when attempting to understand some of the hurdles facing women in leadership, many women get frustrated and simply give up. This may come in the form of career changes, opting out of the workforce, or simply quiet quitting. &nbsp; &nbsp;&nbsp;</p><p>A key aspect to thriving in corporate leadership, for both men and women, but especially for women, is <em>attitude</em>. As mentioned in previous lessons, historically, women have lower levels of confidence based on the additional challenges they may face. And the key to boosting that confidence to a healthy level is attitude.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/r7eydEl0RcOdxP0G.jpg",
+                  "type": "image",
+                  "alpha": 0.5,
+                  "isSquare": false,
+                  "dimensions": {
+                    "top": 779,
+                    "left": 0,
+                    "width": 1680,
+                    "height": 1461,
+                    "originalWidth": 1680,
+                    "originalHeight": 2240
+                  },
+                  "originalUrl": "stock-image.jpg",
+                  "sourcedFrom": "LIBRARY",
+                  "originalImage": {
+                    "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/lweifatP5eaoHbVY-stock_image.jpg",
+                    "type": "image",
+                    "alpha": 0.5,
+                    "crushedKey": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/OlIco_Y9LC0rQd1K.jpg",
+                    "originalUrl": "stock-image.jpg",
+                    "sourcedFrom": "LIBRARY",
+                    "useCrushedKey": true
+                  },
+                  "useCrushedKey": true
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5hp9g9001z3b78uvm84oel",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5hp9ga00253b78h83y6s4x",
+                "heading": "<p><strong>Embrace Challenges as Opportunities</strong></p>",
+                "paragraph": "<p>To start, attitude involves viewing challenges not as insurmountable obstacles but as opportunities. Instead of shying away from difficulties, learn to embrace them with curiosity. Setbacks are a natural part of any career and can be viewed as stepping stones rather than stumbling blocks. By reframing challenges as chances to grow, as a woman, you can approach your career with a fresh sense of professionalism and optimism.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0ekhzxf002n3b765ki08lty",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm0ekhzxg002r3b76jrz49pvj",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/AREwF8o3wmne5c9W-PatSummitt_Quote_Banners_8.png",
+                    "type": "image",
+                    "crushedKey": "PatSummitt_Quote_Banners_8.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 497
+                    },
+                    "originalUrl": "PatSummitt_Quote_Banners_8.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm39c9bd400gf3b78gmoyhpeb",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm39c9bd500gg3b78rfe66oyu",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-03-28T15:15:00.692Z",
+        "updatedAt": "2024-11-08T22:59:07.818Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 0,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Climbing With Confidence"
+      },
+      {
+        "id": "fVLI8Qg3pZCAMI7IWrjkoy36BapEb02_",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS",
+        "title": "Have a Growth Mindset",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5i3v5d00723b785v8nnixn",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clv5i3v5e00733b78x1jz6mcz",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/Dn8FbNAoE4h45m5P-AdobeStock_473550147.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_473550147.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 560
+                    },
+                    "originalUrl": "AdobeStock_473550147.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5hv9id002p3b78ni0u0ipl",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5hv9id002v3b78zygrnkt6",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>The foundation of a positive attitude also begins with adopting a growth mindset. What do we mean by that? A growth mindset is the belief that abilities or intelligence can be developed through hard work. It&rsquo;s understanding that our careers aren&rsquo;t a byproduct of our circumstances or predetermined by external factors, but instead depends on our willingness to be challenged and grow. Some individuals may have to work harder to have a growth mindset in certain circumstances than others, but growth at its core is a resource available to everyone.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzsmuwpu005k3b7c2pmtbpgh",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clzsmuwpv005n3b7ciqosu4wi",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/Ksf3BHJdGSVzZe_j-Pat%2520happy%2520at%2520Duke%25202008-2.JPG",
+                    "type": "image",
+                    "crushedKey": "Pat%20happy%20at%20Duke%202008-2.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1125
+                    },
+                    "originalUrl": "Pat happy at Duke 2008-2.JPG",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p><span style=\"color: rgb(0, 0, 0);\">Pat firmly believed in a growth mindset, so much so that it was a prerequisite of everyone who played under her leadership. She famously said:</span></p><p><strong><em><span style=\"color: rgb(36, 103, 178);\">&quot;How can you grow, if you never change? Without changing something almost every year, Tennessee never would have won five national championships&hellip;And without accepting some pretty dramatic changes in my own life, I wouldn&rsquo;t be the head coach of the Lady Vols.&quot;</span></em></strong></p><p><br></p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzsmvktk00623b7czload6n2",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clzsmvktk00633b7c4caukfmy",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/ba6F7UPFHmX_z4CY-Pat%2520and%2520player%2520(1).JPG",
+                    "type": "image",
+                    "crushedKey": "Pat%20and%20player%20%281%29.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1143
+                    },
+                    "originalUrl": "Pat and player (1).JPG",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p><strong><em><span style=\"color: rgb(36, 103, 178);\">&quot;There is nothing wrong with personal or professional growth, as long as you are strong in who you are and don&rsquo;t lose sight of where you came from. Self-improvement doesn&rsquo;t mean abandoning your old identity&hellip;Today, if someone tells me I&rsquo;ve changed, I take it as a compliment. The plain fact is, without change, the game of women&rsquo;s basketball would never have grown, nor I with it.&quot;</span></em></strong></p><p><br></p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02sair500b53b7dynn2v4fk",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm02sair500be3b7ddugajoha",
+                "heading": "<p><strong>So what does a &quot;growth mindset&quot; involve? <em>Click on the icons to expand &amp; view.</em></strong></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "subheading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02s5ny7007n3b7d9gek0g0x",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "55.81740702479338",
+                "y": "27.162940903465348",
+                "id": "cm02s5ny7007p3b7dy3gyxpq5",
+                "icon": "01",
+                "title": "Viewing Setbacks as Learning Experiences",
+                "isActive": false,
+                "description": "<p>As mentioned, setbacks are an inevitable part of any journey, but the key lies in how you respond to them. Instead of dwelling on failures, leaders with a growth mindset see setbacks as valuable experiences. Analyze what went wrong, extract lessons, and use the newfound knowledge to pivot and move forward. You can&rsquo;t grow if you&rsquo;re not learning, even if that learning sometimes manifests itself as mistakes.</p>"
+              },
+              {
+                "x": "69.46740128558311",
+                "y": "27.475247524752476",
+                "id": "cm02s6jk100873b7ddj9x1z6b",
+                "icon": "01",
+                "title": "Listening to Criticism",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Constructive criticism is one of the most valuable tools for personal growth. The key is knowing how to seek it out and learn from it. Successful women leaders have mastered both. Instead of seeing feedback as a personal attack, strong women leaders view it as an opportunity to refine their skills. They have learned not to run from or avoid criticism, and know when it has helpful intentions behind it.</p><p>&nbsp;</p><p>&ldquo;The older I get, the more flexible I&rsquo;d like to be,&rdquo; Pat said. &ldquo;Change is a force of nature; the truth is that nothing, good or bad, lasts forever. There will be setbacks, injuries, and adverse circumstances, and the person who deals best with them will win out.&rdquo;</p>"
+              },
+              {
+                "x": "33.47107438016529",
+                "y": "56.806930693069305",
+                "id": "cm02s6kwk008b3b7dr0bjs1do",
+                "icon": "01",
+                "title": "Setting Goals Regularly and Adapting",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>One fundamental part of any career is setting career-related goals. Setting goals is essential for growth, but a growth mindset also requires flexibility when going after those goals. This means regularly examining your objectives and taking into account new information and changing circumstances. Think of it as a game plan that has to be continually re-evaluated at the end of each season. Visualize yourself achieving your career goals and imagine the steps it takes to get there.</p>"
+              },
+              {
+                "x": "70.01836547291093",
+                "y": "51.73267326732673",
+                "id": "cm02s6k7u00893b7dhwmy87ww",
+                "icon": "01",
+                "title": "Surrounding Yourself With a Growth-Minded Community",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>It&rsquo;s no secret that the company we keep plays a huge role in shaping our mindset. Surround yourself with individuals who share a growth mindset and encourage personal development. Engage in positive, growth-minded conversations and avoid relationships built on negativity. </p>"
+              },
+              {
+                "x": "33.00117653810835",
+                "y": "76.6978650990099",
+                "id": "cm02s5ny7007o3b7d5vzxo0qw",
+                "icon": "01",
+                "title": "Continuous Learning",
+                "isActive": false,
+                "description": "<p>The most obvious part of a growth mindset is continuous learning and skill development. The professional landscape is constantly changing, and staying ahead requires continual effort. Seek opportunities to enhance your skills, whether through formal education, workshops, or on-the-job training. Embrace a love of lifelong learning, new technologies, and industry trends. This can include formal education like conferences, workshops or online courses, or informal learning like reading and networking.</p>"
+              },
+              {
+                "x": "70.01836547291093",
+                "y": "76.36138613861387",
+                "id": "cm02s6lj0008d3b7dc24qx0gv",
+                "icon": "01",
+                "title": "Committing to an Attitude of Resilience",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Women are historically resilient, and the workplace is no exception. Men and women both have to be resilient at work, but often in different ways. Make it your mission to have an attitude of resilience in your career. &nbsp;This includes positive self-talk, an attitude of gratefulness, and the willingness to pivot when needed.</p>"
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/PSbU-E4711aiQoFj.jpg",
+                "type": "image",
+                "isSquare": false,
+                "crushedKey": "AdobeStock_503611261.jpg",
+                "dimensions": {
+                  "top": 0,
+                  "left": 0,
+                  "width": 1089,
+                  "height": 808,
+                  "originalWidth": 1680,
+                  "originalHeight": 808
+                },
+                "originalUrl": "AdobeStock_503611261.jpeg",
+                "sourcedFrom": "USER",
+                "originalImage": {
+                  "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/AK3CwTuB4BlWC-tV-AdobeStock_503611261.jpeg",
+                  "type": "image",
+                  "crushedKey": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/ItXNVceUEk2n4hsu.jpg",
+                  "originalUrl": "AdobeStock_503611261.jpeg",
+                  "sourcedFrom": "USER",
+                  "useCrushedKey": true
+                },
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#ffffff",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3c9s1h500xq3b78ugmlii5j",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3c9s1h600xr3b78xztn9c3d",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T17:03:50.702Z",
+        "updatedAt": "2024-11-11T00:13:12.900Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Have a Growth Mindset"
+      },
+      {
+        "id": "1x9u11ALsMmdS4NTiLXBr9XjnFKTTLU0",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm05n85hs00043b7c9e3ozi2h",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Attitude involves viewing challenges not as insurmountable obstacles, but as ___________. </p>",
+            "answers": [
+              {
+                "id": "cm05n85hs00053b7cayg2a0c8",
+                "title": "<p>Roadblocks</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05n85hs00063b7czicpxbbo",
+                "title": "<p>Events</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05n8t9l000k3b7c27lqs1mf",
+                "title": "<p>Irritations</p>"
+              },
+              {
+                "id": "cm05n9jlv000m3b7chtarx6j7",
+                "title": "<p>Opportunities</p>"
+              }
+            ],
+            "correct": "cm05n9jlv000m3b7chtarx6j7",
+            "corrects": [
+              "cm05n85hs00053b7cayg2a0c8"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05n85hs00073b7c46iamsfc",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>As defined in this lesson, a growth mindset is _____________.</p>",
+            "answers": [
+              {
+                "id": "cm05n85hs00083b7ct7ipl67z",
+                "title": "<p>The belief that abilities can be developed through hard work</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05n85hs000a3b7c2nm3kelo",
+                "title": "<p>Outpacing the competition</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05n85hs000b3b7c8pqjj5d5",
+                "title": "<p>Setting unattainable goals</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05n85hs00093b7c8x1c9cjv",
+                "title": "<p>Networking to advance your career</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm05n85hs00083b7ct7ipl67z",
+            "corrects": [
+              "cm05n85hs00083b7ct7ipl67z",
+              "cm05n85hs00093b7c8x1c9cjv"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05naudy000v3b7cgmlx3u1w",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<p>Which of these are characteristics of a growth mindset? (Select all that apply.)</p>",
+            "answers": [
+              {
+                "id": "cm05naudz000w3b7cfripus1s",
+                "title": "<p>Listening to criticism and feedback</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05naudz000x3b7cacq0kmtv",
+                "title": "<p>Committing to an attitude of resilience</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05nauei000y3b7ci3kjrzsh",
+                "title": "<p>Continuous learning</p>"
+              },
+              {
+                "id": "cm05nboy000133b7csy4etm8i",
+                "title": "<p>Believing you&#39;ve already achieved everything you need to</p>"
+              }
+            ],
+            "correct": "cm05naudz000w3b7cfripus1s",
+            "corrects": [
+              "cm05naudz000w3b7cfripus1s",
+              "cm05naudz000x3b7cacq0kmtv",
+              "cm05nauei000y3b7ci3kjrzsh"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-22T18:55:42.519Z",
+        "updatedAt": "2024-11-04T17:56:21.575Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "8ZuqSz0hnauDe1DypcSBsQ54FhBRJxpu",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS",
+        "title": "Confidence and Self-Talk",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5ifpcs00ag3b780m3wo7bq",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clv5ifpct00ah3b78mtzymf77",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/H_wTK99pUqongBtQ-stock_image.jpg",
+                    "type": "image",
+                    "align": "left",
+                    "crushedKey": "stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p><span style=\"font-size: 30px;\"><strong>Cultivating Confidence</strong></span><br>Confidence is a necessary quality for both men and women in leadership. Yet due to the confidence gap, some women may have to work harder than their male counterparts to develop confidence in their careers. So how do we do that?</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "TINT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5i9jdg008i3b787quytcgv",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5i9jdh008o3b78ovpr5gpx",
+                "heading": "<p>Recognize Negative Patterns and Challenge Them</p>",
+                "paragraph": "<p>The first step is becoming aware of negative thought patterns. Examples of these include:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "subheading paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzsn84op00g13b7csuhrckoz",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clzsn84op00g23b7cu0obrwge",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>Seeing situations in black-and-white terms, without acknowledging the gray areas or nuances.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 2.4rem\"><strong>All-or-Nothing Thinking</strong></span></p>"
+                }
+              },
+              {
+                "id": "clzsn84op00g33b7ctb3d5xlx",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>Expecting the worst possible outcome, even when evidence suggests otherwise.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 2.4rem\"><strong>Catastrophizing</strong></span></p>"
+                }
+              },
+              {
+                "id": "clzsn84op00g43b7cjqx0bpyn",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>Drawing broad conclusions based on limited evidence, often leading to negative self-assessment.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 2.2rem\"><strong>Overgeneralization</strong></span></p>"
+                }
+              },
+              {
+                "id": "clzsnc2dr00hi3b7cqelkvcje",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>Taking responsibility for events or outcomes that are beyond your control.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 2.4rem\"><strong>Personalization</strong></span></p>"
+                }
+              },
+              {
+                "id": "clzsnc3wa00hk3b7cdj7yvffv",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>Focusing solely on the negative aspects of a situation while ignoring the positive elements.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 2.4rem\"><strong>Filtering</strong></span></p>"
+                }
+              },
+              {
+                "id": "clzsnc5hc00hm3b7c15x8a1ch",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p>Assuming you know what others are thinking, often attributing negative thoughts to them without evidence.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 2.4rem\"><strong>Assumptions</strong></span></p>"
+                }
+              },
+              {
+                "id": "clzsnc6x500ho3b7coi2hxrny",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 17px;\">Setting rigid, unrealistic expectations for oneself and others, leading to constant feelings of inadequacy (e.g., &ldquo;I <em>should</em> have finished that report sooner!&rdquo;).</span></p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 2.4rem\"><strong>\"Should\" Statements</strong></span></p>"
+                },
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "IMAGE",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/afDlmLmiUzeo_206-blue-bg.jpg",
+                  "type": "image",
+                  "alpha": 0.1,
+                  "crushedKey": "blue-bg.jpg",
+                  "dimensions": {
+                    "originalWidth": 1200,
+                    "originalHeight": 600
+                  },
+                  "originalUrl": "blue-bg.jpg",
+                  "sourcedFrom": "USER",
+                  "useCrushedKey": true
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5iiu5g00ch3b78wbc46lya",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5iiu5h00cn3b78daph5ql7",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Once you&rsquo;ve learned how to limit negative thought patterns, the next step is replacing the negative thoughts with positive self-talk.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "TINT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5ij3uw00d33b78qw4llmhe",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5ij3uw00d93b78f7555ck7",
+                "heading": "<p>Become a Master of Self-Talk</p>",
+                "paragraph": "<p>Pat practiced self-talk with her players, especially in tight, important games. “Our attitude [was] ‘You couldn’t be better prepared. You know exactly what to do. So go do it,’” she recalls.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm189pz0x01fl3b7452jysb53",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm189pz0x01fm3b74yx2dtqwy",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_nicky_anosike_-_self-talk_and_affirmations_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-qOF_JTx_CuJJNBMk-v4_wil_nicky_anosike_-_self-talk_and_affirmations_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_nicky_anosike_-_self-talk_and_affirmations_clip_01%20%281080p%29.jpg",
+                    "duration": 235,
+                    "inputKey": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/qOF_JTx_CuJJNBMk-v4_wil_nicky_anosike_-_self-talk_and_affirmations_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/transcoded-qOF_JTx_CuJJNBMk-v4_wil_nicky_anosike_-_self-talk_and_affirmations_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_nicky_anosike_-_self-talk_and_affirmations_clip_01 (1080p).mp4",
+                    "transcodeId": "1727975325012-21ugal"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19uo00200dp3b74zky7z9od",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19uo00300dq3b74tg6mtw29",
+                "media": {
+                  "attachment": {
+                    "key": "L6.1%20Transcript%20Self-talk%20and%20Affirmations.pdf",
+                    "size": 142768,
+                    "type": "attachment",
+                    "filename": "D8L7E0glsu7cnwlG-L6.1%20Transcript%20Self-talk%20and%20Affirmations.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L6.1 Transcript Self-talk and Affirmations.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm189q5dm01g23b74ba4x228d",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm189q5du01g33b74g376xtd4",
+                "paragraph": "<p>The power of self-talk is undeniable, influencing our thoughts, emotions, and ultimately, our actions. One key to being a master of positive self-talk is to practice affirmations regularly.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5ik4pt00eb3b78qrj69x0v",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clv5ik4pt00ec3b78hj7w3coc",
+                "media": {
+                  "tmp": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/paraglide.jpg",
+                      "src": "https://articulateusercontent.com/assets/rise/assets/block-defaults/paraglide.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/paraglide_thumb.jpg",
+                      "originalUrl": "paraglide.jpg"
+                    }
+                  }
+                },
+                "title": "Daily Affirmations",
+                "description": "<p>Affirmations are powerful statements that reinforce positive beliefs about oneself. To do this, create a list of affirmations tailored to your professional goals and repeat them regularly. For example:</p><p>&nbsp;</p><p>I am right where I need to be in this moment.</p><p>I have enough time to do everything that is important to me.</p><p>I am strong, I am powerful, and I have everything I need.</p><p>I greet this day with gratitude.</p><p>I am more than up to the challenge.</p><p>I am at the peak of my career&mdash;and the best is yet to come!</p>"
+              },
+              {
+                "id": "clv5ik4pt00ed3b78tw9fw8pa",
+                "title": "Replace \"I Can't\" with \"I Can\"",
+                "description": "<p>The language we use internally shapes our mindset and influences our actions. Swap limiting phrases like &quot;I can&#39;t&quot; with empowering alternatives like &quot;I can&quot; or &quot;I will.&quot;</p><p>&nbsp;</p><p><em>Instead</em><em>&nbsp;of:&nbsp;</em>&ldquo;I can&rsquo;t master pivot tables.&rdquo;</p><p><strong>Reframe</strong>: &ldquo;I <em>will</em> master pivot tables in Excel!&rdquo;</p><p>&nbsp;</p><p><em>Instead</em> <em>of</em>: &ldquo;I can&rsquo;t lead a meeting that confidently.&rdquo;</p><p><strong>Reframe</strong>: &ldquo;I <em>can</em> lead a meeting that confidently, with some practice.&rdquo;</p>"
+              },
+              {
+                "id": "clv5ik4pt00ee3b78008paad8",
+                "title": "Constructive Self-Criticism vs. Destructive Self-Talk",
+                "description": "<p>There&#39;s a fine line between constructive self-criticism and destructive self-talk. Instead of dwelling on mistakes with statements like, &quot;I always mess up,&quot; or &ldquo;I should have known better,&rdquo; reframe your self-talk to focus on improvement: &quot;I can learn from this and do better next time.&quot;</p>"
+              },
+              {
+                "id": "clv5im9bc00ex3b78fj15eu7y",
+                "media": {},
+                "title": "Celebrate Your Strengths",
+                "description": "<p>Women often downplay their achievements or attribute success to external factors. Shift your self-talk by consciously focusing on your strengths and celebrating your accomplishments. (&ldquo;I know how to rock a speech and can do it again!&rdquo;) Acknowledge the unique skills, talents, and value you bring to your team.</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive",
+            "variant": "accordion",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5inj1q00fm3b783d8d8glj",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clv5inj1q00fn3b78yvteyhx3",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/SJ9OSbepmVVUlHNF.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "636025692634620275-C02-SCOV-JUMP-24-39378943.jpg",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 0,
+                      "width": 1673,
+                      "height": 762,
+                      "originalWidth": 1680,
+                      "originalHeight": 1189
+                    },
+                    "originalUrl": "636025692634620275-C02-SCOV-JUMP-24-39378943.jpeg",
+                    "originalImage": {
+                      "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/VQtF2IT2q9SVhNzm-636025692634620275-C02-SCOV-JUMP-24-39378943.jpeg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/HQMwM8Hczg28kgFL.jpg",
+                      "originalUrl": "636025692634620275-C02-SCOV-JUMP-24-39378943.jpeg",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "full",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5in1eh00f03b787mtdc1ln",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5in1eh00f63b78glln1ikm",
+                "heading": "<p><strong>Surround Yourself With Positive Influences</strong></p>",
+                "paragraph": "<p>Finally, the people we surround ourselves with significantly impact our mindset! Seek out positive influences and build a supportive network for your leadership career. Engage with colleagues, mentors, or friends specifically who uplift and encourage you. Share your goals and aspirations with those who genuinely celebrate your successes. By surrounding yourself with positivity, you create an environment that automatically reinforces constructive self-talk and bolsters your confidence.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzsnm1b300ik3b7coowhn269",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clzsnm1b300im3b7cf8eotjmf",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/e_DKcNxbxuzcchp2-PatSummitt_Quote_Banners_3.png",
+                    "type": "image",
+                    "crushedKey": "PatSummitt_Quote_Banners_3.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 497
+                    },
+                    "originalUrl": "PatSummitt_Quote_Banners_3.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02sfqlk00gm3b7d0bsrb1p0",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm02sfqll00gn3b7dm9wktlcc",
+                "media": {
+                  "audio": {
+                    "key": "25.mp3",
+                    "url": "transcoded-3g1FJsS-wsbVIQVV-25.mp3",
+                    "type": "audio",
+                    "duration": 36,
+                    "inputKey": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/3g1FJsS-wsbVIQVV-25.mp3",
+                    "thumbnail": "",
+                    "originalUrl": "25.mp3",
+                    "transcodeId": "1724180335847-atfj0l"
+                  }
+                },
+                "caption": "<p>Click play to hear the quote above.</p>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "audio",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6pdmp004l3b7cyf0vce37",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h6pdmq004r3b7czg6jyxpw",
+                "heading": "<p><strong>Deep Dive: The Three Types of Confidence</strong></p>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6pnid005b3b7cfof3kc13",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h6pnid005c3b7c7znisl1s",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_christina_gradillas_-_three_types_of_confidence_clip_02%20%281080p%29.mp4",
+                    "url": "transcoded-AXYfWoqi1V7LSTZi-v4_wil_christina_gradillas_-_three_types_of_confidence_clip_02%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_christina_gradillas_-_three_types_of_confidence_clip_02%20%281080p%29.jpg",
+                    "duration": 311,
+                    "inputKey": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/AXYfWoqi1V7LSTZi-v4_wil_christina_gradillas_-_three_types_of_confidence_clip_02%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/transcoded-AXYfWoqi1V7LSTZi-v4_wil_christina_gradillas_-_three_types_of_confidence_clip_02%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_christina_gradillas_-_three_types_of_confidence_clip_02 (1080p).mp4",
+                    "transcodeId": "1727975350386-njz3u4"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm189cs8i00c23b74xe5fadjg",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm189cs8j00c33b74scqjn5mw",
+                "media": {
+                  "attachment": {
+                    "key": "L6.2%20Transcript%20Three%20Types%20of%20Confidence.pdf",
+                    "size": 75426,
+                    "type": "attachment",
+                    "filename": "rN4jD0pXm8d8KcwN-L6.2%20Transcript%20Three%20Types%20of%20Confidence.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L6.2 Transcript Three Types of Confidence.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6pos6005s3b7cmqvrgrmb",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h6pos6005y3b7cakppbczx",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>OK, so we all know confidence is important to having success as a leader. But did you know that not all confidence is the same? There are three main types of confidence that you will encounter in your career:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6qqq6006i3b7ckhbh111f",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm0h6qqqe006j3b7c8w2manvd",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 1.7rem\">Often characterized as \"fake it till you make it,” isn’t all bad – it can be somewhat useful when starting a new challenge or career role. It involves leaning heavily on your past successes to navigate the unfamiliar territory until you can build confidence of your own in that area.</span></p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><strong>False Confidence</strong></p>"
+                }
+              },
+              {
+                "id": "cm0h6s2b500793b7crygxos46",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 1.7rem\">Conditional confidence means confidence that fluctuates based on external outcomes. When things are going well, you’re confident in that area! When things aren’t going well, doubt tends to creep in, and you feel insecure about your abilities. This type of confidence is a trap many people fall into during their careers.</span></p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><strong>Conditional Confidence</strong></p>"
+                }
+              },
+              {
+                "id": "cm189e9p000cx3b7469u2s2le",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 1.7rem\">Unconditional confidence is the end goal, where your confidence and overall self-assurance is largely rooted in the things you can control—your habits, effort, and attitude—rather than external factors. This stable, more resilient form of confidence is key to thriving as a leader in your career.</span></p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "RrSStI/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<p><strong>Unconditional Confidence</strong></p>"
+                },
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 8,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 8,
+              "paddingLinked": true,
+              "backgroundType": "IMAGE",
+              "customPaddingTop": 8,
+              "entranceAnimation": true,
+              "customPaddingBottom": 8,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "key": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/-dDIcTb5DMyolnql-blue-bg.jpg",
+                  "type": "image",
+                  "alpha": 0.1,
+                  "crushedKey": "ahWaER/blue-bg.jpg",
+                  "dimensions": {
+                    "originalWidth": 1200,
+                    "originalHeight": 600
+                  },
+                  "originalUrl": "blue-bg.jpg",
+                  "sourcedFrom": "USER",
+                  "useCrushedKey": true
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3c9vek1019p3b78gujybjlp",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3c9vek2019q3b782q6ym6u2",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T17:04:12.285Z",
+        "updatedAt": "2024-11-11T00:15:38.688Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Confidence and Self-Talk"
+      },
+      {
+        "id": "UMxkIEEKveqd5_VzfkhJno0ac_0Lqr9l",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm05n8fm8000c3b7cf68sf1bt",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"358049b2-8562-40d6-8eb9-44c95fa14244\"><p>Which of the following are examples of a negative thought pattern? (Select all that apply.)</p></div>",
+            "answers": [
+              {
+                "id": "cm05n8fm8000d3b7cw5k1rp1x",
+                "title": "<p>Overgeneralizing</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05n8fm8000e3b7coqhb8qi0",
+                "title": "<p>Repeating affirmations</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05ngpx5001b3b7cwedbvwyq",
+                "title": "<p>Catastrophizing</p>"
+              },
+              {
+                "id": "cm05nhfvp001d3b7c2rt9obe9",
+                "title": "<p>All-or-nothing thinking</p>"
+              }
+            ],
+            "correct": "cm05n8fm8000e3b7coqhb8qi0",
+            "corrects": [
+              "cm05n8fm8000d3b7cw5k1rp1x",
+              "cm05ngpx5001b3b7cwedbvwyq",
+              "cm05nhfvp001d3b7c2rt9obe9"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05n8fm8000f3b7cwvbi9zdg",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Once you&rsquo;ve learned how to limit negative thought patterns, the next step is___________.</p>",
+            "answers": [
+              {
+                "id": "cm05n8fm8000g3b7c3lsif84x",
+                "title": "<p>Seeking counseling</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05n8fm8000i3b7caiobtv76",
+                "title": "<p>Writing them down</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05n8fm8000j3b7cyh9upuuf",
+                "title": "<p>Replacing them with positive self-talk</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05n8fm8000h3b7cjorrlchp",
+                "title": "<p>None of the above</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm05n8fm8000j3b7cyh9upuuf",
+            "corrects": [
+              "cm05n8fm8000g3b7c3lsif84x",
+              "cm05n8fm8000h3b7cjorrlchp"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05njbag001r3b7camwasw7q",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is an example of a positive affirmation?</p>",
+            "answers": [
+              {
+                "id": "cm05njbah001s3b7cf71wbmty",
+                "title": "<p>&ldquo;Life is full of obstacles.&rdquo;</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05njbah001t3b7c3806dskb",
+                "title": "<p>&ldquo;I have everything I need to succeed.&rdquo;</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05njbaz001u3b7c5uz7uzlv",
+                "title": "<p>&ldquo;Today will be challenging.&rdquo;</p>"
+              },
+              {
+                "id": "cm05njx7t001w3b7c0bz948bj",
+                "title": "<p>&ldquo;I need to work harder.&rdquo;</p>"
+              }
+            ],
+            "correct": "cm05njbah001t3b7c3806dskb",
+            "corrects": [
+              "cm05njbah001s3b7cf71wbmty"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "timer": false,
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-22T18:55:49.895Z",
+        "updatedAt": "2024-11-04T17:56:29.324Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "r2jO8I_aak_A4PIz-1MroShTouyV5cGf",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS",
+        "title": "Exercise",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clx3jr588007p3b79lcd7b4z0",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clx3jr58f007q3b792ryzf24i",
+                "paragraph": "<div data-editor-id=\"7cfc2c95-bbb1-46d7-82f8-26099dd8ce9e\"><p style=\"text-align: center\"><em>Change these statements into positive affirmations. Click the \"next\" button to move through the exercise.</em></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm07hqxp5009r3j75eoagzdyy",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm07hqxp5009s3j751cc29kct",
+                "media": {
+                  "storyline": {
+                    "src": "q7NsYO0eF8FkHjXM/story.html",
+                    "meta": {
+                      "stage": {
+                        "width": 720,
+                        "height": 540
+                      },
+                      "title": "I’m not where I need to be.",
+                      "player": {
+                        "name": "unified",
+                        "width": 740,
+                        "height": 635
+                      },
+                      "scenes": [
+                        {
+                          "title": "Untitled Scene"
+                        }
+                      ],
+                      "slides": [
+                        {
+                          "id": "6bVAjMbQpVs",
+                          "title": "I’m not where I need to be.",
+                          "scene_index": "1.1"
+                        },
+                        {
+                          "id": "6iLUCNFa4Mv",
+                          "title": "Work is so challenging right now.",
+                          "scene_index": "1.2"
+                        },
+                        {
+                          "id": "6VDxQWT8XCr",
+                          "title": "I shouldn’t worry so much.",
+                          "scene_index": "1.3"
+                        },
+                        {
+                          "id": "6LO3NjvYPvp",
+                          "title": "There are never enough hours in the day to get everything done.",
+                          "scene_index": "1.4"
+                        },
+                        {
+                          "id": "6CAhJNVGkhR",
+                          "title": "I wish I were better at _______________.",
+                          "scene_index": "1.5"
+                        },
+                        {
+                          "id": "67lutpPUYj4",
+                          "title": "I can’t seem to stay on top of it all.",
+                          "scene_index": "1.6"
+                        },
+                        {
+                          "id": "5gwqq7R7lRn",
+                          "title": "There’s so much more I could be doing.",
+                          "scene_index": "1.7"
+                        },
+                        {
+                          "id": "6rPMuyk3tMV",
+                          "title": "Results Slide",
+                          "scene_index": "1.8"
+                        }
+                      ],
+                      "version": "3.77.30587.0",
+                      "course_id": "5jJ0yklSWHQ",
+                      "thumbnail": "story_content/thumbnail.jpg"
+                    },
+                    "type": "storyline",
+                    "title": "Print Results test",
+                    "thumbnail": "review/uploads/9kEjuiapRyZYCvTR/6-t-sv-93-ttoys.png",
+                    "processing": false,
+                    "contentPrefix": "rise/courses/kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS/q7NsYO0eF8FkHjXM"
+                  }
+                }
+              }
+            ],
+            "family": "360",
+            "variant": "storyline",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3c9vo6o01b33b78rewrep3a",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3c9vo6o01b43b78uzxyqgtz",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T17:05:07.056Z",
+        "updatedAt": "2024-11-11T00:15:50.447Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Exercise"
+      },
+      {
+        "id": "lt4Ws2M5OT3x71fcrmnxA42MBz4C8GKr",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS",
+        "title": "Personal Reflections",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5oigrg00473b78ftm5yqa8",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5oigrm004d3b78lontsso4",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Refer to your workbook for the following questions and reflections, including the Mastering Self-Talk exercise.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5oiqam005f3b78ajw171yg",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clv5oiqam005g3b78ur2xid8n",
+                "paragraph": "<p>What is an example of a challenge from your own career that turned into an opportunity?</p>"
+              },
+              {
+                "id": "clv5oiqam005h3b786kibghnr",
+                "paragraph": "<p>What does it mean to you to have a growth mindset?</p>"
+              },
+              {
+                "id": "clv5oiqam005i3b787wm7gw2u",
+                "paragraph": "<p>In what specific areas do you need to grow? List three.</p>"
+              },
+              {
+                "id": "clv5phys5005v3b78h2ls0ufk",
+                "paragraph": "<p>On a scale of 1 to 10, how would you rank yourself on being open to criticism?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv5pibaa005w3b78wuv0cnus",
+                "paragraph": "<p>Do you have career goals? Why or why not?<br>Take a moment to think of a few and list them here.</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv5pimbh005x3b784ztu8yq5",
+                "paragraph": "<p>On a scale of 1 to 10, how would you rank your current friends or workplace community as being growth-minded?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv5pit2x005y3b78rwovia6m",
+                "paragraph": "<p>What do you consider to be your three core strengths?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv5pj7dx005z3b78h7wuzj1p",
+                "paragraph": "<p>In this lesson, we discussed the importance of challenging negative thought patterns. Take a moment and list three negative thought patterns you may have as it relates to work.</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5pjmfi00603b78cd85pw4z",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5pjmfj00663b78udkbniul",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Sources for this course:</p><ol><li><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from <em>Reach for the Summitt</em>, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York.</span></span></p></li></ol>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3c9w86401ec3b78gspkxmr2",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3c9w86401ed3b78rdvw1dn0",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T17:05:12.479Z",
+        "updatedAt": "2024-11-11T00:16:34.826Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 4,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Personal Reflections"
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2024-04-04T16:18:04.976Z",
+    "updatedAt": "2024-11-11T00:16:34.826Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Championing Women in Leadership - Climbing With Confidence",
+      "format": "zip",
+      "quizId": "UMxkIEEKveqd5_VzfkhJno0ac_0Lqr9l",
+      "target": "scorm12",
+      "shareId": "0aoldUqjn88f618GIP_UHRWViFBabatX",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": "cm07hqxp5009r3j75eoagzdyy",
+      "completeWith": "reporting",
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "completionPercentage": 100
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": null,
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": false,
+      "colorAccent": "#4267a9",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "ACCENT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "SPLIT_LEFT_IMAGE",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "TINT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": true,
+      "buttonNavigationStyle": "FLOATING",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "defaultLocaleId": null,
+    "description_vNext": "",
+    "title_vNext": "Championing Women in Leadership - Climbing With Confidence",
+    "features": {
+      "rise-a-11-y-img-gallery-carousel": true,
+      "rise-block-controls-phase-three": true,
+      "rise-course-navigation": true,
+      "rise-img-dimensions": true,
+      "rise-img-zoom": true,
+      "rise-lazy-load-imgs": true,
+      "rise-scenario-a-11-y": true,
+      "rise-timed-quizzes": true
+    },
+    "authors": [
+      {
+        "id": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "authorName": "Brittni Herron"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "bodyTypeface": "Montserrat",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "mondrian": {}
+  },
+  "labelSet": {
+    "id": "YSzfDyNB2NBkeg1ZTnLw_nmm",
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryStartOver": "Start Over",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY",
+      "tabGroup": "Tab",
+      "codeGroup": "Code",
+      "noteGroup": "Note",
+      "quoteGroup": "Quote",
+      "buttonGroup": "Button",
+      "courseDetails": "DETAILS",
+      "feedbackGroup": "Feedback",
+      "accordionGroup": "Accordion",
+      "statementGroup": "Statement",
+      "storylineGroup": "Storyline",
+      "attachmentGroup": "File Attachment",
+      "embedPhotoGroup": "Embedded photo",
+      "embedVideoGroup": "Embedded video",
+      "audioPlayerGroup": "Audio player",
+      "buttonStackGroup": "Button stack",
+      "textOnImageGroup": "Text on image",
+      "timelineLandmark": "Timeline",
+      "urlEmbedLandmark": "URL/Embed",
+      "videoPlayerGroup": "Video player",
+      "bulletedListGroup": "Bulleted list",
+      "checkboxListGroup": "Checkbox list",
+      "imageAndTextGroup": "Image and text",
+      "imageGalleryGroup": "Image gallery",
+      "numberedListGroup": "Numbered list",
+      "flashcardBackLabel": "Flashcard back",
+      "flashcardGridGroup": "Flashcard grid",
+      "nextFlashCardLabel": "Next flashcard",
+      "flashcardFrontLabel": "Flashcard front",
+      "flashcardStackGroup": "Flashcard stack",
+      "knowledgeCheckGroup": "Knowledge check",
+      "hamburgerButtonLabel": "Course Overview Sidebar",
+      "lessonContentLandmark": "Lesson Content",
+      "lessonSidebarLandmark": "Lesson Sidebar",
+      "labeledGraphicLandmark": "Labeled Graphic",
+      "previousFlashCardLabel": "Previous flashcard",
+      "timelineCardGroupPrefix": "Timeline Card",
+      "labeledGraphicBubbleLabel": "Labeled graphic bubble",
+      "labeledGraphicNextMarkerLabel": "Next marker",
+      "labeledGraphicPreviousMarkerLabel": "Previous marker"
+    },
+    "deleted": false,
+    "createdAt": "2023-12-28T17:20:20.171Z",
+    "updatedAt": "2023-12-28T17:20:20.171Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    }
+  ],
+  "media": []
+}

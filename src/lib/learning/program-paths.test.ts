@@ -9,7 +9,7 @@ import {
 describe("program paths", () => {
   it("routes every registered program without using the step id as a slug", () => {
     const programs = listLearningCollections().flatMap((collection) => collection.miniPrograms);
-    expect(programs.map((program) => program.id)).toEqual([
+    expect(programs.map((program) => program.id).slice(0, 12)).toEqual([
       "dd_mp_02",
       "dd_mp_03",
       "dd_mp_04",
@@ -23,6 +23,13 @@ describe("program paths", () => {
       "dd_mp_12",
       "dd_mp_13",
     ]);
+    expect(programs).toHaveLength(37);
+    for (const program of programs) {
+      const entry = learningProgramEntryPath(program.id);
+      const [, , collectionSlug, programSlug] = entry.split("/");
+      expect(resolveLearningRoute(collectionSlug, programSlug)).toBe(program.id);
+      expect(programSlug).not.toBe(program.id);
+    }
     expect(learningProgramEntryPath("dd_mp_02")).toBe(
       "/programs/definite-dozen/respect-yourself-and-others"
     );

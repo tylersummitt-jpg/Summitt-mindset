@@ -1,0 +1,363 @@
+{
+  "id": "potl_mp_07",
+  "collection_id": "power_of_team_leader",
+  "collection_title": "The Power of Team",
+  "title": "Fairways and Forest Fires",
+  "description": "I wouldn’t speak to a player in my office the same way I would on the court. Circumstances dictate how you need to speak, or whether you need to just shut up and listen. You don’t holler at a golf tournament. You don’t whisper in a forest fire.”",
+  "sequence": 7,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "potl_mp_07",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "potl_mp_07_st_001",
+      "source_step_id": "potl_mp_07_st_001",
+      "sequence": 1,
+      "title": "Fairways and Forest Fires",
+      "blocks": [
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_07_st_001_image_04.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Now that we understand the importance of overcommunicating, the next step is understanding how to effectively communicate. “By communicate effectively, what I mean is, how can you best command the attention of those you are speaking to?” Pat once said. “Should you employ high decibels or low? Are you talking to your boss or your employee? Would a touch of humor help? Decide what you are trying to accomplish, whether you are trying to motivate, elicit a confession, ask for a raise, or instill confidence. Be clear on what you want to say, and say it in a way that is appropriate to your surroundings. Circumstances dictate how you need to speak. You don't holler at a golf tournament. And you don't whisper at a forest fire.”\n\nPat believed there are three key components to effective personal communication:"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "tone",
+              "title": "Tone",
+              "body": "Situation\n\nNonverbal Communication"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "We’ll discuss all three a little more in the next lesson.\n\nI wouldn’t speak to a player in my office the same way I would on the court. Circumstances dictate how you need to speak, or whether you need to just shut up and listen. You don’t holler at a golf tournament. You don’t whisper in a forest fire.”"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_07_st_001_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877256",
+          "visible_title": "Fairways and Forest Fires",
+          "speaker": "Michelle Marciniak"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_07_st_002",
+      "source_step_id": "potl_mp_07_st_002",
+      "sequence": 2,
+      "title": "Tone",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Pat was famous for her authoritative presence on the sidelines but would be the first to clarify that it wasn’t the only communication style she employed as a leader.\n\n“I employ three completely different modes of communication as a coach,” she once said. “Off the court, I am a confidante and substitute mother. In that situation, my chief role is to listen, advise and comfort. In practice, I speak as a teacher who sometimes needs to employ severe methods in order to maintain the attention of the students.”\n\n“In a game, I issue blunt commands and motivate our players to endure adverse situations. It’s a competitive situation with no time for politeness or misunderstanding. My different tones, taken out of context, would be counterproductive or even downright offensive in any other situation.”"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "loud_and_slow",
+              "title": "Loud and slow",
+              "body": "Authority"
+            },
+            {
+              "id": "loud_and_fast",
+              "title": "Loud and fast",
+              "body": "Enthusiasm"
+            },
+            {
+              "id": "low_and_slow",
+              "title": "Low and slow",
+              "body": "Sincerity and empathy"
+            },
+            {
+              "id": "soft_and_fast",
+              "title": "Soft and fast",
+              "body": "Anticipation"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Knowing how and when to use different tones appropriately can be the difference between coming off as authoritative or weak, sensitive or insensitive, excited, or unenthusiastic."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "exercise",
+              "title": "Exercise",
+              "body": "Match the type of tone or vocal variety with the appropriate emotion or sentiment:"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Low and slow\n\nSoft and fast\n\nLoud and slow\n\nLoud and fast"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_07_st_002_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_07_st_002_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_07_st_003",
+      "source_step_id": "potl_mp_07_st_003",
+      "sequence": 3,
+      "title": "Situation",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "The second component of personal communication is being able to appropriately assess each unique situation to determine the right level of communication. “Frequently, knowing what to say to someone is all about time and location,” Pat once said. “You don’t always make the right call. There’s a judgment involved. You have to ask yourself, ‘What does this person need today?’ And you have to watch his or her body language.”"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "context_of_the_communication",
+              "title": "Context of the Communication",
+              "body": "Context of the Communication"
+            },
+            {
+              "id": "understanding_the_context_of_a_conversat",
+              "title": "Understanding the context of a conversation includes not only the physical setting but al…",
+              "body": "Understanding the context of a conversation includes not only the physical setting but also the emotional backdrop of the communication."
+            },
+            {
+              "id": "knowing_your_audience",
+              "title": "Knowing Your Audience",
+              "body": "Knowing Your Audience"
+            },
+            {
+              "id": "audience_awareness_is_at_the_heart_of_si",
+              "title": "Audience awareness is at the heart of situational communication.",
+              "body": "Audience awareness is at the heart of situational communication. Different audiences require different approaches, vocabulary, and levels of formality."
+            },
+            {
+              "id": "timing_of_the_communication",
+              "title": "Timing of the Communication",
+              "body": "Timing of the Communication"
+            },
+            {
+              "id": "timing_can_significantly_influence_commu",
+              "title": "Timing can significantly influence communication effectiveness.",
+              "body": "Timing can significantly influence communication effectiveness. Not every moment is ideal for every type of message; situational communicators recognize when to wait and when to act."
+            },
+            {
+              "id": "nonverbal_communication",
+              "title": "Nonverbal Communication",
+              "body": "Nonverbal Communication"
+            },
+            {
+              "id": "body_language_eye_contact_posture_gestur",
+              "title": "Body language, eye contact, posture, gestures and facial expressions—plays an equally imp…",
+              "body": "Body language, eye contact, posture, gestures and facial expressions—plays an equally important role in situational communication. Research shows that a large portion of human communication is non-verbal, meaning that words alone do not fully capture the message being conveyed. The non-verbal cues of the receiver can also help you gauge how your communication is being received. Are they sitting with their arms crossed? Scowling? etc."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "The point is, context can significantly affect how a message is received.We’ll go over this more in the upcoming lesson."
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877298",
+          "visible_title": "Pat’s Communication Style",
+          "speaker": "Michelle Marciniak"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_07_st_004",
+      "source_step_id": "potl_mp_07_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_07_st_004_q01",
+              "prompt": "Which of these is an example of context, when considering situational communication?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "What has taken place directly before the communication"
+                },
+                {
+                  "id": "c2",
+                  "text": "What is taking place during the communication"
+                },
+                {
+                  "id": "c3",
+                  "text": "What may be taking place after the communication"
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_07_st_004_q02",
+              "prompt": "Which of these is an example of considering the right timing, when it comes to communication?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Giving someone bad news right before a stressful meeting"
+                },
+                {
+                  "id": "c2",
+                  "text": "Scheduling an important conversation in the middle of a very busy day"
+                },
+                {
+                  "id": "c3",
+                  "text": "Giving negative feedback in a public setting"
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_07_st_004_q03",
+              "prompt": "Research shows that a large part of communication is: _____________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Social"
+                },
+                {
+                  "id": "c2",
+                  "text": "Verbal"
+                },
+                {
+                  "id": "c3",
+                  "text": "Nonverbal"
+                },
+                {
+                  "id": "c4",
+                  "text": "Cultural"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_07_st_005",
+      "source_step_id": "potl_mp_07_st_005",
+      "sequence": 5,
+      "title": "The Power of Eye Contact",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "One of Pat’s famous mannerisms is the “Summitt Stare” — a famous glare she often employed on the sidelines. The stare is said to have been so intense that it could make players and officials alike feel nervous or unsettled. Players and opponents knew that when they saw the stare, they were in for a tough game.\n\nListen to Michelle Marciniak, CEO of SHEEX and former WNBA player, recall Pat’s emphasis on maintaining good eye contact."
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_07_st_005_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877322",
+          "visible_title": "The Power of Eye Contact",
+          "speaker": "Michelle Marciniak"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_07_st_007",
+      "source_step_id": "potl_mp_07_st_007",
+      "sequence": 6,
+      "title": "Practice Makes Perfect",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Finally, all three of these communication principles — tone, situation, and nonverbal communication — take lifelong practice. Your skills will evolve as you do in your role, and new situations will constantly present themselves. You never reach the finish line of perfect communication, but with a little awareness and intentionality, you can make sure you’re prepared to communicate wisely and effectively in any situation.\n\nListen to Michelle Marciniak remember a one-on-one pep talk from Pat on the importance of communication.\n\nEach situation requires a different tone. We all know people who yell at every opportunity. They yell in the office, at home, in a restaurant. After a while, we tune them out. Too much of one thing tends to dull your listener’s sensibilities.”"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877346",
+          "visible_title": "You're Going to Have to Get Over That",
+          "speaker": "Michelle Marciniak"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_07_st_008",
+      "source_step_id": "potl_mp_07_st_008",
+      "sequence": 7,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Sources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877240",
+          "visible_title": "Transparency",
+          "speaker": "Corinne Milien"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_07_st_008_reflection_01",
+          "prompt": "Pat identified three situations — off-court, during practice, during a game — that were a regular part of her weekly routine as a head coach. What three predictable situations do you find yourself in most often in your own role?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_07_st_008_reflection_02",
+          "prompt": "Of the four vocal quadrants, which do you fit into most naturally?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_07_st_008_reflection_03",
+          "prompt": "Which is the least natural to you?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_07_st_008_reflection_04",
+          "prompt": "How can you work on incorporating at least two of the lesser-used quadrants into your daily routine?"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,302 @@
+{
+  "id": "potl_mp_12",
+  "collection_id": "power_of_team_leader",
+  "collection_title": "The Power of Team",
+  "title": "How to Be a Leader No One Will Want to Leave",
+  "description": "When it comes to loyalty, which is a part of principle #1, “Trust is automatically assumed”?",
+  "sequence": 12,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "potl_mp_12",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "potl_mp_12_st_001",
+      "source_step_id": "potl_mp_12_st_001",
+      "sequence": 1,
+      "title": "How to Be a Leader No One Will Want to Leave",
+      "blocks": [
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_12_st_001_image_02.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Author John Maxwell once said, “People don’t leave companies. They leave leaders.”\nSo how do you become a leader no one will want to leave?"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877912",
+          "visible_title": "How to Be a Leader No One Will Want to Leave",
+          "speaker": "Nikki Fargas"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_12_st_002",
+      "source_step_id": "potl_mp_12_st_002",
+      "sequence": 2,
+      "title": "Building Trust",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Scroll through to complete this element."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "how_to_build_trust",
+              "title": "How to Build Trust",
+              "body": "How to Build Trust"
+            },
+            {
+              "id": "when_it_comes_to_loyalty_the_first_thing",
+              "title": "When it comes to loyalty, the first thing a leader can do is create a culture of trust.",
+              "body": "When it comes to loyalty, the first thing a leader can do is create a culture of trust.\nThere are five basic principles to creating a culture of trust:\nTrust is automatically assumed.\nTeam members are defended.\nTeam members are allowed to do their jobs.\nTeam members are allowed to give feedback.\nGood stewards are rewarded.\nLet’s look at each of these in a little more detail."
+            },
+            {
+              "id": "conclusion",
+              "title": "Conclusion",
+              "body": "Conclusion"
+            },
+            {
+              "id": "by_putting_these_principles_into_action",
+              "title": "By putting these principles into action, you too can be a leader no one will ever want to…",
+              "body": "By putting these principles into action, you too can be a leader no one will ever want to leave."
+            },
+            {
+              "id": "trust_is_automatically_assumed",
+              "title": "Trust is automatically assumed.",
+              "body": "Trust is automatically assumed."
+            },
+            {
+              "id": "assuming_you_re_hiring_adults_over_the_a",
+              "title": "Assuming you’re hiring adults over the age of 21, everyone who works for your company is…",
+              "body": "Assuming you’re hiring adults over the age of 21, everyone who works for your company is essentially an adult. And not just any adult — an adult with a sought-after skill. Otherwise, they wouldn’t be working at your great organization, right? You’d be surprised at how often leaders fail to recognize this, treating employees like they’re teenagers looking for any excuse to misbehave when the boss turns their head. Team members pick up on a vibe of management distrust quicker than almost anything. Most of the time they don’t have to imagine it — it’s outlined in a dense set of departmental rules aimed at the lowest common denominator.\nThis distrust is the first layer of loyalty that threatens to unravel. Ask any employee and they’ll tell you it’s hard to be loyal to an organization that doesn’t trust you to be on time, avoid gossip, work throughout the workday, communicate clearly, adhere to deadlines, etc. Truth be told, you may have 20 highly skilled, high-functioning employees, and two that you… well, have to keep an eye on. But we humbly recommend dealing with discipline violations or performance pitfalls individually, not with blanket policy or a culture of intense scrutiny. A certain amount of trust should be assumed upon hire, not “earned.”"
+            },
+            {
+              "id": "team_members_are_defended",
+              "title": "Team members are defended.",
+              "body": "Team members are defended."
+            },
+            {
+              "id": "part_of_being_loyal_to_people_is_defendi",
+              "title": "Part of being loyal to people is defending them in public and disciplining them in privat…",
+              "body": "Part of being loyal to people is defending them in public and disciplining them in private. Any parent with children has probably seen this principle play out over and over. It’s no different in a work family. When a team member makes a visible mistake, are they chastised publicly for it? If someone criticizes one of your employees, are you quick to join in, or do you defend the team member? Even the most loyal team member will waver if they learn they will be publicly crucified when they make a mistake. After all, it’s hard to show loyalty to someone who won’t be loyal to you when it counts."
+            },
+            {
+              "id": "team_members_are_allowed_to_do_their_job",
+              "title": "Team members are allowed to do their job.",
+              "body": "Team members are allowed to do their job."
+            },
+            {
+              "id": "we_talked_about_this_briefly_in_the_prev",
+              "title": "We talked about this briefly in the previous lesson, but it’s worth stating again.",
+              "body": "We talked about this briefly in the previous lesson, but it’s worth stating again. Pat advised, “If you are both strong and selective, if you seek out quality people and convince them to be loyal to your organization, then you will succeed, and you will eliminate a lot of trouble, mistakes and wasted energy along the way. But you must be willing to acknowledge their talents and let them do their jobs.”1"
+            },
+            {
+              "id": "team_members_are_allowed_to_give_feedbac",
+              "title": "Team members are allowed to give feedback.",
+              "body": "Team members are allowed to give feedback."
+            },
+            {
+              "id": "a_lack_of_feedback_always_keeps_a_relati",
+              "title": "A lack of feedback always keeps a relationship one-sided.",
+              "body": "A lack of feedback always keeps a relationship one-sided. It takes a certain level of maturity and trust to be prepared for whatever that feedback might be. But the highest-functioning teams have a high level of trust that allows for feedback to be given when necessary — for the overall good of the team or organization.\nPat put it this way: “When I say surround yourself with loyal people, I don’t mean ‘yes people.’ I want to make that clear. In fact, it’s a crucial distinction… You have to allow for differences and entertain the opinions of others, without accusing them of disloyalty.”\n“People who say yes to you all the time are, in my opinion, insulting you. They assume you are either too immature or unstable or egotistical to handle the truth,” she said.\nEmployees must have a safe place to voice their concerns and give feedback so they feel like they’re part of a team.\nNote: A key distinction here is “feedback,” not “complaints.” Assuming the feedback is constructive and given in the right spirit, never criticize an employee for giving feedback when it’s been encouraged or solicited."
+            },
+            {
+              "id": "good_stewards_are_rewarded",
+              "title": "Good stewards are rewarded.",
+              "body": "Good stewards are rewarded."
+            },
+            {
+              "id": "nothing_increases_loyalty_like_rewarding",
+              "title": "Nothing increases loyalty like rewarding competent people for a job well done.",
+              "body": "Nothing increases loyalty like rewarding competent people for a job well done. When team members see a direct relationship between work and reward, it makes them more motivated and more loyal to an organization.\nWith a little intentionality, you can use the steps above to help lay a foundation of trust as a leader. Think back on the best leaders you’ve had over the course of your own career. What made them so great? Most likely, the common denominator was that you felt like they trusted you. They earned your loyalty by first giving you trust and/or loyalty in return."
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_12_st_002_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_12_st_002_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_12_st_002_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_12_st_002_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_12_st_002_image_05.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_12_st_003",
+      "source_step_id": "potl_mp_12_st_003",
+      "sequence": 3,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_12_st_003_q01",
+              "prompt": "When it comes to loyalty, which is a part of principle #1, “Trust is automatically assumed”?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Trust should be earned, not assumed upon hire"
+                },
+                {
+                  "id": "c2",
+                  "text": "Micromanaging everyone equally to keep work up to standards"
+                },
+                {
+                  "id": "c3",
+                  "text": "Making sure discipline standards are strict, to ensure low-performers level up their game."
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_12_st_003_q02",
+              "prompt": "Which are a part of the basic principles of trust, as mentioned in this lesson? (check any that apply)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Team members are defended."
+                },
+                {
+                  "id": "c2",
+                  "text": "Team members are highly scrutinized."
+                },
+                {
+                  "id": "c3",
+                  "text": "Team members are allowed to do their jobs."
+                },
+                {
+                  "id": "c4",
+                  "text": "Team members are disciplined swiftly."
+                },
+                {
+                  "id": "c5",
+                  "text": "Team members are allowed to give feedback."
+                },
+                {
+                  "id": "c6",
+                  "text": "Good stewards are rewarded."
+                },
+                {
+                  "id": "c7",
+                  "text": "Hourly activity reports are required."
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c3",
+                "c5",
+                "c6"
+              ]
+            },
+            {
+              "question_id": "potl_mp_12_st_003_q03",
+              "prompt": "Pat once said, “When I say surround yourself with loyal people, I don’t mean ‘yes people.’ You have to allow for differences and ____________.”",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Make sure you’re getting only the most qualified advice."
+                },
+                {
+                  "id": "c2",
+                  "text": "Entertain the opinions of others, without accusing them of disloyalty."
+                },
+                {
+                  "id": "c3",
+                  "text": "Insist on positive thinking at all times."
+                },
+                {
+                  "id": "c4",
+                  "text": "Have consequences for those who disagree."
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_12_st_004",
+      "source_step_id": "potl_mp_12_st_004",
+      "sequence": 4,
+      "title": "Personal Reflections & Exercise",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "On a scale of 1 to 10, rate yourself and/or your department in the five core areas of trust. Be honest.Trust is automatically assumed: __________________\nTeam members are defended: __________________\nTeam members are allowed to do their jobs: __________________\nTeam members are allowed to give feedback: __________________\nGood stewards are rewarded: __________________"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Sources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877954",
+          "visible_title": "A Leader for the Ages",
+          "speaker": "Joan Cronan"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_12_st_004_reflection_01",
+          "prompt": "Think back on your own career. Of the five areas of trust mentioned in this lesson, which two do you appreciate the most?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_12_st_004_reflection_02",
+          "prompt": "Which one has been the hardest to come by at previous or current employers?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_12_st_004_reflection_03",
+          "prompt": "Why do you think this is?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_12_st_004_reflection_04",
+          "prompt": "Which do you struggle with most?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_12_st_004_reflection_05",
+          "prompt": "What are two practical things you can do this month to improve in one of the areas?"
+        }
+      ]
+    }
+  ]
+}

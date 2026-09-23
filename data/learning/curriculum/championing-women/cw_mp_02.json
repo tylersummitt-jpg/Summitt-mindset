@@ -1,0 +1,272 @@
+{
+  "id": "cw_mp_02",
+  "collection_id": "championing_women",
+  "collection_title": "Championing Women in Leadership",
+  "title": "Women at Work: The Current Situation",
+  "description": "When Summitt started her career in the 1970s, less than half of women over the age of 16 were working outside the home (43 percent).¹ In today’s workforce, however, women have emerged as a driving force in the global economy. The experiences of women in leadership across various industries are as diverse as they are inspiring, bringing fresh perspectives and new talents to the table.",
+  "sequence": 2,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "cw_mp_02",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "cw_mp_02_st_001",
+      "source_step_id": "cw_mp_02_st_001",
+      "sequence": 1,
+      "title": "The Current Situation",
+      "blocks": [
+        {
+          "type": "video",
+          "vimeo_video_id": "1151014350",
+          "visible_title": "Women at Work – The Current Situation",
+          "speaker": "Morgan Vance"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_02_st_001_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "When Summitt started her career in the 1970s, less than half of women over the age of 16 were working outside the home (43 percent).¹ In today’s workforce, however, women have emerged as a driving force in the global economy. The experiences of women in leadership across various industries are as diverse as they are inspiring, bringing fresh perspectives and new talents to the table."
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_02_st_001_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "As the 21st century begins to hit its stride, the contributions of women in the workforce are more important than ever, challenging age-old biases while moving businesses and organizations forward. Yet while great progress has been made over the last 100 years—even the last quarter century—the inclusion of women in the workplace, especially equity among leadership, remains a hotly debated topic. Why? To fully answer that, we have to take a closer look at the status quo."
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_02_st_002",
+      "source_step_id": "cw_mp_02_st_002",
+      "sequence": 2,
+      "title": "But We're Equal, Aren't We?",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Yes…and no. Many people look at three main statistics to prove how far women have come:\n\nWomen now make up roughly half the U.S. workforce.\n\nAnti-sexual harassment and discrimination policies are now federal law.\n\nMaternity leave is now required by law, even if unpaid.\n\n“So, what’s the big deal?” you might ask. “Why are women still complaining that things are unequal, or that they face obstacles?”\n\nThe truth is, there are several well-documented inequities that continue to face female workers in the modern workplace.\n\nUnequal Pay\n\nThe first is the pay gap, which hasn’t changed all that much in the last decade. While the Equal Pay Act of 1963 made it illegal to blatantly discriminate based on gender (up until then, employers could openly advertise “men’s positions” at a higher rate than “women’s positions” in the local advertisements), there is still a way to go to achieve true equity in compensation. According to the U.S. Bureau of Labor Statistics, women continue to earn 82 percent of what their male counterparts make in similar positions.²\n\nAccording to the U.S. Bureau of Labor Statistics, women continue to earn 82 percent of what their male counterparts make in similar positions.\n\nUnequal Representation in Certain Fields\n\nThe second is the underrepresentation of women in certain fields—mostly the more technical and often higher-paying STEM fields (Science, Technology, Engineering, and Math). This is coupled with an overrepresentation of women in traditionally lower-paying fields like teaching or administrative assistants.\n\nEven among fields where women are firmly represented overall, like healthcare, disparities exist between men and women in higher-educated roles. For example, dental hygienists are 93 percent female,³ compared to only comprising a little over 37% of dentists. And 86 percent of nurses are female,⁴ compared to only making up 37% of the physician workforce. Even in Pat’s own field of coaching, today only one-third of all head coaches are women, while two-thirds are men.⁵ Similarly, men make up 83 percent of all sports announcers, and only 17 percent of these roles are filled by women.⁶\n\nThe imbalance of women across the workforce as a whole leads to its own set of obstacles and challenges. You could argue that it’s hard for women to feel equal when they’re always a minority in an occupation that is two-thirds male. And it’s tough to choose a male-dominated career when women aren’t encouraged to choose a career field that gender biases make unappealing at a young age (e.g., being in the math club is “unfeminine” or makes you “intimidating”).\n\nThe imbalance of women across the workforce as a whole leads to its own set of obstacles and challenges."
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_02_st_002_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_02_st_002_image_02.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_02_st_002_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_02_st_002_image_04.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_02_st_003",
+      "source_step_id": "cw_mp_02_st_003",
+      "sequence": 3,
+      "title": "Gender Stereotypes and Biases",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Caregiving Responsibilities\n\nNext is the challenge women have traditionally faced around caregiving duties. First, balancing the time off women need for maternity and post-maternity, often with multiple children. The Pregnancy and Discrimination Act of 1978 made it illegal to discriminate against female employees due to pregnancy or childbirth, and the 1993 federal Family Medical Leave Act (FMLA) now offers women 12 weeks of maternity leave with job protection (although whether the leave is paid or not is still up to the employer). Women have historically been the main caregiver for said children as they grow through the elementary years, often making them the first responder for sick days, sleepless nights, field trips, evening meals, extracurriculars, etc.\n\nIn spite of 21st century efforts to balance this caregiving load, modern studies show women work 4 hours and 25 minutes each day domestically outside of their corporate careers, compared with men putting in 1 hour and 23 minutes.⁷ This makes women much more of a candidate for burnout than their male counterparts. All this is coupled with the fact that childcare in most states is expensive, making many women question whether returning to work is advantageous financially.\n\nThere’s also what’s known as the motherhood penalty. Studies by organizations such as the Harvard Business Review have shown as much as an $11,000 gap in what mothers were offered in starting salary, as opposed to their childless female counterparts, which just widens the 82 percent female pay gap.⁸\n\nAccording to one study, women work 4 hours and 25 minutes each day domestically outside of their corporate careers, compared with men putting in 1 hour and 23 minutes.\n\nUnderrepresentation in Leadership\n\nOne of the more complex issues in today’s workforce is the overall underrepresentation of women in leadership positions. An annual study on women in the workforce by McKinsey and LeanIn found that among C-Suite leadership today, 75 percent are male, while only 25 percent are female. Factoring in racial minorities, only 1 out of 20 C-Suite leaders are women of color.⁹\n\nThe reasons for this leadership gap are complex. Many have traditionally pointed to childbearing and caregiving as a reason women opt out of the workplace before they reach leadership levels, but 21st century research has started to add more variables to the mix."
+        },
+        {
+          "type": "markdown",
+          "markdown": "C-Suite Leadership (pie chart)\n\nMen: 75%\n\nWomen: 25%"
+        },
+        {
+          "type": "markdown",
+          "markdown": "This brings us to the world of gender biases. Unconscious gender bias still remains a considerable barrier to women’s career advancement, but can be difficult to pinpoint and address.\n\nFor example, studies have shown characteristics such as “assertiveness,” “confidence” and “out-spokenness” tended to be viewed positively in men, while carrying a negative connotation among women. Another example, might be a job posting for an administrative assistant requesting candidates be “always smiling and pleasant” or that a leadership position require someone who is “no-nonsense,” “leads with a firm hand,” or is “willing to speak up” (with women displaying such assertive attributes being negatively stereotyped at a higher rate than men).\n\nUnconscious gender bias still remains a considerable barrier to women’s career advancement, but can be difficult to pinpoint and address.\n\nCracking the Glass and Closing the Gap\n\nIn short, we haven’t reached true equality in the modern workplace simply by throwing women into the mix and shuffling the card deck. And the points above haven’t gone unnoticed among top employers and organizations committed to championing women in the workforce and promoting strong female leaders.\n\nSo what can employers do specifically to encourage female leadership and support women on their own teams?"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_02_st_003_image_01.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_02_st_003_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_02_st_003_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_02_st_003_image_04.png",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_02_st_004",
+      "source_step_id": "cw_mp_02_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 4,
+          "questions": [
+            {
+              "question_id": "cw_mp_02_st_004_q01",
+              "prompt": "Which is not an obstacle facing women in the workplace today?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Unequal representation in certain fields"
+                },
+                {
+                  "id": "c2",
+                  "text": "Underrepresentation in the workforce"
+                },
+                {
+                  "id": "c3",
+                  "text": "Gender biases"
+                },
+                {
+                  "id": "c4",
+                  "text": "Underrepresentation in leadership"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "cw_mp_02_st_004_q02",
+              "prompt": "Which is a challenge to equality in the workplace that women traditionally face?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Unequal pay"
+                },
+                {
+                  "id": "c2",
+                  "text": "Unequal representation in certain fields"
+                },
+                {
+                  "id": "c3",
+                  "text": "Caregiving responsibilities"
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "cw_mp_02_st_004_q03",
+              "prompt": "According to the U.S. Census Bureau, women continue to earn ______ percent of what their male counterparts make:",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "82"
+                },
+                {
+                  "id": "c2",
+                  "text": "54"
+                },
+                {
+                  "id": "c3",
+                  "text": "73"
+                },
+                {
+                  "id": "c4",
+                  "text": "96"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "cw_mp_02_st_004_q04",
+              "prompt": "Which law made it illegal to discriminate against females due to pregnancy or childbirth?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Family Medical Leave Act (1993)"
+                },
+                {
+                  "id": "c2",
+                  "text": "Equal Pay Act (1963)"
+                },
+                {
+                  "id": "c3",
+                  "text": "Title IX (1972)"
+                },
+                {
+                  "id": "c4",
+                  "text": "Pregnancy and Discrimination Act (1978)"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_02_st_005",
+      "source_step_id": "cw_mp_02_st_005",
+      "sequence": 5,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_02_st_005_reflection_01",
+          "prompt": "Take a minute to reflect on your own thoughts around women in the workplace. How have you viewed equality for women in the workforce in the past?\n\nOn a scale of 1 to 10, with 1 being “not equal” and 10 being “totally equal,” how close do you think we are to equality currently? There is no right or wrong answer. This is just a reflective exercise to get you to think about your own perceptions."
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_02_st_005_reflection_02",
+          "prompt": "What are the biggest obstacles women face in your own organization? Why do you think this is?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_02_st_005_reflection_03",
+          "prompt": "Are there any unique obstacles to female leadership in your organization?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_02_st_005_reflection_04",
+          "prompt": "If you are a woman, which of these (if any) have you experienced before:\n\nUnequal pay\nUnequal representation in certain fields\nCaregiving/motherhood penalties\nUnderrepresentation in leadership\nGender stereotypes and biases"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_02_st_005_reflection_05",
+          "prompt": "If you are male, which of the above inequalities is the most surprising to you, and which one are you the most curious to know more about?"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Sources used in this course\n\n1. Population Reference Bureau. 2/1/2001. Accessed online: https://www.prb.org/resources/record-number-of-women-in-the-u-s-labor-force\n\n2. U.S. Bureau of Labor Statistics. “Women in the Labor Force: a Databook.” 4/2021. Accessed online: https://www.bls.gov/opub/reports/womens-databook/2020/home.html\n\n3.-6. Zippia.com. Demographics. Accessed online: 2024. https://www.zippia.com/\n\n7. TeamStage. “Women in the Workforce Statistics: Senior Roles, Maternity Leaves, Pay Gap in 2024. Accessed online 2024: https://teamstage.io/women-in-the-workforce-statistics/\n\n8. Harvard Business Review. “Women in the Workplace: A Research Roundup.” Reprint R1309F 9/2013. Accessed: 2/24/24 online: https://hbr.org/2013/09/women-in-the-workplace-a-research-roundup\n\n9. McKinsey & Company with LeanIn.org. “Women in the Workplace 2023” Accessed online: https://www.mckinsey.com/featured-insights/diversity-and-inclusion/women-in-the-workplace"
+        }
+      ]
+    }
+  ]
+}

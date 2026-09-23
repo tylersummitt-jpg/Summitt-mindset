@@ -1,0 +1,2943 @@
+{
+  "course": {
+    "id": "hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k",
+    "originalId": null,
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "selectedAuthorId": "none",
+    "color": "#4267a9",
+    "navigationMode": "",
+    "title": "Championing Women in Leadership - Thriving Together",
+    "sharePassword": "",
+    "description": "",
+    "shareId": "LNkIQ1NKCRFj0XG-gLlHH27VuUt3L6Sy",
+    "copyOf": "gbn4cQz5OnMPiHE3mmcyAGjig8w_3DWs",
+    "order": "1728405867925",
+    "fonts": null,
+    "media": {
+      "image": {
+        "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/3qw8WY5vYGMCfyLC-CWILLogo_Color_Transparent.png",
+        "type": "image",
+        "width": 166,
+        "height": 40,
+        "scalar": 2,
+        "crushedKey": "X--Ep5f4l3T_tJyc-L.png",
+        "originalUrl": "CWILLogo_Color_Transparent.png",
+        "useCrushedKey": true
+      }
+    },
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/cZsUJpnQB9SVSbzI-PSLG_CWIL_TItleGraphic.png",
+          "crushedKey": "vpIM4yGVw0Q2uJOC.jpg",
+          "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "id": "kzfJTSs1nC-0o4E8XOtUJLHXVil40QjA",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k",
+        "title": "Women Supporting Women",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clwkzxv2e00023b798fyzhs64",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clwkzxv2e00033b7939bbjw8x",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_petra_dunn_thriving_together_women_supporting_women_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-SLQFqXuKMbP0VJSk-v4_wil_petra_dunn_thriving_together_women_supporting_women_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_petra_dunn_thriving_together_women_supporting_women_clip_01%20%281080p%29.jpg",
+                    "duration": 212,
+                    "inputKey": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/SLQFqXuKMbP0VJSk-v4_wil_petra_dunn_thriving_together_women_supporting_women_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/transcoded-SLQFqXuKMbP0VJSk-v4_wil_petra_dunn_thriving_together_women_supporting_women_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_petra_dunn_thriving_together_women_supporting_women_clip_01 (1080p).mp4",
+                    "transcodeId": "1727980199567-fbaieb"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwkzy1gh000w3b79qgjvmo5e",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clwkzy1gh000x3b799eyi1br0",
+                "media": {
+                  "attachment": {
+                    "key": "L12%20Transcript%20Thriving%20Together.pdf",
+                    "size": 48926,
+                    "type": "attachment",
+                    "filename": "fpUoU45CkS_ywTN--L12%20Transcript%20Thriving%20Together.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L12 Transcript Thriving Together.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwkzyprc001b3b796pwekukp",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clwkzyprc001c3b79zf82bd8z",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/lDdlhAlIQevDYHnh.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "Pat%20Mickie%20Holly%20in%20warmups.jpg",
+                    "dimensions": {
+                      "top": 435,
+                      "left": 0,
+                      "width": 1675,
+                      "height": 1204,
+                      "originalWidth": 1680,
+                      "originalHeight": 2407
+                    },
+                    "originalUrl": "Pat Mickie Holly in warmups.jpg",
+                    "originalImage": {
+                      "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/7lqCJ4_T37TWxmPV-Pat%2520Mickie%2520Holly%2520in%2520warmups.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/I4bNgnEPE7KAQirM.jpg",
+                      "originalUrl": "Pat Mickie Holly in warmups.jpg",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>We&rsquo;ve discussed attitude, authenticity, growth, communication, negotiation, and burnout. One final step to longevity as a female leader is to create a strong support system from female colleagues around you. Like anything else in life, the road to leadership is easier when you&rsquo;re surrounded by an encouraging tribe. These aren&rsquo;t just any female colleagues, but the ones you want to emulate, the ones who set the bar.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cadzr4001c3b79q7i9okcf",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cadzr5001d3b79q8gel6dc",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-03-28T15:15:00.692Z",
+        "updatedAt": "2024-11-11T00:30:04.170Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 0,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Women Supporting Women"
+      },
+      {
+        "id": "Qs6hi5WBCK1DBbDDJeb78SlJol-asni1",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k",
+        "title": "Creating Your Championship Team",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clwl08gnq006s3b79q0u53e80",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clwl08gnq006t3b79sqczxypk",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/akrADTRs8fPflrcZ-pat-summitt.jpg",
+                    "type": "image",
+                    "crushedKey": "pat-summitt.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 945
+                    },
+                    "originalUrl": "pat-summitt.jpg",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwl00xa900313b79dowjsut0",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clwl00xaa00323b79cha4fcc1",
+                "paragraph": "<p>There are several types of players you want on your support team, and we&rsquo;ll go over a few below.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwl05cc9004c3b79j0cuz095",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clwl05cca004d3b793hh5vgip",
+                "type": "intro",
+                "title": "The Support Team",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"14a28080-cf27-4fde-876c-bde22b723e21\"><p>There are several types of players you want on your support team. Here's a few:</p><ul><li><p><strong>Work BFFs</strong></p></li><li><p><strong>Comrade-in-arms&nbsp;</strong></p></li><li><p><strong>Coaches</strong></p></li><li><p><strong>Mentors</strong></p></li></ul></div>"
+              },
+              {
+                "id": "clwl05cca004e3b795iu9taa9",
+                "type": "summary",
+                "title": "Summary",
+                "isHidden": false,
+                "description": "<p>These are just a few examples of the great foundations to build your Championing Team.</p>"
+              },
+              {
+                "id": "clwl05cca004f3b79jm6yk0fg",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/TZih_yHngblviRJ8-download.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "download.jpg",
+                    "dimensions": {
+                      "originalWidth": 1200,
+                      "originalHeight": 806
+                    },
+                    "trackingId": "clwl05cc9004c3b79j0cuz095",
+                    "originalUrl": "download.jpeg",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Work BFFs",
+                "isHidden": false,
+                "description": "<p>Work BFFs, if you will, are the unsung heroes of the daily grind. They&#39;re the ones who understand your coffee addiction and can read your facial expressions during meetings. These people simply make you feel better! They can be a refreshing break in your weekly routine, giving you the energy to keep going. So don&rsquo;t skip out on making friends or lunch buddies at work&mdash;just make sure they are the type of positive and professional friend who will keep you moving forward.</p>"
+              },
+              {
+                "id": "clwl05cca004g3b795ulg68v0",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/kWen4wi571tkGUlL-Final%2520Four.2002.Warlick%252C%2520Summitt%252C%2520%2526%2520DeMoss.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "Final%20Four.2002.Warlick%2C%20Summitt%2C%20%26%20DeMoss.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1344
+                    },
+                    "trackingId": "clwl05cc9004c3b79j0cuz095",
+                    "originalUrl": "Final Four.2002.Warlick, Summitt, & DeMoss.jpg",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Comrade-in-arms",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"c838a20e-f78a-4473-bc49-3fbcdf0d4418\"><p>Comrade-in-arms are important peers who share similar professional goals or who are your partners on particular projects. Whether you're planning an ambitious marketing campaign, rolling out a new product, or doing something you’ve never done before, having this type of peer in your tribe makes the journey more enjoyable. Comrade-in-arms help keep you accountable and can offer much-needed support in the trenches. Plus, success is sweeter when celebrated with those who truly get the hustle.</p><p><br class=\"break-when-trailing\">Pat’s comrade-in-arms were undoubtedly two of her assistant coaches Mickie DeMoss and Holly Warlick, whom she considered as good friends. The three were inseparable, and Pat often relied upon them to keep her grounded and in check.</p></div>"
+              },
+              {
+                "id": "clwl0jd2z007d3b7915fd5zm9",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/fEkqdWIIbSba2HZ0.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "isSquare": false,
+                    "crushedKey": "Summitt%20Instructs%20Randall%20on%20Sideline.2000.jpg",
+                    "dimensions": {
+                      "top": 206,
+                      "left": 87,
+                      "width": 1593,
+                      "height": 1004,
+                      "originalWidth": 1680,
+                      "originalHeight": 2131
+                    },
+                    "trackingId": "clwl05cc9004c3b79j0cuz095",
+                    "originalUrl": "Summitt Instructs Randall on Sideline.2000.jpg",
+                    "originalImage": {
+                      "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/HazKtYhSidcdf2d_-Summitt%2520Instructs%2520Randall%2520on%2520Sideline.2000.jpg",
+                      "type": "image",
+                      "align": "center",
+                      "crushedKey": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/05H1xI-cwKt7Ffl1.jpg",
+                      "trackingId": "clwl05cc9004c3b79j0cuz095",
+                      "originalUrl": "Summitt Instructs Randall on Sideline.2000.jpg",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    },
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Coaches",
+                "isHidden": false,
+                "description": "<p>Coaches are just that&mdash;those who may or may not work for your organization, but have a history in the workplace and can offer encouragement. A coach is there to offer support and point out potential potholes in the career road to avoid, which a work BFF or comrade-in-arms may not necessarily see from their vantage point. Think of them as an encourager or cheerleader with an eye for critical thinking.</p>"
+              },
+              {
+                "id": "clwl0lgic007h3b79s07kyhl2",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/QTpGNpPhbNzIeVvk-Summitt%2520in%2520Huddle.2002.add1.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "Summitt%20in%20Huddle.2002.add1.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1114
+                    },
+                    "trackingId": "clwl05cc9004c3b79j0cuz095",
+                    "originalUrl": "Summitt in Huddle.2002.add1.jpg",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Mentors",
+                "isHidden": false,
+                "description": "<p>Last, but certainly not least, are mentors. A mentor isn&rsquo;t a peer or a coach, they&rsquo;re someone who has gone before you in your industry&mdash;maybe even at your own organization or one similar. They&rsquo;re not here to be a cheerleader, but rather to pass on experience. Imagine you&#39;re facing a workplace decision that feels impossible. Or you&rsquo;re wondering how to navigate a new technology rollout you haven&rsquo;t used before, and the team isn&rsquo;t on board. This is where mentors come in. They&#39;ve been there, done that, and can help you navigate the twists and turns.&nbsp;</p><p>Mentors can be male or female, and balanced leaders usually have both on their support team. Cross-generational mentors in particular bring a unique perspective that younger generations might readily miss. A mentor might have prior experience in a role or a particular skill set to teach that will help move you forward in your career path. It&#39;s not about finding a friend, it&#39;s about finding someone who&#39;s been through the trenches and can offer valuable insight and advice.</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h81js6003e3b7cu3lg7b18",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h81js6003m3b7cyyxphv86",
+                "heading": "<p><strong>Deep Dive: Finding a Mentor</strong></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h81y3700443b7cb34uyq0h",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h81y3g00453b7cl4iocwyu",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_sue_nokes_-_finding_a_mentor_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-3hUIByNYQePh5Kwb-v4_wil_sue_nokes_-_finding_a_mentor_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_sue_nokes_-_finding_a_mentor_clip_01%20%281080p%29.jpg",
+                    "duration": 154,
+                    "inputKey": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/3hUIByNYQePh5Kwb-v4_wil_sue_nokes_-_finding_a_mentor_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/transcoded-3hUIByNYQePh5Kwb-v4_wil_sue_nokes_-_finding_a_mentor_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_sue_nokes_-_finding_a_mentor_clip_01 (1080p).mp4",
+                    "transcodeId": "1727980226266-q139ze"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19v2ro8004z3b74ugibkc4e",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19v2ro900503b74x13jowjp",
+                "media": {
+                  "attachment": {
+                    "key": "L12.1%20Transcript%20Finding%20a%20Mentor.pdf",
+                    "size": 52667,
+                    "type": "attachment",
+                    "filename": "SRndCgSkQQINQcCl-L12.1%20Transcript%20Finding%20a%20Mentor.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L12.1 Transcript Finding a Mentor.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwl06d5w005h3b79hq8drlh6",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clwl06d5w005i3b798ycap9k5",
+                "paragraph": "<p><span style=\"color: black; text-decoration: inherit\">A mentor is someone you trust, admire and respect who will give you honest and invaluable career advice.</span></p><p><strong>Sample questions you might ask a mentor include:</strong></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzlo8aqi003g3b7cjd1460g8",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "16.160258746355684",
+                "y": "18.214214468362925",
+                "id": "clzlo8aqi003h3b7ceaa7gguu",
+                "icon": "04",
+                "title": "",
+                "isActive": false,
+                "description": "<p>What steps did you take to advance in your career, and are there specific skills or experiences you recommend I focus on?</p>"
+              },
+              {
+                "x": "24.854227405247816",
+                "y": "42.13198890118061",
+                "id": "clzlodx0h00hf3b7czvia76e1",
+                "icon": "04",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>How do you approach setting career goals, and are there specific milestones you recommend I aim for in my current role and beyond?</p>"
+              },
+              {
+                "x": "49.99943057580175",
+                "y": "50.024482689831515",
+                "id": "clzlodlp500ep3b7ccvbsvswh",
+                "icon": "04",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>How did you build and leverage your professional network throughout your career? Any tips for effective networking?</p>"
+              },
+              {
+                "x": "75.29154518950438",
+                "y": "42.480187156562266",
+                "id": "clzlod8no00bz3b7chqfj1ox4",
+                "icon": "04",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>As a successful professional, how have you managed to maintain a healthy work-life balance, and do you have any advice for finding that balance?</p>"
+              },
+              {
+                "x": "86.22448979591837",
+                "y": "62.79175205382565",
+                "id": "clzlocri300993b7cifnwlch4",
+                "icon": "04",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>What strategies do you use for continuous professional development? Can you provide feedback on my current performance and suggest areas where I can improve?</p>"
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/nxFMmERSFH_ZXBOL-AdobeStock_489557403.jpeg",
+                "type": "image",
+                "crushedKey": "AdobeStock_489557403.jpg",
+                "dimensions": {
+                  "originalWidth": 1680,
+                  "originalHeight": 1055
+                },
+                "originalUrl": "AdobeStock_489557403.jpeg",
+                "sourcedFrom": "USER",
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#ffffff",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwl05ett004u3b79ru4rhwsw",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clwl05ett00503b79dkt5t19e",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>These are just a few. The sky&rsquo;s the limit as to how much gold you can mine for with a mentor. If they&rsquo;re female, for example, you may ask them, &quot;Have you faced gender-related challenges in your career, and if so, how did you overcome them? Any advice for navigating gender bias in the workplace?&quot;&nbsp;</p><p>If they hold/held a position of senior leadership you might ask, &quot;What leadership skills do you believe are essential for success in our industry today and how can I strengthen these skills?&quot; If they are a self-help junkie, ask, &ldquo;What strategies do you use for continuous professional development?&quot; You get the picture. As one of the first in her industry to smash through the glass ceiling, many colleagues and team members considered Pat herself to be a mentor.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cae73d005v3b79d43mq4vr",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cae73d005w3b79pud0s70a",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-15T16:46:09.300Z",
+        "updatedAt": "2024-11-11T00:30:13.447Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Creating Your Championship Team"
+      },
+      {
+        "id": "_QbCWD1NJ0c7KOkwjbbsFa9rCYH9nBcm",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d6nl8d00033b7bog41nno8",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What are the four types of players you want on your support team, as discussed in this lesson?</p>",
+            "answers": [
+              {
+                "id": "cm0d6nl8d00043b7bvakck60z",
+                "title": "<p>Work BFFs, Comrades-in-Arms, Coaches, Mentors</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6nl8d00053b7bskbi8n6b",
+                "title": "<p>Leaders, Guides, Friends, Power-Players</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6ocw3000k3b7brypv402o",
+                "title": "<p>Achievers, Delegators, Administrators, Reviewers</p>"
+              },
+              {
+                "id": "cm0d6oyc4000m3b7bbgrch50e",
+                "title": "<p>None of the above</p>"
+              }
+            ],
+            "correct": "cm0d6nl8d00043b7bvakck60z",
+            "corrects": [
+              "cm0d6nl8d00043b7bvakck60z"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6nl8d00063b7bv0mg20f0",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is true of a mentor?</p>",
+            "answers": [
+              {
+                "id": "cm0d6nl8d00073b7bqnzeuaxn",
+                "title": "<p>They should be around your age.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6nl8d00093b7b2xsqgl7w",
+                "title": "<p>They should be the same gender as you.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6nl8d000a3b7bgccq4g44",
+                "title": "<p>They should have prior experience or a skillset to offer.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6nl8d00083b7bu6813oak",
+                "title": "<p>They should work at your organization.</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d6nl8d000a3b7bgccq4g44",
+            "corrects": [
+              "cm0d6nl8d00073b7bqnzeuaxn",
+              "cm0d6nl8d00083b7bu6813oak"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6qbu9000x3b7bs2ukr7lr",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is not a typical question you might ask a mentor?</p>",
+            "answers": [
+              {
+                "id": "cm0d6qbua000y3b7bfvetdq84",
+                "title": "<p>&ldquo;What steps did you take to advance your career?&rdquo;</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6qbua000z3b7bwdqzoeb4",
+                "title": "<p>&ldquo;Can you get me a promotion?&rdquo;</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6qbuv00103b7b54v1iycg",
+                "title": "<p>&ldquo;How did you build a professional network?&rdquo;</p>"
+              },
+              {
+                "id": "cm0d6qx5800123b7bw0jztfuo",
+                "title": "<p>&ldquo;What do you recommend for professional development?&rdquo;</p>"
+              }
+            ],
+            "correct": "cm0d6qbua000z3b7bwdqzoeb4",
+            "corrects": [
+              "cm0d6qbua000y3b7bfvetdq84"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T01:34:07.080Z",
+        "updatedAt": "2024-10-17T20:48:37.201Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "gROkH49nyOq1wyh3v_KcpKD8hsnpohcY",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k",
+        "title": "Peer Review",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clyoo2akw004y3b7dxrx95wpq",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clyoo2akx00513b7dydfd1fcw",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/R3NDatpDaZ5d2C2D-Summitt%2520Instructs%2520Dawn%2520Marsh.1987.jpg",
+                    "type": "image",
+                    "crushedKey": "Summitt%20Instructs%20Dawn%20Marsh.1987.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1341
+                    },
+                    "originalUrl": "Summitt Instructs Dawn Marsh.1987.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"fc3c4bf4-8c50-4171-a02e-8721f5a8ef4b\"><p>Now, mentors aside, let's talk about two words that may make you inwardly cringe: <em>peer review.</em> The beauty of having a tribe is that you now have people you trust in the trenches with you. They can give you not just support but also <em>honest</em> feedback, while a mentor may not witness your daily performance.&nbsp;</p><p>Strong female leaders know not to be afraid of criticism or critique but to seek it out in strategic cases. It's not about judgment; it's about growth.</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwl6wudh00ay3b79jo17x7g8",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "16.246056782334385",
+                "y": "46.89562115302859",
+                "id": "clwl6x2is00bg3b79tyfw2sxv",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>What are some overall areas I can improve on?</p>"
+              },
+              {
+                "x": "14.510424881703472",
+                "y": "79.43013992347646",
+                "id": "clwl6x2z800bi3b79v4s21rds",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>What do I do really well?</p>"
+              },
+              {
+                "x": "55.416379140378545",
+                "y": "57.06733701780004",
+                "id": "clwl6wudh00az3b79kn9j7bd3",
+                "icon": "01",
+                "title": "",
+                "isActive": false,
+                "description": "<p>What is my personal brand? What am I known for?&nbsp;</p>"
+              },
+              {
+                "x": "87.10074921135646",
+                "y": "36.91428993918782",
+                "id": "clwl6wudh00b03b79luswnrjq",
+                "icon": "01",
+                "title": "",
+                "isActive": false,
+                "description": "<p>Are there any relationships I need to improve/work on?</p>"
+              },
+              {
+                "x": "93.05993690851734",
+                "y": "72.25559601486108",
+                "id": "clwl6x1t400be3b79u3r6cxgb",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>How are my communication skills? Is there anything I need to change?</p>"
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/E9y04s2__gKmu4HZ-stock_image.jpg",
+                "type": "image",
+                "crushedKey": "stock-image.jpg",
+                "dimensions": {
+                  "originalWidth": 1680,
+                  "originalHeight": 1120
+                },
+                "originalUrl": "stock-image.jpg",
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#ffffff",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwqmhgc6000s3b79utlq5pif",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clwqmhgc7000y3b79l66orq8z",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Listen to what they say! Resilient leaders learn to see feedback as a tool for improvement, not a red mark on their report card.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzsyzsdb00b93b7c9uckez7q",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clzsyzsdc00bb3b7cci25ne25",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/6-5S6q2GnwNVPQtG-PatSummitt_Quote_Banners.png",
+                    "type": "image",
+                    "crushedKey": "PatSummitt_Quote_Banners.png",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 497
+                    },
+                    "originalUrl": "PatSummitt_Quote_Banners.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h82zil006c3b7cs2yenuob",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h82zim006i3b7cor4rnmpx",
+                "heading": "<p><strong>Deep Dive: How to Receive Feedback</strong></p>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h83pas00993b7coynyor2r",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h83paz009a3b7c7awmwejy",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_christina_reckard_-_how_to_receive_feedback_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-hYodc9dHYtDhhRyO-v4_wil_christina_reckard_-_how_to_receive_feedback_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_christina_reckard_-_how_to_receive_feedback_clip_01%20%281080p%29.jpg",
+                    "inputKey": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/hYodc9dHYtDhhRyO-v4_wil_christina_reckard_-_how_to_receive_feedback_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/transcoded-hYodc9dHYtDhhRyO-v4_wil_christina_reckard_-_how_to_receive_feedback_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_christina_reckard_-_how_to_receive_feedback_clip_01 (1080p).mp4",
+                    "transcodeId": "1727980344359-neqjk5"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19v4b1x009h3b74eqvtigvd",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19v4b1x009i3b74286sy1tr",
+                "media": {
+                  "attachment": {
+                    "key": "L%2012.2%20Transcript%20How%20to%20Receive%20Feedback.pdf",
+                    "size": 58632,
+                    "type": "attachment",
+                    "filename": "IHOs60F8f_Xl6osO-L%2012.2%20Transcript%20How%20to%20Receive%20Feedback.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L 12.2 Transcript How to Receive Feedback.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3caeepi009g3b791utgkezj",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3caeepi009h3b79fjvh9inn",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-15T16:46:16.695Z",
+        "updatedAt": "2024-11-11T00:30:23.051Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Peer Review"
+      },
+      {
+        "id": "JiXED40yqOZdvt1kKD5qFH3K91wLSBhU",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k",
+        "title": "You Win, I Win",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm0h84emj00f23b7c5isw4lmx",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h84emj00f33b7cuq1xpmg3",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_sue_nokes_-_supporting_other_women-_an_abundance_mindset_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-j0cfmjkwqNiQ4cj--v4_wil_sue_nokes_-_supporting_other_women-_an_abundance_mindset_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_sue_nokes_-_supporting_other_women-_an_abundance_mindset_clip_01%20%281080p%29.jpg",
+                    "inputKey": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/j0cfmjkwqNiQ4cj--v4_wil_sue_nokes_-_supporting_other_women-_an_abundance_mindset_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/transcoded-j0cfmjkwqNiQ4cj--v4_wil_sue_nokes_-_supporting_other_women-_an_abundance_mindset_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_sue_nokes_-_supporting_other_women-_an_abundance_mindset_clip_01 (1080p).mp4",
+                    "transcodeId": "1727980391574-68j9de"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19v4zp300d73b74j426zj6r",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19v4zp300d83b74nj3zwfaw",
+                "media": {
+                  "attachment": {
+                    "key": "L12.3%20Transcript%20Supporting%20other%20Women.pdf",
+                    "size": 47310,
+                    "type": "attachment",
+                    "filename": "LmUtUOuGnBz_BWEG-L12.3%20Transcript%20Supporting%20other%20Women.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L12.3 Transcript Supporting other Women.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwqmlarv003l3b7919t1m2qh",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clwqmlarv003r3b79nr29gola",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Finally, but not to be missed, learn to intentionally celebrate the victories of other women in the workplace and have an abundance mindset. Eliminate the scarcity mentality that might propel you to view other women as rivals for a limited number of positions. Other women aren&rsquo;t competition at work; they can be allies, if you let them. There are several ways to rally around your fellow sisters in the workplace:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwqmpllz005b3b79jiv98ac5",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clwqmpllz005c3b79ixl7jb59",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p>Do they know of a good mixer or networking opportunity in your area? Where do they meet other people in your industry? Did you just have a great experience at a recent conference you&rsquo;d recommend? Share the knowledge!&nbsp;</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p><strong>Share networking strategies&nbsp;</strong></p>"
+                }
+              },
+              {
+                "id": "clwqmpllz005d3b797272ah71",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p>Are you a whiz at design or excel spreadsheets? Know someone who is struggling in an area you can help with, or vice versa? Consider a monthly lunch or skill swap to help educate fellow women in the workplace.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p><strong>Promote skill development</strong></p>"
+                }
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/4VU8MF9yGFULLBMK-AdobeStock_61876489.jpeg",
+                  "type": "image",
+                  "alpha": 0.1,
+                  "dimensions": {
+                    "originalWidth": 1680,
+                    "originalHeight": 797
+                  },
+                  "originalUrl": "AdobeStock_61876489.jpeg",
+                  "sourcedFrom": "USER",
+                  "useCrushedKey": true
+                }
+              }
+            }
+          },
+          {
+            "id": "clwqmpk18004v3b79b29iy5vl",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clwqmpk18004w3b790rw8l92v",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p>Did someone just hit a huge milestone or work anniversary? How about a major promotion? Take a moment to help them celebrate! Victories at work are more meaningful when they&rsquo;re shared.&nbsp;</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p><strong>Celebrate achievements</strong></p>"
+                }
+              },
+              {
+                "id": "clwqmpk18004x3b79hwj6p8j2",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p>Maybe someone you know just went through a hard season at work. Or maybe you&rsquo;re facing a new software rollout or department reorganization and know someone a floor over who went through the same thing. Ask for advice, and also pass along your own wisdom.</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p><strong>Share similar experiences</strong></p>"
+                }
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwqms31r006a3b791wx91onw",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clwqms31r006b3b79oo82wfma",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p><span style=\"font-size: 2rem\">Look for ways to encourage your organization’s support for women in the workplace, from hiring to mentorship programs or peer group committees.</span></p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p><strong>Champion equal opportunities</strong></p>"
+                }
+              },
+              {
+                "id": "clwqms31r006c3b79m5wc8mh4",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p>Know of a job posting at your organization that&rsquo;s the perfect fit for a woman you know? Refer her! How about someone who would be a great candidate for a particular committee? Offer the recommendation!</p>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "AnB_Qe/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "originalUrl": "mountains.jpg"
+                    }
+                  },
+                  "description": "<p><strong>Look for growth opportunities</strong></p>"
+                }
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/dwgdjxXI9_-2W71Z-AdobeStock_225523989.jpeg",
+                  "type": "image",
+                  "alpha": 0.1,
+                  "dimensions": {
+                    "originalWidth": 1680,
+                    "originalHeight": 1120
+                  },
+                  "originalUrl": "AdobeStock_225523989.jpeg",
+                  "sourcedFrom": "USER",
+                  "useCrushedKey": true
+                }
+              }
+            }
+          },
+          {
+            "id": "clwqmtg1n006s3b79wvg5rzcf",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clwqmtg1o006y3b79l0hisroe",
+                "heading": "<p><strong>Give Back</strong></p>",
+                "paragraph": "<p>In summary, as you build your tribe and support system at work, be on the lookout for ways to give back. There are people who have helped you get to where you are today, or are mentoring you as a female leader. Take a minute to think about how you can pay it forward with your own talents and skills.&nbsp;</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxkpf6i900ap3b79im44ecfr",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clxkpf6ia00as3b799gx0ixr6",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/c9MUYeJx4NUzgNBn-20120304_WBB_SEC_LSU_BASS%252C%2520B_TROPHY_JUBILATION_pmr_108.jpg",
+                    "type": "image",
+                    "crushedKey": "20120304_WBB_SEC_LSU_BASS%2C%20B_TROPHY_JUBILATION_pmr_108.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1113
+                    },
+                    "originalUrl": "20120304_WBB_SEC_LSU_BASS, B_TROPHY_JUBILATION_pmr_108.jpg",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>Be the cheerleader someone else needs. Be the resource someone else can count on. Who can you be a reference for, or who needs an introduction? Pat would be the first to reinforce the power of the team in achieving any goal, as opposed to being a lone ranger or individual performer in your career. Remember the old African proverb, &ldquo;If you want to go fast, go alone. If you want to go far, go together.&rdquo;</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3caemmd00dl3b79cqlne3j8",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3caemmd00dm3b794a022iqr",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-15T16:46:27.835Z",
+        "updatedAt": "2024-11-11T00:30:33.955Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "You Win, I Win"
+      },
+      {
+        "id": "tkGiOVKucKSmZJDFTV2cjsVJw85wEZup",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d6o1cu000c3b7bx5pseb0t",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What is one benefit of a peer review?</p>",
+            "answers": [
+              {
+                "id": "cm0d6o1cu000d3b7btoyhwye7",
+                "title": "<p>Learning what you do well</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6o1cu000e3b7btjnwmclh",
+                "title": "<p>Uncovering your actual personal brand</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6rmba00173b7bek45j6op",
+                "title": "<p>Discovering areas of improvement</p>"
+              },
+              {
+                "id": "cm0d6s7ac00193b7b0gvtugn7",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d6s7ac00193b7b0gvtugn7",
+            "corrects": [
+              "cm0d6o1cu000d3b7btoyhwye7"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6o1cu000f3b7bua3v4izf",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What is a question you might ask another colleague in a peer review?</p>",
+            "answers": [
+              {
+                "id": "cm0d6o1cu000g3b7bq7yg4krg",
+                "title": "<p>&ldquo;What is your salary?&rdquo;</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6o1cu000i3b7bq5lkkw0m",
+                "title": "<p>&ldquo;What does our leader think of me?&rdquo;</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6o1cu000j3b7bpwdvq7i3",
+                "title": "<p>&ldquo;What are some areas in which I can improve?&rdquo;</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6o1cu000h3b7bnsd9wic8",
+                "title": "<p>&ldquo;Which colleagues do you think I&rsquo;m better than?&rdquo;</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d6o1cu000j3b7bpwdvq7i3",
+            "corrects": [
+              "cm0d6o1cu000g3b7bq7yg4krg",
+              "cm0d6o1cu000h3b7bnsd9wic8"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6tksi001k3b7bbr2vkfzm",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is <em>not</em> one of the ways women can support other women in the workforce?</p>",
+            "answers": [
+              {
+                "id": "cm0d6tksi001l3b7bnueye0tg",
+                "title": "<p>Aim to outperform all the other women in your field.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6tksi001m3b7bsg2sx0hh",
+                "title": "<p>Celebrate others&rsquo; achievements.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6tkt3001n3b7bi8cszlk0",
+                "title": "<p>Promote skill development.</p>"
+              }
+            ],
+            "correct": "cm0d6tksi001l3b7bnueye0tg",
+            "corrects": [
+              "cm0d6tksi001l3b7bnueye0tg"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T01:34:28.135Z",
+        "updatedAt": "2024-10-17T20:48:57.935Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 5,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "3yUJKE6g5S5ehCinUhUhOZuHf-pcAhsl",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k",
+        "title": "Personal Reflections",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm0h84sys00gv3b7cv0am96cq",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h84sz000h13b7cskw9ya9a",
+                "heading": "<p><strong>Remembering Pat: Everyone Needs Mentorship</strong></p>",
+                "paragraph": "<p>Pat was a mentor to countless young women in her field. Listen to UT Athletic Director Emeritus Joan Cronan explain why <em>everyone</em> needs mentorship, and the importance of being coachable, even as a coach.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h861sc00ib3b7c8lpor25y",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h861sk00ic3b7clql47jw1",
+                "media": {
+                  "video": {
+                    "key": "v2_joan_cronan_-_remembering_pat__pat_being__coachable__as_a_coach_clip_05%20%281080p%29.mp4",
+                    "url": "transcoded-iMTChT-yIJ5hfD4m-v2_joan_cronan_-_remembering_pat__pat_being__coachable__as_a_coach_clip_05%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v2_joan_cronan_-_remembering_pat__pat_being__coachable__as_a_coach_clip_05%20%281080p%29.jpg",
+                    "duration": 108,
+                    "inputKey": "rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/iMTChT-yIJ5hfD4m-v2_joan_cronan_-_remembering_pat__pat_being__coachable__as_a_coach_clip_05%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k/transcoded-iMTChT-yIJ5hfD4m-v2_joan_cronan_-_remembering_pat__pat_being__coachable__as_a_coach_clip_05%2520(1080p).0000000.jpg",
+                    "originalUrl": "v2_joan_cronan_-_remembering_pat__pat_being__coachable__as_a_coach_clip_05 (1080p).mp4",
+                    "transcodeId": "1728335776912-hh2eai"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19v5ibf00g03b74djl9ooey",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19v5ibf00g13b74zqn37763",
+                "media": {
+                  "attachment": {
+                    "key": "L12.4%20Being%20Coachable.pdf",
+                    "size": 52127,
+                    "type": "attachment",
+                    "filename": "UxMh3N-ITuLNhwJX-L12.4%20Being%20Coachable.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L12.4 Being Coachable.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h85rh900hl3b7crlsrodmn",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h85rha00hm3b7cg3166hyl",
+                "paragraph": "<p>Refer to your workbook for the following questions and reflections.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwqmu9qz008s3b792bjlvhb7",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clwqmu9qz008t3b79q40o2flu",
+                "paragraph": "<p>Do you have a mentor in your current profession? List at least two individuals who you feel have mentored you in the past (formally or informally).</p>"
+              },
+              {
+                "id": "clwqmu9qz008u3b79e46jicbn",
+                "paragraph": "<p>Who might you ask to be an additional mentor in your current role? List at least three potential candidates.</p>"
+              },
+              {
+                "id": "clwqmu9qz008v3b79993p8g46",
+                "paragraph": "<p>What specific questions would you like to ask a mentor?</p>"
+              },
+              {
+                "id": "clwqmvkze00993b79yvq7pq9z",
+                "paragraph": "<p>In the workplace, who is your biggest cheerleader?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clwqmvp7b009a3b79nltg18ba",
+                "paragraph": "<p>What three questions would you like to ask in a peer review?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clwqmvz16009b3b79dz39ah28",
+                "paragraph": "<p>What top workplace skills do you have that you could share with your female network?</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwqmwif3009c3b79ju0x3wjy",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clwqmwif3009d3b79x2gl18c3",
+                "paragraph": "<p>Sources in this course:</p><p>1. Unless otherwise noted, all quotes taken from<em>&nbsp;Reach for the Summitt</em>, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York.</p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3caf2t000kw3b797p181d58",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3caf2t000kx3b793je0h4j1",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-15T16:46:36.951Z",
+        "updatedAt": "2024-11-11T00:30:55.246Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 4,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Personal Reflections"
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2024-04-04T16:22:19.998Z",
+    "updatedAt": "2024-11-11T00:30:55.246Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Championing Women in Leadership - Thriving Together",
+      "format": "zip",
+      "quizId": "tkGiOVKucKSmZJDFTV2cjsVJw85wEZup",
+      "target": "scorm12",
+      "shareId": "LNkIQ1NKCRFj0XG-gLlHH27VuUt3L6Sy",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "hSjQvNVVAZC9ukXLxKv9rENkvqkaSR-k_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "completionPercentage": 100
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": null,
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": false,
+      "allowSearch": true,
+      "colorAccent": "#4267a9",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "ACCENT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "SPLIT_LEFT_IMAGE",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "TINT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": true,
+      "buttonNavigationStyle": "FLOATING",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "defaultLocaleId": null,
+    "description_vNext": "",
+    "title_vNext": "Championing Women in Leadership - Thriving Together",
+    "features": {
+      "rise-a-11-y-img-gallery-carousel": true,
+      "rise-block-controls-phase-three": true,
+      "rise-course-navigation": true,
+      "rise-img-dimensions": true,
+      "rise-img-zoom": true,
+      "rise-lazy-load-imgs": true,
+      "rise-scenario-a-11-y": true,
+      "rise-timed-quizzes": true
+    },
+    "authors": [
+      {
+        "id": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "authorName": "Brittni Herron"
+      }
+    ],
+    "bodyTypeface": "Montserrat",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "mondrian": {}
+  },
+  "labelSet": {
+    "id": "YSzfDyNB2NBkeg1ZTnLw_nmm",
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryStartOver": "Start Over",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY",
+      "tabGroup": "Tab",
+      "codeGroup": "Code",
+      "noteGroup": "Note",
+      "quoteGroup": "Quote",
+      "buttonGroup": "Button",
+      "courseDetails": "DETAILS",
+      "feedbackGroup": "Feedback",
+      "accordionGroup": "Accordion",
+      "statementGroup": "Statement",
+      "storylineGroup": "Storyline",
+      "attachmentGroup": "File Attachment",
+      "embedPhotoGroup": "Embedded photo",
+      "embedVideoGroup": "Embedded video",
+      "audioPlayerGroup": "Audio player",
+      "buttonStackGroup": "Button stack",
+      "textOnImageGroup": "Text on image",
+      "timelineLandmark": "Timeline",
+      "urlEmbedLandmark": "URL/Embed",
+      "videoPlayerGroup": "Video player",
+      "bulletedListGroup": "Bulleted list",
+      "checkboxListGroup": "Checkbox list",
+      "imageAndTextGroup": "Image and text",
+      "imageGalleryGroup": "Image gallery",
+      "numberedListGroup": "Numbered list",
+      "flashcardBackLabel": "Flashcard back",
+      "flashcardGridGroup": "Flashcard grid",
+      "nextFlashCardLabel": "Next flashcard",
+      "flashcardFrontLabel": "Flashcard front",
+      "flashcardStackGroup": "Flashcard stack",
+      "knowledgeCheckGroup": "Knowledge check",
+      "hamburgerButtonLabel": "Course Overview Sidebar",
+      "lessonContentLandmark": "Lesson Content",
+      "lessonSidebarLandmark": "Lesson Sidebar",
+      "labeledGraphicLandmark": "Labeled Graphic",
+      "previousFlashCardLabel": "Previous flashcard",
+      "timelineCardGroupPrefix": "Timeline Card",
+      "labeledGraphicBubbleLabel": "Labeled graphic bubble",
+      "labeledGraphicNextMarkerLabel": "Next marker",
+      "labeledGraphicPreviousMarkerLabel": "Previous marker"
+    },
+    "deleted": false,
+    "createdAt": "2023-12-28T17:20:20.171Z",
+    "updatedAt": "2023-12-28T17:20:20.171Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    }
+  ],
+  "media": []
+}

@@ -1,0 +1,793 @@
+{
+  "id": "cw_mp_05",
+  "collection_id": "championing_women",
+  "collection_title": "Championing Women in Leadership",
+  "title": "The Glass Cubicle: Gender Microaggressions",
+  "description": "The first step in making the playing field more even for women was making it legally equal. The second step is making sure women are treated without bias in the workplace—that both sexes are treated without bias for that matter. For that, we have to take a closer look at the hidden world of microaggressions.",
+  "sequence": 5,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "cw_mp_05",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "cw_mp_05_st_002",
+      "source_step_id": "cw_mp_05_st_002",
+      "sequence": 1,
+      "title": "What Is a Microaggression?",
+      "blocks": [
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_002_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "The term microaggression refers to everyday verbal, behavioral, or environmental actions that communicate subtle messages toward an individual or groups.\n\nMicroaggressions are different from macroaggressions. A macroaggression might look like a female leader being blatantly turned down for a job, denied a promotion, sexually harassed, passed over for an assignment, or paid less than a man despite having the same qualifications. Many of these actions are now illegal, making these biases rarer than in previous decades.\n\nWe typically measure society’s progress toward diversity at the macroaggression level, because there are generally more statistics available to measure macroaggressions. But refusing to acknowledge unhealthy microaggressions can be just as damaging to the overall progress of gender equality.\n\nMicroaggression refers to everyday verbal, behavioral, or environmental actions that communicate subtle messages toward an individual or groups.\n\nSo what exactly are some examples of microaggressions? A few practical examples might include:"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_002_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_002_image_02.jpg",
+          "alt": "Twelve examples of gender microaggressions"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Twelve examples of gender microaggressions\n\nUsing masculine language or job titles by default, such as using \"guys\" to refer to everyone instead of “team,” or saying \"salesman\" instead of \"salesperson.\"\n\nExpecting women to organize the office housekeeping tasks, like planning birthday parties or cleaning the communal kitchen.\n\nPraising a man running late for a meeting due to having to drop off the kids at school for being a good dad, while a female was scolded for tardiness in the same circumstance a week earlier.\n\nAsking a female colleague to take notes or to write notes on a whiteboard, because “she would have the best handwriting.”\n\nAutomatically assuming women are weaker in math and science than men and need help.\n\nExplaining something publicly to a woman that she didn’t ask to be enlightened on.\n\nTelling a woman she is too sensitive or overreacting when she raises concerns about discrimination or equality.\n\nPrivately making fun of a male colleague for getting emotional in a meeting and tearing up.\n\nJoking about a man’s testosterone levels after he brings homemade banana bread to the office.\n\nExpecting a man to assemble an office bookshelf and then joking that his “man card” is on the line for doing it right.\n\nExpecting the only man in the room to squash a bug.\n\nAssuming a man likes to watch sports and if he doesn’t want to go to a professional sporting event mixer after hours, there’s something wrong with him."
+        },
+        {
+          "type": "markdown",
+          "markdown": "All these behaviors are rooted in stereotypes and microaggressions that arise from gender bias. But it’s important to note, microaggressions aren’t exclusive to women—they can be directed at any group, at any time.\n\nThe truth is, no one likes microaggressions! And because they are more subtle, harder to prove, and generally more frequent than macroaggressions, they often fly under the radar.\n\nOftentimes the people reporting microaggressions are told they’re being too sensitive or can’t take a joke. But it’s not a joke if it makes someone uncomfortable in the workplace— regardless of gender.\n\nBecause they are more subtle, harder to prove, and generally more frequent than macroaggressions, microaggressions often fly under the radar."
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_05_st_003",
+      "source_step_id": "cw_mp_05_st_003",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "cw_mp_05_st_003_q01",
+              "prompt": "Which of these statements is true?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Microaggressions are easy to spot."
+                },
+                {
+                  "id": "c2",
+                  "text": "True microaggressions are rare."
+                },
+                {
+                  "id": "c3",
+                  "text": "No gender really likes microaggressions."
+                },
+                {
+                  "id": "c4",
+                  "text": "Microaggressions are always intentional."
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "cw_mp_05_st_003_q02",
+              "prompt": "What is a microaggression?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "A behavior that goes against a company’s specific code of conduct"
+                },
+                {
+                  "id": "c2",
+                  "text": "Small victories for women at work in a particular industry"
+                },
+                {
+                  "id": "c3",
+                  "text": "Actions that communicate subtle messages toward certain groups"
+                },
+                {
+                  "id": "c4",
+                  "text": "Insisting everyone be judged on their skills and merits"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "cw_mp_05_st_003_q03",
+              "prompt": "Which of the following is not an example of a microaggression?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Asking the only woman in the room to take notes"
+                },
+                {
+                  "id": "c2",
+                  "text": "Expecting employees to be on time"
+                },
+                {
+                  "id": "c3",
+                  "text": "Expecting women to always clean up after a team event"
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_05_st_004",
+      "source_step_id": "cw_mp_05_st_004",
+      "sequence": 3,
+      "title": "Eliminating Microaggressions",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "There are several kinds of microaggressions: verbal, nonverbal, and institutional. An example of a nonverbal microaggression might be mimicking a female coworker’s mannerisms to make her look unprofessional. Or seating women in the back of the room in chairs, balancing their work materials in their laps, while allowing men a seat at the board table so they can participate better. An institutional microaggression might be having a cigar night or traditionally male event as a sales reward for high achievers. It’s important to note that half or more of all microaggressions may be completely unintentional! Many times the colleague who committed the infraction isn’t even aware of it … and would be embarrassed if they were. Left unchecked, however, microaggressions can create a culture that is alienating to the minority gender, and the more normal it becomes, the harder it is to eliminate from an organization’s culture.\n\nThere are several kinds of microaggressions: verbal, nonverbal, and institutional.\n\nVerbal\nLet’s take a look at some tips for dealing with microaggressions and how to begin to create a gender-neutral environment, starting with verbal microaggressions. A good rule of thumb when it comes to eliminating verbal microaggressions is to flip the script—meaning, if you couldn’t easily say it to both genders, don’t say it to women. For example:"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "it_s_hard_to_imagine_saying_this_to_a_ma",
+              "title": "It’s hard to imagine saying this to a man, as it implies a parent-child-like relationship.",
+              "body": "It’s hard to imagine saying this to a man, as it implies a parent-child-like relationship. The same critique to a man would probably be delivered as “let’s work on your communication,” or “your communication is coming off as forceful, etc.”"
+            },
+            {
+              "id": "i_don_t_like_your_tone",
+              "title": "\"I don't like your tone.\"",
+              "body": "\"I don't like your tone.\""
+            },
+            {
+              "id": "unless_the_men_in_the_office_are_also_be",
+              "title": "Unless the men in the office are also being told they should smile more, women shouldn’t…",
+              "body": "Unless the men in the office are also being told they should smile more, women shouldn’t be singled out as having to look perpetually happy."
+            },
+            {
+              "id": "you_should_smile_more",
+              "title": "\"You should smile more.\"",
+              "body": "\"You should smile more.\""
+            },
+            {
+              "id": "a_man_might_get_a_critique_on_his_presen",
+              "title": "A man might get a critique on his presentation, but probably wouldn’t be told it looks to…",
+              "body": "A man might get a critique on his presentation, but probably wouldn’t be told it looks too manly. He would get specific feedback like “the PowerPoint fonts are too boxy,” or “you need more graphics,” etc."
+            },
+            {
+              "id": "your_presentation_is_too_girly",
+              "title": "\"Your presentation is too girly.\"",
+              "body": "\"Your presentation is too girly.\""
+            },
+            {
+              "id": "men_are_rarely_accused_of_being_emotiona",
+              "title": "Men are rarely accused of being emotional, even when angry.",
+              "body": "Men are rarely accused of being emotional, even when angry. Instead, try: “I can see that you’re frustrated, but let’s take a step back.”"
+            },
+            {
+              "id": "don_t_be_so_emotional",
+              "title": "\"Don't be so emotional.\"",
+              "body": "\"Don't be so emotional.\""
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Not sure where to start when it comes to microaggressions? For starters, it’s a good rule of thumb to stay away from these verbal microaggressions:"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "avoid_terms_of_endearment",
+              "title": "Avoid terms of endearment.",
+              "body": "Avoid terms of endearment."
+            },
+            {
+              "id": "avoid_terms_of_endearment_honey_sweetie",
+              "title": "Avoid terms of endearment (honey, sweetie, darling) the same way you would avoid similar…",
+              "body": "Avoid terms of endearment (honey, sweetie, darling) the same way you would avoid similar terms for men (like junior or buddy)."
+            },
+            {
+              "id": "stay_away_from_anything_with_sexual_unde",
+              "title": "Stay away from anything with sexual undertones.",
+              "body": "Stay away from anything with sexual undertones."
+            },
+            {
+              "id": "stay_away_from_anything_with_sexual_unde_2",
+              "title": "Stay away from anything with sexual undertones, such as commenting on appearance.",
+              "body": "Stay away from anything with sexual undertones, such as commenting on appearance. When in doubt, avoid commenting. But if you do, keep comments to a neutral statement, rather than something you might say to a significant other. For example, “That blouse looks nice on you” vs. “Hey, Steve, looking sharp today.”\nThe latter merely indicates someone looks professional.  Or “Dig the new haircut!” (acknowledging someone’s drastic new do) instead of “That haircut brings out your eyes” or “You have such pretty hair.”"
+            },
+            {
+              "id": "don_t_reference_hormones",
+              "title": "Don't reference hormones.",
+              "body": "Don't reference hormones."
+            },
+            {
+              "id": "we_all_have_hormones_men_included_but_ke",
+              "title": "We all have hormones (men included!).",
+              "body": "We all have hormones (men included!). But keep hormones out of it when it comes to addressing behavior in the workplace. “It must be the pregnancy hormones” or “She seemed grouchy today … it must be that time of the month” is as unfair and unprofessional as referring to a man’s hormones: “Damon got a bit angry after that meeting. His testosterone must be out of control.”"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "NonverbalNot as overt as the spoken word, nonverbal microaggressions are less of a direct statement, and more in the form of body language or an unintended slight:"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "interrupting_a_woman_multiple_times_whil",
+              "title": "Interrupting a woman multiple times (while letting long-winded male counterparts drone on…",
+              "body": "Interrupting a woman multiple times (while letting long-winded male counterparts drone on)."
+            },
+            {
+              "id": "making_eye_contact_in_a_meeting_with_onl",
+              "title": "Making eye contact in a meeting with only the men, ignoring the women.",
+              "body": "Making eye contact in a meeting with only the men, ignoring the women."
+            },
+            {
+              "id": "asking_women_to_hang_back_and_clean_up_a",
+              "title": "Asking women to hang back and clean up after the meeting, while the men are excused to go…",
+              "body": "Asking women to hang back and clean up after the meeting, while the men are excused to go to their next appointment."
+            },
+            {
+              "id": "talking_in_a_huddle_stopping_abruptly_wh",
+              "title": "Talking in a huddle, stopping abruptly when someone of the opposite gender walks up, excl…",
+              "body": "Talking in a huddle, stopping abruptly when someone of the opposite gender walks up, excluding them from the conversation."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "institutional",
+              "title": "Institutional",
+              "body": "Finally, there are microaggressions at the institutional level. Most of the time these aren’t outright discrimination (macroaggressions), but more subtle, systemic signs of an organization’s culture."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "example_1",
+              "title": "Example 1",
+              "body": "Example 1"
+            },
+            {
+              "id": "job_postings_listed_with_gender_biased_l",
+              "title": "Job postings listed with gender-biased language like “able to have direct, man-to-man con…",
+              "body": "Job postings listed with gender-biased language like “able to have direct, man-to-man conversations” or “must be pleasant and friendly” or “you’re a sales superman.”"
+            },
+            {
+              "id": "example_2",
+              "title": "Example 2",
+              "body": "Example 2"
+            },
+            {
+              "id": "bias_seen_in_the_dress_code_such_as_wome",
+              "title": "Bias seen in the dress code, such as women can have earrings, but men can’t, or men can w…",
+              "body": "Bias seen in the dress code, such as women can have earrings, but men can’t, or men can wear comfortable shoes like sneakers while women must wear heels, etc."
+            },
+            {
+              "id": "example_3",
+              "title": "Example 3",
+              "body": "Example 3"
+            },
+            {
+              "id": "the_company_sends_men_to_sexual_harassme",
+              "title": "The company sends men to sexual harassment training, but not women.",
+              "body": "The company sends men to sexual harassment training, but not women."
+            },
+            {
+              "id": "example_4",
+              "title": "Example 4",
+              "body": "Example 4"
+            },
+            {
+              "id": "team_building_events_like_hockey_games_o",
+              "title": "Team-building events like hockey games or ax-throwing that lean toward one gender (ask yo…",
+              "body": "Team-building events like hockey games or ax-throwing that lean toward one gender (ask yourself: How might men respond to a pedicure afternoon or jewelry-making class?)."
+            },
+            {
+              "id": "example_5",
+              "title": "Example 5",
+              "body": "Example 5"
+            },
+            {
+              "id": "keeping_the_thermostat_on_an_extreme_set",
+              "title": "Keeping the thermostat on an extreme setting that caters to one gender, such as men in su…",
+              "body": "Keeping the thermostat on an extreme setting that caters to one gender, such as men in suits or women in short sleeves."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Summitt herself ran into several institutional microaggressions during her tenure as a head coach. As mentioned in the intro, women were allowed to play high school basketball in the 1970s, but relegated to only a half-court game. In her very first year at the University of Tennessee, her team finished with 16 wins and three losses. The prize for such a winning season was an invitation to attend the men’s awards banquet as guests. The men’s team had three wins and 20 losses, by comparison.\n\n1974 - Pat's First Team"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_004_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_004_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_004_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_004_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_004_image_05.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_05_st_005",
+      "source_step_id": "cw_mp_05_st_005",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "cw_mp_05_st_005_q01",
+              "prompt": "What are the three kinds of microaggressions discussed in this lesson?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Verbal, non-verbal, institutional"
+                },
+                {
+                  "id": "c2",
+                  "text": "Mild, moderate, severe"
+                },
+                {
+                  "id": "c3",
+                  "text": "Casual, informal, and illegal"
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "cw_mp_05_st_005_q02",
+              "prompt": "Which is not an example of an institutional microaggression?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Job postings with gender-biased language"
+                },
+                {
+                  "id": "c2",
+                  "text": "Requiring employees to clock in and out"
+                },
+                {
+                  "id": "c3",
+                  "text": "Sending men to sexual harassment training, but not women"
+                },
+                {
+                  "id": "c4",
+                  "text": "Allowing men to have tattoos in the dress code, but not women (or vice versa)"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "cw_mp_05_st_005_q03",
+              "prompt": "What is an example of a nonverbal microaggression?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Ignoring the women in a meeting"
+                },
+                {
+                  "id": "c2",
+                  "text": "Not inviting men to an office baby shower"
+                },
+                {
+                  "id": "c3",
+                  "text": "Putting all-women on office culture committees because “they like that touchy-feely sort of thing”"
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_05_st_006",
+      "source_step_id": "cw_mp_05_st_006",
+      "sequence": 5,
+      "title": "Handling Microaggressions",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "With a little intentionality, you can take a step toward eliminating unchecked microaggressions from your organization’s culture. Here’s how:"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "educate_your_team_thoroughly_on_what_mic",
+              "title": "Educate your team thoroughly on what microaggressions are...",
+              "body": "Educate your team thoroughly on what microaggressions are..."
+            },
+            {
+              "id": "and_why_they_are_undesirable_for_either",
+              "title": "...and why they are undesirable (for either sex).",
+              "body": "...and why they are undesirable (for either sex). Remember, people come from a variety of backgrounds, and you can’t expect modified behavior if you haven’t clarified what the desired behavior is."
+            },
+            {
+              "id": "when_microaggressions_occur_call_them_ou",
+              "title": "When microaggressions occur, call them out and move on.",
+              "body": "When microaggressions occur, call them out and move on."
+            },
+            {
+              "id": "this_is_an_open_opportunity_call_out_pol",
+              "title": "This is an open-opportunity call-out policy—not just for one gender or just for leaders,…",
+              "body": "This is an open-opportunity call-out policy—not just for one gender or just for leaders, etc. Take a quick moment to acknowledge what was said or done (“Aaron, you said ‘guys’ just now, and we happen to have six females in the room.”), then apply gentle correction (“We know what you meant, but next time let’s just say team.”), and move on."
+            },
+            {
+              "id": "assume_innocent_intent_especially_on_the",
+              "title": "Assume innocent intent, especially on the first few infractions.",
+              "body": "Assume innocent intent, especially on the first few infractions."
+            },
+            {
+              "id": "most_people_aren_t_aware_of_some_of_the",
+              "title": "Most people aren’t aware of some of the nuances of microaggressions and genuinely didn’t…",
+              "body": "Most people aren’t aware of some of the nuances of microaggressions and genuinely didn’t intend to offend. No one needs to be publicly shamed or embarrassed. Just call it out, keep it matter-of-fact, and move on."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "We recommend instituting the Rule of Three: If something happens once, assume innocent intent. Someone could be oblivious or just having a bad day. If it happens again, assume the same thing. Someone could be in a rush and not have a filter on their speech. But if it happens three times, it’s hard to argue that there isn’t a pattern developing, and it may warrant a private conversation with the individual."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "over_exaggerating_the_issue",
+              "title": "Over-exaggerating the issue",
+              "body": "Over-exaggerating the issue"
+            },
+            {
+              "id": "politely_correct_the_behavior_and_move_o",
+              "title": "Politely correct the behavior and move on.",
+              "body": "Politely correct the behavior and move on. It shouldn’t be a showstopper or something the office talks about for days. Try to avoid giving someone an in-depth rebuke in front of other employees. If it warrants further conversation, do it one-on-one away from the rest of the group."
+            },
+            {
+              "id": "name_calling",
+              "title": "Name-calling.",
+              "body": "Name-calling."
+            },
+            {
+              "id": "avoid_saying_things_like_that_s_a_sexist",
+              "title": "Avoid saying things like, “That’s a sexist remark,” “You’re behaving like a chauvinist,”…",
+              "body": "Avoid saying things like, “That’s a sexist remark,” “You’re behaving like a chauvinist,” or “Were you raised in a barn?”"
+            },
+            {
+              "id": "excusing_certain_employees_groups_based",
+              "title": "Excusing certain employees/groups based on age, industry etc.",
+              "body": "Excusing certain employees/groups based on age, industry etc."
+            },
+            {
+              "id": "for_example_ignoring_microaggressions_fr",
+              "title": "For example, ignoring microaggressions from a baby boomer because they grew up in a diffe…",
+              "body": "For example, ignoring microaggressions from a baby boomer because they grew up in a different time or implementing gender-neutral policies at the corporate headquarters, but not the trucking division because there aren’t that many females."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "two_way_street",
+              "title": "Two-Way Street",
+              "body": "Now, aren’t you taking it a little too far?, you may be thinking. In a word, no. A culture war on microaggressions in the workplace has to be just that—for the whole workplace and all genders. It doesn’t matter if “no one in the room was offended.” They weren’t this time, but someone could be next time. And one microaggression or bias usually leads to another.\nRemember, microaggressions go both ways! Women don’t want to be volunteered to clean out the office refrigerator because they’re women any more than men want to stand out in a 90-degree parking lot directing traffic at a corporate event just because they’re men. Women don’t want to always write on the whiteboard because “their handwriting probably looks better” any more than men want to always speak in public “because their voice is louder and can be heard better.” Hire a cleaning service. Get a microphone.\nThere are always ways to be more gender-neutral than you think."
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_006_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "sort",
+          "prompt": "Complete all interactive states shown in the source lesson.",
+          "categories": [
+            "Avoid",
+            "Do"
+          ],
+          "cards": [
+            {
+              "id": "over_exaggerate_the_issue",
+              "text": "Over-exaggerate the issue",
+              "correct_category": "Avoid"
+            },
+            {
+              "id": "educate_your_team_on_microaggressions",
+              "text": "Educate your team on microaggressions.",
+              "correct_category": "Do"
+            },
+            {
+              "id": "assume_innocent_intent",
+              "text": "Assume innocent intent",
+              "correct_category": "Do"
+            },
+            {
+              "id": "name_call_the_agressor",
+              "text": "Name-call the agressor",
+              "correct_category": "Avoid"
+            },
+            {
+              "id": "excuse_the_behavior",
+              "text": "Excuse the behavior",
+              "correct_category": "Avoid"
+            },
+            {
+              "id": "identify_the_behavior_and_then_move_on",
+              "text": "Identify the behavior and then move on",
+              "correct_category": "Do"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_05_st_007",
+      "source_step_id": "cw_mp_05_st_007",
+      "sequence": 6,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "cw_mp_05_st_007_q01",
+              "prompt": "With regard to microaggressions, which of these is something to avoid?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Excusing employee groups based on age/industry"
+                },
+                {
+                  "id": "c2",
+                  "text": "Having a conversation with repeat offenders"
+                },
+                {
+                  "id": "c3",
+                  "text": "Commenting on microaggressions in real time"
+                },
+                {
+                  "id": "c4",
+                  "text": "Asking employees to practice gender-neutral language"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "cw_mp_05_st_007_q02",
+              "prompt": "What is an important step in addressing microaggressions?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Making sure the Discrimination section in the handbook is compliant"
+                },
+                {
+                  "id": "c2",
+                  "text": "Avoiding conflict at all costs"
+                },
+                {
+                  "id": "c3",
+                  "text": "Incorporating fair hiring practices"
+                },
+                {
+                  "id": "c4",
+                  "text": "Educating your team on what microaggressions are"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "cw_mp_05_st_007_q03",
+              "prompt": "As mentioned in this lesson, what is the “Rule of Three?”",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Each occurrence needs three witnesses."
+                },
+                {
+                  "id": "c2",
+                  "text": "If something has happened three times, it may indicate a pattern."
+                },
+                {
+                  "id": "c3",
+                  "text": "Don’t say anything unless it’s happened three times."
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_05_st_008",
+      "source_step_id": "cw_mp_05_st_008",
+      "sequence": 7,
+      "title": "Exercise",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Microaggression or Macroaggression?\n\nWhich of the following is an example of a microaggression vs. a macroaggression?"
+        },
+        {
+          "type": "sort",
+          "prompt": "Complete all interactive states shown in the source lesson.",
+          "categories": [
+            "Microaggressions",
+            "Macroaggressions"
+          ],
+          "cards": [
+            {
+              "id": "giving_male_leaders_higher_quality_sales_a",
+              "text": "Giving male leaders higher quality sales accounts than their female counterpart",
+              "correct_category": "Microaggressions"
+            },
+            {
+              "id": "making_comments_about_the_attractiveness_o",
+              "text": "Making comments about the attractiveness of a female coworker’s attire.",
+              "correct_category": "Microaggressions"
+            },
+            {
+              "id": "denying_women_traveling_with_a_male_leader",
+              "text": "Denying women traveling with a male leader for inconvenience/expenses",
+              "correct_category": "Macroaggressions"
+            },
+            {
+              "id": "installing_a_men_s_locker_room_on_site_for",
+              "text": "Installing a men’s locker room on-site for men (only) who want to work out",
+              "correct_category": "Macroaggressions"
+            },
+            {
+              "id": "refusing_to_hire_a_qualified_female_develo",
+              "text": "Refusing to hire a qualified female developer because she “wouldn’t fit in”",
+              "correct_category": "Macroaggressions"
+            },
+            {
+              "id": "referring_to_the_only_female_in_the_room_a",
+              "text": "Referring to the only female in the room as “honey.”",
+              "correct_category": "Microaggressions"
+            },
+            {
+              "id": "assuming_the_woman_in_the_room_sitting_nex",
+              "text": "Assuming the woman in the room sitting next to the CFO must be his secretary.",
+              "correct_category": "Microaggressions"
+            },
+            {
+              "id": "a_law_requiring_only_male_teachers_to_go_t",
+              "text": "A law requiring only male teachers to go through sensitivity and sexual training",
+              "correct_category": "Macroaggressions"
+            },
+            {
+              "id": "repeatedly_calling_a_female_doctor_nurse",
+              "text": "Repeatedly calling a female doctor “nurse.”",
+              "correct_category": "Microaggressions"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_05_st_009",
+      "source_step_id": "cw_mp_05_st_009",
+      "sequence": 8,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Sources used for this course:\nUnless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York."
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_05_st_009_reflection_01",
+          "prompt": "What microaggressions have you noticed in your workplace or on your team?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_05_st_009_reflection_02",
+          "prompt": "Are they one-offs, or are any reoccurring?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_05_st_009_reflection_03",
+          "prompt": "How can you take a step in eliminating these?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_05_st_009_reflection_04",
+          "prompt": "Of the three types of microaggressions, which do you feel are the most common in the workplace?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_05_st_009_reflection_05",
+          "prompt": "If you are female, which microaggressions have affected you the most personally?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_05_st_009_reflection_06",
+          "prompt": "What are some microaggressions you’ve noticed toward the men on your team?"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3415 @@
+{
+  "course": {
+    "id": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "5IzP2zYvtx7lig0YzfDRIjDIpT8mqkXf",
+    "copyOf": "7oKAT60uS5gPL42F51rZYvVlRZeE0g-v",
+    "order": "1756505145299",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/v06r1MGMSlYDHE3W-PoT_Thumbnails_Leader_Course%25205.png",
+          "crushedKey": "w7hgRN7Tf6kVTXL_.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Course 5.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF",
+        "createdAt": "2025-01-28T20:33:42.156Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "y90DQbFK5kPmLcRi6wRO6dMrWCsxlfgr",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Communicating to Win",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:50:44.035Z",
+        "items": [
+          {
+            "id": "cm6ju2lzg000u3b7a87zdb6hl",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ju2lzh000v3b7a036bjedu",
+                "media": {
+                  "video": {
+                    "key": "v4_pot_jimmy_delaney_communicating_to_win_clip_01%20%281080p%29%20%281%29.mp4",
+                    "url": "transcoded-GusiyHhvLGRyMqPL-v4_pot_jimmy_delaney_communicating_to_win_clip_01%2520(1080p)%2520(1).mp4",
+                    "type": "video",
+                    "poster": "v4_pot_jimmy_delaney_communicating_to_win_clip_01%20%281080p%29%20%281%29.jpg",
+                    "duration": 274,
+                    "inputKey": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/GusiyHhvLGRyMqPL-v4_pot_jimmy_delaney_communicating_to_win_clip_01%20(1080p)%20(1).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/transcoded-GusiyHhvLGRyMqPL-v4_pot_jimmy_delaney_communicating_to_win_clip_01%2520(1080p)%2520(1).0000000.jpg",
+                    "originalUrl": "v4_pot_jimmy_delaney_communicating_to_win_clip_01 (1080p) (1).mp4",
+                    "transcodeId": "1754794089854-v3jqwg"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahaa59800273b78zao1wo2k",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahaa59800283b78cgbi8els",
+                "paragraph": "<div data-editor-id=\"df1de756-95c9-4a34-a1ec-7ab0d73544c1\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6ju2rr600223b7aa31erxqj",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ju2rr600233b7acw0mrtdx",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%205%20Communicating%20to%20Win.pdf",
+                    "size": 238819,
+                    "type": "attachment",
+                    "filename": "_XzOD7_NFOo64AMm-Lesson%205%20Communicating%20to%20Win.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 5 Communicating to Win.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6ju2nsn001b3b7albltv1ak",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6ju2nsn001h3b7aovt57t73",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"bf0471a5-fa2e-4be6-86dc-c8df5c121396\"><p><span style=\"color: black; text-decoration: inherit\">Good communication is a key part of any successful workplace team. Clear communication helps foster positive relationships between colleagues, improves productivity, and ultimately, leads to better outcomes for your organization. It’s no wonder Pat’s fourth Definite Dozen principle was <em>Learn to be a Great Communicator.</em></span></p><p><span style=\"color: black; text-decoration: inherit\">And yet, it’s worth a closer look, because even though communication is the glue that holds a team together, many organizations fail to grasp just how essential it is to prioritize good communication over other principles like processes, speed, authority, or confidentiality.</span></p><p><span style=\"color: black; text-decoration: inherit\">As Pat would say, the first step is not merely viewing communication as a component of a healthy team. It’s realizing that communication is <em>everything</em>.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6ju321r002y3b7agpv0ach0",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6ju321r002z3b7av44ybwuk",
+                "name": "<div data-editor-id=\"353133bf-c24a-4fd0-ba3f-e3f5a1a57fb5\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: #ffffff; text-decoration: inherit\"><strong><em>— Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"cfca8061-19d0-4b6c-a6a9-1336237dd7d6\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>You can have the brightest, most creative people in the world, but if they can’t communicate, you won’t fully comprehend what they’re capable of.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/Lf0GyZU2hWWm6__i-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6ju4n6o004y3b7a1abs2o1b",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6ju4n6o004z3b7aa0ylvmv0",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"df2d06d2-5dac-402a-a519-2cf1004624d7\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "rTORVUBE2inm7B2cXMDKbXn2FObA8VLr",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:39:56.359Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"63308813-cf13-4ffa-bd2d-c30e8e03bd90\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these statements is <em>not </em>true?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"4be5fa05-7a01-4569-a91c-76409a4f8137\"><p>Communication is more than just words; it's the bridge that connects teams.</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"09c7bd35-a7ca-4fb0-8c45-36c8c16875ad\"><p>Clear and open communication builds trust, respect, and cooperation.</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jtr8qd00043b7amrhpxl5i",
+                "title": "<div data-editor-id=\"4b9f8ad8-e573-4241-84bd-e876ee862aef\"><p><span style=\"color: #000000; text-decoration: inherit\">Communication should only come from leaders.</span></p></div>"
+              },
+              {
+                "id": "cm6jtrq8600063b7a97l2n3qs",
+                "title": "<div data-editor-id=\"9851549f-6f24-4b90-a286-0a5dce494bb8\"><p>Miscommunication can have severe consequences.</p></div>"
+              }
+            ],
+            "correct": "cm6jtr8qd00043b7amrhpxl5i",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6gvw2f400wg3b798oenzg94",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"710a9033-087a-4dd8-b964-b7d852966f0d\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these can prevent miscommunication?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"a560f98d-f0fb-420a-a633-1d74944caeb1\"><p><span style=\"color: black; text-decoration: inherit\">Speaking loudly</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"51833e31-4662-40e1-8dd2-4ddf3dcade15\"><p><span style=\"color: #000000; text-decoration: inherit\">Providing context</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"fe9f6345-903a-49e1-8f12-fb3cca42c70d\"><p><span style=\"color: black; text-decoration: inherit\">Under-communicating</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"263be04c-ed38-4a80-a3a8-a710815af809\"><p><span style=\"color: black; text-decoration: inherit\">All of the above</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wj3b793d4kqpg0",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6jtteor000f3b7avuwrg3fh",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"6d87790d-560e-4409-a490-0a6405745c40\"><p><span style=\"font-size: 1.6rem\">Which of these statements is true?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6jtteor000g3b7asx4v6h0p",
+                "title": "<div data-editor-id=\"4f0a9e94-119a-436f-b2af-90affd45002a\"><p><span style=\"color: #000000; text-decoration: inherit\">Taking the time to communicate is a powerful mark of respect.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6jtteor000h3b7ac08ount6",
+                "title": "<div data-editor-id=\"60027e27-2aa2-4ead-8e1c-6011ec45a154\"><p>Learning to communicate is something few people master.</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jttept000i3b7asqa5ib99",
+                "title": "<div data-editor-id=\"4fc33232-32fa-4e8d-a671-7f75080564ae\"><p>Communicating virtually should be avoided.</p></div>"
+              },
+              {
+                "id": "cm6jttwr7000k3b7aeadnnfv1",
+                "title": "<div data-editor-id=\"dcb9ae43-2310-4fd5-998d-dbaa996b31b6\"><p>Everyone is born a natural communicator.</p></div>"
+              }
+            ],
+            "correct": "cm6jtteor000g3b7asx4v6h0p",
+            "corrects": [
+              "cm6jtteor000g3b7asx4v6h0p"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF",
+        "createdAt": "2025-01-28T20:33:48.370Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "yD2ZT8y1NCZMsIXkJcLgyjOoIJ2i2Df4",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "When in Doubt, Overcommunicate",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:44:46.208Z",
+        "items": [
+          {
+            "id": "cmahae9mq005l3b784hhcewd2",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahae9mq005t3b78yu1ztb9x",
+                "heading": "<div data-editor-id=\"135d847e-8424-40a9-a7fd-f25bd0944a63\"><p><strong>Learning to Overcommunicate</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6ju9cbl005g3b7al5663fqt",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6ju9cbm005m3b7ahecwho73",
+                "heading": "<div data-editor-id=\"5eb42238-8611-436d-887b-3953b51a228e\"></div>",
+                "paragraph": "<div data-editor-id=\"89073611-ff44-4b7f-8fb7-14eb4e494e63\"><p><span style=\"color: black; text-decoration: inherit\">The heart of communicating to win can be summed up in four words: </span><em>W</em><span style=\"color: black; text-decoration: inherit\"><em>hen in doubt, overcommunicate</em>.</span></p><p><span style=\"color: black; text-decoration: inherit\">For best results, always err on the side of overcommunicating, rather than under-communicating. What does this look like?</span></p><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">It means that it’s better to communicate too much than too little, particularly when there</span>’<span style=\"color: black; text-decoration: inherit\">s ambiguity around a task or project. Overcommunicating means providing more information or updates than might be strictly necessary. When you overcommunicate, you ensure that everyone involved in a project or task has all the information they need to do their jobs effectively. This can help to prevent misunderstandings, delays, and mistakes.</span></span></p><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Let’s take a look at two sample scenarios:</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juad4r00673b7a4qc3em7f",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6juad4r00683b7anu9m59t8",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/Xfj6mskA_ZQO1nXD-Summitt%2520_%2520Catchings%2520on%2520Sideline.2001%2520-%2520pm-rfreelance_CROP.png",
+                    "type": "image",
+                    "align": "left",
+                    "fillWidth": false,
+                    "crushedKey": "Summitt%20_%20Catchings%20on%20Sideline.2001%20-%20pm-rfreelance_CROP.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 918
+                    },
+                    "trackingId": "cm6juad4r00673b7a4qc3em7f",
+                    "originalUrl": "Summitt _ Catchings on Sideline.2001 - pm-rfreelance_CROP.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:tabs"
+                  }
+                },
+                "title": "Scenario 1",
+                "description": "<div data-editor-id=\"cef0bf76-b742-4b30-88b5-1e23db111452\"><p><span style=\"color: black; text-decoration: inherit\">To give a practical example, let’s say the vice president is asking for everyone’s weekly report or status updates, including a monthly revenue update, by Thursday morning instead of Monday morning, and you’re in charge of getting it from the team members you manage. You announce this in the next daily standup</span> — revenue updates and estimates<span style=\"color: black; text-decoration: inherit\"> from their department are now due on Thursday. What’s to be misunderstood</span>; it’s <span style=\"color: black; text-decoration: inherit\">super clear, right?&nbsp;</span></p><p><span style=\"color: black; text-decoration: inherit\"><strong>&nbsp;</strong></span></p><p><span style=\"color: black; text-decoration: inherit\">For starters, three team members aren’t in the standup. One walked in late, and </span>a few<span style=\"color: black; text-decoration: inherit\"> people were having a separate conversation in the back of the room about something urgent. Thursday morning rolls around and … you guessed it, you’re short </span>five<span style=\"color: black; text-decoration: inherit\"> reports (including one person who “just forgot”). A few others turned in the weekly status update as usual but </span>included<span style=\"color: black; text-decoration: inherit\"> the monthly revenue update as month-to-date instead of projected estimates for the end of the month like you asked. You think, </span><em>This is u</em><span style=\"color: black; text-decoration: inherit\"><em>nbelievable. People can’t follow simple instructions</em></span><em>.</em></p><p><span style=\"color: black; text-decoration: inherit\">&nbsp;</span></p><p><span style=\"color: black; text-decoration: inherit\">You now have to scramble to give the vice president the numbers she needs, furiously emailing the team members who have missing reports, demanding they send you something </span>ASAP<span style=\"color: black; text-decoration: inherit\">. The truth is, in the words of Cool Hand Luke, “What we have here, is a failure to communicate.”</span></p><p>&nbsp;</p><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">With just an ounce of prevention </span>—<span style=\"color: black; text-decoration: inherit\"> or rather, overcommunication </span>—<span style=\"color: black; text-decoration: inherit\"> you might have had a different outcome.</span></span></p></div>"
+              },
+              {
+                "id": "cm6juad4r00693b7as26r74n0",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/S_-BoL7CyRVkPVxy-Passing%2520the%2520Torch.Gordon%2520%2526%2520Holdsclaw.1999.add1_CROP.png",
+                    "type": "image",
+                    "align": "left",
+                    "fillWidth": false,
+                    "crushedKey": "Passing%20the%20Torch.Gordon%20%26%20Holdsclaw.1999.add1_CROP.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 979
+                    },
+                    "trackingId": "cm6juad4r00673b7a4qc3em7f",
+                    "originalUrl": "Passing the Torch.Gordon & Holdsclaw.1999.add1_CROP.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:tabs"
+                  }
+                },
+                "title": "Scenario 2",
+                "description": "<div data-editor-id=\"4d78649a-18a8-4d96-a574-a4c331b6ff80\"><p><span style=\"color: black; text-decoration: inherit\">Let’s say you make the announcement in standup, followed by an email to everyone afterward reinforcing the announcement that you need reports by Thursday, including a brief, bulleted list of what needs to be in the report. Then, Wednesday you send a reminder, including a sample report attached to the email, asking </span>those who can’t<span style=\"color: black; text-decoration: inherit\"> send you the report by Thursday morning to let you know in advance. Thursday rolls around, and</span> <span style=\"color: black; text-decoration: inherit\">this time you have all your reports, except for a team member who is at a funeral and communicated that in advance. Or if still you <em>don’t </em>have all your reports for some reason, it becomes easier to address the failure directly with the individuals involved, now that the excuse of communication is taken out of the loop.</span></p></div>"
+              }
+            ],
+            "family": "interactive",
+            "variant": "tabs",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juc96x006z3b7aoh3a35dv",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6juc96x00753b7aiklq0gg8",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"07dd618e-9ff4-4203-ad3b-5d0d2bb33c01\"><p><span style=\"color: black; text-decoration: inherit\">These two examples show how the smallest things can make a difference in the area of communication at work.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jud9cr007u3b7ae8qftzig",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jud9cs007v3b7at52opqcf",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF",
+        "createdAt": "2025-01-28T20:33:54.349Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "nmz2EDnWwrwk3SNlToh5JWwOJcYWqmA0",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 4,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "An Ounce of Prevention",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-20T21:50:31.737Z",
+        "items": [
+          {
+            "id": "cm6judtvo008c3b7anqskn7ri",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6judtvo008i3b7an6magrja",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"707d10e4-eb9b-4e12-bc6b-24da41b697e1\"><p><span style=\"color: black; text-decoration: inherit\">Overcommunicating can also help you avoid a lot of unnecessary drama on the team.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juduvt00933b7a6gj37z8d",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6juduvt00943b7apcghi7kp",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/PGNy_JQ9Y8vfLE9K-AdobeStock_493878459.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_493878459.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1121
+                    },
+                    "originalUrl": "AdobeStock_493878459.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"64d0e607-6403-4546-b108-44dbb040fce0\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">To give another example, let’s say you have to fire a salesperson who wasn’t getting the job done. When this was mentioned, the team member didn’t react kindly to the criticism and went off on an inappropriate tirade listing all the faults of your organization. You terminate them, but to help the employee save face, you decide to omit the details, sending a cryptic “Steve is no longer with our organization” email. After all, this is confidential, and it’s no one else’s business, right? You decide to follow up verbally with more details two days later in a staff meeting.</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 4,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 4,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 4,
+              "entranceAnimation": true,
+              "customPaddingBottom": 4,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jugp2l00a23b7a7cays21q",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jugp2l00a33b7aeucykp30",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/Z_3k_RzFn7Wn_kO5-AdobeStock_429184046.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_429184046.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1097
+                    },
+                    "originalUrl": "AdobeStock_429184046.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"7e069af7-7f0d-48c2-8ea5-ae3c510cb49d\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">The trouble is, Steve was well-liked among the team. Several are good friends with Steve outside of work. The people reporting to Steve who find out in the email at the same time as everyone else are now shocked, confused, and worr</span>ied<span style=\"color: black; text-decoration: inherit\"> about what will happen next. They received all their training from Steve</span>.<span style=\"color: black; text-decoration: inherit\"> </span>D<span style=\"color: black; text-decoration: inherit\">id he do something wrong? Rumors are flying by lunchtime as to who will be taking Steve’s place. One person heard it was because Steve questioned the new learning management system’s efficacy and warns people it’s “not safe to speak up anymore with feedback.” A few people text Steve directly, who, still wounded, says the company “has had it out for him all along.” By 3 p.m., half the team is upset that the organization could do such a thing to poor Steve.</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "medium",
+              "paddingTop": 4,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 4,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 4,
+              "entranceAnimation": true,
+              "customPaddingBottom": 4,
+              "customPaddingLinked": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juhwf600b73b7a3sqjpzth",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6juhwf700bd3b7a3jm1cvrf",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"268428c2-a49b-4c7f-9b45-1a0f4d733027\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Sound familiar? The details may vary, but you may have experienced some version of this at your organization because</span> <span style=\"color: black; text-decoration: inherit\">information was scant and the details were fuzzy. People were left to fill in the gaps of what actually happened with the limited knowledge they had. Overcommunicating doesn’t mean violating someone’s privacy, but with a bit more communication, a lot of the drama above could have been avoided.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 4,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 4,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juia1p00by3b7a6jayp3a0",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6juia1p00bz3b7awytoyu1i",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/OPSZb8kJPUD6e7jA-AdobeStock_486886671.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_486886671.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1121
+                    },
+                    "originalUrl": "AdobeStock_486886671.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 3,
+              "entranceAnimation": true,
+              "customPaddingBottom": 3,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahahblu00cp3b78i8cfocd7",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahahblu00cx3b784qaahxry",
+                "heading": "<div data-editor-id=\"db51fa7b-0576-4eb5-a895-204f9d485df9\"><p><strong>A Better Way</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juibf400cj3b7a3sbe7s8q",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6juibf500cp3b7aun39z39y",
+                "heading": "<div data-editor-id=\"3a964c76-f489-4431-9c98-027e92f7d261\"></div>",
+                "paragraph": "<div data-editor-id=\"852e6410-b762-4f17-ac7e-c579604953b4\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">To overcommunicate might look something like this: </span>T<span style=\"color: black; text-decoration: inherit\">he people who report to or are closest to Steve are told first and given the most information. Without getting into details about Stev</span>e’s performance or feelings about the company, t<span style=\"color: black; text-decoration: inherit\">hey are told whether Steve left on good terms or bad and whether reaching out to Steve might be sensitive at the moment. They are told whether it was one-sided or mutual, and that Steve expressed discontent with his current situation and role. Then, an email goes out to the wh</span>ole <span style=\"color: black; text-decoration: inherit\">team letting them know of Steve’s departure, that Christine will be temporarily overseeing his area in the interim, and to please direct any questions about his departure or projects to Andrew. They are told that Steve was part of the discussion about leaving and expressed discontent in his area</span>, but<span style=\"color: black; text-decoration: inherit\"> the company is grateful for his service and wishes him the very best in his next chapter.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahb6jps01cn3b789ukd18x0",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahb6jps01cv3b783i92tk9n",
+                "heading": "<div data-editor-id=\"71aeb95b-6a3f-4c08-8922-7593f79752cf\"><p><strong>Exercise</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juku6m00hc3b7aj641jwaf",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6juku6n00hi3b7atzavyhyw",
+                "heading": "<div data-editor-id=\"b14f6b3b-bf23-4cc9-891f-3102f4d31ad6\"></div>",
+                "paragraph": "<div data-editor-id=\"cf4ed337-519f-4fa0-81e8-02b1427826bc\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these is an example of </span><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">overcommunicating</span><span style=\"color: black; text-decoration: inherit\"> vs under-communicating? Sort the cards into their correct category.</span></span></p><p><span style=\"font-size: 1.6rem\">Drag and drop each card&nbsp;to complete this element.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juivf200da3b7ao2jvycri",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6juivf300db3b7ar5xypdao",
+                "title": "Having a project kickoff meeting with all parties involved",
+                "pileId": 1
+              },
+              {
+                "id": "cm6juivf300dc3b7awu35ozig",
+                "title": "Sending important information in a one-time email",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jujvu500dt3b7azapf04qr",
+                "title": "Only communicating on a need-to-know basis",
+                "pileId": 2
+              },
+              {
+                "id": "cm6juk02100dv3b7amb0fmpl3",
+                "title": "Making an announcement in a meeting with team members missing",
+                "pileId": 2
+              },
+              {
+                "id": "cm6juk47x00dx3b7a0lma9zr3",
+                "title": "Sending a meeting recap",
+                "pileId": 1
+              },
+              {
+                "id": "cm6juk87000dz3b7amr4wy8so",
+                "title": "Following a verbal announcement with an email",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jukd3500e13b7avb228xl0",
+                "title": "An intranet notice for employees to discover on their own",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jukhfb00e33b7acp6hee1d",
+                "title": "Posting important principles or core values in a prominent location",
+                "pileId": 1,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Overcommunicating"
+              },
+              {
+                "id": 2,
+                "title": "Under-communicating"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6julhp400i33b7azmrkw0qz",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6julhp400i43b7a4mgp91k2",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF",
+        "createdAt": "2025-01-28T20:34:40.354Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"b37dfbbe-9321-4858-b826-1a7e3ba0d691\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "Y-rko1r_b19u5e64BHXn_xpeSz4cIiyc",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "liMZM6e0sPMy2CUL4jpzvMr9J4LkYc8E",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:40:00.799Z",
+        "items": [
+          {
+            "id": "2s_yerFrVxDiK_08fTjLpNoYz9JmXTI6",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"15fff60d-4004-4d03-bc3a-64702192ed50\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">According to this lesson, the heart of communicating can be summed up in four words:</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"ef3a9362-1db9-4aa8-8dd2-d5730f3854b7\"><p><span style=\"color: black; text-decoration: inherit\">Be careful what you say.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"a9f8ee73-498f-42b1-8e23-4cb40b450093\"><p><span style=\"color: #000000; text-decoration: inherit\">When in doubt, overcommunicate.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6juopwd000m3b7ahqo6qb0l",
+                "title": "<div data-editor-id=\"00fff688-8253-4d05-a5e1-15dba878efea\"><p><span style=\"color: black; text-decoration: inherit\">Learn to speak slowly.</span></p></div>"
+              },
+              {
+                "id": "cm6jup4av000o3b7ay30d3i1b",
+                "title": "<div data-editor-id=\"71ffa891-4bb8-4aa8-ab02-43615b952973\"><p><span style=\"color: black; text-decoration: inherit\">Don’t let them misunderstand.</span></p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400wf3b79z4rpzttq",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "j5UMU3hRAmIW9U5pTCmpDL90-jCiB498",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"d52926cf-655c-49f2-9341-0e88bda018e0\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">What does overcommunicating mean?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"58951a59-e21b-4b59-a2c1-1d3597b2318c\"><p><span style=\"color: black; text-decoration: inherit\">Repeating yourself over and over</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"80ad1766-a3a5-4894-a84c-5bf2a22dd73b\"><p><span style=\"color: black; text-decoration: inherit\">Sharing confidential information</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"9382e786-d64c-45e6-905b-bb6568b77a1e\"><p><span style=\"color: black; text-decoration: inherit\">Making sure everyone approves the message</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"95713136-6c26-4b1c-a067-e06bcd7900a7\"><p><span style=\"color: #000000; text-decoration: inherit\">It’s better to communicate too much than too little</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wi3b79oh3jujac",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6juolhd000b3b7abbd3emcr",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"e2e863de-f16e-4c05-bae9-9a7b98bfead5\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">When you overcommunicate, you: (check any that apply)</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6juolhd000c3b7aavbxr81d",
+                "title": "<div data-editor-id=\"c8e3d328-cf86-4871-804a-7966c22d6add\"><p><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Ensure everyone involved has the information they need to do their jobs effectively</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6juolhd000e3b7aeabhlsdh",
+                "title": "<div data-editor-id=\"ac5edb40-5a76-4908-9705-859957aa7c3c\"><p><span style=\"color: black; text-decoration: inherit\">Save time</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6juolhd000f3b7aexl0ycw6",
+                "title": "<div data-editor-id=\"8fc0afa7-6a23-4636-85f3-90c674e717f3\"><p><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Prevent misunderstandings, delays and mistakes</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6juolhd000d3b7a1ceooj2s",
+                "title": "<div data-editor-id=\"29f30dea-07bb-4ba7-bfcf-abb40accf168\"><p><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Build trust with team members</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6juqdz8000u3b7adi5gbcvr",
+                "title": "<div data-editor-id=\"a7ee236a-c1ca-4148-86a3-f0eb303e08df\"><p><span style=\"color: black; text-decoration: inherit\">Water down your authority</span></p></div>"
+              },
+              {
+                "id": "cm6jur42r00113b7ak8kvn5yw",
+                "title": "<div data-editor-id=\"b6d604f8-8a84-4da1-aa72-ef4d124ba70f\"><p><span style=\"color: black; text-decoration: inherit\">Share things you may regret later.</span></p></div>"
+              },
+              {
+                "id": "cm6jur87f00143b7aizgsx4lp",
+                "title": "<div data-editor-id=\"642b36b4-509a-48a7-b456-4afc5d5c40aa\"><p><span style=\"color: #000000; text-decoration: inherit\">Set an example for team members to follow.</span></p></div>"
+              }
+            ],
+            "correct": "",
+            "corrects": [
+              "cm6juolhd000c3b7aavbxr81d",
+              "cm6juolhd000d3b7a1ceooj2s",
+              "cm6juolhd000f3b7aexl0ycw6",
+              "cm6jur87f00143b7aizgsx4lp"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF",
+        "createdAt": "2025-01-28T20:34:02.654Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "Ge2J0qKNd1oteHxPcsj0enDS24Ve91jJ",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 5,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Communication Eliminates Confusion",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T02:29:01.542Z",
+        "items": [
+          {
+            "id": "cm6jut2ck001d3b7a1t0reg65",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jut2ck001j3b7abb7c0dp7",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"ef7f8902-9e46-4e45-8eb6-5281af6a0413\"><p><span style=\"color: black; text-decoration: inherit\">Overcommunication looks different in different situations, but the rules are simple:</span></p><p>Click on each circle in the illustration to complete this element.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jutfhl00243b7acjvivdcm",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "19.328125",
+                "y": "42.650286259541986",
+                "id": "cm6jutfhm00253b7adznz1qmm",
+                "icon": "01",
+                "title": "",
+                "isActive": false,
+                "description": "<div data-editor-id=\"ad022fad-d05c-4d1f-9294-a5556267d5d4\"><p><span style=\"color: black; text-decoration: inherit\"><strong>1. Be clear and concise about what you need.</strong></span></p></div>"
+              },
+              {
+                "x": "38.800000000000004",
+                "y": "42.907919847328245",
+                "id": "cm6jutfhm00263b7argoaykek",
+                "icon": "01",
+                "title": "",
+                "isActive": false,
+                "description": "<div data-editor-id=\"3081b47d-a87e-4000-8da7-1ba20c151878\"><p><span style=\"color: black; text-decoration: inherit\"><strong>2. Reiterate the communication in multiple channels.</strong></span></p></div>"
+              },
+              {
+                "x": "56.45625",
+                "y": "42.13979007633588",
+                "id": "cm6juuaep002m3b7ayb067o1s",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"3c2f45d3-ebc0-47c1-8cc6-e23299b8bb17\"><p><span style=\"color: black; text-decoration: inherit\"><strong>3. Give as much context as you can to help everyone understand the why.</strong></span></p></div>"
+              },
+              {
+                "x": "76.228125",
+                "y": "40.99952290076336",
+                "id": "cm6juuj88002o3b7arrfcvfxu",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"c2d1ba16-df85-4670-b436-75b604807ae3\"><p><span style=\"color: black; text-decoration: inherit\"><strong>4. Clarify expectations so everyone knows exactly what is needed to win.</strong></span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/gtmc4O0auhJrqhl4-AdobeStock_438454541.jpeg",
+                "type": "image",
+                "crushedKey": "AdobeStock_438454541.jpg",
+                "dimensions": {
+                  "originalWidth": 1680,
+                  "originalHeight": 1100
+                },
+                "originalUrl": "AdobeStock_438454541.jpeg",
+                "sourcedFrom": "USER",
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juviho00513b7a7sxng3dj",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6juviho00573b7a60jctepk",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"e1cb2427-46dd-4ef2-808b-745386d7e7c5\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><span>In this video, listen to former WNBA player Alexis Hornbuckle remember playing for Coach Summitt and the importance of communication on the court.</span></span></span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 6,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 6,
+              "entranceAnimation": true,
+              "customPaddingBottom": 3,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juv5fs003m3b7ad1vogtn4",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6juv5ft003n3b7akg7zj74u",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_alexis_hornbuckle_-_tales_from_the_sidelines_-_communication_eliminates_confusion_clip_04%20%281080p%29.mp4",
+                    "url": "transcoded-qUh-wC21Lc6RR63g-v5_pot_alexis_hornbuckle_-_tales_from_the_sidelines_-_communication_eliminates_confusion_clip_04%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_alexis_hornbuckle_-_tales_from_the_sidelines_-_communication_eliminates_confusion_clip_04%20%281080p%29.jpg",
+                    "duration": 80,
+                    "inputKey": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/qUh-wC21Lc6RR63g-v5_pot_alexis_hornbuckle_-_tales_from_the_sidelines_-_communication_eliminates_confusion_clip_04%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/transcoded-qUh-wC21Lc6RR63g-v5_pot_alexis_hornbuckle_-_tales_from_the_sidelines_-_communication_eliminates_confusion_clip_04%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_alexis_hornbuckle_-_tales_from_the_sidelines_-_communication_eliminates_confusion_clip_04 (1080p).mp4",
+                    "transcodeId": "1754794312577-3f8qv8"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahaoc9o00km3b78ytj0d079",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahaoc9o00kn3b78hs549ja1",
+                "paragraph": "<div data-editor-id=\"bc5933e9-16b9-473a-af2a-1b3af8e9828f\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juvdb2004k3b7a3fj2p7w9",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6juvdb3004l3b7ayqrklf76",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%205%20Communicating%20Eliminates%20Confusion.pdf",
+                    "size": 226942,
+                    "type": "attachment",
+                    "filename": "lf6gA8oBDmcdZGyD-Lesson%205%20Communicating%20Eliminates%20Confusion.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 5 Communicating Eliminates Confusion.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juvpld005s3b7a7re1v9vo",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6juvpld005t3b7akjl6fep0",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF",
+        "createdAt": "2025-01-28T20:34:14.260Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "_dzWFPDISQlWRlEufJ_oMkwzqff__ljQ",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 6,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Provide Context",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T02:26:23.653Z",
+        "items": [
+          {
+            "id": "cm6juwgn9006a3b7a1euee0it",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6juwgn9006b3b7avp27iso0",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/mBLSzaSoXcIOfWHp-Great%2520team%2520huddle%2520pic.jpg",
+                    "type": "image",
+                    "crushedKey": "Great%20team%20huddle%20pic.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1134
+                    },
+                    "originalUrl": "Great team huddle pic.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juwjuo006v3b7ay00glxok",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6juwjuo00713b7aoxo5jf4p",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"3a4f3301-0ccb-4d69-9b50-a31660948552\"><p><span style=\"color: black; text-decoration: inherit\">A wise person once said, </span>“<span style=\"color: black; text-decoration: inherit\">You get better results with a little of the why.</span>”<span style=\"color: black; text-decoration: inherit\"> Inexperienced leaders tend to default to keeping people in the dark, but experienced leaders know team member buy-in is crucial for a healthy, functioning team. Pat made it clear on her teams that every task or mandate was working toward a particular goal </span>—<span style=\"color: black; text-decoration: inherit\"> from the overall goal of national championships to the micro-goals of slowing down a star shooter on the other team or adjusting </span>the<span style=\"color: black; text-decoration: inherit\"> defense strategy </span>for<span style=\"color: black; text-decoration: inherit\"> an upcoming team who was more physical than they were.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juwtd3007m3b7a8r87yas8",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6juwtd4007n3b7a2eva9jql",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/uO1YkN3jgTXJnut_-Pat%2520and%2520Candace%2520kind%2520of%2520grainy.jpg",
+                    "type": "image",
+                    "crushedKey": "Pat%20and%20Candace%20kind%20of%20grainy.jpg",
+                    "dimensions": {
+                      "originalWidth": 1656,
+                      "originalHeight": 1620
+                    },
+                    "originalUrl": "Pat and Candace kind of grainy.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"cee3e4f1-8268-4c95-9245-958487b9eddf\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">“Because I said so” is usually easier than slowing down to explain the strategy or exact reason behind the ask, but remember</span>:<span style=\"color: black; text-decoration: inherit\"> </span>Y<span style=\"color: black; text-decoration: inherit\">our success rises and falls on the shoulders of your team. If they can do a better job with more context than less, this ought to be the standard.</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jux2we00873b7au2saktif",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jux2we00883b7a925mo3iy",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF/yeIg9RMoP0eIeEOY-AdobeStock_985457737.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_985457737.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1121
+                    },
+                    "originalUrl": "AdobeStock_985457737.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"425c5e37-ad60-4688-8119-be253be9fa53\"><p><span style=\"color: black; text-decoration: inherit\">For example, you could tell your social media coordinator to spotlight a certain product more, and they may add </span>two or three<span style=\"color: black; text-decoration: inherit\"> more posts to the monthly calendar</span>.<span style=\"color: black; text-decoration: inherit\"> </span>B<span style=\"color: black; text-decoration: inherit\">ut if you let them know the <em>why</em> </span>—<span style=\"color: black; text-decoration: inherit\"> that this product is eventually going to become the foundation for replacing two other products and that sales </span>need <span style=\"color: black; text-decoration: inherit\">to exceed a certain point </span>—<span style=\"color: black; text-decoration: inherit\"> you’re likely to get better results. What’s more, your team may surprise you by thinking of additional ways to reach the goal that you hadn’t considered.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahb7kev01pe3b78asqbhc56",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahb7kev01pm3b78t06w9wme",
+                "heading": "<div data-editor-id=\"11051599-ae72-429b-b3d3-e38381e48676\"><p><strong>Exercise</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juxd4t008w3b7asfxzq3ne",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6juxd4t00923b7avsdob7qy",
+                "heading": "<div data-editor-id=\"22c97bb8-492d-4610-8230-6da593197b72\"></div>",
+                "paragraph": "<div data-editor-id=\"13ffc067-e4d5-4d15-8a34-9fe59b529744\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these is an example of providing context?</span></span></p><p><span style=\"font-size: 1.6rem\">Please click each to complete this element.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6juxvl8009n3b7anmsf31l1",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6juxvl8009o3b7a39crt26f",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"54c47a1d-dbc8-4b16-baad-9bd6f87ff24c\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Yes!</strong> This demonstrates respect.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"a4d7bcfe-1439-4855-b334-9a526883e09b\"><p><span style=\"color: black; text-decoration: inherit\">Letting team members know the reason behind an ask</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6juxvl8009p3b7al7rtm6tx",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"6e18bc13-59e0-45f4-ba44-ed74a806a2d0\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Yes!</strong> This encourages understanding and buy-in.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"0567824a-2875-403e-8c5d-34c874aee371\"><p><span style=\"color: black; text-decoration: inherit\">Explaining the goals for your department</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6juxvl8009q3b7a32iop7qx",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"d3c74a00-0e70-4668-a56b-7337bb8c42f0\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>No</strong>, consensus is not needed when providing context.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"619f2942-3b64-4bbd-8712-147e9398a59f\"><p><span style=\"color: black; text-decoration: inherit\">Make sure everyone agrees with the decision</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jv0fbj00ab3b7a3h1738k8",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"7f96dfe3-f503-4440-aa63-bb26312e45c2\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Yes!</strong> This sets them up for success.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"384233f3-aae3-4dbd-851d-d19276871918\"><p><span style=\"font-size: 2.4rem\"><span style=\"color: black; text-decoration: inherit\">Giving team members the tools they need to accomplish a task</span></span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jv14wf00ad3b7a3mhhi97z",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"138cfab5-d6da-438d-b06b-9bf5d0db5354\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>No</strong>, this may lead to confusion.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"3d5fc7b8-260a-4731-921f-2e10f18e863e\"><p style=\"text-align: center\"><span style=\"font-size: 2.4rem\"><span style=\"color: black; text-decoration: inherit\">Adding tasks in the project management system without explanation</span></span></p></div>"
+                }
+              },
+              {
+                "id": "cm8rxxgjd01873b77zqq9fpbh",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"8415aa75-a373-444a-a249-f4f9fd9acf0b\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>No</strong>, this encourages confusion.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "oyZukV/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"7919c7b0-5468-48de-8501-34caf958c90f\"><p style=\"text-align: center\"><span style=\"font-size: 2.4rem\"><span style=\"color: black; text-decoration: inherit\">Keeping strategic direction a secret&nbsp;</span></span></p></div>"
+                },
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jv2ezv00ak3b7a4zzoyakc",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jv2ezw00al3b7awe2zz7fr",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF",
+        "createdAt": "2025-01-28T20:34:20.921Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "9ublA-peKzaWNYXiPscW-HaGQdg8F0va",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 7,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Set People Up to Win",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:44:46.208Z",
+        "items": [
+          {
+            "id": "cm6jv2wix00b23b7awdmbv0dt",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jv2wix00b83b7aqjpcitco",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"092652e5-d5e7-4252-836d-8df3823fbbab\"><p><span style=\"color: black; text-decoration: inherit\">Communicating frequently, with context, usually gives team members most of the information they need to win, paired with the practice of setting proper expectations. Don’t leave an abundance of dots for the team to connect on their own. When it comes to setting expectations</span>:<span style=\"color: black; text-decoration: inherit\"> </span><em>T</em><span style=\"color: black; text-decoration: inherit\"><em>o be unclear is to be unkind</em>. No one wants to charge the lane and realize that what they thought was the target wasn’t the target or the way they were expending all their time and energy wasn’t really </span>what<span style=\"color: black; text-decoration: inherit\"> the organization wanted. Set your team members up to win.</span></p><p><span style=\"color: black; text-decoration: inherit\">When individuals win, the team wins. And when the team wins, your organization wins.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahb53w900xm3b78ctwr98tv",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahb53w900xu3b78yon4jtyy",
+                "heading": "<div data-editor-id=\"d91b4d4b-e5f8-499f-a0d9-72d18365e0b5\"><p><strong>Exercise</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jv37br00bt3b7as6az8gzf",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jv37br00bz3b7agcdirm40",
+                "heading": "<div data-editor-id=\"ba34e663-d5f5-4690-8cad-e4f0f49b7641\"></div>",
+                "paragraph": "<div data-editor-id=\"f2c57869-d876-4c22-8f29-877ec18cceda\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these is an example of setting people up to win? Sort the cards below into the correct categories.</span></span></p><p><span style=\"font-size: 1.6rem\">Drag and drop each card&nbsp;to complete this element.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jv3sjp00ck3b7a5jyx52pb",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jv3sjp00cl3b7aogbtxpvs",
+                "title": "Introducing them to team members they’ll be working with closely",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jv3sjp00cm3b7ar69nbyjw",
+                "title": "Communicating complex assignments via email",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jv563i00d33b7a07qdsrta",
+                "title": "Having team members with overlapping job duties",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jv5a0q00d53b7aofdaoi4c",
+                "title": "Outlining department goals and objectives",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jv5fcq00d73b7a068pkhj2",
+                "title": "Understaffing to save money",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jv5jic00d93b7aly6vep8q",
+                "title": "Explaining personal key results areas",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jv5n1x00db3b7afmbb16mr",
+                "title": "Creating unnecessary competition",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jv5ri800dd3b7aclitbflj",
+                "title": "Having periodic check-ins",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jv5slt00df3b7a1fw3v0jz",
+                "title": "Outlining clearly who is responsible for what",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jv5wmx00dh3b7a0mvs5yd4",
+                "title": "Ensuring the team has the proper resources to do their work",
+                "pileId": 1,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Setting People Up to Win"
+              },
+              {
+                "id": 2,
+                "title": "NOT Setting People Up to Win"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jv66ls00f13b7abdeuobpx",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jv66lt00f23b7ahkglvs2l",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "As79R8PO9LZCA6VButz1H-XZuySHFaCr",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T02:24:56.991Z",
+        "items": [
+          {
+            "id": "cme6hoyl1002c3j7bu8f44j2m",
+            "type": "text",
+            "items": [
+              {
+                "id": "cme6hoyl1002d3j7blz5sa268",
+                "paragraph": "<div data-editor-id=\"bca36501-cc05-438b-8d7b-f31c1f5e6407\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Refer to your workbook for the reflection questions and exercises below.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "audioPosition": "bottom",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jv6ofm00ga3b7arrf7s48p",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6jv6ofm00gb3b7ap4gsq9lu",
+                "paragraph": "<div data-editor-id=\"b61a3bbc-4491-4090-9fad-00b864492942\"><p><span style=\"color: black; text-decoration: inherit\">What is the hardest part of communicating with your team currently?</span></p></div>"
+              },
+              {
+                "id": "cm6jv6ofm00gc3b7as8bweoff",
+                "paragraph": "<div data-editor-id=\"c4d0e617-7061-4a62-98c7-a139a7bc1c7f\"><p><span style=\"color: black; text-decoration: inherit\">Do you currently tend to err on the side of overcommunicating or under-communicating? Why?</span></p></div>"
+              },
+              {
+                "id": "cm6jv6ofm00gd3b7api1axji3",
+                "paragraph": "<div data-editor-id=\"07a78708-39ec-4a1d-b4f9-528b60220495\"><p><span style=\"color: black; text-decoration: inherit\">Think back on an example of when overcommunicating may have saved the team a lot of confusion. Wh</span>at could you have done differently?</p></div>"
+              },
+              {
+                "id": "cm6jv7rpk00ii3b7at23qyfv5",
+                "paragraph": "<div data-editor-id=\"071bb6d0-c0ed-4755-bb24-b6af56d17f4d\"><p><span style=\"color: black; text-decoration: inherit\">How much context do you provide for your team in your current communication? Is it easy or hard </span>to give context<span style=\"color: black; text-decoration: inherit\">?</span></p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jv6pvp00gv3b7au0ph16t3",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jv6pvq00h13b7aehatgm6w",
+                "heading": "<div data-editor-id=\"1ad803ae-c222-468c-bce4-12303d1ca718\"><p><span style=\"font-size: 2rem\"><strong>Exercise</strong></span></p></div>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 1,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahbq4iu00d73b797p8j5tuk",
+            "type": "list",
+            "items": [
+              {
+                "id": "cmahbq4iu00d83b79ztkggqg9",
+                "paragraph": "<div data-editor-id=\"3d96b703-9f61-4422-b887-499445f6d4c1\"><p>Reflect<span style=\"color: black; text-decoration: inherit\"> on the phrase, “</span>T<span style=\"color: black; text-decoration: inherit\">o be unclear is to be unkind</span>.<span style=\"color: black; text-decoration: inherit\">” </span>C<span style=\"color: black; text-decoration: inherit\">an you think of a time when this may have been true in your own career?</span></p></div>"
+              },
+              {
+                "id": "cmahbq4iu00d93b79a971ws2r",
+                "paragraph": "<div data-editor-id=\"1faf2c54-13e7-4730-96d9-c5f90f6768af\"><p><span style=\"color: black; text-decoration: inherit\">How can you better set your team up to win? List two practical things you can do this week in your workbook.</span></p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 5,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 5,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahbtlbj00ec3b79h6jqoc7v",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmahbtlbj00ed3b79hlgu0i5g",
+                "type": "exit-course",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"eaf11478-88de-49d2-9137-2a206a37084d\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": "exit-course"
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:29:23.131Z",
+    "updatedAt": "2025-08-29T22:05:45.299Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Course 5: Communicate to Win",
+      "format": "zip",
+      "quizId": "liMZM6e0sPMy2CUL4jpzvMr9J4LkYc8E",
+      "target": "scorm12",
+      "shareId": "5IzP2zYvtx7lig0YzfDRIjDIpT8mqkXf",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "oFgzeI-13PHZcH8RzsqUT3Tj4YtI7bdF_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:33:13.325Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "",
+    "title": "Course 5: Communicate to Win",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}

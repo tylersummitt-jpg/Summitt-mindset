@@ -1,0 +1,454 @@
+{
+  "id": "cw_mp_10",
+  "collection_id": "championing_women",
+  "collection_title": "Championing Women in Leadership",
+  "title": "Communicate for Success",
+  "description": "The hallmark of a great colleague and great leader is often measured by communication. Good communication is an important part of any successful team, and an even more important skill for female leaders. Pat herself was an excellent communicator. In her Definite Dozen, which is a list of rules for success, Definite Dozen principle #4 states: Learn to be a Great Communicator.",
+  "sequence": 10,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "cw_mp_10",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "cw_mp_10_st_001",
+      "source_step_id": "cw_mp_10_st_001",
+      "sequence": 1,
+      "title": "Getting the Message Across",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "The hallmark of a great colleague and great leader is often measured by communication. Good communication is an important part of any successful team, and an even more important skill for female leaders. Pat herself was an excellent communicator. In her Definite Dozen, which is a list of rules for success, Definite Dozen principle #4 states: Learn to be a Great Communicator. She also believed in three key components that make up effective communication:\nTone\nSituation\nNonverbal Communication"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_10_st_001_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1151015774",
+          "visible_title": "Communicating for Success: Getting the Message Across",
+          "speaker": "Danni Varlan"
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_10_st_002",
+      "source_step_id": "cw_mp_10_st_002",
+      "sequence": 2,
+      "title": "Communicating for Success",
+      "blocks": [
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "tone",
+              "title": "Tone",
+              "body": "Pat was famous for her authoritative presence on the sidelines, but would be the first to clarify that it wasn’t the only communication style she employed as a leader:"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "\"I employ three completely different modes of communication as a coach,” she once said. “Off the court, I am a confidante and substitute mother. In that situation, my chief role is to listen, advise, and comfort. In practice, I speak as a teacher who sometimes needs to employ severe methods in order to maintain the attention of the students. In a game, I issue blunt commands and motivate our players to endure adverse situations. It’s a competitive situation with no time for politeness or misunderstanding. My different tones, taken out of context, would be counterproductive or even downright offensive in any other situation.\"\n\nKnowing how and when to use different tones appropriately can be the difference between coming off as authoritative in a situation or weak, sensitive or insensitive, excited or unenthusiastic."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "situation",
+              "title": "Situation",
+              "body": "The second component of personal communication is being able to appropriately assess each unique situation to determine the right level of communication.\n“Frequently, knowing what to say to someone is all about time and location,” Pat once said. “You don’t always make the right call. There’s a judgment involved. You have to ask yourself, ‘What does this person need today?’ And you have to watch his or her body language.”\nAs Pat used to say, part of knowing how to communicate successfully is knowing what each person needs at the moment: “Do they need a pat on the back, or a kick in the rear?”\nContext, she believed, was important. “Circumstances dictate how you need to speak or whether you need to just shut up and listen,” she said. “You don’t holler at a golf tournament. You don’t whisper in a forest fire.”"
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "nonverbal_communication",
+              "title": "Nonverbal Communication",
+              "body": "Nonverbal Communication"
+            },
+            {
+              "id": "nonverbal_communication_plays_a_signific",
+              "title": "Nonverbal communication plays a significant role in conveying messages, feelings, and int…",
+              "body": "Nonverbal communication plays a significant role in conveying messages, feelings, and intentions. Mastering the art of nonverbal communication can enhance your professional and personal interactions. Here are a few tips for doing just that:"
+            },
+            {
+              "id": "summary",
+              "title": "Summary",
+              "body": "Summary"
+            },
+            {
+              "id": "to_summarize_nonverbal_communication_pla",
+              "title": "To summarize, nonverbal communication plays a significant role in conveying messages, fee…",
+              "body": "To summarize, nonverbal communication plays a significant role in conveying messages, feelings, and intentions. Mastering the art of nonverbal communication can enhance your professional and personal interactions."
+            },
+            {
+              "id": "maintain_eye_contact",
+              "title": "Maintain Eye Contact",
+              "body": "Maintain Eye Contact"
+            },
+            {
+              "id": "eye_contact_is_a_large_part_of_nonverbal",
+              "title": "Eye contact is a large part of nonverbal communication.",
+              "body": "Eye contact is a large part of nonverbal communication. It signifies confidence, attentiveness, and sincerity. However, it's essential to strike a balance. Too much eye contact may come across as intimidating, while too little might suggest disinterest. A powerful gaze like Pat Summitt’s “Summitt Stare,” for example, communicated strength and assertiveness as part of her personal brand."
+            },
+            {
+              "id": "confident_posture",
+              "title": "Confident Posture",
+              "body": "Confident Posture"
+            },
+            {
+              "id": "a_strong_and_confident_posture_can_signi",
+              "title": "A strong and confident posture can significantly impact how others perceive you.",
+              "body": "A strong and confident posture can significantly impact how others perceive you. A straight posture exudes self-assurance and professionalism. Stand tall with your shoulders back and head held high. Avoid slouching or crossing your arms, as these gestures may convey insecurity. It can be helpful in this area to film yourself or get feedback from friends. Plus, there are all types of devices on the market nowadays to help you work on your posture."
+            },
+            {
+              "id": "gesture_with_purpose",
+              "title": "Gesture with Purpose",
+              "body": "Gesture with Purpose"
+            },
+            {
+              "id": "gestures_can_enhance_verbal_communicatio",
+              "title": "Gestures can enhance verbal communication, but they should be purposeful and not distract…",
+              "body": "Gestures can enhance verbal communication, but they should be purposeful and not distracting. Use gestures that complement your speech, emphasizing key points. Avoid excessive or erratic movements, as they can be distracting or detract from your message.\nUse your hands purposefully to enhance your verbal communication. Some individuals have nervous habits that can detract from their nonverbal communication. Whether it's playing with hair, tapping fingers, or fidgeting, being aware of and minimizing these habits is crucial for professionalism."
+            },
+            {
+              "id": "facial_expressions",
+              "title": "Facial Expressions",
+              "body": "Facial Expressions"
+            },
+            {
+              "id": "pay_attention_to_your_facial_expressions",
+              "title": "Pay attention to your facial expressions, ensuring they align with the context of the con…",
+              "body": "Pay attention to your facial expressions, ensuring they align with the context of the conversation. A genuine smile or look of interested attention in what is happening at the moment can instantly create a positive atmosphere."
+            },
+            {
+              "id": "active_listening",
+              "title": "Active Listening",
+              "body": "Active Listening"
+            },
+            {
+              "id": "nonverbal_cues_are_equally_essential_in",
+              "title": "Nonverbal cues are equally essential in demonstrating active listening.",
+              "body": "Nonverbal cues are equally essential in demonstrating active listening. Nodding, maintaining eye contact, and mirroring the speaker's expressions show that you are fully engaged. Avoid distractions and give your full attention to the person speaking."
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_10_st_002_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_10_st_002_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_10_st_002_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_10_st_002_image_04.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_10_st_002_image_05.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_10_st_002_image_06.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_10_st_002_image_07.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_10_st_003",
+      "source_step_id": "cw_mp_10_st_003",
+      "sequence": 3,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "cw_mp_10_st_003_q01",
+              "prompt": "What are Pat’s three components of effective communication discussed in this lesson?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Speech, actions, listening"
+                },
+                {
+                  "id": "c2",
+                  "text": "Authority, empathy, projection"
+                },
+                {
+                  "id": "c3",
+                  "text": "Tone, situation, non-verbal"
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "cw_mp_10_st_003_q02",
+              "prompt": "Which is not an example of non-verbal communication?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Posture"
+                },
+                {
+                  "id": "c2",
+                  "text": "Tone of voice"
+                },
+                {
+                  "id": "c3",
+                  "text": "Eye contact"
+                },
+                {
+                  "id": "c4",
+                  "text": "Facial expressions"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "cw_mp_10_st_003_q03",
+              "prompt": "What does active listening involve?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Giving someone your undivided attention"
+                },
+                {
+                  "id": "c2",
+                  "text": "Nodding and maintaining eye contact"
+                },
+                {
+                  "id": "c3",
+                  "text": "Mirroring the speaker to show you are fully engaged"
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_10_st_004",
+      "source_step_id": "cw_mp_10_st_004",
+      "sequence": 4,
+      "title": "Qualifiers and Filler Words",
+      "blocks": [
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "eliminate_filler_words_and_qualifiers",
+              "title": "Eliminate Filler Words and Qualifiers",
+              "body": "Studies show that on average women are more verbal than men, but both sexes fall prone to an overuse of filler words, which can clutter the effectiveness of your message. Samples of these include:"
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Try eliminating these words from your communication for more effective delivery. Also, avoid the overuse of qualifying words as they water down your communication. Women can be more prone to these than men, so be on the lookout for them in your everyday communications:\n\nIt's just that\nIf I'm not mistaken\nI'm not entirely sure, but\nIt might be the case that\nIt could be argued that\nFrom my perspective\nI may be off base, but\nIt's just my impression that\nIf I recall correctly\nTo a certain degree\nIt appears that\nAs far as I know\nAs I see it\nI suppose\n\nI'm not sure, but\nI could be wrong\nSorry, but\nMaybe we should\nIt seems like\nI might be mistaken, but\nI'm not an expert, but\nCorrect me if I'm wrong\nI think\nPossibly\nIn my opinion\nFrom what I understand\nTo some extent\nTo tell you the truth"
+        },
+        {
+          "type": "markdown",
+          "markdown": "storyline"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_10_st_004_image_01.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_10_st_004_reflection_01",
+          "prompt": "Qualifiers and Filler Words"
+        },
+        {
+          "type": "sort",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Filler Words” or “Qualifiers”.",
+          "categories": [
+            "Filler Words",
+            "Qualifiers"
+          ],
+          "cards": [
+            {
+              "id": "kind_of",
+              "text": "Kind of",
+              "correct_category": "Filler Words"
+            },
+            {
+              "id": "it_s_just_that",
+              "text": "It's just that",
+              "correct_category": "Qualifiers"
+            },
+            {
+              "id": "if_i_m_not_mistaken",
+              "text": "If I'm not mistaken",
+              "correct_category": "Qualifiers"
+            },
+            {
+              "id": "if_i_recall_correctly",
+              "text": "If I recall correctly",
+              "correct_category": "Qualifiers"
+            },
+            {
+              "id": "correct_me_if_i_m_wrong",
+              "text": "Correct me if I'm wrong",
+              "correct_category": "Qualifiers"
+            },
+            {
+              "id": "to_some_extent",
+              "text": "To some extent",
+              "correct_category": "Qualifiers"
+            },
+            {
+              "id": "sort_of",
+              "text": "Sort of",
+              "correct_category": "Filler Words"
+            },
+            {
+              "id": "um",
+              "text": "Um",
+              "correct_category": "Filler Words"
+            },
+            {
+              "id": "to_tell_you_the_truth",
+              "text": "To tell you the truth",
+              "correct_category": "Filler Words"
+            },
+            {
+              "id": "somewhat",
+              "text": "Somewhat",
+              "correct_category": "Filler Words"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_10_st_006",
+      "source_step_id": "cw_mp_10_st_006",
+      "sequence": 5,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 2,
+          "questions": [
+            {
+              "question_id": "cw_mp_10_st_006_q01",
+              "prompt": "What are “filler” words?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "A way of beating around the bush when you don’t want to be direct"
+                },
+                {
+                  "id": "c2",
+                  "text": "Words that clutter the effectiveness of your message"
+                },
+                {
+                  "id": "c3",
+                  "text": "Things you say when you don’t really know what to say"
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "cw_mp_10_st_006_q02",
+              "prompt": "Which is an example of “qualifying” words?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "“The best-case scenario is…”"
+                },
+                {
+                  "id": "c2",
+                  "text": "“One downside is…”"
+                },
+                {
+                  "id": "c3",
+                  "text": "“I’m not sure, but...”"
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cw_mp_10_st_007",
+      "source_step_id": "cw_mp_10_st_007",
+      "sequence": 6,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Sources in this course:\n1. Unless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York."
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_10_st_007_reflection_03",
+          "prompt": "How often do you use qualifier words in everyday conversation?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "cw_mp_10_st_007_reflection_04",
+          "prompt": "Which two qualifier or filler words listed in this lesson can you eliminate this week?"
+        }
+      ]
+    }
+  ]
+}

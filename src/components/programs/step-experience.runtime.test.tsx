@@ -78,32 +78,27 @@ describe("step experience", () => {
     cleanup();
   });
 
-  it("renders teaching content without an iframe when the video is unresolved", () => {
-    for (const stepId of ["dd_mp_03_st_003", "dd_mp_03_st_013"] as const) {
-      const step = getLearningStepForClient("dd_mp_03", stepId);
-      if (!step) throw new Error(`missing ${stepId}`);
-      const video = step.blocks.find((block) => block.type === "video");
-      const { container } = render(
-        <StepExperience
-          miniProgramId="dd_mp_03"
-          collectionTitle="Definite Dozen"
-          programTitle="Principle 2: Take Full Responsibility"
-          step={step}
-          stepCount={15}
-          previousHref={null}
-          initialAnswers={{}}
-          enforceRequirements
-          isLastStep={false}
-        />
-      );
-      expect(container.querySelector("iframe"), stepId).toBeNull();
-      expect(video?.type === "video" ? video.vimeo_video_id : "missing").toBeNull();
-      if (video?.type === "video") {
-        expect(container.textContent).toContain(video.visible_title);
-        expect(container.textContent).toContain(video.speaker);
-      }
-      cleanup();
-    }
+  it("keeps the Communicate for Success reflections without an unresolved video", () => {
+    const step = getLearningStepForClient("cw_mp_10", "cw_mp_10_st_007");
+    if (!step) throw new Error("missing cw_mp_10_st_007");
+    const { container } = render(
+      <StepExperience
+        miniProgramId="cw_mp_10"
+        collectionTitle="Championing Women in Leadership"
+        programTitle="Communicate for Success"
+        step={step}
+        stepCount={6}
+        previousHref={null}
+        initialAnswers={{}}
+        enforceRequirements
+        isLastStep
+      />
+    );
+    expect(step.blocks.some((block) => block.type === "video")).toBe(false);
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.textContent).toContain("How often do you use qualifier words");
+    expect(container.textContent).not.toContain("Michelle Marciniak");
+    expect(container.textContent).not.toContain("1150877298");
   });
 
   it("embeds only a confirmed Vimeo id", () => {

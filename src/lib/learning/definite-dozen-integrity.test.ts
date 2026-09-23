@@ -100,11 +100,20 @@ const VERIFIED_VIMEO: Record<string, string> = {
   dd_mp_13_st_013: "1150861779",
 };
 
-const UNMATCHED_VIDEOS = ["dd_mp_03_st_003", "dd_mp_03_st_013"] as const;
+const RETIRED_DEFINITE_DOZEN_STEPS = [
+  "dd_mp_03_st_003",
+  "dd_mp_03_st_004",
+  "dd_mp_03_st_005",
+  "dd_mp_03_st_013",
+  "dd_mp_03_st_014",
+  "dd_mp_03_st_015",
+] as const;
 
 describe("Definite Dozen curriculum integrity", () => {
   it("registers principles 1–12 in source order with routes and independent ids", () => {
-    const programs = listLearningCollections().flatMap((collection) => collection.miniPrograms);
+    const programs =
+      listLearningCollections().find((collection) => collection.id === "definite_dozen")
+        ?.miniPrograms ?? [];
     expect(programs.map((program) => program.id)).toEqual([...PROGRAM_IDS]);
     expect(programs.map((program) => program.sequence)).toEqual(
       PROGRAM_IDS.map((_, index) => index + 1)
@@ -224,15 +233,23 @@ describe("Definite Dozen curriculum integrity", () => {
     }
     expect(Object.keys(VERIFIED_VIMEO)).toHaveLength(70);
 
-    for (const stepId of UNMATCHED_VIDEOS) {
-      const program = getLearningMiniProgram("dd_mp_03");
-      const step = program?.steps.find((item) => item.id === stepId);
-      const video = step?.blocks.find((block) => block.type === "video");
-      expect(video && video.type === "video" ? video.vimeo_video_id : "missing-step").toBeNull();
-      if (video && video.type === "video") {
-        expect(video.visible_title.length).toBeGreaterThan(0);
-        expect(video.speaker).toBe("Katy Kvalvik");
-      }
+    const responsibility = getLearningMiniProgram("dd_mp_03");
+    expect(responsibility?.steps).toHaveLength(9);
+    expect(responsibility?.steps.at(-1)?.id).toBe("dd_mp_03_st_012");
+    for (const stepId of RETIRED_DEFINITE_DOZEN_STEPS) {
+      expect(responsibility?.steps.some((step) => step.id === stepId)).toBe(false);
     }
+    expect(JSON.stringify(responsibility)).not.toContain("Katy Kvalvik");
+    expect(responsibility?.steps.map((step) => step.group_label)).toEqual([
+      "2.1 Pat in Her Own Words",
+      "2.1 Pat in Her Own Words",
+      "2.2 Introduction to Modeling",
+      "2.2 Introduction to Modeling",
+      "2.3 How to Model",
+      "2.3 How to Model",
+      "2.3 How to Model",
+      "2.4 Replicating",
+      "2.4 Replicating",
+    ]);
   });
 });

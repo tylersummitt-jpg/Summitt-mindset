@@ -1,0 +1,3409 @@
+{
+  "course": {
+    "id": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "qSqlylA7Mm3eY6wWkTuRbY_9WCoPBzIu",
+    "copyOf": "3FNgBrakEJliAOiVQ-exu3HzOuOqlwWh",
+    "order": "1756505616581",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/3fGLeiEfxur6Ky2c-PoT_Thumbnails_Leader_Course%25207.png",
+          "crushedKey": "HnexuiBmhztmdwyM.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Course 7.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi",
+        "createdAt": "2025-01-28T20:37:45.456Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "Bt3-XrziWE6Dw9T93XERQE2X4BTlATUa",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Different Strokes, Different Folks ",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T15:44:18.538Z",
+        "items": [
+          {
+            "id": "cm6ntswy5000q3b79d0962p3z",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ntswy5000r3b793e4lwi2t",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_danni_varlan_different_strokes%2C_different_folks_clip_02%20%281080p%29.mp4",
+                    "url": "transcoded-K71Yvwmtkl6rVvZO-v5_pot_danni_varlan_different_strokes%252C_different_folks_clip_02%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_danni_varlan_different_strokes%2C_different_folks_clip_02%20%281080p%29.jpg",
+                    "duration": 267,
+                    "inputKey": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/K71Yvwmtkl6rVvZO-v5_pot_danni_varlan_different_strokes%2C_different_folks_clip_02%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/transcoded-K71Yvwmtkl6rVvZO-v5_pot_danni_varlan_different_strokes%252C_different_folks_clip_02%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_danni_varlan_different_strokes,_different_folks_clip_02 (1080p).mp4",
+                    "transcodeId": "1743118887287-cnw190"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmaqznvnq003j3b75itlv64a9",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmaqznvnr003k3b75fs8lec07",
+                "paragraph": "<div data-editor-id=\"ab973fa3-3278-467b-a48b-802c55566a79\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6ntt65o00173b79vrbletox",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6ntt65o00183b79d9e3mhl5",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%207%20Different%20Strokes%2C%20Different%20Folks.pdf",
+                    "size": 253988,
+                    "type": "attachment",
+                    "filename": "3WMuuc96HNUB5Irb-Lesson%207%20Different%20Strokes%2C%20Different%20Folks.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 7 Different Strokes, Different Folks.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6ntt869001o3b79kcp1ppbt",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6ntt86a001u3b79oh8cglia",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"1c42098a-2ffd-4787-b765-fc7c89abfc2b\"><p>It’s a fact of life: Not all people communicate in the same way, and it's important to understand different personality types and adjust your own communication style accordingly. Each personality type has its own style, preferences, and tendencies, and if you fail to adjust your approach, you may end up inadvertently alienating a team member.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nttazo002f3b79brqd6pzc",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nttazp002g3b793qwzohcw",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/5Hqwg_d5uiNqqowD-AdobeStock_48299652.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_48299652.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_48299652.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"58462eee-6124-4950-92b4-1ddf74e3ecd6\"><p>For example, let's say you’re very direct and assertive, and you’re communicating with someone who is more reserved. If you come on too strong and don't take the time to listen to their perspective, you may make them feel intimidated. On the other hand, if you’re too passive and don't express your opinions clearly, the other person may perceive you as indecisive.</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nttxd300303b79haue0au8",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nttxd300313b79hk0j03cj",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/al1g1jfQ8K5xUfcN-AdobeStock_588500720.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_588500720.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1109
+                    },
+                    "originalUrl": "AdobeStock_588500720.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"13862148-ff3d-42da-ace4-252d52204cd6\"><p>Communicating differently to different types can help you build stronger relationships and encourage greater understanding. When you tailor your approach to fit another person’s needs, you can help them feel valued and respected.</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6ntx26m003r3b79p2hte9c5",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6ntx26m003s3b79hyjp1o2c",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/62wgIx7nnMy5hn_X-AdobeStock_1055541096.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_1055541096.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_1055541096.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"74f8ce2e-b342-42e9-b5bb-a39f959eac91\"><p>In another example, let's say you’re working on a team project with someone who is very detail-oriented and analytical. You may find that they prefer to receive information in a highly structured and organized format, even though this isn’t your style. By taking the time to present your ideas in a clear and logical way, you can help them feel more comfortable and engaged in the process.</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "left",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6ntstum00023b792cvbhkv2",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6ntstum00033b7949xtntr5",
+                "name": "<div data-editor-id=\"5f379883-4162-46c9-b1fe-fa13dd0d7d83\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: #ffffff; text-decoration: inherit\"><strong><em>— Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"c252ef9f-e05a-4f42-aad8-3feb16e94c8b\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>It’s a question of personalities and finding the most effective language to use with a player. Some people, you can rip their heads off, and they still won’t give you their full attention. Others will break at a single word.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/kDYpSsbM1YuMAEX7-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nty0ir004h3b79omgu05vc",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nty0ir004i3b7926132tuj",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"0ce9ef42-78e1-40b2-a23a-e56ba8d71808\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "jUKGP1z4nd_zbJUc6BMCXNmeldfKnJAL",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:41:19.793Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"b5bcac3f-43d6-4784-8127-3594b564f297\"><p><span style=\"font-size: 1.6rem\">Communicating differently to different types can_______________.</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"d37a051c-4961-480c-b4d1-96f256bf2fd9\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: #000000; text-decoration: inherit\">Help you build stronger relationships and encourage understanding.</span></span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"3e36d7f5-35e2-4147-94fd-3395f2ca7ff8\"><p><span style=\"font-size: 1.6rem\">Add a lot of stress to your daily routine.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nu0no000573b79vbbwztog",
+                "title": "<div data-editor-id=\"46eaa29c-d385-458a-818e-8de8d1cd137b\"><p><span style=\"font-size: 1.6rem\">Eliminate miscommunication entirely.</span></p></div>"
+              },
+              {
+                "id": "cm6nu0tx800593b790gl6pd4f",
+                "title": "<div data-editor-id=\"f5b24cb7-ea34-420c-b2a2-0e772792c584\"><p>All of the above.</p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400we3b79k59kq8pi",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6gvw2f400wg3b798oenzg94",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"a35a52b0-9634-403d-808f-4e88016a73a6\"><p><span style=\"font-size: 1.6rem\">Which of these is a consequence of failing to adjust your communication style to different personalities?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"4ba8b965-09b1-4f2d-8fe0-2480a55f2c48\"><p><span style=\"font-size: 1.6rem\">You may end up inadvertently alienating a team member.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"75c938e7-1e18-427f-991a-52213391793d\"><p><span style=\"font-size: 1.6rem\">It opens the door for miscommunication.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"f8da6c57-2c55-44a5-8642-5bee0cb98ad8\"><p><span style=\"font-size: 1.6rem\">Your communication may not be understood as clearly.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"4026800d-f2d8-4e20-8c6d-efa039b763af\"><p>All of the above.</p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wi3b79oh3jujac",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6nu1v3m005i3b79v4nb56da",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"1b07e596-f719-46e6-915f-9645373527c7\"><p><span style=\"font-size: 1.6rem\">Which of these might help a team member who is detail-oriented and analytical?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6nu1v3n005j3b79zc3e0bu0",
+                "title": "<div data-editor-id=\"84ac6567-84ee-40f4-84c2-c841552bb971\"><p><span style=\"font-size: 1.6rem\">Making a lot of small talk</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6nu1v3n005k3b79jqcjwt80",
+                "title": "<div data-editor-id=\"7bcfc418-7cf5-41e6-a375-9ec5ea507a95\"><p style=\"text-align: left\"><span style=\"font-size: 1.6rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Presenting the information in a through and orderly way</span></span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nu1v4n005l3b79oc3fnufn",
+                "title": "<div data-editor-id=\"8ca0788a-dbbd-443f-90c8-200d99c84e97\"><p>Offering to go out to lunch to socialize the issue</p></div>"
+              },
+              {
+                "id": "cm6nu2nsh005n3b794ndwc7vb",
+                "title": "<div data-editor-id=\"243ac5d2-09d9-44e2-b387-4842f2ad46eb\"><p>Including lots of humor and pizazz in your presentation</p></div>"
+              }
+            ],
+            "correct": "cm6nu1v3n005k3b79jqcjwt80",
+            "corrects": [
+              "cm6nu1v3n005j3b79zc3e0bu0"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi",
+        "createdAt": "2025-01-28T20:38:08.670Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "B6Xnz_Me06gTe2bjGcxPrceAVnG8s9Na",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Extroverts vs. Introverts",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T15:30:36.569Z",
+        "items": [
+          {
+            "id": "cm9xi46xu006f3b79qlxctl8f",
+            "type": "image",
+            "items": [
+              {
+                "id": "cm9xi46xv006i3b79c3br6edb",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/c1HEFHJdmwKRpLci-AdobeStock_200823781.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_200823781.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_200823781.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"5f3ce5f8-90e2-4d56-a504-71aad5b1afbd\"><p>One of the simplest differences in personality styles is extroverts vs. introverts. Extroverts are outgoing, talkative, and enjoy being around other people. They often think out loud and process information verbally. In contrast, introverts are more reserved and introspective. They tend to think before they speak and may need time to process information internally. To communicate effectively with extroverts, try to engage them in conversation and give them opportunities to express their ideas. Use open-ended questions and active listening skills to show you’re interested in what they have to say.</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm9xi4oan00703b796jtcpnkz",
+            "type": "image",
+            "items": [
+              {
+                "id": "cm9xi4oan00733b796edobdw2",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/JTF5IRd7MCOcnjth-AdobeStock_1214896676.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_1214896676.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_1214896676.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"fc0104fc-3a47-474c-bf5e-4eac21808cd0\"><p>On the other hand, to communicate effectively with introverts, try to give them space and time to process information. Give them clear, concise instructions and allow them to work independently. For example, if you are working with an introverted colleague, you might send them an email outlining the project requirements and asking them to review the information before meeting to discuss further. This can give them the time they need to think through their ideas and come to the conversation prepared.</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmaqzs6oe007a3b758p0vmwh8",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmaqzs6of007i3b75sigdwoiq",
+                "heading": "<div data-editor-id=\"124a48bc-11a5-44bb-b006-a6138ba4e6e9\"><p><strong>Exercise</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nucnm000hg3b79hs0y5ohc",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nucnm000hm3b798c0wnd8i",
+                "heading": "<div data-editor-id=\"5250af4b-a67c-4fb9-b17f-61f078d0bf89\"></div>",
+                "paragraph": "<div data-editor-id=\"46c2e368-b02c-41c9-8689-b1baab454203\"><p><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Drag and drop each behavior into the appropriate column, depending on whether it works best for introverts or extroverts.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nu415s006j3b796ectqjig",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6nu415s006k3b79m6uvof2u",
+                "title": "Allowing uninterrupted focus time, with a quiet place to work",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nu415t006l3b79snigbyci",
+                "title": "Starting each meeting off with icebreaker questions",
+                "pileId": 2
+              },
+              {
+                "id": "cm6nu4v4w00723b79n87gwzxm",
+                "title": "Encouraging daily face-to-face interactions among the team",
+                "pileId": 2
+              },
+              {
+                "id": "cm6nu5b8i00763b79ur8epdo2",
+                "title": "Providing clear directions and allowing team members to work independently",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nu5fcr00783b79hxsc7oul",
+                "title": "Sending meeting agendas in advance with lots of detail",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nu5kgg007a3b79yrhmt757",
+                "title": "Planning extra social activities outside of project meetings",
+                "pileId": 2
+              },
+              {
+                "id": "cm6nu5p33007c3b79mbnzn10t",
+                "title": "Avoiding calling on team members on the spot in meetings",
+                "pileId": 1,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Introverts"
+              },
+              {
+                "id": 2,
+                "title": "Extroverts"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nu61my008b3b790t6yca2d",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nu61my008c3b7989larsoe",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi",
+        "createdAt": "2025-01-28T20:38:15.603Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "BtfIDkLzRvKpg9ehsDrR91Q7Fi0irA7-",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 4,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Thinkers vs. Feelers",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T15:29:08.062Z",
+        "items": [
+          {
+            "id": "cm6nu7zpp008t3b79y36owp1l",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nu7zpp008z3b79ky48b1vt",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"c2d60a98-59d9-462e-8d27-d3e9b4d33bbf\"><p><span style=\"font-size: 1.7rem\">Another difference is between “thinkers” and “feelers.” Thinkers are logical and analytical. They prefer to focus on facts and data and may have a more detached approach to problem-solving. Feelers, on the other hand, are more emotional and empathetic. They are focused on relationships and may prioritize the feelings and needs of others.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nu8i5h009k3b797lyjte1n",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nu8i5i009l3b797bnntyb7",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/PSo_hibuvSXBpWGK-AdobeStock_1203028432.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_1203028432.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 886
+                    },
+                    "originalUrl": "AdobeStock_1203028432.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"deca36aa-d95e-4e0b-86c9-59b993126802\"><p>To communicate effectively with thinkers, try to provide them with clear, data-driven information. Use objective language and avoid emotional appeals. If you are presenting an idea to a group of thinkers, you might start by providing them with a data-driven analysis of the situation and the potential benefits of your idea. You can then invite questions and discussion to help them explore the idea more deeply.</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nu8uk700a53b795byiz5hw",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nu8uk800a63b798808xl2j",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/LxFAFmCQIV047YDk-AdobeStock_509990675.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_509990675.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1121
+                    },
+                    "originalUrl": "AdobeStock_509990675.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"654b89bf-8e94-46de-8cb4-40a0cd82bda6\"><p><span style=\"font-size: 1.7rem\">On the other hand, to communicate effectively with feelers, try to acknowledge their emotions and show empathy for their perspective. Use language that highlights the potential impact on people and relationships. If you’re presenting an idea to a group of feelers, you might start by acknowledging the emotional impact of the situation and how your idea could help improve the situation. You can then invite questions and discussion to help them explore the idea more deeply from an emotional perspective.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmaqzv20d00bq3b75pwr1kwsn",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmaqzv20e00by3b75ftmve3dr",
+                "heading": "<div data-editor-id=\"e8b656bc-e5b2-4b60-bc7f-cad3c3cb9a40\"><p><strong>Exercise</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nu994r00aw3b79si00d8og",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nu994s00b23b79dyeth9d7",
+                "heading": "<div data-editor-id=\"422900bc-d513-40c0-83d2-74ca438843f1\"></div>",
+                "paragraph": "<div data-editor-id=\"4385180e-06ff-4621-a7be-0d8a3a890662\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Drag and drop each behavior into the appropriate column, depending on whether it works best for thinkers or feelers.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 1,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nuaqpc00ce3b79z7g7nsxt",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6nuaqpd00cf3b79coocryc5",
+                "title": "Use precise language with data to support your argument",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nuaqpd00cg3b79anbu5yta",
+                "title": "Start by creating as much enthusiasm as possible for your presentation",
+                "pileId": 2
+              },
+              {
+                "id": "cm6nube8900cz3b79jc6t25vl",
+                "title": "Avoid too much emotional language",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nubi4100d13b79hnuyonn9",
+                "title": "Show the pros and cons in as objective terms as possible",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nubm6u00d33b793g1w1fjp",
+                "title": "Be clear and concise around what the issue is",
+                "pileId": 1
+              },
+              {
+                "id": "cm6nubzlm00d73b79om2uq87e",
+                "title": "Incorporate engaging, high-energy elements",
+                "pileId": 2
+              },
+              {
+                "id": "cm6nuc4g900d93b79ziuux7wz",
+                "title": "Create as much tension as possible and motivate your audience to feel the pain ",
+                "pileId": 2
+              },
+              {
+                "id": "cm9xikfuu00i03b790bnpbr7i",
+                "title": "Use other people’s testimonials and feelings to back up your argument",
+                "pileId": 2
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Thinkers"
+              },
+              {
+                "id": 2,
+                "title": "Feelers"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nuc9u000fl3b79lbqbh1rt",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nuc9u000fm3b7905ivks5r",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi",
+        "createdAt": "2025-01-28T20:38:23.450Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "A3t86I05TKqeuyuQCD-Nf5xq9kvfG5VP",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 5,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personality Testing",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T03:23:22.258Z",
+        "items": [
+          {
+            "id": "cm9xiqtd200ng3b79dtiudi3q",
+            "type": "image",
+            "items": [
+              {
+                "id": "cm9xiqtd300nh3b79s2b9fecq",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/lFLgVFoOiCFXF5iU-Summitt%2520in%2520Huddle.2002.add1_CROP.png",
+                    "type": "image",
+                    "crushedKey": "Summitt%20in%20Huddle.2002.add1_CROP.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 884
+                    },
+                    "originalUrl": "Summitt in Huddle.2002.add1_CROP.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nuhpyz00is3b795zl2jbrn",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nuhpyz00iy3b79rclsl45l",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"0e71fd86-172d-4300-8adc-185a6788722a\"><p>To go beyond the general assessments of “introvert-extrovert” or “thinker-feeler,” you can also gain insight into personality types through personality trait assessments. Pat famously used the Predictive Index assessment with her players in the 1990s, relying on the tool to understand each player’s natural motivations. But there are many tools and assessments to choose from nowadays.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          },
+          {
+            "id": "cm6nuicty00jj3b797say4j0y",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6nuicty00jk3b79yxefmd3z",
+                "type": "intro",
+                "title": "Types of Personality Tests",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"43f37b6f-6e53-45fc-8730-be5bbf0ab59f\"><p>Here are a few of the more common tools you may find in the space.</p><p><span style=\"font-size: 1.3rem\">(Scroll through to complete this element)</span></p></div>"
+              },
+              {
+                "id": "cm6nuicty00jl3b7900qbk9f6",
+                "type": "summary",
+                "title": "Summary",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"e8f0a238-fa8b-41f4-83ff-6c876dd261e8\"><p><span style=\"font-size: 1.7rem\">Consider what personality trait assessment tool might work best for your team members, and how you can share those results with the team.</span></p></div>"
+              },
+              {
+                "id": "cm6nuicty00jm3b79iyammcqa",
+                "type": "step",
+                "title": "Predictive Index (PI)",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"fb6e4702-d368-45fb-b0db-e997dbffb7b6\"><p><span style=\"font-size: 1.7rem\">The Predictive Index (PI) is based on the theory of behavioral drives, which suggests that individuals have innate needs that drive their behavior in the workplace. It measures four primary personality factors:</span></p><p></p><p style=\"margin-left: 0.05rem\"><span style=\"font-size: 1.7rem\"><strong>Dominance </strong>– the drive to exert influence and control over one's environment</span></p><p style=\"margin-left: 0.05rem\"><span style=\"font-size: 1.7rem\"><strong>Extraversion</strong> – the drive to interact with and gain energy from one's environment</span></p><p style=\"margin-left: 0.05rem\"><span style=\"font-size: 1.7rem\"><strong>Patience </strong>– the drive to maintain stability and consistency in one's environment</span></p><p style=\"margin-left: 0.05rem\"><span style=\"font-size: 1.7rem\"><strong>Formality</strong> – the drive to conform to rules and structure in one's environment</span></p><p></p><p><span style=\"font-size: 1.7rem\">Based on an individual's responses to the PI assessment, their scores on these four factors are plotted on a grid that generates a personality profile. The profile helps predict their leadership style, communication style, decision-making approach, and ability to work independently or as part of a team. For example, an individual with a high Dominance score is likely to be assertive and confident, while someone with a high Patience score may prefer a steady and predictable environment.</span></p></div>"
+              },
+              {
+                "id": "cm6nuicty00jn3b79ipry8b7a",
+                "type": "step",
+                "title": "Myers-Briggs Type Indicator (MBTI)",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"1cb82a56-3e99-4601-964e-962be191cc8f\"><p><span style=\"font-size: 1.7rem\">The Myers-Briggs Type Indicator is a personality trait assessment that measures an individual's preferences on four dimensions: Extraversion vs. Introversion, Sensing vs. Intuition, Thinking vs. Feeling, and Judging vs. Perceiving. Based on these preferences, an individual is assigned one of 16 possible personality types, such as ISTJ (Introverted, Sensing, Thinking, Judging) or ENFP (Extraverted, Intuitive, Feeling, Perceiving). Knowing an individual's MBTI type can help you understand their communication style and how they generally prefer to receive information, in addition to other personality insights.</span></p></div>"
+              },
+              {
+                "id": "cm6nuke7q00l13b79tcqigdxm",
+                "type": "step",
+                "title": "The Enneagram",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"f3958457-5138-477b-b078-60e0e1742607\"><p><span style=\"font-size: 1.7rem\">The Enneagram is a personality assessment that categorizes individuals into nine different personality types based on their core fears, desires, and motivations. These types include the Reformer, the Helper, the Achiever, the Individualist, the Investigator, the Loyalist, the Enthusiast, the Challenger, and the Peacemaker. Understanding an individual's Enneagram type can help you understand their underlying motivations and needs. For example, a Peacemaker may prioritize harmony and avoiding conflict, while someone with an Enthusiast type might prioritize relationships and fun.</span></p></div>"
+              },
+              {
+                "id": "cm6nukwqc00l33b79eoex8d18",
+                "type": "step",
+                "title": "DISC Profile",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"7d8f42b5-994e-4ffe-9c72-d9733b9d91bb\"><p><span style=\"font-size: 1.7rem\">The DISC profile is another traditionally used personality trait assessment that measures an individual's Dominance, Influence, Steadiness, and Conscientiousness. These factors are plotted on a graph to generate a personality profile that can help predict an individual's communication style and behavior in different situations with a percentage given for each type.</span></p></div>"
+              },
+              {
+                "id": "cm6nulei600l53b79ttxmlk38",
+                "type": "step",
+                "title": "Big Five Personality Traits",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"bfe8748e-bf74-4fa3-8fd3-04406bd877d6\"><p><span style=\"font-size: 1.7rem\">The Big Five personality traits are a set of five broad dimensions that are used to describe human personality. These traits include Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism. Understanding an individual's Big Five personality traits can help you understand their communication style, values, and preferences. An individual with a high Openness score may be more creative and open to new ideas, while someone with a high Conscientiousness score might prioritize organization and planning.</span></p></div>"
+              },
+              {
+                "id": "cm6nulru100l73b79obbd1483",
+                "type": "step",
+                "title": "StrengthsFinder",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"bd137acb-d8e7-4c05-8030-4ad1aecdeb98\"><p><span style=\"font-size: 1.7rem\">StrengthsFinder is a personality trait assessment that measures an individual's top five unique strengths across 34 different themes, such as Strategic, Achiever, Empathy, or Adaptability. Understanding an individual's strengths can help you communicate with them in a way that acknowledges their unique skills and abilities in the workplace.</span></p></div>"
+              },
+              {
+                "id": "cm6num8m100l93b794bjsq09d",
+                "type": "step",
+                "title": "Hogan Personality Inventory (HPI)",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"2560b2c5-5788-40de-bafe-65e54e9e9241\"><p><span style=\"font-size: 1.7rem\">The Hogan Personality Inventory is a personality trait assessment that measures an individual's personality in terms of three main categories: Reputation, Identity, and Motives. Reputation refers to how an individual is perceived by others, Identity refers to how an individual sees themselves, and Motives refers to the underlying drivers of an individual's behavior. Understanding an individual's HPI profile can help you understand their communication style, their strengths, and their potential weaknesses.</span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "isCustomColor": true,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "showStepLabel": false,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          },
+          {
+            "id": "cm6nunys100m83b79ac4ufohj",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nunys200m93b79d072xf2s",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_danni_varlan_tales_from_the_sidelines_the_importance_of_learning_styles__clip_03%20%281080p%29.mp4",
+                    "url": "transcoded-IdQFlvj2hQVxVm3d-v5_pot_danni_varlan_tales_from_the_sidelines_the_importance_of_learning_styles__clip_03%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_danni_varlan_tales_from_the_sidelines_the_importance_of_learning_styles__clip_03%20%281080p%29.jpg",
+                    "duration": 140,
+                    "inputKey": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/IdQFlvj2hQVxVm3d-v5_pot_danni_varlan_tales_from_the_sidelines_the_importance_of_learning_styles__clip_03%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/transcoded-IdQFlvj2hQVxVm3d-v5_pot_danni_varlan_tales_from_the_sidelines_the_importance_of_learning_styles__clip_03%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_danni_varlan_tales_from_the_sidelines_the_importance_of_learning_styles__clip_03 (1080p).mp4",
+                    "transcodeId": "1743377895394-xu4uor"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmaqzyth500nn3b75mph1vpwe",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmaqzyth500no3b75cew5y3rh",
+                "paragraph": "<div data-editor-id=\"3258716c-584a-4c36-8fe2-f6ebe2db11b4\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nuo35k00mp3b79ewnf86ep",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nuo35k00mq3b79s6ob1vrd",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%207%20The%20Importance%20of%20Learning%20Styles.pdf",
+                    "size": 230574,
+                    "type": "attachment",
+                    "filename": "NYkjAKGKIRbhqgP5-Lesson%207%20The%20Importance%20of%20Learning%20Styles.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 7 The Importance of Learning Styles.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nuo8j400n63b79zwbrt0ss",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nuo8j500nc3b797z5xlvp0",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"259107b7-1181-446c-8ce7-ef3d2a14649c\"><p><span style=\"font-size: 1.6rem\">Listen to Danni Varlan of the Tennessee Board of Regents explain the importance of using learning styles with your team.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nuodo200nx3b79aeess2av",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nuodo200ny3b79y3in3wx5",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi",
+        "createdAt": "2025-01-28T20:39:01.921Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"6e2ed97e-6eb3-45b6-85a6-5fe175792cb9\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "iAL-kN2hJ5whUtQXEVJ-F6Ksb73PeDPj",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "dlcNMdAMj0UNjyj10FnvAbD69H29iLFX",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 5,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:41:25.571Z",
+        "items": [
+          {
+            "id": "-e_5VvpkSegd6zsfKU8uEhwn5Gfx-KFY",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"36f8db47-94c0-456d-9477-2370754c101e\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">What is the value of personality trait assessments? &nbsp;(check any that apply)</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"fadb06c2-a70b-4634-ac2e-ef0294ffafa9\"><p><span style=\"color: #000000; text-decoration: inherit\">Understanding a team member’s natural motivation</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"6c070084-0297-4465-a232-a63930455ff4\"><p><span style=\"color: black; text-decoration: inherit\">Knowing what financial background your employees come from</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nuovny00oi3b793xyv7tc5",
+                "title": "<div data-editor-id=\"fe2f9b24-b3ea-4f64-999c-58560d4422b8\"><p><span style=\"color: #000000; text-decoration: inherit\">Understanding a team member’s communication style</span></p></div>"
+              },
+              {
+                "id": "cm6nuq2qk00on3b79hy5tb7qh",
+                "title": "<div data-editor-id=\"c21748bc-ac2d-40fb-92f6-ea86b4cbff75\"><p><span style=\"color: black; text-decoration: inherit\">Learning your employees’ work history</span></p></div>"
+              },
+              {
+                "id": "cm6nuq69000oq3b79tm34o463",
+                "title": "<div data-editor-id=\"ef5ef841-94a5-4d67-b381-619988c3d61f\"><p><span style=\"color: black; text-decoration: inherit\">Measuring team members’ IQ</span></p></div>"
+              },
+              {
+                "id": "cm6nuq9wk00ot3b79856x2nfo",
+                "title": "<div data-editor-id=\"39b45874-469e-4692-868f-033ca4b91dcd\"><p><span style=\"color: #000000; text-decoration: inherit\">Determining what mix of introverts vs. extroverts are on your team</span></p></div>"
+              },
+              {
+                "id": "cm6nuqdqb00ow3b79t3pd8hix",
+                "title": "<div data-editor-id=\"d89d3c8a-5d0d-4756-a941-a519e4e7eba4\"><p><span style=\"color: #000000; text-decoration: inherit\">Determining individual work styles and preferences</span></p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400we3b79k59kq8pi",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi",
+              "cm6nuovny00oi3b793xyv7tc5",
+              "cm6nuq9wk00ot3b79856x2nfo",
+              "cm6nuqdqb00ow3b79t3pd8hix"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "3jF77zAU6CV9AP9X6OHrslb0e3ElA6IG",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"638d642c-a65a-428b-a5fa-5177357f7a18\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which is one thing leaders can learn from personality assessments?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"e10c0b38-4aed-4e49-9ac0-b396ea15a784\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Who should be promoted</span></span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"e0533e30-c68e-4215-b5cb-8bf6ff3c6240\"><p><span style=\"color: #000000; text-decoration: inherit\">How to work best with your team</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"f7cc6131-7eab-4d10-9689-16b53d6e5155\"><p><span style=\"color: black; text-decoration: inherit\">Who is inherently lazy</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"bfd395fd-9f35-40f0-baab-0c22ef0856a4\"><p><span style=\"color: black; text-decoration: inherit\">Who will never be leadership material</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wj3b793d4kqpg0",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6nus85x00p73b79vge0u9j9",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"c0c1a7ab-e91d-427c-b3b1-32e0b25e9961\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these are commonly used or popular personality assessment tools, as mentioned in this lesson? &nbsp;(check any that apply)</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6nus85x00p83b79zaq1jyce",
+                "title": "<div data-editor-id=\"ee997bfb-ba2a-465d-8247-357526b20e97\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: #000000; text-decoration: inherit\">StrengthsFinder</span></span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6nus85x00pa3b791c98kl1t",
+                "title": "<div data-editor-id=\"e38c478b-43f5-445c-8c24-8db508b8aac4\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: #000000; text-decoration: inherit\">DISC Profile</span></span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nus85x00pb3b79vw23ewsy",
+                "title": "<div data-editor-id=\"8d45c727-5095-4491-b14d-3571691c022f\"><p><span style=\"color: black; text-decoration: inherit\">IQ profiling</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nus85x00p93b79vt6kmitl",
+                "title": "<div data-editor-id=\"e47b1cac-6e05-4299-91e0-b027a462f8a1\"><p><span style=\"color: #000000; text-decoration: inherit\">Predictive Index (PI)</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6nus86w00pc3b79j5fkaoic",
+                "title": "<div data-editor-id=\"3f241819-f90b-4710-b84a-3b43a6808aa2\"><p><span style=\"color: #000000; text-decoration: inherit\">Myers-Briggs Type Indicator</span></p></div>"
+              },
+              {
+                "id": "cm6nut1e900pj3b79wa0koh7u",
+                "title": "<div data-editor-id=\"1e8df62f-94a5-4c99-837f-837f21c04015\"><p>Compass and Arrow</p></div>"
+              },
+              {
+                "id": "cm6nut5ew00pm3b79shhgylsq",
+                "title": "<div data-editor-id=\"214e78d9-1dc7-4d41-9ac2-d11d85242720\"><p><span style=\"color: #000000; text-decoration: inherit\">The Enneagram</span></p></div>"
+              },
+              {
+                "id": "cm6nut9ez00pp3b79u95e2px2",
+                "title": "<div data-editor-id=\"490463d6-bc28-4a47-94aa-c0c3a557b264\"><p>Background checks</p></div>"
+              }
+            ],
+            "correct": "",
+            "corrects": [
+              "cm6nus85x00p83b79zaq1jyce",
+              "cm6nus85x00p93b79vt6kmitl",
+              "cm6nut5ew00pm3b79shhgylsq",
+              "cm6nus86w00pc3b79j5fkaoic",
+              "cm6nus85x00pa3b791c98kl1t"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi",
+        "createdAt": "2025-01-28T20:38:29.888Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "A89P56XYatfHw0RMSrBapVUgBaxCarGI",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 6,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Criticism and Praise",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T15:28:28.794Z",
+        "items": [
+          {
+            "id": "cm6nuuzwy00pu3b79oqz5w4rp",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nuuzwy00q03b79j5ap9okp",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"7693187e-8a1a-4eb6-a71d-7dc768afc585\"><p><span style=\"color: black; text-decoration: inherit\">Finally, when learning to communicate </span>with<span style=\"color: black; text-decoration: inherit\"> different personality types, one principle Pat always believed in was supplementing any necessary criticisms with praise and knowing how to use both wisely.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nuvcrq00ql3b79pekcaf7q",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6nuvcrr00qm3b79y7vpdgoi",
+                "name": "<div data-editor-id=\"bd035560-ad9f-4107-9e63-7ee1fd09baeb\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: #ffffff; text-decoration: inherit\"><strong><em>— Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"3aa64cfa-b328-4134-886d-662352c95192\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>When is it appropriate to use harsh words? Only you can be the judge of that. But I’ll say this: They must be used in combination with praise. Negative reinforcement must be used sparingly.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/OVr9VirWRJ2qawpi-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "iv--7G/Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar081lg00va3b75ls5brkjp",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar081lh00vb3b75k080tlg8",
+                "paragraph": "<div data-editor-id=\"b1bd1f19-1bb9-4230-b1aa-a11b2f156598\"><p><span style=\"font-size: 1.5rem\"><em>(Please listen to complete this element)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nux5oo00ra3b79896r6joe",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nux5oo00rb3b79et05q8ya",
+                "media": {
+                  "audio": {
+                    "key": "10.mp3",
+                    "url": "transcoded-JmIL9blRhOhTgNLf-10.mp3",
+                    "type": "audio",
+                    "duration": 9,
+                    "inputKey": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/JmIL9blRhOhTgNLf-10.mp3",
+                    "thumbnail": "",
+                    "originalUrl": "10.mp3",
+                    "transcodeId": "1738515000675-hckptm"
+                  }
+                },
+                "caption": "<div data-editor-id=\"25a2e86b-7499-40f1-947a-ba2027b8e7d3\"><p>Click to hear the quote above.</p></div>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "audio",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nuy4n300rt3b79jdhzahem",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nuy4n300ru3b79w31jwgcg",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/5gQjugWYw0P0vVKr-Pat%2520and%2520Chamique.jpg",
+                    "type": "image",
+                    "crushedKey": "Pat%20and%20Chamique.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1135
+                    },
+                    "originalUrl": "Pat and Chamique.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"3179507d-cce0-43c0-bb5b-dc35640c3c6a\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Realizing that praise was necessary to keep her team going as well as the routine critiques and criticisms, Pat developed a system called “rebound and two points” to help her players remember the use of both. Whenever an opportunity for improvement or chastisement was issued, the player would say, “Rebound!” to show they understood and knew the criticism was for the best. When praise was given, they were to say, “Two points!” to indicate that they heard the praise and it had been received. The verbal reinforcement was necessary, Pat believed, to ensure the players weren’t hearing and internalizing only the criticism.</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nuye6400se3b79uuc8dees",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nuye6400sf3b79bd2wi7x9",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/xb1aPRVzKgvXJn0a-AdobeStock_1241445271.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_1241445271.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1118
+                    },
+                    "originalUrl": "AdobeStock_1241445271.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"76468434-139a-49c5-b34d-2d97d0fa7be1\"><p><span style=\"font-size: 1.6rem\">In summary, whether using praise or criticism, communicating with extroverts, introverts, or other diverse personalities, using the right communication style can make <em>all</em> the difference. The next time you're in a conversation with someone, take a moment to consider their communication style and adjust your approach accordingly. You might be surprised at how much more effective your communication becomes.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nuz3up00t53b79luj403wx",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nuz3uq00t63b79l2knulao",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi",
+        "createdAt": "2025-01-28T20:39:12.617Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"b8c90dd8-126e-438e-bdbf-448a3caf974e\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "vAfikJl0dN_wFAneff-i5gJvsofQB-8g",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "xxnRyXUznNiXQc8lVuHrwBgRberuYgcX",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 7,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:41:31.838Z",
+        "items": [
+          {
+            "id": "msVqLvZnuJSb_3Y4KcR6pfhW7yJdW3Bm",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"e9231e38-7e17-468d-be7c-70506c5b7015\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Fill in the blank (from Pat): “Harsh words must be used in combination with ____________.”</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"d906e90b-7144-451e-b38e-bc0b6eadc392\"><p><span style=\"color: black; text-decoration: inherit\">Discipline</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"103a6d56-1061-4ba5-8763-948eb91aee00\"><p><span style=\"color: #000000; text-decoration: inherit\">Praise</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nuzqdh00wd3b79fw248ot3",
+                "title": "<div data-editor-id=\"75f7a20a-820d-4622-80a2-7201f2c33a42\"><p><span style=\"color: black; text-decoration: inherit\">Constructive feedback</span></p></div>"
+              },
+              {
+                "id": "cm6nv0pe000wf3b7941eal7df",
+                "title": "<div data-editor-id=\"a8a5d475-9004-474e-8f41-85732749cc3c\"><p><span style=\"color: black; text-decoration: inherit\">None of the above</span></p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400wf3b79z4rpzttq",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6nv1qf900wp3b79c36uxcr6",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"d2bff1b3-0e5f-4c1b-9b1f-63a7560109fe\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">When delivering praise or criticism, ________________.</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6nv1qf900wq3b79t8k37s1s",
+                "title": "<div data-editor-id=\"1a5177ae-3087-4517-8048-a18468250efa\"><p><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">Using the right communication style can make all the difference.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6nv1qf900wr3b7968ksrusb",
+                "title": "<div data-editor-id=\"4b4d6b92-3083-4a53-bc93-aae41bf5cc74\"><p><span style=\"color: black; text-decoration: inherit\">Limiting feedback to positives is key.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nv1qg900ws3b79ofp86voj",
+                "title": "<div data-editor-id=\"58d7a8e1-19e1-4b4a-b708-cb8f2feccc3e\"><p><span style=\"color: black; text-decoration: inherit\">Avoid direct confrontation.</span></p></div>"
+              },
+              {
+                "id": "cm6nv270m00wu3b79uuov90gt",
+                "title": "<div data-editor-id=\"c47bfec3-0640-4632-b0c3-8c190b888a4d\"><p><span style=\"color: black; text-decoration: inherit\">All of the above.</span></p></div>"
+              }
+            ],
+            "correct": "cm6nv1qf900wq3b79t8k37s1s",
+            "corrects": [
+              "cm6nv1qf900wq3b79t8k37s1s"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "RWhFwbil_A6fb9sOCF3UO41croLdHpEV",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"f2016f87-b89c-472a-87d2-c7cb52f475cb\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">When it came to giving criticism and praise, Pat used to use the following system with her players:</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"e97e5fa8-6db0-49bc-92f7-308f26033693\"><p><span style=\"color: black; text-decoration: inherit\">Home Game, Road Game</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"97c0a1d0-5b7b-42fc-8164-d96e105f0d3b\"><p><span style=\"color: black; text-decoration: inherit\">Acceptable, Unacceptable</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"837b0d00-a68b-4c90-92b0-51786c192462\"><p><span style=\"color: black; text-decoration: inherit\">Win, Loss</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"f3d0fabc-8436-4236-baf3-fb989a9032e9\"><p><span style=\"color: #000000; text-decoration: inherit\">Rebound, Two Points</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wi3b79oh3jujac",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "_vJhmKyp9eB6DqCzlC5H8eQtKzND6BPn",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T15:15:26.787Z",
+        "items": [
+          {
+            "id": "cm6nv3ns400x13b79839y4qzw",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nv3ns500x23b79ipcyatsi",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_alexis_hornbuckle_tales_from_the_sidelines_slowing_down_to_interact_with_fans_clip_06%20%281080p%29.mp4",
+                    "url": "transcoded-zvBDB1nTBn3fcUX0-v5_pot_alexis_hornbuckle_tales_from_the_sidelines_slowing_down_to_interact_with_fans_clip_06%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_alexis_hornbuckle_tales_from_the_sidelines_slowing_down_to_interact_with_fans_clip_06%20%281080p%29.jpg",
+                    "duration": 122,
+                    "inputKey": "rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/zvBDB1nTBn3fcUX0-v5_pot_alexis_hornbuckle_tales_from_the_sidelines_slowing_down_to_interact_with_fans_clip_06%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi/transcoded-zvBDB1nTBn3fcUX0-v5_pot_alexis_hornbuckle_tales_from_the_sidelines_slowing_down_to_interact_with_fans_clip_06%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_alexis_hornbuckle_tales_from_the_sidelines_slowing_down_to_interact_with_fans_clip_06 (1080p).mp4",
+                    "transcodeId": "1754796272949-dp6lbi"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar09tme01293b75n6eidvmq",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar09tme012a3b75nfubwqv0",
+                "paragraph": "<div data-editor-id=\"591f8f85-768a-43e0-9169-6d916102482c\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nv3s0j00xi3b796t9tq1pg",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nv3s0j00xj3b798m6toctw",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%207%20Slowing%20Down%20to%20Interact%20with%20Fans.pdf",
+                    "size": 230488,
+                    "type": "attachment",
+                    "filename": "J-GlSLeOZU62pMbL-Lesson%207%20Slowing%20Down%20to%20Interact%20with%20Fans.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 7 Slowing Down to Interact with Fans.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nv3uhu00xz3b79m4pfy2qh",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nv3uhu00y53b79s19y8dx6",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"ddaea9c9-c906-4457-8951-8dc7bf552bff\"><p><span style=\"color: black; text-decoration: inherit\">Listen to former WNBA player Alexis Hornbuckle remember the importance Pat put on slowing down to interact with people of all walks of life.</span></p><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Refer to your workbook for the reflection questions and exercises below.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nv4ev800yq3b79jhtp0t1o",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6nv4ev800yr3b79zdhnc7xg",
+                "paragraph": "<div data-editor-id=\"0ac1f1d6-b33b-4c2b-a9d1-f466de542de9\"><p><span style=\"color: black; text-decoration: inherit\">Do you have more introverts or extroverts on your team?</span></p></div>"
+              },
+              {
+                "id": "cm6nv4ev800ys3b79uy84rojo",
+                "paragraph": "<div data-editor-id=\"7034d9ba-3fb9-4243-b4ba-3396a33d96e9\"><p><span style=\"color: black; text-decoration: inherit\">What percentage do you think you have of thinkers v</span>s.<span style=\"color: black; text-decoration: inherit\"> feelers?</span></p></div>"
+              },
+              {
+                "id": "cm6nv4ev800yt3b79fpamqm7o",
+                "paragraph": "<div data-editor-id=\"2c2c9ce3-db83-47bf-8ba4-dcb35bde533a\"><p><span style=\"color: black; text-decoration: inherit\">Which is your natural personality type?<strong>&nbsp;</strong></span></p><ul><li><p><span style=\"color: black; text-decoration: inherit\">Extrovert vs. Introvert</span></p></li><li><p><span style=\"color: black; text-decoration: inherit\">Thinker vs. Feeler</span></p></li></ul></div>"
+              },
+              {
+                "id": "cm6nv5piq00zb3b799kca8iqi",
+                "paragraph": "<div data-editor-id=\"1d2a3e43-f3cd-4264-8436-b5f9eaf0c755\"><p><span style=\"color: black; text-decoration: inherit\">What specific ways do <em>you </em>prefer to be communicated with?</span></p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 3,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nv63aj00zc3b79zozfucqr",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nv63ak00zi3b792k8vzm27",
+                "heading": "<div data-editor-id=\"6753288e-d613-4165-93cd-f5442006fcaa\"><p><span style=\"font-size: 2rem\"><strong>Exercises</strong></span></p></div>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar0aybs013v3b750aypnk68",
+            "type": "list",
+            "items": [
+              {
+                "id": "cmar0aybs013w3b752v18yocu",
+                "paragraph": "<div data-editor-id=\"afb94339-ae83-436a-89df-c47dc063b6d4\"><p>Name three ways you can communicate with the following personalities:</p><ul style=\"margin-left: 0.075rem\"><li><p style=\"line-height: 1\">Introvert-thinker</p></li><li><p style=\"line-height: 1\">Extrovert-thinker</p></li><li><p style=\"line-height: 1\">Introvert-feeler</p></li><li><p style=\"line-height: 1\">Extrovert-feeler</p></li></ul></div>"
+              },
+              {
+                "id": "cmar0aybs013x3b75ou7oks8w",
+                "paragraph": "<div data-editor-id=\"2ea1fbaf-220c-4cbb-a843-ac95e7c58967\"><p>What personality tests have you used in the past (if any)?</p></div>"
+              },
+              {
+                "id": "cmar0aybs013y3b75dzncb6ku",
+                "paragraph": "<div data-editor-id=\"aee8e9d0-020a-4727-8c8e-490adc2f198b\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">When communicating with your team directly, what percentage would you estimate is criticism v</span>s.<span style=\"color: black; text-decoration: inherit\"> praise? If praise is below 30</span> percent<span style=\"color: black; text-decoration: inherit\">, how could you work to improve </span>that<span style=\"color: black; text-decoration: inherit\"> percentage?</span></span></p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm9xjj3ko019u3b79ntjpp8hr",
+            "type": "text",
+            "items": [
+              {
+                "id": "cm9xjj3ko019v3b79giuv3eqr",
+                "paragraph": "<div data-editor-id=\"41e4fa19-27e7-4f7d-958b-3e3e52731a91\"><p style=\"margin-left: 6rem\"><span style=\"font-size: 1.7rem\">Pick two new tests to research for potential use with your team.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 3,
+              "entranceAnimation": true,
+              "customPaddingBottom": 3,
+              "customPaddingLinked": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm9xjneq601lh3b79nfnv89a0",
+            "type": "divider",
+            "items": [],
+            "family": "divider",
+            "variant": "divider",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6nv885d012h3b794h8q8cqe",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nv885e012i3b79tczy197m",
+                "paragraph": "<div data-editor-id=\"36519ee4-1fa4-4e95-9ec4-91c8b34158b5\"><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Sources:</strong></span></span></p><ol type=\"1\"><li><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from, <em>Reach for the Summitt</em>, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998.</span></span></p></li></ol></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmar0ewhn01a83b75aafwh0ef",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmar0ewhn01a93b75cbws6hd3",
+                "type": "exit-course",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"8b9b3ca2-688d-4a26-9efb-78b7ba6b5159\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": "exit-course"
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:29:44.917Z",
+    "updatedAt": "2025-08-29T22:13:36.581Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Course 7:  Different Strokes, Different Folks",
+      "format": "zip",
+      "quizId": "dlcNMdAMj0UNjyj10FnvAbD69H29iLFX",
+      "target": "scorm12",
+      "shareId": "qSqlylA7Mm3eY6wWkTuRbY_9WCoPBzIu",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "aSsLfR2e-rBSY1wEfRqZJacTtIl2suEi_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:32:24.536Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "",
+    "title": "Course 7:  Different Strokes, Different Folks",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}

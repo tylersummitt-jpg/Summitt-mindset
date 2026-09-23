@@ -51,7 +51,7 @@
           "alt": "Lesson image"
         }
       ],
-      "group_label": "2.1 | Pat in Her Own Words"
+      "group_label": "2.1 Pat in Her Own Words"
     },
     {
       "id": "dd_mp_03_st_002",
@@ -140,224 +140,12 @@
           ]
         }
       ],
-      "group_label": "2.1 | Pat in Her Own Words"
-    },
-    {
-      "id": "dd_mp_03_st_003",
-      "source_step_id": "dd_mp_03_st_003",
-      "sequence": 3,
-      "title": "Take Full Responsibility: Introduction",
-      "blocks": [
-        {
-          "type": "video",
-          "vimeo_video_id": null,
-          "visible_title": "Take Full Responsibility: Introduction",
-          "speaker": "Katy Kvalvik"
-        },
-        {
-          "type": "markdown",
-          "markdown": "Take Full Responsibility: Introduction, featuring Katy Kvalvik\n\nSuccessful Leaders Commit to Learning and Growth\n\nIn this video, we addressed the startling statistic that over half of the executives assigned to a new position are unsuccessful in that position and either move on or are removed from their post in just a couple of years. This would suggest a couple of things. First, leadership positions are very difficult. Second, perhaps not everyone is cut out to be a leader. That would seem pretty obvious. Third, and perhaps most importantly, the job of being a leader requires a lot of what you're engaged in right in this moment - learning, reflection, practice, and growth.\n\nIf there's one thing you will see that is consistent through the Definite Dozen made famous by Coach Pat Summitt, it's that commitment to growth is non-negotiable. Even highly successful leaders will eventually fail if they don't commit to growth, so keep this leadership statistic in mind. Failure is remarkably consistent in the positions you strive for. Own the fact that the job is going to be tough, believe in yourself, and commit to growth. You definitely want to be on the right side of that 50% statistic!\n\nHaving a Title Isn't Enough\n\nOne of the mistakes leaders make is assuming that once the title is ascribed to them, the world around them changes. Granted, if suddenly you earn a huge promotion and much more responsibility is put upon you, the people around you may look at you a bit differently. However, the overall effectiveness of a leader or the power and influence they are able to wield has a lot more to do with their influence and authority than their title. In other words, your ability to adopt the right practices and to treat people in a way that gives you the best opportunity to be successful as a leader will have a greater impact than any change in job title that you are given.\n\nWill You Succeed or Fail as a Leader?"
-        },
-        {
-          "type": "sort",
-          "prompt": "You'll see one item at a time. Decide whether it belongs with “Leaders Who Succeed” or “Leaders Who Fail.”",
-          "categories": [
-            "Leaders Who Succeed",
-            "Leaders Who Fail"
-          ],
-          "cards": [
-            {
-              "id": "visualize_the_success_they_are_striving_fo",
-              "text": "Visualize the success they are striving for",
-              "correct_category": "Leaders Who Succeed"
-            },
-            {
-              "id": "avoid_dealing_with_difficult_situations_an",
-              "text": "Avoid dealing with difficult situations and challenges",
-              "correct_category": "Leaders Who Fail"
-            },
-            {
-              "id": "deal_with_complaints_and_other_unpleasant",
-              "text": "Deal with complaints and other unpleasant elements of the job",
-              "correct_category": "Leaders Who Succeed"
-            },
-            {
-              "id": "confront_difficult_situations_and_challeng",
-              "text": "Confront difficult situations and challenges",
-              "correct_category": "Leaders Who Succeed"
-            },
-            {
-              "id": "confront_difficult_people_to_change_their",
-              "text": "Confront difficult people to change their performance or approaches",
-              "correct_category": "Leaders Who Succeed"
-            },
-            {
-              "id": "believe_that_their_leadership_influence_an",
-              "text": "Believe that their leadership influence and power come with the acquired title",
-              "correct_category": "Leaders Who Fail"
-            },
-            {
-              "id": "prefer_parts_of_the_job_that_are_fun_or_ex",
-              "text": "Prefer parts of the job that are fun or exhilarating",
-              "correct_category": "Leaders Who Fail"
-            },
-            {
-              "id": "don_t_develop_the_skills_needed_to_lead",
-              "text": "Don't develop the skills needed to lead",
-              "correct_category": "Leaders Who Fail"
-            },
-            {
-              "id": "commit_to_continuing_professional_growth_a",
-              "text": "Commit to continuing professional growth and learning",
-              "correct_category": "Leaders Who Succeed"
-            },
-            {
-              "id": "refuse_to_recognize_that_a_leadership_job",
-              "text": "Refuse to recognize that a leadership job is tough",
-              "correct_category": "Leaders Who Fail"
-            },
-            {
-              "id": "recognize_that_the_leadership_position_is",
-              "text": "Recognize that the leadership position is tough",
-              "correct_category": "Leaders Who Succeed"
-            },
-            {
-              "id": "ignore_complaints",
-              "text": "Ignore complaints",
-              "correct_category": "Leaders Who Fail"
-            }
-          ]
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_03_st_003_boss.jpg",
-          "alt": "Lesson image"
-        }
-      ],
-      "group_label": "2.2 | Take Full Responsibility"
-    },
-    {
-      "id": "dd_mp_03_st_004",
-      "source_step_id": "dd_mp_03_st_004",
-      "sequence": 4,
-      "title": "Knowledge Check",
-      "blocks": [
-        {
-          "type": "quiz",
-          "minimum_correct": 2,
-          "questions": [
-            {
-              "question_id": "dd_mp_03_st_004_q01",
-              "prompt": "Pat Summitt believed that many aspiring leaders see themselves pursuing the power, the glory, and the excitement of leadership positions, but fail to recognize that the position also includes _______.",
-              "question_type": "single_choice",
-              "choices": [
-                {
-                  "id": "c1",
-                  "text": "preventing challenges and complaints"
-                },
-                {
-                  "id": "c2",
-                  "text": "delegating the resolution of complaints"
-                },
-                {
-                  "id": "c3",
-                  "text": "dealing with difficult people"
-                }
-              ],
-              "correct_choice_ids": [
-                "c3"
-              ]
-            },
-            {
-              "question_id": "dd_mp_03_st_004_q02",
-              "prompt": "Successful leaders ___________.",
-              "question_type": "single_choice",
-              "choices": [
-                {
-                  "id": "c1",
-                  "text": "refuse to recognize that leadership position is tough"
-                },
-                {
-                  "id": "c2",
-                  "text": "prefer only parts of the job that are fun"
-                },
-                {
-                  "id": "c3",
-                  "text": "deal with complaints and other unpleasant elements of the job"
-                }
-              ],
-              "correct_choice_ids": [
-                "c3"
-              ]
-            },
-            {
-              "question_id": "dd_mp_03_st_004_q03",
-              "prompt": "One of the most common misconceptions about leadership is the idea that _______.",
-              "question_type": "single_choice",
-              "choices": [
-                {
-                  "id": "c1",
-                  "text": "leaders must continue to pursue a professional development journey"
-                },
-                {
-                  "id": "c2",
-                  "text": "being assigned a title is enough to influence and bring about changes"
-                },
-                {
-                  "id": "c3",
-                  "text": "leaders must enhance the organizational structure"
-                }
-              ],
-              "correct_choice_ids": [
-                "c2"
-              ]
-            }
-          ]
-        }
-      ],
-      "group_label": "2.2 | Take Full Responsibility"
-    },
-    {
-      "id": "dd_mp_03_st_005",
-      "source_step_id": "dd_mp_03_st_005",
-      "sequence": 5,
-      "title": "Leadership Reflections: Taking Full Responsibility",
-      "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "In the first two units of this module, we learned how important it is for a leader or peak performer working on a team to take full responsibility. The point of this reflection is to get you to think about the power of a leader or peak performer actually taking responsibility and how it changes an organization when a leader isn't afraid to make this stand.\n\nFor this reflective exercise, think about a time when you took responsibility for a team failure or weakness:"
-        },
-        {
-          "type": "reflection",
-          "question_id": "dd_mp_03_st_005_reflection_01",
-          "prompt": "In stepping up and taking responsibility, how did you feel?"
-        },
-        {
-          "type": "reflection",
-          "question_id": "dd_mp_03_st_005_reflection_02",
-          "prompt": "How did your teammates respond to you?"
-        },
-        {
-          "type": "markdown",
-          "markdown": "Or, maybe you can reflect on a time when you should have taken responsibility and didn't."
-        },
-        {
-          "type": "reflection",
-          "question_id": "dd_mp_03_st_005_reflection_03",
-          "prompt": "What was the circumstance?"
-        },
-        {
-          "type": "reflection",
-          "question_id": "dd_mp_03_st_005_reflection_04",
-          "prompt": "By not taking responsibility, what was the impact on others?"
-        }
-      ],
-      "group_label": "2.2 | Take Full Responsibility"
+      "group_label": "2.1 Pat in Her Own Words"
     },
     {
       "id": "dd_mp_03_st_006",
       "source_step_id": "dd_mp_03_st_006",
-      "sequence": 6,
+      "sequence": 3,
       "title": "Introduction to Modeling",
       "blocks": [
         {
@@ -371,12 +159,12 @@
           "markdown": "Take Full Responsibility: Introduction to Modeling, featuring Karen Hilton\n\nResponsibility and Modeling: Or Born Knowing?\n\nSometimes when thoughts or skills are so ingrained within us, or are such an integral part of a specific team or group, they can almost be taken for granted. Take riding a bike as an example. You weren't born with the knowledge of riding a bike. However, after some trial and error, you began to get the hang of it and eventually you rode a bike effortlessly. This is the aspiration of skill development on a team or with a group: developing skills that may be foreign in the beginning, but altogether commonplace and easily accessible at the end.\n\nWatching someone else riding a bike shows a future rider how it should be done. It also provides a sense of engagement and motivation.\n\nOne of the most powerful ways of developing skills like this is through modeling. We can't assume, for example, that a child who wants to learn to ride a bike would have any idea what to do if they hadn't seen their older brother and sister or parent riding a bike before them.\n\nWatching someone else ride a bike gives the would-be rider a model to follow and maybe even an incentive to get up on that bike seat. Modeling not only shows us the skills and dispositions needed to demonstrate the behavior, but it also provides, in some cases, a sense of engagement and motivation, driving us to work even harder to get to where we want to go.\n\nFour Elements of Full Responsibility\n\nElement #1: Own Everything\n+\nElement #2: See the Big Picture\n+\nElement #3: Embrace the Mundane\n+\nElement #4: Get Others to Embrace Responsibility\n–\n\nOrganizational culture isn’t built with a slogan or a speech. It’s built by individual actions, repeated and observed. In an organization, leaders who take full responsibility serve as role models and can help to set a precedent in your organization that taking responsibility is part of the culture or the operational ethos within the system. Put another way, if others working in your organization see the leader taking responsibility, they are far more likely to likewise take full responsibility. Indeed, on a team or in an organization where everyone is taking full responsibility, the opportunity for greater success increases dramatically.\n\nYou feel less stressed when you take responsibility and are in control of your surroundings.\n\nIs There a Risk of Burnout?\n\nWe’ve all known leaders who fail to take responsibility. They are quick to lash out, blame others, and look for excuses. This can create an environment where the leader can quickly feel burned out in their job. This may seem a bit counterintuitive. Wouldn’t it be more exhausting to take full responsibility? Wouldn’t rejecting responsibility be more relaxing? Actually, the answer is no. In leadership positions, arguably the most stressful part of the job revolves around aspects of the work that are beyond your control. If the leader is in control of the surroundings and can make changes, they at least have a fighting chance to be competitive. The problem with individual performers or leaders who fail to take full responsibility is that without knowing it, they are creating a lot of stress for themselves.\n\nThink about your own life. Are you happier when you sit back and blame others for your personal circumstance, or do you feel better and perhaps less stressed when you take responsibility for your life and take action to resolve whatever personal goals or objectives you might have? This same dynamic exists in organizations or on teams.\n\nIf you want to see less turnover, support those you work with by taking full responsibility.\n\nHelp Wanted\n\nToni, a very energetic, middle manager in a manufacturing company in the Midwest, found that her division was facing a logistical nightmare as suppliers had failed to fulfill an order, and their warehouse was completely backlogged. She observed her line workers working as fast as they could to meet the demand. With only four members on her shift team, there was real concern that their backlog was going to affect the delivery of the goods to the client. So, in that moment, she rolled up her sleeves and jumped in and helped. Her presence increased productivity, and there was real hope that they could get caught up.\n\nTo their surprise, a company vice president and the CEO also heard about the backlog and showed up and eagerly lent a hand. By jumping in and getting involved, the message was sent that there was no job too mundane for anyone in the organization. Furthermore, everyone understood that the leaders in the organization saw themselves as responsible — for everything. This creates a deep sense of ownership about the work and makes it more likely for everyone to embrace responsibility in the future.\n\nTo that end, organizations who don’t show support for their employees and are led by leaders who don’t take responsibility are more likely to see a great amount of employee turnover. If you want to minimize the amount of \"Help Wanted\" signs you hang as a leader, support those you work with by taking full responsibility and showing them that this is indeed the type of culture that you’re trying to create."
         }
       ],
-      "group_label": "2.3 | Introduction to Modeling"
+      "group_label": "2.2 Introduction to Modeling"
     },
     {
       "id": "dd_mp_03_st_007",
       "source_step_id": "dd_mp_03_st_007",
-      "sequence": 7,
+      "sequence": 4,
       "title": "Knowledge Check",
       "blocks": [
         {
@@ -452,12 +240,12 @@
           ]
         }
       ],
-      "group_label": "2.3 | Introduction to Modeling"
+      "group_label": "2.2 Introduction to Modeling"
     },
     {
       "id": "dd_mp_03_st_008",
       "source_step_id": "dd_mp_03_st_008",
-      "sequence": 8,
+      "sequence": 5,
       "title": "How to Model",
       "blocks": [
         {
@@ -471,12 +259,12 @@
           "markdown": "Take Full Responsibility: How to Model, featuring Karen Hilton\n\nWe Adopt What We See\n\nModel the behaviors that you want others to exhibit.\n\nOnce leaders begin to display certain behaviors, it's highly likely that others will follow suit. We tend to follow the leader and observe the modeling that's going on. Therefore, if you're a leader in an organization and you don't like how things are going, one of the very first, and perhaps the most powerful steps you can take, is to model the kinds of behaviors that you want to see others exhibit. It's a formula that works with coaching, parenting, and indeed in the leadership realm.\n\nThis also is an important dynamic to consider when you think about the fact that unchecked behaviors are also modeled. If you are a leader and you have a very important person underneath you (perhaps another leader who reports to you), operating in a way that is unbecoming of the organization, their impact will have a cascading influence on others and potentially have a much more negative result than you could have ever imagined.\n\nCareful Modeling Requires Clarity\n\nDefine behaviors to set clear expectations for the performance.\n\nIf the goal is to provide modeling that shapes behavior, then that behavior has to be clearly defined. In the case of coaching basketball, if you want a strong team captain, what specific behaviors do you expect from any team captain? If you can't define those behaviors, then it's hard to make expectations for anybody that does the job! So, one of the more important steps that a leader can take to reach expectation with this request is to get really clear about the kinds of performance they expect, so that the expectation of modeling can emerge.\n\nComfort and Aspiration Don’t Go Together\n\nIf comfort is what you are seeking, don't aspire. Ambition is uncomfortable by definition.\n\n— Pat Summitt\n\nAmbition is uncomfortable.\n\nIf you aspire to something that isn't easy to obtain, it's going to require something special. It might require that you develop a special set of skills that others don't have or are unwilling to commit themselves to develop.\n\nHow many coaches over the years attempted to create schemes, recruit players, and probably take on a number of additional strategies designed to disrupt the team success of Pat Summitt? In addition to any internal pressure, Pat had to deal with entire programs from all over the country built around arguably strong leaders wholly committed to defeating her and her team. That kind of pressure undoubtedly made even Pat Summitt uncomfortable.\n\nAre you willing to aspire to something difficult and deal with the discomfort that comes with both the pursuit and realization of peak performance?\n\nGreat Leaders Understand They Don’t Have All the Answers\n\nThe more elevated the leader or the expert, the more likely it is that they ask others for advice, or admit to not having all the answers. Socrates, arguably one of the wisest human beings in history, is famous for saying, “The more I know, the more I realize I know nothing.” Without question, great leaders ask others for opinions, continue to grow, and recognize that even in the execution of their main function or position, they don't have all the answers.\n\nSocrates came to his conclusion because he learned so much and realized there was so much more to consume. It's almost like going on a hike and reaching the top of a clearing only to see even greater heights on the mountain just ahead. This is what great leaders understand...and they never stop climbing towards that next peak, recognizing the need to continue to learn and grow."
         }
       ],
-      "group_label": "2.4 | How to Model"
+      "group_label": "2.3 How to Model"
     },
     {
       "id": "dd_mp_03_st_009",
       "source_step_id": "dd_mp_03_st_009",
-      "sequence": 9,
+      "sequence": 6,
       "title": "Knowledge Check",
       "blocks": [
         {
@@ -556,12 +344,12 @@
           ]
         }
       ],
-      "group_label": "2.4 | How to Model"
+      "group_label": "2.3 How to Model"
     },
     {
       "id": "dd_mp_03_st_010",
       "source_step_id": "dd_mp_03_st_010",
-      "sequence": 10,
+      "sequence": 7,
       "title": "Leadership Reflections: Modeling the Merit of Taking Responsibility",
       "blocks": [
         {
@@ -584,12 +372,12 @@
           "markdown": "You can't assume larger responsibility without taking responsibility for the small things, too.\n\nPat Summitt\n\nYou can't assume larger responsibility without taking responsibility for the small things, too.\n\nPat Summitt\n\nIn these last two units, we addressed the importance of actually modeling behaviors that you hope show up more often in any organization. When we model timeliness, it's more likely that people will be on time. When we model a commitment to creativity or courage, it's more likely that both of those values will show up as well. Remember, people watch what you do more than they listen to what you say.\n\nGet specific and don't pick activities that would be very difficult to actually implement. Choose something that you could do right away."
         }
       ],
-      "group_label": "2.4 | How to Model"
+      "group_label": "2.3 How to Model"
     },
     {
       "id": "dd_mp_03_st_011",
       "source_step_id": "dd_mp_03_st_011",
-      "sequence": 11,
+      "sequence": 8,
       "title": "Replicating",
       "blocks": [
         {
@@ -683,12 +471,12 @@
           "alt": "Lesson image"
         }
       ],
-      "group_label": "2.5 | Replicating"
+      "group_label": "2.4 Replicating"
     },
     {
       "id": "dd_mp_03_st_012",
       "source_step_id": "dd_mp_03_st_012",
-      "sequence": 12,
+      "sequence": 9,
       "title": "Knowledge Check",
       "blocks": [
         {
@@ -768,153 +556,7 @@
           ]
         }
       ],
-      "group_label": "2.5 | Replicating"
-    },
-    {
-      "id": "dd_mp_03_st_013",
-      "source_step_id": "dd_mp_03_st_013",
-      "sequence": 13,
-      "title": "Wrap-Up",
-      "blocks": [
-        {
-          "type": "video",
-          "vimeo_video_id": null,
-          "visible_title": "Taking Full Responsibility: Wrap-Up",
-          "speaker": "Katy Kvalvik"
-        },
-        {
-          "type": "markdown",
-          "markdown": "Taking Full Responsibility: Wrap-Up, featuring Katy Kvalvik\n\nThe world is a dynamic place where expectations continue to change, and in most cases, are on the rise. This means that, in order to be competitive, we can't simply stay the same. We have to get better and improve. This improvement is most likely achieved with a commitment to focusing on the future, building a better way, and practice. Practice allows us, even as leaders, to continue to develop new skills that will serve us and help us remain competitive.\n\nLeadership: Exhausting and Isolating\n\nWhen we visualize what it means to be a leader, we rarely see ourselves successfully charging towards our destination with our teams, mired by exhaustion. In fact, stress and fatigue represent some of the more challenging aspects of what it means to be a leader. Leadership positions make enormous demands on our time, emotional energy, and spirit. The number of hours you must spend in many cases to successfully lead an organization is beyond what a normal work output would demand. Similarly, the job of reacting emotionally to other people, judging other's emotions, and attempting to read the psychological subtext of what's going on in the situation is altogether mentally taxing work!\n\nLeadership can also be very isolating. You may be the only leader at your level in your organization. This is why it's so important for leaders to have strong social networks outside of work to allow them to connect, debrief, and maintain personal connections. Professional organizations also serve in this role and can't be forgotten.\n\nLet’s Not Work Overtime at Finding Fault!\n\nEvidence of the inability to take responsibility will show up on teams who become experts at finding fault. Put another way, organizations who are weak in creating a culture of responsibility will consistently find a scapegoat for whoever is going to take the blame for the latest rounds of failure. This becomes an extremely toxic environment, because with every new initiative, employees look around and prepare themselves for a default person to blame if things go south. This is the opposite of what great leaders promote. If you have a culture of responsibility at your work, everyone \"owns\" every issue. They are willing to jump in and help to make sure no one fails. Furthermore, when there is an overall failure, they all work together to try to fix the issue.\n\nCulture of Full Responsibility\n\nWork cultures that are willing to embrace responsibility feel very different than those that are finding fault. There's a degree of safety in groups who find solutions and work together to solve problems rather than finding fault. Furthermore, in those situations, there's probably a greater likelihood that fewer mistakes will be made. If you are trying to perform in front of a group, don't you usually perform a little bit better if you aren't surrounded by people who are praying that either you fail, or if you fail that they're not going to be in any way involved? That kind of thinking makes you feel very alone. A culture of responsibility creates conditions where everyone feels \"in it\" together, allowing for momentum to build and teams to work together in new and solidified ways."
-        }
-      ],
-      "group_label": "2.6 | Wrap-Up"
-    },
-    {
-      "id": "dd_mp_03_st_014",
-      "source_step_id": "dd_mp_03_st_014",
-      "sequence": 14,
-      "title": "Knowledge Check",
-      "blocks": [
-        {
-          "type": "quiz",
-          "minimum_correct": 2,
-          "questions": [
-            {
-              "question_id": "dd_mp_03_st_014_q01",
-              "prompt": "The best type of culture is one that embraces responsibility. The opposite of this type of culture is one that consistently _________.",
-              "question_type": "single_choice",
-              "choices": [
-                {
-                  "id": "c1",
-                  "text": "finds fault"
-                },
-                {
-                  "id": "c2",
-                  "text": "attempts regular collaboration"
-                },
-                {
-                  "id": "c3",
-                  "text": "holds people accountable"
-                },
-                {
-                  "id": "c4",
-                  "text": "has high standards of obedience"
-                }
-              ],
-              "correct_choice_ids": [
-                "c1"
-              ]
-            },
-            {
-              "question_id": "dd_mp_03_st_014_q02",
-              "prompt": "We learned in this section that we can and should expect the role of leader to be exhausting. It’s exhausting because of _______.",
-              "question_type": "single_choice",
-              "choices": [
-                {
-                  "id": "c1",
-                  "text": "the toxic environment they have to deal with in their organizations"
-                },
-                {
-                  "id": "c2",
-                  "text": "the amount of emotional energy required in connecting with and reading others"
-                },
-                {
-                  "id": "c3",
-                  "text": "the amount of workout the leaders must do to stay fit"
-                }
-              ],
-              "correct_choice_ids": [
-                "c2"
-              ]
-            },
-            {
-              "question_id": "dd_mp_03_st_014_q03",
-              "prompt": "One of the reasons leadership can be so isolating is because ________.",
-              "question_type": "single_choice",
-              "choices": [
-                {
-                  "id": "c1",
-                  "text": "you can’t allow people to get too close"
-                },
-                {
-                  "id": "c2",
-                  "text": "you may not have colleagues who hold your same position at work"
-                },
-                {
-                  "id": "c3",
-                  "text": "you must create space for consistent alone time"
-                },
-                {
-                  "id": "c4",
-                  "text": "your leadership style, though effective, may drive people away"
-                }
-              ],
-              "correct_choice_ids": [
-                "c2"
-              ]
-            }
-          ]
-        }
-      ],
-      "group_label": "2.6 | Wrap-Up"
-    },
-    {
-      "id": "dd_mp_03_st_015",
-      "source_step_id": "dd_mp_03_st_015",
-      "sequence": 15,
-      "title": "Leadership Reflections: Foiling the Fault-Finder",
-      "blocks": [
-        {
-          "type": "reflection",
-          "question_id": "dd_mp_03_st_015_reflection_01",
-          "prompt": "Let's discuss fault-finding. Have you ever known an expert fault-finder? An expert fault-finder makes it his or her mission to consistently look out for maladies or mistakes in others. They are quick to point out a weakness or a struggle. When the team fails to perform, they look for somebody to blame rather than looking collectively for a way to improve."
-        },
-        {
-          "type": "markdown",
-          "markdown": "For this reflection, let's imagine that you are a leader who is seeking growth, and your team struggles to meet expectation on an important project. You notice that one of your senior team members once again demonstrates a consistent habit of finding fault in others and reflecting on the failure."
-        },
-        {
-          "type": "reflection",
-          "question_id": "dd_mp_03_st_015_reflection_02",
-          "prompt": "What would you do about this fault-finder who consistently brings these grievances to the team in a very public way?"
-        },
-        {
-          "type": "reflection",
-          "question_id": "dd_mp_03_st_015_reflection_03",
-          "prompt": "How would you address this issue while teaching the importance of taking full responsibility?"
-        },
-        {
-          "type": "markdown",
-          "markdown": "EXIT LESSON"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_03_st_015_completion.jpg",
-          "alt": "Lesson complete",
-          "role": "completion"
-        }
-      ],
-      "group_label": "2.6 | Wrap-Up"
+      "group_label": "2.4 Replicating"
     }
   ]
 }

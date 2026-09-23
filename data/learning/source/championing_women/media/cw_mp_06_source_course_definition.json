@@ -1,0 +1,1971 @@
+{
+  "course": {
+    "id": "P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B",
+    "originalId": null,
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "selectedAuthorId": "none",
+    "color": "#4267a9",
+    "navigationMode": "",
+    "title": "Championing Women in Leadership - The Strength of Female Leadership",
+    "sharePassword": "",
+    "description": "",
+    "shareId": "VpbRPC8MFaTKohqLSzDNGLTWSn_aRjLX",
+    "copyOf": "tl01vCJW20kIyCqDYKhO6V8cjmn9VW0k",
+    "order": "1728333301046",
+    "fonts": null,
+    "media": {
+      "image": {
+        "key": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/yjSk7nUEd6OMCAJS-CWILLogo_Color_Transparent.png",
+        "type": "image",
+        "width": 166,
+        "height": 40,
+        "scalar": 2,
+        "crushedKey": "tXaV-nSh-5eGLtco.png",
+        "originalUrl": "CWILLogo_Color_Transparent.png",
+        "useCrushedKey": true
+      }
+    },
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/Xk8uC76utsVliNaE-PSLG_CWIL_TItleGraphic.png",
+          "crushedKey": "tUDcFAkv5yPHMeES.jpg",
+          "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "id": "CnLNszy2FJqPAk8xDKSDjc94Sf4GETXS",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B",
+        "title": "The Strength of Female Leadership",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5h673q00023b78yh2su8x0",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv5h673r00033b78d9hp1pw4",
+                "media": {
+                  "video": {
+                    "key": "v5_wil_alexis_hornbuckle_the_strength_of_female_leadership_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-30VEhNWw1lO4AwGq-v5_wil_alexis_hornbuckle_the_strength_of_female_leadership_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_wil_alexis_hornbuckle_the_strength_of_female_leadership_clip_01%20%281080p%29.jpg",
+                    "duration": 166,
+                    "inputKey": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/30VEhNWw1lO4AwGq-v5_wil_alexis_hornbuckle_the_strength_of_female_leadership_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/transcoded-30VEhNWw1lO4AwGq-v5_wil_alexis_hornbuckle_the_strength_of_female_leadership_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_wil_alexis_hornbuckle_the_strength_of_female_leadership_clip_01 (1080p).mp4",
+                    "transcodeId": "1727974363615-k88kir"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5h7sye001r3b785onak1m3",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv5h7syf001s3b78pkgtcs1s",
+                "media": {
+                  "attachment": {
+                    "key": "L5%20Transcript%20The%20Strength%20of%20Female%20Leadership.pdf",
+                    "size": 162384,
+                    "type": "attachment",
+                    "filename": "adAmkp23xxuhgIg_-L5%20Transcript%20The%20Strength%20of%20Female%20Leadership.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L5 Transcript The Strength of Female Leadership.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "key": "assets/rise/assets/themes/example-header-image.jpg",
+              "type": "image",
+              "useCrushedKey": false
+            }
+          },
+          {
+            "id": "cm02rhx91001s3b7c7fkxs8s8",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm02rhx92001v3b7cgrvcou07",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/_cZRqSXcApuBNYZN-stock_image.jpg",
+                    "type": "image",
+                    "align": "left",
+                    "crushedKey": "stock-image.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "sourcedFrom": "LIBRARY",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>Now that we’ve talked about biases and roadblocks for women, let’s talk about their strengths.</p><p>While it’s important to avoid automatic biases about either sex, the journey to workplace equality doesn’t mean ignoring some of the unique attributes and characteristics that women typically bring to the workforce.</p><p>First, a few ways in which men and women are the <em>same</em>—a myriad of studies show both sexes have similar levels of education, ambition, and drive/work ethic. Yet there are some biological nuances between men and women that employers can use to their advantage when building teams and encouraging female leaders. In other words, being equal doesn’t necessarily mean the same.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5h71ba00123b780vrdlgze",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5h71ba00183b78nmodznj8",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p><strong><em><span style=\"font-size: 22px; color: rgb(255, 255, 255);\">A myriad of studies show both sexes have similar levels of education, ambition, and drive/work ethic.</span></em></strong></p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "b",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cabnf3001t3b7avddthjb5",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cabnf4001u3b7an1uhc7kk",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-03-28T15:15:00.692Z",
+        "updatedAt": "2024-11-11T00:28:15.340Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 0,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "The Strength of Female Leadership"
+      },
+      {
+        "id": "h1tE2zeSdJVHJm-UWsShC7kHAiIKgEka",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B",
+        "title": "A Balance to the Force",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv5h8y6r00283b78baizqhd2",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5h8y6r002e3b78axco0h0o",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Other than diversity (and fairness), let’s look at some specific reasons you should want women on your team.</p><p>Each gender has its super-skills—or traits that come more naturally to one gender than the other.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02rnmbk005k3b7cckv0na5l",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "19.095052083333332",
+                "y": "23.201103768278966",
+                "id": "cm02rnmbk005l3b7cl4md33w5",
+                "icon": "01",
+                "title": "Attention to Detail",
+                "isActive": false,
+                "description": "<p>On the whole, women remember details easily. Biologically, females have a larger hippocampus, which is where the memory part of the brain is stored, allowing them to bring complex bits of detailed information to mind quickly and readily. This can be an invaluable skill in just about any workplace. Women demand perfection and generally hold their work to high standards.</p>"
+              },
+              {
+                "x": "33.80952380952381",
+                "y": "24.296962879640045",
+                "id": "cm02roo9100633b7cdnlr8g6j",
+                "icon": "01",
+                "title": "Emotional Intelligence",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Traditionally, women excel in the soft skills, meaning they readily pick up on environment, verbal and body language cues (EQ). They have a natural gift for empathy, intuition, and are in tune with the overall dynamic of the team, all of which are key leadership skills. Their capacity to understand and respond to the emotions of others can lead to improved conflict resolution, reduced workplace stress, and increased employee engagement.</p>"
+              },
+              {
+                "x": "48.29706101190476",
+                "y": "25.262760123734534",
+                "id": "cm02rnmbk005m3b7caysmo7lx",
+                "icon": "01",
+                "title": "Heightened Intuition in Decision-Making",
+                "isActive": false,
+                "description": "<p>Studies show men often take a fact-based approach to their environment, categorizing and sorting things based on data. Women lead with intuition and feeling, partially because of their heightened social perceptions around communication and conflict. While men tend to sort things into black and white, women often tend to involve more details in their decision-making processes. Why does this matter? For optimal decision-making, you need both&mdash;not just facts, but data plus supporting details and EQ.</p>"
+              },
+              {
+                "x": "82.20238095238095",
+                "y": "21.25984251968504",
+                "id": "cm02rtv7100683b7c6dug0nmb",
+                "icon": "01",
+                "title": "More Verbally Communicative",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Because men compartmentalize things more readily, they often prefer solitude or low-energy distractions after an especially eventful day. The female brain is more active at rest, which is why women tend to want to process things verbally or socially in times of stress. Women are more likely to speak up in the workplace and not bottle things up&mdash;if they feel safe doing so&mdash;which can be an invaluable &nbsp;leadership skill.</p>"
+              },
+              {
+                "x": "12.619047619047619",
+                "y": "69.29045978627671",
+                "id": "cm02rtyhx006c3b7cwd1on7z6",
+                "icon": "01",
+                "title": "Risk-Averse, Multi-tasking and Resiliency",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Women are often more risk-averse than men. Their caution is an important balance to workplace decisions and long-term planning.</p><p><br></p><p>Women often juggle multiple responsibilities in both their personal and professional lives. In a fast-paced work environment, these skills are invaluable for meeting deadlines, managing projects efficiently, and maintaining a healthy work-life balance. Women are also highly adaptable, a key quality in the face of adversity.</p>",
+                "isNewlyInserted": true
+              },
+              {
+                "x": "42.916666666666664",
+                "y": "69.29133858267717",
+                "id": "cm02rtwyt006a3b7ciqauhzpz",
+                "icon": "01",
+                "title": "Analytical",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Women have also been known to excel in the following areas: multitasking, problem-solving, organization, and planning. They are keenly analytical, but in a different way than men&mdash;always analyzing personal interplay, like a computer program running in the background of their mind. Female receptors can sometimes be more heightened to hidden body language or communication nuances, allowing them to synthesize and process large amounts of information.</p>"
+              },
+              {
+                "x": "89.94047619047619",
+                "y": "73.79077615298087",
+                "id": "cm02rq48800653b7cwuyu5vmy",
+                "icon": "01",
+                "title": "Collaborative",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>As team members, women often prove to be highly collaborative. They are also more likely to take on unspoken work that contributes to the team dynamic. This is important because a team that is highly skilled but can&rsquo;t get along is a poorly functioning team. Women realize this, and have a natural tendency to seek conflict resolution. Women often display less ego, as they have less of the innately wired Alpha-male signaling than their testosterone-bearing counterparts. On the contrary, many women feel the need to qualify or soften their statements to make them more humble, and therefore more socially acceptable:</p><p>&nbsp;</p><p>&ldquo;I could be wrong, but&hellip;&rdquo;</p><p>&ldquo;I just wanted to ask&hellip;&rdquo;</p><p>&ldquo;This may be a dumb question, but&hellip;&rdquo;</p>"
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/XJUqb9a4T21vdvbo-WomenSuperskills_graphic.png",
+                "type": "image",
+                "crushedKey": "WomenSuperskills_graphic.jpg",
+                "dimensions": {
+                  "originalWidth": 1680,
+                  "originalHeight": 889
+                },
+                "originalUrl": "WomenSuperskills_graphic.png",
+                "sourcedFrom": "USER",
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#ffffff",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cabujd00373b7av29k6xrx",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cabujd00383b7a0wbge1ze",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T16:49:20.677Z",
+        "updatedAt": "2024-11-11T00:28:24.005Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "A Balance to the Force"
+      },
+      {
+        "id": "q4bixqDTMXB7guYtd_1pCHjuFi6pkNIO",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm05n0nig00033b7c0w5h5xch",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<p>Which is a reason you should want females on your team? (Select all that apply.)</p>",
+            "answers": [
+              {
+                "id": "cm05n0nig00043b7c1r9xmgcs",
+                "title": "<p>Diversity</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05n0nig00053b7cg53z47z9",
+                "title": "<p>Fairness</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05n0ufq000b3b7cuny83qel",
+                "title": "<p>Balance</p>"
+              },
+              {
+                "id": "cm05n1guo000g3b7ce0umk82x",
+                "title": "<p>Bias</p>"
+              }
+            ],
+            "correct": "cm05n0nig00043b7c1r9xmgcs",
+            "corrects": [
+              "cm05n0nig00043b7c1r9xmgcs",
+              "cm05n0nig00053b7cg53z47z9",
+              "cm05n0ufq000b3b7cuny83qel"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05n0nig00063b7c2mqspr8c",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which are some ways in which men and women in the workplace are similar, as discussed in this lesson?</p>",
+            "answers": [
+              {
+                "id": "cm05n0nig00073b7cyd3ivbv2",
+                "title": "<p>Gender preferences and stereotypes</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05n0nig00093b7cll4zpg4a",
+                "title": "<p>Education, ambition, work ethic</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05n0nig000a3b7c1r5h0xco",
+                "title": "<p>Hobbies and personal interests</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05n0nig00083b7cdhlbp8mp",
+                "title": "<p>Communication styles and preferences</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm05n0nig00093b7cll4zpg4a",
+            "corrects": [
+              "cm05n0nig00073b7cyd3ivbv2",
+              "cm05n0nig00083b7cdhlbp8mp"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05n51u6000y3b7cejyos96y",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"c4870251-ae41-47c2-a3f1-4227fea5fb65\"><p>Which are traits that often come naturally to women:</p></div>",
+            "answers": [
+              {
+                "id": "cm05n51u600103b7c5lmlk88d",
+                "title": "<p>Attention to detail</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05n51uq00113b7cynrgql0a",
+                "title": "<p>Collaboration</p>"
+              },
+              {
+                "id": "cm05n5t7900193b7cxx989jek",
+                "title": "<div data-editor-id=\"63ec1974-de7a-480f-bdf7-4b8c975284cb\"><p>Emotional intelligence</p></div>"
+              },
+              {
+                "id": "cm05n51u6000z3b7c3a7gnxdt",
+                "title": "<div data-editor-id=\"84d05235-f690-4c6d-b64c-7b990a0125b6\"><p>All of the above</p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm05n51u6000z3b7c3a7gnxdt",
+            "corrects": [
+              "cm05n51u600103b7c5lmlk88d",
+              "cm05n51uq00113b7cynrgql0a",
+              "cm05n5t7900193b7cxx989jek"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-22T18:50:00.461Z",
+        "updatedAt": "2024-10-17T20:58:56.161Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "LSXHhZNnLwnziBcV_qVCqXClrcXOhAs1",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B",
+        "title": "A Word on Female Strengths",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clx3i9xts005j3b7aj8k5no5s",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clx3i9xts005l3b7aeiji1mtg",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/zSX3nBGif597Xo36-AdobeStock_546775003.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_546775003.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 862
+                    },
+                    "originalUrl": "AdobeStock_546775003.jpeg",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwtccxgd000x3b794usmo01j",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clwtccxgd00103b79c7yauk7b",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/WXLh_wyeA-Y5WH2G-AdobeStock_482354994%2520%255BConverted%255D.png",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_482354994%20%5BConverted_.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1344
+                    },
+                    "originalUrl": "AdobeStock_482354994 [Converted].png",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>It’s important to note that while there are certain attributes or characteristic patterns that lend themselves more readily to one gender, blatant stereotyping eliminates the uniqueness of each individual and the potential contributions. Just as it would be incorrect to assume all men want to dress up in suits and charge corporate America or spend time in the wild wearing camouflage and a shotgun, it would be incorrect to assume that all women have a higher EQ or are better at multitasking than a man in the next cubicle.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwtcdjjr001f3b7900r6ey2o",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clwtcdjjs001i3b79orjh1554",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/OGs7Nn_5zAu_qpuE.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "Coach%20on%20Sideline%20in%20Front%20of%20Bench.2000.jpg",
+                    "dimensions": {
+                      "top": 76,
+                      "left": 256,
+                      "width": 1237,
+                      "height": 1422,
+                      "originalWidth": 1680,
+                      "originalHeight": 2130
+                    },
+                    "originalUrl": "Coach on Sideline in Front of Bench.2000.jpg",
+                    "originalImage": {
+                      "key": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/5xVriUwLSAorQBuH-Coach%2520on%2520Sideline%2520in%2520Front%2520of%2520Bench.2000.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/uRO0ItnHUAaD9Wza.jpg",
+                      "originalUrl": "Coach on Sideline in Front of Bench.2000.jpg",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>This simply isn&rsquo;t true. Humans are multi-faceted, and the extent to which an individual displays certain characteristics might lie just as equally with personal development as it does with psychological wiring. Summitt herself, known for skirts and heels on the sidelines, could fix a tractor, mow hay, plow a field, &ldquo;fire a barn,&rdquo; and call cows, in addition to being a devoted mother and coaching championship-level NCAA teams.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "small",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clwtcf0j700273b79vxcfzk24",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clwtcf0j8002a3b79rt42khc7",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/TQzfdZwGr5tRhcec.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "AdobeStock_337521036.jpg",
+                    "dimensions": {
+                      "top": 74,
+                      "left": 420,
+                      "width": 968,
+                      "height": 1047,
+                      "originalWidth": 1680,
+                      "originalHeight": 1121
+                    },
+                    "originalUrl": "AdobeStock_337521036.jpeg",
+                    "originalImage": {
+                      "key": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/uIzUfn9UwU0mKr2c-AdobeStock_337521036.jpeg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/jWYv9ykV8nOppUf5.jpg",
+                      "originalUrl": "AdobeStock_337521036.jpeg",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>While experts agree women display patterns of high competence in these areas, they aren&rsquo;t the only skills women bring to the table. It should be noted that in addition to the characteristics already mentioned, women have been proven to display an equal level of general leadership characteristics to men. For example, according to one study from the Harvard Business Review, which analyzed thousands of 360-degree reviews, women outscored men on 17 of the 19 capabilities that differentiate excellent leaders from average, such as initiative, self-development, speed, being results-driven, integrity, mentorship, motivation, and bold leadership.<sup>1</sup></p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "imageSize": "small",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5hfskl007q3b78xuwoc1fr",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5hfskl007w3b78yih8zvu8",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Therefore, while it&rsquo;s definitely worth taking note of natural gifts, we don&rsquo;t prescribe turning these into biases toward females or males in the workplace, as this can cause harm.&nbsp;</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6j1iz00623b7cjh0or2xk",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h6j1iz006a3b7c5znm1yyz",
+                "heading": "<p><strong>Deep Dive: Having Diversity on Your Team</strong></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6ipc1004v3b7ch7h2k8it",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h6ipc2004w3b7cduyizp1t",
+                "media": {
+                  "video": {
+                    "key": "v3_wil_sue_nokes_-_having_diversity_on_your_team_clip_03%20%281080p%29.mp4",
+                    "url": "transcoded-X5FkI8R-DosNdqzf-v3_wil_sue_nokes_-_having_diversity_on_your_team_clip_03%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v3_wil_sue_nokes_-_having_diversity_on_your_team_clip_03%20%281080p%29.jpg",
+                    "duration": 94,
+                    "inputKey": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/X5FkI8R-DosNdqzf-v3_wil_sue_nokes_-_having_diversity_on_your_team_clip_03%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/transcoded-X5FkI8R-DosNdqzf-v3_wil_sue_nokes_-_having_diversity_on_your_team_clip_03%2520(1080p).0000000.jpg",
+                    "originalUrl": "v3_wil_sue_nokes_-_having_diversity_on_your_team_clip_03 (1080p).mp4",
+                    "transcodeId": "1727974407027-xiv4uj"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19ulkbe006c3b74rqduxh3r",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19ulkbe006d3b7442psdxv2",
+                "media": {
+                  "attachment": {
+                    "key": "L5.1%20Transcript%20Having%20Diversity%20on%20Your%20Team.pdf",
+                    "size": 41767,
+                    "type": "attachment",
+                    "filename": "NkXYjxvEzofOwj-q-L5.1%20Transcript%20Having%20Diversity%20on%20Your%20Team.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L5.1 Transcript Having Diversity on Your Team.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6ir75005c3b7cui422mvv",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h6ir75005i3b7c0uwwfp6r",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p><span style=\"font-size: 1.7rem\">In today’s rapidly evolving business landscape, the importance of diversity cannot be overstated. Among the various dimensions of diversity, women in leadership stand out as an indispensable part of driving innovation, improving decision-making, and creating a more inclusive culture for everyone.</span></p><p><span style=\"font-size: 1.7rem\">Simply put, the female perspective represents <em>half </em>of society. This is invaluable in many different fields: marketing, product research, advertising, human resources, finances, customer service, etc. You wouldn’t want only the male perspective marketing to the general population, treating patients, or developing groundbreaking research any more than you would want a female only perspective.</span></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cac2ms007q3b7ao6twg8wd",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cac2ms007r3b7ax6afe2lc",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T16:49:44.496Z",
+        "updatedAt": "2024-11-11T00:28:35.276Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "A Word on Female Strengths"
+      },
+      {
+        "id": "T85O6j3i68JC0mr48REquXQbip2blm3U",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B",
+        "title": "Personal Reflections",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm0h6lb70008k3b7cy274h3oz",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h6lb71008s3b7cas9l4s5r",
+                "heading": "<p><strong>Remembering Pat: Being a Leader at All Times</strong></p>",
+                "paragraph": "<p>Listen to former WNBA player Alexis Hornbuckle remember a lesson Coach Summitt taught her about being a strong, female leader at <em>all</em> times.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6lncm009a3b7cx4jxkici",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h6lnct009b3b7crojejr70",
+                "media": {
+                  "video": {
+                    "key": "v5_wil_alexis_hornbuckle_remembering_pat__being_a_leader_clip_02%20%281080p%29.mp4",
+                    "url": "transcoded-rZjGKl0Fj8E2oXST-v5_wil_alexis_hornbuckle_remembering_pat__being_a_leader_clip_02%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_wil_alexis_hornbuckle_remembering_pat__being_a_leader_clip_02%20%281080p%29.jpg",
+                    "duration": 94,
+                    "inputKey": "rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/rZjGKl0Fj8E2oXST-v5_wil_alexis_hornbuckle_remembering_pat__being_a_leader_clip_02%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B/transcoded-rZjGKl0Fj8E2oXST-v5_wil_alexis_hornbuckle_remembering_pat__being_a_leader_clip_02%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_wil_alexis_hornbuckle_remembering_pat__being_a_leader_clip_02 (1080p).mp4",
+                    "transcodeId": "1727974428265-qksrhk"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19um86200953b74dw7uq5kx",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19um86200963b740zckyp36",
+                "media": {
+                  "attachment": {
+                    "key": "L5.2%20Transcript%20Being%20a%20Leader.pdf",
+                    "size": 42433,
+                    "type": "attachment",
+                    "filename": "HKepvBGqEye-dxZd-L5.2%20Transcript%20Being%20a%20Leader.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L5.2 Transcript Being a Leader.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5hib3e008u3b78uqzrlvcz",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5hib3m00903b78f9ihug33",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Refer to your workbook for the following questions and reflections.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5himxa009g3b787gvsndfg",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clv5himxh009h3b78thrrj28g",
+                "paragraph": "<p>Think of some of the strong women leaders at your workplace. What unique qualities do they exhibit?</p>"
+              },
+              {
+                "id": "clv5himxh009i3b78uktjawde",
+                "paragraph": "<p>In what particular areas have you noticed women exhibiting a different approach than men in the workforce. Explain.</p>"
+              },
+              {
+                "id": "clv5himxh009j3b780snysm8q",
+                "paragraph": "<p>Do you agree with the statement in the lesson, &ldquo;Equal doesn&rsquo;t mean the same&rdquo;? Why or why not?</p>"
+              },
+              {
+                "id": "clv5hjf4o009w3b78jiggn5ur",
+                "paragraph": "<p>For men: What are two things you can learn from your female team members?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv5hjm29009x3b788d08tjfs",
+                "paragraph": "<p>For women: What are two things you can learn from your male team members? </p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "cm02s0n70009s3b7c1b8hg0h2",
+                "paragraph": "<p>Think of someone you know from the opposite sex who displays characteristics that go against the stereotypes for their gender. What are they? How does this contribute to the overall balance of the team?</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv5hkzyq00bw3b78dg5purpj",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv5hkzyr00bx3b78tln2kyl7",
+                "paragraph": "<p>Sources for this course:</p><ol><li><p>Harvard Business Review. “Women Score Higher Than Men in Most Leadership Skills.” Zenger, Zach and Folkman, Joseph. 6/26/2019. Accessed online: https://hbr.org/2019/06/research-women-score-higher-than-men-in-most-leadership-skills</p></li></ol>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cacacy00ay3b7akjwfddek",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cacacy00az3b7aednh4cqj",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-18T16:49:50.264Z",
+        "updatedAt": "2024-11-11T00:28:44.579Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Personal Reflections"
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2024-04-04T16:17:41.218Z",
+    "updatedAt": "2024-11-11T00:28:44.579Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Championing Women in Leadership - The Strength of Female Leadership",
+      "format": "zip",
+      "quizId": "q4bixqDTMXB7guYtd_1pCHjuFi6pkNIO",
+      "target": "scorm12",
+      "shareId": "VpbRPC8MFaTKohqLSzDNGLTWSn_aRjLX",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "P3phrhCWfdDLhlv9nI2VsTVb5JyYIm0B_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "completionPercentage": 100
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": null,
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": false,
+      "allowSearch": true,
+      "colorAccent": "#4267a9",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "ACCENT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "SPLIT_LEFT_IMAGE",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "TINT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": true,
+      "buttonNavigationStyle": "FLOATING",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "defaultLocaleId": null,
+    "description_vNext": "",
+    "title_vNext": "Championing Women in Leadership - The Strength of Female Leadership",
+    "features": {
+      "rise-a-11-y-img-gallery-carousel": true,
+      "rise-block-controls-phase-three": true,
+      "rise-course-navigation": true,
+      "rise-img-dimensions": true,
+      "rise-img-zoom": true,
+      "rise-lazy-load-imgs": true,
+      "rise-scenario-a-11-y": true,
+      "rise-timed-quizzes": true
+    },
+    "authors": [
+      {
+        "id": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "authorName": "Brittni Herron"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      }
+    ],
+    "bodyTypeface": "Montserrat",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "mondrian": {}
+  },
+  "labelSet": {
+    "id": "YSzfDyNB2NBkeg1ZTnLw_nmm",
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryStartOver": "Start Over",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY",
+      "tabGroup": "Tab",
+      "codeGroup": "Code",
+      "noteGroup": "Note",
+      "quoteGroup": "Quote",
+      "buttonGroup": "Button",
+      "courseDetails": "DETAILS",
+      "feedbackGroup": "Feedback",
+      "accordionGroup": "Accordion",
+      "statementGroup": "Statement",
+      "storylineGroup": "Storyline",
+      "attachmentGroup": "File Attachment",
+      "embedPhotoGroup": "Embedded photo",
+      "embedVideoGroup": "Embedded video",
+      "audioPlayerGroup": "Audio player",
+      "buttonStackGroup": "Button stack",
+      "textOnImageGroup": "Text on image",
+      "timelineLandmark": "Timeline",
+      "urlEmbedLandmark": "URL/Embed",
+      "videoPlayerGroup": "Video player",
+      "bulletedListGroup": "Bulleted list",
+      "checkboxListGroup": "Checkbox list",
+      "imageAndTextGroup": "Image and text",
+      "imageGalleryGroup": "Image gallery",
+      "numberedListGroup": "Numbered list",
+      "flashcardBackLabel": "Flashcard back",
+      "flashcardGridGroup": "Flashcard grid",
+      "nextFlashCardLabel": "Next flashcard",
+      "flashcardFrontLabel": "Flashcard front",
+      "flashcardStackGroup": "Flashcard stack",
+      "knowledgeCheckGroup": "Knowledge check",
+      "hamburgerButtonLabel": "Course Overview Sidebar",
+      "lessonContentLandmark": "Lesson Content",
+      "lessonSidebarLandmark": "Lesson Sidebar",
+      "labeledGraphicLandmark": "Labeled Graphic",
+      "previousFlashCardLabel": "Previous flashcard",
+      "timelineCardGroupPrefix": "Timeline Card",
+      "labeledGraphicBubbleLabel": "Labeled graphic bubble",
+      "labeledGraphicNextMarkerLabel": "Next marker",
+      "labeledGraphicPreviousMarkerLabel": "Previous marker"
+    },
+    "deleted": false,
+    "createdAt": "2023-12-28T17:20:20.171Z",
+    "updatedAt": "2023-12-28T17:20:20.171Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    }
+  ],
+  "media": []
+}

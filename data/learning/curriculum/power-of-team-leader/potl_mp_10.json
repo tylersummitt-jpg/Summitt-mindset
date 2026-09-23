@@ -1,0 +1,313 @@
+{
+  "id": "potl_mp_10",
+  "collection_id": "power_of_team_leader",
+  "collection_title": "The Power of Team",
+  "title": "You Have to Demonstrate Loyalty to Receive It",
+  "description": "Loyalty is a selfless proposition. You won’t ever have it unless you are willing to give it away first.”",
+  "sequence": 10,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "potl_mp_10",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "potl_mp_10_st_001",
+      "source_step_id": "potl_mp_10_st_001",
+      "sequence": 1,
+      "title": "You Have to Demonstrate Loyalty to Receive It",
+      "blocks": [
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_10_st_001_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Ah, employee loyalty. A lost art, right? With employees changing jobs every few years, people being more transient in general, and an ever-changing workplace, it feels like the days of 20- or 30-year employees and the “company” man or woman are gone. This feeling isn’t completely unfounded. According to Forbes, the average tenure for an employee in recent years is around 4.1 years, offset by the fact that nearly 38 percent of employees quit within the first year.1 And why not?, you might ask. People have more options. People have more needs. There are more industries and companies than ever to choose from, and they’re more diverse.\n\nLoyalty is a selfless proposition. You won’t ever have it unless you are willing to give it away first.”"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877757",
+          "visible_title": "You Have to Demonstrate Loyalty to Receive It",
+          "speaker": "Joan Cronan"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_10_st_002",
+      "source_step_id": "potl_mp_10_st_002",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_10_st_002_q01",
+              "prompt": "What is the average tenure for modern employees?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "2 years"
+                },
+                {
+                  "id": "c2",
+                  "text": "4 years"
+                },
+                {
+                  "id": "c3",
+                  "text": "5 years"
+                },
+                {
+                  "id": "c4",
+                  "text": "7 years"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "potl_mp_10_st_002_q02",
+              "prompt": "Which is not a contributing factor to employee turnover?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "People have more options to choose from than ever before."
+                },
+                {
+                  "id": "c2",
+                  "text": "Employees have a diversity of needs/requirements from an employer."
+                },
+                {
+                  "id": "c3",
+                  "text": "People don’t want to work hard."
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above are contributing factors."
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "potl_mp_10_st_002_q03",
+              "prompt": "Complete this statement (from Pat): “Loyalty is a selfless proposition. You won’t ever have it unless you___________.”",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Command it from those you lead."
+                },
+                {
+                  "id": "c2",
+                  "text": "Clarify exactly what is expected of the team."
+                },
+                {
+                  "id": "c3",
+                  "text": "Get the terms and conditions in writing."
+                },
+                {
+                  "id": "c4",
+                  "text": "Are willing to give it away first."
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_10_st_003",
+      "source_step_id": "potl_mp_10_st_003",
+      "sequence": 3,
+      "title": "Employee Turnover",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "The recent increase in employee turnover has led to a countering philosophy on the end of employers: Everyone is expendable. With full-time HR departments packed with recruiters, filling seats to replace empty ones has become a booming industry in itself. A new culture has emerged on behalf of the organization: Hire all the top talent you can find, and let nature take its course. We’ll do our best, but if people don’t like it, they can leave, and we’ll replace them with another highly paid person. No one’s really expecting team members to have loyalty, and the organization or company is not showing loyalty in return.\n\nThe kicker is… no one really likes this arrangement. Not the employee, not the employer. No matter how practical the hiring industry becomes, if you’re an employee, it can be exhausting to look for jobs every four years. If you’re an employer, it can cost up to 33 percent of an employee’s salary to replace the ones who leave ($15,000 for a $45,000 full-time position).2 Not to mention the impact it makes on an organization’s culture and employees’ sense of well-being.\n\nOn their end, employees have watched employers over-hire thousands of employees, then layoff thousands at a time to balance things out when the market corrects. Employees who do survive the layoffs often end up watching their colleagues being axed through emails with little notice, and are then asked to plod on, showing unquestioning loyalty to the company. Employers, by contrast, have scrambled to implement the best benefits programs and most flexible work arrangements available, only to watch their employee base hemorrhage through mass exoduses.\n\nIf you want to develop loyalty, the first thing you have to do is demonstrate it. Too many people use the term loyalty unilaterally. Especially bosses. They demand loyalty without reciprocating. They ask ‘Staff, have you been loyal to me?’ But what about the manager’s loyalty to the staff?”"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_10_st_003_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_10_st_003_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_10_st_004",
+      "source_step_id": "potl_mp_10_st_004",
+      "sequence": 4,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_10_st_004_q01",
+              "prompt": "Which is an attitude of employer loyalty?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Hire all the top talent you can find, and let nature take its course."
+                },
+                {
+                  "id": "c2",
+                  "text": "We’ll do our best, but if people don’t like it, they can leave."
+                },
+                {
+                  "id": "c3",
+                  "text": "Anyone can easily be replaced by another highly-sought after person."
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_10_st_004_q02",
+              "prompt": "On average, how much does it cost to replace team members who leave?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Up to 5% of an employee’s salary"
+                },
+                {
+                  "id": "c2",
+                  "text": "Up to 10% of an employee’s salary"
+                },
+                {
+                  "id": "c3",
+                  "text": "Up to 22% of an employee’s salary"
+                },
+                {
+                  "id": "c4",
+                  "text": "Up to 33% of an employee’s salary"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_10_st_004_q03",
+              "prompt": "Which of these contributes to lack of loyalty on behalf of the employee?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Over-hiring, then mass layoffs with no warning"
+                },
+                {
+                  "id": "c2",
+                  "text": "Flexible work schedules and arrangements"
+                },
+                {
+                  "id": "c3",
+                  "text": "Decent benefits"
+                },
+                {
+                  "id": "c4",
+                  "text": "Internal opportunities for advancement"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_10_st_005",
+      "source_step_id": "potl_mp_10_st_005",
+      "sequence": 5,
+      "title": "You Win in Life With People",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Pat believed the single most common reason organizations self-destruct is disloyalty. When asked about her championship teams, she famously said, “If you want to demonstrate loyalty, the first thing you have to do is demonstrate it. Too many people use the term loyalty unilaterally. Especially bosses. They demand loyalty without reciprocating. They ask ‘Staff, have you been loyal to me?’ But what about the manager’s loyalty to the staff?”3\n\nYou win with people. I don’t care how good you are. I don’t care what kind of genius you may be. If you don’t have a good, loyal staff, you will not succeed.”\n\nListen to UT Associate Athletic Director Jimmy Delaney explain Pat’s personal philosophy that you win in life with people."
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_10_st_005_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877736",
+          "visible_title": "You Win in Life with People",
+          "speaker": "Jimmy Delaney"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_10_st_006",
+      "source_step_id": "potl_mp_10_st_006",
+      "sequence": 6,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Sources:\n1-2. Forbes. “Key HR Statistics and Trends in 2024.” Snyder, Kristy and Bottorff, Cassie. 5/17/2023. Accessed online: https://www.forbes.com/advisor/business/hr-statistics-trends/\n3. Unless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877682",
+          "visible_title": "Pat Sings Rocky Top",
+          "speaker": "Jimmy Delaney"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_10_st_006_reflection_01",
+          "prompt": "How has employee loyalty at your company changed in the last five to 10 years?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_10_st_006_reflection_02",
+          "prompt": "What is the current tenure of the average employee on your team?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_10_st_006_reflection_03",
+          "prompt": "Is it below or above the four-year average?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_10_st_006_reflection_04",
+          "prompt": "What is your own current job tenure, on average?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_10_st_006_reflection_05",
+          "prompt": "What do you think are some obstacles to loyalty in your industry?"
+        }
+      ]
+    }
+  ]
+}

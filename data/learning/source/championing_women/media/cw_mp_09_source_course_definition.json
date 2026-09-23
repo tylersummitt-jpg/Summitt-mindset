@@ -1,0 +1,2485 @@
+{
+  "course": {
+    "id": "INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW",
+    "originalId": null,
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "selectedAuthorId": "none",
+    "color": "#4267a9",
+    "navigationMode": "",
+    "title": "Championing Women in Leadership - In It for the Long Haul",
+    "sharePassword": "",
+    "description": "",
+    "shareId": "w_SXuxnPaCqO_4EVXpMuzZ6uQnr2LHDe",
+    "copyOf": "bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp",
+    "order": "1728405071387",
+    "fonts": null,
+    "media": {
+      "image": {
+        "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/6Pm4UKQ1J5kJNZXO-CWILLogo_Color_Transparent.png",
+        "type": "image",
+        "width": 166,
+        "height": 40,
+        "scalar": 2,
+        "crushedKey": "3vQg2JP02S0esg_B.png",
+        "originalUrl": "CWILLogo_Color_Transparent.png",
+        "useCrushedKey": true
+      }
+    },
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/oh5DZW8PwL1LSZ-c-PSLG_CWIL_TItleGraphic.png",
+          "crushedKey": "o43FErgIF2pTIU2r.jpg",
+          "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "id": "Y9fEEImJRYR1zNVXYsp2EtDUYUKy3Cvx",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW",
+        "title": "In It for the Long Haul",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv6w6k5t00053b78ypcitb8t",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv6w6k5u00063b787lmz4509",
+                "media": {
+                  "video": {
+                    "key": "v5_wil_michelle_marciniak_in_it_for_the_long_haul_clip_01%20%281080p%29%20%281%29.mp4",
+                    "url": "transcoded-epdYdsAv5mSxhCBB-v5_wil_michelle_marciniak_in_it_for_the_long_haul_clip_01%2520(1080p)%2520(1).mp4",
+                    "type": "video",
+                    "poster": "v5_wil_michelle_marciniak_in_it_for_the_long_haul_clip_01%20%281080p%29%20%281%29.jpg",
+                    "duration": 329,
+                    "inputKey": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/epdYdsAv5mSxhCBB-v5_wil_michelle_marciniak_in_it_for_the_long_haul_clip_01%20(1080p)%20(1).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/transcoded-epdYdsAv5mSxhCBB-v5_wil_michelle_marciniak_in_it_for_the_long_haul_clip_01%2520(1080p)%2520(1).0000000.jpg",
+                    "originalUrl": "v5_wil_michelle_marciniak_in_it_for_the_long_haul_clip_01 (1080p) (1).mp4",
+                    "transcodeId": "1728334037396-xkl7n8"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6w6oju000j3b78jqg3erf4",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv6w6oju000k3b7873u4umsy",
+                "media": {
+                  "attachment": {
+                    "key": "L8%20Transcript%20In%20It%20for%20the%20Long-Haul.pdf",
+                    "size": 53491,
+                    "type": "attachment",
+                    "filename": "HUhw7k6Oa9Bf4iqu-L8%20Transcript%20In%20It%20for%20the%20Long-Haul.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L8 Transcript In It for the Long-Haul.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6w6qih000x3b78v98zwvct",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6w6qih00133b78nn956xsh",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Ever know an individual who tried to fight <em>every</em> battle? Maybe you&rsquo;re thinking of someone in your office right now. You may even be thinking of yourself!</p><p>As a woman, there are a few strategic principles to staying in it for the long haul and making your career go the distance when others before you have flamed out.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/C8HTKzeNZnTM8RSm-AdobeStock_499994545.jpeg",
+                  "type": "image",
+                  "alpha": 0.5,
+                  "originalUrl": "AdobeStock_499994545.jpeg",
+                  "sourcedFrom": "USER",
+                  "overlayColor": "LIGHT",
+                  "useCrushedKey": true
+                }
+              }
+            }
+          },
+          {
+            "id": "clxkmgnb200fx3b79vbe7r21m",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clxkmgnb300g03b7953i9hc62",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/7wyao4ssXRCVcrc0.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "2005%20NCAA%20Purdue%20466.jpg",
+                    "dimensions": {
+                      "top": 389,
+                      "left": 25,
+                      "width": 1590,
+                      "height": 1857,
+                      "originalWidth": 1632,
+                      "originalHeight": 2464
+                    },
+                    "originalUrl": "2005 NCAA Purdue 466.JPG",
+                    "originalImage": {
+                      "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/fK4fhkEubQ0FXE9l-2005%2520NCAA%2520Purdue%2520466.JPG",
+                      "type": "image",
+                      "crushedKey": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/s3HQxkqbP4pjIHX-.jpg",
+                      "originalUrl": "2005 NCAA Purdue 466.JPG",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p><strong><strong><span style=\"font-size: 20px;\">Become a Go-To Team Player</span></strong></strong></p><p>The first is, become a go-to team member. Remember the previous lesson about being your authentic self? Don&rsquo;t wait for recognition or a promotion to become an ideal team player. As a coach, Pat intentionally looked for players who wanted the ball&mdash;those who had declared themselves competitors and felt confident enough in their skills to request the ball when the game was on the line. Their team knew they could count on them to perform so they became the go-to.&nbsp;</p><p>This takes intentionality and sometimes going above and beyond in strategic areas. The key word is <em>strategic</em>. Learn how to best add value to your team without automatically accepting every assignment that comes your way.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/NDuN5Ce7Sd_RJdoa-AdobeStock_499994545.jpeg",
+                  "type": "image",
+                  "alpha": 0.5,
+                  "originalUrl": "AdobeStock_499994545.jpeg",
+                  "sourcedFrom": "USER",
+                  "overlayColor": "LIGHT",
+                  "useCrushedKey": true
+                }
+              }
+            }
+          },
+          {
+            "id": "clzsqelpc001v3b7cobwmbwa2",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clzsqelpe001x3b7ccbkruwkz",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/pdhtnOFYCv0yogKX-PatSummitt_Quote_Banners_2.png",
+                    "type": "image",
+                    "crushedKey": "PatSummitt_Quote_Banners_2.png",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 497
+                    },
+                    "originalUrl": "PatSummitt_Quote_Banners_2.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/ku2JtLEFK_5z7rLu-AdobeStock_499994545.jpeg",
+                  "type": "image",
+                  "alpha": 0.5,
+                  "originalUrl": "AdobeStock_499994545.jpeg",
+                  "sourcedFrom": "USER",
+                  "overlayColor": "LIGHT",
+                  "useCrushedKey": true
+                }
+              }
+            }
+          },
+          {
+            "id": "clzsqfu37002e3b7c7hnqm4gm",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clzsqfu38002f3b7c30vkxogx",
+                "media": {
+                  "audio": {
+                    "key": "26.mp3",
+                    "url": "transcoded-bbdLQCPOoGIlce02-26.mp3",
+                    "type": "audio",
+                    "duration": 15,
+                    "inputKey": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/bbdLQCPOoGIlce02-26.mp3",
+                    "thumbnail": "",
+                    "originalUrl": "26.mp3",
+                    "transcodeId": "1723572304963-2uiuux"
+                  }
+                },
+                "caption": "<p>Click play to hear the quote above.</p>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "audio",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3c9xh1s002o3b7ai8y43o92",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3c9xh1t002p3b7aqquzsm13",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-03-28T15:15:00.692Z",
+        "updatedAt": "2024-11-11T00:17:13.894Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 0,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "In It for the Long Haul"
+      },
+      {
+        "id": "bDLMc9-KivWrq9V02tgSj3ZS1deDukX7",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW",
+        "title": "Pick Your Battles",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv6w8yrv002u3b78wendp9lr",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6w8yrw00303b783wf77z9y",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>You can&rsquo;t fight every battle. You just cannot. When it comes to women in the workplace overall, and your career specifically, know which battles to fight and which to leave alone. Grow your long-term perspective. This has several advantages as you progress as a female leader.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6wafe3003g3b786yah21fi",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clv6wafe4003h3b78pnidk71w",
+                "media": {
+                  "tmp": {},
+                  "image": {
+                    "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/_UaiWk-CwVG_TYlf.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "isSquare": false,
+                    "fillWidth": false,
+                    "crushedKey": "stock-image.jpg",
+                    "dimensions": {
+                      "top": 1015,
+                      "left": 0,
+                      "width": 1680,
+                      "height": 1291,
+                      "originalWidth": 1680,
+                      "originalHeight": 2520
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "sourcedFrom": "LIBRARY",
+                    "originalImage": {
+                      "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/v6oz8U_P_dbVgulJ-stock_image.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/jBmEyEHsUVrHNsXu.jpg",
+                      "originalUrl": "stock-image.jpg",
+                      "sourcedFrom": "LIBRARY",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "title": "Strategic Decision-Making",
+                "description": "<p>Knowing when to pick your battles involves assessing the importance of an issue, understanding the potential impact on your career, and considering the long-term consequences of engaging in a particular issue.</p>"
+              },
+              {
+                "id": "clv6wafe4003i3b78mva2unzs",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/CkN8aRN9tmtrrXe1-AdobeStock_104765828.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_104765828.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1058
+                    },
+                    "trackingId": "clv6wafe3003g3b786yah21fi",
+                    "originalUrl": "AdobeStock_104765828.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:accordion"
+                  }
+                },
+                "title": "Preserving Energy and Focus",
+                "description": "<p>Engaging in every battle can be exhausting and detract from your overall focus and productivity. Knowing when to pick your battles allows you to preserve your energy for the issues that truly matter.</p>"
+              },
+              {
+                "id": "clv6wafe4003j3b78x1z2itxb",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/-Grw88XDV9qP2wbZ-AdobeStock_531890265.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_531890265.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1075
+                    },
+                    "trackingId": "clv6wafe3003g3b786yah21fi",
+                    "originalUrl": "AdobeStock_531890265.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:accordion"
+                  }
+                },
+                "title": "Demonstrating Emotional Intelligence",
+                "description": "<p>Emotional intelligence plays a big role in workplace dynamics. Choosing battles requires recognizing and managing emotions effectively, leading to more constructive interactions between you and your peers.</p>"
+              },
+              {
+                "id": "clv6wbmiv00423b78uvi08x2w",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/c1pNUQ0C9Ygt3xix-MAJORMINOR.png",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "MAJORMINOR.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 942
+                    },
+                    "trackingId": "clv6wafe3003g3b786yah21fi",
+                    "originalUrl": "MAJORMINOR.png",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:accordion"
+                  }
+                },
+                "title": "Distinguishing Between Major and Minor Issues",
+                "description": "<p>Not every workplace issue requires the same level of your attention. Period. Major issues that align with your core values or significantly impact your work should be prioritized.</p>"
+              },
+              {
+                "id": "clv6wc2uq00493b78t3o1s384",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/8N4Y-mxROloa3AUv-AdobeStock_316702231.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_316702231.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "clv6wafe3003g3b786yah21fi",
+                    "originalUrl": "AdobeStock_316702231.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:accordion"
+                  }
+                },
+                "title": "Assessing the Long-Term Impact",
+                "description": "<p>Consider the long-term impact of a potential conflict. Will the issue at hand have lasting consequences on your career, relationships, or the overall work environment?</p>"
+              },
+              {
+                "id": "clv6wcg9l004c3b78dwky4ssj",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/xmE-ZjpOGRxSUvSl-AdobeStock_539796260.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_539796260.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1112
+                    },
+                    "trackingId": "clv6wafe3003g3b786yah21fi",
+                    "originalUrl": "AdobeStock_539796260.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:accordion"
+                  }
+                },
+                "title": "Evaluating Personal Investment",
+                "description": "<p>If the matter directly affects your responsibilities, well-being, or professional growth, it may be worth addressing. However, for issues that are more peripheral to your role, choosing to step back might be the wiser option.</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive",
+            "variant": "accordion",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3c9xvzp007h3b7a4k4svrqx",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3c9xvzq007i3b7ai97y7bf2",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-19T16:35:19.803Z",
+        "updatedAt": "2024-11-11T00:17:32.856Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Pick Your Battles"
+      },
+      {
+        "id": "mFtV-KSYqeQketjnTeHBKu2aca9p-PtX",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d4sip200043b7b8t1z6y9b",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>How can you become a go-to player?</p>",
+            "answers": [
+              {
+                "id": "cm0d4sip200053b7by43bjt3o",
+                "title": "<p>Learn how to add value to your team.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4sip200063b7bj1wgio93",
+                "title": "<p>Wait for the next promotion.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4t15t000k3b7b0snkac3f",
+                "title": "<p>Stay late every evening at work.</p>"
+              },
+              {
+                "id": "cm0d4tjdj000m3b7bhc2f2kwu",
+                "title": "<p>Avoid risk at all costs.</p>"
+              }
+            ],
+            "correct": "cm0d4sip200053b7by43bjt3o",
+            "corrects": [
+              "cm0d4sip200053b7by43bjt3o"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d4sip200073b7bxkl9w376",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is not an important part of picking your battles?</p>",
+            "answers": [
+              {
+                "id": "cm0d4sip200083b7bs2xln7nq",
+                "title": "<p>Strategic decision-making</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4sip2000a3b7bbxqrjrik",
+                "title": "<p>Targeting office adversaries</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4sip2000b3b7bawf0mrfn",
+                "title": "<p>Preserving energy and focus</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4sip200093b7bg0zak7gi",
+                "title": "<p>Distinguishing between major and minor issues at work</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d4sip2000a3b7bbxqrjrik",
+            "corrects": [
+              "cm0d4sip200083b7bs2xln7nq",
+              "cm0d4sip200093b7bg0zak7gi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d4v8rc000v3b7blh8atvr6",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Why is it important to preserve your energy and focus when going the long haul?</p>",
+            "answers": [
+              {
+                "id": "cm0d4v8rc000w3b7bnnmo01ah",
+                "title": "<p>It ensures you get a raise faster.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4v8rc000x3b7b9agp1d9s",
+                "title": "<p>It keeps your co-workers in their own lanes.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4v8rs000y3b7bfloijy96",
+                "title": "<p>It allows you to save your time and attention for the issues that truly matter.</p>"
+              },
+              {
+                "id": "cm0d4vss000103b7bg16ci2zq",
+                "title": "<p>None of the above</p>"
+              }
+            ],
+            "correct": "cm0d4v8rs000y3b7bfloijy96",
+            "corrects": [
+              "cm0d4v8rc000w3b7bnnmo01ah"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T00:41:50.999Z",
+        "updatedAt": "2024-10-17T20:54:28.936Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "_2SgiLcUTWrdzDY4wa_pU0OtKb97oYiY",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW",
+        "title": "Handling Burnout",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm0h78r54003q3b7ctjzrbm53",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h78r55003w3b7cydpyo2dm",
+                "heading": "<p><strong>Deep Dive: Guardrails for Burnout</strong></p>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h791u1004g3b7c4coq3af7",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h791u1004h3b7cr0b1tqju",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_patty_hoppenstedt_-_guardrails_for_burnout__clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-5pdyZyyTCR2MpoHV-v4_wil_patty_hoppenstedt_-_guardrails_for_burnout__clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_patty_hoppenstedt_-_guardrails_for_burnout__clip_01%20%281080p%29.jpg",
+                    "duration": 186,
+                    "inputKey": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/5pdyZyyTCR2MpoHV-v4_wil_patty_hoppenstedt_-_guardrails_for_burnout__clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/transcoded-5pdyZyyTCR2MpoHV-v4_wil_patty_hoppenstedt_-_guardrails_for_burnout__clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_patty_hoppenstedt_-_guardrails_for_burnout__clip_01 (1080p).mp4",
+                    "transcodeId": "1727978934644-dscma2"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19urz3r00983b73fufkyz8k",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19urz3s00993b73wwnm97qd",
+                "media": {
+                  "attachment": {
+                    "key": "L8.1%20Transcript%20Guardrails%20For%20Burnout.pdf",
+                    "size": 46000,
+                    "type": "attachment",
+                    "filename": "X7WqIFsG7UcQLxo5-L8.1%20Transcript%20Guardrails%20For%20Burnout.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L8.1 Transcript Guardrails For Burnout.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h797bj004x3b7cq1ozfhcg",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h797bj004y3b7c1i9bapse",
+                "paragraph": "<p>When it comes to being “in it for the long haul,” one classic challenge female leaders face is a greater susceptibility to burnout. Burnout can look quite different for each individual, and a lot of it can be prevented on the front end with a little intentionality. First, you want to stop and think about your overall career goals and where your career “guardrails” are, what you <em>will </em>and <em>won’t</em> do. This is important, because it’s easy to eagerly accept long hours, salary changes, or a change in commute in the wake of an exciting new promotion. But without an honest assessment of your personal guardrails, women often find themselves landing squarely in the burnout zone. Don’t let this be you!</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h7dco0006v3b7cm4t2uy1f",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm0h7dco1006w3b7cyp8p6jvd",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/l_EmGBKkby7Vh8nT.jpg",
+                    "type": "image",
+                    "align": "left",
+                    "isSquare": false,
+                    "crushedKey": "bQDUo2/stock-image.jpg",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 453,
+                      "width": 930,
+                      "height": 1120,
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "sourcedFrom": "LIBRARY",
+                    "originalImage": {
+                      "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/08QikQztC4Y9eSjR-stock_image.jpg",
+                      "type": "image",
+                      "align": "left",
+                      "crushedKey": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/UBoneXCpyyE_N9dv.jpg",
+                      "originalUrl": "stock-image.jpg",
+                      "sourcedFrom": "LIBRARY",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>Your guardrails may change over the course of your career, and that’s OK! The important thing is to stop and think about where you are now and where you want to be. If, 10 years from now, you’re doing exactly the same thing as you are now, is that OK? What are the “non-negotiables” in your career when it comes to salary, work hours, long weekends, travel, location, commute, flexibility, etc.?</p><p>Some things are OK for a season, but you want to make sure you understand where your personal boundaries are as your career progresses.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h7c9q4005o3b7chjvh7l9k",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h7c9q5005w3b7c3f9e3s4u",
+                "heading": "<p><strong>Deep Dive: Recognizing Burnout</strong></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h7cuut006e3b7ci5uq1n64",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h7cuuu006f3b7c8dp9swoh",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_patty_hoppenstedt_-_prevent_burnout-_know_the_signs__clip_01-%20%281080p%29.mp4",
+                    "url": "transcoded-sJW8jIYQ72xDc1d5-v4_wil_patty_hoppenstedt_-_prevent_burnout-_know_the_signs__clip_01-%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_patty_hoppenstedt_-_prevent_burnout-_know_the_signs__clip_01-%20%281080p%29.jpg",
+                    "inputKey": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/sJW8jIYQ72xDc1d5-v4_wil_patty_hoppenstedt_-_prevent_burnout-_know_the_signs__clip_01-%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/transcoded-sJW8jIYQ72xDc1d5-v4_wil_patty_hoppenstedt_-_prevent_burnout-_know_the_signs__clip_01-%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_patty_hoppenstedt_-_prevent_burnout-_know_the_signs__clip_01- (1080p).mp4",
+                    "transcodeId": "1727979046698-51jyyg"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19ushc9009q3b73cx9kn10s",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19ushc9009r3b73l4faz4c3",
+                "media": {
+                  "attachment": {
+                    "key": "L8.2%20Transcript%20Preventing%20Burnout.pdf",
+                    "size": 58641,
+                    "type": "attachment",
+                    "filename": "05BMXWvLHRTl-PGv-L8.2%20Transcript%20Preventing%20Burnout.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L8.2 Transcript Preventing Burnout.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxkltlza005k3b79uncx2d66",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clxkltlzb005l3b79cv3x0o4m",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/A_ZanvaHp5ozoI3v.jpg",
+                    "type": "image",
+                    "align": "left",
+                    "isSquare": false,
+                    "crushedKey": "BbTeND/stock-image.jpg",
+                    "dimensions": {
+                      "top": 190,
+                      "left": 121,
+                      "width": 1239,
+                      "height": 652,
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "originalImage": {
+                      "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/VMalaOg_CLkVwsUI-stock_image.jpg",
+                      "type": "image",
+                      "align": "left",
+                      "crushedKey": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/TprN474kcejkgZ6U.jpg",
+                      "originalUrl": "stock-image.jpg",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>Because of caregiving duties and other factors we mentioned earlier, women are often more susceptible to burnout than men. The signs are subtle and easy to miss, but if you learn to course-correct before hitting the ditch, you’ll go farther and be able to perform better in your career.&nbsp;</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6wdlpa004f3b78qd17eelv",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6wdlpa004l3b78r461ewif",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Burnout is more than just feeling stressed or tired. It's a state where you feel constantly emotionally and physically exhausted. You might become cynical, detached from work, and feel like you're not accomplishing anything. Potential causes include:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzssk8xv002e3b7c26itzu9z",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "32.130434782608695",
+                "y": "27.910221812676888",
+                "id": "clzssk8xv002f3b7chhaneebn",
+                "icon": "02",
+                "title": "Excessive workload",
+                "isActive": false,
+                "description": ""
+              },
+              {
+                "x": "41.08695652173913",
+                "y": "24.790363983413414",
+                "id": "clzssk8xv002g3b7c3vyf5lja",
+                "icon": "02",
+                "title": "Lack of control",
+                "isActive": false,
+                "description": ""
+              },
+              {
+                "x": "47.56521739130435",
+                "y": "22.111498716514184",
+                "id": "clzssmkfq005j3b7car7y89wp",
+                "icon": "02",
+                "title": "Unclear expectations",
+                "hasMedia": false,
+                "isActive": false,
+                "description": ""
+              },
+              {
+                "x": "52.69565217391305",
+                "y": "25.35641413808991",
+                "id": "clzssng1j005l3b7c97pw3he4",
+                "icon": "02",
+                "title": "Lack of recognition",
+                "hasMedia": false,
+                "isActive": false,
+                "description": ""
+              },
+              {
+                "x": "60.86956521739131",
+                "y": "25.877706838675707",
+                "id": "clzssnpsz005n3b7cttyjp29g",
+                "icon": "02",
+                "title": "Poor work-life balance",
+                "hasMedia": false,
+                "isActive": false,
+                "description": ""
+              },
+              {
+                "x": "66.43478260869566",
+                "y": "26.258145198446652",
+                "id": "clzssnyiv005p3b7cojilnvns",
+                "icon": "02",
+                "title": "Inadequate resources",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "",
+                "isNewlyInserted": true
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/V2A9W61x5LPASLbV.jpg",
+                "type": "image",
+                "isSquare": false,
+                "crushedKey": "UALK49/stock-image.jpg",
+                "dimensions": {
+                  "top": 253,
+                  "left": 0,
+                  "width": 1680,
+                  "height": 867,
+                  "originalWidth": 1680,
+                  "originalHeight": 1120
+                },
+                "originalUrl": "stock-image.jpg",
+                "sourcedFrom": "LIBRARY",
+                "originalImage": {
+                  "key": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/Suus_25pUMuPoXb0-stock_image.jpg",
+                  "type": "image",
+                  "crushedKey": "rise/courses/INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW/Mx9MzfhLY723GYls.jpg",
+                  "originalUrl": "stock-image.jpg",
+                  "sourcedFrom": "LIBRARY",
+                  "useCrushedKey": true
+                },
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#ffffff",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6wfuyx005q3b782yzob4uq",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6wfuyy005w3b782f69yv83",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>The best way to stop burnout is before it starts. This involves keeping a close eye on yourself and your emotions when you start feeling the first signs of stress.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxkm553100cp3b79n7mlhqai",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clxkm553200cq3b790ir4l9wp",
+                "paragraph": "<p>Sort the cards below into their proper categories.</p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxklwm4a007e3b79z8vzhpf7",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clxklwm4h007f3b79p11r83zu",
+                "title": "Procrastination",
+                "pileId": 1
+              },
+              {
+                "id": "clxklwm4h007g3b79kconcjug",
+                "title": "Time-blocking",
+                "pileId": 2
+              },
+              {
+                "id": "clxklxknx007u3b792cbbtjc6",
+                "title": "Heavy  workloads",
+                "pileId": 1
+              },
+              {
+                "id": "clxklxyht009v3b79wu14xlu4",
+                "title": "Ample training",
+                "pileId": 2
+              },
+              {
+                "id": "clxkm02p9009x3b79nu5aqta7",
+                "title": "Unrealistic targets",
+                "pileId": 1
+              },
+              {
+                "id": "clxkm0cip009z3b79h8x2qs40",
+                "title": "Lack of support",
+                "pileId": 1
+              },
+              {
+                "id": "clxkm0lw900a13b79u90jsmkj",
+                "title": "Lack of recognition",
+                "pileId": 1
+              },
+              {
+                "id": "clxkm0qz400a33b79121122gm",
+                "title": "Workplace conflicts",
+                "pileId": 1
+              },
+              {
+                "id": "clxkm1p6f00a53b79sa5uhyc2",
+                "title": "Open communication",
+                "pileId": 2
+              },
+              {
+                "id": "clxkm208600a73b79q3meycrj",
+                "title": "Streamlining tasks",
+                "pileId": 2
+              },
+              {
+                "id": "clxkm2bmz00a93b79hqj3hu2a",
+                "title": "Establishing a sense of purpose",
+                "pileId": 2
+              },
+              {
+                "id": "clxkm2ync00ab3b792t01p0jh",
+                "title": "Setting realistic goals and targets",
+                "pileId": 2,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Burnout"
+              },
+              {
+                "id": 2,
+                "title": "Balance"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "TINT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3c9y5ge00e83b7aj91xvs3i",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3c9y5gf00e93b7ajzr0vrfr",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-19T16:35:30.815Z",
+        "updatedAt": "2024-11-11T00:17:45.170Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Handling Burnout"
+      },
+      {
+        "id": "XXDTDy4dvLXT7PcUnWX40ARtxmx508W_",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d4snyi000c3b7bm7o6d176",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Burnout is __________________.</p>",
+            "answers": [
+              {
+                "id": "cm0d4snyi000d3b7bqqzyut2h",
+                "title": "<p>Not liking your co-workers</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4snyi000e3b7bzcgencqk",
+                "title": "<p>Feeling emotionally and physically exhausted</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4xqb000183b7bbg96qi9m",
+                "title": "<div data-editor-id=\"5765a078-857d-4b31-bd3e-cf8591ba69dd\"><p>Being periodically frustrated at work</p></div>"
+              },
+              {
+                "id": "cm0d4ydax001a3b7b8n46yuvz",
+                "title": "<p>None of the above</p>"
+              }
+            ],
+            "correct": "cm0d4snyi000e3b7bzcgencqk",
+            "corrects": [
+              "cm0d4snyi000d3b7bqqzyut2h"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d4snyi000f3b7bd3lzsisb",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which factors can contribute to burnout in the workplace?</p>",
+            "answers": [
+              {
+                "id": "cm0d4snyi000g3b7bz0vu1yvk",
+                "title": "<p>Excessive workload</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4snyi000i3b7b0q7n3wue",
+                "title": "<p>Poor work-life balance</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4snyi000j3b7bj79qjiv6",
+                "title": "<p>Unclear expectations</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4snyi000h3b7bf5wwt099",
+                "title": "<p>All of the above</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d4snyi000h3b7bf5wwt099",
+            "corrects": [
+              "cm0d4snyi000g3b7bz0vu1yvk",
+              "cm0d4snyi000h3b7bf5wwt099"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d50e42001l3b7bg7sdrehl",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"9d3f5293-fc75-44d2-8a7d-e9acdd231e77\"><p>The best way to stop burnout is _______________.</p></div>",
+            "answers": [
+              {
+                "id": "cm0d50e42001m3b7btdtydvhm",
+                "title": "<p>By exercising</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d50e42001n3b7b0aq6dn62",
+                "title": "<p>By keeping a close eye on your health and your emotions</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d50e4o001o3b7b46wkd6wr",
+                "title": "<p>By refusing to work hard</p>"
+              },
+              {
+                "id": "cm0d51ofv001q3b7bvzvr6xdr",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d50e42001n3b7b0aq6dn62",
+            "corrects": [
+              "cm0d50e42001m3b7btdtydvhm"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T00:41:55.978Z",
+        "updatedAt": "2024-10-17T20:54:40.127Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "ZtM0f-CW2Pneb5iH3_v8ia91knaxA_NQ",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW",
+        "title": "Personal Reflections",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv6wgnjk006t3b78tmcremzi",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6wgnjl006z3b78kke6jjjm",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Refer to your workbook for the following questions and reflections.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6wgovl007f3b78g8ne86la",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clv6wgovl007g3b788v7wfac5",
+                "paragraph": "<p>What does being a go-to team player mean to you?</p>"
+              },
+              {
+                "id": "clv6wgovl007h3b78h0gq23nc",
+                "paragraph": "<p>Who is someone in your office who fits the description of a go-to player? Why?</p>"
+              },
+              {
+                "id": "clv6wgovl007i3b78pwop16w8",
+                "paragraph": "<p>On a scale of 1 to 10, how successful do you feel in picking your battles at work?</p>"
+              },
+              {
+                "id": "clv6wi104007w3b789cjy6y18",
+                "paragraph": "<p>How often do you struggle with burnout in your current position?<br><br><em>Weekly<br></em><em>Monthly<br>Quarterly<br></em><em>Hardly ever</em></p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv6wj689007x3b782r0axly9",
+                "paragraph": "<p>Of some of the potential causes of burnout described in this lesson, which are you most susceptible to:<br><br><em>Excessive workload<br></em><em>Lack of control<br>Unclear expectations<br>Lack of recognition<br>Poor work-life balance<br>Inadequate resources<br></em><em>Other: _______________</em></p><p>&nbsp;</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6wkuyi007y3b78w3wp879w",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6wkuyi007z3b78a9mchnjf",
+                "paragraph": "<p><span style=\"font-size: 1.6rem\">Sources for this course:</span></p><ol><li><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York.</span></span></p></li></ol>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3c9yidj00mu3b7alk7krof5",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3c9yidj00mv3b7ayg4wwg6x",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-19T16:35:39.575Z",
+        "updatedAt": "2024-11-11T00:18:02.193Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Personal Reflections"
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2024-04-04T16:19:51.073Z",
+    "updatedAt": "2024-11-11T00:18:02.193Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Championing Women in Leadership - In It for the Long Haul",
+      "format": "zip",
+      "quizId": "XXDTDy4dvLXT7PcUnWX40ARtxmx508W_",
+      "target": "scorm12",
+      "shareId": "w_SXuxnPaCqO_4EVXpMuzZ6uQnr2LHDe",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "completionPercentage": 100
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": null,
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": false,
+      "allowSearch": true,
+      "colorAccent": "#4267a9",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "ACCENT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "SPLIT_LEFT_IMAGE",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "TINT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": true,
+      "buttonNavigationStyle": "FLOATING",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "defaultLocaleId": null,
+    "description_vNext": "",
+    "title_vNext": "Championing Women in Leadership - In It for the Long Haul",
+    "features": {
+      "rise-a-11-y-img-gallery-carousel": true,
+      "rise-block-controls-phase-three": true,
+      "rise-course-navigation": true,
+      "rise-img-dimensions": true,
+      "rise-img-zoom": true,
+      "rise-lazy-load-imgs": true,
+      "rise-scenario-a-11-y": true,
+      "rise-timed-quizzes": true
+    },
+    "authors": [
+      {
+        "id": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "authorName": "Brittni Herron"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      }
+    ],
+    "bodyTypeface": "Montserrat",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "mondrian": {}
+  },
+  "labelSet": {
+    "id": "YSzfDyNB2NBkeg1ZTnLw_nmm",
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryStartOver": "Start Over",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY",
+      "tabGroup": "Tab",
+      "codeGroup": "Code",
+      "noteGroup": "Note",
+      "quoteGroup": "Quote",
+      "buttonGroup": "Button",
+      "courseDetails": "DETAILS",
+      "feedbackGroup": "Feedback",
+      "accordionGroup": "Accordion",
+      "statementGroup": "Statement",
+      "storylineGroup": "Storyline",
+      "attachmentGroup": "File Attachment",
+      "embedPhotoGroup": "Embedded photo",
+      "embedVideoGroup": "Embedded video",
+      "audioPlayerGroup": "Audio player",
+      "buttonStackGroup": "Button stack",
+      "textOnImageGroup": "Text on image",
+      "timelineLandmark": "Timeline",
+      "urlEmbedLandmark": "URL/Embed",
+      "videoPlayerGroup": "Video player",
+      "bulletedListGroup": "Bulleted list",
+      "checkboxListGroup": "Checkbox list",
+      "imageAndTextGroup": "Image and text",
+      "imageGalleryGroup": "Image gallery",
+      "numberedListGroup": "Numbered list",
+      "flashcardBackLabel": "Flashcard back",
+      "flashcardGridGroup": "Flashcard grid",
+      "nextFlashCardLabel": "Next flashcard",
+      "flashcardFrontLabel": "Flashcard front",
+      "flashcardStackGroup": "Flashcard stack",
+      "knowledgeCheckGroup": "Knowledge check",
+      "hamburgerButtonLabel": "Course Overview Sidebar",
+      "lessonContentLandmark": "Lesson Content",
+      "lessonSidebarLandmark": "Lesson Sidebar",
+      "labeledGraphicLandmark": "Labeled Graphic",
+      "previousFlashCardLabel": "Previous flashcard",
+      "timelineCardGroupPrefix": "Timeline Card",
+      "labeledGraphicBubbleLabel": "Labeled graphic bubble",
+      "labeledGraphicNextMarkerLabel": "Next marker",
+      "labeledGraphicPreviousMarkerLabel": "Previous marker"
+    },
+    "deleted": false,
+    "createdAt": "2023-12-28T17:20:20.171Z",
+    "updatedAt": "2023-12-28T17:20:20.171Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    }
+  ],
+  "media": []
+}

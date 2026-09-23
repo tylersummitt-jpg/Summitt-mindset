@@ -1,0 +1,3390 @@
+{
+  "course": {
+    "id": "Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "qLxP2VDYjoiX668W2ufB2iDUGbAB1foE",
+    "copyOf": "1rMdr8QtAaKFy_dxwF0sdRPR8c56VRFO",
+    "order": "1756504652126",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/-HTxtwKxYcPnuabf-PoT_Thumbnails_Leader_Course%25202.png",
+          "crushedKey": "OOth8oXVCcMrdRi1.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Course 2.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q",
+        "createdAt": "2025-01-28T20:26:48.997Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "-Tl2iTW3WjRAOsbUuWrjdmB9XqMrj2jK",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Responsibility = Accountability = Ownership",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:21:11.817Z",
+        "items": [
+          {
+            "id": "cm6jis7v8000l3b7akcm5xqcp",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jis7v8000m3b7aiawklisi",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_nicky_anosike_responsibility%3Daccountability%3Downership_clip_03%20%281080p%29%20%281%29.mp4",
+                    "url": "transcoded-hT4M2HcFXIadgtyL-v5_pot_nicky_anosike_responsibility%253Daccountability%253Downership_clip_03%2520(1080p)%2520(1).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_nicky_anosike_responsibility%3Daccountability%3Downership_clip_03%20%281080p%29%20%281%29.jpg",
+                    "duration": 223,
+                    "inputKey": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/hT4M2HcFXIadgtyL-v5_pot_nicky_anosike_responsibility%3Daccountability%3Downership_clip_03%20(1080p)%20(1).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/transcoded-hT4M2HcFXIadgtyL-v5_pot_nicky_anosike_responsibility%253Daccountability%253Downership_clip_03%2520(1080p)%2520(1).0000000.jpg",
+                    "originalUrl": "v5_pot_nicky_anosike_responsibility=accountability=ownership_clip_03 (1080p) (1).mp4",
+                    "transcodeId": "1754792354619-1j5i5e"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah6llci001r3b789tkda4nb",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah6llci001s3b7824wq7540",
+                "paragraph": "<div data-editor-id=\"8b56a1ed-7307-4f34-9805-6f1295fcde89\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jisdfy00123b7ay5g8skhs",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jisdfy00133b7ay48w3363",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%202%20Responsibility%20%3D%20Accountability%20%3D%20Ownership.pdf",
+                    "size": 164119,
+                    "type": "attachment",
+                    "filename": "oFh6NuHt-nqt8K8I-Lesson%202%20Responsibility%20%3D%20Accountability%20%3D%20Ownership.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 2 Responsibility = Accountability = Ownership.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jit061002y3b7ateb8u4ez",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jit06100343b7a4dpkg3hx",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"be44a227-3f9e-49dd-ad05-76a0d32b00d2\"><p><span style=\"color: black; text-decoration: inherit\">Have you ever thought about the role responsibility, accountability, and ownership play together in cultivating a high-functioning team? These three concepts were something Pat taught daily. We’ll break it down more in this lesson.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jkm8g1004h3b7akci6l62s",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jkm8g1004i3b7ao69lvw0j",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q",
+        "createdAt": "2025-01-28T20:26:56.869Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "Naq6Sd2_94HMWVCwqRMzXKY5NZUrpjT7",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Taking Responsibility",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T02:10:28.268Z",
+        "items": [
+          {
+            "id": "cm6jkoxip006d3b7ae2v7pkxu",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jkoxip006j3b7aly31g4ii",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"fbe47079-fd17-41ba-beb9-7b6db781e8a2\"><p>As a leader, how many times have you heard or experienced any of the following among your team:</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jkor9z005v3b7avc5dwc57",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "17.547433035714285",
+                "y": "21.06309396076027",
+                "id": "cm6jkora0005w3b7afvivtpgj",
+                "icon": "01",
+                "title": "",
+                "isActive": false,
+                "description": "<div data-editor-id=\"d1a46b57-bce5-42fb-88c8-5a2bccb160e6\"><p><strong>“Don’t look at me — I just answer the phones.”</strong></p></div>"
+              },
+              {
+                "x": "53.09477306547619",
+                "y": "20.744079552421827",
+                "id": "cm6jlkmy1007l3b7achbrxucc",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"a88ed290-1415-40d0-aaf3-aae9346c90e1\"><p><strong>A team member does what they’re told to do … but if they weren’t told, they wouldn’t really be doing anything.</strong></p></div>"
+              },
+              {
+                "x": "81.15466889880952",
+                "y": "24.37825720416922",
+                "id": "cm6jkora0005x3b7an4v0vo4h",
+                "icon": "01",
+                "title": "",
+                "isActive": false,
+                "description": "<div data-editor-id=\"780d1c0a-6c4b-48e6-bdde-c5db9e739fef\"><p><strong>A team member sends an email that says, “Hi [Name], I don’t do that. Go ask so-and-so.”</strong></p></div>"
+              },
+              {
+                "x": "21.011904761904763",
+                "y": "69.89576946658492",
+                "id": "cm6jln4bw007o3b7a1qnuoktv",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"9d1f8440-9587-4357-9307-702d03948606\"><p><span style=\"font-size: 1.4rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><strong>A team member executing in an area without being bought-in to the overall result.</strong></span></span></span></p></div>"
+              },
+              {
+                "x": "52.38095238095239",
+                "y": "71.12201103617413",
+                "id": "cm6jlnvvh007q3b7aq8l88koq",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"6d94d3a0-7cb5-4cdd-aa3d-0722e9cdba42\"><p><strong>Team members sit silently in meetings, without contributing or giving any feedback.</strong></p></div>"
+              },
+              {
+                "x": "81.36904761904762",
+                "y": "72.65481299816064",
+                "id": "cm6jloe4o007s3b7a3g2r3cab",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"40a395b5-17fc-4671-958e-5946379f4672\"><p><strong>Someone has been at the organization for 10 years but progressed very little career-wise in that time.</strong></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/rmE-LFlA9zULEop2-InteractiveGraphic_1.png",
+                "type": "image",
+                "crushedKey": "InteractiveGraphic_1.jpg",
+                "dimensions": {
+                  "originalWidth": 1680,
+                  "originalHeight": 1631
+                },
+                "originalUrl": "InteractiveGraphic_1.png",
+                "sourcedFrom": "USER",
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "0",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jlpgxy008q3b7apnoo5z7s",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jlpgxz008w3b7a2x4dppfz",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"b6c5c5a0-e337-4dd0-8913-13ee24bdbd9d\"><p><span style=\"color: black; text-decoration: inherit\"><em>What’s wrong with employees these days? You can’t find good ones like you used to, right?</em></span></p><p><span style=\"color: black; text-decoration: inherit\">The list above doesn’t have to be the status quo! Assuming you’re hiring good people </span>—<span style=\"color: black; text-decoration: inherit\"> or at least reasonably competent people </span>—<span style=\"color: black; text-decoration: inherit\"> many times when any of the above takes place, the flaw isn’t with the </span>person<span style=\"color: black; text-decoration: inherit\">, it’s with the expectations and culture of responsibility that have been created at the organization … or lack thereof. The standard for ownership has been set, and the bar is very low.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jlq1j6009h3b7a6akm75cq",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6jlq1j6009i3b7ainjh2a8y",
+                "name": "<div data-editor-id=\"266b489b-1fe9-4cb8-b044-804cd387d0e0\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: #ffffff; text-decoration: inherit\"><strong><em>— Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"6ee527fd-d7f2-4b19-93f1-62ed7c90643e\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>A sense of ownership is the most powerful weapon a team or organization can have.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/CksxuQ5nmIlwZFFR-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah6mh2r005l3b78ic260fw1",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah6mh2r005m3b78pnoktbm6",
+                "paragraph": "<div data-editor-id=\"e1eb41bb-431c-4b23-a19d-c488ebd9e488\"><p><span style=\"font-size: 1.5rem\"><em>(Please listen to complete this element)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jlrti300bz3b7aomxbg5qi",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jlrti300c03b7avad2nk6z",
+                "media": {
+                  "audio": {
+                    "key": "05.mp3",
+                    "url": "transcoded-5VMuDQ09BTd-vBjj-05.mp3",
+                    "type": "audio",
+                    "duration": 5,
+                    "inputKey": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/5VMuDQ09BTd-vBjj-05.mp3",
+                    "thumbnail": "",
+                    "transcript": "cm9x07ege00g13b79n60iiza1",
+                    "originalUrl": "05.mp3",
+                    "transcodeId": "1745598380850-xahmsx"
+                  }
+                },
+                "caption": "<div data-editor-id=\"ddc3d8e3-3ce2-4829-8716-fe8a52475d55\"><p>Click play to hear the quote above.</p></div>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "audio",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jlrvnr00cg3b7ab6pbo2zk",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jlrvnr00ch3b7ax5qgochl",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q",
+        "createdAt": "2025-01-28T20:27:05.436Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "adXMpkPCmThqqkAz_gjrz5glmeigvpti",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 4,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Your Employees",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-29T01:29:24.778Z",
+        "items": [
+          {
+            "id": "cm6jlsa5o00ep3b7admy722yb",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jlsa5o00eq3b7auy9tf3s0",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/8VEoTFQNU4Zr4cUq-AdobeStock_194985512.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_194985512.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_194985512.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jlsbqm00fa3b7a2wo6u7cq",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jlsbqn00fg3b7aweuo1jxl",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"f80468d0-9e61-4901-b6df-a06fa8123d52\"><p><span style=\"color: black; text-decoration: inherit\">Put yourself in your employee’s shoes for a moment. Has the team been <em>told </em>super-serving is an expectation, for example, or are they simply going “by</span>-<span style=\"color: black; text-decoration: inherit\">the</span>-<span style=\"color: black; text-decoration: inherit\">book?” Are team members rewarded for going the extra mile, or are the consequences and rewards for average service and above-average service basically the same? Are there ways to step into greater levels of responsibility in each role before <em>actually</em> being promoted, or do you have to wait for the title? Are employees encouraged to speak up in a professional way with suggestions for improvement, or rebuked when they say anything?</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jlslks00g13b7ajpvww2pe",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jlslkt00g23b7anbi1ochh",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/78YXKYIRQFS5roB--AdobeStock_230015547.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_230015547.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1344
+                    },
+                    "originalUrl": "AdobeStock_230015547.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"b0e2c140-b4d4-4998-87a7-f2c827984ae6\"><p><span style=\"color: black; text-decoration: inherit\">There</span>’<span style=\"color: black; text-decoration: inherit\">s a famous saying, “You get what you promote.” The reverse can be true as well</span>:<span style=\"color: black; text-decoration: inherit\"> “You get what you allow.” If you treat your team members like order</span>-<span style=\"color: black; text-decoration: inherit\">takers or pencil</span>-<span style=\"color: black; text-decoration: inherit\">pushers, that’s generally what you’ll get. If you teach them that they aren’t supposed to think for themselves … they won’t. If you allow mediocre behavior to be the norm, it will become the norm.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jlsxd900gm3b7aryh7l36v",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jlsxd900gn3b7axuzu3ecn",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/adw0KZPlzMqq2uBa-AdobeStock_117087557.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_117087557.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 840
+                    },
+                    "originalUrl": "AdobeStock_117087557.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"67a7c26e-efc3-42bc-a87b-7906d15491ed\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">On the flip side, if you teach them</span> that<span style=\"color: black; text-decoration: inherit\"> <em>they</em> are responsible for the outcome </span>—<span style=\"color: black; text-decoration: inherit\"> that their actions have a direct effect on the outcomes </span>of<span style=\"color: black; text-decoration: inherit\"> the business and their daily environment</span> — <span style=\"color: black; text-decoration: inherit\">they’re more likely to </span>feel<span style=\"color: black; text-decoration: inherit\"> motivated to </span>work hard<span style=\"color: black; text-decoration: inherit\">.</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">The elusive quality we’re talking about here is <em>ownership</em>.</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jlttyn00he3b7au3fd2vvx",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jlttyo00hk3b7atlmayuw5",
+                "heading": "<div data-editor-id=\"feafcf2e-8253-4a3b-b48b-86cc2aa5853d\"><p><strong>Exercise</strong></p></div>",
+                "paragraph": "<div data-editor-id=\"51570a91-eb58-48a6-a564-56e2ab2caf6d\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">Which of these characterize qualities of ownership vs. no ownership?</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 2,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 2,
+              "paddingLinked": false,
+              "backgroundType": "TINT",
+              "customPaddingTop": 2,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah6q16z009y3b786jpd2kf4",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah6q16z009z3b781fs26vm9",
+                "paragraph": "<div data-editor-id=\"9566c5bd-0402-4ecd-926c-b8f4751ba336\"><p><span style=\"font-size: 1.5rem\"><em>(Please click each to complete this element)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "TINT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          },
+          {
+            "id": "cm6jlufbe00i53b7alnwdl3bo",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jlufbf00i63b7aa1glvcq1",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"f406ec9d-87fe-4e87-b143-96c07470f14d\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>No ownership!</strong> Owners understand the organization’s priorities and goals.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"9d4e496e-bf47-41f0-8733-31cf59ff1493\"><p><span style=\"color: black; text-decoration: inherit\">Ignorance of the business’s priorities</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jlufbf00i73b7acarvyi58",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"bf5c9a53-6742-4b9c-9c7c-66051406adff\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Ownership!</strong> Owners have a sense of purpose in their daily routine.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"9f643bda-ec78-4083-b20a-a6161a782100\"><p><span style=\"color: black; text-decoration: inherit\">Enthusiasm for their work</span></p></div>"
+                }
+              },
+              {
+                "id": "cm7l3a8ip00ij3b79750dy37i",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"19fbeb21-dee0-4a79-bc85-6f9ba6021701\"><p><span style=\"font-size: 1.6rem\"><strong>No ownership!</strong> Owners prioritize quality results.</span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"472db276-101b-4acb-923b-b95ebe590fd8\"><p>Lack of attention to detail</p></div>"
+                },
+                "isNewlyInserted": true
+              },
+              {
+                "id": "cm6jlufbf00i83b7adu9hq2em",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"ed401164-993f-4cf1-9479-adf2b1ef98de\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>No ownership!</strong> Owners prioritize quality results.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"e883bca0-f886-40b9-a33f-590adce5446d\"><p><span style=\"color: black; text-decoration: inherit\">Poor customer service</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jlwxyn00it3b7aa5flpdqo",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"4e4cdba9-eca9-40ac-8427-83cc4d614a9b\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Ownership!</strong> Owners focus on improvement and overcome obstacles.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"82e6b03e-c96a-4b45-9b3f-af75343b1afb\"><p><span style=\"color: black; text-decoration: inherit\">Being solution-oriented</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jlxmak00iv3b7a3yotlv72",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"68906ed7-7feb-4e88-bd22-c1ba6639779f\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>No ownership!</strong> All<em> </em>team members are working toward a shared outcome.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"3c6c90d6-198d-42d3-8c50-080e45b8b77a\"><p><span style=\"color: black; text-decoration: inherit\">Employees vs. leadership mentality</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jly11v00ix3b7a8gpy4s7q",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"6b98d3f5-acdd-4e3c-ab37-9c46e76587ba\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Ownership!</strong> Owners understand the big picture and how to get there.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"992725c6-fe99-4193-82a3-0ecf8195a719\"><p><span style=\"color: black; text-decoration: inherit\">Contributing toward the goal</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jm107n00iz3b7ax5a0529h",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"81de3ea0-3c8f-4729-8b56-6308472d5a76\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>No ownership!</strong> Owners prioritize timeliness and punctuality.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"32e00eb2-e736-476f-8372-607e5d75b6dc\"><p><span style=\"color: black; text-decoration: inherit\">Chronic tardiness</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jm1cbr00j13b7api76yw91",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"11540a12-103a-4596-be81-4ef240b3d5fb\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Ownership!</strong> Owners are able to put themselves in the customer’s shoes.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"8dad7ab4-bac5-4c73-9cef-9bc9e621b4fa\"><p><span style=\"color: black; text-decoration: inherit\">Empathy with the customer</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jm1rdh00j33b7a2c4wczac",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"0808165f-d1b9-461d-9832-babbbca0d859\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>No ownership!</strong> Ownership often means going above and beyond.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"17874d7d-151c-4c34-8b68-6e9571fb7217\"><p><span style=\"color: black; text-decoration: inherit\">Doing the minimum output</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jm26cn00j53b7a4knbz83m",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"461f8340-23de-4a44-851b-e069ebb0b7fe\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>No ownership!</strong> Owners understand the need to communicate clearly with other team members.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"cb62b06d-3346-49f9-89b0-e62cc9d3e8a2\"><p><span style=\"font-size: 2.8rem\"><span style=\"color: black; text-decoration: inherit\">Poor Communication</span></span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jm2m8l00j73b7a0up753pi",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"3a201f73-f1d8-4f72-aec0-0ce8187c761b\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Ownership!</strong> Owners speak up when they see a problem or opportunity arise.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"3ec8290f-8b3a-4eab-aa7d-be2cffaee32f\"><p><span style=\"color: black; text-decoration: inherit\">Giving feedback</span></p></div>"
+                }
+              },
+              {
+                "id": "cm6jm33js00j93b7ad2xxga96",
+                "back": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"0dc16264-34c3-4ab0-ae74-3dd52ebd31c3\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Ownership!</strong> Owners are always thinking, “What more can I do?” to help the team.</span></span></p></div>"
+                },
+                "front": {
+                  "media": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/mountains.jpg",
+                      "src": "FjsvIo/mountains.jpg",
+                      "type": "image",
+                      "thumbnail": "https://cdn.articulate.com/assets/rise/assets/block-defaults/mountains_thumb.jpg",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 1120
+                      },
+                      "originalUrl": "mountains.jpg",
+                      "sourcedFrom": "DEFAULT"
+                    }
+                  },
+                  "description": "<div data-editor-id=\"1ba10c9b-2417-43b7-8425-8b3765b7a4d7\"><p><span style=\"color: black; text-decoration: inherit\">Asking, “What else?”</span></p></div>"
+                }
+              }
+            ],
+            "family": "flashcard",
+            "variant": "flashcard",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "TINT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 3,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jm4akl00ji3b7aqkh3ssd0",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jm4akl00jj3b7aql8neurc",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q",
+        "createdAt": "2025-01-28T20:27:14.108Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "BdbEfgguGncnSIEYeC8zCq9Z0kuHnkAN",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 5,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Learning RAO",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T02:14:22.722Z",
+        "items": [
+          {
+            "id": "cmah6uteu01573b78cmqz0jno",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah6utev015f3b78b41gbcit",
+                "heading": "<div data-editor-id=\"05d40968-e313-4bbb-a039-eeaed3c8ab20\"><p><strong>Learning RAO</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "TINT",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          },
+          {
+            "id": "cm6jm4pfc00k03b7a8mis8cya",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jm4pfd00k63b7aj98q9eb0",
+                "heading": "<div data-editor-id=\"86ae9fe9-e35c-4548-9cef-9d1bdec5ff80\"></div>",
+                "paragraph": "<div data-editor-id=\"e364d25b-634c-4ce5-81ee-73f550074af3\"><p><span style=\"color: black; text-decoration: inherit\">People don’t just wake up each day with a sense of ownership. Whether it’s in business or our personal lives, there is a natural progression from responsibility to ownership.</span></p><p><span style=\"color: black; text-decoration: inherit\">When teaching the Definite Dozen, Pat used the simple formula below:</span></p><p></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "TINT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jm59cg00kr3b7amr9gjnjd",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jm59cg00kx3b7a8onaecru",
+                "heading": "<div data-editor-id=\"f82b7c1c-8692-4b86-b86c-6784376f0e41\"><p style=\"text-align: center\"><span style=\"font-size: 3.2rem\"><span style=\"color: #ffffff; text-decoration: inherit\"><strong><em>Responsibility = Accountability = Ownership</em></strong></span></span></p></div>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jm7qas00lx3b7a44d3tn2x",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jm7qat00ly3b7a03aspkkw",
+                "date": "Responsibility comes first — when you realize you’re responsible for seeing something gets done or is done a particular way.",
+                "title": "",
+                "description": "<div data-editor-id=\"5217ce7b-727b-40cf-98a7-e975434747a8\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">It</span>’<span style=\"color: black; text-decoration: inherit\">s in your jurisdiction, and you have both the blessing and ability to control it.</span></span></p></div>"
+              },
+              {
+                "id": "cm6jm7qat00lz3b7an62s937q",
+                "date": "That’s where accountability comes in.",
+                "title": "",
+                "description": "<div data-editor-id=\"3c613472-cf60-4cb1-a3c9-c0be436a4a74\"><p>Y<span style=\"color: black; text-decoration: inherit\">ou realize you are<em> answerable</em> for the outcome of the task. “The buck stops with you,” to use the classic phrase. In other words, responsibility is task-oriented, while accountability is outcome-based</span><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">.</span></span></p></div>"
+              },
+              {
+                "id": "cm6jm9uqd00ns3b7a42duzrx4",
+                "date": "Ownership takes both of these a step further.",
+                "title": "",
+                "description": "<div data-editor-id=\"10dbdf42-4ee6-4e2a-bbc8-34f520e4c6c7\"><p><span style=\"color: black; text-decoration: inherit\">The dictionary defines ownership as “the act, state, or right of possessing something.” It means claiming a particular process, situation, or outcome as your own. Not only are you responsible for it in general, the way a guardian or steward might be, but you actually <em>own</em> it. You are bought-in</span> and <span style=\"color: black; text-decoration: inherit\">fully invested in the outcome or task at hand because it is <em>yours</em> </span>—<span style=\"color: black; text-decoration: inherit\"> whether we’re talking about a sports team, a building, or a business. Managers may have responsibility to see that the deck gets polished, but owners are responsible for how the ship looks.</span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "timeline",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "TINT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmcq6j00q23b7a46szvehd",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jmcq6j00q33b7ahmg9ifue",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/HzGQ337JOi9KOSLl-AdobeStock_376927551.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_376927551.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_376927551.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"aa956b6d-765a-49a1-b09d-8f856e0365ad\"><p><span style=\"color: black; text-decoration: inherit\">So why is creating a sense of <em>ownership</em> among your team </span>—<span style=\"color: black; text-decoration: inherit\"> as much as possible </span>—<span style=\"color: black; text-decoration: inherit\"> important? A team full of mini-owners creates an atmosphere of initiative and enthusiasm you can’t cultivate by simply doling out tasks. </span>It’s not as<span style=\"color: black; text-decoration: inherit\"> hard to convince someone to keep the house in good shape when they own it.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmdkaw00qo3b7a4vxd9cjd",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jmdkax00qu3b7axd03jes8",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"6da1fef0-b4c0-4906-a97f-58b0220a9b0a\"><p><span style=\"color: black; text-decoration: inherit\">And a sense of ownership implies a direct correlation between a team member’s decisions and the outcome of the business. It may not be a direct line </span>—<span style=\"color: black; text-decoration: inherit\"> there may be other steps or factors along the way </span>—<span style=\"color: black; text-decoration: inherit\"> but there <em>is</em> a connection, and they can start to visualize how their level of performance impacts customer satisfaction or profits.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmg0i300s03b7a66r65hcw",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jmg0i300s13b7akbx5x7qz",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"42ac3c20-80c6-4512-adad-00ed71957343\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "Jpcktc8bXHu62lAuJQMisuHQXbpPW2EG",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T19:10:36.041Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"59900189-e44c-4ef1-8349-c7056dac97aa\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">What are the three parts of Pat’s formula for creating high-functioning team members, as discussed in this lesson?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"b4560668-0a2b-4a92-85a2-f5446397bdf5\"><p><span style=\"color: #000000; text-decoration: inherit\">Responsibility, accountability, ownership</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"a2f4ee31-e70e-478b-a2fe-8e70a1a824bf\"><p><span style=\"color: black; text-decoration: inherit\">Accountability, drive, determination</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jmgesf00si3b7a4zqkr4or",
+                "title": "<div data-editor-id=\"5abf722f-e808-4c37-b529-5fda7db3abef\"><p><span style=\"color: black; text-decoration: inherit\">Focus, goals, results</span></p></div>"
+              },
+              {
+                "id": "cm6jmh1mo00sk3b7ax7ydcayy",
+                "title": "<div data-editor-id=\"4bd2d048-b986-4079-86b7-ef4fb87f9174\"><p><span style=\"color: black; text-decoration: inherit\">Curiosity, focus, feedback</span></p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400we3b79k59kq8pi",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6gvw2f400wg3b798oenzg94",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"33679b64-46a8-4113-9f6c-1532aedfd7e4\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Why is creating a sense of ownership among your team important?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"f0e5c14d-2e09-4182-a331-2d30bf9e9c22\"><p><span style=\"color: black; text-decoration: inherit\">A team is only as strong as its weakest link.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"571480d1-d351-420f-bda1-dd0ea6e31c95\"><p><span style=\"color: #000000; text-decoration: inherit\">A </span><span style=\"font-size: 1.6rem\"><span style=\"color: #000000; text-decoration: inherit\">team full of mini-owners creates an atmosphere of initiative, enthusiasm, and common objectives.</span></span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"713e7e30-75d6-4924-aba5-c86cb137a5ae\"><p><span style=\"color: black; text-decoration: inherit\">You won’t have to manage as much if you delegate to team members.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"59611047-1932-4a2a-be0a-7d2e714e7d20\"><p><span style=\"color: black; text-decoration: inherit\">The team won’t get along with each other unless they are owners.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wj3b793d4kqpg0",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6jmj2u300t33b7acuh815sy",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"da1d517f-3c9d-45f0-adc5-921101aeb425\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">A sense of ownership implies____________________.</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6jmj2u300t43b7aj0uk24jo",
+                "title": "<div data-editor-id=\"bfe044e9-b0c2-429d-beb1-de3cf943a1d9\"><p><span style=\"color: black; text-decoration: inherit\">A growth in quarterly business profits and production.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6jmj2u300t53b7a6miunm8e",
+                "title": "<div data-editor-id=\"11813dc2-b970-40c4-b4c2-209632b305cf\"><p><span style=\"color: black; text-decoration: inherit\">A clear path for being promoted to upper management.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jmj2v400t63b7ahtjv3j8h",
+                "title": "<div data-editor-id=\"b113991b-13fe-4061-9af8-b26dabb2131c\"><p><span style=\"font-size: 0.9rem\"><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">&nbsp;</span></span><span style=\"color: rgb(0, 0, 0); text-decoration: inherit\">A direct correlation between a team member’s decisions and the outcome of the business.</span></p></div>"
+              },
+              {
+                "id": "cm6jmjrce00t83b7a3r3or6re",
+                "title": "<div data-editor-id=\"cb938fce-8f7e-4a38-9462-d0cf8f4d45cd\"><p>All of the above.</p></div>"
+              }
+            ],
+            "correct": "cm6jmj2v400t63b7ahtjv3j8h",
+            "corrects": [
+              "cm6jmj2u300t43b7aj0uk24jo"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q",
+        "createdAt": "2025-01-28T20:27:24.657Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "Lh6wZYAcb8A7-aoK6qiGTYwG1VdFUUGt",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 6,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Creating a Sense of Ownership",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:23:25.048Z",
+        "items": [
+          {
+            "id": "cm6jmlqsb00u23b7avm0m9osz",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jmlqsc00u33b7aaj2jln34",
+                "type": "intro",
+                "title": "Creating a Sense of Ownership Among Your Team",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"8605f21a-5d6d-41cd-a71c-653bb66accd4\"><p><span style=\"color: black; text-decoration: inherit\">When it comes to the formula above, Pat knew you couldn’t skip steps.</span></p><p><span style=\"color: black; text-decoration: inherit\">Commanding people to simply be owners usually doesn’t work. Start where you are</span> —<span style=\"color: black; text-decoration: inherit\"> meaning, cultivate responsibility first.</span></p><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><span>(Scroll through to complete this element)</span></span></span></p></div>"
+              },
+              {
+                "id": "cm6jmlqsc00u43b7aysd2vxgg",
+                "type": "summary",
+                "title": "Summary",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"bf154389-2cfd-42be-a0ec-51da35410385\"><p><span style=\"color: black; text-decoration: inherit\"><span style=\"color: black\">In a way</span>, ownership forces team members to think about the big picture </span>—<span style=\"color: black; text-decoration: inherit\"> and helps you think about the big picture in a way you may not have been able to before. You have a myriad of owners looking at the goals from a diversity of angles now, in a way that one department manager or leader couldn’t hope to cover alone. You don’t have to preach buy-in</span>;<span style=\"color: black; text-decoration: inherit\"> you already have it. All by not being afraid to instill responsibility in your team … and committing to champion them as they step into it.</span></p></div>"
+              },
+              {
+                "id": "cm6jmlqsc00u53b7aaelcivdy",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/o9a0Jh7ZI1UY-q7M-AdobeStock_335602613.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_335602613.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1121
+                    },
+                    "trackingId": "cm6jmlqsb00u23b7avm0m9osz",
+                    "originalUrl": "AdobeStock_335602613.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Does everyone on the team know what they’re responsible for?",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"a6f3dea4-0060-4332-b861-6faf296d3444\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Not merely what they</span>’<span style=\"color: black; text-decoration: inherit\">re supposed to be doing or not doing with their time “on the clock,” but do they know what exact areas they</span>’<span style=\"color: black; text-decoration: inherit\">re responsible for?</span></span></p></div>"
+              },
+              {
+                "id": "cm6jmlqsc00u63b7attfcfa41",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/Kp0DJM8hD78y9XUB-AdobeStock_676102538.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_676102538.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1079
+                    },
+                    "trackingId": "cm6jmlqsb00u23b7avm0m9osz",
+                    "originalUrl": "AdobeStock_676102538.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Is everyone uniquely responsible for something? ",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"647ebbed-b670-4073-b438-061ad3d71ee7\"><p><span style=\"color: black; text-decoration: inherit\">This may vary by organization, but take a step back. Do you have six people responsible for steps 1, 2, and 5, for example, but no one responsible for steps 3 and 4? Sometimes articulating responsibility means making some corrections or implementing temporary duties to make sure every person is responsible for something that</span>’<span style=\"color: black; text-decoration: inherit\">s driving toward the bottom line, and no task or area is left without an owner.</span></p></div>"
+              },
+              {
+                "id": "cm6jmnu1g00wu3b7ayeyaoeiq",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/j2ecPHrLIhRwQJQa-AdobeStock_387172734.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_387172734.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 886
+                    },
+                    "trackingId": "cm6jmlqsb00u23b7avm0m9osz",
+                    "originalUrl": "AdobeStock_387172734.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Does everyone understand that they are not only responsible, but also accountable for the results of the tasks? ",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"647889e8-9d38-4d0c-83bd-4520b761263f\"><p><span style=\"color: black; text-decoration: inherit\">Does the person stocking the grocery bags understand that they aren’t simply putting bags in holsters, but that if the registers run out, they are <em>accountable</em>? Being accountable prompts an entirely new level of thought</span>:<span style=\"color: black; text-decoration: inherit\"> <em>How many bags are we going through per day? Do we have enough in the back to last through the week? We went through bags much faster than expected yesterday</em></span>;<span style=\"color: black; text-decoration: inherit\"><em> should I tell our supply purchaser?</em> Such thoughts are well on their way to <em>ownership</em>.</span></p><p><span style=\"color: black; text-decoration: inherit\">Does the person responsible for running the social media account understand that they aren’t simply responsible for making posts, but accountable for how those posts are performing </span>—<span style=\"color: black; text-decoration: inherit\"> and making the necessary adjustment if the results are subpar? Does the person designing the website know they will be held <em>accountable</em> for the bounce rate </span>—<span style=\"color: black; text-decoration: inherit\"> how many customers visit the site and abandon the page without engaging or clicking on anything? Or are they too absorbed with slick graphics and a nice logo</span>? You get the idea.</p></div>"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmlsjd00un3b7aw6slsmus",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jmlsje00uo3b7a1t2vazdp",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_corinne_milien_tales_from_the_sideline_the_next_play%20%281080p%29.mp4",
+                    "url": "transcoded-jCz62hjiWMfVG2Ti-v5_pot_corinne_milien_tales_from_the_sideline_the_next_play%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_corinne_milien_tales_from_the_sideline_the_next_play%20%281080p%29.jpg",
+                    "duration": 79,
+                    "inputKey": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/jCz62hjiWMfVG2Ti-v5_pot_corinne_milien_tales_from_the_sideline_the_next_play%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/transcoded-jCz62hjiWMfVG2Ti-v5_pot_corinne_milien_tales_from_the_sideline_the_next_play%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_corinne_milien_tales_from_the_sideline_the_next_play (1080p).mp4",
+                    "transcodeId": "1754792533464-uffdgs"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah70a3i007i3b7844yuzvkq",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah70a3i007j3b78fbp3t6e6",
+                "paragraph": "<div data-editor-id=\"67842b38-8d1a-4123-84b8-361c2a27bc52\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmlwp300v43b7akkh6dv5l",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jmlwp400v53b7ajp4nb7dt",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%202%20The%20Next%20Play.pdf",
+                    "size": 221608,
+                    "type": "attachment",
+                    "filename": "VZuL_X79bLxTXD_P-Lesson%202%20The%20Next%20Play.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 2 The Next Play.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmlynu00vl3b7aoabizq3v",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jmlynv00vr3b7al6csyyvy",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"3babeff5-7908-49e3-869a-c265dc6618a1\"><p><span style=\"color: black; text-decoration: inherit\">Listen to Corinne Milien, founder and CEO of WRK, recall an ownership lesson under Pat’s mentorship about “rebounding” and always thinking of the next play.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmmc3u00wc3b7a7zz7imz9",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jmmc3u00wd3b7ae4s1q1tf",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q",
+        "createdAt": "2025-01-28T20:27:35.026Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"c2870bc5-751a-4bcc-868c-6842b107d569\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "__Y6WdIqXrOUK-jDpm-seSv5PrB7rK61",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "qHlFbAf5KpYn_equZ4joeXvoRLKsf1Ay",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T19:10:54.278Z",
+        "items": [
+          {
+            "id": "0vz3lchNHCkejhL0PjlLGtd83mQ6oH4u",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"764830a2-168b-43e9-9839-d406b2eb3b59\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these questions is key to creating a sense of ownership on a team?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"187dbeee-6f06-4874-bf01-1974df9e3394\"><p><span style=\"color: black; text-decoration: inherit\">Does everyone on the team know what they</span>’<span style=\"color: black; text-decoration: inherit\">re responsible for?</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"8af1144a-eafa-42a4-8b7c-8facb716319b\"><p><span style=\"color: black; text-decoration: inherit\">Is everyone uniquely responsible for something?</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jmrnyx00zo3b7aicfsh9vj",
+                "title": "<div data-editor-id=\"446701f2-16e2-4345-9a6f-a75c3e45c4dc\"><p><span style=\"color: black; text-decoration: inherit\">Does everyone understand that they are not only responsible, but also <em>accountable</em> for the results of the tasks?</span></p></div>"
+              },
+              {
+                "id": "cm6jmsgfk00zq3b7avy2h5ne5",
+                "title": "<div data-editor-id=\"b02e6091-e90c-4436-9455-aa902a781ae6\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: #000000; text-decoration: inherit\">All of the above</span></span></p></div>"
+              }
+            ],
+            "correct": "cm6jmsgfk00zq3b7avy2h5ne5",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "j7w77ljHmQXVWtzj7m_BdYiG-KWZb7DD",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"995448f8-ce77-4e5c-ae25-02689816c67f\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">As Coach Summitt once said, “If you don’t clearly articulate who is responsible for what, _______________.”</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"67ba6caa-553b-44a7-9b55-9867af196c6e\"><p><span style=\"color: black; text-decoration: inherit\">When there’s a victory, you won’t know why.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"71493da0-74ac-47d5-bd44-536a0df7ba43\"><p><span style=\"color: black; text-decoration: inherit\">When competing, you won’t know how you match up.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"7dc7b32a-2d82-49ed-906a-f5d17d0c6bd2\"><p><span style=\"color: #000000; text-decoration: inherit\">When there’s a breakdown, you won’t know what went wrong.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"a77ebb54-c5eb-4f11-a16c-7647cd329239\"><p><span style=\"color: black; text-decoration: inherit\">When there’s obstacles, you won’t know what to do.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wk3b79q9mcjkdv",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6jmu8ze01013b7arxod3iyj",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"8e8ce0dc-4952-474a-9354-2befb80f12a0\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">What does it mean to have everyone uniquely responsible for something?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6jmu8ze01023b7adm1erljn",
+                "title": "<div data-editor-id=\"f315d01f-77ad-466c-ade4-57d4fb3ea3ec\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: #000000; text-decoration: inherit\">You need to establish who is owning each process and detail with minimal overlap.</span></span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6jmu8ze01033b7a2a9ukqew",
+                "title": "<div data-editor-id=\"6cd359e7-5ba1-4068-a52b-b458f6e6fb5c\"><p><span style=\"color: black; text-decoration: inherit\">You need to make sure the entire team is working toward the same thing.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jmu90b01043b7alugwoinp",
+                "title": "<div data-editor-id=\"e2f3b74f-a72b-4986-8193-332bf40cb7e8\"><p><span style=\"color: black; text-decoration: inherit\">You need to hire a minimum of three people per position.</span></p></div>"
+              },
+              {
+                "id": "cm6jmv91101063b7azv48wuhz",
+                "title": "<div data-editor-id=\"f8db1b07-16c8-4158-b71e-9ec4ea26d771\"><p><span style=\"color: black; text-decoration: inherit\">You won’t get far if everyone is focused on different job duties.</span></p></div>"
+              }
+            ],
+            "correct": "cm6jmu8ze01023b7adm1erljn",
+            "corrects": [
+              "cm6jmu8ze01023b7adm1erljn"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "dCTng1jmDn7KpoVikMvnELiXEtSB2u38",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:25:34.253Z",
+        "items": [
+          {
+            "id": "cm6jmw46t01093b7abf1d9mpa",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jmw46u010a3b7ar8h3ivo6",
+                "media": {
+                  "video": {
+                    "key": "v5_jimmy_delaney_tales_from_the_sidelines__the_power_of_the_t-shirt_cannon__clip_05%20%281080p%29.mp4",
+                    "url": "transcoded-mEgsq41HEZUnxR34-v5_jimmy_delaney_tales_from_the_sidelines__the_power_of_the_t-shirt_cannon__clip_05%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_jimmy_delaney_tales_from_the_sidelines__the_power_of_the_t-shirt_cannon__clip_05%20%281080p%29.jpg",
+                    "duration": 122,
+                    "inputKey": "rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/mEgsq41HEZUnxR34-v5_jimmy_delaney_tales_from_the_sidelines__the_power_of_the_t-shirt_cannon__clip_05%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q/transcoded-mEgsq41HEZUnxR34-v5_jimmy_delaney_tales_from_the_sidelines__the_power_of_the_t-shirt_cannon__clip_05%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_jimmy_delaney_tales_from_the_sidelines__the_power_of_the_t-shirt_cannon__clip_05 (1080p).mp4",
+                    "transcodeId": "1754792658744-23enj0"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah72s0u00l93b785hcs4hzu",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah72s0u00la3b78rdffirmq",
+                "paragraph": "<div data-editor-id=\"c1848f1c-5c7b-4df3-bf54-f0e8f42c01a6\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmw8ho010q3b7armt058ih",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jmw8ho010r3b7aqgw4dv20",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%202%20The%20Power%20of%20the%20T-Shirt%20Cannon.pdf",
+                    "size": 232178,
+                    "type": "attachment",
+                    "filename": "dLHGzmWE421K8UWm-Lesson%202%20The%20Power%20of%20the%20T-Shirt%20Cannon.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 2 The Power of the T-Shirt Cannon.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmwazd01173b7a57qnss4u",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jmwazd011d3b7apyvqr4ut",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"ab3d8910-8dc3-4d38-9a29-1653d5990b92\"><p><span style=\"color: black; text-decoration: inherit\">Listen to UT Associate Athletics Director of Marketing &amp; Fan Experience&nbsp;Jimmy Delaney recall an experience he had early in his career with Pat and the power of the t-shirt cannon.</span></p><p><span style=\"color: black; text-decoration: inherit\">Refer to your workbook for the reflection questions and exercises below.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmwcvs011y3b7a8kmqnjhq",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6jmwcvs011z3b7a578eps3r",
+                "paragraph": "<div data-editor-id=\"e10cef28-9af1-402f-883d-2c7a236131bd\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">What are some of the common breakdowns in responsibility you see in your area?</span></span></p></div>"
+              },
+              {
+                "id": "cm6jmwcvs01203b7at9v1bhu6",
+                "paragraph": "<div data-editor-id=\"a9e80995-433f-4e04-b02c-4fa4d4b30ec6\"><p><span style=\"color: black; text-decoration: inherit\">What do you wish your team would take more ownership of?</span></p></div>"
+              },
+              {
+                "id": "cm6jmwcvs01213b7a84bxoqhd",
+                "paragraph": "<div data-editor-id=\"a985bbd8-dc54-4b80-810c-8047bc4d4c3d\"><p><span style=\"color: black; text-decoration: inherit\">Are there any areas in your daily workflow without an owner? List them here.</span></p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jmwg3q012j3b7avfby40pm",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jmwg3q012p3b7a8bk9nnh2",
+                "heading": "<div data-editor-id=\"d98cb577-9dca-4eb0-be83-033cc61ecaf1\"><p><span style=\"font-size: 2rem\"><strong>Exercise</strong></span></p></div>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah73ge600mv3b78hl266yhl",
+            "type": "list",
+            "items": [
+              {
+                "id": "cmah73ge600mw3b784vvzkkrs",
+                "paragraph": "<div data-editor-id=\"b702e472-5153-41f7-89bd-b8279643fa87\"><p><span style=\"color: black; text-decoration: inherit\">Of the reflections listed above, pick two areas you can work on this week to help team members assume more ownership.</span></p></div>"
+              },
+              {
+                "id": "cmah73ge600mx3b78s3pm089y",
+                "paragraph": "<div data-editor-id=\"9fa89d0c-e17a-4320-845f-d2e67a8387a3\"><p><span style=\"color: black; text-decoration: inherit\">What are two areas you can take more accountability and ownership of in your own key results area?</span></p></div>"
+              },
+              {
+                "id": "cmah73ge600my3b78zrpnlkn9",
+                "paragraph": "<div data-editor-id=\"34c95efe-b509-4e7d-92f3-53b6eb86427a\"><p><span style=\"color: black; text-decoration: inherit\">What steps can you take this week to assume more ownership?</span></p></div>"
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jn0c4r01563b7aliywai2g",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jn0c4s01573b7aipria9rl",
+                "paragraph": "<div data-editor-id=\"ac72017f-65eb-4abc-a385-b5cd38991853\"><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Sources:</strong></span></span></p><ol type=\"1\"><li><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from, <em>Reach for the Summitt</em>, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998.</span></span></p></li></ol></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah76hf600ng3b78j2i30kpy",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmah76hf600nh3b785tuqw848",
+                "type": "",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"99307ba5-ee15-4b16-adfc-2d1daab17553\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": ""
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:28:22.584Z",
+    "updatedAt": "2025-08-29T21:57:32.126Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Course 2: Responsibility and Ownership",
+      "format": "zip",
+      "quizId": "Jpcktc8bXHu62lAuJQMisuHQXbpPW2EG",
+      "target": "scorm12",
+      "shareId": "qLxP2VDYjoiX668W2ufB2iDUGbAB1foE",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "Hk_GmAboaebkd9uEXhW6MOXDDDYnJD9Q_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:34:38.159Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "",
+    "title": "Course 2: Responsibility and Ownership",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}

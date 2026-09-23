@@ -1,0 +1,627 @@
+{
+  "id": "potl_mp_06",
+  "collection_id": "power_of_team_leader",
+  "collection_title": "The Power of Team",
+  "title": "Communicate to Win",
+  "description": "You can have the brightest, most creative people in the world, but if they can’t communicate, you won’t fully comprehend what they’re capable of.”",
+  "sequence": 6,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "potl_mp_06",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "potl_mp_06_st_001",
+      "source_step_id": "potl_mp_06_st_001",
+      "sequence": 1,
+      "title": "Communicating to Win",
+      "blocks": [
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_06_st_001_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "Good communication is a key part of any successful workplace team. Clear communication helps foster positive relationships between colleagues, improves productivity, and ultimately, leads to better outcomes for your organization. It’s no wonder Pat’s fourth Definite Dozen principle was Learn to be a Great Communicator. And yet, it’s worth a closer look, because even though communication is the glue that holds a team together, many organizations fail to grasp just how essential it is to prioritize good communication over other principles like processes, speed, authority, or confidentiality. As Pat would say, the first step is not merely viewing communication as a component of a healthy team. It’s realizing that communication is everything.\n\nYou can have the brightest, most creative people in the world, but if they can’t communicate, you won’t fully comprehend what they’re capable of.”"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150876830",
+          "visible_title": "Communicating to Win",
+          "speaker": "Jimmy Delaney"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_06_st_002",
+      "source_step_id": "potl_mp_06_st_002",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_06_st_002_q01",
+              "prompt": "Which of these statements is not true?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Communication is more than just words; it's the bridge that connects teams."
+                },
+                {
+                  "id": "c2",
+                  "text": "Clear and open communication builds trust, respect, and cooperation."
+                },
+                {
+                  "id": "c3",
+                  "text": "Communication should only come from leaders."
+                },
+                {
+                  "id": "c4",
+                  "text": "Miscommunication can have severe consequences."
+                }
+              ],
+              "correct_choice_ids": [
+                "c3"
+              ]
+            },
+            {
+              "question_id": "potl_mp_06_st_002_q02",
+              "prompt": "Which of these can prevent miscommunication?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Speaking loudly"
+                },
+                {
+                  "id": "c2",
+                  "text": "Providing context"
+                },
+                {
+                  "id": "c3",
+                  "text": "Under-communicating"
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "potl_mp_06_st_002_q03",
+              "prompt": "Which of these statements is true?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Taking the time to communicate is a powerful mark of respect."
+                },
+                {
+                  "id": "c2",
+                  "text": "Learning to communicate is something few people master."
+                },
+                {
+                  "id": "c3",
+                  "text": "Communicating virtually should be avoided."
+                },
+                {
+                  "id": "c4",
+                  "text": "Everyone is born a natural communicator."
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_06_st_003",
+      "source_step_id": "potl_mp_06_st_003",
+      "sequence": 3,
+      "title": "When in Doubt, Overcommunicate",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Learning to Overcommunicate\n\nThe heart of communicating to win can be summed up in four words: When in doubt, overcommunicate. For best results, always err on the side of overcommunicating, rather than under-communicating. What does this look like? It means that it’s better to communicate too much than too little, particularly when there’s ambiguity around a task or project. Overcommunicating means providing more information or updates than might be strictly necessary. When you overcommunicate, you ensure that everyone involved in a project or task has all the information they need to do their jobs effectively. This can help to prevent misunderstandings, delays, and mistakes. Let’s take a look at two sample scenarios:"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "scenario_1",
+              "title": "Scenario 1",
+              "body": "Scenario 1"
+            },
+            {
+              "id": "to_give_a_practical_example_let_s_say_th",
+              "title": "To give a practical example, let’s say the vice president is asking for everyone’s weekly…",
+              "body": "To give a practical example, let’s say the vice president is asking for everyone’s weekly report or status updates, including a monthly revenue update, by Thursday morning instead of Monday morning, and you’re in charge of getting it from the team members you manage. You announce this in the next daily standup — revenue updates and estimates from their department are now due on Thursday. What’s to be misunderstood; it’s super clear, right?\nFor starters, three team members aren’t in the standup. One walked in late, and a few people were having a separate conversation in the back of the room about something urgent. Thursday morning rolls around and … you guessed it, you’re short five reports (including one person who “just forgot”). A few others turned in the weekly status update as usual but included the monthly revenue update as month-to-date instead of projected estimates for the end of the month like you asked. You think, This is unbelievable. People can’t follow simple instructions.\nYou now have to scramble to give the vice president the numbers she needs, furiously emailing the team members who have missing reports, demanding they send you something ASAP. The truth is, in the words of Cool Hand Luke, “What we have here, is a failure to communicate.”\nWith just an ounce of prevention — or rather, overcommunication — you might have had a different outcome."
+            },
+            {
+              "id": "scenario_2",
+              "title": "Scenario 2",
+              "body": "Scenario 2"
+            },
+            {
+              "id": "let_s_say_you_make_the_announcement_in_s",
+              "title": "Let’s say you make the announcement in standup, followed by an email to everyone afterwar…",
+              "body": "Let’s say you make the announcement in standup, followed by an email to everyone afterward reinforcing the announcement that you need reports by Thursday, including a brief, bulleted list of what needs to be in the report. Then, Wednesday you send a reminder, including a sample report attached to the email, asking those who can’t send you the report by Thursday morning to let you know in advance. Thursday rolls around, and this time you have all your reports, except for a team member who is at a funeral and communicated that in advance. Or if still you don’t have all your reports for some reason, it becomes easier to address the failure directly with the individuals involved, now that the excuse of communication is taken out of the loop."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "These two examples show how the smallest things can make a difference in the area of communication at work."
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_06_st_003_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_06_st_003_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_06_st_004",
+      "source_step_id": "potl_mp_06_st_004",
+      "sequence": 4,
+      "title": "An Ounce of Prevention",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Overcommunicating can also help you avoid a lot of unnecessary drama on the team.\n\nTo give another example, let’s say you have to fire a salesperson who wasn’t getting the job done. When this was mentioned, the team member didn’t react kindly to the criticism and went off on an inappropriate tirade listing all the faults of your organization. You terminate them, but to help the employee save face, you decide to omit the details, sending a cryptic “Steve is no longer with our organization” email. After all, this is confidential, and it’s no one else’s business, right? You decide to follow up verbally with more details two days later in a staff meeting.\n\nThe trouble is, Steve was well-liked among the team. Several are good friends with Steve outside of work. The people reporting to Steve who find out in the email at the same time as everyone else are now shocked, confused, and worried about what will happen next. They received all their training from Steve. Did he do something wrong? Rumors are flying by lunchtime as to who will be taking Steve’s place. One person heard it was because Steve questioned the new learning management system’s efficacy and warns people it’s “not safe to speak up anymore with feedback.” A few people text Steve directly, who, still wounded, says the company “has had it out for him all along.” By 3 p.m., half the team is upset that the organization could do such a thing to poor Steve.\n\nSound familiar? The details may vary, but you may have experienced some version of this at your organization because information was scant and the details were fuzzy. People were left to fill in the gaps of what actually happened with the limited knowledge they had. Overcommunicating doesn’t mean violating someone’s privacy, but with a bit more communication, a lot of the drama above could have been avoided.\n\nA Better Way\n\nTo overcommunicate might look something like this: The people who report to or are closest to Steve are told first and given the most information. Without getting into details about Steve’s performance or feelings about the company, they are told whether Steve left on good terms or bad and whether reaching out to Steve might be sensitive at the moment. They are told whether it was one-sided or mutual, and that Steve expressed discontent with his current situation and role. Then, an email goes out to the whole team letting them know of Steve’s departure, that Christine will be temporarily overseeing his area in the interim, and to please direct any questions about his departure or projects to Andrew. They are told that Steve was part of the discussion about leaving and expressed discontent in his area, but the company is grateful for his service and wishes him the very best in his next chapter.\n\nExercise"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_06_st_004_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_06_st_004_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_06_st_004_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "sort",
+          "prompt": "Having a project kickoff meeting with all parties involved",
+          "categories": [
+            "Overcommunicating",
+            "Under-communicating"
+          ],
+          "cards": [
+            {
+              "id": "having_a_project_kickoff_meeting_with_all",
+              "text": "Having a project kickoff meeting with all parties involved",
+              "correct_category": "Overcommunicating"
+            },
+            {
+              "id": "sending_important_information_in_a_one_tim",
+              "text": "Sending important information in a one-time email",
+              "correct_category": "Under-communicating"
+            },
+            {
+              "id": "only_communicating_on_a_need_to_know_basis",
+              "text": "Only communicating on a need-to-know basis",
+              "correct_category": "Under-communicating"
+            },
+            {
+              "id": "making_an_announcement_in_a_meeting_with_t",
+              "text": "Making an announcement in a meeting with team members missing",
+              "correct_category": "Under-communicating"
+            },
+            {
+              "id": "sending_a_meeting_recap",
+              "text": "Sending a meeting recap",
+              "correct_category": "Overcommunicating"
+            },
+            {
+              "id": "following_a_verbal_announcement_with_an_em",
+              "text": "Following a verbal announcement with an email",
+              "correct_category": "Overcommunicating"
+            },
+            {
+              "id": "an_intranet_notice_for_employees_to_discov",
+              "text": "An intranet notice for employees to discover on their own",
+              "correct_category": "Under-communicating"
+            },
+            {
+              "id": "posting_important_principles_or_core_value",
+              "text": "Posting important principles or core values in a prominent location",
+              "correct_category": "Overcommunicating"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_06_st_005",
+      "source_step_id": "potl_mp_06_st_005",
+      "sequence": 5,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_06_st_005_q01",
+              "prompt": "According to this lesson, the heart of communicating can be summed up in four words:",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Be careful what you say."
+                },
+                {
+                  "id": "c2",
+                  "text": "When in doubt, overcommunicate."
+                },
+                {
+                  "id": "c3",
+                  "text": "Learn to speak slowly."
+                },
+                {
+                  "id": "c4",
+                  "text": "Don’t let them misunderstand."
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "potl_mp_06_st_005_q02",
+              "prompt": "What does overcommunicating mean?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Repeating yourself over and over"
+                },
+                {
+                  "id": "c2",
+                  "text": "Sharing confidential information"
+                },
+                {
+                  "id": "c3",
+                  "text": "Making sure everyone approves the message"
+                },
+                {
+                  "id": "c4",
+                  "text": "It’s better to communicate too much than too little"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_06_st_005_q03",
+              "prompt": "When you overcommunicate, you: (check any that apply)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Ensure everyone involved has the information they need to do their jobs effectively"
+                },
+                {
+                  "id": "c2",
+                  "text": "Save time"
+                },
+                {
+                  "id": "c3",
+                  "text": "Prevent misunderstandings, delays and mistakes"
+                },
+                {
+                  "id": "c4",
+                  "text": "Build trust with team members"
+                },
+                {
+                  "id": "c5",
+                  "text": "Water down your authority"
+                },
+                {
+                  "id": "c6",
+                  "text": "Share things you may regret later."
+                },
+                {
+                  "id": "c7",
+                  "text": "Set an example for team members to follow."
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c3",
+                "c4",
+                "c7"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_06_st_006",
+      "source_step_id": "potl_mp_06_st_006",
+      "sequence": 6,
+      "title": "Communication Eliminates Confusion",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Overcommunication looks different in different situations, but the rules are simple:\nClick on each circle in the illustration to complete this element."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "1_be_clear_and_concise_about_what_you_ne",
+              "title": "1.",
+              "body": "1. Be clear and concise about what you need."
+            },
+            {
+              "id": "2_reiterate_the_communication_in_multipl",
+              "title": "2.",
+              "body": "2. Reiterate the communication in multiple channels."
+            },
+            {
+              "id": "3_give_as_much_context_as_you_can_to_hel",
+              "title": "3.",
+              "body": "3. Give as much context as you can to help everyone understand the why."
+            },
+            {
+              "id": "4_clarify_expectations_so_everyone_knows",
+              "title": "4.",
+              "body": "4. Clarify expectations so everyone knows exactly what is needed to win."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "In this video, listen to former WNBA player Alexis Hornbuckle remember playing for Coach Summitt and the importance of communication on the court."
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_06_st_006_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150876888",
+          "visible_title": "Communicating Eliminates Confusion",
+          "speaker": "Alexis Hornbuckle"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_06_st_007",
+      "source_step_id": "potl_mp_06_st_007",
+      "sequence": 7,
+      "title": "Provide Context",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "A wise person once said, “You get better results with a little of the why.” Inexperienced leaders tend to default to keeping people in the dark, but experienced leaders know team member buy-in is crucial for a healthy, functioning team. Pat made it clear on her teams that every task or mandate was working toward a particular goal — from the overall goal of national championships to the micro-goals of slowing down a star shooter on the other team or adjusting the defense strategy for an upcoming team who was more physical than they were.\n\n“Because I said so” is usually easier than slowing down to explain the strategy or exact reason behind the ask, but remember: Your success rises and falls on the shoulders of your team. If they can do a better job with more context than less, this ought to be the standard.\n\nFor example, you could tell your social media coordinator to spotlight a certain product more, and they may add two or three more posts to the monthly calendar. But if you let them know the why — that this product is eventually going to become the foundation for replacing two other products and that sales need to exceed a certain point — you’re likely to get better results. What’s more, your team may surprise you by thinking of additional ways to reach the goal that you hadn’t considered.\n\nExercise"
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "yes_this_demonstrates_respect",
+              "title": "Yes!",
+              "body": "Yes! This demonstrates respect."
+            },
+            {
+              "id": "letting_team_members_know_the_reason_beh",
+              "title": "Letting team members know the reason behind an ask",
+              "body": "Letting team members know the reason behind an ask"
+            },
+            {
+              "id": "yes_this_encourages_understanding_and_bu",
+              "title": "Yes!",
+              "body": "Yes! This encourages understanding and buy-in."
+            },
+            {
+              "id": "explaining_the_goals_for_your_department",
+              "title": "Explaining the goals for your department",
+              "body": "Explaining the goals for your department"
+            },
+            {
+              "id": "no_consensus_is_not_needed_when_providin",
+              "title": "No, consensus is not needed when providing context.",
+              "body": "No, consensus is not needed when providing context."
+            },
+            {
+              "id": "make_sure_everyone_agrees_with_the_decis",
+              "title": "Make sure everyone agrees with the decision",
+              "body": "Make sure everyone agrees with the decision"
+            },
+            {
+              "id": "yes_this_sets_them_up_for_success",
+              "title": "Yes!",
+              "body": "Yes! This sets them up for success."
+            },
+            {
+              "id": "giving_team_members_the_tools_they_need",
+              "title": "Giving team members the tools they need to accomplish a task",
+              "body": "Giving team members the tools they need to accomplish a task"
+            },
+            {
+              "id": "no_this_may_lead_to_confusion",
+              "title": "No, this may lead to confusion.",
+              "body": "No, this may lead to confusion."
+            },
+            {
+              "id": "adding_tasks_in_the_project_management_s",
+              "title": "Adding tasks in the project management system without explanation",
+              "body": "Adding tasks in the project management system without explanation"
+            },
+            {
+              "id": "no_this_encourages_confusion",
+              "title": "No, this encourages confusion.",
+              "body": "No, this encourages confusion."
+            },
+            {
+              "id": "keeping_strategic_direction_a_secret",
+              "title": "Keeping strategic direction a secret",
+              "body": "Keeping strategic direction a secret"
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_06_st_007_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_06_st_007_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_06_st_007_image_03.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_06_st_008",
+      "source_step_id": "potl_mp_06_st_008",
+      "sequence": 8,
+      "title": "Set People Up to Win",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Communicating frequently, with context, usually gives team members most of the information they need to win, paired with the practice of setting proper expectations. Don’t leave an abundance of dots for the team to connect on their own. When it comes to setting expectations: To be unclear is to be unkind. No one wants to charge the lane and realize that what they thought was the target wasn’t the target or the way they were expending all their time and energy wasn’t really what the organization wanted. Set your team members up to win. When individuals win, the team wins. And when the team wins, your organization wins.\n\nExercise"
+        },
+        {
+          "type": "sort",
+          "prompt": "Introducing them to team members they’ll be working with closely",
+          "categories": [
+            "Setting People Up to Win",
+            "NOT Setting People Up to Win"
+          ],
+          "cards": [
+            {
+              "id": "introducing_them_to_team_members_they_ll_b",
+              "text": "Introducing them to team members they’ll be working with closely",
+              "correct_category": "Setting People Up to Win"
+            },
+            {
+              "id": "communicating_complex_assignments_via_emai",
+              "text": "Communicating complex assignments via email",
+              "correct_category": "NOT Setting People Up to Win"
+            },
+            {
+              "id": "having_team_members_with_overlapping_job_d",
+              "text": "Having team members with overlapping job duties",
+              "correct_category": "NOT Setting People Up to Win"
+            },
+            {
+              "id": "outlining_department_goals_and_objectives",
+              "text": "Outlining department goals and objectives",
+              "correct_category": "Setting People Up to Win"
+            },
+            {
+              "id": "understaffing_to_save_money",
+              "text": "Understaffing to save money",
+              "correct_category": "NOT Setting People Up to Win"
+            },
+            {
+              "id": "explaining_personal_key_results_areas",
+              "text": "Explaining personal key results areas",
+              "correct_category": "Setting People Up to Win"
+            },
+            {
+              "id": "creating_unnecessary_competition",
+              "text": "Creating unnecessary competition",
+              "correct_category": "NOT Setting People Up to Win"
+            },
+            {
+              "id": "having_periodic_check_ins",
+              "text": "Having periodic check-ins",
+              "correct_category": "Setting People Up to Win"
+            },
+            {
+              "id": "outlining_clearly_who_is_responsible_for_w",
+              "text": "Outlining clearly who is responsible for what",
+              "correct_category": "Setting People Up to Win"
+            },
+            {
+              "id": "ensuring_the_team_has_the_proper_resources",
+              "text": "Ensuring the team has the proper resources to do their work",
+              "correct_category": "Setting People Up to Win"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_06_st_009",
+      "source_step_id": "potl_mp_06_st_009",
+      "sequence": 9,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_06_st_009_reflection_01",
+          "prompt": "Reflect on the phrase, “To be unclear is to be unkind.” Can you think of a time when this may have been true in your own career?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_06_st_009_reflection_02",
+          "prompt": "How can you better set your team up to win?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_06_st_009_reflection_03",
+          "prompt": "What is the hardest part of communicating with your team currently?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_06_st_009_reflection_04",
+          "prompt": "Do you currently tend to err on the side of overcommunicating or under-communicating?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_06_st_009_reflection_05",
+          "prompt": "Think back on an example of when overcommunicating may have saved the team a lot of confusion. What could you have done differently?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_06_st_009_reflection_06",
+          "prompt": "How much context do you provide for your team in your current communication?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_06_st_009_reflection_07",
+          "prompt": "Is it easy or hard to give context?"
+        }
+      ]
+    }
+  ]
+}

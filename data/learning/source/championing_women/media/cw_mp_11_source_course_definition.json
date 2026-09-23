@@ -1,0 +1,1994 @@
+{
+  "course": {
+    "id": "1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn",
+    "originalId": null,
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "selectedAuthorId": "none",
+    "color": "#4267a9",
+    "navigationMode": "",
+    "title": "Championing Women in Leadership - Powerful Conversations",
+    "sharePassword": "",
+    "description": "",
+    "shareId": "QuvyLbYKj9AWRr_cuWzGFZddL_iQbtH4",
+    "copyOf": "4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-",
+    "order": "1728405363674",
+    "fonts": null,
+    "media": {
+      "image": {
+        "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/D57g2qEosLuj1naW-CWILLogo_Color_Transparent.png",
+        "type": "image",
+        "width": 166,
+        "height": 40,
+        "scalar": 2,
+        "crushedKey": "llLtSMtzz1rY0kCU.png",
+        "originalUrl": "CWILLogo_Color_Transparent.png",
+        "useCrushedKey": true
+      }
+    },
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/2v9IXr3C3Mp7qrp7-PSLG_CWIL_TItleGraphic.png",
+          "crushedKey": "B7BKLfMa05IuQGJN.jpg",
+          "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "id": "bPsnoJGFz8rambZXqmRq-ESGA8fwzKQw",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn",
+        "title": "Powerful Conversations",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clw82gao600023b7366y6fumt",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clw82gao600033b734l4l42hi",
+                "media": {
+                  "video": {
+                    "key": "v5_wil_alexis_hornbuckle_powerful_conversations_clip_03%20%281080p%29.mp4",
+                    "url": "transcoded-MCuhYbeILU83CjaS-v5_wil_alexis_hornbuckle_powerful_conversations_clip_03%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_wil_alexis_hornbuckle_powerful_conversations_clip_03%20%281080p%29.jpg",
+                    "duration": 142,
+                    "inputKey": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/MCuhYbeILU83CjaS-v5_wil_alexis_hornbuckle_powerful_conversations_clip_03%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/transcoded-MCuhYbeILU83CjaS-v5_wil_alexis_hornbuckle_powerful_conversations_clip_03%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_wil_alexis_hornbuckle_powerful_conversations_clip_03 (1080p).mp4",
+                    "transcodeId": "1727979845478-wdgsd8"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clw82ggu2000g3b73of2xp2f9",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clw82ggu2000h3b73aca73aw5",
+                "media": {
+                  "attachment": {
+                    "key": "L10%20Transcript%20Powerful%20Conversations.pdf",
+                    "size": 55605,
+                    "type": "attachment",
+                    "filename": "b04vCHFNGxAFgJNT-L10%20Transcript%20Powerful%20Conversations.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L10 Transcript Powerful Conversations.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxknospo00dm3b739tw4vp4a",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clxknospo00dn3b73qopl3req",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/xhjk6bR2q8aB_82b.jpg",
+                    "type": "image",
+                    "align": "left",
+                    "isSquare": false,
+                    "crushedKey": "stock-image.jpg",
+                    "dimensions": {
+                      "top": 139,
+                      "left": 0,
+                      "width": 1671,
+                      "height": 966,
+                      "originalWidth": 1680,
+                      "originalHeight": 1260
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "originalImage": {
+                      "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/n7uDYIKiDl6hgrBs-stock_image.jpg",
+                      "type": "image",
+                      "align": "left",
+                      "crushedKey": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/DHbokvXVU5gQPw5N.jpg",
+                      "originalUrl": "stock-image.jpg",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clw83ao2l000u3b73a7pu5f7m",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clw83ao2m00103b73hog3kkw1",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>When it comes to being a female leader, nothing can make or break your career quite like communication, especially communication with your leader. Many times a female leader is reporting to a supervisor of the opposite sex&mdash;or maybe you&rsquo;re managing team members of the opposite sex, making the communication gap even trickier.</p><p>While we won&rsquo;t go into all the nuances of male-female communications here, there are a few practical things you can do to make sure your communication is received in the best possible light, especially when it comes to communicating with your leader, having difficult conversations, and negotiating successfully, which we&rsquo;ll cover in the following lesson.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cacsw6001t3b79zvi23mgp",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cacsw6001u3b79h4jiszd4",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-03-28T15:15:00.692Z",
+        "updatedAt": "2024-11-11T00:29:08.955Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 0,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Powerful Conversations"
+      },
+      {
+        "id": "c5mh2-H08b_KRmFLcilHTuJdAfgbxL47",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn",
+        "title": "Communicating with Your Leader",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clyolzypd006g3b769namxv07",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clyolzype006j3b76vuu528rt",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/5LtpybxYG8y5dsZu-stock_image.jpg",
+                    "type": "image",
+                    "align": "left",
+                    "crushedKey": "stock-image.png",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "stock-image.jpg",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>Sometimes great communication with your leader may come naturally (if it does, great!). Other times it may be a challenge, especially if your leader has a different personality type or communication style than you do. As a female leader, there are a few things you can do to optimize interactions with your leader.<strong><br></strong></p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzswt8fr002o3b7ciolwh38g",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clzswt8fs002x3b7cu6y5eyu0",
+                "heading": "<p><strong><em>Know your leader&#39;s communication style.</em> This can be summed up in three parts:</strong></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "subheading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxkn0ix100383b739s84emip",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clxkn0ix100393b73vtbt4nb2",
+                "media": {
+                  "tmp": {
+                    "image": {
+                      "key": "assets/rise/assets/block-defaults/paraglide.jpg",
+                      "src": "https://articulateusercontent.com/assets/rise/assets/block-defaults/paraglide.jpg",
+                      "type": "image",
+                      "thumbnail": "https://articulateusercontent.com/assets/rise/assets/block-defaults/paraglide_thumb.jpg",
+                      "originalUrl": "paraglide.jpg"
+                    }
+                  }
+                },
+                "title": "Right channel",
+                "description": "<p>What medium do they prefer most (email, phone, text, Teams or Slack chats, etc.)?</p>"
+              },
+              {
+                "id": "clxkn0ix1003a3b73m9mb1xqr",
+                "title": "Right timing",
+                "description": "<p>How often do they prefer communications? Leaders are busy, and some managers prefer frequent updates, while some prefer consolidated updates. Some prefer to receive news/information as it happens in real time, while some prefer to hold items to be discussed in a one-on-one or meeting. Take a minute to think about your leader&rsquo;s overall preferences. (When in doubt, just ask them!)</p>"
+              },
+              {
+                "id": "clxkn0ix1003b3b73n2u1voa5",
+                "title": "Right message",
+                "description": "<p>Make sure your communication is professional, concise, and free from frustration. More on this later.</p>"
+              }
+            ],
+            "family": "interactive",
+            "variant": "accordion",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clw87vctw001g3b73mz678835",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clw87vctx001h3b73hnya8mv3",
+                "type": "intro",
+                "title": "Optimizing & Sustaining Communication",
+                "isHidden": false,
+                "description": "<p>Let&#39;s review some ways to optimize your communication with your leader.</p><p><br></p>"
+              },
+              {
+                "id": "clw87vctx001i3b73vbrwm0sw",
+                "type": "summary",
+                "title": "In Conclusion",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"4384261a-f44d-416b-88c9-13a1a1c79a94\"><p>In review, here are some of the ways we've suggested to sustain&nbsp;an open and communicative environment with your leader:</p><ul><li><p>Optimize Your 1:1s</p></li><li><p>Be positive</p></li><li><p>Be prepared</p></li><li><p>Bring solutions</p></li><li><p>Be open to feedback</p></li></ul></div>"
+              },
+              {
+                "id": "clw87vctx001j3b7363yfi7tv",
+                "type": "step",
+                "media": {
+                  "tmp": {},
+                  "image": {
+                    "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/5NgaeF0Dr4XhKgj7.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "isSquare": false,
+                    "crushedKey": "Final%20Four.2000.Summitt%20%26%20Catchings.jpg",
+                    "dimensions": {
+                      "top": 187,
+                      "left": 90,
+                      "width": 1476,
+                      "height": 968,
+                      "originalWidth": 1680,
+                      "originalHeight": 2113
+                    },
+                    "trackingId": "clw87vctw001g3b73mz678835",
+                    "originalUrl": "Final Four.2000.Summitt & Catchings.jpg",
+                    "originalImage": {
+                      "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/7fQGkSIk2Y43s9nd-Final%2520Four.2000.Summitt%2520%2526%2520Catchings.jpg",
+                      "type": "image",
+                      "align": "center",
+                      "crushedKey": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/N8p7EZPymYAmaFum.jpg",
+                      "trackingId": "clw87vctw001g3b73mz678835",
+                      "originalUrl": "Final Four.2000.Summitt & Catchings.jpg",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    },
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Optimize your 1:1s with your leader.",
+                "isHidden": false,
+                "description": "<p>Don&rsquo;t overlook the rapport that can be formed in regular one-on-ones with your leader. Many times this is the foundation for trust that will help your career sink or swim.</p>"
+              },
+              {
+                "id": "clw87vctx001k3b73r0k7bo95",
+                "type": "step",
+                "media": {
+                  "tmp": {},
+                  "image": {
+                    "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/itchjrErujP-8JMk-20120304_WBB_SEC_LSU_WARLICK%252C%2520H_SUMMITT%252C%2520P_pmr_172.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "20120304_WBB_SEC_LSU_WARLICK%2C%20H_SUMMITT%2C%20P_pmr_172.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1214
+                    },
+                    "trackingId": "clw87vctw001g3b73mz678835",
+                    "originalUrl": "20120304_WBB_SEC_LSU_WARLICK, H_SUMMITT, P_pmr_172.jpg",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Be Positive",
+                "isHidden": false,
+                "description": "<p>This should be a given, but it&rsquo;s not. Employees who bring a sense of positivity to work are rarer than you think, and in the world of leadership it can be a breath of fresh air. It doesn&rsquo;t matter how talented you are&mdash;if your attitude is negative (or perceived as negative), your relationship with your leader will eventually suffer. Make positivity a part of your personal brand. Not all conversations will be positive in themselves, but when faced with something negative to communicate, try your best to frame it in a positive way.&nbsp;</p><p style=\"text-align: center;\"><strong><em><span style=\"color: rgb(36, 103, 178);\">&ldquo;No one ever got anywhere, accomplished anything, or survived any amount of ill luck by being negative&hellip; With attitude you can determine your own performance.&rdquo;</span></em></strong></p><p style=\"text-align: center;\"><strong><em><span style=\"color: rgb(36, 103, 178);\">&ndash; Pat Summitt</span></em></strong></p>"
+              },
+              {
+                "id": "clw88a1fh002y3b73znbr53uv",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/SsS286WTrJQ4TKep-Final%2520Four.2002.Warlick%252C%2520Summitt%252C%2520%2526%2520DeMoss.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "Final%20Four.2002.Warlick%2C%20Summitt%2C%20%26%20DeMoss.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1344
+                    },
+                    "trackingId": "clw87vctw001g3b73mz678835",
+                    "originalUrl": "Final Four.2002.Warlick, Summitt, & DeMoss.jpg",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Be Prepared",
+                "isHidden": false,
+                "description": "<p>A little preparation goes a long way. Whenever you take up your leader&rsquo;s time, even in a standing meeting or one-on-one, come prepared with a list of items to discuss or an agenda for the meeting, in addition to any information or data that may be needed.</p>"
+              },
+              {
+                "id": "clw88egu100303b73s5q2s5tc",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/SwSqDcYHxi7lT59--2005%2520NCAA%2520Purdue%2520499.JPG",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "2005%20NCAA%20Purdue%20499.jpg",
+                    "dimensions": {
+                      "originalWidth": 1632,
+                      "originalHeight": 2464
+                    },
+                    "trackingId": "clw87vctw001g3b73mz678835",
+                    "originalUrl": "2005 NCAA Purdue 499.JPG",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Bring Solutions",
+                "isHidden": false,
+                "description": "<p>This one is important! Leaders often feel like their office is a revolving door of problems to solve. Whenever bringing an issue to your leader, also present some options for solving the problem. Your leader may have thoughts of their own on the matter, but the fact that you took the time to think through solutions will go a long way in displaying your own leadership abilities. Depending on the issue and vantage point, sometimes you may be even more qualified to solve the problem than your leader. &nbsp;</p>"
+              },
+              {
+                "id": "clw88fai000323b73xd2o8roi",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/GAk_kp9ev7yKXsBj.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "isSquare": false,
+                    "crushedKey": "Coach%20Signalling%20Instructions.Early%202000s.jpg",
+                    "dimensions": {
+                      "top": 106,
+                      "left": 0,
+                      "width": 1668,
+                      "height": 1166,
+                      "originalWidth": 1680,
+                      "originalHeight": 2121
+                    },
+                    "trackingId": "clw87vctw001g3b73mz678835",
+                    "originalUrl": "Coach Signalling Instructions.Early 2000s.jpg",
+                    "originalImage": {
+                      "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/U_2uWWncLLZT-7kw-Coach%2520Signalling%2520Instructions.Early%25202000s.jpg",
+                      "type": "image",
+                      "align": "center",
+                      "crushedKey": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/GMWvnnYnkwz1Q8wK.jpg",
+                      "trackingId": "clw87vctw001g3b73mz678835",
+                      "originalUrl": "Coach Signalling Instructions.Early 2000s.jpg",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    },
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Be Open to Feedback",
+                "isHidden": false,
+                "description": "<p>Finally, be open to feedback and take any constructive criticism with an open mind. Remember, there&rsquo;s usually a grain of truth in every bit of feedback, even if the feedback seems severe at the time.&nbsp;</p><p>Giving feedback is a sign of respect and care. Your leader cares enough to offer it to you and believes you have the maturity to receive it. Try not to get defensive about critiques or criticism, but instead use it to propel your best work forward.</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cad0dy00483b79v6gdch53",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cad0dy00493b793s8a32eo",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-15T16:43:53.213Z",
+        "updatedAt": "2024-11-11T00:29:18.309Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Communicating with Your Leader"
+      },
+      {
+        "id": "q6B-KWDxzinjY1JKIOCpBwmqHGu6S7AY",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d630i200043b7c9jm29h1t",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which are an important part of knowing your leader&rsquo;s communication style, or the &ldquo;three rights&rdquo; discussed in this lesson?</p>",
+            "answers": [
+              {
+                "id": "cm0d630i200053b7cfvfgrn0f",
+                "title": "<p>Right tone, right posture, right gestures</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d630i200063b7c02g3y89n",
+                "title": "<p>Right place, right people, right feedback</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d63ttt000k3b7cr7sxe89q",
+                "title": "<p>Right channel, right timing, right message</p>"
+              },
+              {
+                "id": "cm0d64gab000m3b7c7w0rlegm",
+                "title": "<p>None of the above</p>"
+              }
+            ],
+            "correct": "cm0d63ttt000k3b7cr7sxe89q",
+            "corrects": [
+              "cm0d630i200053b7cfvfgrn0f"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d630i200073b7cvyg3vq89",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>How can you optimize your 1:1s with your leader?</p>",
+            "answers": [
+              {
+                "id": "cm0d630i200083b7cg53afb37",
+                "title": "<p>Be positive</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d630i2000a3b7czzoplwtl",
+                "title": "<p>Be prepared</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d630i2000b3b7cznec8b26",
+                "title": "<p>Bring solutions</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d630i200093b7cwkycypch",
+                "title": "<p>All of the above</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d630i200093b7cwkycypch",
+            "corrects": [
+              "cm0d630i200083b7cg53afb37",
+              "cm0d630i200093b7cwkycypch"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d662zl000v3b7cwvslrca0",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>When presenting a problem to your leader, why is it important to provide solutions?</p>",
+            "answers": [
+              {
+                "id": "cm0d662zl000w3b7cyxnajyyd",
+                "title": "<div data-editor-id=\"ea0cc5e6-4082-4027-b674-ffcef4745e69\"><p>Your leader probably can’t solve the issue on their own.</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d662zl000x3b7czd2qmewg",
+                "title": "<p>Thinking through solutions is a key leadership quality.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d66307000y3b7cavfjk4zw",
+                "title": "<p>Leaders rarely have any problems to solve.</p>"
+              },
+              {
+                "id": "cm0d66on600103b7c1n2dpvro",
+                "title": "<p>It shows that you are smarter than your colleagues.</p>"
+              }
+            ],
+            "correct": "cm0d662zl000x3b7czd2qmewg",
+            "corrects": [
+              "cm0d662zl000w3b7cyxnajyyd"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T01:17:59.489Z",
+        "updatedAt": "2024-10-17T20:52:09.936Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "SFOi5-cRz7rzpTWwRuweaeokF660xm-s",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn",
+        "title": "Having Hard Conversations",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm0h7xuq5000x3b7c09pt2wr9",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h7xuq5000y3b7cdys8qd8n",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_christina_reckard_-_how_to_have_difficult_conversations%20%281080p%29.mp4",
+                    "url": "transcoded-pnPH7MFcbzNKe-wm-v4_wil_christina_reckard_-_how_to_have_difficult_conversations%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_christina_reckard_-_how_to_have_difficult_conversations%20%281080p%29.jpg",
+                    "inputKey": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/pnPH7MFcbzNKe-wm-v4_wil_christina_reckard_-_how_to_have_difficult_conversations%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/transcoded-pnPH7MFcbzNKe-wm-v4_wil_christina_reckard_-_how_to_have_difficult_conversations%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_christina_reckard_-_how_to_have_difficult_conversations (1080p).mp4",
+                    "transcodeId": "1727979932411-9cfdko"
+                  }
+                },
+                "caption": "<p>Deep Dive: Having Hard Conversations</p>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19uycpd008j3b74xdtpkjks",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19uycpe008k3b746vk522nt",
+                "media": {
+                  "attachment": {
+                    "key": "L10.1%20Transcript%20How%20to%20Have%20Difficult%20Conversations.pdf",
+                    "size": 62308,
+                    "type": "attachment",
+                    "filename": "GEdrKqj0p7X23dJ6-L10.1%20Transcript%20How%20to%20Have%20Difficult%20Conversations.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L10.1 Transcript How to Have Difficult Conversations.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clyom5kqq007o3b76zei8xhcq",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clyom5kqr007r3b76ajijui03",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/W-wTf3e9VTpDOd9C.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "Coaching%20Staff%20Huddle.Early%202000s.jpg",
+                    "dimensions": {
+                      "top": 99,
+                      "left": 0,
+                      "width": 1677,
+                      "height": 1188,
+                      "originalWidth": 1680,
+                      "originalHeight": 2127
+                    },
+                    "originalUrl": "Coaching Staff Huddle.Early 2000s.jpg",
+                    "originalImage": {
+                      "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/VXhsXgdl3LymdU3V-Coaching%2520Staff%2520Huddle.Early%25202000s.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/oO3OBqOLAraEqesX.jpg",
+                      "originalUrl": "Coaching Staff Huddle.Early 2000s.jpg",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>As a female leader, there are going to be times when hard conversations are necessary, whether with a leader, colleague, or other business associates on the team. As humans, we all tend to naturally shy away from hard conversations, which can be harder for females due to fear of stereotypes or biases and how they might be perceived.</p><p><br></p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clw89g0df006d3b73s5u1152q",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clw89g0dg006e3b73irb0btoe",
+                "date": "Set yourself up for success with these quick tips to make difficult conversations run a lot smoother:",
+                "title": "Have the conversation privately! ",
+                "description": "<p>When defenses are high, they will be even higher in a public setting. It can be intimidating to have a private conversation when conflict needs to be resolved or negative feedback given, but hard conversations are almost always best relayed in private.</p>"
+              },
+              {
+                "id": "clw89g0dg006f3b737uelzfba",
+                "date": "",
+                "media": {
+                  "tmp": {
+                    "image": {
+                      "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/8EmeUntQNJ9m0Yep-stock_image.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/qC_vsVveINILjN0l.jpg",
+                      "originalUrl": "stock-image.jpg",
+                      "useCrushedKey": true
+                    }
+                  }
+                },
+                "title": "Pick the right time.",
+                "description": "<p>As Pat noted, timing is everything in communication, especially when having sensitive conversations. Is first thing in the morning or the very first day someone is back from PTO the best time to have a difficult talk? How about late on a Friday, when everyone is tired and 20 minutes away from the weekend? Pick a time that is not only best for you, but also conducive to your message being received.</p>"
+              },
+              {
+                "id": "clw89hlpp006s3b737y9t63js",
+                "date": "",
+                "title": "Is this a repeat occurrence or a one-time offense? ",
+                "description": "<p>Whether it&rsquo;s happened once (e.g., an insensitive comment) or two or three times, it will still need to be addressed. But acknowledging the frequency of occurrence will be key in <em>how</em> you address it. Was someone having a bad day and speaking thoughtlessly, or is this a repeat behavior?&nbsp;</p>"
+              },
+              {
+                "id": "clw89hy1q006u3b735rb5nfn0",
+                "date": "",
+                "title": "Begin by asking the person how they’re doing and if anything is going on outside of work.",
+                "description": "<p>Here&rsquo;s where emotional intelligence comes into play for savvy leaders. You think you know your colleagues, but you never <em>really</em> know what may be going on, and it helps to know the context for the conversation you&rsquo;re about to have. If someone just had a miscarriage a few days earlier or is upset because a close friend passed away, it&rsquo;s probably not the best time to scold them for parking in the wrong parking space, even if it does need to be addressed eventually. And you won&rsquo;t know unless you ask. Context is key.</p>"
+              },
+              {
+                "id": "clw89iiuo006w3b73zbrigji3",
+                "date": "",
+                "title": "Try to keep it objective and leave out other co-workers.",
+                "description": "<p>Instead of saying something like, &ldquo;People have noticed that you&rsquo;re late&hellip;&rdquo; or &ldquo;Your tone in the last meeting made people feel uncomfortable,&rdquo; stick to the facts. &ldquo;You&rsquo;ve been running behind to the last four team meetings,&rdquo; or &ldquo;In the last meeting, you sounded defensive and frustrated&rdquo; will suffice.</p><p>&nbsp;</p><p>Don&rsquo;t quote other people who haven&rsquo;t agreed to be quoted in the conversation, unless you get their permission. (&ldquo;Javier said your tardiness was affecting his meetings as well.&rdquo;) It would be up to them to have a conversation with that person.</p>"
+              },
+              {
+                "id": "clw89izc9006y3b739d4c18bg",
+                "date": "",
+                "media": {
+                  "tmp": {
+                    "image": {
+                      "key": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/DmfHrqs0YRf1uenq-stock_image.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn/FeNFCAtrEwGv2Wra.jpg",
+                      "originalUrl": "stock-image.jpg",
+                      "useCrushedKey": true
+                    }
+                  }
+                },
+                "title": "Be mindful of your tone; keep it low and slow.",
+                "description": "<p>Do your best to keep frustration and anger out of your voice, even if these are emotions you may be feeling at the time.</p>"
+              },
+              {
+                "id": "clw89jc9k00703b73jeua2hi0",
+                "date": "",
+                "title": "Don’t beat a dead horse. ",
+                "description": "<p>Once the point has been made, leave it. Emphasizing someone&rsquo;s shortcomings over and over will start to erode the conversation and make them defensive</p>"
+              },
+              {
+                "id": "clw89jpro00723b73353xm866",
+                "date": "",
+                "title": "Finally, listen to what the other person has to say. ",
+                "description": "<p>Nothing is more frustrating than being criticized and being kept from being able to say anything. Give them a chance to process what has been said, and listen thoroughly to their response.</p><p>&nbsp;</p><p>With a little intentionality, you can become the master of having hard conversations when needed.</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "timeline",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cad8j2006f3b79el9ubyn0",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cad8j2006g3b79imdumcel",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-15T16:44:02.154Z",
+        "updatedAt": "2024-11-11T00:29:29.048Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Having Hard Conversations"
+      },
+      {
+        "id": "y59xpZDGRn9U9jbqGQwro8mFtsSyWuf7",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d63fo2000c3b7cfj6z6bqe",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is not an effective part of having hard conversations?</p>",
+            "answers": [
+              {
+                "id": "cm0d63fo2000d3b7cnn51w6dx",
+                "title": "<p>Be mindful of tone.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d63fo2000e3b7c2glbgcm7",
+                "title": "<p>Don&rsquo;t beleaguer the issue.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d68epm00153b7cg24fewlq",
+                "title": "<p>Make sure there are witnesses.</p>"
+              },
+              {
+                "id": "cm0d6936j00173b7ctfcqehmd",
+                "title": "<p>Pick the right time.</p>"
+              }
+            ],
+            "correct": "cm0d68epm00153b7cg24fewlq",
+            "corrects": [
+              "cm0d63fo2000d3b7cnn51w6dx"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d63fo2000f3b7czxp13awf",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>As discussed in this lesson, why is it important to consider what may be happening with a colleague outside of work?</p>",
+            "answers": [
+              {
+                "id": "cm0d63fo2000g3b7codiidju7",
+                "title": "<p>You don&rsquo;t want to be left out.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d63fo2000i3b7cyagufray",
+                "title": "<p>The other person may have somewhere else they need to be.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d63fo2000j3b7cgrqang7o",
+                "title": "<p>It helps to have as much context as possible for the conversation.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d63fo2000h3b7c3eqr8u9i",
+                "title": "<p>None of the above</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d63fo2000j3b7cgrqang7o",
+            "corrects": [
+              "cm0d63fo2000g3b7codiidju7",
+              "cm0d63fo2000h3b7c3eqr8u9i"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d6affb001g3b7c3u92p79f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which of the statements below is true when addressing hard conversations?</p>",
+            "answers": [
+              {
+                "id": "cm0d6affb001h3b7cksvttwe4",
+                "title": "<p>You should consider whether this is a one-time or repeat occurrence.</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6affb001i3b7ckm6dz42s",
+                "title": "<p>Avoid speaking for people who aren&rsquo;t in the meeting without permission.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d6affw001j3b7cj44za78n",
+                "title": "<p>Listen to what the other person has to say.</p>"
+              },
+              {
+                "id": "cm0d6aykw001l3b7cm6kr3m12",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d6aykw001l3b7cm6kr3m12",
+            "corrects": [
+              "cm0d6affb001h3b7cksvttwe4"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T01:18:05.913Z",
+        "updatedAt": "2024-10-17T20:52:28.677Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 4,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "uVKe1lJs-45fvr3y3DgPgLrbSLb29-Qp",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn",
+        "title": "Personal Reflections",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clxkx8yju00863b7aaji6fn5g",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clxkx8yjv00873b7a687v21vq",
+                "paragraph": "<p>Refer to your workbook for the following questions and reflections.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clw89lotg008a3b739xuli8vw",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clw89lotn008b3b73kd8vqtgo",
+                "paragraph": "<p>What is your current leader&rsquo;s communication style?<br><br>How about their leader?</p>"
+              },
+              {
+                "id": "clw89lotn008c3b73u8u48gjc",
+                "paragraph": "<p>Which of these three principles do you find most challenging when communicating up?</p>"
+              },
+              {
+                "id": "clw89lotn008d3b73lzeabvol",
+                "paragraph": "<p>What is something specific you can do this week to optimize personal 1:1s with your leader?</p>"
+              },
+              {
+                "id": "clw89mx7k008r3b73329ktt5j",
+                "paragraph": "<p>Think about the last time you had to have a hard conversation at work. How did it go? What could you have done better?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clw89nane008s3b73qzfygjz6",
+                "paragraph": "<p>On a scale of 1-10, how would you rate yourself on having hard conversations at work?</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clw89ngx9008t3b73s63capfd",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clw89ngx9008z3b735fy33s3o",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Sources in this course:</p><p>1. Unless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York.</p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3cadm9z00ah3b798s2gld3j",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3cadm9z00ai3b79phnbl3s1",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-05-15T16:44:12.326Z",
+        "updatedAt": "2024-11-11T00:29:46.560Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Personal Reflections"
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2024-04-04T16:21:16.361Z",
+    "updatedAt": "2024-11-11T00:29:46.560Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Championing Women in Leadership - Powerful Conversations",
+      "format": "zip",
+      "quizId": "y59xpZDGRn9U9jbqGQwro8mFtsSyWuf7",
+      "target": "scorm12",
+      "shareId": "QuvyLbYKj9AWRr_cuWzGFZddL_iQbtH4",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "1-2wfDrDSV4EtMs_W-iIU1XMjyZGHOqn_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "completionPercentage": 100
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": null,
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": false,
+      "allowSearch": true,
+      "colorAccent": "#4267a9",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "ACCENT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "SPLIT_LEFT_IMAGE",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "TINT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": true,
+      "buttonNavigationStyle": "FLOATING",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "defaultLocaleId": null,
+    "description_vNext": "",
+    "title_vNext": "Championing Women in Leadership - Powerful Conversations",
+    "features": {
+      "rise-a-11-y-img-gallery-carousel": true,
+      "rise-block-controls-phase-three": true,
+      "rise-course-navigation": true,
+      "rise-img-dimensions": true,
+      "rise-img-zoom": true,
+      "rise-lazy-load-imgs": true,
+      "rise-scenario-a-11-y": true,
+      "rise-timed-quizzes": true
+    },
+    "authors": [
+      {
+        "id": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "authorName": "Brittni Herron"
+      }
+    ],
+    "bodyTypeface": "Montserrat",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "mondrian": {}
+  },
+  "labelSet": {
+    "id": "YSzfDyNB2NBkeg1ZTnLw_nmm",
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryStartOver": "Start Over",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY",
+      "tabGroup": "Tab",
+      "codeGroup": "Code",
+      "noteGroup": "Note",
+      "quoteGroup": "Quote",
+      "buttonGroup": "Button",
+      "courseDetails": "DETAILS",
+      "feedbackGroup": "Feedback",
+      "accordionGroup": "Accordion",
+      "statementGroup": "Statement",
+      "storylineGroup": "Storyline",
+      "attachmentGroup": "File Attachment",
+      "embedPhotoGroup": "Embedded photo",
+      "embedVideoGroup": "Embedded video",
+      "audioPlayerGroup": "Audio player",
+      "buttonStackGroup": "Button stack",
+      "textOnImageGroup": "Text on image",
+      "timelineLandmark": "Timeline",
+      "urlEmbedLandmark": "URL/Embed",
+      "videoPlayerGroup": "Video player",
+      "bulletedListGroup": "Bulleted list",
+      "checkboxListGroup": "Checkbox list",
+      "imageAndTextGroup": "Image and text",
+      "imageGalleryGroup": "Image gallery",
+      "numberedListGroup": "Numbered list",
+      "flashcardBackLabel": "Flashcard back",
+      "flashcardGridGroup": "Flashcard grid",
+      "nextFlashCardLabel": "Next flashcard",
+      "flashcardFrontLabel": "Flashcard front",
+      "flashcardStackGroup": "Flashcard stack",
+      "knowledgeCheckGroup": "Knowledge check",
+      "hamburgerButtonLabel": "Course Overview Sidebar",
+      "lessonContentLandmark": "Lesson Content",
+      "lessonSidebarLandmark": "Lesson Sidebar",
+      "labeledGraphicLandmark": "Labeled Graphic",
+      "previousFlashCardLabel": "Previous flashcard",
+      "timelineCardGroupPrefix": "Timeline Card",
+      "labeledGraphicBubbleLabel": "Labeled graphic bubble",
+      "labeledGraphicNextMarkerLabel": "Next marker",
+      "labeledGraphicPreviousMarkerLabel": "Previous marker"
+    },
+    "deleted": false,
+    "createdAt": "2023-12-28T17:20:20.171Z",
+    "updatedAt": "2023-12-28T17:20:20.171Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    }
+  ],
+  "media": []
+}

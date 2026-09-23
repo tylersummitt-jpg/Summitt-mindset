@@ -1,0 +1,160 @@
+{
+  "excluded_speakers": [
+    "Katy Kvalvik",
+    "Christina Reckard",
+    "Patty Hoppenstedt",
+    "Christina Gradillas"
+  ],
+  "retired_mini_programs": [
+    {
+      "id": "cw_mp_14",
+      "title": "Championing Women in Leadership: Conclusion",
+      "reason": "The conclusion page pairs a missing Michelle Marciniak video with an excluded Patty Hoppenstedt video, and the rest of the mini-program depends on that page."
+    },
+    {
+      "id": "cw_mp_15",
+      "title": "CWIL Final Quiz",
+      "reason": "Collection-wide final exam from the old single-course certificate model. Each mini-program keeps its own knowledge checks."
+    },
+    {
+      "id": "potl_mp_13",
+      "title": "The Power of Team: Conclusion",
+      "reason": "The only step is a genuinely missing Corinne Milien conclusion video."
+    },
+    {
+      "id": "potl_mp_14",
+      "title": "Power of Team Final Quiz",
+      "reason": "Collection-wide final exam from the old single-course certificate model. Each mini-program keeps its own knowledge checks."
+    }
+  ],
+  "retired_steps": [
+    "dd_mp_03_st_003",
+    "dd_mp_03_st_004",
+    "dd_mp_03_st_005",
+    "dd_mp_03_st_013",
+    "dd_mp_03_st_014",
+    "dd_mp_03_st_015",
+    "cw_mp_01_st_001",
+    "cw_mp_03_st_001",
+    "cw_mp_05_st_001",
+    "cw_mp_08_st_001",
+    "cw_mp_09_st_004",
+    "cw_mp_09_st_005",
+    "cw_mp_10_st_005",
+    "cw_mp_11_st_004",
+    "cw_mp_11_st_005",
+    "cw_mp_13_st_004",
+    "potl_mp_01_st_001",
+    "potl_mp_01_st_006",
+    "potl_mp_07_st_006"
+  ],
+  "partially_curated_steps": [
+    {
+      "id": "cw_mp_07_st_004",
+      "kept": "Nikki Anosike, Deep Dive: Self-Talk and Affirmations, verified Vimeo 1151015040, and the negative-thought, self-talk, and affirmation teaching. Page title is Self-Talk and Affirmations.",
+      "removed": "Christina Gradillas video and the Three Types of Confidence teaching."
+    },
+    {
+      "id": "potl_mp_07_st_005",
+      "kept": "Michelle Marciniak, The Power of Eye Contact, verified Vimeo 1150877322, the Summitt Stare, and the eye-contact photograph.",
+      "removed": "Christina Gradillas video and the tone and general body-language teaching that accompanied it."
+    },
+    {
+      "id": "cw_mp_01_st_004",
+      "kept": "Title IX as a beginning, modern workplace obstacles, and Pat's equal-playing-field point that men are not villains and women are not victims. Source citations remain.",
+      "removed": "Old course roadmap, upcoming-lesson preview, course-scope notes, and dive-in packaging."
+    },
+    {
+      "id": "cw_mp_10_st_007",
+      "status": "PENDING_VIDEO_CANDIDATE",
+      "candidate_vimeo_video_id": "1150877298",
+      "speaker": "Michelle Marciniak",
+      "title": "Remembering Pat: Pat’s Communication Style",
+      "rendered": false,
+      "verified": false,
+      "human_confirmation_required": true,
+      "kept": "Qualifier and filler-word reflections."
+    }
+  ],
+  "partially_curated_quizzes": [
+    {
+      "id": "cw_mp_10_st_006",
+      "kept": ["cw_mp_10_st_006_q01", "cw_mp_10_st_006_q02"],
+      "removed": ["cw_mp_10_st_006_q03"],
+      "minimum_correct": "2 of 2",
+      "reason": "q03 tests the retired Brevity page."
+    },
+    {
+      "id": "cw_mp_13_st_006",
+      "kept": ["cw_mp_13_st_006_q03"],
+      "removed": ["cw_mp_13_st_006_q01", "cw_mp_13_st_006_q02"],
+      "minimum_correct": "1 of 1",
+      "reason": "q01 and q02 test the retired Peer Review page."
+    }
+  ],
+  "restored_quizzes": [
+    {
+      "id": "cw_mp_08_st_003",
+      "kept": ["cw_mp_08_st_003_q01", "cw_mp_08_st_003_q02", "cw_mp_08_st_003_q03"],
+      "minimum_correct": "3 of 3",
+      "reason": "Fully supported by the surviving Be Your Authentic Self lesson."
+    }
+  ],
+  "trimmed_reflections": [
+    "cw_mp_09_st_006_reflection_04",
+    "cw_mp_10_st_007_reflection_01",
+    "cw_mp_10_st_007_reflection_02",
+    "cw_mp_11_st_006_reflection_05",
+    "cw_mp_11_st_006_reflection_06",
+    "cw_mp_11_st_006_reflection_07",
+    "cw_mp_13_st_007_reflection_05",
+    "potl_mp_07_st_008_reflection_05",
+    "potl_mp_07_st_008_reflection_06",
+    "potl_mp_07_st_008_reflection_07"
+  ],
+  "display_title_overrides": {
+    "collection": {
+      "power_of_team_leader": "The Power of Team"
+    },
+    "mini_programs": {
+      "cw_mp_06": "The Strength of Female Leadership",
+      "cw_mp_07": "Climbing With Confidence",
+      "cw_mp_08": "Owning Your Game",
+      "cw_mp_09": "In It for the Long Haul",
+      "cw_mp_10": "Communicate for Success",
+      "cw_mp_11": "Powerful Conversations",
+      "cw_mp_12": "Negotiation for Women",
+      "cw_mp_13": "Thriving Together",
+      "potl_mp_01": "Why Is Team Important?",
+      "potl_mp_02": "The Big Chair",
+      "potl_mp_03": "Responsibility and Ownership",
+      "potl_mp_04": "Learning to Macromanage",
+      "potl_mp_05": "Personal Brand: What's Yours?",
+      "potl_mp_06": "Communicate to Win",
+      "potl_mp_07": "Fairways and Forest Fires",
+      "potl_mp_08": "Different Strokes, Different Folks",
+      "potl_mp_09": "Listening to Lead",
+      "potl_mp_10": "You Have to Demonstrate Loyalty to Receive It",
+      "potl_mp_11": "How to Be Loyal to Your Team",
+      "potl_mp_12": "How to Be a Leader No One Will Want to Leave"
+    },
+    "video_titles": "Member-facing video titles drop a leading Lesson N: prefix. Deep Dive: and Remembering Pat: labels stay when the video is still shown.",
+    "principle_2_groups": [
+      "2.1 Pat in Her Own Words",
+      "2.2 Introduction to Modeling",
+      "2.3 How to Model",
+      "2.4 Replicating"
+    ]
+  },
+  "unresolved_candidate_video": {
+    "step_id": "cw_mp_10_st_007",
+    "status": "PENDING_VIDEO_CANDIDATE",
+    "speaker": "Michelle Marciniak",
+    "title": "Remembering Pat: Pat’s Communication Style",
+    "candidate_vimeo_video_id": "1150877298",
+    "applied": false,
+    "rendered": false,
+    "verified": false,
+    "human_confirmation_required": true
+  }
+}

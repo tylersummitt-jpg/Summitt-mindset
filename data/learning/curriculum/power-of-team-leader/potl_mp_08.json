@@ -1,0 +1,708 @@
+{
+  "id": "potl_mp_08",
+  "collection_id": "power_of_team_leader",
+  "collection_title": "The Power of Team",
+  "title": "Different Strokes, Different Folks",
+  "description": "For example, let's say you’re very direct and assertive, and you’re communicating with someone who is more reserved. If you come on too strong and don't take the time to listen to their perspective, you may make them feel intimidated. On the other hand, if you’re too passive and don't express your opinions clearly, the other person may perceive you as indecisive.",
+  "sequence": 8,
+  "estimated_minutes": 30,
+  "source_mini_program_id": "potl_mp_08",
+  "curriculum_version": 1,
+  "steps": [
+    {
+      "id": "potl_mp_08_st_001",
+      "source_step_id": "potl_mp_08_st_001",
+      "sequence": 1,
+      "title": "Different Strokes, Different Folks ",
+      "blocks": [
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_001_image_06.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "markdown",
+          "markdown": "It’s a fact of life: Not all people communicate in the same way, and it's important to understand different personality types and adjust your own communication style accordingly. Each personality type has its own style, preferences, and tendencies, and if you fail to adjust your approach, you may end up inadvertently alienating a team member.\n\nFor example, let's say you’re very direct and assertive, and you’re communicating with someone who is more reserved. If you come on too strong and don't take the time to listen to their perspective, you may make them feel intimidated. On the other hand, if you’re too passive and don't express your opinions clearly, the other person may perceive you as indecisive.\n\nCommunicating differently to different types can help you build stronger relationships and encourage greater understanding. When you tailor your approach to fit another person’s needs, you can help them feel valued and respected.\n\nIn another example, let's say you’re working on a team project with someone who is very detail-oriented and analytical. You may find that they prefer to receive information in a highly structured and organized format, even though this isn’t your style. By taking the time to present your ideas in a clear and logical way, you can help them feel more comfortable and engaged in the process.\n\nIt’s a question of personalities and finding the most effective language to use with a player. Some people, you can rip their heads off, and they still won’t give you their full attention. Others will break at a single word.”"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_001_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_001_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_001_image_03.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_03.png",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877444",
+          "visible_title": "Different Strokes, Different Folks",
+          "speaker": "Danni Varlan"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_08_st_002",
+      "source_step_id": "potl_mp_08_st_002",
+      "sequence": 2,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_08_st_002_q01",
+              "prompt": "Communicating differently to different types can_______________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Help you build stronger relationships and encourage understanding."
+                },
+                {
+                  "id": "c2",
+                  "text": "Add a lot of stress to your daily routine."
+                },
+                {
+                  "id": "c3",
+                  "text": "Eliminate miscommunication entirely."
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "potl_mp_08_st_002_q02",
+              "prompt": "Which of these is a consequence of failing to adjust your communication style to different personalities?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "You may end up inadvertently alienating a team member."
+                },
+                {
+                  "id": "c2",
+                  "text": "It opens the door for miscommunication."
+                },
+                {
+                  "id": "c3",
+                  "text": "Your communication may not be understood as clearly."
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            },
+            {
+              "question_id": "potl_mp_08_st_002_q03",
+              "prompt": "Which of these might help a team member who is detail-oriented and analytical?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Making a lot of small talk"
+                },
+                {
+                  "id": "c2",
+                  "text": "Presenting the information in a through and orderly way"
+                },
+                {
+                  "id": "c3",
+                  "text": "Offering to go out to lunch to socialize the issue"
+                },
+                {
+                  "id": "c4",
+                  "text": "Including lots of humor and pizazz in your presentation"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_08_st_003",
+      "source_step_id": "potl_mp_08_st_003",
+      "sequence": 3,
+      "title": "Extroverts vs. Introverts",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "One of the simplest differences in personality styles is extroverts vs. introverts. Extroverts are outgoing, talkative, and enjoy being around other people. They often think out loud and process information verbally. In contrast, introverts are more reserved and introspective. They tend to think before they speak and may need time to process information internally. To communicate effectively with extroverts, try to engage them in conversation and give them opportunities to express their ideas. Use open-ended questions and active listening skills to show you’re interested in what they have to say.\n\nOn the other hand, to communicate effectively with introverts, try to give them space and time to process information. Give them clear, concise instructions and allow them to work independently. For example, if you are working with an introverted colleague, you might send them an email outlining the project requirements and asking them to review the information before meeting to discuss further. This can give them the time they need to think through their ideas and come to the conversation prepared.\n\nExercise"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_003_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_003_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "sort",
+          "prompt": "Allowing uninterrupted focus time, with a quiet place to work",
+          "categories": [
+            "Introverts",
+            "Extroverts"
+          ],
+          "cards": [
+            {
+              "id": "allowing_uninterrupted_focus_time_with_a_q",
+              "text": "Allowing uninterrupted focus time, with a quiet place to work",
+              "correct_category": "Introverts"
+            },
+            {
+              "id": "starting_each_meeting_off_with_icebreaker",
+              "text": "Starting each meeting off with icebreaker questions",
+              "correct_category": "Extroverts"
+            },
+            {
+              "id": "encouraging_daily_face_to_face_interaction",
+              "text": "Encouraging daily face-to-face interactions among the team",
+              "correct_category": "Extroverts"
+            },
+            {
+              "id": "providing_clear_directions_and_allowing_te",
+              "text": "Providing clear directions and allowing team members to work independently",
+              "correct_category": "Introverts"
+            },
+            {
+              "id": "sending_meeting_agendas_in_advance_with_lo",
+              "text": "Sending meeting agendas in advance with lots of detail",
+              "correct_category": "Introverts"
+            },
+            {
+              "id": "planning_extra_social_activities_outside_o",
+              "text": "Planning extra social activities outside of project meetings",
+              "correct_category": "Extroverts"
+            },
+            {
+              "id": "avoiding_calling_on_team_members_on_the_sp",
+              "text": "Avoiding calling on team members on the spot in meetings",
+              "correct_category": "Introverts"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_08_st_004",
+      "source_step_id": "potl_mp_08_st_004",
+      "sequence": 4,
+      "title": "Thinkers vs. Feelers",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Another difference is between “thinkers” and “feelers.” Thinkers are logical and analytical. They prefer to focus on facts and data and may have a more detached approach to problem-solving. Feelers, on the other hand, are more emotional and empathetic. They are focused on relationships and may prioritize the feelings and needs of others.\n\nTo communicate effectively with thinkers, try to provide them with clear, data-driven information. Use objective language and avoid emotional appeals. If you are presenting an idea to a group of thinkers, you might start by providing them with a data-driven analysis of the situation and the potential benefits of your idea. You can then invite questions and discussion to help them explore the idea more deeply.\n\nOn the other hand, to communicate effectively with feelers, try to acknowledge their emotions and show empathy for their perspective. Use language that highlights the potential impact on people and relationships. If you’re presenting an idea to a group of feelers, you might start by acknowledging the emotional impact of the situation and how your idea could help improve the situation. You can then invite questions and discussion to help them explore the idea more deeply from an emotional perspective.\n\nExercise"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_004_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_004_image_02.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "sort",
+          "prompt": "Use precise language with data to support your argument",
+          "categories": [
+            "Thinkers",
+            "Feelers"
+          ],
+          "cards": [
+            {
+              "id": "use_precise_language_with_data_to_support",
+              "text": "Use precise language with data to support your argument",
+              "correct_category": "Thinkers"
+            },
+            {
+              "id": "start_by_creating_as_much_enthusiasm_as_po",
+              "text": "Start by creating as much enthusiasm as possible for your presentation",
+              "correct_category": "Feelers"
+            },
+            {
+              "id": "avoid_too_much_emotional_language",
+              "text": "Avoid too much emotional language",
+              "correct_category": "Thinkers"
+            },
+            {
+              "id": "show_the_pros_and_cons_in_as_objective_ter",
+              "text": "Show the pros and cons in as objective terms as possible",
+              "correct_category": "Thinkers"
+            },
+            {
+              "id": "be_clear_and_concise_around_what_the_issue",
+              "text": "Be clear and concise around what the issue is",
+              "correct_category": "Thinkers"
+            },
+            {
+              "id": "incorporate_engaging_high_energy_elements",
+              "text": "Incorporate engaging, high-energy elements",
+              "correct_category": "Feelers"
+            },
+            {
+              "id": "create_as_much_tension_as_possible_and_mot",
+              "text": "Create as much tension as possible and motivate your audience to feel the pain",
+              "correct_category": "Feelers"
+            },
+            {
+              "id": "use_other_people_s_testimonials_and_feelin",
+              "text": "Use other people’s testimonials and feelings to back up your argument",
+              "correct_category": "Feelers"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_08_st_005",
+      "source_step_id": "potl_mp_08_st_005",
+      "sequence": 5,
+      "title": "Personality Testing",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "To go beyond the general assessments of “introvert-extrovert” or “thinker-feeler,” you can also gain insight into personality types through personality trait assessments. Pat famously used the Predictive Index assessment with her players in the 1990s, relying on the tool to understand each player’s natural motivations. But there are many tools and assessments to choose from nowadays."
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "types_of_personality_tests",
+              "title": "Types of Personality Tests",
+              "body": "Types of Personality Tests"
+            },
+            {
+              "id": "here_are_a_few_of_the_more_common_tools",
+              "title": "Here are a few of the more common tools you may find in the space.",
+              "body": "Here are a few of the more common tools you may find in the space.\n(Scroll through to complete this element)"
+            },
+            {
+              "id": "summary",
+              "title": "Summary",
+              "body": "Summary"
+            },
+            {
+              "id": "consider_what_personality_trait_assessme",
+              "title": "Consider what personality trait assessment tool might work best for your team members, an…",
+              "body": "Consider what personality trait assessment tool might work best for your team members, and how you can share those results with the team."
+            },
+            {
+              "id": "predictive_index_pi",
+              "title": "Predictive Index (PI)",
+              "body": "Predictive Index (PI)"
+            },
+            {
+              "id": "the_predictive_index_pi_is_based_on_the",
+              "title": "The Predictive Index (PI) is based on the theory of behavioral drives, which suggests tha…",
+              "body": "The Predictive Index (PI) is based on the theory of behavioral drives, which suggests that individuals have innate needs that drive their behavior in the workplace. It measures four primary personality factors:\nDominance – the drive to exert influence and control over one's environment\nExtraversion – the drive to interact with and gain energy from one's environment\nPatience – the drive to maintain stability and consistency in one's environment\nFormality – the drive to conform to rules and structure in one's environment\nBased on an individual's responses to the PI assessment, their scores on these four factors are plotted on a grid that generates a personality profile. The profile helps predict their leadership style, communication style, decision-making approach, and ability to work independently or as part of a team. For example, an individual with a high Dominance score is likely to be assertive and confident, while someone with a high Patience score may prefer a steady and predictable environment."
+            },
+            {
+              "id": "myers_briggs_type_indicator_mbti",
+              "title": "Myers-Briggs Type Indicator (MBTI)",
+              "body": "Myers-Briggs Type Indicator (MBTI)"
+            },
+            {
+              "id": "the_myers_briggs_type_indicator_is_a_per",
+              "title": "The Myers-Briggs Type Indicator is a personality trait assessment that measures an indivi…",
+              "body": "The Myers-Briggs Type Indicator is a personality trait assessment that measures an individual's preferences on four dimensions: Extraversion vs. Introversion, Sensing vs. Intuition, Thinking vs. Feeling, and Judging vs. Perceiving. Based on these preferences, an individual is assigned one of 16 possible personality types, such as ISTJ (Introverted, Sensing, Thinking, Judging) or ENFP (Extraverted, Intuitive, Feeling, Perceiving). Knowing an individual's MBTI type can help you understand their communication style and how they generally prefer to receive information, in addition to other personality insights."
+            },
+            {
+              "id": "the_enneagram",
+              "title": "The Enneagram",
+              "body": "The Enneagram"
+            },
+            {
+              "id": "the_enneagram_is_a_personality_assessmen",
+              "title": "The Enneagram is a personality assessment that categorizes individuals into nine differen…",
+              "body": "The Enneagram is a personality assessment that categorizes individuals into nine different personality types based on their core fears, desires, and motivations. These types include the Reformer, the Helper, the Achiever, the Individualist, the Investigator, the Loyalist, the Enthusiast, the Challenger, and the Peacemaker. Understanding an individual's Enneagram type can help you understand their underlying motivations and needs. For example, a Peacemaker may prioritize harmony and avoiding conflict, while someone with an Enthusiast type might prioritize relationships and fun."
+            },
+            {
+              "id": "disc_profile",
+              "title": "DISC Profile",
+              "body": "DISC Profile"
+            },
+            {
+              "id": "the_disc_profile_is_another_traditionall",
+              "title": "The DISC profile is another traditionally used personality trait assessment that measures…",
+              "body": "The DISC profile is another traditionally used personality trait assessment that measures an individual's Dominance, Influence, Steadiness, and Conscientiousness. These factors are plotted on a graph to generate a personality profile that can help predict an individual's communication style and behavior in different situations with a percentage given for each type."
+            },
+            {
+              "id": "big_five_personality_traits",
+              "title": "Big Five Personality Traits",
+              "body": "Big Five Personality Traits"
+            },
+            {
+              "id": "the_big_five_personality_traits_are_a_se",
+              "title": "The Big Five personality traits are a set of five broad dimensions that are used to descr…",
+              "body": "The Big Five personality traits are a set of five broad dimensions that are used to describe human personality. These traits include Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism. Understanding an individual's Big Five personality traits can help you understand their communication style, values, and preferences. An individual with a high Openness score may be more creative and open to new ideas, while someone with a high Conscientiousness score might prioritize organization and planning."
+            },
+            {
+              "id": "strengthsfinder",
+              "title": "StrengthsFinder",
+              "body": "StrengthsFinder"
+            },
+            {
+              "id": "strengthsfinder_is_a_personality_trait_a",
+              "title": "StrengthsFinder is a personality trait assessment that measures an individual's top five…",
+              "body": "StrengthsFinder is a personality trait assessment that measures an individual's top five unique strengths across 34 different themes, such as Strategic, Achiever, Empathy, or Adaptability. Understanding an individual's strengths can help you communicate with them in a way that acknowledges their unique skills and abilities in the workplace."
+            },
+            {
+              "id": "hogan_personality_inventory_hpi",
+              "title": "Hogan Personality Inventory (HPI)",
+              "body": "Hogan Personality Inventory (HPI)"
+            },
+            {
+              "id": "the_hogan_personality_inventory_is_a_per",
+              "title": "The Hogan Personality Inventory is a personality trait assessment that measures an indivi…",
+              "body": "The Hogan Personality Inventory is a personality trait assessment that measures an individual's personality in terms of three main categories: Reputation, Identity, and Motives. Reputation refers to how an individual is perceived by others, Identity refers to how an individual sees themselves, and Motives refers to the underlying drivers of an individual's behavior. Understanding an individual's HPI profile can help you understand their communication style, their strengths, and their potential weaknesses."
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Listen to Danni Varlan of the Tennessee Board of Regents explain the importance of using learning styles with your team."
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_005_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877546",
+          "visible_title": "The Importance of Learning Styles",
+          "speaker": "Danni Varlan"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_08_st_006",
+      "source_step_id": "potl_mp_08_st_006",
+      "sequence": 6,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_08_st_006_q01",
+              "prompt": "What is the value of personality trait assessments? (check any that apply)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Understanding a team member’s natural motivation"
+                },
+                {
+                  "id": "c2",
+                  "text": "Knowing what financial background your employees come from"
+                },
+                {
+                  "id": "c3",
+                  "text": "Understanding a team member’s communication style"
+                },
+                {
+                  "id": "c4",
+                  "text": "Learning your employees’ work history"
+                },
+                {
+                  "id": "c5",
+                  "text": "Measuring team members’ IQ"
+                },
+                {
+                  "id": "c6",
+                  "text": "Determining what mix of introverts vs. extroverts are on your team"
+                },
+                {
+                  "id": "c7",
+                  "text": "Determining individual work styles and preferences"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c3",
+                "c6",
+                "c7"
+              ]
+            },
+            {
+              "question_id": "potl_mp_08_st_006_q02",
+              "prompt": "Which is one thing leaders can learn from personality assessments?",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Who should be promoted"
+                },
+                {
+                  "id": "c2",
+                  "text": "How to work best with your team"
+                },
+                {
+                  "id": "c3",
+                  "text": "Who is inherently lazy"
+                },
+                {
+                  "id": "c4",
+                  "text": "Who will never be leadership material"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "potl_mp_08_st_006_q03",
+              "prompt": "Which of these are commonly used or popular personality assessment tools, as mentioned in this lesson? (check any that apply)",
+              "question_type": "multiple_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "StrengthsFinder"
+                },
+                {
+                  "id": "c2",
+                  "text": "DISC Profile"
+                },
+                {
+                  "id": "c3",
+                  "text": "IQ profiling"
+                },
+                {
+                  "id": "c4",
+                  "text": "Predictive Index (PI)"
+                },
+                {
+                  "id": "c5",
+                  "text": "Myers-Briggs Type Indicator"
+                },
+                {
+                  "id": "c6",
+                  "text": "Compass and Arrow"
+                },
+                {
+                  "id": "c7",
+                  "text": "The Enneagram"
+                },
+                {
+                  "id": "c8",
+                  "text": "Background checks"
+                }
+              ],
+              "correct_choice_ids": [
+                "c1",
+                "c2",
+                "c4",
+                "c5",
+                "c7"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_08_st_007",
+      "source_step_id": "potl_mp_08_st_007",
+      "sequence": 7,
+      "title": "Criticism and Praise",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Finally, when learning to communicate with different personality types, one principle Pat always believed in was supplementing any necessary criticisms with praise and knowing how to use both wisely.\n\nWhen is it appropriate to use harsh words? Only you can be the judge of that. But I’ll say this: They must be used in combination with praise. Negative reinforcement must be used sparingly.”\n\nRealizing that praise was necessary to keep her team going as well as the routine critiques and criticisms, Pat developed a system called “rebound and two points” to help her players remember the use of both. Whenever an opportunity for improvement or chastisement was issued, the player would say, “Rebound!” to show they understood and knew the criticism was for the best. When praise was given, they were to say, “Two points!” to indicate that they heard the praise and it had been received. The verbal reinforcement was necessary, Pat believed, to ensure the players weren’t hearing and internalizing only the criticism.\n\nIn summary, whether using praise or criticism, communicating with extroverts, introverts, or other diverse personalities, using the right communication style can make all the difference. The next time you're in a conversation with someone, take a moment to consider their communication style and adjust your approach accordingly. You might be surprised at how much more effective your communication becomes."
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_007_image_01.jpg",
+          "alt": "Lesson image"
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_08_st_007_image_02.jpg",
+          "alt": "Lesson image"
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_08_st_008",
+      "source_step_id": "potl_mp_08_st_008",
+      "sequence": 8,
+      "title": "Knowledge Check",
+      "blocks": [
+        {
+          "type": "quiz",
+          "minimum_correct": 3,
+          "questions": [
+            {
+              "question_id": "potl_mp_08_st_008_q01",
+              "prompt": "Fill in the blank (from Pat): “Harsh words must be used in combination with ____________.”",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Discipline"
+                },
+                {
+                  "id": "c2",
+                  "text": "Praise"
+                },
+                {
+                  "id": "c3",
+                  "text": "Constructive feedback"
+                },
+                {
+                  "id": "c4",
+                  "text": "None of the above"
+                }
+              ],
+              "correct_choice_ids": [
+                "c2"
+              ]
+            },
+            {
+              "question_id": "potl_mp_08_st_008_q02",
+              "prompt": "When delivering praise or criticism, ________________.",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Using the right communication style can make all the difference."
+                },
+                {
+                  "id": "c2",
+                  "text": "Limiting feedback to positives is key."
+                },
+                {
+                  "id": "c3",
+                  "text": "Avoid direct confrontation."
+                },
+                {
+                  "id": "c4",
+                  "text": "All of the above."
+                }
+              ],
+              "correct_choice_ids": [
+                "c1"
+              ]
+            },
+            {
+              "question_id": "potl_mp_08_st_008_q03",
+              "prompt": "When it came to giving criticism and praise, Pat used to use the following system with her players:",
+              "question_type": "single_choice",
+              "choices": [
+                {
+                  "id": "c1",
+                  "text": "Home Game, Road Game"
+                },
+                {
+                  "id": "c2",
+                  "text": "Acceptable, Unacceptable"
+                },
+                {
+                  "id": "c3",
+                  "text": "Win, Loss"
+                },
+                {
+                  "id": "c4",
+                  "text": "Rebound, Two Points"
+                }
+              ],
+              "correct_choice_ids": [
+                "c4"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "potl_mp_08_st_009",
+      "source_step_id": "potl_mp_08_st_009",
+      "sequence": 9,
+      "title": "Personal Reflections",
+      "blocks": [
+        {
+          "type": "markdown",
+          "markdown": "Pick two new tests to research for potential use with your team.\n\nSources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
+        },
+        {
+          "type": "video",
+          "vimeo_video_id": "1150877405",
+          "visible_title": "Slowing Down to Interact with Fans",
+          "speaker": "Alexis Hornbuckle"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_08_st_009_reflection_01",
+          "prompt": "Do you have more introverts or extroverts on your team?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_08_st_009_reflection_02",
+          "prompt": "What percentage do you think you have of thinkers vs. feelers?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_08_st_009_reflection_03",
+          "prompt": "Which is your natural personality type?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_08_st_009_reflection_04",
+          "prompt": "What specific ways do you prefer to be communicated with?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_08_st_009_reflection_05",
+          "prompt": "Name three ways you can communicate with the following personalities:"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_08_st_009_reflection_06",
+          "prompt": "What personality tests have you used in the past (if any)?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_08_st_009_reflection_07",
+          "prompt": "When communicating with your team directly, what percentage would you estimate is criticism vs. praise?"
+        },
+        {
+          "type": "reflection",
+          "question_id": "potl_mp_08_st_009_reflection_08",
+          "prompt": "If praise is below 30 percent, how could you work to improve that percentage?"
+        }
+      ]
+    }
+  ]
+}

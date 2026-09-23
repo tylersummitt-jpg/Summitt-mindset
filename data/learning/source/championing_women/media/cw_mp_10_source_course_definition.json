@@ -1,0 +1,2898 @@
+{
+  "course": {
+    "id": "4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-",
+    "originalId": null,
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "selectedAuthorId": "none",
+    "color": "#4666a9",
+    "navigationMode": "",
+    "title": "Championing Women in Leadership - Communicate for Success",
+    "sharePassword": "",
+    "description": "",
+    "shareId": "6mHGRHTrSDqwgPkF6MyQClX3Nx1EzMYf",
+    "copyOf": "INSVY4v5HuNPnXeEqqqyiEG-j8HCiUoW",
+    "order": "1728405253638",
+    "fonts": null,
+    "media": {
+      "image": {
+        "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/hxPZ-6xIecjtVzRR-CWILLogo_Color_Transparent.png",
+        "type": "image",
+        "width": 166,
+        "height": 40,
+        "scalar": 2,
+        "crushedKey": "4pC47YwNILX3nOfG.png",
+        "originalUrl": "CWILLogo_Color_Transparent.png",
+        "useCrushedKey": true
+      }
+    },
+    "coverImage": {
+      "alpha": 100,
+      "media": {
+        "image": {
+          "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/MDzexsdRy8TfpCe8-PSLG_CWIL_TItleGraphic.png",
+          "crushedKey": "mgn2Yt3M_2JXvNfc.jpg",
+          "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "id": "pkLp6ASDQ1YcBzrrlKSTHbkI5g3kInZu",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-",
+        "title": "Getting the Message Across",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv6wmwf600023b78gpgmeyui",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv6wmwf700033b78katkz7dy",
+                "media": {
+                  "video": {
+                    "key": "v4_final_wil_danni_varlan_communicating_for_success_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-L_7_KR7vYpd8tJSf-v4_final_wil_danni_varlan_communicating_for_success_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_final_wil_danni_varlan_communicating_for_success_clip_01%20%281080p%29.jpg",
+                    "duration": 181,
+                    "inputKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/L_7_KR7vYpd8tJSf-v4_final_wil_danni_varlan_communicating_for_success_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/transcoded-L_7_KR7vYpd8tJSf-v4_final_wil_danni_varlan_communicating_for_success_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_final_wil_danni_varlan_communicating_for_success_clip_01 (1080p).mp4",
+                    "transcodeId": "1727979285468-lbcow8"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6wn1jr000g3b78updrbkez",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv6wn1jr000h3b78j6oxy7k7",
+                "media": {
+                  "attachment": {
+                    "key": "L9%20Transcript%20Communicating%20for%20Success.pdf",
+                    "size": 49114,
+                    "type": "attachment",
+                    "filename": "ySMxGrPiuIJ26v_t-L9%20Transcript%20Communicating%20for%20Success.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L9 Transcript Communicating for Success.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxkmm4jw00313b79m7tdoope",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clxkmm4jw00343b799g4xe1o3",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/o9Vk1Ue1HgJq3NXl.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "Pat%20and%20player.jpg",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 0,
+                      "width": 1412,
+                      "height": 965,
+                      "originalWidth": 1680,
+                      "originalHeight": 1143
+                    },
+                    "originalUrl": "Pat and player.JPG",
+                    "originalImage": {
+                      "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/3qLsB0XtHDkt6-z3-Pat%2520and%2520player.JPG",
+                      "type": "image",
+                      "crushedKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/muJV1eZfKg2XBAFD.jpg",
+                      "originalUrl": "Pat and player.JPG",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>The hallmark of a great colleague and great leader is often measured by communication. Good communication is an important part of any successful team, and an even more important skill for female leaders. Pat herself was an excellent communicator. In her Definite Dozen, which is a list of rules for success, Definite Dozen principle #4 states: <em>Learn to be a Great Communicator</em>. She also believed in three key components that make up effective communication:</p><ul><li><strong><em>Tone</em></strong></li><li><em><strong>Situation</strong></em></li><li><strong><em>Nonverbal Communication</em></strong></li></ul>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca4td2001c3b796jy93zzq",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca4td3001d3b79vcwninyf",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-03-28T15:15:00.692Z",
+        "updatedAt": "2024-11-11T00:22:56.187Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 0,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Getting the Message Across"
+      },
+      {
+        "id": "_ucZc1ozu4-tf7dD9d7gqboKbzRI1cyJ",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-",
+        "title": "Communicating for Success",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv6y79ph00883b78wuebcjir",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clv6y79ph00893b78gmjp6x7u",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/WHbyBI1RyedXXM4M.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "20120319_WBB_NCAA_DEPAUL_SUMMITT%2C%20P_PMR_0201.jpg",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 0,
+                      "width": 1680,
+                      "height": 1111,
+                      "originalWidth": 1680,
+                      "originalHeight": 1543
+                    },
+                    "originalUrl": "20120319_WBB_NCAA_DEPAUL_SUMMITT, P_PMR_0201.JPG",
+                    "originalImage": {
+                      "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/NuZ7JKlu9Hfu6g01-20120319_WBB_NCAA_DEPAUL_SUMMITT%252C%2520P_PMR_0201.JPG",
+                      "type": "image",
+                      "crushedKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/q-VjlgVuDXkeBaDT.jpg",
+                      "originalUrl": "20120319_WBB_NCAA_DEPAUL_SUMMITT, P_PMR_0201.JPG",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6xwcel002t3b78zas1aba3",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6xwcem002z3b786fkug5yj",
+                "heading": "<p><strong>Tone</strong></p>",
+                "paragraph": "<p>Pat was famous for her authoritative presence on the sidelines, but would be the first to clarify that it wasn&rsquo;t the only communication style she employed as a leader:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm1f40ndu006g3b74qi4t0oiy",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm1f40ndv006j3b74l9k93amd",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/gbLjSTl2VsgtVG0N-Final%2520Four.2000.Summitt%2520%2526%2520Catchings.jpg",
+                    "type": "image",
+                    "crushedKey": "Final%20Four.2000.Summitt%20%26%20Catchings.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 2113
+                    },
+                    "originalUrl": "Final Four.2000.Summitt & Catchings.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"8017ad6f-b7e0-4315-8f25-40d184736b12\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">\"I employ three completely different modes of communication as a coach,” she once said. “Off the court, I am a confidante and substitute mother. In that situation, my chief role is to listen, advise, and comfort. In practice, I speak as a teacher who sometimes needs to employ severe methods in order to maintain the attention of the students.</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">In a game, I issue blunt commands and motivate our players to endure adverse situations. It’s a competitive situation with no time for politeness or misunderstanding. My different tones, taken out of context, would be counterproductive or even downright offensive in any other situation.\"</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clzsuo1zq00403b75vr6ytab0",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clzsuo1zr00413b756q59d9pc",
+                "paragraph": "<p>Knowing how and when to use different tones appropriately can be the difference between coming off as authoritative in a situation or weak, sensitive or insensitive, excited or unenthusiastic.&nbsp;</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6y00jj003f3b783rettrfa",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6y00jk003l3b786tbpozw0",
+                "heading": "<p><strong>Situation</strong></p>",
+                "paragraph": "<p>The second component of personal communication is being able to appropriately assess each unique situation to determine the right level of communication.&nbsp;</p><p>&ldquo;Frequently, knowing what to say to someone is all about time and location,&rdquo; Pat once said. &ldquo;You don&rsquo;t always make the right call. There&rsquo;s a judgment involved. You have to ask yourself, &lsquo;What does this person need today?&rsquo; And you have to watch his or her body language.&rdquo;</p><p>As Pat used to say, part of knowing how to communicate successfully is knowing what each person needs at the moment: &ldquo;Do they need a pat on the back, or a kick in the rear?&rdquo;</p><p>Context, she believed, was important. &ldquo;Circumstances dictate how you need to speak or whether you need to just shut up and listen,&rdquo; she said. &ldquo;You don&rsquo;t holler at a golf tournament. You don&rsquo;t whisper in a forest fire.&rdquo;</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6y1bqu00443b786puul2rd",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clv6y1bqu00453b78634e97mf",
+                "type": "intro",
+                "title": "Nonverbal Communication",
+                "isHidden": false,
+                "description": "<p>Nonverbal communication plays a significant role in conveying messages, feelings, and intentions. Mastering the art of nonverbal communication can enhance your professional and personal interactions. Here are a few tips for doing just that:</p>"
+              },
+              {
+                "id": "clv6y1bqu00463b78hz2rx4sm",
+                "type": "summary",
+                "title": "Summary",
+                "isHidden": false,
+                "description": "<p>To summarize, nonverbal communication plays a significant role in conveying messages, feelings, and intentions. Mastering the art of nonverbal communication can enhance your professional and personal interactions.</p>"
+              },
+              {
+                "id": "clv6y21xl004l3b7813vaunrq",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/-MUwziUiOo5BCq9-.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "isSquare": false,
+                    "crushedKey": "summitt_0179.jpg",
+                    "dimensions": {
+                      "top": 287,
+                      "left": 0,
+                      "width": 1680,
+                      "height": 1158,
+                      "originalWidth": 1680,
+                      "originalHeight": 2525
+                    },
+                    "trackingId": "clv6y1bqu00443b786puul2rd",
+                    "originalUrl": "summitt_0179.JPG",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/HncPfHuIs33eLJJC-summitt_0179.JPG",
+                      "type": "image",
+                      "align": "center",
+                      "crushedKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/qi6m-ovIK06rKTBe.jpg",
+                      "trackingId": "clv6y1bqu00443b786puul2rd",
+                      "originalUrl": "summitt_0179.JPG",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    },
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Maintain Eye Contact",
+                "isHidden": false,
+                "description": "<p>Eye contact is a large part of nonverbal communication. It signifies confidence, attentiveness, and sincerity. However, it&#39;s essential to strike a balance. Too much eye contact may come across as intimidating, while too little might suggest disinterest. A powerful gaze like Pat Summitt&rsquo;s &ldquo;Summitt Stare,&rdquo; for example, communicated strength and assertiveness as part of her personal brand. </p>"
+              },
+              {
+                "id": "clv6y2g7l004n3b78drorr3ih",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/AvtbgoAcjbSg1oWy.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "isSquare": false,
+                    "crushedKey": "summitt_4030.jpg",
+                    "dimensions": {
+                      "top": 209,
+                      "left": 0,
+                      "width": 1680,
+                      "height": 1728,
+                      "originalWidth": 1680,
+                      "originalHeight": 2525
+                    },
+                    "trackingId": "clv6y1bqu00443b786puul2rd",
+                    "originalUrl": "summitt_4030.JPG",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/ORryi9uiplfCUZhZ-summitt_4030.JPG",
+                      "type": "image",
+                      "align": "center",
+                      "crushedKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/cc6DVzpz8GL5YkFr.jpg",
+                      "trackingId": "clv6y1bqu00443b786puul2rd",
+                      "originalUrl": "summitt_4030.JPG",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    },
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Confident Posture",
+                "isHidden": false,
+                "description": "<p>A strong and confident posture can significantly impact how others perceive you. A straight posture exudes self-assurance and professionalism. Stand tall with your shoulders back and head held high. Avoid slouching or crossing your arms, as these gestures may convey insecurity. It can be helpful in this area to film yourself or get feedback from friends. Plus, there are all types of devices on the market nowadays to help you work on your posture.</p>"
+              },
+              {
+                "id": "clv6y2tax004p3b78xsqldgku",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/C2w3R0HSw_vdHCTx.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "isSquare": false,
+                    "crushedKey": "summitt_8821.jpg",
+                    "dimensions": {
+                      "top": 142,
+                      "left": 176,
+                      "width": 1224,
+                      "height": 866,
+                      "originalWidth": 1680,
+                      "originalHeight": 1116
+                    },
+                    "trackingId": "clv6y1bqu00443b786puul2rd",
+                    "originalUrl": "summitt_8821.JPG",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/I4aJrBAJ9CzJ6r4e-summitt_8821.JPG",
+                      "type": "image",
+                      "align": "center",
+                      "crushedKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/QgJNX_2c1gqc0kZF.jpg",
+                      "trackingId": "clv6y1bqu00443b786puul2rd",
+                      "originalUrl": "summitt_8821.JPG",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    },
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Gesture with Purpose",
+                "isHidden": false,
+                "description": "<p>Gestures can enhance verbal communication, but they should be purposeful and not distracting. Use gestures that complement your speech, emphasizing key points. Avoid excessive or erratic movements, as they can be distracting or detract from your message.&nbsp;</p><p>Use your hands purposefully to enhance your verbal communication. Some individuals have nervous habits that can detract from their nonverbal communication. Whether it&#39;s playing with hair, tapping fingers, or fidgeting, being aware of and minimizing these habits is crucial for professionalism.</p>"
+              },
+              {
+                "id": "clv6y39dl004r3b78eg9ulrh0",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/r8kA7irXCFhiS8yG.jpg",
+                    "type": "image",
+                    "align": "center",
+                    "isSquare": false,
+                    "crushedKey": "summitt_8884.jpg",
+                    "dimensions": {
+                      "top": 55,
+                      "left": 415,
+                      "width": 1037,
+                      "height": 697,
+                      "originalWidth": 1680,
+                      "originalHeight": 1118
+                    },
+                    "trackingId": "clv6y1bqu00443b786puul2rd",
+                    "originalUrl": "summitt_8884.JPG",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/tRcr-vNpMqipkof--summitt_8884.JPG",
+                      "type": "image",
+                      "align": "center",
+                      "crushedKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/h5nwYtFyiWgQ24oF.jpg",
+                      "trackingId": "clv6y1bqu00443b786puul2rd",
+                      "originalUrl": "summitt_8884.JPG",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true,
+                      "trackingContext": "block:process"
+                    },
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Facial Expressions",
+                "isHidden": false,
+                "description": "<p>Pay attention to your facial expressions, ensuring they align with the context of the conversation. A genuine smile or look of interested attention in what is happening at the moment can instantly create a positive atmosphere. </p>"
+              },
+              {
+                "id": "clv6y3n40004t3b78wn4ps1b9",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/YgEDk6GtY4L0ojCk-summitt_4314.JPG",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "summitt_4314.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1118
+                    },
+                    "trackingId": "clv6y1bqu00443b786puul2rd",
+                    "originalUrl": "summitt_4314.JPG",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Active Listening",
+                "isHidden": false,
+                "description": "<p>Nonverbal cues are equally essential in demonstrating active listening. Nodding, maintaining eye contact, and mirroring the speaker&#39;s expressions show that you are fully engaged. Avoid distractions and give your full attention to the person speaking.</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "stepLabel": "Nonverbal Communicator",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca50r9004l3b79oqi86r62",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca50r9004m3b79aapwop5t",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-19T17:23:45.716Z",
+        "updatedAt": "2024-11-11T00:23:05.881Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Communicating for Success"
+      },
+      {
+        "id": "SfymutgmRxQW1Oj6vwY6RSt7ydDIULst",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d5sw9d00043b75ie3z6wo7",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What are Pat&rsquo;s three components of effective communication discussed in this lesson?</p>",
+            "answers": [
+              {
+                "id": "cm0d5sw9d00053b75w71o159q",
+                "title": "<p>Speech, actions, listening</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5sw9d00063b75ru9exm7s",
+                "title": "<p>Authority, empathy, projection</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5tm7b003n3b759b7iqntj",
+                "title": "<p>Tone, situation, non-verbal</p>"
+              },
+              {
+                "id": "cm0d5u8rx003p3b75nave8qo9",
+                "title": "<p>None of the above</p>"
+              }
+            ],
+            "correct": "cm0d5tm7b003n3b759b7iqntj",
+            "corrects": [
+              "cm0d5sw9d00053b75w71o159q"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d5sw9d00073b75s70ob357",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is not an example of non-verbal communication?</p>",
+            "answers": [
+              {
+                "id": "cm0d5sw9d00083b752xtlq11x",
+                "title": "<p>Posture</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5sw9d000a3b754zokrn9l",
+                "title": "<p>Tone of voice</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5sw9d000b3b75g312zgug",
+                "title": "<p>Eye contact</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5sw9d00093b75xjmnp524",
+                "title": "<p>Facial expressions</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d5sw9d000a3b754zokrn9l",
+            "corrects": [
+              "cm0d5sw9d00083b752xtlq11x",
+              "cm0d5sw9d00093b75xjmnp524"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d5vhwl003y3b752c5j5zjw",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"66b54187-75d5-4d3e-ad51-4a496788b1f9\"><p><span style=\"font-size: 1.6rem\">What does active listening involve?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm0d5vhwl003z3b7520yw3pfv",
+                "title": "<p>Giving someone your undivided attention</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5vhwl00403b75pk1wr8hm",
+                "title": "<p>Nodding and maintaining eye contact</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5vhx800413b7535zyjm1r",
+                "title": "<p>Mirroring the speaker to show you are fully engaged</p>"
+              },
+              {
+                "id": "cm0d5w11700433b753lv546js",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d5w11700433b753lv546js",
+            "corrects": [
+              "cm0d5vhwl003z3b7520yw3pfv"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T01:10:08.135Z",
+        "updatedAt": "2024-10-17T20:53:02.464Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "7byeTl21BhhYZQ71R93jg4VLMXw3KC_5",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-",
+        "title": "Qualifiers and Filler Words",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv6ypewm00be3b786xio5480",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6ypewm00bk3b780oz4t81u",
+                "heading": "<p>Eliminate Filler Words and Qualifiers</p>",
+                "paragraph": "<p>Studies show that on average women are more verbal than men, but both sexes fall prone to an overuse of filler words, which can clutter the effectiveness of your message. Samples of these include:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0elh24z00273b7585k5am6u",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm0elh25000283b75g85eg3hw",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/39DEjVRqVMLX_h3K.png",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "Screenshot%202024-08-28%20at%208.16.32%E2%80%AFPM.png",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 244,
+                      "width": 1180,
+                      "height": 579,
+                      "originalWidth": 1680,
+                      "originalHeight": 579
+                    },
+                    "originalUrl": "Screenshot 2024-08-28 at 8.16.32 PM.png",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/fajtRwHrlLlmdxI9-Screenshot%25202024-08-28%2520at%25208.16.32%25E2%2580%25AFPM.png",
+                      "type": "image",
+                      "crushedKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/WbTaTE8K7URuqp9g.png",
+                      "originalUrl": "Screenshot 2024-08-28 at 8.16.32 PM.png",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6yyu1c00ci3b7861eqxdv7",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6yyu1d00co3b78g0th4t9q",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Try eliminating these words from your communication for more effective delivery.&nbsp;</p><p>Also, avoid the overuse of <strong>qualifying</strong> <strong>words</strong> as they water down your communication. Women can be more prone to these than men, so be on the lookout for them in your everyday communications:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6z2en400f23b783ylib9ky",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6z2enb00f83b78qpb1p75u",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<ul><li><em><strong>It&#39;s just that</strong></em></li><li><strong><em>If I&#39;m not mistaken</em></strong></li><li><strong><em>I&#39;m not entirely sure, but</em></strong></li><li><strong><em>It might be the case that</em></strong></li><li><strong><em>It could be argued that</em></strong></li><li><strong><em>From my perspective</em></strong></li><li><strong><em>I may be off base, but</em></strong></li><li><strong><em>It&#39;s just my impression that</em></strong></li><li><strong><em>If I recall correctly</em></strong></li><li><strong><em>To a certain degree</em></strong></li><li><strong><em>It appears that</em></strong></li><li><strong><em>As far as I know</em></strong></li><li><strong><em>As I see it</em></strong></li><li><em><strong>I suppose</strong></em></li></ul>"
+              },
+              {
+                "id": 1,
+                "paragraph": "<div data-editor-id=\"965ac582-a245-4d91-a09f-c3bc9e71453b\"><ul><li><p><strong><em>I'm not sure, but</em></strong></p></li><li><p><strong><em>I could be wrong</em></strong></p></li><li><p><strong><em>Sorry, but</em></strong></p></li><li><p><strong><em>Maybe we should</em></strong></p></li><li><p><strong><em>It seems like</em></strong></p></li><li><p><strong><em>I might be mistaken, but</em></strong></p></li><li><p><strong><em>I'm not an expert, but</em></strong></p></li><li><p><strong><em>Correct me if I'm wrong</em></strong></p></li><li><p><strong><em>I think</em></strong></p></li><li><p><strong><em>Possibly</em></strong></p></li><li><p><strong><em>In my opinion</em></strong></p></li><li><p><strong><em>From what I understand</em></strong></p></li><li><p><strong><em>To some extent</em></strong></p></li><li><p><strong><em>To tell you the truth</em></strong></p></li></ul></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "two column",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0elndox00pj3b75c2fleeqq",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0elndoy00pk3b754m31dmpb",
+                "paragraph": "<p><strong>Sort the cards into their correct categories below.</strong></p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0elk70g003p3b75h69y7zki",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm0elk70h003q3b75e8sr3512",
+                "title": "Kind of",
+                "pileId": 1
+              },
+              {
+                "id": "cm0elk70h003r3b759ipb0vrb",
+                "title": "It's just that",
+                "pileId": 2
+              },
+              {
+                "id": "cm0ellrfg00c13b7577d1krxl",
+                "title": "If I'm not mistaken",
+                "pileId": 2
+              },
+              {
+                "id": "cm0ellwsj00ep3b75bd5v8stc",
+                "title": "If I recall correctly",
+                "pileId": 2
+              },
+              {
+                "id": "cm0elm30c00hd3b75qsn06oip",
+                "title": "Correct me if I'm wrong",
+                "pileId": 2
+              },
+              {
+                "id": "cm0elm8kc00k13b75uwr8b4di",
+                "title": "To some extent",
+                "pileId": 2
+              },
+              {
+                "id": "cm0elmnoi00mp3b75vdd1951n",
+                "title": "Sort of",
+                "pileId": 1
+              },
+              {
+                "id": "cm0elmq1q00mr3b75ek01fxwd",
+                "title": "Um",
+                "pileId": 1
+              },
+              {
+                "id": "cm0elmruk00mt3b75pstwwp0j",
+                "title": "To tell you the truth",
+                "pileId": 1
+              },
+              {
+                "id": "cm0elmy1q00mv3b75o8v4rm7l",
+                "title": "Somewhat",
+                "pileId": 1,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Filler Words"
+              },
+              {
+                "id": 2,
+                "title": "Qualifiers"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm07i540v00283j7504wuu4jo",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm07i540v00293j75h3ky7f0j",
+                "media": {
+                  "storyline": {
+                    "src": "4dOJUGe4RgLlXXMN/story.html",
+                    "meta": {
+                      "stage": {
+                        "width": 720,
+                        "height": 540
+                      },
+                      "title": "I’m not where I need to be.",
+                      "player": {
+                        "name": "unified",
+                        "width": 740,
+                        "height": 635
+                      },
+                      "scenes": [
+                        {
+                          "title": "Untitled Scene"
+                        }
+                      ],
+                      "slides": [
+                        {
+                          "id": "6bVAjMbQpVs",
+                          "title": "Stop for a minute and consider what filler or qualifying words you need to eliminate from your communication. Take three to five minutes and make a list of the top five. Consider making yourself a swear jar of sorts for when you use these words.",
+                          "scene_index": "1.1"
+                        },
+                        {
+                          "id": "6rPMuyk3tMV",
+                          "title": "Results Slide",
+                          "scene_index": "1.2"
+                        }
+                      ],
+                      "version": "3.77.30587.0",
+                      "course_id": "5jJ0yklSWHQ",
+                      "thumbnail": "story_content/thumbnail.jpg"
+                    },
+                    "type": "storyline",
+                    "title": "Qualifiers and Filler Words",
+                    "thumbnail": "review/uploads/5pG3PMMhlR2nP9py/6-pa-ttua-caye.png",
+                    "processing": false,
+                    "contentPrefix": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/4dOJUGe4RgLlXXMN"
+                  }
+                }
+              }
+            ],
+            "family": "360",
+            "variant": "storyline",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca5har008a3b7976m59z8s",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca5has008b3b7906zd5fga",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-19T17:45:35.058Z",
+        "updatedAt": "2024-11-11T00:23:30.201Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Qualifiers and Filler Words"
+      },
+      {
+        "id": "mz_cl1tdwEtJqB_qnNfRVwEzXsBWCemX",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-",
+        "title": "Brevity",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv6z5as500ga3b78tum1pj1d",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6z5as500gg3b78z6r8j225",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Finally, one of the last components to stellar communications as a leader is brevity. Men typically use fewer words than women, but brevity is an underrated skill almost everyone can benefit from.&nbsp;</p><p>Brevity is most essential in your day-to-day communications for voice mails, emails, texts, or phone calls. Here are a few simple recommendations:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6z5v2f00gw3b78bes2vy1i",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "clv6z5v2f00gy3b78e5w1zxbw",
+                "title": "Voicemails",
+                "description": "<div data-editor-id=\"dc2806b4-1cb3-497e-9bef-1024feb1a5ac\"><p>Keep voicemails 30 seconds or less. The point of a voicemail should be to leave one or two sentences with enough information to solicit a callback, not leave an entire monologue with all the details in someone’s voice inbox.&nbsp;</p></div>"
+              },
+              {
+                "id": "clv6z5v2f00gz3b78fbklb4na",
+                "title": "Texts",
+                "description": "<p>Because texts are already supposed to be short and sweet, anything over two or three sentences can come across as hitting your point too hard or warranting a phone call instead.</p>"
+              },
+              {
+                "id": "clv6z6f7u00hk3b78261f57l2",
+                "media": {},
+                "title": "Emails",
+                "description": "<p>For emails, two to three short paragraphs should suffice. More than three paragraphs may come across differently than intended and may warrant a phone call or meeting to clear up the issue instead. <br><br></p><p>Be direct&mdash;clearly state the purpose of the email in the opening lines, and once you&rsquo;ve typed a draft, review your emails to eliminate redundant phrases and information. Resist the urge to provide excessive background information in the email, and use special punctuation sparingly, such as exclamation points or too many question marks.&nbsp;</p><p>&nbsp;</p>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive",
+            "variant": "accordion",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6z7n7k00hn3b7869usc9vs",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6z7n7k00ht3b78746i4307",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"2b7924d7-a409-49c4-9367-011fc0f39852\"><p>In the spirit of brevity, we’ll stop there, but to determine where you fall on the scale of brevity, consider getting some peer feedback on your communications. Ask a colleague or trusted friend to show you where you can improve if this area of communication is a challenge for you.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h7hzeq001x3b7bwvi05drn",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h7hzer00253b7b7e8ly5rq",
+                "heading": "<p><strong>Deep Dive: Tone and Non-Verbals</strong></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h7ipyb002n3b7b532j98jr",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h7ipyc002o3b7br2k7y8we",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_christina_gradillas_-_communication__using_tone_%26_non-verbals_clip_03%20%281080p%29%20%281%29.mp4",
+                    "url": "transcoded-5eFxNYMmpcZz-HI--v4_wil_christina_gradillas_-_communication__using_tone_%2526_non-verbals_clip_03%2520(1080p)%2520(1).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_christina_gradillas_-_communication__using_tone_%26_non-verbals_clip_03%20%281080p%29%20%281%29.jpg",
+                    "duration": 539,
+                    "inputKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/5eFxNYMmpcZz-HI--v4_wil_christina_gradillas_-_communication__using_tone_%26_non-verbals_clip_03%20(1080p)%20(1).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/transcoded-5eFxNYMmpcZz-HI--v4_wil_christina_gradillas_-_communication__using_tone_%2526_non-verbals_clip_03%2520(1080p)%2520(1).0000000.jpg",
+                    "originalUrl": "v4_wil_christina_gradillas_-_communication__using_tone_&_non-verbals_clip_03 (1080p) (1).mp4",
+                    "transcodeId": "1728334301028-a58gw1"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19uuo4g00fn3b748jhtzmfc",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19uuo4h00fo3b7431y3oe1y",
+                "media": {
+                  "attachment": {
+                    "key": "L9.1%20Transcript%20Tone%20and%20Non-verbals.pdf",
+                    "size": 66271,
+                    "type": "attachment",
+                    "filename": "YMc4UQAfx1zzscGe-L9.1%20Transcript%20Tone%20and%20Non-verbals.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L9.1 Transcript Tone and Non-verbals.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h7iv0e00343b7blh396d45",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h7iv0e00353b7b1yfwaeln",
+                "paragraph": "<div data-editor-id=\"67e5500e-1bfe-4fda-9bd3-8d6005281c40\"><p><span style=\"color: black; text-decoration: inherit\"><strong>Tone of voice</strong> and body language are often overlooked parts of effective communication, especially</span> when you're in a leadership role. Think about how many times a situation has gone from “eh” to “Oh no!” just because someone’s tone was off. We’ve all been there—raising our voice when we’re excited or letting emotions like frustration or anger sneak into our words. But here’s the thing: mastering your tone can make a world of difference.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h7k8ux003u3b7bwvm2kgg6",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm0h7k8uy003v3b7b5qqls81c",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/E48rWs9vgj2PttNm.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "AdobeStock_512120348.jpg",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 294,
+                      "width": 1386,
+                      "height": 535,
+                      "originalWidth": 1680,
+                      "originalHeight": 535
+                    },
+                    "originalUrl": "AdobeStock_512120348.jpeg",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/Ggen1He-ElL8UHtC-AdobeStock_512120348.jpeg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/asezrHYvmIu3S699.jpg",
+                      "originalUrl": "AdobeStock_512120348.jpeg",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p><span style=\"color: black; text-decoration: inherit\">Similarly, <strong>body language</strong> plays an underrecognized role in communicating in the workplace. </span>The way you carry yourself can scream confidence—or not—even before you say a word. Ever noticed how some people just command the room? It’s not magic; it’s body language. Good posture, eye contact, and not jiggling your leg like you’ve had too much coffee can make a huge impact in how you’re perceived.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h7py9x005d3b7b6pggfyt0",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm0h7py9y005e3b7bvxofxnw4",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/43EiCou8yZ8Xhvs5.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "AdobeStock_406790401.jpg",
+                    "dimensions": {
+                      "top": 25,
+                      "left": 702,
+                      "width": 926,
+                      "height": 594,
+                      "originalWidth": 1680,
+                      "originalHeight": 619
+                    },
+                    "originalUrl": "AdobeStock_406790401.jpeg",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/u96PspT7FomqmrR6-AdobeStock_406790401.jpeg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/AfUoN3x9aupeKFS4.jpg",
+                      "originalUrl": "AdobeStock_406790401.jpeg",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>And then there’s your face. Yep, that expressive mug of yours can either be your best friend or your worst enemy in communication. Ever been on a Zoom call and realized your <strong>facial expressions </strong>were betraying your inner thoughts? Maybe you have the kind of face that shows every emotion, or maybe you’ve got a poker face that makes you look like you’re plotting something. Either way, it’s worth getting some feedback—ask a trusted colleague to let you know if your face is sending mixed signals.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h7ki63004f3b7b7j78wldy",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h7ki63004g3b7bof67h04k",
+                "paragraph": "<p>Sure, nobody’s perfect—we all have our quirks—but with a little practice, you can take your communication skills from good to <em>great</em>. And who knows? You might just surprise yourself with how much you can grow.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6z7wag00i93b78vv3sf15j",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6z7wah00if3b78zfpwdnq3",
+                "heading": "<p><strong>Conclusion</strong></p>",
+                "paragraph": "<p>In summary, communication is a skill you practice continually. Great leaders never arrive, and are frequently revisiting the components above to see where they can improve. Make it a part of your own leadership toolkit to get regular feedback in these areas so you&rsquo;re continually taking your game to the next level.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca66ib00mg3b79k1dcadm3",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca66ic00mh3b79g3sdw9yb",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-19T17:46:18.393Z",
+        "updatedAt": "2024-11-11T00:23:59.957Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Brevity"
+      },
+      {
+        "id": "ezamwnsf1APmiYUNhU5Zauqd0sd6mJTm",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm0d5t336000c3b75ajy9sc65",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What are &ldquo;filler&rdquo; words?</p>",
+            "answers": [
+              {
+                "id": "cm0d5t336000d3b75v1gww13s",
+                "title": "<p>A way of beating around the bush when you don&rsquo;t want to be direct</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5t336000e3b75rpafw9o0",
+                "title": "<p>Words that clutter the effectiveness of your message</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5wqmx004a3b75mbm8mc49",
+                "title": "<p>Things you say when you don&rsquo;t really know what to say</p>"
+              },
+              {
+                "id": "cm0d5xbti004c3b7548vybmh6",
+                "title": "<p>None of the above.</p>"
+              }
+            ],
+            "correct": "cm0d5t336000e3b75rpafw9o0",
+            "corrects": [
+              "cm0d5t336000d3b75v1gww13s"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d5t336000f3b75tsubln5c",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Which is an example of &ldquo;qualifying&rdquo; words?</p>",
+            "answers": [
+              {
+                "id": "cm0d5t336000g3b75e9bakaor",
+                "title": "<p>&ldquo;The best-case scenario is&hellip;&rdquo;</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5t336000i3b75ew7b4vv4",
+                "title": "<p>&ldquo;One downside is&hellip;&rdquo;</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5t336000j3b750444n3f6",
+                "title": "<p>&ldquo;I&rsquo;m not sure, but...&rdquo;</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5t336000h3b75f6dehffb",
+                "title": "<p>None of the above</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm0d5t336000j3b750444n3f6",
+            "corrects": [
+              "cm0d5t336000g3b75e9bakaor",
+              "cm0d5t336000h3b75f6dehffb"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d5z37r004n3b757f30e9sh",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What are a few tips for brevity, as discussed in this lesson:</p>",
+            "answers": [
+              {
+                "id": "cm0d5z37r004o3b75mmxed041",
+                "title": "<div data-editor-id=\"f6414aae-52df-425d-a582-6713b778f201\"><p>Keep voicemails to 30 seconds or less.</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5z37r004p3b75kpvaeqgn",
+                "title": "<p>Limit emails to 2-3 paragraphs or less.</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d5z38e004q3b75jpika8hg",
+                "title": "<p>Avoid text messages that are longer than 2-3 sentences.</p>"
+              },
+              {
+                "id": "cm0d5zmga004s3b75okowixm1",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d5zmga004s3b75okowixm1",
+            "corrects": [
+              "cm0d5z37r004o3b75mmxed041"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "timer": false,
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-28T01:10:14.036Z",
+        "updatedAt": "2024-10-17T20:53:39.217Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 5,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "jwJw3ovU7psH6ZGfJt-2qGUccB3Q2OSe",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-",
+        "title": "Personal Reflections",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm0h7vkro00en3b7bo9nylczs",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h7vkro00et3b7b1qfjg3bl",
+                "heading": "<p><strong>Remembering Pat: Pat's Communication Style</strong></p>",
+                "paragraph": "<p>Pat was known as a master communicator—who sometimes left you in no doubt.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h7wb3w00fd3b7b7e5mitrl",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h7wb3x00fe3b7bcxywg10b",
+                "media": {
+                  "video": {
+                    "key": "v5_wil_michelle_marciniak_-_remembering_pat_-_pat%27s_communication_style_clip_06%20%281080p%29.mp4",
+                    "url": "transcoded-zR9m0SX6GnoIDlv1-v5_wil_michelle_marciniak_-_remembering_pat_-_pat's_communication_style_clip_06%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_wil_michelle_marciniak_-_remembering_pat_-_pat%27s_communication_style_clip_06%20%281080p%29.jpg",
+                    "duration": 79,
+                    "inputKey": "rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/zR9m0SX6GnoIDlv1-v5_wil_michelle_marciniak_-_remembering_pat_-_pat's_communication_style_clip_06%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-/transcoded-zR9m0SX6GnoIDlv1-v5_wil_michelle_marciniak_-_remembering_pat_-_pat's_communication_style_clip_06%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_wil_michelle_marciniak_-_remembering_pat_-_pat's_communication_style_clip_06 (1080p).mp4",
+                    "transcodeId": "1727979656808-eklr4s"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19uvd2400nk3b74ia6y05gg",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19uvd2400nl3b744txxxnhj",
+                "media": {
+                  "attachment": {
+                    "key": "L9.2%20Transcript%20Remembering%20Pat%20Communciation%20Style.pdf",
+                    "size": 49201,
+                    "type": "attachment",
+                    "filename": "Vmb1N0djBcFHxU8o-L9.2%20Transcript%20Remembering%20Pat%20Communciation%20Style.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L9.2 Transcript Remembering Pat Communciation Style.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6z93py00jg3b78tj2kkcil",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6z93pz00jm3b78wzk41hmj",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Refer to your workbook for the following questions and reflections.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6z94jg00k23b78vxaog3mu",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clv6z94jg00k33b78bg0tlr2r",
+                "paragraph": "<p>Write the name of a coworker who excels in each of these areas:</p><ul><li>Tone:</li><li>Situation:</li><li>Nonverbal communication:</li><li>Eye contact:</li><li>Posture:</li><li>Gestures:</li><li>Facial expressions:</li></ul>"
+              },
+              {
+                "id": "clv6zajv400ki3b78pbryhscb",
+                "paragraph": "<p>Of the three types of communication Pat outlined, which of these do you currently struggle with the most, and why:</p><ul><li>Tone</li><li>Situation</li><li>Nonverbal communication</li></ul>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv6z94jg00k53b784u1b399b",
+                "paragraph": "<p>Of the nonverbal communication types listed, which do you think you are the best at currently?</p><ul><li>Eye contact</li><li>Posture</li><li>Gestures</li><li>Facial expressions</li><li>Active listening</li></ul>"
+              },
+              {
+                "id": "clv6zd8mc00kj3b78hom9nqsl",
+                "paragraph": "<p>How often do you use qualifier words in everyday conversation?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv6zdiiz00kk3b78tpbgqpjf",
+                "paragraph": "<p>Which two qualifier or filler words listed in this lesson can you eliminate this week?</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6zdve900kl3b7868ptxmkh",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6zdvea00kr3b780ykwzkrf",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Sources in this course:<br><br>1. Unless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York.</p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca6ebp00po3b79r2zirgaz",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca6ebp00pp3b79a52urvto",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-19T17:46:22.742Z",
+        "updatedAt": "2024-11-11T00:24:09.694Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 4,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Personal Reflections"
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2024-04-04T16:20:14.180Z",
+    "updatedAt": "2024-11-11T00:24:09.694Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Championing Women in Leadership - Communicate for Success",
+      "format": "zip",
+      "quizId": "ezamwnsf1APmiYUNhU5Zauqd0sd6mJTm",
+      "target": "scorm12",
+      "shareId": "6mHGRHTrSDqwgPkF6MyQClX3Nx1EzMYf",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "4CmEIfMHLBVYrXP0u1w8O4yogq_fpB3-_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": "cm07i540v00283j7504wuu4jo",
+      "completeWith": "reporting",
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "completionPercentage": 100
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": null,
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": false,
+      "allowSearch": true,
+      "colorAccent": "#4666a9",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "SPLIT_LEFT_IMAGE",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "coverImageColor": "LIGHT",
+      "navigationStyle": "LIGHT",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": true,
+      "animateBlockEntrance": true,
+      "navigationRestricted": true,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "defaultLocaleId": null,
+    "description_vNext": "",
+    "title_vNext": "Championing Women in Leadership - Communicate for Success",
+    "features": {
+      "rise-a-11-y-img-gallery-carousel": true,
+      "rise-block-controls-phase-three": true,
+      "rise-course-navigation": true,
+      "rise-img-dimensions": true,
+      "rise-img-zoom": true,
+      "rise-lazy-load-imgs": true,
+      "rise-scenario-a-11-y": true,
+      "rise-timed-quizzes": true
+    },
+    "authors": [
+      {
+        "id": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "authorName": "Brittni Herron"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "bodyTypeface": "Montserrat",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "mondrian": {}
+  },
+  "labelSet": {
+    "id": "YSzfDyNB2NBkeg1ZTnLw_nmm",
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryStartOver": "Start Over",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY",
+      "tabGroup": "Tab",
+      "codeGroup": "Code",
+      "noteGroup": "Note",
+      "quoteGroup": "Quote",
+      "buttonGroup": "Button",
+      "courseDetails": "DETAILS",
+      "feedbackGroup": "Feedback",
+      "accordionGroup": "Accordion",
+      "statementGroup": "Statement",
+      "storylineGroup": "Storyline",
+      "attachmentGroup": "File Attachment",
+      "embedPhotoGroup": "Embedded photo",
+      "embedVideoGroup": "Embedded video",
+      "audioPlayerGroup": "Audio player",
+      "buttonStackGroup": "Button stack",
+      "textOnImageGroup": "Text on image",
+      "timelineLandmark": "Timeline",
+      "urlEmbedLandmark": "URL/Embed",
+      "videoPlayerGroup": "Video player",
+      "bulletedListGroup": "Bulleted list",
+      "checkboxListGroup": "Checkbox list",
+      "imageAndTextGroup": "Image and text",
+      "imageGalleryGroup": "Image gallery",
+      "numberedListGroup": "Numbered list",
+      "flashcardBackLabel": "Flashcard back",
+      "flashcardGridGroup": "Flashcard grid",
+      "nextFlashCardLabel": "Next flashcard",
+      "flashcardFrontLabel": "Flashcard front",
+      "flashcardStackGroup": "Flashcard stack",
+      "knowledgeCheckGroup": "Knowledge check",
+      "hamburgerButtonLabel": "Course Overview Sidebar",
+      "lessonContentLandmark": "Lesson Content",
+      "lessonSidebarLandmark": "Lesson Sidebar",
+      "labeledGraphicLandmark": "Labeled Graphic",
+      "previousFlashCardLabel": "Previous flashcard",
+      "timelineCardGroupPrefix": "Timeline Card",
+      "labeledGraphicBubbleLabel": "Labeled graphic bubble",
+      "labeledGraphicNextMarkerLabel": "Next marker",
+      "labeledGraphicPreviousMarkerLabel": "Previous marker"
+    },
+    "deleted": false,
+    "createdAt": "2023-12-28T17:20:20.171Z",
+    "updatedAt": "2023-12-28T17:20:20.171Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    }
+  ],
+  "media": []
+}

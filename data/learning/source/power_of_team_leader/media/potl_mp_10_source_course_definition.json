@@ -1,0 +1,2407 @@
+{
+  "course": {
+    "id": "MPympnpx3W3aexFvV6Fmx8RiPtB3_07X",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "veXt3_4B7W7VH3uFyP-YPvmwKcCBaHgX",
+    "copyOf": "Tvreti_lA9Ko2PA3fqHsBLp6XsgSvXw-",
+    "order": "1756506396355",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/akkvjedOVtzUwkww-PoT_Thumbnails_Leader_Course%25209.png",
+          "crushedKey": "MBjZHXtfZ8npMmb0.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Course 9.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "MPympnpx3W3aexFvV6Fmx8RiPtB3_07X",
+        "createdAt": "2025-01-28T20:41:47.255Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "5QddzCn7nbaVToRM8jGCsSIErZQgCuf8",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "You Have to Demonstrate Loyalty to Receive It",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T16:50:34.362Z",
+        "items": [
+          {
+            "id": "cm6nwfdm900023b78h066nrf0",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nwfdm900033b78we9zcofo",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_joan_cronan_you_have_to_demonstrate_loyalty_to_receive_it%20%281080p%29%20%281%29.mp4",
+                    "url": "transcoded-E8lZ-WbW4svVANaf-v5_pot_joan_cronan_you_have_to_demonstrate_loyalty_to_receive_it%2520(1080p)%2520(1).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_joan_cronan_you_have_to_demonstrate_loyalty_to_receive_it%20%281080p%29%20%281%29.jpg",
+                    "duration": 273,
+                    "inputKey": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/E8lZ-WbW4svVANaf-v5_pot_joan_cronan_you_have_to_demonstrate_loyalty_to_receive_it%20(1080p)%20(1).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/transcoded-E8lZ-WbW4svVANaf-v5_pot_joan_cronan_you_have_to_demonstrate_loyalty_to_receive_it%2520(1080p)%2520(1).0000000.jpg",
+                    "originalUrl": "v5_pot_joan_cronan_you_have_to_demonstrate_loyalty_to_receive_it (1080p) (1).mp4",
+                    "transcodeId": "1754918681271-zomgf9"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "ed72486a-3b2d-42d4-803f-ebe355137721"
+          },
+          {
+            "id": "cmar11xfd002m3b79ma5in4is",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar11xfe002n3b79a3hlvr38",
+                "paragraph": "<div data-editor-id=\"cbe27ea4-a1a6-4301-9bbf-f984f0e57edc\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "71ed568a-2591-4ad9-b197-8f739b15446d"
+          },
+          {
+            "id": "cm6nwfi8x000j3b78e8mchxwf",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nwfi8x000k3b788wgxf880",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%209%20You%20Have%20to%20Demonstrate%20Loyalty%20to%20Receive%20It.pdf",
+                    "size": 256779,
+                    "type": "attachment",
+                    "filename": "JSTBZoDr5OpbBSrW-Lesson%209%20You%20Have%20to%20Demonstrate%20Loyalty%20to%20Receive%20It.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 9 You Have to Demonstrate Loyalty to Receive It.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "554733ab-fc43-482a-8f63-04d5823eec47"
+          },
+          {
+            "id": "cm6nwfkax00103b78dntyk06z",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nwfkax00163b78ygmqz7ce",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"7d4d4f98-e6cd-4215-9196-7d9049cbeed1\"><p>Ah, employee loyalty. A lost art, right? With employees changing jobs every few years, people being more transient in general, and an ever-changing workplace, it feels like the days of 20- or 30-year employees and the “company” man or woman are gone.</p><p>This feeling isn’t completely unfounded. According to <em>Forbes</em>, the average tenure for an employee in recent years is around 4.1 years, offset by the fact that nearly 38 percent of employees quit within the first year.<span style=\"color: black; text-decoration: inherit\"><sup>1</sup> </span><em>And why not?</em>, you might ask. People have more options. People have more needs. There are more industries and companies than ever to choose from, and they’re more diverse.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "967c359a-ba0e-463d-86a2-73025eeaeeeb"
+          },
+          {
+            "id": "cm6nwg5nj001r3b78lhy0lxqr",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6nwg5nk001s3b783z2up4ez",
+                "name": "<div data-editor-id=\"6d031f8b-a705-409e-a323-77394514d818\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em> – Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"3d9d3120-d636-4c9d-8133-e3442b7ec2c8\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>Loyalty is a selfless proposition. You won’t ever have it unless you are willing to give it away first.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/iQFXxcOOxgFrURJ8-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "5a35591b-b303-4db7-8246-2ef6d2b2571d"
+          },
+          {
+            "id": "cmar18wzm00443b79x4m12k11",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar18wzn00453b79av42qmt9",
+                "paragraph": "<div data-editor-id=\"82f634c8-eb9e-41a8-b4c3-76a8173f5e75\"><p><span style=\"font-size: 1.5rem\"><em>(Please listen to complete this element)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "80e96066-0bbc-4bfa-ac37-35c5a45d62d5"
+          },
+          {
+            "id": "cm6nwhrmt004q3b78ni5rl15m",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nwhrmu004r3b78pncus7vv",
+                "media": {
+                  "audio": {
+                    "key": "15.mp3",
+                    "url": "transcoded-3Qux08GhbWRPiJ8n-15.mp3",
+                    "type": "audio",
+                    "duration": 7,
+                    "inputKey": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/3Qux08GhbWRPiJ8n-15.mp3",
+                    "thumbnail": "",
+                    "originalUrl": "15.mp3",
+                    "transcodeId": "1738517626937-csebx1"
+                  }
+                },
+                "caption": "<div data-editor-id=\"78bffabc-2c25-424a-820f-e7af950bce53\"><p>Click play to hear the quote above.</p></div>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "audio",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "2bf43fe8-93e9-482a-b82c-3137a3381536"
+          },
+          {
+            "id": "cm6nwhfq900483b78jh0veqp3",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nwhfq900493b78j9vjopl3",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "98b92db6-1abb-4a9d-a223-aee89389dc6f"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "MPympnpx3W3aexFvV6Fmx8RiPtB3_07X",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"646f38ad-0589-4cc5-afe5-c54583b7cc94\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "dS8LINeCZjK9pbDX6ditGCK9NRA7gvOi",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:44:09.597Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"14ca0da5-a1db-4bac-b7eb-e0cfff425aab\"><p><span style=\"font-size: 1.6rem\">What is the average tenure for modern employees?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"db1c390d-ad70-43df-8d15-efbb747a6009\"><p>2 years</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"25a2d0c4-0016-419c-9b38-371a4607ee01\"><p>4 years</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nwjiil005k3b78a98vjqop",
+                "title": "<div data-editor-id=\"8cd3c5dc-1ce3-42db-87e5-1a3c24fac4dd\"><p>5 years</p></div>"
+              },
+              {
+                "id": "cm6nwjwxd005m3b78hlf7i4bc",
+                "title": "<div data-editor-id=\"9f91cf63-0d6b-4999-aa5f-afcc7860783f\"><p>7 years</p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400wf3b79z4rpzttq",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": "",
+            "globalBlockId": "d9b02f6b-42ec-4395-890a-2534e4af0afd"
+          },
+          {
+            "id": "cm6gvw2f400wg3b798oenzg94",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"7f259d9b-904c-43d4-a341-0cae645a207e\"><p><span style=\"font-size: 1.6rem\">Which is <em>not</em> a contributing factor to employee turnover?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"310aaa1e-13d1-414c-b410-5eb9513bd832\"><p>People have more options to choose from than ever before.</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"a281f841-5cb2-4e04-8f22-74160e548934\"><p>Employees have a diversity of needs/requirements from an employer.</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"251b8ca7-5395-4cac-9978-af4ceac8f2ea\"><p><span style=\"color: #000000; text-decoration: inherit\">People don’t want to work hard.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"424b3680-f2e6-4708-abe3-6d1beac90974\"><p>All of the above are contributing factors.</p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wk3b79q9mcjkdv",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": "",
+            "globalBlockId": "5f6e4e88-5710-4b0d-9c29-837ab22a76cb"
+          },
+          {
+            "id": "cm6nwjckw005g3b78x6sbw989",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"1a7fe4a3-5637-4536-97a0-62647170c3c8\"><p><span style=\"font-size: 1.6rem\">Complete this statement (from Pat): “Loyalty is a selfless proposition. You won’t ever have it unless you___________.”</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6nwjckw005h3b78ctaq5gih",
+                "title": "<div data-editor-id=\"5e0698d6-6ea0-4f37-80a5-8459e75b991d\"><p>Command it from those you lead.</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6nwjckw005i3b783blrd1r0",
+                "title": "<div data-editor-id=\"247cd0c8-a3c5-4f80-ba46-a73a721752fc\"><p>Clarify exactly what is expected of the team.</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nwl18y005q3b78u57z4ols",
+                "title": "<div data-editor-id=\"3f1e39d8-fc47-4138-bc78-d249d4b4935b\"><p>Get the terms and conditions in writing.</p></div>"
+              },
+              {
+                "id": "cm6nwldxw005s3b782ql05l6v",
+                "title": "<div data-editor-id=\"6f912317-a602-4cec-a0a6-da077f2822e6\"><p><span style=\"color: #000000; text-decoration: inherit\">Are willing to give it away first.</span></p></div>"
+              }
+            ],
+            "correct": "cm6nwldxw005s3b782ql05l6v",
+            "corrects": [
+              "cm6nwjckw005h3b78ctaq5gih"
+            ],
+            "feedback": "",
+            "globalBlockId": "50577fa1-9173-47bd-aa69-709aa23a0c49"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "MPympnpx3W3aexFvV6Fmx8RiPtB3_07X",
+        "createdAt": "2025-01-28T20:41:53.373Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "4rSnZCee-GQP-bwj6tbXkNcjgg2nzsqf",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Employee Turnover",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T16:50:14.659Z",
+        "items": [
+          {
+            "id": "cm6nwm5gh005z3b78u5hmjwja",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nwm5gi00653b78e5lcsqo0",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"6de82de6-3a4e-4fdf-886d-8e8d9579a28c\"><p>The recent increase in employee turnover has led to a countering philosophy on the end of employers: Everyone is expendable. With full-time HR departments packed with recruiters, filling seats to replace empty ones has become a booming industry in itself. A new culture has emerged on behalf of the organization: Hire all the top talent you can find, and let nature take its course. We’ll do our best, but if people don’t like it, they can leave, and we’ll replace them with another highly paid person. No one’s really expecting team members to have loyalty, and the organization or company is not showing loyalty in return.</p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "6c16fca6-fdd7-4332-ac27-64c3acf4e450"
+          },
+          {
+            "id": "cm6nwm8e0006q3b78rs8c2gdi",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nwm8e0006r3b78s7xycg8u",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/_WNsd3L7JwhxDF2m-AdobeStock_422199097.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_422199097.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_422199097.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"c61057a4-8399-4d5b-9822-97590961b6da\"><p>The kicker is… no one really likes this arrangement. Not the employee, not the employer. No matter how practical the hiring industry becomes, if you’re an employee, it can be exhausting to look for jobs every four years. If you’re an employer, it can cost up to 33 percent of an employee’s salary to replace the ones who leave ($15,000 for a $45,000 full-time position).<span style=\"color: black; text-decoration: inherit\"><sup>2</sup></span> Not to mention the impact it makes on an organization’s culture and employees’ sense of well-being.</p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "8ff58bb1-8a29-43a5-bfbb-639d22141deb"
+          },
+          {
+            "id": "cm6nwmn3l007b3b78uvoasmr0",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nwmn3l007c3b78kv9o2hi7",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/UY5Xx_k66P8ZjXM_-AdobeStock_349435866.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_349435866.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1121
+                    },
+                    "originalUrl": "AdobeStock_349435866.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"b7c5367e-a9f9-40ec-b274-dbf1352a8381\"><p><span style=\"font-size: 1.7rem\">On their end, employees have watched employers<strong> </strong>over-hire thousands of employees, then layoff thousands at a time to balance things out when the market corrects. Employees who do survive the layoffs often end up watching their colleagues being axed through emails with little notice, and are then asked to plod on, showing unquestioning loyalty to the company. Employers, by contrast, have scrambled to implement the best benefits programs and most flexible work arrangements available, only to watch their employee base hemorrhage through mass exoduses.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e25b0990-2c64-43cf-bf5f-9fa220f0aa68"
+          },
+          {
+            "id": "cm6nwnati00823b78s7c4f729",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6nwnatj00833b785yklntxj",
+                "name": "<div data-editor-id=\"11c6e7ba-dd9d-4953-b221-c023cdad9efc\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em> — Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"8b11a649-9c82-4bcd-9f6d-4f8e2dbec300\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>If you want to develop loyalty, the first thing you have to do is demonstrate it. Too many people use the term </em>loyalty<em> unilaterally. Especially bosses. They demand loyalty without reciprocating. They ask ‘Staff, have you been loyal to me?’ But what about the manager’s loyalty to the staff?”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/zrbi60v7srPSwNw7-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "N6QSge/Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "6a61e278-086c-4084-b7a0-ca714527e6a1"
+          },
+          {
+            "id": "cmar1aumi008a3b79hyq8yuuo",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar1aumi008b3b79fr5v53bx",
+                "paragraph": "<div data-editor-id=\"2919779b-3ba5-48b1-85fd-4ebf5fc268e3\"><p><span style=\"font-size: 1.5rem\"><em>(Please listen to complete this element)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "e2c8b13e-7989-4c82-8f3b-8309e966383e"
+          },
+          {
+            "id": "cm6nwndh4008q3b788o2r27zf",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nwndh4008r3b78720cik3o",
+                "media": {
+                  "audio": {
+                    "key": "14a.mp3",
+                    "url": "transcoded-tCIte8sHevV7TM1K-14a.mp3",
+                    "type": "audio",
+                    "duration": 5,
+                    "inputKey": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/tCIte8sHevV7TM1K-14a.mp3",
+                    "thumbnail": "",
+                    "originalUrl": "14a.mp3",
+                    "transcodeId": "1738517945452-9hfhct"
+                  }
+                },
+                "caption": "<div data-editor-id=\"c448bb2c-bdea-4e8e-82c9-639300c4aef0\"><p>Click play to hear the quote above.</p></div>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "audio",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "9112b4db-2a67-45b1-bc80-4a41d980804d"
+          },
+          {
+            "id": "cm6nwp5js009a3b78l5w45zhh",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nwp5jt009b3b787c16l6uu",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "98a7d937-8b7e-4544-90a9-426533880808"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "MPympnpx3W3aexFvV6Fmx8RiPtB3_07X",
+        "createdAt": "2025-01-28T20:42:11.947Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"06ebc841-520d-41d9-b7fd-1db70c78372d\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "opQc2YA24Cek2W8OHjRa1_s3Ru4bgbwZ",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "1gLNZxQO3UVw1UuCYeciItj9VMrdOjLo",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:44:16.393Z",
+        "items": [
+          {
+            "id": "WhLLSU7PB6djOLAPK1355HL6QBnBGdee",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"f0e9002e-64dc-4e04-a6a2-305e065a99a3\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which is an attitude of employer loyalty?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"a0ed6b0a-7bfe-4b32-8236-0ac23d7fd011\"><p>Hire all the top talent you can find, and let nature take its course.</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"e1d907a9-7a2a-42a7-ab9f-35ecfa834605\"><p>We’ll do our best, but if people don’t like it, they can leave.</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nwpvt600a33b78wqkqn0up",
+                "title": "<div data-editor-id=\"826206e5-9102-4665-b76a-ab9ed3bc907f\"><p>Anyone can easily be replaced by another highly-sought after person.</p></div>"
+              },
+              {
+                "id": "cm6nwqnm600a53b781atwk3nq",
+                "title": "<div data-editor-id=\"0f6eac1a-8daf-4f6b-b7b5-5eaddc170a7c\"><p><span style=\"color: #000000; text-decoration: inherit\">None of the above.</span></p></div>"
+              }
+            ],
+            "correct": "cm6nwqnm600a53b781atwk3nq",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": "",
+            "globalBlockId": "84fbc3a7-85a5-4b5a-ad02-3172279b0c43"
+          },
+          {
+            "id": "cm6nwpuwt009z3b780zu007cg",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"6a1eac04-3776-4052-a058-f710a7ceaee8\"><p><span style=\"font-size: 1.6rem\">On average, how much does it cost to replace team members who leave?</span></p></div>",
+            "answers": [
+              {
+                "id": "cm6nwpuwt00a03b78g6fravt7",
+                "title": "<div data-editor-id=\"f26996fb-0222-4791-94fc-1caaf7688a76\"><p>Up to 5% of an employee’s salary</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6nwpuwt00a13b78btecnh3g",
+                "title": "<div data-editor-id=\"db515806-4f83-49a9-a910-c11a067b99e5\"><p><span style=\"font-size: 1.6rem\">Up to 10% of an employee’s salary</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nwqw8o00a83b785s62ql5r",
+                "title": "<div data-editor-id=\"d934381b-9759-4ea9-9f44-cdbb96b5d0e3\"><p>Up to 22% of an employee’s salary</p></div>"
+              },
+              {
+                "id": "cm6nwrk4x00aa3b78i4ehpa5x",
+                "title": "<div data-editor-id=\"3e6cdb7d-4ad0-4ce0-9a15-098d9b71ee4e\"><p><span style=\"color: #000000; text-decoration: inherit\">Up to 33% of an employee’s salary</span></p></div>"
+              }
+            ],
+            "correct": "cm6nwrk4x00aa3b78i4ehpa5x",
+            "corrects": [
+              "cm6nwpuwt00a03b78g6fravt7"
+            ],
+            "feedback": "",
+            "globalBlockId": "fb08c837-f941-414b-9e89-89b377d761b4"
+          },
+          {
+            "id": "cm6nwry1a00ad3b78r1yk0hru",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"59fae3f3-e542-4355-8188-fb3733677b2f\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these contributes to lack of loyalty on behalf of the employee?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6nwry1a00ae3b78zitgnz2n",
+                "title": "<div data-editor-id=\"41b3b6bd-3088-4e85-a873-21e0ea3f7f53\"><p><span style=\"color: #000000; text-decoration: inherit\">Over-hiring, then mass layoffs with no warning</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6nwry1a00af3b782qzjrbf7",
+                "title": "<div data-editor-id=\"f1301be1-0b23-4a61-a053-cb233a7c4be7\"><p><span style=\"color: black; text-decoration: inherit\">Flexible work schedules and arrangements</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6nwry2900ag3b78ek2ffdnj",
+                "title": "<div data-editor-id=\"add6f199-e51f-4147-ad61-09499f2eb519\"><p><span style=\"color: black; text-decoration: inherit\">Decent benefits</span></p></div>"
+              },
+              {
+                "id": "cm6nwsofi00ai3b78g1skua2v",
+                "title": "<div data-editor-id=\"0a62f0f0-1244-4d25-a1fa-cb100f74f413\"><p><span style=\"color: black; text-decoration: inherit\">Internal opportunities for advancement</span></p></div>"
+              }
+            ],
+            "correct": "cm6nwry1a00ae3b78zitgnz2n",
+            "corrects": [
+              "cm6nwry1a00ae3b78zitgnz2n"
+            ],
+            "feedback": "",
+            "globalBlockId": "4ec2ff1e-5ff2-4eaf-9f4c-ff74ba272c13"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "MPympnpx3W3aexFvV6Fmx8RiPtB3_07X",
+        "createdAt": "2025-01-28T20:41:59.084Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "5Alx-6B6abdljIGnKGZ30euZBzDzeYZj",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 4,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "You Win in Life With People",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T16:49:56.133Z",
+        "items": [
+          {
+            "id": "cm6nwtamj00ap3b78h4rw7k62",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6nwtamj00aq3b788wbpd5nr",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/5diEUuM_pvCqliJt-Hug%2520pic%2520Pat%252C%2520Holly%252C%2520Nikki.jpg",
+                    "type": "image",
+                    "crushedKey": "Hug%20pic%20Pat%2C%20Holly%2C%20Nikki.jpg",
+                    "dimensions": {
+                      "originalWidth": 600,
+                      "originalHeight": 600
+                    },
+                    "originalUrl": "Hug pic Pat, Holly, Nikki.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"d0da41e2-a2cd-4379-8e93-e9d490e2934b\"><p><span style=\"color: black; text-decoration: inherit\">Pat believed the single most common reason organizations self-destruct is disloyalty.</span></p><p><span style=\"color: black; text-decoration: inherit\">When asked about her championship teams, she famously said, “If you want to demonstrate loyalty, the first thing you have to do is demonstrate it. Too many people use the term <em>loyalty </em>unilaterally. Especially bosses. They demand loyalty without reciprocating. They ask ‘Staff, have you been loyal to me?’ But what about the manager’s loyalty to the staff?”<sup>3</sup></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "417ba7c7-994c-4b05-a5e6-914826a8c9cf"
+          },
+          {
+            "id": "cm6nwtot300ba3b78qo32jixq",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nwtot300bg3b788nm0jcko",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"cc47eb6b-d0a4-4c6a-9373-d6c1e3fc75d6\"><p><span style=\"color: black; text-decoration: inherit\">In the upcoming lessons we’ll learn more on how to be loyal to your team, and how to be a leader no one will ever want to leave.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "a8c7aab8-d7a1-49cd-be16-389ce1bb58ad"
+          },
+          {
+            "id": "cm6nwua5r00c13b780qonzevg",
+            "data": {},
+            "type": "quote",
+            "items": [
+              {
+                "id": "cm6nwua5r00c23b78tae9g5oc",
+                "name": "<div data-editor-id=\"50d5f332-d260-4b5e-9227-9c9c537ca420\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>— Pat Summitt</em></strong></span></span></p></div>",
+                "avatar": {
+                  "media": {}
+                },
+                "paragraph": "<div data-editor-id=\"28ee9007-715f-4c82-9e38-e54700e04059\"><p><span style=\"font-size: 2.2rem\"><span style=\"color: rgb(255, 255, 255); text-decoration: inherit\"><strong><em>You win with people. I don’t care how good you are. I don’t care what kind of genius you may be. If you don’t have a good, loyal staff, you will not succeed.”</em></strong></span></span></p></div>",
+                "background": {
+                  "media": {
+                    "image": {
+                      "key": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/ssoB2ESDfwPGZerL-Quote%2520graphic.png",
+                      "type": "image",
+                      "alpha": 0,
+                      "crushedKey": "oFckCA/Quote%20graphic.png",
+                      "dimensions": {
+                        "originalWidth": 1680,
+                        "originalHeight": 309
+                      },
+                      "originalUrl": "Quote graphic.png",
+                      "sourcedFrom": "USER",
+                      "overlayColor": "dark",
+                      "useCrushedKey": true
+                    }
+                  }
+                }
+              }
+            ],
+            "family": "quote",
+            "variant": "background",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "b92bd621-1554-4618-bb67-302504bbcea9"
+          },
+          {
+            "id": "cmar1bh0y00db3b7926psqscq",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar1bh0y00dc3b79hwo2h05o",
+                "paragraph": "<div data-editor-id=\"57930159-df18-44be-8f8b-11838f2f7d03\"><p><span style=\"font-size: 1.5rem\"><em>(Please listen to complete this element)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "81fa2369-b59a-45ee-9e7c-79da743bba29"
+          },
+          {
+            "id": "cm6nwvfb200cq3b78r4d48ecy",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nwvfb300cr3b78kry69njd",
+                "media": {
+                  "audio": {
+                    "key": "13.mp3",
+                    "url": "transcoded-_q1IhVhXGYqh6UG0-13.mp3",
+                    "type": "audio",
+                    "duration": 10,
+                    "inputKey": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/_q1IhVhXGYqh6UG0-13.mp3",
+                    "thumbnail": "",
+                    "originalUrl": "13.mp3",
+                    "transcodeId": "1738518260606-gtua72"
+                  }
+                },
+                "caption": "<div data-editor-id=\"97f78aec-4f89-4f14-9390-730de8386815\"><p>Click play to hear the quote above.</p></div>"
+              }
+            ],
+            "family": "multimedia",
+            "variant": "audio",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "6e66553e-ae03-4b10-950e-3493de0dacb7"
+          },
+          {
+            "id": "cm6nwvxao00d93b78lc8y2bcr",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nwvxao00da3b78c4pn2c3n",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_jimmy_delaney_you_win_in_life_with_people_clip_04%20%281080p%29.mp4",
+                    "url": "transcoded-bG4KhkV8p4Mh3Upo-v5_pot_jimmy_delaney_you_win_in_life_with_people_clip_04%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_jimmy_delaney_you_win_in_life_with_people_clip_04%20%281080p%29.jpg",
+                    "duration": 92,
+                    "inputKey": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/bG4KhkV8p4Mh3Upo-v5_pot_jimmy_delaney_you_win_in_life_with_people_clip_04%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/transcoded-bG4KhkV8p4Mh3Upo-v5_pot_jimmy_delaney_you_win_in_life_with_people_clip_04%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_jimmy_delaney_you_win_in_life_with_people_clip_04 (1080p).mp4",
+                    "transcodeId": "1754919186256-ikqg1d"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "fbed751c-b548-4d30-a81b-5c6c2d165d1b"
+          },
+          {
+            "id": "cmar1bu0800et3b79pf7zkl20",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar1bu0800eu3b797rdmy45o",
+                "paragraph": "<div data-editor-id=\"5dd0001b-5c85-4741-afd6-967b06b7a670\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "9113cdd6-e0ed-4c07-841f-fe21b098ea04"
+          },
+          {
+            "id": "cm6nww1l500dq3b78vfipsvio",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nww1l500dr3b78kohu7tqh",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%209%20You%20Win%20in%20Life%20with%20People.pdf",
+                    "size": 228616,
+                    "type": "attachment",
+                    "filename": "PkUAvJKVsQiSjfNA-Lesson%209%20You%20Win%20in%20Life%20with%20People.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 9 You Win in Life with People.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "f35840d1-d1a6-435a-9863-0d7a9c8ddb3b"
+          },
+          {
+            "id": "cm6nww3fe00e73b78wwl7ixk9",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nww3fe00ed3b78olehzqoe",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"66fde25c-53f0-4bf5-892f-02cf1cbfe296\"><p><span style=\"color: black; text-decoration: inherit\">Listen to UT Associate Athletic Director Jimmy Delaney explain Pat’s personal philosophy that you win in life with people.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "2b213903-bb24-44ab-a078-d5c395b5f630"
+          },
+          {
+            "id": "cm6nwwg3f00ey3b786iua692a",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6nwwg3f00ez3b787wbozusv",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "a103cb97-12c8-4860-b436-b0c4c59ec430"
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "MPympnpx3W3aexFvV6Fmx8RiPtB3_07X",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "ZrJ373uIDw-7zcNM9H_zXIMEkglIjccz",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-09-11T20:35:25.082Z",
+        "items": [
+          {
+            "id": "cm6nwx3wo00fg3b78kmc7ht9y",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nwx3wo00fh3b78hj82uv6r",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_jimmy_delaney_tales_from_the_sidelines_pat_sings_rocky_top__clip_07%20%281080p%29%20%281%29.mp4",
+                    "url": "transcoded-bsjVn9BnRMC_XmpA-v5_pot_jimmy_delaney_tales_from_the_sidelines_pat_sings_rocky_top__clip_07%2520(1080p)%2520(1).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_jimmy_delaney_tales_from_the_sidelines_pat_sings_rocky_top__clip_07%20%281080p%29%20%281%29.jpg",
+                    "duration": 230,
+                    "inputKey": "rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/bsjVn9BnRMC_XmpA-v5_pot_jimmy_delaney_tales_from_the_sidelines_pat_sings_rocky_top__clip_07%20(1080p)%20(1).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/MPympnpx3W3aexFvV6Fmx8RiPtB3_07X/transcoded-bsjVn9BnRMC_XmpA-v5_pot_jimmy_delaney_tales_from_the_sidelines_pat_sings_rocky_top__clip_07%2520(1080p)%2520(1).0000000.jpg",
+                    "originalUrl": "v5_pot_jimmy_delaney_tales_from_the_sidelines_pat_sings_rocky_top__clip_07 (1080p) (1).mp4",
+                    "transcodeId": "1754920058206-y7d1sa"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "8235252a-1098-497d-b6df-3c28703075b5"
+          },
+          {
+            "id": "cmar1cq2a00iy3b797zdsaheg",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmar1cq2a00iz3b79fm6cvjwk",
+                "paragraph": "<div data-editor-id=\"bc29c2ce-60cf-44f6-8fbd-c89776726178\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "8323b530-de3e-41b9-afb8-37826f9040a2"
+          },
+          {
+            "id": "cm6nwx84500fx3b78k7gguu3o",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6nwx84500fy3b78uvamgriu",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%209%20Pat%20Sings%20Rocky%20Top.pdf",
+                    "size": 240479,
+                    "type": "attachment",
+                    "filename": "75D1uFkn8G_nJnau-Lesson%209%20Pat%20Sings%20Rocky%20Top.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 9 Pat Sings Rocky Top.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "266c15ab-7958-4d42-9d72-7e7a873e8315"
+          },
+          {
+            "id": "cm6nwx9xh00ge3b78w2gq5ys7",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nwx9xh00gk3b78v4hep8cx",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"3e341164-29e1-43f5-8e8d-67b4b8b89935\"><p><span style=\"color: black; text-decoration: inherit\">Listen to UT Associate Athletic Director Jimmy Delaney remember when Pat wanted to show loyalty to the UT men’s basketball team and wound up in a cheerleading outfit singing Rocky Top.</span></p><p><span style=\"color: black; text-decoration: inherit\">Refer to your workbook for the reflection questions below.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "249eeab7-c744-4984-a3c3-d9cda81ff137"
+          },
+          {
+            "id": "cm6nwxlwx00h53b78492jj8j5",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6nwxlwx00h63b78osecyggb",
+                "paragraph": "<div data-editor-id=\"06fca049-2d0c-49e3-b19a-c4deddf9c40e\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">How has employee loyalty at your company changed in the last </span>five to <span style=\"color: black; text-decoration: inherit\">10 years?</span></span></p></div>"
+              },
+              {
+                "id": "cm6nwxlwx00h73b78fepdnn9i",
+                "paragraph": "<div data-editor-id=\"3e00e8f4-a99c-4c86-ab18-2114c8c773eb\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">What is the current tenure of the average employee on your team?</span><br class=\"break-when-trailing\"><br class=\"break-when-trailing\"><span style=\"color: black; text-decoration: inherit\">Is it below or above the four</span>-<span style=\"color: black; text-decoration: inherit\">year average?</span></span></p></div>"
+              },
+              {
+                "id": "cm6nwxlwx00h83b78if0rg5rv",
+                "paragraph": "<div data-editor-id=\"9efa9104-1420-439e-97c3-6db0a7f29311\"><p><span style=\"color: black; text-decoration: inherit\">What is your own current job tenure, on average?</span></p></div>"
+              },
+              {
+                "id": "cm6nwza9b00hq3b78i6nqv8pn",
+                "paragraph": "<div data-editor-id=\"7cb392f6-b352-43f4-a16b-cf5d5be5417e\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">What do you think are some obstacles to loyalty in your industry?</span></span></p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 2,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 5,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 2,
+              "entranceAnimation": true,
+              "customPaddingBottom": 5,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "3ce9f47e-5c0a-4cd0-a0a5-f72d437e18a1"
+          },
+          {
+            "id": "cm6nwzy2p00hr3b781fqlfiix",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6nwzy2p00hs3b78cocnw9ay",
+                "paragraph": "<div data-editor-id=\"dce84eb0-6771-4e43-b377-af63d678c893\"><p><span style=\"font-size: 1.3rem\"><strong>Sources:</strong></span></p><p style=\"margin-left: 0.05rem\"><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><em>1-2.</em></span></span><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\"> </span></span><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><em>Forbes</em>. “Key HR Statistics and Trends in 2024.” Snyder, Kristy and Bottorff, Cassie. 5/17/2023. Accessed online: <a rel=\"noopener noreferrer\" target=\"_blank\" href=\"https://www.forbes.com/advisor/business/hr-statistics-trends/\">https://www.forbes.com/advisor/business/hr-statistics-trends/</a></span></span></p><p style=\"margin-left: 0.05rem\"><span style=\"font-size: 1.3rem\">3. <span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from, <em>Reach for the Summitt</em>, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998.</span></span></p></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            },
+            "globalBlockId": "5318ce58-fbac-4b0c-9871-6ec38f3ded25"
+          },
+          {
+            "id": "cmar1dady00kg3b79v6s9oqre",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmar1dady00kh3b79dnfolpv2",
+                "type": "exit-course",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"3678d753-0b3a-4cc9-9551-dfa9c1cb271e\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": "exit-course"
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {},
+            "globalBlockId": "97a8d823-f7c1-4fc1-9766-1fa1c4f9a64d"
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:30:02.633Z",
+    "updatedAt": "2025-09-11T20:35:25.082Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Course 9: You Have to Demonstrate Loyalty to Receive It",
+      "format": "zip",
+      "quizId": "1gLNZxQO3UVw1UuCYeciItj9VMrdOjLo",
+      "target": "scorm12",
+      "shareId": "veXt3_4B7W7VH3uFyP-YPvmwKcCBaHgX",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "MPympnpx3W3aexFvV6Fmx8RiPtB3_07X_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:31:36.709Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "",
+    "title": "Course 9: You Have to Demonstrate Loyalty to Receive It",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}

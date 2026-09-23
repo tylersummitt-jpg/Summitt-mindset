@@ -1,0 +1,2350 @@
+{
+  "course": {
+    "id": "bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp",
+    "originalId": null,
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "selectedAuthorId": "none",
+    "color": "#4267a9",
+    "navigationMode": "",
+    "title": "Championing Women in Leadership - Owning Your Game",
+    "sharePassword": "",
+    "description": "",
+    "shareId": "HAPc6TDQs5a7Kiq8bFp2--KhViXBlTkf",
+    "copyOf": "kQhqN6cJ_QUS4T9QmhPCsTXZFyy4miqS",
+    "order": "1728404940389",
+    "fonts": null,
+    "media": {
+      "image": {
+        "key": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/WYptt4a4mtDh0K8A-CWILLogo_Color_Transparent.png",
+        "type": "image",
+        "width": 166,
+        "height": 40,
+        "scalar": 2,
+        "crushedKey": "WOVvjwPOn91GtCYr.png",
+        "originalUrl": "CWILLogo_Color_Transparent.png",
+        "useCrushedKey": true
+      }
+    },
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/EaXXEGZkAsNYXZeL-PSLG_CWIL_TItleGraphic.png",
+          "crushedKey": "lN38Bq_XDAdrt6et.jpg",
+          "originalUrl": "PSLG_CWIL_TItleGraphic.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "id": "BBQ8pmgaJL6BBdmcmtFkq-_2b3LrVJig",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp",
+        "title": "The Power of Unapologetic Authenticity",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clv6vewv100023b75hq2j193a",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv6vewv100033b75fnritmo5",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_christina_gradillas_owning_your_game_clip_01%20%281080p%29.mp4",
+                    "url": "transcoded-weIS15cn6l9tX3j_-v4_wil_christina_gradillas_owning_your_game_clip_01%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_christina_gradillas_owning_your_game_clip_01%20%281080p%29.jpg",
+                    "duration": 233,
+                    "inputKey": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/weIS15cn6l9tX3j_-v4_wil_christina_gradillas_owning_your_game_clip_01%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/transcoded-weIS15cn6l9tX3j_-v4_wil_christina_gradillas_owning_your_game_clip_01%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_christina_gradillas_owning_your_game_clip_01 (1080p).mp4",
+                    "transcodeId": "1727976381386-d8wzt7"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6vf2gv000g3b758vzvdbuj",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "clv6vf2gv000h3b75pwnh2vvu",
+                "media": {
+                  "attachment": {
+                    "key": "L7%20Transcript%20Owning%20Your%20Game-%20The%20Power%20of%20Unapologetic%20Authenticity%20.pdf",
+                    "size": 57620,
+                    "type": "attachment",
+                    "filename": "OVdrYli_pAKtkwVG-L7%20Transcript%20Owning%20Your%20Game-%20The%20Power%20of%20Unapologetic%20Authenticity%20.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L7 Transcript Owning Your Game- The Power of Unapologetic Authenticity .pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6vgn5f000u3b75eup41ocz",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6vgn5l00103b758uit88r2",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>With lingering gender bias in the workplace, it can be tempting for women to curb their behavior or personal brand at work to fit in. This can manifest itself in a lot of ways:</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6vgw2y001g3b7567cfi55c",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clv6vgw2y001h3b75gdrlr5zn",
+                "paragraph": "<p>Not speaking up when you have a solution.</p>"
+              },
+              {
+                "id": "clv6vgw2y001i3b75m7ghxyz6",
+                "paragraph": "<p>Not developing your skills in a particular area that could be perceived as &ldquo;unladylike.&rdquo;</p>"
+              },
+              {
+                "id": "clv6vgw2y001j3b75shtnzic3",
+                "paragraph": "<p>Not asking for a promotion, for fear of looking too bold or greedy.</p>"
+              },
+              {
+                "id": "clv6vhu8k001w3b75vo9qwadz",
+                "paragraph": "<p>Underplaying your accomplishments or achievements for fear it might come across as bragging.</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv6vi652001x3b75xqwxvlux",
+                "paragraph": "<p>Volunteering to plan an office lunch or outing you really don&rsquo;t have time to plan.</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv6viixp001y3b75owgnmxfs",
+                "paragraph": "<p>Downplaying your personal brand to look &ldquo;nicer&rdquo; or &ldquo;friendlier.&rdquo;</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv6viq58001z3b758aa7zykk",
+                "paragraph": "<p>Pretending to be interested in sporting events or other traditionally male events in order to fit in.</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "bulleted",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm07h4gn500343j75q1hpe1x8",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm07h4gn600353j75hengdzs5",
+                "media": {
+                  "storyline": {
+                    "src": "hEPhtGKb8iYLXfB4/story.html",
+                    "meta": {
+                      "stage": {
+                        "width": 720,
+                        "height": 540
+                      },
+                      "title": "I’m not where I need to be.",
+                      "player": {
+                        "name": "unified",
+                        "width": 740,
+                        "height": 635
+                      },
+                      "scenes": [
+                        {
+                          "title": "Untitled Scene"
+                        }
+                      ],
+                      "slides": [
+                        {
+                          "id": "6bVAjMbQpVs",
+                          "title": "Take a moment to stop and think. Is there any area this past month you’ve not been true to your authentic self at work? How about the last six months? Why do you think that is, and what were the circumstances?",
+                          "scene_index": "1.1"
+                        },
+                        {
+                          "id": "5bhRJ29h9z6",
+                          "title": "By contrast, what’s one area in the last month where you did display your authentic self, whether it was on a project, assignment, or at a team event. How did it feel?",
+                          "scene_index": "1.2"
+                        },
+                        {
+                          "id": "6rPMuyk3tMV",
+                          "title": "Results Slide",
+                          "scene_index": "1.3"
+                        }
+                      ],
+                      "version": "3.77.30587.0",
+                      "course_id": "5jJ0yklSWHQ",
+                      "thumbnail": "story_content/thumbnail.jpg"
+                    },
+                    "type": "storyline",
+                    "title": "The Power of Unapologetic Authenticity",
+                    "thumbnail": "review/uploads/spe_sm2_NQo4woTJ/5-bvs-avh-bc-26.png",
+                    "processing": false,
+                    "contentPrefix": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/hEPhtGKb8iYLXfB4"
+                  }
+                }
+              }
+            ],
+            "family": "360",
+            "variant": "storyline",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "0",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#fafafa",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxkknfnk004s3b791s4d92cq",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clxkknfnk004t3b79qjfyrv4n",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>The truth is, the workplace is filled with complex and unique personalities. No one has every skill or talent&mdash;we fill in the gaps for each other to form completeness as a team.&nbsp;</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca26ad002q3b7937ujla2u",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca26ad002r3b79q0jgh150",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-03-28T15:15:00.692Z",
+        "updatedAt": "2024-11-11T00:20:52.913Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 0,
+        "transferredAt": null,
+        "isPartnerContentAuthor": false,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "The Power of Unapologetic Authenticity"
+      },
+      {
+        "id": "UjkCCpR7TIRC80eFCcx4VnT9bV4Pis8b",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp",
+        "title": "Be Your Authentic Self",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "clxkl9v8e00il3b79yoqnugru",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "clxkl9v8f00io3b79y8n36p4e",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/majL13eYgJnhAfeR.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "Final%20Four.2002.Summitt%20Calling%20a%20Play.add1.jpg",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 0,
+                      "width": 1680,
+                      "height": 1251,
+                      "originalWidth": 1680,
+                      "originalHeight": 2125
+                    },
+                    "originalUrl": "Final Four.2002.Summitt Calling a Play.add1.jpg",
+                    "originalImage": {
+                      "key": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/LcGEkSnYCuq1Lapx-Final%2520Four.2002.Summitt%2520Calling%2520a%2520Play.add1.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/nc4uGBAKh2deIBw5.jpg",
+                      "originalUrl": "Final Four.2002.Summitt Calling a Play.add1.jpg",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>If Pat were here, she might say, &ldquo;Own your own game.&rdquo; Don&rsquo;t hold back who you are and what you can contribute to your team or as a leader in your workplace. In other words, be your authentic self. So what does it mean to be your authentic self?</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxkl8nwl00i63b795tccz01y",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clxkl8nwm00i73b79urxnxtxy",
+                "paragraph": "<p>Click on the buttons below to expand the full text.</p>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clxkkrade008u3b79by67p736",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "22.21448639589905",
+                "y": "80.69558378573223",
+                "id": "clxkkrade008v3b79mxkrd9kg",
+                "icon": "02",
+                "title": "Know Yourself",
+                "isActive": false,
+                "description": "<p>Know your strengths and don&rsquo;t hide them. What are you good at? What are you <em>great</em> at? How can you help your team or your leadership team <em>right</em> <em>now</em>? What problems are you uniquely positioned to solve? Whose permission are you waiting for? Step into your own shoes, and be comfortable in your own skin! Know your weaknesses and work on them&hellip; but don&rsquo;t apologize for them.</p>"
+              },
+              {
+                "x": "35.56782334384858",
+                "y": "60.491103125102406",
+                "id": "clxkl1udj009d3b79i8nwr3ee",
+                "icon": "02",
+                "title": "Know Your Brand",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Your personal style is an extension of your authenticity. While it&rsquo;s important to always be professional, authenticity is often expressed in attire or personal brand. When you see someone wearing pearls and heels, you have one perception of that person. When you see someone wearing slacks and sneakers, you make another perception about their personality. What do <em>you</em> want to project?</p><p>&nbsp;</p><p>Aside from people&rsquo;s outward perceptions, dressing authentically allows <em>you</em> to feel confident and comfortable in your professional skin. Do you prefer heels and tights? Do blazers make you feel like a rock star? Maybe you prefer sweaters and slacks. Think about how you want to be perceived and craft your professional image from there.</p><p>&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;</p><p>On an internal note, reflect on what aspects of your personal life you want to include as part of your image or personal brand and what you want to keep private.&nbsp;</p><p>&nbsp;</p><p>Overall, a good question to ask yourself is: What words do I want people to associate with me when they think of my personal brand?</p>"
+              },
+              {
+                "x": "58.516734029968454",
+                "y": "51.56582813575243",
+                "id": "clxkktvvb009a3b79m6djv9js",
+                "icon": "02",
+                "title": "Set Boundaries",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Similar to knowing your nonnegotiables, setting boundaries means knowing lines you will and won&rsquo;t cross&mdash;here you&rsquo;re willing to fake it till you make it and where you won&rsquo;t (although no one is suggesting anyone be fake!). Think about what you&rsquo;ll speak up about and what you won&rsquo;t, when you&rsquo;ll stay late and when you won&rsquo;t.</p><p>Consider these your core values. Nothing is less authentic than allowing yourself to be pushed around outside of your boundaries at work.</p>"
+              },
+              {
+                "x": "91.28055993690852",
+                "y": "61.66315306557144",
+                "id": "clxkkrade008w3b79k5mbkt7b",
+                "icon": "02",
+                "title": "Speak Up",
+                "isActive": false,
+                "description": "<p>Finally, express your voice. You don&rsquo;t have to speak up on everything, but offer your opinions and expertise on the things that matter. No one will ever know the authentic you if <em>you</em> don&rsquo;t let them! Sometimes we are our own worst censor.</p>"
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/W8Qio2xSxBr9L8Yy.jpg",
+                "type": "image",
+                "isSquare": false,
+                "crushedKey": "AdobeStock_193201922.jpg",
+                "dimensions": {
+                  "top": 236,
+                  "left": 361,
+                  "width": 1319,
+                  "height": 744,
+                  "originalWidth": 1680,
+                  "originalHeight": 980
+                },
+                "originalUrl": "AdobeStock_193201922.jpeg",
+                "originalImage": {
+                  "key": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/cZwwMa63zu3u0QPK-AdobeStock_193201922.jpeg",
+                  "type": "image",
+                  "crushedKey": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/r0ZwUoCl7HvqZPQw.jpg",
+                  "originalUrl": "AdobeStock_193201922.jpeg",
+                  "useCrushedKey": true
+                },
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#ffffff",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6w6rw001d3b79l9l8pcwl",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h6w6rx001j3b79hemkcx7z",
+                "heading": "<p><strong>Deep Dive: Finding the Right Fit</strong></p>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6w7qg00233b79dltpfmdh",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h6w7qg00243b79nkn5yce7",
+                "media": {
+                  "video": {
+                    "key": "v4_wil_sue_nokes_-_finding_the_right_fit_clip_02%20%281080p%29.mp4",
+                    "url": "transcoded-vxUon25J8IkiyF72-v4_wil_sue_nokes_-_finding_the_right_fit_clip_02%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v4_wil_sue_nokes_-_finding_the_right_fit_clip_02%20%281080p%29.jpg",
+                    "duration": 362,
+                    "inputKey": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/vxUon25J8IkiyF72-v4_wil_sue_nokes_-_finding_the_right_fit_clip_02%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/transcoded-vxUon25J8IkiyF72-v4_wil_sue_nokes_-_finding_the_right_fit_clip_02%2520(1080p).0000000.jpg",
+                    "originalUrl": "v4_wil_sue_nokes_-_finding_the_right_fit_clip_02 (1080p).mp4",
+                    "transcodeId": "1727976443842-r4z75u"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19upkpu00783b74gop3ttpg",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19upkpv00793b74gnn6tcn2",
+                "media": {
+                  "attachment": {
+                    "key": "L7.1%20Transcript%20Finding%20the%20Right%20Fit%20%281%29.pdf",
+                    "size": 51252,
+                    "type": "attachment",
+                    "filename": "nFI2rS_vWMnnWPCN-L7.1%20Transcript%20Finding%20the%20Right%20Fit%20(1).pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L7.1 Transcript Finding the Right Fit (1).pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h747pg004n3b79ip5gsg5a",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm0h747pg004o3b794z995kl4",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/IwkPej459TW9xjwg-AdobeStock_892232284.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_892232284.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 942
+                    },
+                    "originalUrl": "AdobeStock_892232284.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>Finding the right fit at work is a must for both personal satisfaction and career satisfaction. When it comes to being unapologetically authentic, the concept of \"fit\" goes beyond just matching your skills with the job description; it involves aligning your talents, values, and work style with the broader team and company culture.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h75ru400713b790dqsg326",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h75ru500723b79q50i7q3q",
+                "paragraph": "<p>The first step is ensuring that your unique talents complement the needs of the overall team and ultimately, the organization. Every work team is a unique blend of individuals with diverse strengths, and the most effective teams are those where members’ skills are complementary.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h6y6qr003a3b79ysxrpnxa",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm0h6y6qy003b3b79eov94nzx",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/49347AQg3xYUWV22.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "AdobeStock_866272369.jpg",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 429,
+                      "width": 857,
+                      "height": 1120,
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_866272369.jpeg",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/vx2DQtjQ9jtw2jO6-AdobeStock_866272369.jpeg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/kduw1kYBc2Y9Mk3C.jpg",
+                      "originalUrl": "AdobeStock_866272369.jpeg",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<p>Beyond the technical skills, cultural fit is equally important. Every organization and team has its own culture, which is shaped by shared behaviors, norms, and values. Finding a workplace where your personal values align with the company’s culture is <em>essential</em> for long-term success and happiness. For example, if you thrive in a collaborative environment but find yourself in a company that values competition over cooperation, or a remote, independent producer type of career, you may struggle to feel comfortable and perform at your best. Or if you have a more informal approach to your work and your company has a highly corporate, more formal environment (or vice versa), you’ll spend a large part of your time simply trying to “fit in,” rather than playing to your strengths.</p>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h73hh2003x3b79v9kyg8di",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h73hh300433b796yqkb1hn",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>To sum it up, finding the right fit at work is important for your long-term career development! When your talents are aligned with your role and the organizational culture, you’re more likely to receive opportunities for growth, whether through promotions or new responsibilities. A good fit means that you’re not just performing a job, but actively contributing to and growing with the organization.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca2efb007p3b79ed2cwqej",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca2efb007q3b794rz27v2j",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-19T16:18:41.354Z",
+        "updatedAt": "2024-11-11T00:21:03.108Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Be Your Authentic Self"
+      },
+      {
+        "id": "D5YXfrOqtGzT3mWdatKxVLj_Y05x5LJX",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm05nlofv000c3b7cjwtehiuh",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>What are some ways women may tend to curb their behavior at work to fit in?</p>",
+            "answers": [
+              {
+                "id": "cm05nlofw000d3b7cg3aqbl4x",
+                "title": "<p>Underplaying accomplishments</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05nlofw000e3b7chevnb5fm",
+                "title": "<p>Not speaking up when they have a solution to a problem</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4fgmg00023b7bax60zefv",
+                "title": "<p>Downplaying personal brand to look &ldquo;friendlier&rdquo; or &ldquo;nicer&rdquo;</p>"
+              },
+              {
+                "id": "cm0d4h3cd00043b7bgnnju8o4",
+                "title": "<p>All of the above.</p>"
+              }
+            ],
+            "correct": "cm0d4h3cd00043b7bgnnju8o4",
+            "corrects": [
+              "cm05nlofw000d3b7cg3aqbl4x"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05nlofw000f3b7ckm83rp3d",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>As part of being your authentic self at work, &ldquo;knowing yourself&rdquo; means to know ____________.</p>",
+            "answers": [
+              {
+                "id": "cm05nlofw000g3b7cafuju4n1",
+                "title": "<p>Your strengths</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05nlofw000i3b7c3uvfoduu",
+                "title": "<p>How you can help your leadership team</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05nlofw000j3b7c4eg6xgqk",
+                "title": "<p>Which problems you can uniquely solve</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4i1f500073b7bf4cdr29k",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d4i1f500073b7bf4cdr29k",
+            "corrects": [
+              "cm05nlofw000g3b7cafuju4n1"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d4jcmy000i3b7bdzbanxpn",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"a83aecec-8e58-4a4a-a143-90d8d27cadba\"><p>Which is not a part of being your authentic self, as discussed in this lesson? (Select all that apply.)</p></div>",
+            "answers": [
+              {
+                "id": "cm0d4jcmy000j3b7bjlxj9xm2",
+                "title": "<p>Knowing your strengths</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4jcmy000k3b7b50o7e84b",
+                "title": "<p>Having no boundaries</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4jcnk000l3b7bxkm47oin",
+                "title": "<p>Having a personal brand</p>"
+              },
+              {
+                "id": "cm0d4k1ww000n3b7bmavm2fws",
+                "title": "<p>Speaking up when necessary</p>"
+              },
+              {
+                "id": "cm0d4k5m5000p3b7b1r673czo",
+                "title": "<p>Downplaying your strengths</p>"
+              }
+            ],
+            "correct": "cm0d4jcmy000j3b7bjlxj9xm2",
+            "corrects": [
+              "cm0d4jcmy000k3b7b50o7e84b",
+              "cm0d4k5m5000p3b7b1r673czo"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-22T19:06:02.153Z",
+        "updatedAt": "2024-10-17T20:55:24.986Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "h2-j8sEwRYCHMnRuIDPqSzFr6OYuU3lH",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp",
+        "title": "The Inner Struggle",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm02t3hpg00923b7crofa8cze",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm02t3hpg00933b7cph7s6lys",
+                "paragraph": "<p>What are some of the ways women suppress their authentic self? <em>(Click on the icons to expand the text.)</em></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02sis9z005a3b7c4oito4dn",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "22.190290178571427",
+                "y": "11.025503673196795",
+                "id": "cm02sisa0005b3b7c8f10ctjd",
+                "icon": "01",
+                "title": "Fear of Judgement",
+                "isActive": false,
+                "description": "<p>The fear of judgment, especially in male-dominated industries, can stifle authenticity. Women may hesitate to express their true opinions, showcase their skills, or even take on a leadership role to begin with out of fear of being judged or not taken seriously.</p>"
+              },
+              {
+                "x": "74.54752604166667",
+                "y": "11.810232079252003",
+                "id": "cm02sisa0005c3b7cc8426uqr",
+                "icon": "01",
+                "title": "Conforming to Gender Norms",
+                "isActive": false,
+                "description": "<p>Many of us grew up with gender norms we tried to fit into and it&rsquo;s hard to erase decades of learned behavior, and it can be doubly hard to put that aside when it comes to expectations in the workplace.</p>"
+              },
+              {
+                "x": "26.726190476190474",
+                "y": "44.47907390917186",
+                "id": "cm02sxjfd005t3b7cwog3kz27",
+                "icon": "01",
+                "title": "An Endless Balancing Act",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Juggling multiple roles and responsibilities, particularly for working mothers, can lead to the pressure of a constant balancing act while striving to appear composed and unflustered, resulting in a polished facade.</p><p><br></p>"
+              },
+              {
+                "x": "74.46428571428572",
+                "y": "45.36954585930543",
+                "id": "cm02sxtev005v3b7cnwyva6q5",
+                "icon": "01",
+                "title": "Avoiding Conflict",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Conditioned to prioritize harmony and avoid confrontation, women often suppress their authentic views to maintain a semblance of peace.&nbsp;</p>"
+              },
+              {
+                "x": "27.142857142857142",
+                "y": "79.02938557435441",
+                "id": "cm02sy63a005x3b7cdv2j3bpu",
+                "icon": "01",
+                "title": "Over-apologizing",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>Women often have a tendency to over-apologize, even when not at fault. This habit may stem from a desire to avoid being perceived as demanding, leading to a less assertive presence in the workplace.</p>"
+              },
+              {
+                "x": "77.97619047619048",
+                "y": "79.38557435440784",
+                "id": "cm02syhf5005z3b7c25w2juur",
+                "icon": "01",
+                "title": "Downplaying Achievements ",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<p>A reluctance to highlight personal achievements is a common phenomenon among women. The fear of being perceived as boastful or arrogant may result in downplaying accomplishments and suppressing the authentic acknowledgment of their contributions.</p>"
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/jbv37_Tr4LoBHM6f-Lesson7_Graphic.png",
+                "type": "image",
+                "crushedKey": "Lesson7_Graphic.jpg",
+                "dimensions": {
+                  "originalWidth": 1680,
+                  "originalHeight": 2246
+                },
+                "originalUrl": "Lesson7_Graphic.png",
+                "sourcedFrom": "USER",
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "#ffffff",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm02t4x5s009s3b7ckyplajau",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm02t4x5s009t3b7cwsdukb9d",
+                "paragraph": "<p>Of the examples listed above, which do you find yourself guilty of, and why?</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6vwi9k007q3b75sr5yt3ma",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6vwi9l007w3b75fbo1w9f0",
+                "heading": "<p><strong>Conclusion</strong></p>",
+                "paragraph": "<p>In short, stay true to your vision. Take calculated risks. No one benefits when you curb your talents and skills, especially to fit inside a preconceived mold that was created decades ago. Let the best parts of yourself shine. Know how to navigate office etiquette, but also how to be real and valuable to your team.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "ACCENT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca2lj400a13b79uuzrxzzm",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca2lj400a23b799dya302o",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-19T16:23:32.323Z",
+        "updatedAt": "2024-11-11T00:21:12.939Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 2,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "The Inner Struggle"
+      },
+      {
+        "id": "kelo9wChchWnhhWGAmYFXnzXkoAoHdQv",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp",
+        "title": "Knowledge Check",
+        "description": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "type": "quiz",
+        "icon": "Quiz",
+        "items": [
+          {
+            "id": "cm05nleb600043b7cywp0iozk",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>When it comes to being your authentic self at work, which of these are women prone to in the workplace, as discussed in this lesson:</p>",
+            "answers": [
+              {
+                "id": "cm05nleb600053b7cbtrldku5",
+                "title": "<p>Over-apologizing</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05nleb600063b7c38o7zxw2",
+                "title": "<p>Fear of judgment</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4lkl4000y3b7bshcm5bqb",
+                "title": "<p>Avoiding conflict</p>"
+              },
+              {
+                "id": "cm0d4men900103b7bunr742gg",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d4men900103b7bunr742gg",
+            "corrects": [
+              "cm05nleb600053b7cbtrldku5"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm05nleb600073b7ckp2k2dhv",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>When it comes to &ldquo;the inner struggle,&rdquo; it can be hard to put ______ aside when it comes to expectations in the workplace:</p>",
+            "answers": [
+              {
+                "id": "cm05nleb600083b7c9w3zusup",
+                "title": "<p>Conforming to gender norms</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm05nleb6000a3b7crqaqq1r9",
+                "title": "<p>Co-workers&rsquo; weaknesses</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05nleb6000b3b7cjb94ehr5",
+                "title": "<p>A good attitude</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm05nleb600093b7c5buw3xzf",
+                "title": "<p>The tendency to overreact</p>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm05nleb600083b7c9w3zusup",
+            "corrects": [
+              "cm05nleb600083b7c9w3zusup",
+              "cm05nleb600093b7c5buw3xzf"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm0d4q5g500193b7byj2l2bi5",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<p>Downplaying achievements in the workplace might mean:</p>",
+            "answers": [
+              {
+                "id": "cm0d4q5g6001a3b7boq2pvtnn",
+                "title": "<p>Being overconfident</p>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4q5g6001b3b7b2gbjov0n",
+                "title": "<p>Telling a team member they did a great job</p>",
+                "feedback": ""
+              },
+              {
+                "id": "cm0d4q5gv001c3b7b15ctb8ja",
+                "title": "<p>A reluctance to acknowledge when you&rsquo;ve done something well</p>"
+              },
+              {
+                "id": "cm0d4qt3m001e3b7b403mkm2o",
+                "title": "<p>All of the above</p>"
+              }
+            ],
+            "correct": "cm0d4q5gv001c3b7b15ctb8ja",
+            "corrects": [
+              "cm0d4q5g6001a3b7boq2pvtnn"
+            ],
+            "feedback": ""
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-08-22T19:05:54.951Z",
+        "updatedAt": "2024-10-17T20:55:35.199Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 1,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "<p>Let&#39;s review what we&#39;ve covered in the previous lesson(s). You will need an 80% score to continue on to the next section. Good luck!</p>",
+        "title_vNext": "Knowledge Check"
+      },
+      {
+        "id": "Eko72xkWfa8AYRvL5xkFkIrDnJX0Jj2X",
+        "originalId": null,
+        "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "selectedAuthorId": "none",
+        "courseId": "bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp",
+        "title": "Personal Reflections",
+        "description": "",
+        "type": "blocks",
+        "icon": "Article",
+        "items": [
+          {
+            "id": "cm0h5khp2000z3b7cmp998k9u",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm0h5khp300153b7c5n05xkcr",
+                "heading": "<p><strong>Remembering Pat: Going into Labor on a Recruiting Visit</strong></p>",
+                "paragraph": "<p><span style=\"font-size: 1.7rem\">Pat was nothing, if not unapologetically authentic! In this video, listen to Michelle Marciniak recall how Coach Summitt’s trademark passion and drive almost led her to have her firstborn son, Tyler, in her living room.</span></p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm0h76qa5009z3b792ahm3jf6",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm0h76qa500a03b79piqkeh31",
+                "media": {
+                  "video": {
+                    "key": "v5_wil_michelle_marciniak_-_remembering_pat_-_going_into_labor_on_a_recruiting_visit_clip_06%20%281080p%29.mp4",
+                    "url": "transcoded-VsVd36ZQN-xXDp18-v5_wil_michelle_marciniak_-_remembering_pat_-_going_into_labor_on_a_recruiting_visit_clip_06%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_wil_michelle_marciniak_-_remembering_pat_-_going_into_labor_on_a_recruiting_visit_clip_06%20%281080p%29.jpg",
+                    "duration": 171,
+                    "inputKey": "rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/VsVd36ZQN-xXDp18-v5_wil_michelle_marciniak_-_remembering_pat_-_going_into_labor_on_a_recruiting_visit_clip_06%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp/transcoded-VsVd36ZQN-xXDp18-v5_wil_michelle_marciniak_-_remembering_pat_-_going_into_labor_on_a_recruiting_visit_clip_06%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_wil_michelle_marciniak_-_remembering_pat_-_going_into_labor_on_a_recruiting_visit_clip_06 (1080p).mp4",
+                    "transcodeId": "1727976512104-5hglit"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm19uqdu1009k3b74y2lwbafr",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm19uqdu1009l3b74qz6cftrc",
+                "media": {
+                  "attachment": {
+                    "key": "L7.2%20Remembering%20Pat%20Labor%20Story.pdf",
+                    "size": 47178,
+                    "type": "attachment",
+                    "filename": "X50zsAHec5vlkF4v-L7.2%20Remembering%20Pat%20Labor%20Story.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "L7.2 Remembering Pat Labor Story.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6vxfax008w3b75l1m1kjjl",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "clv6vxfb400923b753dlcq2c5",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<p>Refer to your workbook for the following questions and reflections, including the Personal Brand exercise.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "clv6vxgmx009i3b758a7a6y1v",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "clv6vxgmx009j3b75h1e0o65s",
+                "paragraph": "<p>Take a moment to reflect. In what ways might you have not been true to yourself this month at work? List at least two scenarios.</p>"
+              },
+              {
+                "id": "clv6vxgmx009k3b75plkpt4wi",
+                "paragraph": "<p>List two scenarios where you did display your authentic self at work.</p>"
+              },
+              {
+                "id": "clv6vxgmx009l3b75q5py38hm",
+                "paragraph": "<p>What was the difference between the scenarios in question 1 and question 2?<br><br>Why did you feel the need to hide your authentic self? And why did you feel safe enough to be your authentic self?</p>"
+              },
+              {
+                "id": "clv6w0ffj009z3b752eqy3rzr",
+                "paragraph": "<p>Of the list discussed in this lesson, which of these do you find yourself being guilty of, and why?<br><br><strong><em>Fear of judgment<br>Conforming to gender norms<br>Balancing act<br>Avoiding conflict<br>Over-apologizing<br>Downplaying achievements</em></strong></p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv6w3rrs00123b723ha6gi7i",
+                "paragraph": "<p>What are three unique traits you have that no one else on your team has?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv6w3zjf00133b7239d36f7h",
+                "paragraph": "<p>Do you regularly operate in those areas?</p>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "clv6w49mn00143b72ournvoyz",
+                "paragraph": "<p>What are your boundaries or nonnegotiables at work?</p>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "bulletPadding": 3,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm3ca2uiz00cs3b79pcmgn3i6",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm3ca2uiz00ct3b79rblhoulm",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ],
+        "media": {},
+        "piles": [],
+        "settings": {},
+        "duplicatedFromId": "",
+        "deleted": false,
+        "createdAt": "2024-04-19T16:23:40.379Z",
+        "updatedAt": "2024-11-11T00:21:25.272Z",
+        "lastUpdatedBy": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "ready": true,
+        "position": 3,
+        "transferredAt": null,
+        "isPartnerContentAuthor": null,
+        "headerImage": {},
+        "sourceLessonLocaleId": null,
+        "experiments": null,
+        "description_vNext": "",
+        "title_vNext": "Personal Reflections"
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2024-04-04T16:19:12.829Z",
+    "updatedAt": "2024-11-11T00:21:25.272Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Championing Women in Leadership - Owning Your Game",
+      "format": "zip",
+      "quizId": "D5YXfrOqtGzT3mWdatKxVLj_Y05x5LJX",
+      "target": "scorm12",
+      "shareId": "HAPc6TDQs5a7Kiq8bFp2--KhViXBlTkf",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "bCQiw1XdbRoUK6BR63HP-JCqgozUkBXp_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": "cm07h4gn500343j75q1hpe1x8",
+      "completeWith": "reporting",
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "completionPercentage": 100
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": null,
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": false,
+      "allowSearch": true,
+      "colorAccent": "#4267a9",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "ACCENT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "SPLIT_LEFT_IMAGE",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://articulateusercontent.com/assets/rise/assets/themes/classic/cover-image/22_wfh.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "TINT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": true,
+      "buttonNavigationStyle": "FLOATING",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "defaultLocaleId": null,
+    "description_vNext": "",
+    "title_vNext": "Championing Women in Leadership - Owning Your Game",
+    "features": {
+      "rise-a-11-y-img-gallery-carousel": true,
+      "rise-block-controls-phase-three": true,
+      "rise-course-navigation": true,
+      "rise-img-dimensions": true,
+      "rise-img-zoom": true,
+      "rise-lazy-load-imgs": true,
+      "rise-scenario-a-11-y": true,
+      "rise-timed-quizzes": true
+    },
+    "authors": [
+      {
+        "id": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+        "authorName": "Brittni Herron"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "bodyTypeface": "Montserrat",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "mondrian": {}
+  },
+  "labelSet": {
+    "id": "YSzfDyNB2NBkeg1ZTnLw_nmm",
+    "author": "aid|5ef27c0c-8b92-44e9-bc7e-9d416861daab",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryStartOver": "Start Over",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY",
+      "tabGroup": "Tab",
+      "codeGroup": "Code",
+      "noteGroup": "Note",
+      "quoteGroup": "Quote",
+      "buttonGroup": "Button",
+      "courseDetails": "DETAILS",
+      "feedbackGroup": "Feedback",
+      "accordionGroup": "Accordion",
+      "statementGroup": "Statement",
+      "storylineGroup": "Storyline",
+      "attachmentGroup": "File Attachment",
+      "embedPhotoGroup": "Embedded photo",
+      "embedVideoGroup": "Embedded video",
+      "audioPlayerGroup": "Audio player",
+      "buttonStackGroup": "Button stack",
+      "textOnImageGroup": "Text on image",
+      "timelineLandmark": "Timeline",
+      "urlEmbedLandmark": "URL/Embed",
+      "videoPlayerGroup": "Video player",
+      "bulletedListGroup": "Bulleted list",
+      "checkboxListGroup": "Checkbox list",
+      "imageAndTextGroup": "Image and text",
+      "imageGalleryGroup": "Image gallery",
+      "numberedListGroup": "Numbered list",
+      "flashcardBackLabel": "Flashcard back",
+      "flashcardGridGroup": "Flashcard grid",
+      "nextFlashCardLabel": "Next flashcard",
+      "flashcardFrontLabel": "Flashcard front",
+      "flashcardStackGroup": "Flashcard stack",
+      "knowledgeCheckGroup": "Knowledge check",
+      "hamburgerButtonLabel": "Course Overview Sidebar",
+      "lessonContentLandmark": "Lesson Content",
+      "lessonSidebarLandmark": "Lesson Sidebar",
+      "labeledGraphicLandmark": "Labeled Graphic",
+      "previousFlashCardLabel": "Previous flashcard",
+      "timelineCardGroupPrefix": "Timeline Card",
+      "labeledGraphicBubbleLabel": "Labeled graphic bubble",
+      "labeledGraphicNextMarkerLabel": "Next marker",
+      "labeledGraphicPreviousMarkerLabel": "Previous marker"
+    },
+    "deleted": false,
+    "createdAt": "2023-12-28T17:20:20.171Z",
+    "updatedAt": "2023-12-28T17:20:20.171Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    }
+  ],
+  "media": []
+}

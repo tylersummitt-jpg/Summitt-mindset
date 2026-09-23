@@ -1,0 +1,3132 @@
+{
+  "course": {
+    "id": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+    "originalId": null,
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "selectedAuthorId": "none",
+    "color": "#f7932e",
+    "navigationMode": "",
+    "sharePassword": "",
+    "shareId": "jKueVBwak1VKctHrv443MSpBv8xXqU8Y",
+    "copyOf": "vsiqyUtzTUfjnGjGs9SWyC1zy_w8sa8C",
+    "order": "1756505088442",
+    "fonts": null,
+    "media": {},
+    "coverImage": {
+      "media": {
+        "image": {
+          "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/vdwEKxZXwo57_TJY-PoT_Thumbnails_Leader_Course%25204.png",
+          "crushedKey": "KdqcomhYcDcG08Xm.png",
+          "dimensions": {
+            "originalWidth": 1680,
+            "originalHeight": 840
+          },
+          "isSkipCrush": false,
+          "originalUrl": "PoT_Thumbnails_Leader_Course 4.png",
+          "sourcedFrom": "USER",
+          "useCrushedKey": true,
+          "src": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg"
+        }
+      }
+    },
+    "lessons": [
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+        "createdAt": "2025-01-28T20:30:44.563Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "FvHt1b-nhxV6ZvFRFD80F51fPzizh_x8",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Brand: What’s Yours?",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:36:30.210Z",
+        "items": [
+          {
+            "id": "cm6jqt4om00023b7998cn5juf",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jqt4om00033b79vjlssmg8",
+                "media": {
+                  "video": {
+                    "key": "v4_pot_morgan_vance_personal_brand_clip_02%20%281080p%29%20%281%29.mp4",
+                    "url": "transcoded-lUvSfftzg3FSmicN-v4_pot_morgan_vance_personal_brand_clip_02%2520(1080p)%2520(1).mp4",
+                    "type": "video",
+                    "poster": "v4_pot_morgan_vance_personal_brand_clip_02%20%281080p%29%20%281%29.jpg",
+                    "duration": 235,
+                    "inputKey": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/lUvSfftzg3FSmicN-v4_pot_morgan_vance_personal_brand_clip_02%20(1080p)%20(1).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/transcoded-lUvSfftzg3FSmicN-v4_pot_morgan_vance_personal_brand_clip_02%2520(1080p)%2520(1).0000000.jpg",
+                    "originalUrl": "v4_pot_morgan_vance_personal_brand_clip_02 (1080p) (1).mp4",
+                    "transcodeId": "1754793292288-p0z5jw"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah85k3p001r3b78wxl4z860",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah85k3q001s3b783f9jnwk6",
+                "paragraph": "<div data-editor-id=\"d51436de-dc06-4bb5-a59d-293952d2dbba\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jqt9lx000j3b793qxligmr",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jqt9lx000k3b794z98pwp8",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%204%20Personal%20Brand%20What%E2%80%99s%20Yours.pdf",
+                    "size": 231409,
+                    "type": "attachment",
+                    "filename": "ESM20TWIUbgX5ZSK-Lesson%204%20Personal%20Brand%20What%E2%80%99s%20Yours.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 4 Personal Brand What’s Yours.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jqub7a00103b79tu6ki0qy",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jqub7a00163b79uu5c6ud4",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"10c44e02-d4ea-4de9-9f39-32d6cdfad82c\"><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">One last part of responsibility</span>, and<span style=\"color: black; text-decoration: inherit\"> one that often gets overlooked, is the responsibility for personal brand. You’ve likely heard the term “personal brand” over the years, whether you’ve given much thought to yours or not.</span></span></p><p><span style=\"font-size: 1.7rem\"><span style=\"color: black; text-decoration: inherit\">A personal brand is a unique identity that defines who you are, what you stand for, and how you are perceived by others. It encompasses your personality, values, skills, achievements, and reputation. In today's world, personal branding has become an important aspect of one's professional success. A strong personal brand can help you establish a professional image, increase your credibility, and stand out from the competition.</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jqv5jj001r3b798fac8p97",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jqvaz900293b79imkqw6xu",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+        "createdAt": "2025-01-28T19:41:56.815Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"9f1c8aa2-8cee-4fcd-9b64-fb1400a42012\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "xnAQUBOLg0AjCNWumCNjSr5F7UpViVdb",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 0,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:36:05.270Z",
+        "items": [
+          {
+            "id": "cm6gvw2f400wd3b790o553z5f",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"3e6aee8c-22bf-4346-8a41-5ed98a915ebc\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">A strong personal brand can help you:</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"26d1723f-563f-44cd-83d9-f51a1b7ae7a5\"><p><span style=\"color: black; text-decoration: inherit\">Establish a professional image</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"3fd19aef-9d0d-4dc7-84f7-2cc6e6b497ec\"><p><span style=\"color: black; text-decoration: inherit\">Increase your credibility</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6js7o5o00q93b790il9ofwd",
+                "title": "<div data-editor-id=\"8d28d934-256c-4ba4-8064-7f83eb9ec43a\"><p><span style=\"color: black; text-decoration: inherit\">Stand out from the competition</span></p></div>"
+              },
+              {
+                "id": "cm6js8g4800qb3b794khd3alj",
+                "title": "<div data-editor-id=\"ba7bb997-0a8a-420f-b41c-5c6814604100\"><p>All of the above</p></div>"
+              }
+            ],
+            "correct": "cm6js8g4800qb3b794khd3alj",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6gvw2f400wg3b798oenzg94",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"4086fbce-59b7-4e8c-a9ef-10317fadbf55\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these are part of a personal brand? (select all that apply)</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"2bff97fb-ef20-4743-8382-0ae7d4a39d15\"><p>Personality</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"9c5725d8-5e37-4498-baea-4ac6bbdd4c84\"><p>Time spent on social media</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"525189c1-ca82-4e8f-95dd-1bf21052f70c\"><p>Values</p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"b0ce9995-50ab-41ae-a624-454d69fa87df\"><p>Skills</p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6js5xco00pr3b79tan9sfye",
+                "title": "<div data-editor-id=\"509f7287-0fae-4401-b53c-7e4b49e57913\"><p>Private thoughts</p></div>"
+              },
+              {
+                "id": "cm6js6kv500py3b79xrog2qgd",
+                "title": "<div data-editor-id=\"cec2684e-d011-4b8f-810d-b380aa826ba1\"><p>Achievements</p></div>"
+              },
+              {
+                "id": "cm6js6qf000q13b79mto0jk3d",
+                "title": "<div data-editor-id=\"675c4770-c2c6-447c-bab8-5a675c040685\"><p>Favorite movies</p></div>"
+              },
+              {
+                "id": "cm6js6xws00q43b79h72dich9",
+                "title": "<div data-editor-id=\"e38efb1b-d21e-4498-932b-a21073df9468\"><p>Reputation</p></div>"
+              }
+            ],
+            "correct": "",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac",
+              "cm6gvw2f400wk3b79q9mcjkdv",
+              "cm6js6kv500py3b79xrog2qgd",
+              "cm6js6xws00q43b79h72dich9"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6js8t0n00qe3b792r9v1dgu",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"552a8fb7-eaf6-424f-9229-115bbba99540\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these is a key question to ask yourself regarding your personal brand?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6js8t0n00qf3b79lggwq5o6",
+                "title": "<div data-editor-id=\"ce1ff90f-664c-4ba7-89ea-bd51c4f949b5\"><p><span style=\"color: #000000; text-decoration: inherit\">What do you want people to think of when they think of you?</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6js8t0n00qg3b799h0dc0li",
+                "title": "<div data-editor-id=\"3f43530e-a772-42dd-9bef-9b4378b41d15\"><p><span style=\"color: black; text-decoration: inherit\">Which parts of yourself do you need to hide?</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6js8t1p00qh3b798bumt8u6",
+                "title": "<div data-editor-id=\"b3f588da-1a91-4a01-8b1b-5490c9d19b28\"><p><span style=\"color: black; text-decoration: inherit\">Which of your friends are your most loyal supporters?</span></p></div>"
+              },
+              {
+                "id": "cm6js9ljt00qj3b79upg94iwh",
+                "title": "<div data-editor-id=\"f3f42e25-bd6d-4e72-8405-7a493fdbfe53\"><p><span style=\"color: black; text-decoration: inherit\">Why should you care what other people think?</span></p></div>"
+              }
+            ],
+            "correct": "cm6js8t0n00qf3b79lggwq5o6",
+            "corrects": [
+              "cm6js8t0n00qf3b79lggwq5o6"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+        "createdAt": "2025-01-28T20:30:54.940Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "4aBio-AuwB-qcbjbKEPCChjNuKItlH19",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 3,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Responsibility for Personal Brand",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:33:18.802Z",
+        "items": [
+          {
+            "id": "cm6jqwizn002s3b79cgidu8yr",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jqwizn002y3b79bc86ivzj",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"6398c7e4-c19c-4485-9ea1-6d84a174c0e0\"><p style=\"text-align: center\"><span style=\"color: black; text-decoration: inherit\">How many times have you heard these words:</span></p><p style=\"text-align: center\"><span style=\"font-size: 1.5rem\"><span style=\"color: black; text-decoration: inherit\"><em>(Click on each circle in the illustration below to complete this element)</em></span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jqwdg3002a3b7996wdlg7l",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "x": "68.80390625",
+                "y": "24.192981634182907",
+                "id": "cm6jqwdg4002b3b79ooc6i2p5",
+                "icon": "01",
+                "title": "",
+                "isActive": false,
+                "description": "<div data-editor-id=\"db8c32c6-e150-4cff-9afe-18d5d11fe83b\"><p><span style=\"color: black; text-decoration: inherit\"><strong>“I don’t care what people think of me.”</strong></span></p></div>"
+              },
+              {
+                "x": "68.88984375",
+                "y": "44.58630059970015",
+                "id": "cm6jqwdg4002c3b79vqooah5j",
+                "icon": "01",
+                "title": "",
+                "isActive": false,
+                "description": "<div data-editor-id=\"5c6bd156-d503-4d1e-b403-14e5140ae095\"><p><span style=\"color: black; text-decoration: inherit\"><strong>“If they don’t like me, that’s their fault.”</strong></span></p></div>"
+              },
+              {
+                "x": "68.91953125",
+                "y": "57.79844452773614",
+                "id": "cm6jqz3d100613b794wh1ot1y",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"05ac5fea-eaf9-4599-ba6a-6a5525653af7\"><p><span style=\"color: black; text-decoration: inherit\"><strong>“Why should I change how I communicate?”</strong></span></p></div>"
+              },
+              {
+                "x": "68.99453125000001",
+                "y": "70.33709707646177",
+                "id": "cm6jqz46r00633b79asv9oy59",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"48dce201-b537-4458-9876-3737afd84c02\"><p><span style=\"color: black; text-decoration: inherit\"><strong>“I’m not here to make friends.”</strong></span></p></div>"
+              },
+              {
+                "x": "69.06953125000001",
+                "y": "83.75890179910044",
+                "id": "cm6jqz4y200653b791t2gjnrp",
+                "icon": "01",
+                "title": "",
+                "hasMedia": false,
+                "isActive": false,
+                "description": "<div data-editor-id=\"cca6d27b-658e-4fd9-bfee-b645ed4835e3\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\"><strong>“I’m just here to get a job done, not make small talk.”</strong></span></span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "media": {
+              "image": {
+                "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/5-U-hUPGLdJUWJzy-AdobeStock_201676109.jpeg",
+                "type": "image",
+                "crushedKey": "AdobeStock_201676109.jpg",
+                "dimensions": {
+                  "originalWidth": 1680,
+                  "originalHeight": 1120
+                },
+                "originalUrl": "AdobeStock_201676109.jpeg",
+                "sourcedFrom": "USER",
+                "useCrushedKey": true
+              }
+            },
+            "family": "interactive-fullscreen",
+            "variant": "labeledgraphic",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "0",
+              "paddingTop": 1,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jqx9d300403b79h3ztrtjd",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jqx9d400463b79woak7ekm",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"eadd83d4-243b-450e-bbf8-e5564acf1fb4\"><p><span style=\"color: black; text-decoration: inherit\">You may have even thought some of these yourself! These statements revolve around the concept of personal brand</span>,<span style=\"color: black; text-decoration: inherit\"> and the speaker’s willingness (or lack thereof) to change anything about their brand.</span></p><p><span style=\"color: black; text-decoration: inherit\">You may be tempted to dismiss personal brand, say that it doesn</span>’t matter, or even put the responsibility on <span style=\"color: black; text-decoration: inherit\">others, thinking</span> it’s their job<span style=\"color: black; text-decoration: inherit\"> to have a good opinion about you. But the truth is, personal brand is a unique area of responsibility </span>—<span style=\"color: black; text-decoration: inherit\"> no one can be responsible for your personal brand </span>but<span style=\"color: black; text-decoration: inherit\"> you.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmahbelrp004w3b78d49ap7kg",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmahbelrp00543b78p2af8s16",
+                "heading": "<div data-editor-id=\"171185f0-e73c-4b27-9061-c7b59abc8a1e\"><p><strong>Exercise</strong></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jqxzwe004r3b79c4jbn3k4",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jqxzwe004x3b79mtam6c4l",
+                "heading": "<div data-editor-id=\"68b275cf-d5ba-4912-9f0c-d93a1c5fe708\"></div>",
+                "paragraph": "<div data-editor-id=\"17fc8947-b838-4763-af67-adcb5367bc81\"><p>Which <span style=\"color: black; text-decoration: inherit\">of these statements shows mindfulness versus lack of awareness for personal brand?</span></p><p><span style=\"font-size: 1.6rem\">Drag and drop each card&nbsp;to complete this element.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jqyny3005i3b791cdsa0e2",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jqyny3005k3b79n1ii7vad",
+                "title": "“I want to be the best version of myself.”",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jr22x2008z3b7946p4v9rh",
+                "title": "“That’s just the way I am. They don’t have to like it.”",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jr27mo00913b79qhwtoo8x",
+                "title": "“Why does it matter how I dress?”",
+                "pileId": 1
+              },
+              {
+                "id": "cm6jr2g4e00933b79djka6mb1",
+                "title": "“I care about my appearance.”",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jr2wwk00953b79t5uv0li7",
+                "title": "“What are some things I can improve on?”",
+                "pileId": 2
+              },
+              {
+                "id": "cm6jr35q300973b79iaxcg903",
+                "title": "“How I communicate shouldn’t matter.”",
+                "pileId": 1,
+                "isNewlyInserted": true
+              }
+            ],
+            "piles": [
+              {
+                "id": 1,
+                "title": "Lack of awareness"
+              },
+              {
+                "id": 2,
+                "title": "Aware"
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "sorting",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jr0u0l008h3b793euy9xe0",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jr0u0l008i3b79tq0vobnl",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+        "createdAt": "2025-01-28T20:31:00.697Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "G1S5HoHhRB5t_roxUShOgq9z6z3p9aRf",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 4,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "The Queen of Rocky Top",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:33:18.802Z",
+        "items": [
+          {
+            "id": "cm6jrhnts00ja3b79yp9wz00h",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jrhntt00jb3b79mlsm9uay",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/E7UJuiH70D1OkZFG-Pat%2520walking%2520sideline%2520and%2520smiling.JPG",
+                    "type": "image",
+                    "crushedKey": "Pat%20walking%20sideline%20and%20smiling.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1125
+                    },
+                    "originalUrl": "Pat walking sideline and smiling.JPG",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": ""
+              }
+            ],
+            "family": "image",
+            "variant": "hero",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jrhqj900jv3b796owfxe4q",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jrhqj900k13b79x9dymjxn",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"9ceb49b4-5582-4ed0-baff-14f5514323ce\"><p><span style=\"color: black; text-decoration: inherit\">The Legend. The General. The Queen of Rocky Top. The Torchbearer. The Godmother of Women’s Basketball.</span></p><p><span style=\"color: black; text-decoration: inherit\">Pat herself had a strong personal brand built around her dedication to the sport, her unwavering work ethic, and commitment to excellence both on and off the court. She was known for her toughness, her ability to motivate and inspire her players, and her strong leadership skills. She was also known for her composure, the “Summitt Stare,” and her well-manicured look on the sidelines.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jri45x00km3b79k8j4ufsk",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jri45x00kn3b7977qluttd",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/YfcS99yEkDL6oGvV.jpg",
+                    "type": "image",
+                    "isSquare": false,
+                    "crushedKey": "pat%20player%20bw%20photo.jpg",
+                    "dimensions": {
+                      "top": 0,
+                      "left": 390,
+                      "width": 502,
+                      "height": 720,
+                      "originalWidth": 1280,
+                      "originalHeight": 720
+                    },
+                    "originalUrl": "pat player bw photo.jpg",
+                    "sourcedFrom": "USER",
+                    "originalImage": {
+                      "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/ybTDTOXf9QGOQzQU-pat%2520player%2520bw%2520photo.jpg",
+                      "type": "image",
+                      "crushedKey": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/irxUPkObfzGVR5ib.jpg",
+                      "dimensions": {
+                        "originalWidth": 1280,
+                        "originalHeight": 720
+                      },
+                      "originalUrl": "pat player bw photo.jpg",
+                      "sourcedFrom": "USER",
+                      "useCrushedKey": true
+                    },
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"eaea16ab-44ea-444f-aef4-5492ca7dd22a\"><p><span style=\"color: black; text-decoration: inherit\">Believe it or not, Pat’s own personal brand went through quite a transformation in a period of just a few short years. Raised on a farm in Henrietta, T</span>enn.<span style=\"color: black; text-decoration: inherit\">, in high school she was known as Trish (short for Patricia) </span>Head<span style=\"color: black; text-decoration: inherit\">. When she </span>went to<span style=\"color: black; text-decoration: inherit\"> college, her sorority friends assumed she was Pat</span>, <span style=\"color: black; text-decoration: inherit\">and she didn’t correct them.</span></p><p><span style=\"color: black; text-decoration: inherit\">“Trish Head was a farm kid with crooked teeth and all the wrong clothes who said <em>ain’t</em>, <em>reckon,</em> and <em>yonder</em>,” Pat recalled<em>.</em> “You never get a second chance to make a first impression. In those early days at college, I realized that presentation counts. For better or worse, strangers made sweeping judgements based on my appearance and demeanor. So, I began the process of self-transformation.”<sup>1</sup></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jrihfq00l73b790qh0j3t6",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jrihfq00l83b791khoemfq",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/b9M0wAn6b6yZ2QV5-Summitt%2520on%2520Sideline%2520at%2520Tennessee%2520Tech.1979-80.jpg",
+                    "type": "image",
+                    "crushedKey": "Summitt%20on%20Sideline%20at%20Tennessee%20Tech.1979-80.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 2381
+                    },
+                    "originalUrl": "Summitt on Sideline at Tennessee Tech.1979-80.jpg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"a51b5bd7-e9fb-4587-87b2-cb3082c753e9\"><p><span style=\"color: black; text-decoration: inherit\">She quickly enlisted two friends to help her with her grammar and accent, </span>and she<span style=\"color: black; text-decoration: inherit\"> enroll</span>ed<span style=\"color: black; text-decoration: inherit\"> in speech classes. “I began to pay attention to my clothes,” she said. “Dressing appropriately for a role can help you play it better.” She began to wear tailored suits on the sidelines and got braces when she was nearly 30.</span></p><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">In a few short years, gone was the shy farm kid who always wore jeans and was self-conscious about her height. Summitt’s players affectionately referred to her as “Sarge” for her command and polish on the sidelines. Others called her “The Iron Lady” and marveled at her ability to consistently appear in a polished wardrobe reflecting the University of Tennessee’s signature colors. She even became known for a particular shade of blue</span>:<span style=\"color: black; text-decoration: inherit\"> “Summitt Blue,” now recognized and worn by </span>t<span style=\"color: black; text-decoration: inherit\">he University of Tennessee in athletic uniforms.</span></span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jriwqo00lz3b79faykchnn",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jriwqo00m03b79ouo7uojq",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+        "createdAt": "2025-01-28T20:31:07.267Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "pv3lRayDWxBhnPDPKVixJBDjOyATzetr",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 5,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Why Personal Brand Is Important",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T02:21:19.421Z",
+        "items": [
+          {
+            "id": "cm6jrjg3e00mh3b797z24ktpv",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jrjg3e00mn3b79x069rmjs",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"455c4aa5-b8e5-4f47-a8de-543b05ce6490\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">As someone who spent their life in the spotlight, Summitt’s personal brand was well-known. Your own brand may be less distinct, but it exists all the same. We’ll say it again</span>:<span style=\"color: black; text-decoration: inherit\"> </span>Y<span style=\"color: black; text-decoration: inherit\">our personal brand <em>exists</em>, whether you recognize that it does or not!</span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah9ml0a00s93b78hq7gpqcf",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah9ml0a00sa3b78fot3oks7",
+                "paragraph": "<div data-editor-id=\"6bfcb718-a08d-4ce1-acb3-8f7422244c5e\"><p><span style=\"font-size: 1.5rem\">Scroll through to complete this element.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 2,
+              "accentColor": null,
+              "quotesInline": false,
+              "isCustomColor": true,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "customPaddingTop": 2,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          },
+          {
+            "id": "cm6jrjouf00n83b794fgavbhi",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jrjoug00n93b79z8zk270p",
+                "type": "intro",
+                "title": "What Is Personal Brand?",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"05c33066-786b-495b-ac12-3b0483d7c35e\"><p style=\"text-align: left\"><span style=\"color: black; text-decoration: inherit\">Personal brand incorporates a lot of things, but without overcomplicating it, there are four main parts:</span></p><p style=\"margin-left: 0.05rem; text-align: left\"><span style=\"color: black; text-decoration: inherit\">●</span><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">Attitude</span></p><p style=\"margin-left: 0.05rem; text-align: left\"><span style=\"color: black; text-decoration: inherit\">●</span><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">Image</span></p><p style=\"margin-left: 0.05rem; text-align: left\"><span style=\"color: black; text-decoration: inherit\">●</span><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">Skills</span></p><p style=\"margin-left: 0.05rem; text-align: left\"><span style=\"color: black; text-decoration: inherit\">●</span><span style=\"font-size: 0.9rem\"><span style=\"color: black; text-decoration: inherit\"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span><span style=\"color: black; text-decoration: inherit\">Experience</span></p></div>"
+              },
+              {
+                "id": "cm6jrjoug00na3b799ynmcdxq",
+                "type": "summary",
+                "title": "Conclusion",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"4c9e0829-5898-4c77-9d2f-a79c03bad486\"><p><span style=\"color: black; text-decoration: inherit\"><span style=\"color: black\">When considering what your personal brand is, consider what you are known for specifically in each of these four main areas.</span></span></p></div>"
+              },
+              {
+                "id": "cm6jrjoug00nb3b792anxtdb2",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/UrAdiqm6PR5jubr5-AdobeStock_173408865.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_173408865.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1116
+                    },
+                    "trackingId": "cm6jrjouf00n83b794fgavbhi",
+                    "originalUrl": "AdobeStock_173408865.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Attitude",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"ba703e38-fd12-46be-b263-6d28610631e3\"><p style=\"text-align: left\"><span style=\"font-size: 1.6rem\">W<span style=\"color: black; text-decoration: inherit\">hat is the attitude you present in your role? What principles do you stand for? How do you communicate?</span></span></p></div>"
+              },
+              {
+                "id": "cm6jrjoug00nc3b79vx53ao7p",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/Y_3MOPHCfENSaAFj-AdobeStock_139007092.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_139007092.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1007
+                    },
+                    "trackingId": "cm6jrjouf00n83b794fgavbhi",
+                    "originalUrl": "AdobeStock_139007092.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Image",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"7c2eaa0e-4c57-4d52-a04f-4a968c9e71e2\"><p style=\"text-align: left\"><span style=\"font-size: 1.6rem\">W<span style=\"color: black; text-decoration: inherit\">hat words would others use to describe you? What is your own signature look? What are you <em>known </em>for?</span></span></p></div>"
+              },
+              {
+                "id": "cm6jrl34o00nt3b799aa4vvlh",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/OnAMmU3KneIUL73D-AdobeStock_80205027.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_80205027.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 934
+                    },
+                    "trackingId": "cm6jrjouf00n83b794fgavbhi",
+                    "originalUrl": "AdobeStock_80205027.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Skills",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"0e737d36-fbaf-4360-94be-b876ea780086\"><p><span style=\"font-size: 1.6rem\">W<span style=\"color: black; text-decoration: inherit\">hat expertise can you be counted on for? What things do you bring to the table? What is your superpower or special skill in your role?</span></span></p></div>"
+              },
+              {
+                "id": "cm6jrl9jr00nv3b79331leo86",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/hJKqoGronAZW6ibJ-AdobeStock_132807310.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_132807310.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "cm6jrjouf00n83b794fgavbhi",
+                    "originalUrl": "AdobeStock_132807310.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Experience",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"c5fb9300-d448-48f8-b525-15fba6c8a09c\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Finally, what experiences make you unique? What events in your background are you known for that make up part of who you are?</span></span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 0,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "showStepLabel": false,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jrm74k00ou3b794uh95hmr",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jrm74k00ov3b79yux1x88o",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+        "createdAt": "2025-01-28T20:31:41.863Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"e6cdf64c-0cfa-440f-9206-2b865cfc932f\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "1Q9MdmTqRM24KnorgPEJ75oMMFifSlx_",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "D1VGyyKJQAJeEM912shzuRBnSNEqKcDj",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 2,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:36:18.127Z",
+        "items": [
+          {
+            "id": "VLbRk9WkSNqmGcYSclt9ma98GwcwCoeT",
+            "type": "MULTIPLE_RESPONSE",
+            "title": "<div data-editor-id=\"be4b4eda-718b-47c5-b47a-870f4dfdf42a\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these statements is true? (check any that apply)</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"53dc36b4-781a-4866-9811-05d27c5686e2\"><p><span style=\"color: #000000; text-decoration: inherit\">Your personal brand exists, whether you recognize it or not.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"b5a798fa-1631-4bdd-8b34-410d4ad9624f\"><p><span style=\"color: #000000; text-decoration: inherit\">Your image is part of your personal brand.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jsoh5d00r83b79qprskg2p",
+                "title": "<div data-editor-id=\"1cbc32da-938e-411e-8c93-0334e8d91dbd\"><p><span style=\"color: #000000; text-decoration: inherit\">Personal brand is what you are known for.</span></p></div>"
+              },
+              {
+                "id": "cm6jsqw7j00rd3b79npw53wov",
+                "title": "<div data-editor-id=\"d5510568-ecf7-421a-b202-7dff819a748e\"><p><span style=\"color: black; text-decoration: inherit\">You can’t change your personal brand.</span></p></div>"
+              },
+              {
+                "id": "cm6jsr24q00rg3b79nooh807k",
+                "title": "<div data-editor-id=\"aa0ef85b-e67d-4a72-acbf-94138b0a30b2\"><p><span style=\"color: #000000; text-decoration: inherit\">Attitude is an important part of a personal brand.</span></p></div>"
+              },
+              {
+                "id": "cm6jsr82c00rj3b79d861m4n1",
+                "title": "<div data-editor-id=\"43b30714-2df9-4174-80c9-116817107e34\"><p><span style=\"color: black; text-decoration: inherit\">Personal brand shouldn’t require any effort.</span></p></div>"
+              }
+            ],
+            "correct": "cm6gvw2f400we3b79k59kq8pi",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi",
+              "cm6jsr24q00rg3b79nooh807k",
+              "cm6jsoh5d00r83b79qprskg2p",
+              "cm6gvw2f400wf3b79z4rpzttq"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "DwEL3E5Cn1-lQOtlPrNqWyI5IBqmbqOx",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"dc639fc4-ce04-422f-b276-e43995ebe594\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these is a part of personal brand?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"2527b5a6-2105-45ae-ba71-d4918925d9c7\"><p><span style=\"color: black; text-decoration: inherit\">The way you communicate</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"863651c1-fe40-4fce-b676-38cd14e7a608\"><p><span style=\"color: black; text-decoration: inherit\">What skills you can be counted on for</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"cadcdb7e-b7b1-457e-a9dd-cf0a8474ed98\"><p><span style=\"color: black; text-decoration: inherit\">What experiences make you unique</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"d27b8031-8479-4750-bdec-3b28d452454e\"><p><span style=\"color: #000000; text-decoration: inherit\">All of the above</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wi3b79oh3jujac",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6jsw5h800ru3b79ls1u15m1",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"add0c752-5a37-4460-9cf3-36f3e124e32e\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">What are the four parts of personal brand discussed in this lesson:</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6jsw5h900rv3b7995hn9t8h",
+                "title": "<div data-editor-id=\"50657f83-e9c3-4266-bd68-6bb62c458b5d\"><p><span style=\"color: #000000; text-decoration: inherit\">Attitude, image, skills, experience</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6jsw5h900rw3b7921t43vqv",
+                "title": "<div data-editor-id=\"146b0847-2875-49df-8946-073b52ceeb6a\"><p><span style=\"color: black; text-decoration: inherit\">Skills, style, presentation, communication</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jsw5ia00rx3b79sb6yno3h",
+                "title": "<div data-editor-id=\"ee21e8e2-e131-4995-ae51-ec4fc3073166\"><p><span style=\"color: black; text-decoration: inherit\">Achievements, image, beliefs, self-talk</span></p></div>"
+              },
+              {
+                "id": "cm6jsx1ba00rz3b792en1032c",
+                "title": "<div data-editor-id=\"84ec8bfc-8192-48b2-ae95-ac56a45f13ae\"><p><span style=\"color: black; text-decoration: inherit\">None of the above</span></p></div>"
+              }
+            ],
+            "correct": "cm6jsw5h900rv3b7995hn9t8h",
+            "corrects": [
+              "cm6jsw5h900rv3b7995hn9t8h"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+        "createdAt": "2025-01-28T20:31:14.795Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "Esvzm1opY3OktkihuSozYK54o_4DtJJ5",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 6,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Does it Matter?",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-10T02:33:18.802Z",
+        "items": [
+          {
+            "id": "cmah9rk6c014o3b78l32817hz",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah9rk6c014w3b7868yraekz",
+                "heading": "<div data-editor-id=\"14a678b4-b5a8-4866-b98c-752844002462\"><p><span style=\"font-size: 3.2rem\"><span style=\"color: black; text-decoration: inherit\"><strong>Does Personal Brand Matter if the Output Is Good?</strong></span></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jt13ld00th3b79i5vi0onl",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jt13le00tn3b79m4invxhh",
+                "heading": "<div data-editor-id=\"fcd15242-7e5b-4013-a429-7e89aa4b28f2\"></div>",
+                "paragraph": "<div data-editor-id=\"0266e556-a594-4d75-a1dd-5b6bfb69abfc\"><p><span style=\"color: black; text-decoration: inherit\">You may ask, “Does personal brand at work really matter if my output is good?” In a word, <em>yes</em>. In fact, it matters a whole lot more than you may think.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jt1mmv00u83b79tv47eb3j",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jt1mmv00u93b79bfi6n5dl",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/oaDbQfGH5TaOPdZK-AdobeStock_64374190.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_64374190.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1220
+                    },
+                    "originalUrl": "AdobeStock_64374190.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"9b694a5d-076d-4215-9104-497110ee84be\"><p><span style=\"color: black; text-decoration: inherit\">Personal brand affects consideration for promotions, specific tasks </span>you’re<span style=\"color: black; text-decoration: inherit\"> </span>given<span style=\"color: black; text-decoration: inherit\">, what information you can be trusted with, whether you</span>’<span style=\"color: black; text-decoration: inherit\">re asked to present in a meeting, </span>and<span style=\"color: black; text-decoration: inherit\"> whether your teammates want to work with you </span>and<span style=\"color: black; text-decoration: inherit\"> follow you. After all, no one wants to work with (or follow) a successful jerk.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jt36gy00ut3b79gt6vh1jv",
+            "data": {},
+            "type": "image",
+            "items": [
+              {
+                "id": "cm6jt36gz00uu3b798bktlkto",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/d0VHa0wXtZIk7-ax-AdobeStock_60582560.jpeg",
+                    "type": "image",
+                    "crushedKey": "AdobeStock_60582560.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "originalUrl": "AdobeStock_60582560.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true
+                  }
+                },
+                "caption": "",
+                "paragraph": "<div data-editor-id=\"d2db7758-586b-49cb-b3bc-2af8cd4b3c4d\"><p><span style=\"color: black; text-decoration: inherit\">Your personal brand can have a profound impact on your personal life</span> too<span style=\"color: black; text-decoration: inherit\">, including your relationships and your overall success. Personal brand can sometimes even make up for a direct lack of skill or experience in certain areas.</span></p></div>"
+              }
+            ],
+            "family": "image",
+            "variant": "text aside",
+            "settings": {
+              "v": 2,
+              "opacity": 0.5,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "opacityColor": "#000000",
+              "quotesInline": false,
+              "imagePosition": "right",
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jt3oes00vl3b79kslwyolj",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jt3oes00vm3b7996qh79as",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+        "createdAt": "2025-01-28T20:31:21.775Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "vr-TR8k4gN8R1Py-63IGOlJnVvMVykRT",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 7,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "What Is Your Brand?",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T02:20:28.842Z",
+        "items": [
+          {
+            "id": "cm6jt41u500w33b7906mzjddl",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jt41u500w93b79yab7mx5g",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"bb716b7e-9679-415c-b80f-da70210a46ff\"><p><span style=\"color: black; text-decoration: inherit\">The first step is realizing what your personal brand is currently. In the exercises at the end of this lesson, we’ll go over a few tips for uncovering what your brand may be at the moment, and how you are perceived by others.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jt4afn00wu3b79n6bip16b",
+            "data": {},
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cm6jt4afn00wv3b7966jf9tmc",
+                "type": "intro",
+                "title": "What Is Your Personal Brand?",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"23bc9237-9b59-433d-b3e8-fde8a371e275\"><p><span style=\"color: black; text-decoration: inherit\">The next step is evaluating what you would<em> like </em>your personal brand to be.</span></p><p><span style=\"font-size: 1.3rem\">(Scroll through to complete this element)</span></p></div>"
+              },
+              {
+                "id": "cm6jt4afn00ww3b79qo3wnl7m",
+                "type": "summary",
+                "title": "Summary",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"359c3e94-b48a-4290-8aaa-75c6beabb8db\"><p><span style=\"color: black; text-decoration: inherit\"><span style=\"color: black\">Changing your personal brand takes time and effort. It may take weeks or months to see the results you want, but if you stay focused and committed, like Coach Summitt, you will eventually shape a winning, successful brand.</span></span></p></div>"
+              },
+              {
+                "id": "cm6jt4afn00wx3b79okmvtbpa",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/-hbL4Ajjifza4L8J-AdobeStock_301901418.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_301901418.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1121
+                    },
+                    "trackingId": "cm6jt4afn00wu3b79n6bip16b",
+                    "originalUrl": "AdobeStock_301901418.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Identify your goals",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"275da168-d58a-4ef6-b8d9-3057d0d579c4\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">What do you want to achieve with your personal brand? Do you want to be known for a particular skill or quality?</span></span></p></div>"
+              },
+              {
+                "id": "cm6jt4afn00wy3b797mxsoh61",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/bmi0Z5uFnWSEVikB-AdobeStock_272103651.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_272103651.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 460
+                    },
+                    "trackingId": "cm6jt4afn00wu3b79n6bip16b",
+                    "originalUrl": "AdobeStock_272103651.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Develop a plan",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"702e6067-2ed1-4e71-8bb5-6ae9140119d2\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Is there a gap between the image you</span>’<span style=\"color: black; text-decoration: inherit\">re projecting and the brand you would like to have?</span></span></p></div>"
+              },
+              {
+                "id": "cm6jt6asd00xf3b7952ydvwox",
+                "type": "step",
+                "media": {
+                  "image": {
+                    "key": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/kNUQ7lXmX9vSV1Ps-AdobeStock_1348664460.jpeg",
+                    "type": "image",
+                    "align": "center",
+                    "fillWidth": false,
+                    "crushedKey": "AdobeStock_1348664460.jpg",
+                    "dimensions": {
+                      "originalWidth": 1680,
+                      "originalHeight": 1120
+                    },
+                    "trackingId": "cm6jt4afn00wu3b79n6bip16b",
+                    "originalUrl": "AdobeStock_1348664460.jpeg",
+                    "sourcedFrom": "USER",
+                    "useCrushedKey": true,
+                    "trackingContext": "block:process"
+                  }
+                },
+                "title": "Seek out opportunities",
+                "isHidden": false,
+                "description": "<div data-editor-id=\"85178346-6a03-4fe9-a31e-8b9d385f5105\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Look for opportunities to showcase your personal brand.</span></span></p></div>",
+                "isNewlyInserted": true
+              }
+            ],
+            "family": "interactive-fullscreen",
+            "variant": "process",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "mediaWidth": "1",
+              "paddingTop": 3,
+              "accentColor": null,
+              "zoomOnClick": true,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "showStepLabel": false,
+              "backgroundType": "COLOR",
+              "backgroundColor": "#f5f5f5",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jt767w00ye3b79t23ngquq",
+            "data": {},
+            "type": "divider",
+            "items": [
+              {
+                "id": "cm6jt767w00yf3b79z9xmzmi4",
+                "type": "completeAll",
+                "title": "CONTINUE",
+                "buttonColor": "brand",
+                "completeHint": "Complete the content above before moving on."
+              }
+            ],
+            "family": "continue",
+            "variant": "continue",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+        "createdAt": "2025-01-28T20:32:04.429Z",
+        "deleted": false,
+        "description": "<div data-editor-id=\"6a70c25a-8f69-4183-85e1-259f35eb9d33\"><p><span style=\"color: rgba(0, 0, 0, 0.75); text-decoration: inherit\"><span style=\"background-color: rgb(255, 255, 255)\"><br class=\"break-when-trailing\">Let's review what we've covered in the previous lesson(s). You will need a 100% score to continue on to the next section. Good luck!</span></span></p></div>",
+        "duplicatedFromId": "4yaBqpElYA-DS5CvsWjLoluxg5ZZJ74K",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Quiz",
+        "id": "lESGMWfULcfQFXugs9zmK_jZHSA7NOhT",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 6,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {
+          "retryCount": -1,
+          "passingScore": "100",
+          "revealAnswers": "all",
+          "passToContinue": true,
+          "correctAnswerColor": "#f7932e",
+          "incorrectAnswerColor": "#d84738",
+          "shuffleAnswerChoices": false,
+          "randomizeQuestionOrder": true
+        },
+        "sourceLessonLocaleId": null,
+        "title": "Knowledge Check",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "quiz",
+        "updatedAt": "2025-08-14T20:36:26.031Z",
+        "items": [
+          {
+            "id": "aIjitQFVoonH8CKB7zHWO9NlAsm0PbwU",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"cc6a3c26-8e00-4ece-b965-fd896c8b4179\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">The first step in improving your personal brand is:</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400we3b79k59kq8pi",
+                "title": "<div data-editor-id=\"120adc3d-15a3-41d7-941a-7ff5092b85e3\"><p><span style=\"color: black; text-decoration: inherit\">Buying a new wardrobe</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wf3b79z4rpzttq",
+                "title": "<div data-editor-id=\"b17bb7d1-a6e2-45ec-ab44-ea184653b71b\"><p><span style=\"color: black; text-decoration: inherit\">Asking other people what they think</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jt7qp800yy3b793o8hevz3",
+                "title": "<div data-editor-id=\"b8d9a05d-c271-41e3-870f-07b96dbcb00b\"><p><span style=\"color: #000000; text-decoration: inherit\">Realizing what your personal brand is currently</span></p></div>"
+              },
+              {
+                "id": "cm6jt8nt400z03b79mkgvgkm1",
+                "title": "<div data-editor-id=\"c68c6e40-9d4c-407c-a6a4-54a74b738a49\"><p><span style=\"color: black; text-decoration: inherit\">Taking self-help courses</span></p></div>"
+              }
+            ],
+            "correct": "cm6jt7qp800yy3b793o8hevz3",
+            "corrects": [
+              "cm6gvw2f400we3b79k59kq8pi"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "NtONAELfDN227kKeNsrNC58f_6ekSKmr",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"3520375d-8044-4aa4-9fec-3fab12f52009\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Changing your personal brand ____________.</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6gvw2f400wh3b7988pccu4m",
+                "title": "<div data-editor-id=\"03bd404b-8b08-4765-bf91-ad85b4f50a98\"><p><span style=\"color: black; text-decoration: inherit\">Should be easy.</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wj3b793d4kqpg0",
+                "title": "<div data-editor-id=\"ed71b0f2-b128-4846-bdac-83d452ed1112\"><p><span style=\"color: #000000; text-decoration: inherit\">May take time and effort.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wk3b79q9mcjkdv",
+                "title": "<div data-editor-id=\"c286b2c8-d5ef-4b67-b7fc-23e449acd017\"><p><span style=\"color: black; text-decoration: inherit\">Happens whether you like it or not.</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6gvw2f400wi3b79oh3jujac",
+                "title": "<div data-editor-id=\"e291079d-1810-40e5-9d4d-bd673a497f3c\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Should be avoided at all costs.</span></span></p></div>",
+                "correct": true,
+                "feedback": ""
+              }
+            ],
+            "correct": "cm6gvw2f400wj3b793d4kqpg0",
+            "corrects": [
+              "cm6gvw2f400wh3b7988pccu4m",
+              "cm6gvw2f400wi3b79oh3jujac"
+            ],
+            "feedback": ""
+          },
+          {
+            "id": "cm6jtc5wr00z93b7960di7ch8",
+            "type": "MULTIPLE_CHOICE",
+            "title": "<div data-editor-id=\"cb6a4970-40aa-4e5b-9aaf-d8625db76a30\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">Which of these is <em>not</em> a part of evaluating what you would like your personal brand to be?</span></span></p></div>",
+            "answers": [
+              {
+                "id": "cm6jtc5wr00za3b79k0by4ebg",
+                "title": "<div data-editor-id=\"9e5156e8-d069-4b43-97a9-00e76d7263eb\"><p><span style=\"color: black; text-decoration: inherit\">Identify your goals</span></p></div>",
+                "correct": true,
+                "feedback": ""
+              },
+              {
+                "id": "cm6jtc5wr00zb3b79ctsa5sck",
+                "title": "<div data-editor-id=\"079b76ef-290f-49b2-9618-2b0b88a8b3cd\"><p><span style=\"color: #000000; text-decoration: inherit\">Ignore negative feedback</span></p></div>",
+                "feedback": ""
+              },
+              {
+                "id": "cm6jtc5xv00zc3b79e10z8gf2",
+                "title": "<div data-editor-id=\"6480f3b7-3a81-4a3f-babb-eb9865e04499\"><p><span style=\"color: black; text-decoration: inherit\">Develop a plan</span></p></div>"
+              },
+              {
+                "id": "cm6jtcqrh00ze3b79katjk3rn",
+                "title": "<div data-editor-id=\"8c6e09b6-64d2-4e17-9849-114ce38ef7d3\"><p><span style=\"color: black; text-decoration: inherit\">Seek out opportunities</span></p></div>"
+              }
+            ],
+            "correct": "cm6jtc5wr00zb3b79ctsa5sck",
+            "corrects": [
+              "cm6jtc5wr00za3b79k0by4ebg"
+            ],
+            "feedback": ""
+          }
+        ]
+      },
+      {
+        "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "courseId": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm",
+        "createdAt": "2025-01-28T19:42:04.174Z",
+        "deleted": false,
+        "description": "",
+        "duplicatedFromId": "",
+        "experiments": null,
+        "headerImage": {},
+        "icon": "Article",
+        "id": "oSl68KI9CRau6wjqLSkweqBhS0QRFUaq",
+        "isPartnerContentAuthor": null,
+        "lastUpdatedBy": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "media": {},
+        "originalId": null,
+        "piles": [],
+        "position": 1,
+        "ready": true,
+        "selectedAuthorId": "none",
+        "settings": {},
+        "sourceLessonLocaleId": null,
+        "title": "Personal Reflections",
+        "transferredAt": "2025-02-12T18:43:21.745Z",
+        "type": "blocks",
+        "updatedAt": "2025-08-11T02:19:38.826Z",
+        "items": [
+          {
+            "id": "cm6jtk5mt00zn3b790fj0na69",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jtk5mt00zo3b791f36sbwf",
+                "media": {
+                  "video": {
+                    "key": "v5_pot_jimmy_delaney_getting_a_speeding_ticket_with_pat%20%281080p%29.mp4",
+                    "url": "transcoded-fILFZpkQemUpknNj-v5_pot_jimmy_delaney_getting_a_speeding_ticket_with_pat%2520(1080p).mp4",
+                    "type": "video",
+                    "poster": "v5_pot_jimmy_delaney_getting_a_speeding_ticket_with_pat%20%281080p%29.jpg",
+                    "duration": 132,
+                    "inputKey": "rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/fILFZpkQemUpknNj-v5_pot_jimmy_delaney_getting_a_speeding_ticket_with_pat%20(1080p).mp4",
+                    "thumbnail": "https://images.articulate.com/f:jpg,b:fff,w:100,h:100,s:cover/rise/courses/5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm/transcoded-fILFZpkQemUpknNj-v5_pot_jimmy_delaney_getting_a_speeding_ticket_with_pat%2520(1080p).0000000.jpg",
+                    "originalUrl": "v5_pot_jimmy_delaney_getting_a_speeding_ticket_with_pat (1080p).mp4",
+                    "transcodeId": "1754793592374-vs6xw3"
+                  }
+                },
+                "caption": ""
+              }
+            ],
+            "family": "multimedia",
+            "variant": "video",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "forwardSeekRestricted": true,
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah9wq6c01l43b789o3rqapc",
+            "type": "text",
+            "items": [
+              {
+                "id": "cmah9wq6d01l53b78h76ylsor",
+                "paragraph": "<div data-editor-id=\"27c412d0-de98-4fd2-a890-fb90167fe906\"><p><span style=\"font-size: 1.5rem\"><em>(Download the transcript below)</em></span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 0,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 0,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 0,
+              "entranceAnimation": true,
+              "customPaddingBottom": 0,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jtkeeb01043b79x7678c4i",
+            "data": {},
+            "type": "multimedia",
+            "items": [
+              {
+                "id": "cm6jtkeeb01053b79keu68r1k",
+                "media": {
+                  "attachment": {
+                    "key": "Lesson%204%20Speeding%20ticket%20with%20Pat.pdf",
+                    "size": 223161,
+                    "type": "attachment",
+                    "filename": "mssWB6n4H-PSYcr_-Lesson%204%20Speeding%20ticket%20with%20Pat.pdf",
+                    "mimeType": "application/pdf",
+                    "originalUrl": "Lesson 4 Speeding ticket with Pat.pdf"
+                  }
+                }
+              }
+            ],
+            "family": "multimedia",
+            "variant": "attachment",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 1,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "customPaddingTop": 1,
+              "entranceAnimation": true,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jtkhof010l3b79fr737gym",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jtkhof010r3b79da6mdv4t",
+                "heading": "<strong>Heading</strong>",
+                "paragraph": "<div data-editor-id=\"3ca9336e-54a9-47d4-9bfc-66cf932778a4\"><p><span style=\"color: black; text-decoration: inherit\">Pat’s own personal brand was larger than life. Listen to UT Associate Athletics Director Jimmy Delaney tell the story of getting a speeding ticket with Coach Summitt on the way to an athletic event.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jtkuul011c3b79rtqfwjne",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jtkuum011i3b79nx67es9h",
+                "heading": "<div data-editor-id=\"53b9ea4c-87f0-4a98-8f87-d76ee3a4d606\"><p><strong>Personal Reflections</strong></p></div>",
+                "paragraph": "<div data-editor-id=\"1936445d-8f95-47c9-9c9d-3cf11dee050c\"><p><span style=\"color: black; text-decoration: inherit\">Refer to your workbook for the reflection questions and exercises below.</span></p></div>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading paragraph",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jtl6u701233b79x6repg1c",
+            "data": {},
+            "type": "list",
+            "items": [
+              {
+                "id": "cm6jtl6u701243b79gqk1mnhi",
+                "paragraph": "<div data-editor-id=\"1d9d17cc-bd2d-4f38-81a7-e7230f8858a9\"><p><span style=\"color: black; text-decoration: inherit\">What do you think your personal brand is currently?</span></p></div>"
+              },
+              {
+                "id": "cm6jtl6u701253b79i9hgothp",
+                "paragraph": "<div data-editor-id=\"9c09f12a-9fcf-4339-a080-06e124954360\"><p><span style=\"color: black; text-decoration: inherit\">What would you <em>like </em>your personal brand to be?</span></p></div>"
+              },
+              {
+                "id": "cm6jtl6u701263b79kh2vca6s",
+                "paragraph": "<div data-editor-id=\"0a9feeb3-fc5c-4903-a5f8-bfb886c049ae\"><p><span style=\"color: black; text-decoration: inherit\">Who has a personal brand you admire? Why?</span></p></div>"
+              },
+              {
+                "id": "cm6jtm5k7012o3b79gzslkhvv",
+                "paragraph": "<div data-editor-id=\"83aa6317-53e3-4ddf-8803-602d6d894dbf\"><p><span style=\"color: black; text-decoration: inherit\">Who around you has a negative personal brand? What are some of the characteristics?</span></p></div>",
+                "isNewlyInserted": false
+              },
+              {
+                "id": "cm6jtm9sp012p3b79w686mq37",
+                "paragraph": "<div data-editor-id=\"920a0920-3fce-4915-bc6a-70e1027ae8ca\"><p><span style=\"color: black; text-decoration: inherit\">In your opinion, what is the hardest part about developing a personal brand?</span></p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jtmlz9012q3b792zslymm5",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jtmlz9012w3b79buldwbkx",
+                "heading": "<div data-editor-id=\"6285cc4b-5001-42c5-be09-9a8c25f2089f\"><p><span style=\"font-size: 2rem\"><strong>Exercises</strong></span></p></div>",
+                "paragraph": "<p>When we show up to the present moment with all of our senses, we invite the world to fill us with joy. The pains of the past are behind us. The future has yet to unfold. But the now is full of beauty simply waiting for our attention.</p>"
+              }
+            ],
+            "family": "text",
+            "variant": "heading",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 1,
+              "paddingLinked": false,
+              "backgroundType": "LIGHT",
+              "entranceAnimation": true,
+              "customPaddingBottom": 1,
+              "customPaddingLinked": false,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmah9xl5c01mm3b782scljb3o",
+            "type": "list",
+            "items": [
+              {
+                "id": "cmah9xl5c01mn3b789azmw419",
+                "paragraph": "<div data-editor-id=\"19def2b5-60ca-4786-8ff3-cefb50aee115\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">What three words do you want others to think of you when they hear your name?</span></span></p></div>"
+              },
+              {
+                "id": "cmah9xl5c01mo3b78j0b3xmom",
+                "paragraph": "<div data-editor-id=\"661d753b-0adb-4726-abb7-34c9b25aef77\"><p><span style=\"color: black; text-decoration: inherit\">Create your own personal brand statement. </span>Use the sample statement to get started or come up with your own.</p><p><span style=\"color: black; text-decoration: inherit\">“I am a _____ who does ______ and is known for _______, ________, and _________.”</span></p></div>"
+              },
+              {
+                "id": "cmah9xl5c01mp3b78otzcjwr1",
+                "paragraph": "<div data-editor-id=\"da2b5d28-ad57-47d7-87d2-16057c674834\"><p><span style=\"font-size: 1.6rem\"><span style=\"color: black; text-decoration: inherit\">What nontechnical attributes </span>do you envision going <span style=\"color: black; text-decoration: inherit\">along with your personal brand (dress, overall presence, key relationships, work ethic, et</span>c.<span style=\"color: black; text-decoration: inherit\">)?</span></span></p></div>"
+              },
+              {
+                "id": "cmaha0duc01na3b78f6alsem3",
+                "paragraph": "<div data-editor-id=\"10a595b8-077d-4d81-85e1-f01009761f6c\"><p><span style=\"color: black; text-decoration: inherit\">Where do you need to close the gap in some of these areas?</span></p></div>"
+              },
+              {
+                "id": "cmaha0q4g01ng3b78bj7fp4qd",
+                "paragraph": "<div data-editor-id=\"c36e69a8-6a0d-4ed2-9ded-8910f3407b3d\"><p><span style=\"color: black; text-decoration: inherit\">Audit your personal brand online </span>and<span style=\"color: black; text-decoration: inherit\"> outside of work. How do you represent yourself on your social media profiles? What may need to change? What may need to be added?</span></p></div>"
+              },
+              {
+                "id": "cmaha14uf01nn3b7820svwlnu",
+                "paragraph": "<div data-editor-id=\"3ce408ca-060a-4f75-901c-569fa66eed8b\"><p><span style=\"color: black; text-decoration: inherit\">What are the next action steps you can take to enhanc</span>e<span style=\"color: black; text-decoration: inherit\"> your personal brand this month?</span></p></div>",
+                "isNewlyInserted": false
+              }
+            ],
+            "family": "list",
+            "variant": "numbered",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cm6jtpbdr017d3b79amdtnepx",
+            "data": {},
+            "type": "text",
+            "items": [
+              {
+                "id": "cm6jtpbdr017e3b79e9dtunvw",
+                "paragraph": "<div data-editor-id=\"d8ca02ac-7c6a-4725-bc2e-5d306b2cc2f8\"><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\"><strong>&nbsp;Sources:</strong></span></span></p><ol type=\"1\"><li><p><span style=\"font-size: 1.3rem\"><span style=\"color: black; text-decoration: inherit\">Unless otherwise noted, all quotes taken from, <em>Reach for the Summitt</em>, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998.</span></span></p></li></ol></div>"
+              }
+            ],
+            "family": "impact",
+            "variant": "note",
+            "settings": {
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "LIGHT",
+              "backgroundColor": "",
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {
+              "media": {
+                "image": {
+                  "type": "image",
+                  "sourcedFrom": "DEFAULT",
+                  "useCrushedKey": false
+                }
+              }
+            }
+          },
+          {
+            "id": "cmaha1jnj01np3b78yub7vyex",
+            "type": "interactive",
+            "items": [
+              {
+                "id": "cmaha1jnj01nq3b78vkga2dr6",
+                "type": "exit-course",
+                "label": "EXIT COURSE",
+                "description": "<div data-editor-id=\"c14e32e9-049e-47c3-847e-17c2ca0704be\"><p><span style=\"font-size: 2rem\"><strong>Congratulations!</strong></span></p><p><span style=\"font-size: 1.8rem\">That concludes this course. Please remember to close it before opening another course. You can revisit the completed course material at any time.</span></p></div>",
+                "destination": "exit-course"
+              }
+            ],
+            "family": "buttons",
+            "variant": "button",
+            "settings": {
+              "v": 2,
+              "cardMode": "WHITE",
+              "paddingTop": 3,
+              "accentColor": null,
+              "quotesInline": false,
+              "paddingBottom": 3,
+              "paddingLinked": true,
+              "backgroundType": "DARK",
+              "backgroundColor": null,
+              "entranceAnimation": true,
+              "markerColorContrast": "AUTO",
+              "snippetColorContrast": "AUTO",
+              "customBackgroundColorContrast": "AUTO"
+            },
+            "background": {}
+          }
+        ]
+      }
+    ],
+    "jobs": [],
+    "labelSetId": "",
+    "deleted": false,
+    "createdAt": "2025-02-05T21:28:45.889Z",
+    "updatedAt": "2025-08-29T22:04:48.442Z",
+    "markComplete": false,
+    "isDefault": false,
+    "ready": true,
+    "reviewId": "",
+    "exportSettings": {
+      "title": "Course 4: Personal Brand: What's Yours?",
+      "format": "zip",
+      "quizId": "D1VGyyKJQAJeEM912shzuRBnSNEqKcDj",
+      "target": "scorm12",
+      "shareId": "jKueVBwak1VKctHrv443MSpBv8xXqU8Y",
+      "activeLMS": 0,
+      "reporting": "passed-incomplete",
+      "exportType": "lms",
+      "identifier": "5CK9iPwD5GTT45hv3_L-f_5x-urah6Gm_rise",
+      "targetName": "SCORM 1.2",
+      "storylineId": null,
+      "completeWith": "reporting",
+      "isTranslated": false,
+      "quizComplete": false,
+      "activeEdition": 0,
+      "disableCoverPage": false,
+      "enableExitCourse": true,
+      "resetLearnerData": false,
+      "updateResumeData": true,
+      "storylineComplete": false,
+      "localesPackageType": "single",
+      "completionPercentage": 100,
+      "translationModelVersion": null
+    },
+    "headingTypefaceId": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+    "bodyTypefaceId": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+    "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+    "sidebarMode": "open",
+    "tenantId": "37b44387-d57d-4e41-93ea-39fa785a9663",
+    "showLessonCount": true,
+    "showNavigationButtons": true,
+    "allowSearch": true,
+    "animateBlockEntrance": true,
+    "transferredAt": "2025-04-21T21:33:35.893Z",
+    "allowCopy": false,
+    "enableVideoPlaybackSpeed": null,
+    "jobType": null,
+    "partnerContentId": null,
+    "cardImage": {},
+    "theme": {
+      "themeId": "classic",
+      "navigation": true,
+      "showAuthor": true,
+      "allowSearch": true,
+      "colorAccent": "#f7932e",
+      "blockCorners": "ROUNDED",
+      "buttonScheme": "LIGHT",
+      "uiTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "coverPageType": "LEFT_OVERLAY",
+      "accentContrast": "AUTO",
+      "bodyTypefaceId": "Wstu1lVkR_rUsAuU6x1N_UImwchzygj2",
+      "navigationType": "SIDEBAR",
+      "blockPaddingTop": 30,
+      "coverImageAlpha": 50,
+      "navigationStyle": "LIGHT_IMAGE",
+      "showLessonCount": true,
+      "lessonHeaderSize": "MEDIUM",
+      "buttonInlineStyle": "ROUNDED",
+      "coverImageDefault": "https://cdn.articulate.com/assets/rise/assets/themes/classic/cover-image/5_creative.jpg",
+      "headingTypefaceId": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "hideLessonHeaders": false,
+      "lessonHeaderColor": null,
+      "lessonHeaderStyle": "LIGHT",
+      "sidebarStartsOpen": true,
+      "blockPaddingBottom": 30,
+      "markLessonsComplete": false,
+      "animateBlockEntrance": true,
+      "navigationRestricted": false,
+      "buttonNavigationStyle": "FULL",
+      "showNavigationButtons": true,
+      "compactShowLessonCount": true,
+      "lessonHeaderImageAlpha": 0.6,
+      "lessonHeaderImageColor": "DARK",
+      "enableVideoPlaybackSpeed": true,
+      "customColorLessonHeaderContrast": "AUTO"
+    },
+    "lessonHeaderImage": {},
+    "overlayNavigationImage": {},
+    "type": null,
+    "locale": null,
+    "sourceCourseLocaleId": null,
+    "experiments": null,
+    "settings": {},
+    "description": "",
+    "title": "Course 4: Personal Brand: What's Yours?",
+    "defaultLocaleId": null,
+    "metadata": null,
+    "features": {
+      "rise-audio-release": true,
+      "rise-course-navigation": true,
+      "rise-process-accessibility": true,
+      "rise-matching-accessibility": true,
+      "rise-block-controls-phase-four": true
+    },
+    "authors": [
+      {
+        "id": "aid|dd080ccc-0db3-5cf2-87e5-9ed79e3b36e2",
+        "authorName": "Ben Bauman"
+      },
+      {
+        "id": "aid|122aebf3-6be9-4e0a-8aea-8a3b7afed3a0",
+        "authorName": "Christina Reckard"
+      },
+      {
+        "id": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+        "authorName": "Melody Padilla"
+      },
+      {
+        "id": "aid|83f3854f-e5b6-41ea-8415-764e42809921",
+        "authorName": "Dane Jensen"
+      },
+      {
+        "id": "aid|98ccdcbc-7ea0-4958-ab17-ee714fa20a0c",
+        "authorName": "Rachel Goodman"
+      }
+    ],
+    "mondrian": {},
+    "bodyTypeface": "Open Sans",
+    "headingTypeface": "Montserrat",
+    "uiTypeface": "Lato",
+    "lmsOptions": {
+      "enableExitCourse": true,
+      "disableCoverPage": false
+    },
+    "aiLearnerCourseApiKey": null
+  },
+  "labelSet": {
+    "id": "B8bLV28jOEhOTiceZOYlIY_n",
+    "author": "aid|972d45e9-c67a-48c7-88cc-b14333c17fe0",
+    "name": "English",
+    "defaultId": 1,
+    "defaultSet": true,
+    "labels": {
+      "a11yAnswerLive": "Your answer",
+      "a11yAuthorPrefix": "By",
+      "a11yBlockChartAxisX": "x-axis",
+      "a11yBlockChartAxisY": "y-axis",
+      "a11yBlockChartBar": "Bar chart",
+      "a11yBlockChartInstructions": "Use arrow keys to navigate data points. Screen reader users may need to switch modes to interact.",
+      "a11yBlockChartLine": "Line chart",
+      "a11yBlockChartPie": "Pie chart",
+      "a11yBlockChartPreposition": "of",
+      "a11yBlockCode": "Code",
+      "a11yBlockEmbed": "Embedded Content",
+      "a11yBlockFlashcardBack": "Back of card",
+      "a11yBlockFlashcardFront": "Front of card",
+      "a11yBlockFlashcardGrid": "Flashcard grid",
+      "a11yBlockFlashcardStack": "Flashcard carousel",
+      "a11yBlockFlashcardStackRoleDescription": "Carousel",
+      "a11yBlockFlashcardStackSlideControls": "Slide controls",
+      "a11yBlockFlashcardStackSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockFlashcardStackSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockFlashcardStackSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockFlashcardStackSlidePreposition": "of",
+      "a11yBlockFlashcardStackSlideRoleDescription": "Slide",
+      "a11yBlockImageCarousel": "Image Carousel",
+      "a11yBlockImageCarouselRoleDescription": "Carousel",
+      "a11yBlockImageCarouselSlideControls": "Slide controls",
+      "a11yBlockImageCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockImageCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockImageCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockImageCarouselSlidePreposition": "of",
+      "a11yBlockImageCarouselSlideRoleDescription": "Slide",
+      "a11yBlockKnowledgeCheck": "Knowledge check",
+      "a11yBlockKnowledgeCheckFIB": "Knowledge check: Fill in the blank",
+      "a11yBlockKnowledgeCheckM": "Knowledge check: Matching",
+      "a11yBlockKnowledgeCheckMC": "Knowledge check: Multiple choice",
+      "a11yBlockKnowledgeCheckMR": "Knowledge check: Multiple response",
+      "a11yBlockProcessCarousel": "Carousel",
+      "a11yBlockProcessRoleDescription": "Carousel",
+      "a11yBlockProcessSlideControls": "Slide controls",
+      "a11yBlockProcessSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockProcessSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockProcessSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockProcessSlideControlsIntroduction": "Introduction",
+      "a11yBlockProcessSlideControlsSummary": "Summary",
+      "a11yBlockProcessSlidePreposition": "of",
+      "a11yBlockProcessSlideRoleDescription": "Slide",
+      "a11yBlockQuoteCarousel": "Quote Carousel",
+      "a11yBlockQuoteCarouselRoleDescription": "Carousel",
+      "a11yBlockQuoteCarouselSlideControls": "Slide controls",
+      "a11yBlockQuoteCarouselSlideControlsGoToNext": "Go to next slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToPrevious": "Go to previous slide",
+      "a11yBlockQuoteCarouselSlideControlsGoToSlide": "Go to slide",
+      "a11yBlockQuoteCarouselSlidePreposition": "of",
+      "a11yBlockQuoteCarouselSlideRoleDescription": "Slide",
+      "a11yBlockStoryline": "Storyline",
+      "a11yBlockTimeline": "Timeline",
+      "a11yCarouselNext": "Next",
+      "a11yCarouselPrevious": "Previous",
+      "a11yCertificateDownloadFailed": "Failed to download certificate",
+      "a11yCorrectLive": "Correct answer",
+      "a11yCoverCourseCompleted": "Course Completed",
+      "a11yCoverCourseLength": "Course Length",
+      "a11yCoverRequirementComplete": "Requirement complete",
+      "a11yCoverRequirementFailed": "Requirement failed",
+      "a11yCoverRequirementIncomplete": "Requirement incomplete",
+      "a11yExcelIcon": "Microsoft Excel spreadsheet",
+      "a11yFileIcon": "File",
+      "a11yGroupAudioPlayer": "Audio player",
+      "a11yGroupScenario": "Interactive scenario",
+      "a11yGroupVideoPlayer": "Video player",
+      "a11yLabeledGraphicBlock": "Labeled graphic",
+      "a11yLabeledGraphicButtonMarker": "Marker",
+      "a11yLabeledGraphicIconArrowDown": "Down arrow",
+      "a11yLabeledGraphicIconArrowDownLeft": "Down left arrow",
+      "a11yLabeledGraphicIconArrowDownRight": "Down right arrow",
+      "a11yLabeledGraphicIconArrowLeft": "Left arrow",
+      "a11yLabeledGraphicIconArrowRight": "Right arrow",
+      "a11yLabeledGraphicIconArrowUp": "Up arrow",
+      "a11yLabeledGraphicIconArrowUpLeft": "Up left arrow",
+      "a11yLabeledGraphicIconArrowUpRight": "Up right arrow",
+      "a11yLabeledGraphicIconCheck": "Check mark",
+      "a11yLabeledGraphicIconDot": "Dot",
+      "a11yLabeledGraphicIconHeart": "Heart",
+      "a11yLabeledGraphicIconInformation": "Information",
+      "a11yLabeledGraphicIconPin": "Map pin",
+      "a11yLabeledGraphicIconPlus": "Plus",
+      "a11yLabeledGraphicIconQuestion": "Question mark",
+      "a11yLabeledGraphicIconX": "X",
+      "a11yLabeledGraphicUnviewed": "Not viewed",
+      "a11yLabeledGraphicViewed": "Viewed",
+      "a11yMatchingColumn1": "Matching column 1",
+      "a11yMatchingColumn2": "Matching column 2",
+      "a11yMatchingItemMatchedWith": "Matched with",
+      "a11yMatchingItemMatchWith": "Match with",
+      "a11yMatchingItemSelectableItem": "Selectable item",
+      "a11yMatchingItemShowLess": "Show less",
+      "a11yMatchingItemShowMore": "Show more",
+      "a11yMediaMute": "Mute",
+      "a11yMediaPause": "Pause",
+      "a11yMediaPlay": "Play",
+      "a11yMediaSeek": "Seek",
+      "a11yMediaUnmute": "Unmute",
+      "a11yMediaVolume": "Volume",
+      "a11yNavigationMenuClose": "Close navigation menu",
+      "a11yNavigationMenuOpen": "Open navigation menu",
+      "a11yNoticeLinkNewTab": "(opens in a new tab)",
+      "a11yPageMarker": "Top of page",
+      "a11yPDFIcon": "PDF file",
+      "a11yPPTIcon": "PowerPoint presentation",
+      "a11yProgressSummaryRequirementCompleted": "Requirement completed, check mark",
+      "a11yProgressSummaryRequirementNotCompleted": "Requirement not completed, empty square",
+      "a11yQuizFailed": "Failed",
+      "a11yQuizFeedback": "Feedback",
+      "a11yQuizPassed": "Passed",
+      "a11yQuizReviewCorrectlyChecked": "Correctly checked",
+      "a11yQuizReviewCorrectlySelected": "Correctly selected",
+      "a11yQuizReviewCorrectlyUnchecked": "Correctly unchecked",
+      "a11yQuizReviewCorrectlyUnselected": "Correctly unselected",
+      "a11yQuizReviewIncorrectlyChecked": "Incorrectly checked",
+      "a11yQuizReviewIncorrectlySelected": "Incorrectly selected",
+      "a11yQuizReviewIncorrectlyUnchecked": "Incorrectly unchecked",
+      "a11yQuizReviewIncorrectlyUnselected": "Incorrectly unselected",
+      "a11yRegionMainLesson": "Lesson content",
+      "a11yRegionMainOverview": "Course overview",
+      "a11yRegionNavLesson": "Navigation menu",
+      "a11yRegionNavOverview": "Table of contents",
+      "a11yRestrictedNav": "This lesson is currently unavailable",
+      "a11yRTFIcon": "Rich Text File",
+      "a11ySearchClose": "Close search menu",
+      "a11ySearchInput": "Search",
+      "a11ySearchInputClear": "clear search term",
+      "a11ySearchOpen": "Open search menu",
+      "a11yStatusAdditionalContent": "Additional content has been loaded",
+      "a11yStatusContinued": "Continued",
+      "a11yUnzoomImage": "Unzoom image",
+      "a11yWordIcon": "Microsoft Word document",
+      "a11yZipIcon": "Zip file",
+      "a11yZoomImage": "Zoom image",
+      "audioCollapsePlayer": "Collapse audio player",
+      "audioExpandPlayer": "Expand audio player",
+      "audioHideTranscript": "Hide transcript",
+      "audioNoTranscriptAvailable": "No transcript available",
+      "audioPlaySpeed": "Play speed",
+      "audioShowTranscript": "Show transcript",
+      "audioTranscript": "Audio transcript",
+      "blocksClickToFlip": "Click to flip",
+      "blocksPreposition": "of",
+      "certificateDownload": "Download certificate",
+      "certificateDownloadInProgress": "Downloading...",
+      "certificateRetryDownload": "Retry download",
+      "courseExit": "EXIT COURSE",
+      "courseFinish": "Finish",
+      "courseHome": "Home",
+      "courseResume": "RESUME COURSE",
+      "courseSkipToLesson": "SKIP TO LESSON",
+      "courseStart": "START COURSE",
+      "coverCompleteAllLessons": "Complete all lessons in this course",
+      "coverCompleted": "Completed",
+      "coverCompleteLessonsInCourse": "lessons in this course",
+      "coverCompleteLessonsName": "Complete",
+      "coverCompleteLessonsPreposition": "of",
+      "coverCourseRequirements": "Course Requirements",
+      "coverHour": "Hour",
+      "coverHours": "Hours",
+      "coverLesson": "Lesson",
+      "coverLessons": "Lessons",
+      "coverMinute": "Minute",
+      "coverMinutes": "Minutes",
+      "coverNoAttemptsRemaining": "No attempts remaining",
+      "coverPublished": "Published",
+      "coverQuizPercentOrHigher": "% or higher",
+      "coverQuizScoreOf": "Score of",
+      "curtainLoading": "Your content is loading.",
+      "curtainOffline": "Your computer is offline.",
+      "curtainOfflineReconnecting": "Attempting to reconnect…",
+      "curtainSessionTimedOut": "Your session has timed out.",
+      "curtainSessionTimedOutRefresh": "Refresh",
+      "curtainSessionTimedOutRestart": "Click refresh to restart your session.",
+      "curtainSomethingWrong": "Something went wrong.",
+      "curtainSomethingWrongRefresh": "Refresh",
+      "curtainSomethingWrongTryAgain": "Click to refresh and try again.",
+      "embedLinkGroup": "Embedded web content",
+      "embedPlayerGroup": "Embedded media player",
+      "embedReadMore": "Read more",
+      "embedViewOn": "VIEW ON",
+      "exitMessage": "You may now leave this page.",
+      "knowledgeCheckCorrectAnswerRequiredBlock": "Requires a correct answer to continue",
+      "knowledgeCheckCorrectAnswerRequiredNav": "Complete previous knowledge checks to unlock this lesson",
+      "knowledgeCheckMaxRetriesReached": "You have reached the maximum amount of retries.",
+      "knowledgeCheckRetriesAttemptsRemaining": "Attempts remaining:",
+      "l10nChooseLanguage": "Choose your course language",
+      "l10nChooseLanguageContinue": "Continue",
+      "labeledGraphicMarkerLabel": "Labeled graphic marker",
+      "lessonComplete": "COMPLETE",
+      "lessonName": "Lesson",
+      "lessonPreposition": "of",
+      "lessonRestricted": "Lessons must be completed in order",
+      "noResults": "No results for",
+      "numberedDividerGroup": "Numbered divider",
+      "overviewPageTitleSuffix": "Overview",
+      "pauseButtonLabel": "Pause",
+      "playButtonLabel": "Play",
+      "processComplete": "Complete",
+      "processLandmark": "Process",
+      "processLessonName": "Lesson",
+      "processNextStep": "NEXT STEP",
+      "processStart": "START",
+      "processStartAgain": "START AGAIN",
+      "processStepName": "Step",
+      "processStepPreposition": "of",
+      "processSwipe": "Swipe to continue",
+      "progressPieClickToComplete": "Click to complete",
+      "progressPieClickToReset": "Click to reset",
+      "progressPieCompleted": "Completed",
+      "progressPieQuizFailed": "Failed",
+      "progressPieUnstarted": "Unstarted",
+      "progressSummary": "Progress Summary",
+      "progressSummaryBackToLearning": "Back to my learning",
+      "progressSummaryCompleted": "Completed:",
+      "progressSummaryCompletionRequirement": "Completion Requirement",
+      "progressSummaryCongratulations": "Congratulations!",
+      "progressSummaryNextUp": "Next up",
+      "progressSummaryNoAttemptsRemaining": "No attempts remaining.",
+      "progressSummaryNoTitle": "(No Title)",
+      "progressSummaryPercentComplete": "% Complete",
+      "progressSummaryPercentCompletion": "% Completion",
+      "progressSummaryQuizRequirement": "Quiz Requirement",
+      "progressSummaryRequirementsMet": "You've met all the requirements.",
+      "progressSummaryScoreOf": "Score of",
+      "progressSummaryScoreOfPreposition": "% on",
+      "progressSummaryStartOver": "Start Over",
+      "progressSummaryViewQuiz": "View quiz",
+      "progressSummaryYouCompleted": "You completed:",
+      "progressSummaryYouScored": "You scored",
+      "quizAcceptableResponses": "Acceptable responses",
+      "quizAnswerPlaceholder": "Type your answer here",
+      "quizContinue": "Continue",
+      "quizCorrect": "Correct",
+      "quizIncorrect": "Incorrect",
+      "quizNext": "NEXT",
+      "quizPassing": "PASSING",
+      "quizQuestion": "Question",
+      "quizRequireAnswer": "Please answer the question to continue",
+      "quizRequirePassingScore": "Must pass quiz before continuing",
+      "quizRestart": "Restart",
+      "quizResults": "Quiz Results",
+      "quizScore": "Your score",
+      "quizStart": "START QUIZ",
+      "quizSubmit": "SUBMIT",
+      "quizTakeAgain": "TAKE AGAIN",
+      "quizTimerElapsed": "Time elapsed",
+      "quizTimerExpired": "Time expired",
+      "quizTimerExpiredAction": "OK",
+      "quizTimerExpiredMessage": "You have reached the time limit for this quiz. Your results will be automatically submitted",
+      "quizTimerHide": "Hide",
+      "quizTimerLimit": "Time limit",
+      "quizTimerMinute": "Minute",
+      "quizTimerMinutePlural": "Minutes",
+      "quizTimerRemaining": "Time left",
+      "quizTimerShow": "Show timer",
+      "result": "result",
+      "results": "results",
+      "salutation": "👋 Bye!",
+      "scenarioComplete": "Scenario Complete!",
+      "scenarioContinue": "CONTINUE",
+      "scenarioStartOver": "START OVER",
+      "scenarioTryAgain": "TRY AGAIN",
+      "search": "search",
+      "seekSliderLabel": "Seek",
+      "sortingCardsCorrect": "Cards Correct",
+      "sortingLandmark": "Sorting Activity",
+      "sortingReplay": "REPLAY"
+    },
+    "deleted": false,
+    "createdAt": "2025-02-12T18:58:00.441Z",
+    "updatedAt": "2025-02-12T18:58:00.441Z",
+    "iso639Code": "en",
+    "transferredAt": null
+  },
+  "fonts": [
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "aVCB402mpH4k8LIWNp48JAG8qdgmsFVq",
+      "name": "Open Sans",
+      "default": true,
+      "key": "assets/rise/fonts/OpenSans-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-SemiBold.woff",
+      "style": "normal",
+      "weight": "600"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Medium.woff",
+      "style": "normal",
+      "weight": "500"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "Lxkz2_hh5Lj36BahL12QIpT8qKsjknf6",
+      "name": "Montserrat",
+      "default": true,
+      "key": "assets/rise/fonts/Montserrat-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Regular.woff",
+      "style": "normal",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Light.woff",
+      "style": "normal",
+      "weight": "300"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Italic.woff",
+      "style": "italic",
+      "weight": "400"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Bold.woff",
+      "style": "normal",
+      "weight": "700"
+    },
+    {
+      "id": "_vy9IVqRPwz6wQlKi0wsA9dsYpZ7gsQ3",
+      "name": "Lato",
+      "default": true,
+      "key": "assets/rise/fonts/Lato2-Black.woff",
+      "style": "normal",
+      "weight": "900"
+    }
+  ],
+  "media": []
+}
