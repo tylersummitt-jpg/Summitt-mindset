@@ -47,13 +47,13 @@ describe("Principle 1 curriculum", () => {
     const collections = listLearningCollections();
     expect(collections.map((collection) => collection.id)).toEqual([
       "definite_dozen",
-      "championing_women",
       "power_of_team_leader",
+      "championing_women",
     ]);
     expect(collections.map((collection) => collection.title)).toEqual([
       "Definite Dozen",
-      "Championing Women in Leadership",
       "The Power of Team",
+      "Championing Women in Leadership",
     ]);
     expect(collections[0]?.miniPrograms.map((item) => item.id)).toEqual([
       "dd_mp_02",

@@ -54,7 +54,12 @@ type QuizResult = {
   correctCount: number;
   questionCount: number;
   minimumCorrect: number;
-  questions?: Array<{ questionId: string; correct: boolean }>;
+  questions?: Array<{
+    questionId: string;
+    correct: boolean;
+    selectedChoiceIds?: string[];
+    correctChoiceIds?: string[];
+  }>;
 };
 
 export function StepExperience({
@@ -124,6 +129,11 @@ export function StepExperience({
     setPhase("idle");
   }, []);
 
+  const retryQuiz = useCallback(() => {
+    releaseQuizHold();
+    setQuizAnswers({});
+  }, [releaseQuizHold]);
+
   const persistReflections = useCallback(
     async (current: Record<string, string>): Promise<boolean> => {
       const token = ++generation.current;
@@ -186,7 +196,7 @@ export function StepExperience({
 
   async function onContinue() {
     if (phase !== "idle") return;
-    if (enforceRequirements && hasQuiz && !quizPassed) {
+    if (enforceRequirements && hasQuiz && quizResult === null) {
       await onSeeResults();
       return;
     }
@@ -290,9 +300,7 @@ export function StepExperience({
   }
 
   const hasQuiz = step.blocks.some((block) => block.type === "quiz");
-  const quizPassed =
-    quizResult !== null && quizResult.correctCount >= quizResult.minimumCorrect;
-  const quizNeedsResults = enforceRequirements && hasQuiz && !quizPassed;
+  const quizNeedsResults = enforceRequirements && hasQuiz && quizResult === null;
   const continueLabel = phase === "saving"
     ? "Saving…"
     : quizNeedsResults
@@ -339,7 +347,7 @@ export function StepExperience({
             checkingCardId={checkingCardId}
             onChooseCategory={(cardId, category) => void chooseCategory(cardId, category)}
             onReplaySort={replaySort}
-            onTakeAgain={releaseQuizHold}
+            onTakeAgain={retryQuiz}
             choiceId={choiceId}
             onChoice={setChoiceId}
             saveState={saveState}

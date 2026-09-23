@@ -10,7 +10,7 @@ import {
   type LearningProgressRow,
   type ProgressDb,
 } from "./mini-program-progress";
-import { PROGRAMS_COPY, quizResultMessage } from "./programs-copy";
+import { PROGRAMS_COPY } from "./programs-copy";
 import {
   isMissingProgramsTable,
   isUniqueProgramsConflict,
@@ -645,104 +645,143 @@ describe("Respect Yourself and Others progress", () => {
     expect(failing.rows).toHaveLength(0);
   });
 
-  it("passes a quiz at 2 of 3, retries after 1 of 3, and stores no attempt", async () => {
+  it("lets every quiz score continue and returns per-question keys only in the grade", async () => {
     const quiz = step("dd_mp_02_st_002").blocks.find((block) => block.type === "quiz");
     if (!quiz || quiz.type !== "quiz") throw new Error("missing quiz");
     const [first, second, third] = quiz.questions;
     if (!first || !second || !third) throw new Error("missing questions");
 
-    expect(
-      gradeQuiz(quiz, { [first.question_id]: [...first.correct_choice_ids] }).passed
-    ).toBe(false);
-    expect(
-      gradeQuiz(quiz, {
-        [first.question_id]: [...first.correct_choice_ids],
-        [second.question_id]: [...second.correct_choice_ids],
-      }).passed
-    ).toBe(true);
-    expect(gradeQuiz(quiz, passingSubmission(step("dd_mp_02_st_002")).quizAnswers).correctCount).toBe(
-      3
-    );
+    const oneRight = { [first.question_id]: [...first.correct_choice_ids] };
+    const twoRight = {
+      [first.question_id]: [...first.correct_choice_ids],
+      [second.question_id]: [...second.correct_choice_ids],
+    };
+    const threeRight = passingSubmission(step("dd_mp_02_st_002")).quizAnswers;
+    expect(gradeQuiz(quiz, {}).correctCount).toBe(0);
+    expect(gradeQuiz(quiz, oneRight).correctCount).toBe(1);
+    expect(gradeQuiz(quiz, twoRight).correctCount).toBe(2);
+    expect(gradeQuiz(quiz, threeRight).correctCount).toBe(3);
+    expect(gradeQuiz(quiz, oneRight).passed).toBe(false);
+    expect(gradeQuiz(quiz, twoRight).passed).toBe(true);
 
     const multi = quiz.questions.find((question) => question.question_type === "multiple_choice");
     if (!multi) throw new Error("missing multi-select");
+    const partialMulti = {
+      [multi.question_id]: [...multi.correct_choice_ids, "c2"],
+    };
+    const partial = gradeQuiz(quiz, partialMulti);
+    const partialQuestion = partial.questions.find((question) => question.questionId === multi.question_id);
+    expect(partial.correctCount).toBe(0);
+    expect(partialQuestion).toMatchObject({
+      correct: false,
+      selectedChoiceIds: [...multi.correct_choice_ids, "c2"],
+      correctChoiceIds: [...multi.correct_choice_ids],
+    });
     expect(
-      gradeQuiz(quiz, { [multi.question_id]: [...multi.correct_choice_ids] }).correctCount
-    ).toBe(1);
-    expect(
-      gradeQuiz(quiz, { [multi.question_id]: [...multi.correct_choice_ids, "c2"] }).correctCount
-    ).toBe(0);
-    expect(
-      gradeQuiz(quiz, {
-        [first.question_id]: [...first.correct_choice_ids],
-        [multi.question_id]: [...multi.correct_choice_ids, "c2"],
-      }).passed
-    ).toBe(false);
+      gradeQuiz(quiz, { [multi.question_id]: [...multi.correct_choice_ids] }).questions.find(
+        (question) => question.questionId === multi.question_id
+      )?.correct
+    ).toBe(true);
 
     const { progressDb, reflectionDb, row } = await start();
-    row.current_step_id = "dd_mp_02_st_002";
-    const failed = await continueMiniProgramStep({
-      progressDb,
-      reflectionDb,
-      memberId: "user_a",
-      program: program(),
-      stepId: "dd_mp_02_st_002",
-      submission: {
-        reflections: {},
-        quizAnswers: { [first.question_id]: [...first.correct_choice_ids] },
-        sortPlacements: {},
-      },
-      now: LATER,
-    });
-    expect(failed).toEqual({
-      ok: false,
-      message: quizResultMessage(1, 3, 2),
-      quiz: {
-        correctCount: 1,
-        questionCount: 3,
-        minimumCorrect: 2,
-        questions: [
-          { questionId: first.question_id, correct: true },
-          { questionId: second.question_id, correct: false },
-          { questionId: third.question_id, correct: false },
-        ],
-      },
-    });
-    expect(row.current_step_id).toBe("dd_mp_02_st_002");
+    for (const quizAnswers of [{}, oneRight, twoRight, threeRight, partialMulti]) {
+      row.current_step_id = "dd_mp_02_st_002";
+      row.status = "in_progress";
+      row.completed_at = null;
+      const moved = await continueMiniProgramStep({
+        progressDb,
+        reflectionDb,
+        memberId: "user_a",
+        program: program(),
+        stepId: "dd_mp_02_st_002",
+        submission: { reflections: {}, quizAnswers, sortPlacements: {} },
+        now: LATER,
+      });
+      expect(moved.ok).toBe(true);
+      if (!moved.ok) throw new Error(moved.message);
+      expect(moved.destination).toEqual({ type: "step", stepId: "dd_mp_02_st_003" });
+      expect(moved.quiz?.questions.every((question) => question.correctChoiceIds.length > 0)).toBe(
+        true
+      );
+      expect(row.current_step_id).toBe("dd_mp_02_st_003");
+    }
     expect(reflectionDb.rows).toHaveLength(0);
     expect(progressDb.rows).toHaveLength(1);
+  });
 
-    const passed = await continueMiniProgramStep({
+  it("lets a one-question quiz continue at 1 of 1 and 0 of 1", async () => {
+    const loaded = getLearningMiniProgram("cw_mp_13");
+    if (!loaded) throw new Error("missing cw_mp_13");
+    const quizStep = loaded.steps.find((candidate) => candidate.id === "cw_mp_13_st_006");
+    if (!quizStep) throw new Error("missing one-question quiz");
+    const quiz = quizStep.blocks.find((block) => block.type === "quiz");
+    if (!quiz || quiz.type !== "quiz" || quiz.questions.length !== 1) {
+      throw new Error("expected a single question");
+    }
+    const question = quiz.questions[0];
+    if (!question) throw new Error("missing question");
+    const wrong = question.choices.find((choice) => !question.correct_choice_ids.includes(choice.id));
+    if (!wrong) throw new Error("missing wrong choice");
+
+    expect(gradeQuiz(quiz, { [question.question_id]: [...question.correct_choice_ids] }).correctCount).toBe(1);
+    expect(gradeQuiz(quiz, { [question.question_id]: [wrong.id] }).correctCount).toBe(0);
+
+    const progressDb = memoryProgress();
+    const reflectionDb = memoryReflections();
+    const created = await initializeMiniProgramProgress(progressDb, {
+      memberId: "user_a",
+      program: loaded,
+      now: NOW,
+    });
+    if (!created.ok) throw new Error(created.message);
+    for (const quizAnswers of [
+      { [question.question_id]: [...question.correct_choice_ids] },
+      { [question.question_id]: [wrong.id] },
+    ]) {
+      created.row.current_step_id = quizStep.id;
+      created.row.status = "in_progress";
+      created.row.completed_at = null;
+      const moved = await continueMiniProgramStep({
+        progressDb,
+        reflectionDb,
+        memberId: "user_a",
+        program: loaded,
+        stepId: quizStep.id,
+        submission: { reflections: {}, quizAnswers, sortPlacements: {} },
+        now: LATER,
+      });
+      expect(moved.ok).toBe(true);
+    }
+  });
+
+  it("completes a mini-program when the last step quiz is missed", async () => {
+    const loaded = getLearningMiniProgram("dd_mp_03");
+    if (!loaded) throw new Error("missing dd_mp_03");
+    const quizStep = loaded.steps.find((candidate) => candidate.id === "dd_mp_03_st_012");
+    if (!quizStep) throw new Error("missing final quiz");
+    const progressDb = memoryProgress();
+    const reflectionDb = memoryReflections();
+    const created = await initializeMiniProgramProgress(progressDb, {
+      memberId: "user_a",
+      program: loaded,
+      now: NOW,
+    });
+    if (!created.ok) throw new Error(created.message);
+    created.row.current_step_id = quizStep.id;
+    const missed = await continueMiniProgramStep({
       progressDb,
       reflectionDb,
       memberId: "user_a",
-      program: program(),
-      stepId: "dd_mp_02_st_002",
-      submission: {
-        reflections: {},
-        quizAnswers: {
-          [first.question_id]: [...first.correct_choice_ids],
-          [third.question_id]: [...third.correct_choice_ids],
-        },
-        sortPlacements: {},
-      },
+      program: loaded,
+      stepId: quizStep.id,
+      submission: { reflections: {}, quizAnswers: {}, sortPlacements: {} },
       now: LATER,
     });
-    expect(passed).toEqual({
-      ok: true,
-      destination: { type: "step", stepId: "dd_mp_02_st_003" },
-      quiz: {
-        correctCount: 2,
-        questionCount: 3,
-        minimumCorrect: 2,
-        questions: [
-          { questionId: first.question_id, correct: true },
-          { questionId: second.question_id, correct: false },
-          { questionId: third.question_id, correct: true },
-        ],
-      },
-    });
-    expect(reflectionDb.rows).toHaveLength(0);
+    expect(missed.ok).toBe(true);
+    if (!missed.ok) throw new Error(missed.message);
+    expect(missed.quiz?.correctCount).toBe(0);
+    expect(missed.destination).toEqual({ type: "programs" });
+    expect(created.row.status).toBe("completed");
   });
 
   it("rejects a wrong sort category and requires every card", async () => {

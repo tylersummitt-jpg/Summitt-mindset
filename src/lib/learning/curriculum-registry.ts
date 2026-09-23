@@ -111,13 +111,13 @@ export const learningCurriculumRegistry: ReadonlyArray<{
     miniPrograms: definiteDozenPrograms,
   },
   {
-    id: "championing_women",
-    title: "Championing Women in Leadership",
-    miniPrograms: championingWomenPrograms,
-  },
-  {
     id: "power_of_team_leader",
     title: "The Power of Team",
     miniPrograms: powerOfTeamLeaderPrograms,
+  },
+  {
+    id: "championing_women",
+    title: "Championing Women in Leadership",
+    miniPrograms: championingWomenPrograms,
   },
 ];

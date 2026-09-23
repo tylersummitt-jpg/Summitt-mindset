@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getLearningStepForClient } from "@/lib/learning/load-curriculum";
 import {
   PROGRAMS_COPY,
-  quizResultMessage,
   sortCardLabel,
   sortCompleteMessage,
 } from "@/lib/learning/programs-copy";
@@ -28,6 +27,26 @@ vi.mock("@/app/programs/actions", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
+
+function gradedView(
+  quiz: { questions: Array<{ question_id: string }>; minimum_correct: number },
+  selected: Record<string, string[]>,
+  correct: Record<string, boolean>,
+  keys: Record<string, string[]>
+) {
+  const questions = quiz.questions.map((question) => ({
+    questionId: question.question_id,
+    correct: correct[question.question_id] ?? false,
+    selectedChoiceIds: selected[question.question_id] ?? [],
+    correctChoiceIds: keys[question.question_id] ?? [],
+  }));
+  return {
+    correctCount: questions.filter((question) => question.correct).length,
+    questionCount: quiz.questions.length,
+    minimumCorrect: quiz.minimum_correct,
+    questions,
+  };
+}
 
 function publicStep(stepId: string) {
   const step = getLearningStepForClient("dd_mp_02", stepId);
@@ -196,72 +215,75 @@ describe("step experience", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("shows quiz results before a separate continue, and a miss cannot advance", async () => {
+  it("shows quiz results before continue, including a miss", async () => {
     const user = userEvent.setup();
     const step = publicStep("dd_mp_02_st_002");
     const quiz = step.blocks.find((block) => block.type === "quiz");
     if (!quiz || quiz.type !== "quiz") throw new Error("missing quiz");
     const [first, second, third] = quiz.questions;
     if (!first || !second || !third) throw new Error("missing questions");
-    const missed = {
-      correctCount: 1,
-      questionCount: 3,
-      minimumCorrect: 2,
-      questions: [
-        { questionId: first.question_id, correct: true },
-        { questionId: second.question_id, correct: false },
-        { questionId: third.question_id, correct: false },
-      ],
-    };
-    const earned = {
-      correctCount: 2,
-      questionCount: 3,
-      minimumCorrect: 2,
-      questions: [
-        { questionId: first.question_id, correct: true },
-        { questionId: second.question_id, correct: false },
-        { questionId: third.question_id, correct: true },
-      ],
-    };
-    gradeLearningStep.mockResolvedValueOnce({
-      ok: false,
-      message: quizResultMessage(1, 3, 2),
-      quiz: missed,
+    const missed = gradedView(quiz, {
+      [first.question_id]: [first.choices[0]?.id ?? ""],
+      [second.question_id]: [],
+      [third.question_id]: [],
+    }, {
+      [first.question_id]: true,
+      [second.question_id]: false,
+      [third.question_id]: false,
+    }, {
+      [first.question_id]: [first.choices[0]?.id ?? ""],
+      [second.question_id]: [second.choices[1]?.id ?? ""],
+      [third.question_id]: [third.choices[1]?.id ?? ""],
     });
+    const earned = {
+      ...missed,
+      correctCount: 2,
+      questions: missed.questions.map((question, index) =>
+        index === 2 ? { ...question, correct: true } : question
+      ),
+    };
+    gradeLearningStep.mockResolvedValueOnce({ ok: true, quiz: missed });
     const view = renderStep("dd_mp_02_st_002");
     expect(screen.getByText(/unlimited attempts/i)).toBeTruthy();
+    expect(screen.getByText(/you can continue after you see how you did/i)).toBeTruthy();
+    expect(screen.queryByText(/must answer/i)).toBeNull();
     expect(screen.queryByText(/certificate/i)).toBeNull();
+    expect(view.container.innerHTML).not.toContain("correct_choice_ids");
+    expect(view.container.textContent).not.toContain("Correct answer");
     const card = view.container.querySelector("[data-question-card]");
     expect(card).toBeTruthy();
     expect(card?.querySelector("legend")).toBeNull();
     expect(card?.textContent).toContain(first.prompt);
     const choice = screen.getByText("feel important").closest("label");
     expect(choice?.getAttribute("data-selected")).toBe("false");
-    expect(choice?.closest("[data-question-card]")).toBeTruthy();
     await user.click(screen.getByText("feel important"));
     expect(choice?.getAttribute("data-selected")).toBe("true");
 
     await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
     const miss = await screen.findByRole("status");
     expect(miss.textContent).toContain(PROGRAMS_COPY.quizYourScore);
-    expect(miss.textContent).toContain(PROGRAMS_COPY.quizFailed);
     expect(miss.textContent).toContain("1 of 3 correct");
-    expect(miss.textContent).toContain("Passing: 2 of 3");
-    expect(screen.getByText("Correct")).toBeTruthy();
+    expect(miss.textContent).toContain(PROGRAMS_COPY.quizReview);
+    expect(miss.textContent).toContain(PROGRAMS_COPY.quizAnotherTry);
+    expect(miss.textContent).not.toContain("Failed");
+    expect(miss.textContent).not.toContain("Passing:");
+    expect(screen.getAllByText("Correct").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Incorrect").length).toBe(2);
+    expect(screen.getAllByText("Correct answer").length).toBeGreaterThan(0);
     expect(continueLearningStep).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
     await new Promise((resolve) => setTimeout(resolve, 1000));
     expect(push).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain }));
-    expect(screen.queryByText(PROGRAMS_COPY.quizFailed)).toBeNull();
+    expect(screen.queryByText(PROGRAMS_COPY.quizYourScore)).toBeNull();
+    expect(screen.queryByText("Correct answer")).toBeNull();
+    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults })).toBeTruthy();
 
     gradeLearningStep.mockResolvedValueOnce({ ok: true, quiz: earned });
     await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
-    expect(await screen.findByText(PROGRAMS_COPY.quizPassed)).toBeTruthy();
-    expect(push).not.toHaveBeenCalled();
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect(await screen.findByText("2 of 3 correct")).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
 
     continueLearningStep.mockResolvedValueOnce({
@@ -274,6 +296,168 @@ describe("step experience", () => {
       expect(push).toHaveBeenCalledWith(
         "/programs/definite-dozen/respect-yourself-and-others/dd_mp_02_st_003"
       );
+    });
+  });
+
+  it("marks single-select and multi-select choices after submission", async () => {
+    const user = userEvent.setup();
+    const step = publicStep("dd_mp_02_st_002");
+    const quiz = step.blocks.find((block) => block.type === "quiz");
+    if (!quiz || quiz.type !== "quiz") throw new Error("missing quiz");
+    const single = quiz.questions.find((question) => question.question_type !== "multiple_choice");
+    const multi = quiz.questions.find((question) => question.question_type === "multiple_choice");
+    if (!single || !multi) throw new Error("missing question types");
+    const singleCorrect = single.choices[1];
+    const singleWrong = single.choices[0];
+    const singleNeutral = single.choices[2];
+    const multiCorrect = multi.choices.slice(0, 2);
+    const multiWrong = multi.choices[2];
+    if (!singleCorrect || !singleWrong || !singleNeutral || !multiWrong || multiCorrect.length < 2) {
+      throw new Error("missing choices");
+    }
+    gradeLearningStep.mockResolvedValueOnce({
+      ok: true,
+      quiz: {
+        correctCount: 0,
+        questionCount: quiz.questions.length,
+        minimumCorrect: quiz.minimum_correct,
+        questions: quiz.questions.map((question) => {
+          if (question.question_id === single.question_id) {
+            return {
+              questionId: question.question_id,
+              correct: false,
+              selectedChoiceIds: [singleWrong.id],
+              correctChoiceIds: [singleCorrect.id],
+            };
+          }
+          if (question.question_id === multi.question_id) {
+            return {
+              questionId: question.question_id,
+              correct: false,
+              selectedChoiceIds: [multiCorrect[0]!.id, multiWrong.id],
+              correctChoiceIds: multiCorrect.map((choice) => choice.id),
+            };
+          }
+          return {
+            questionId: question.question_id,
+            correct: false,
+            selectedChoiceIds: [],
+            correctChoiceIds: [question.choices[0]?.id ?? ""],
+          };
+        }),
+      },
+    });
+    const view = renderStep("dd_mp_02_st_002");
+    expect(view.container.querySelector("[data-choice-result]")).toBeNull();
+    expect(view.container.innerHTML).not.toContain("correct_choice_ids");
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    const singleWrongLabel = await screen.findByText(singleWrong.text).then((node) => node.closest("label"));
+    const singleCorrectLabel = screen.getByText(singleCorrect.text).closest("label");
+    const singleNeutralLabel = screen.getByText(singleNeutral.text).closest("label");
+    expect(singleWrongLabel?.getAttribute("data-choice-result")).toBe("incorrect");
+    expect(singleWrongLabel?.textContent).toContain("Your answer");
+    expect(singleCorrectLabel?.getAttribute("data-choice-result")).toBe("correct");
+    expect(singleCorrectLabel?.textContent).toContain("Correct answer");
+    expect(singleNeutralLabel?.getAttribute("data-choice-result")).toBe("neutral");
+    expect(singleNeutralLabel?.textContent).not.toContain("Correct answer");
+    expect(singleNeutralLabel?.textContent).not.toContain("Your answer");
+    expect(
+      screen.getByText(single.prompt).closest("[data-question-card]")?.getAttribute("data-question-result")
+    ).toBe("incorrect");
+
+    for (const choice of multiCorrect) {
+      const label = screen.getByText(choice.text).closest("label");
+      expect(label?.getAttribute("data-choice-result")).toBe("correct");
+      expect(label?.textContent).toContain("Correct answer");
+    }
+    const wrongMulti = screen.getByText(multiWrong.text).closest("label");
+    expect(wrongMulti?.getAttribute("data-choice-result")).toBe("incorrect");
+    expect(wrongMulti?.textContent).toContain("Your answer");
+    expect(
+      screen.getByText(multi.prompt).closest("[data-question-card]")?.getAttribute("data-question-result")
+    ).toBe("incorrect");
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain })).toBeTruthy();
+
+    gradeLearningStep.mockResolvedValueOnce({
+      ok: true,
+      quiz: {
+        correctCount: 1,
+        questionCount: quiz.questions.length,
+        minimumCorrect: quiz.minimum_correct,
+        questions: quiz.questions.map((question) => {
+          if (question.question_id === single.question_id) {
+            return {
+              questionId: question.question_id,
+              correct: true,
+              selectedChoiceIds: [singleCorrect.id],
+              correctChoiceIds: [singleCorrect.id],
+            };
+          }
+          return {
+            questionId: question.question_id,
+            correct: false,
+            selectedChoiceIds: [],
+            correctChoiceIds: [question.choices[0]?.id ?? ""],
+          };
+        }),
+      },
+    });
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain }));
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    const correctLabel = (await screen.findAllByText(singleCorrect.text))
+      .map((node) => node.closest("label"))
+      .find((label) => label?.getAttribute("data-choice-result") === "correct");
+    expect(correctLabel?.textContent).toContain("Correct answer");
+    expect(correctLabel?.textContent).not.toContain("Your answer");
+    expect(screen.getByText(singleWrong.text).closest("label")?.getAttribute("data-choice-result")).toBe(
+      "neutral"
+    );
+    expect(
+      screen.getByText(single.prompt).closest("[data-question-card]")?.getAttribute("data-question-result")
+    ).toBe("correct");
+  });
+
+  it("finishes a last-step quiz after a miss", async () => {
+    const user = userEvent.setup();
+    const step = getLearningStepForClient("dd_mp_03", "dd_mp_03_st_012");
+    if (!step) throw new Error("missing final quiz");
+    const quiz = step.blocks.find((block) => block.type === "quiz");
+    if (!quiz || quiz.type !== "quiz") throw new Error("missing quiz");
+    gradeLearningStep.mockResolvedValueOnce({
+      ok: true,
+      quiz: {
+        correctCount: 0,
+        questionCount: quiz.questions.length,
+        minimumCorrect: quiz.minimum_correct,
+        questions: quiz.questions.map((question) => ({
+          questionId: question.question_id,
+          correct: false,
+          selectedChoiceIds: [],
+          correctChoiceIds: [question.choices[0]?.id ?? ""],
+        })),
+      },
+    });
+    continueLearningStep.mockResolvedValueOnce({ ok: true, href: "/programs" });
+    render(
+      <StepExperience
+        miniProgramId="dd_mp_03"
+        collectionTitle="Definite Dozen"
+        programTitle="Take Responsibility"
+        step={step}
+        stepCount={step.sequence}
+        previousHref={null}
+        initialAnswers={{}}
+        enforceRequirements
+        isLastStep
+      />
+    );
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizSeeResults }));
+    expect(await screen.findByText("0 of 3 correct")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Finish" }));
+    expect(await screen.findByText(PROGRAMS_COPY.finishedProgram)).toBeTruthy();
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/programs");
     });
   });
 

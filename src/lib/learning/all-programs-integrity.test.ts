@@ -20,17 +20,57 @@ describe("all live Programs collections", () => {
     const collections = listLearningCollections();
     expect(collections.map((collection) => collection.id)).toEqual([
       "definite_dozen",
-      "championing_women",
       "power_of_team_leader",
+      "championing_women",
     ]);
     expect(collections.map((collection) => collection.title)).toEqual([
       "Definite Dozen",
-      "Championing Women in Leadership",
       "The Power of Team",
+      "Championing Women in Leadership",
     ]);
-    expect(collections[0]?.miniPrograms).toHaveLength(12);
-    expect(collections[1]?.miniPrograms).toHaveLength(13);
-    expect(collections[2]?.miniPrograms).toHaveLength(12);
+    expect(collections[0]?.miniPrograms.map((program) => program.id)).toEqual([
+      "dd_mp_02",
+      "dd_mp_03",
+      "dd_mp_04",
+      "dd_mp_05",
+      "dd_mp_06",
+      "dd_mp_07",
+      "dd_mp_08",
+      "dd_mp_09",
+      "dd_mp_10",
+      "dd_mp_11",
+      "dd_mp_12",
+      "dd_mp_13",
+    ]);
+    expect(collections[1]?.miniPrograms.map((program) => program.id)).toEqual([
+      "potl_mp_01",
+      "potl_mp_02",
+      "potl_mp_03",
+      "potl_mp_04",
+      "potl_mp_05",
+      "potl_mp_06",
+      "potl_mp_07",
+      "potl_mp_08",
+      "potl_mp_09",
+      "potl_mp_10",
+      "potl_mp_11",
+      "potl_mp_12",
+    ]);
+    expect(collections[2]?.miniPrograms.map((program) => program.id)).toEqual([
+      "cw_mp_01",
+      "cw_mp_02",
+      "cw_mp_03",
+      "cw_mp_04",
+      "cw_mp_05",
+      "cw_mp_06",
+      "cw_mp_07",
+      "cw_mp_08",
+      "cw_mp_09",
+      "cw_mp_10",
+      "cw_mp_11",
+      "cw_mp_12",
+      "cw_mp_13",
+    ]);
     expect(collections.flatMap((collection) => collection.miniPrograms)).toHaveLength(37);
     const ids = collections.flatMap((collection) => collection.miniPrograms.map((program) => program.id));
     for (const retired of ["cw_mp_14", "cw_mp_15", "potl_mp_13", "potl_mp_14"]) {

@@ -5,7 +5,7 @@ import type {
   LearningSortCard,
   LearningStep,
 } from "./curriculum-types";
-import { PROGRAMS_COPY, quizResultMessage } from "./programs-copy";
+import { PROGRAMS_COPY } from "./programs-copy";
 import { normalizeReflectionAnswer } from "./reflection-text";
 
 export type StepSubmission = {
@@ -17,6 +17,8 @@ export type StepSubmission = {
 export type QuizQuestionResult = {
   questionId: string;
   correct: boolean;
+  selectedChoiceIds: string[];
+  correctChoiceIds: string[];
 };
 
 export type QuizClientScore = {
@@ -37,10 +39,15 @@ export function gradeQuiz(
   block: LearningQuizBlock,
   answers: Record<string, string[]>
 ): { correctCount: number; passed: boolean; questions: QuizQuestionResult[] } {
-  const questions = block.questions.map((question) => ({
-    questionId: question.question_id,
-    correct: gradeQuizQuestion(question, answers[question.question_id] ?? []),
-  }));
+  const questions = block.questions.map((question) => {
+    const selectedChoiceIds = [...(answers[question.question_id] ?? [])];
+    return {
+      questionId: question.question_id,
+      correct: gradeQuizQuestion(question, selectedChoiceIds),
+      selectedChoiceIds,
+      correctChoiceIds: [...question.correct_choice_ids],
+    };
+  });
   const correctCount = questions.filter((question) => question.correct).length;
   return {
     correctCount,
@@ -81,21 +88,7 @@ export function validateStepRequirements(
   let quiz: QuizClientScore | null = null;
   for (const block of step.blocks) {
     if (block.type !== "quiz") continue;
-    const graded = gradeQuiz(block, submission.quizAnswers);
-    const score: QuizClientScore = {
-      correctCount: graded.correctCount,
-      questionCount: block.questions.length,
-      minimumCorrect: block.minimum_correct,
-      questions: graded.questions,
-    };
-    if (!graded.passed) {
-      return {
-        ok: false,
-        message: quizResultMessage(score.correctCount, score.questionCount, score.minimumCorrect),
-        quiz: score,
-      };
-    }
-    quiz = score;
+    quiz = quizClientScore(block, submission.quizAnswers);
   }
 
   for (const block of step.blocks) {
@@ -119,21 +112,20 @@ export function gradeQuizBlock(
   if (!block || block.type !== "quiz") {
     return { ok: false, message: PROGRAMS_COPY.unavailable };
   }
+  return { ok: true, quiz: quizClientScore(block, answers) };
+}
+
+function quizClientScore(
+  block: LearningQuizBlock,
+  answers: Record<string, string[]>
+): QuizClientScore {
   const graded = gradeQuiz(block, answers);
-  const quiz: QuizClientScore = {
+  return {
     correctCount: graded.correctCount,
     questionCount: block.questions.length,
     minimumCorrect: block.minimum_correct,
     questions: graded.questions,
   };
-  if (graded.correctCount < block.minimum_correct) {
-    return {
-      ok: false,
-      message: quizResultMessage(quiz.correctCount, quiz.questionCount, quiz.minimumCorrect),
-      quiz,
-    };
-  }
-  return { ok: true, quiz };
 }
 
 export function checkSortPlacement(

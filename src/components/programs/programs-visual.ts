@@ -40,7 +40,16 @@ export const programsStatusActive =
   "inline-flex rounded-full border border-[var(--brand)]/50 bg-[var(--brand)]/10 px-3 py-1 text-sm font-semibold text-[var(--brand)]";
 
 export const programsChoiceIdle =
-  "flex items-start gap-3 rounded-lg border border-white/10 bg-[#0f172a] px-4 py-3";
+  "flex min-w-0 flex-wrap items-start gap-3 rounded-lg border border-white/10 bg-[#0f172a] px-4 py-3";
 
 export const programsChoiceSelected =
-  "flex items-start gap-3 rounded-lg border border-[var(--brand)] bg-white/5 px-4 py-3";
+  "flex min-w-0 flex-wrap items-start gap-3 rounded-lg border border-[var(--brand)] bg-white/5 px-4 py-3";
+
+export const programsChoiceCorrect =
+  "flex min-w-0 flex-wrap items-start gap-3 rounded-lg border border-emerald-400/70 bg-emerald-950/50 px-4 py-3";
+
+export const programsChoiceIncorrect =
+  "flex min-w-0 flex-wrap items-start gap-3 rounded-lg border border-red-400/70 bg-red-950/40 px-4 py-3";
+
+export const programsChoiceNeutral =
+  "flex min-w-0 flex-wrap items-start gap-3 rounded-lg border border-white/10 bg-[#0f172a] px-4 py-3 opacity-70";

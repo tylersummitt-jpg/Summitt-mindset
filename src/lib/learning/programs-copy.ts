@@ -12,11 +12,11 @@ export const PROGRAMS_COPY = {
   sortReplay: "Replay",
   scenarioComplete: "Scenario Complete!",
   scenarioStartOver: "Start over",
-  quizTakeAgain: "Take again",
+  quizTakeAgain: "Try again",
   quizSeeResults: "See results",
-  quizYourScore: "Your score",
-  quizPassed: "Passed",
-  quizFailed: "Failed",
+  quizYourScore: "Here's how you did.",
+  quizReview: "Review your answers below.",
+  quizAnotherTry: "Want another try?",
   finishedProgram:
     "Congratulations! That concludes this lesson. You can revisit the completed course material at any time.",
   stepLocked: "This step isn't available yet.",
@@ -27,21 +27,12 @@ export const PROGRAMS_COPY = {
 export const REFLECTION_ANSWER_MAX = 4000;
 export const REFLECTION_PROMPT_MAX = 1000;
 
-export function quizInstructions(minimumCorrect: number, questionCount: number): string {
-  return `Let's do a quick knowledge check about what we've just covered. Take a few moments to answer the following questions. You have unlimited attempts and must answer at least ${minimumCorrect} of ${questionCount} questions correctly to continue.`;
+export function quizInstructions(): string {
+  return "Let's do a quick knowledge check about what we've just covered. Answer the questions, then see your results. You have unlimited attempts, and you can continue after you see how you did.";
 }
 
 export function quizScoreLine(correctCount: number, questionCount: number): string {
   return `${correctCount} of ${questionCount} correct`;
-}
-
-export function quizResultMessage(
-  correctCount: number,
-  questionCount: number,
-  minimumCorrect: number
-): string {
-  const outcome = correctCount >= minimumCorrect ? "Passed" : "Failed";
-  return `Your score ${correctCount} of ${questionCount} correct. ${outcome}. Passing: ${minimumCorrect} of ${questionCount}.`;
 }
 
 export function sortCompleteMessage(count: number): string {
