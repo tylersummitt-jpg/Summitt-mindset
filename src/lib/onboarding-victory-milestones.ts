@@ -1,6 +1,6 @@
 /**
  * Onboarding Victory Room milestones — three truthful Proud Moments.
- * Server-only. Not wired to onboarding completion in this slice.
+ * Server-only. Wired into POST /api/onboarding/complete.
  * Image failure never removes a win that already inserted.
  */
 
