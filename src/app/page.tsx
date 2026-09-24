@@ -188,8 +188,13 @@ export default async function HomePage() {
           <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-10 pb-12 md:mx-0 md:ml-6 lg:ml-10 xl:ml-12 md:mr-auto md:py-20 md:pb-24 md:justify-center md:items-start">
             <div className="flex w-full max-w-2xl flex-col gap-5 md:gap-8 min-w-0">
               <div>
-                <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-5xl md:leading-tight">
-                  Coach Pat in your corner.
+                <h1 className="text-2xl leading-none tracking-tight drop-shadow-sm sm:text-3xl md:text-5xl">
+                  <span className="block whitespace-nowrap font-black tracking-tighter text-white">
+                    Coach Pat in your corner.
+                  </span>
+                  <span className="mt-1 block font-bold text-[var(--brand)] md:mt-1.5">
+                    Every day.
+                  </span>
                 </h1>
               </div>
 
