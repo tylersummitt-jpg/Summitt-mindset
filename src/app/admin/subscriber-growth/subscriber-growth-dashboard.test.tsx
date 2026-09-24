@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   emptyUnknownSnapshot,
   emptyUnknownTrialOnboardingFunnel,
+  emptyVisitorCohortTable,
   SUBSCRIBER_GROWTH_TZ,
   type LatestTrialRow,
   type SubscriberGrowthDashboardData,
@@ -94,6 +95,7 @@ function dashboardData(
     recentActivity: [],
     recentActivityPaymentFailedIncluded: true,
     trialOnboardingFunnel: emptyUnknownTrialOnboardingFunnel(),
+    visitorCohortTable: emptyVisitorCohortTable(),
   };
 }
 
@@ -721,6 +723,26 @@ describe("subscriber growth CMO completion copy", () => {
     expect(
       screen.getByText("This is NOT a general engagement score.", { exact: false })
     ).toBeTruthy();
+  });
+
+  it("shows the first-visit cohort with a percent of visitors", () => {
+    const data = dashboardData([]);
+    data.visitorCohortTable = {
+      rows: data.visitorCohortTable.rows.map((row) =>
+        row.span === "last_7"
+          ? {
+              ...row,
+              visitors: 768,
+              clickedTrial: { count: 43, percentOfVisitors: 43 / 768 },
+            }
+          : row
+      ),
+    };
+    render(<SubscriberGrowthDashboard data={data} />);
+    expect(screen.getByText("First visit cohort")).toBeTruthy();
+    expect(screen.getByText("5.6% of visitors")).toBeTruthy();
+    expect(screen.getByText(/browser cookie, not a guaranteed unique person/)).toBeTruthy();
+    expect(screen.getByText("From website visit to paid member")).toBeTruthy();
   });
 });
 

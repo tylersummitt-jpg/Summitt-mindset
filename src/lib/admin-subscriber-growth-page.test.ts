@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { emptyUnknownSnapshot, emptyUnknownTrialOnboardingFunnel } from "@/lib/admin-subscriber-growth-pure";
+import {
+  emptyUnknownSnapshot,
+  emptyUnknownTrialOnboardingFunnel,
+  emptyVisitorCohortTable,
+} from "@/lib/admin-subscriber-growth-pure";
 
 const requireTylerAdminMock = vi.hoisted(() => vi.fn());
 const loadDashboardMock = vi.hoisted(() => vi.fn());
@@ -58,6 +62,7 @@ describe("subscriber growth page authorization", () => {
       recentActivity: [],
       recentActivityPaymentFailedIncluded: true,
       trialOnboardingFunnel: emptyUnknownTrialOnboardingFunnel(),
+      visitorCohortTable: emptyVisitorCohortTable(),
     });
   });
 
@@ -221,10 +226,15 @@ describe("subscriber growth auth architecture", () => {
     expect(loader).not.toContain("trialStarted: snapshot.period.freeTrialsStarted");
     expect(loader).toContain("uniqueTrialClerkIds(args.trialClerkIds)");
     const fromVisit = dashboard.indexOf("From website visit to paid member");
+    const cohort = dashboard.indexOf("First visit cohort", fromVisit);
     const onboarding = dashboard.indexOf("Trial onboarding funnel", fromVisit);
     const retention = dashboard.indexOf("Subscribers &amp; retention", fromVisit);
     expect(fromVisit).toBeGreaterThan(-1);
-    expect(onboarding).toBeGreaterThan(fromVisit);
+    expect(cohort).toBeGreaterThan(fromVisit);
+    expect(onboarding).toBeGreaterThan(cohort);
+    expect(loader).toContain("assemblePagedRows");
+    expect(loader).toContain("computeVisitorCohortTable");
+    expect(loader).toContain("startMs: null");
     expect(retention).toBeGreaterThan(onboarding);
     expect(loader).not.toContain(
       "collectRecentActivityEvents({\n    stripeSubs: sourceFilteredSubs"

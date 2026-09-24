@@ -4,11 +4,13 @@ import { join } from "node:path";
 
 import {
   aggregateTrafficSourceRows,
+  assemblePagedRows,
   adSpendDisplayStatus,
   blendedCostPerPaidCents,
   blendedCostPerTrialCents,
   buildLatestTrialRows,
   computeGrowthSnapshot,
+  computeVisitorCohortTable,
   computeTrialOnboardingFunnel,
   conversionRate,
   clerkUserIdFromStripeSub,
@@ -36,6 +38,7 @@ import {
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
   growthPeriodUtcMs,
+  visitorCohortWindowUtcMs,
   humanFirstTouchLabel,
   isStripePaidActive,
   LATEST_TRIALS_LIMIT,
@@ -2569,6 +2572,310 @@ describe("trial onboarding funnel", () => {
     expect(
       snapshotFn.slice(snapshotFn.indexOf("export function computeGrowthSnapshot"))
     ).not.toContain("computeTrialOnboardingFunnel(");
+  });
+});
+
+describe("visitor cohort acquisition table", () => {
+  const todayKey = "2026-09-24";
+  const today = visitorCohortWindowUtcMs("today", todayKey)!;
+  const last3 = visitorCohortWindowUtcMs("last_3", todayKey)!;
+  const last7 = visitorCohortWindowUtcMs("last_7", todayKey)!;
+  const last30 = visitorCohortWindowUtcMs("last_30", todayKey)!;
+
+  function iso(ms: number): string {
+    return new Date(ms).toISOString();
+  }
+
+  function pageView(
+    visitorId: string,
+    atMs: number,
+    source: string | null = "direct"
+  ): MarketingEventRow {
+    return {
+      event_type: "page_viewed",
+      visitor_id: visitorId,
+      occurred_at: iso(atMs),
+      source_normalized: source,
+      is_paid_acquisition: false,
+      referrer_host: null,
+      utm_source: null,
+      utm_campaign: null,
+      utm_content: null,
+      clerk_user_id: null,
+    };
+  }
+
+  function cta(visitorId: string, atMs: number): MarketingEventRow {
+    return { ...pageView(visitorId, atMs), event_type: "trial_cta_clicked" };
+  }
+
+  function attr(visitorId: string, clerkId: string): MarketingAttributionRow {
+    return {
+      clerk_user_id: clerkId,
+      visitor_id: visitorId,
+      source_normalized: "meta",
+      is_paid_acquisition: true,
+      source_detail: null,
+      referrer_host: null,
+      utm_source: "facebook",
+      utm_campaign: null,
+      utm_content: null,
+    };
+  }
+
+  function trialSub(
+    id: string,
+    userId: string | null,
+    trialStart: number | null,
+    status = "trialing"
+  ): GrowthStripeSubscription {
+    return stripeSub({
+      id,
+      status,
+      trial_start: trialStart,
+      metadata: userId ? { userId } : {},
+    });
+  }
+
+  function table(partial: {
+    events?: MarketingEventRow[];
+    attributions?: MarketingAttributionRow[];
+    stripeSubs?: GrowthStripeSubscription[];
+    onboarded?: Record<string, string | null>;
+    sourceFilter?: "all" | "direct" | "meta_ads" | "google" | "organic_social" | "referral";
+    marketingEventsComplete?: boolean;
+    stripeListComplete?: boolean;
+    attributionComplete?: boolean;
+    onboardingComplete?: boolean;
+  }) {
+    return computeVisitorCohortTable({
+      events: partial.events ?? [],
+      attributions: partial.attributions ?? [],
+      stripeSubs: partial.stripeSubs ?? [],
+      onboardingCompletedAtByClerkId: new Map(Object.entries(partial.onboarded ?? {})),
+      sourceFilter: partial.sourceFilter ?? "all",
+      todayDateKey: todayKey,
+      marketingEventsComplete: partial.marketingEventsComplete ?? true,
+      stripeListComplete: partial.stripeListComplete ?? true,
+      attributionComplete: partial.attributionComplete ?? true,
+      onboardingComplete: partial.onboardingComplete ?? true,
+    });
+  }
+
+  function row(span: "today" | "last_3" | "last_7" | "last_30", result: ReturnType<typeof table>) {
+    const found = result.rows.find((item) => item.span === span);
+    if (!found) throw new Error(span);
+    return found;
+  }
+
+  it("puts a first page view inside Today into that cohort only once", () => {
+    const result = table({
+      events: [
+        pageView("v1", today.startMs),
+        pageView("v1", today.startMs + 60_000),
+      ],
+    });
+    expect(row("today", result).visitors).toBe(1);
+    expect(row("last_3", result).visitors).toBe(1);
+    expect(row("last_7", result).visitors).toBe(1);
+    expect(row("last_30", result).visitors).toBe(1);
+  });
+
+  it("does not create a second visitor for a later page view", () => {
+    const result = table({
+      events: [
+        pageView("v1", last3.startMs),
+        pageView("v1", today.startMs),
+      ],
+    });
+    expect(row("today", result).visitors).toBe(0);
+    expect(row("last_3", result).visitors).toBe(1);
+  });
+
+  it("counts two CTA clicks once, including a click after the cohort window", () => {
+    const result = table({
+      events: [
+        pageView("v1", last3.startMs),
+        cta("v1", last3.startMs + 1000),
+        cta("v1", today.startMs + 86_400_000),
+      ],
+    });
+    expect(row("last_3", result).clickedTrial.count).toBe(1);
+    expect(row("today", result).clickedTrial.count).toBe(0);
+  });
+
+  it("counts an account, trial, and onboarding that happen after the cohort window", () => {
+    const later = today.endMs - 1000;
+    const result = table({
+      events: [pageView("v1", last30.startMs), cta("v1", later)],
+      attributions: [attr("v1", "user_1")],
+      stripeSubs: [trialSub("sub_1", "user_1", Math.floor(later / 1000))],
+      onboarded: { user_1: iso(later) },
+    });
+    const cohort = row("last_30", result);
+    expect(cohort.visitors).toBe(1);
+    expect(row("today", result).visitors).toBe(0);
+    expect(cohort.clickedTrial.count).toBe(1);
+    expect(cohort.createdAccount.count).toBe(1);
+    expect(cohort.startedFreeTrial.count).toBe(1);
+    expect(cohort.finishedOnboarding.count).toBe(1);
+  });
+
+  it("counts one visitor once when several Clerk users and subscriptions are linked", () => {
+    const result = table({
+      events: [pageView("v1", today.startMs), cta("v1", today.startMs)],
+      attributions: [attr("v1", "user_a"), attr("v1", "user_b")],
+      stripeSubs: [
+        trialSub("sub_a", "user_a", 1_700_000_000, "canceled"),
+        trialSub("sub_a2", "user_a", 1_700_000_100, "active"),
+        trialSub("sub_b", "user_b", null, "active"),
+      ],
+      onboarded: { user_b: "2026-09-24T18:00:00.000Z" },
+    });
+    const todayRow = row("today", result);
+    expect(todayRow.createdAccount.count).toBe(1);
+    expect(todayRow.startedFreeTrial.count).toBe(1);
+    expect(todayRow.finishedOnboarding.count).toBe(1);
+  });
+
+  it("keeps a canceled or ended subscription in Trial when trial_start is set", () => {
+    const result = table({
+      events: [pageView("v1", today.startMs)],
+      attributions: [attr("v1", "user_1")],
+      stripeSubs: [trialSub("sub_ended", "user_1", 1_700_000_000, "canceled")],
+    });
+    expect(row("today", result).startedFreeTrial.count).toBe(1);
+  });
+
+  it("does not count a subscription without trial_start", () => {
+    const result = table({
+      events: [pageView("v1", today.startMs)],
+      attributions: [attr("v1", "user_1")],
+      stripeSubs: [trialSub("sub_paid", "user_1", null, "active")],
+    });
+    expect(row("today", result).startedFreeTrial.count).toBe(0);
+  });
+
+  it("does not count an Apple-only person as a Stripe trial", () => {
+    const result = table({
+      events: [pageView("v1", today.startMs)],
+      attributions: [attr("v1", "user_apple")],
+      stripeSubs: [],
+    });
+    expect(row("today", result).createdAccount.count).toBe(1);
+    expect(row("today", result).startedFreeTrial.count).toBe(0);
+  });
+
+  it("keeps the earliest page-view source and does not follow later Meta attribution", () => {
+    const events = [
+      pageView("v_direct", last7.startMs, "direct"),
+      pageView("v_direct", today.startMs, "meta"),
+      pageView("v_meta", today.startMs, "meta"),
+    ];
+    const attributions = [attr("v_direct", "user_direct")];
+    const all = table({ events, attributions, sourceFilter: "all" });
+    const direct = table({ events, attributions, sourceFilter: "direct" });
+    const meta = table({ events, attributions, sourceFilter: "meta_ads" });
+    expect(row("last_7", all).visitors).toBe(2);
+    expect(row("last_7", direct).visitors).toBe(1);
+    expect(row("last_7", direct).createdAccount.count).toBe(1);
+    expect(row("today", meta).visitors).toBe(1);
+    expect(row("last_7", meta).createdAccount.count).toBe(0);
+  });
+
+  it("uses Eastern midnights for today, 3, 7, and 30 day edges", () => {
+    const result = table({
+      events: [
+        pageView("today_edge", today.startMs),
+        pageView("before_today", today.startMs - 1),
+        pageView("last3_edge", last3.startMs),
+        pageView("before_last3", last3.startMs - 1),
+        pageView("last7_edge", last7.startMs),
+        pageView("before_last7", last7.startMs - 1),
+        pageView("last30_edge", last30.startMs),
+        pageView("before_last30", last30.startMs - 1),
+      ],
+    });
+    expect(row("today", result).visitors).toBe(1);
+    expect(row("last_3", result).visitors).toBe(3);
+    expect(row("last_7", result).visitors).toBe(5);
+    expect(row("last_30", result).visitors).toBe(7);
+  });
+
+  it("leaves a visitor without attribution in Visitors and CTA only", () => {
+    const result = table({
+      events: [pageView("v1", today.startMs), cta("v1", today.startMs + 5)],
+      stripeSubs: [trialSub("sub_orphan", null, 1_700_000_000)],
+      onboarded: { user_missing: "2026-09-24T18:00:00.000Z" },
+    });
+    const todayRow = row("today", result);
+    expect(todayRow.visitors).toBe(1);
+    expect(todayRow.clickedTrial.count).toBe(1);
+    expect(todayRow.createdAccount.count).toBe(0);
+    expect(todayRow.startedFreeTrial.count).toBe(0);
+    expect(todayRow.finishedOnboarding.count).toBe(0);
+  });
+
+  it("does not attach a trial when Stripe metadata has no userId", () => {
+    const result = table({
+      events: [pageView("v1", today.startMs)],
+      attributions: [attr("v1", "user_1")],
+      stripeSubs: [trialSub("sub_nometa", null, 1_700_000_000)],
+    });
+    expect(row("today", result).startedFreeTrial.count).toBe(0);
+  });
+
+  it("shows em dashes when the marketing event load is incomplete", () => {
+    const result = table({
+      events: [pageView("v1", today.startMs)],
+      marketingEventsComplete: false,
+    });
+    for (const item of result.rows) {
+      expect(item.visitors).toBeNull();
+      expect(item.clickedTrial.count).toBeNull();
+      expect(item.createdAccount.count).toBeNull();
+      expect(item.startedFreeTrial.count).toBeNull();
+      expect(item.finishedOnboarding.count).toBeNull();
+    }
+  });
+
+  it("shows Trial as unavailable when the Stripe list is incomplete", () => {
+    const result = table({
+      events: [pageView("v1", today.startMs), cta("v1", today.startMs)],
+      attributions: [attr("v1", "user_1")],
+      stripeSubs: [trialSub("sub_1", "user_1", 1_700_000_000)],
+      onboarded: { user_1: "2026-09-24T18:00:00.000Z" },
+      stripeListComplete: false,
+    });
+    const todayRow = row("today", result);
+    expect(todayRow.visitors).toBe(1);
+    expect(todayRow.clickedTrial.count).toBe(1);
+    expect(todayRow.createdAccount.count).toBe(1);
+    expect(todayRow.startedFreeTrial.count).toBeNull();
+    expect(todayRow.finishedOnboarding.count).toBe(1);
+  });
+
+  it("returns more than 1,000 paged attribution rows and flags a full final page as incomplete", () => {
+    const pageSize = 1000;
+    const first = Array.from({ length: pageSize }, (_, i) => i);
+    const second = [pageSize];
+    const complete = assemblePagedRows({
+      batches: [first, second],
+      pageSize,
+      maxPages: 50,
+    });
+    expect(complete.rows).toHaveLength(1001);
+    expect(complete.complete).toBe(true);
+    expect(complete.rows[1000]).toBe(1000);
+
+    const fullPages = Array.from({ length: 50 }, () => first);
+    const capped = assemblePagedRows({
+      batches: fullPages,
+      pageSize,
+      maxPages: 50,
+    });
+    expect(capped.rows).toHaveLength(50_000);
+    expect(capped.complete).toBe(false);
   });
 });
 

@@ -14,6 +14,7 @@ import {
   formatSignedNet,
   formatUnknownableCount,
   formatUnknownablePercent,
+  type VisitorCohortCell,
   formatUnknownableUsdFromCents,
   latestTrialFirstTouchLabel,
   NOT_AVAILABLE,
@@ -208,6 +209,21 @@ function StatCell({
       </div>
       <div className="text-[10px] text-gray-500">{scope}</div>
       {note ? <p className="mt-1 text-[10px] leading-snug text-gray-500">{note}</p> : null}
+    </div>
+  );
+}
+
+function CohortStage({ cell }: { cell: VisitorCohortCell }) {
+  return (
+    <div>
+      <div className="tabular-nums font-medium text-gray-900">
+        {formatUnknownableCount(cell.count)}
+      </div>
+      {cell.percentOfVisitors != null ? (
+        <div className="text-[10px] text-gray-500">
+          {formatUnknownablePercent(cell.percentOfVisitors)} of visitors
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -918,6 +934,55 @@ export default function SubscriberGrowthDashboard({
               }
             />
           ))}
+        </div>
+      </section>
+
+      <section>
+        <p className="mb-1.5 text-sm font-semibold text-gray-900">
+          First visit cohort
+        </p>
+        <p className="mb-1.5 text-[10px] text-gray-500">
+          Each row is the browsers whose first tracked page view fell in that
+          Eastern Time window. Trial clicks, accounts, free trials, and finished
+          onboarding still count if they happen after that window, so Today is
+          still in progress. A visitor is a browser cookie, not a guaranteed
+          unique person.
+        </p>
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+          <table className="w-full text-left text-[11px]">
+            <thead className="bg-gray-50 text-gray-500">
+              <tr>
+                <th className="px-2 py-1.5 font-medium">Cohort</th>
+                <th className="px-2 py-1.5 font-medium">Visitors</th>
+                <th className="px-2 py-1.5 font-medium">Clicked trial</th>
+                <th className="px-2 py-1.5 font-medium">Created account</th>
+                <th className="px-2 py-1.5 font-medium">Started free trial</th>
+                <th className="px-2 py-1.5 font-medium">Finished onboarding</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.visitorCohortTable.rows.map((row) => (
+                <tr key={row.span} className="border-t border-gray-100 text-gray-800">
+                  <td className="px-2 py-2 font-medium text-gray-900">{row.label}</td>
+                  <td className="px-2 py-2 tabular-nums">
+                    {formatUnknownableCount(row.visitors)}
+                  </td>
+                  <td className="px-2 py-2">
+                    <CohortStage cell={row.clickedTrial} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CohortStage cell={row.createdAccount} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CohortStage cell={row.startedFreeTrial} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CohortStage cell={row.finishedOnboarding} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 

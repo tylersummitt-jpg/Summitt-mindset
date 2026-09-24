@@ -24,7 +24,10 @@ import {
   emptyStripeWeekMovement,
   emptyUnknownSnapshot,
   emptyUnknownTrialOnboardingFunnel,
+  assemblePagedRows,
   computeTrialOnboardingFunnel,
+  computeVisitorCohortTable,
+  emptyVisitorCohortTable,
   uniqueTrialClerkIds,
   uniqueClerksWithIdentityV1,
   uniqueClerksWithOnboardingGoal,
@@ -52,6 +55,7 @@ import {
   type SubscriberGrowthDashboardData,
   type TrialOnboardingFunnelCounts,
   type TrialOnboardingInboundRow,
+  type VisitorCohortTable,
 } from "@/lib/admin-subscriber-growth-pure";
 import { attributionMatchesDashboardSource } from "@/lib/marketing-attribution-pure";
 import { isLikelySmsComplianceOrOptOutTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
@@ -436,20 +440,40 @@ function parseMarketingAttributionRow(raw: {
   };
 }
 
-async function loadMarketingAttribution(): Promise<MarketingAttributionRow[]> {
-  const { data, error } = await supabaseServer
-    .from("marketing_attribution")
-    .select(MARKETING_ATTRIBUTION_SELECT);
-  if (error) {
-    console.warn("[subscriber-growth] attribution query failed", error.message);
-    return [];
+async function loadMarketingAttribution(): Promise<{
+  rows: MarketingAttributionRow[];
+  complete: boolean;
+}> {
+  const batches: MarketingAttributionRow[][] = [];
+  const rawLengths: number[] = [];
+  let from = 0;
+  for (let page = 0; page < MARKETING_MAX_PAGES; page += 1) {
+    const { data, error } = await supabaseServer
+      .from("marketing_attribution")
+      .select(MARKETING_ATTRIBUTION_SELECT)
+      .order("clerk_user_id", { ascending: true })
+      .range(from, from + MARKETING_EVENT_PAGE - 1);
+    if (error) {
+      console.warn("[subscriber-growth] attribution query failed", error.message);
+      return { rows: [], complete: false };
+    }
+    const batch = data ?? [];
+    const parsed: MarketingAttributionRow[] = [];
+    for (const raw of batch) {
+      const row = parseMarketingAttributionRow(raw);
+      if (row) parsed.push(row);
+    }
+    batches.push(parsed);
+    rawLengths.push(batch.length);
+    if (batch.length < MARKETING_EVENT_PAGE) break;
+    from += MARKETING_EVENT_PAGE;
   }
-  const rows: MarketingAttributionRow[] = [];
-  for (const raw of data ?? []) {
-    const parsed = parseMarketingAttributionRow(raw);
-    if (parsed) rows.push(parsed);
-  }
-  return rows;
+  return assemblePagedRows({
+    batches,
+    pageSize: MARKETING_EVENT_PAGE,
+    maxPages: MARKETING_MAX_PAGES,
+    rawLengths,
+  });
 }
 
 async function loadMarketingAttributionByClerkIds(
@@ -920,6 +944,7 @@ export async function loadSubscriberGrowthDashboard(args: {
       recentActivity: null,
       recentActivityPaymentFailedIncluded: false,
       trialOnboardingFunnel: emptyUnknownTrialOnboardingFunnel(),
+      visitorCohortTable: emptyVisitorCohortTable(),
     };
   }
 
@@ -1017,7 +1042,8 @@ export async function loadSubscriberGrowthDashboard(args: {
     byOriginalTxn: appleByTxn,
   });
 
-  const attributions = await loadMarketingAttribution();
+  const attributionLoad = await loadMarketingAttribution();
+  const attributions = attributionLoad.rows;
   const attrByClerk = new Map(attributions.map((a) => [a.clerk_user_id, a] as const));
 
   const sourceFilteredSubs =
@@ -1034,6 +1060,10 @@ export async function loadSubscriberGrowthDashboard(args: {
   const eventsWindowStart = period.startMs;
   const marketing = await loadMarketingEvents({
     startMs: eventsWindowStart,
+    endMs: period.endMs,
+  });
+  const cohortMarketing = await loadMarketingEvents({
+    startMs: null,
     endMs: period.endMs,
   });
   const instrumentationStartMs = await loadInstrumentationStartMs();
@@ -1322,6 +1352,38 @@ export async function loadSubscriberGrowthDashboard(args: {
     console.warn("[subscriber-growth] trial onboarding funnel failed", funnelResult.reason);
   }
 
+  const onboardingByClerk = new Map<string, string | null>();
+  let onboardingComplete = attributionLoad.complete;
+  if (attributionLoad.complete) {
+    const linkedClerkIds = [
+      ...new Set(attributions.map((row) => row.clerk_user_id)),
+    ];
+    try {
+      const setup = await loadSetupRows(linkedClerkIds);
+      onboardingComplete = setup.complete;
+      for (const row of setup.rows) {
+        if (!row.clerk_user_id) continue;
+        onboardingByClerk.set(row.clerk_user_id, row.identity_intake_completed_at);
+      }
+    } catch (err) {
+      console.warn("[subscriber-growth] visitor cohort onboarding query failed", err);
+      onboardingComplete = false;
+    }
+  }
+
+  const visitorCohortTable: VisitorCohortTable = computeVisitorCohortTable({
+    events: cohortMarketing.rows,
+    attributions,
+    stripeSubs,
+    onboardingCompletedAtByClerkId: onboardingByClerk,
+    sourceFilter: source,
+    todayDateKey: todayKey,
+    marketingEventsComplete: cohortMarketing.complete,
+    stripeListComplete,
+    attributionComplete: attributionLoad.complete,
+    onboardingComplete,
+  });
+
   return {
     range,
     source,
@@ -1340,5 +1402,6 @@ export async function loadSubscriberGrowthDashboard(args: {
     recentActivity,
     recentActivityPaymentFailedIncluded: includePaymentFailed && recentActivity != null,
     trialOnboardingFunnel,
+    visitorCohortTable,
   };
 }

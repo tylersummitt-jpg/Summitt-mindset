@@ -1700,6 +1700,7 @@ export type SubscriberGrowthDashboardData = {
   recentActivity: RecentActivityEvent[] | null;
   recentActivityPaymentFailedIncluded: boolean;
   trialOnboardingFunnel: TrialOnboardingFunnelCounts;
+  visitorCohortTable: VisitorCohortTable;
 };
 
 export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {
@@ -2039,4 +2040,221 @@ export function computeGrowthSnapshot(input: {
     trafficRows: input.trafficRows ?? [],
     notes,
   };
+}
+
+export const VISITOR_COHORT_SPANS = ["today", "last_3", "last_7", "last_30"] as const;
+
+export type VisitorCohortSpan = (typeof VISITOR_COHORT_SPANS)[number];
+
+export type VisitorCohortCell = {
+  count: MetricNumber;
+  percentOfVisitors: MetricNumber;
+};
+
+export type VisitorCohortRow = {
+  span: VisitorCohortSpan;
+  label: string;
+  visitors: MetricNumber;
+  clickedTrial: VisitorCohortCell;
+  createdAccount: VisitorCohortCell;
+  startedFreeTrial: VisitorCohortCell;
+  finishedOnboarding: VisitorCohortCell;
+};
+
+export type VisitorCohortTable = {
+  rows: VisitorCohortRow[];
+};
+
+const VISITOR_COHORT_LABEL: Record<VisitorCohortSpan, string> = {
+  today: "Today",
+  last_3: "Last 3 days",
+  last_7: "Last 7 days",
+  last_30: "Last 30 days",
+};
+
+const VISITOR_COHORT_START_OFFSET: Record<VisitorCohortSpan, number> = {
+  today: 0,
+  last_3: -2,
+  last_7: -6,
+  last_30: -29,
+};
+
+function emptyCohortCell(): VisitorCohortCell {
+  return { count: null, percentOfVisitors: null };
+}
+
+export function emptyVisitorCohortTable(): VisitorCohortTable {
+  return {
+    rows: VISITOR_COHORT_SPANS.map((span) => ({
+      span,
+      label: VISITOR_COHORT_LABEL[span],
+      visitors: null,
+      clickedTrial: emptyCohortCell(),
+      createdAccount: emptyCohortCell(),
+      startedFreeTrial: emptyCohortCell(),
+      finishedOnboarding: emptyCohortCell(),
+    })),
+  };
+}
+
+/** Eastern calendar window ending at the next local midnight. Today is offset 0. */
+export function visitorCohortWindowUtcMs(
+  span: VisitorCohortSpan,
+  todayKey: string
+): { startMs: number; endMs: number } | null {
+  const tomorrowKey = addDaysToDateKey(todayKey, 1);
+  const end = utcInstantForLocalMidnight(tomorrowKey, SUBSCRIBER_GROWTH_TZ);
+  const start = utcInstantForLocalMidnight(
+    addDaysToDateKey(todayKey, VISITOR_COHORT_START_OFFSET[span]),
+    SUBSCRIBER_GROWTH_TZ
+  );
+  if (!end || !start) return null;
+  return { startMs: start.getTime(), endMs: end.getTime() };
+}
+
+/**
+ * Concatenate paged reads. A short final page is complete.
+ * A full page at maxPages is incomplete so callers can show — instead of a short count.
+ */
+export function assemblePagedRows<T>(args: {
+  batches: readonly (readonly T[])[];
+  pageSize: number;
+  maxPages: number;
+  /** Database page sizes. Falls back to each batch's length. */
+  rawLengths?: readonly number[];
+}): { rows: T[]; complete: boolean } {
+  const rows: T[] = [];
+  const limit = Math.min(args.batches.length, args.maxPages);
+  for (let i = 0; i < limit; i += 1) {
+    const batch = args.batches[i] ?? [];
+    for (const row of batch) rows.push(row);
+    const size = args.rawLengths?.[i] ?? batch.length;
+    if (size < args.pageSize) return { rows, complete: true };
+  }
+  if (args.batches.length === 0) return { rows, complete: true };
+  const lastIndex = Math.min(args.batches.length, args.maxPages) - 1;
+  const lastSize = args.rawLengths?.[lastIndex] ?? args.batches[lastIndex]?.length ?? 0;
+  const endedOnFullPage = args.batches.length >= args.maxPages && lastSize >= args.pageSize;
+  return { rows, complete: !endedOnFullPage };
+}
+
+function cohortCell(count: number | null, visitors: number | null): VisitorCohortCell {
+  if (count == null || visitors == null) return emptyCohortCell();
+  return { count, percentOfVisitors: conversionRate(count, visitors) };
+}
+
+/**
+ * Same-visitor acquisition cohorts. Source is the earliest page_viewed
+ * source_normalized and is not replaced by later attribution.
+ * Apple subscriptions are not an input.
+ */
+export function computeVisitorCohortTable(args: {
+  events: readonly MarketingEventRow[];
+  attributions: readonly MarketingAttributionRow[];
+  stripeSubs: readonly GrowthStripeSubscription[];
+  onboardingCompletedAtByClerkId: ReadonlyMap<string, string | null>;
+  sourceFilter: GrowthTrafficSource;
+  todayDateKey: string;
+  marketingEventsComplete: boolean;
+  stripeListComplete: boolean;
+  attributionComplete: boolean;
+  onboardingComplete: boolean;
+}): VisitorCohortTable {
+  if (!args.marketingEventsComplete) return emptyVisitorCohortTable();
+
+  const firstPage = new Map<string, { at: number; source: string | null }>();
+  const ctaVisitors = new Set<string>();
+  for (const ev of args.events) {
+    if (ev.event_type === "trial_cta_clicked") {
+      ctaVisitors.add(ev.visitor_id);
+      continue;
+    }
+    if (ev.event_type !== "page_viewed") continue;
+    const at = Date.parse(ev.occurred_at);
+    if (!Number.isFinite(at)) continue;
+    const prev = firstPage.get(ev.visitor_id);
+    if (!prev || at < prev.at) {
+      firstPage.set(ev.visitor_id, {
+        at,
+        source: ev.source_normalized,
+      });
+    }
+  }
+
+  const clerksByVisitor = new Map<string, Set<string>>();
+  if (args.attributionComplete) {
+    for (const row of args.attributions) {
+      const set = clerksByVisitor.get(row.visitor_id) ?? new Set<string>();
+      if (row.clerk_user_id.trim()) set.add(row.clerk_user_id.trim());
+      clerksByVisitor.set(row.visitor_id, set);
+    }
+  }
+
+  const trialClerkIds = new Set<string>();
+  if (args.stripeListComplete && args.attributionComplete) {
+    for (const sub of args.stripeSubs) {
+      if (sub.trial_start == null || !Number.isFinite(sub.trial_start)) continue;
+      const clerk = clerkUserIdFromStripeSub(sub);
+      if (clerk) trialClerkIds.add(clerk);
+    }
+  }
+
+  const onboardedClerkIds = new Set<string>();
+  if (args.onboardingComplete && args.attributionComplete) {
+    for (const [clerkId, at] of args.onboardingCompletedAtByClerkId) {
+      const id = clerkId.trim();
+      if (!id || typeof at !== "string" || !at.trim()) continue;
+      if (!Number.isFinite(Date.parse(at))) continue;
+      onboardedClerkIds.add(id);
+    }
+  }
+
+  const rows: VisitorCohortRow[] = [];
+  for (const span of VISITOR_COHORT_SPANS) {
+    const window = visitorCohortWindowUtcMs(span, args.todayDateKey);
+    if (!window) {
+      rows.push(emptyVisitorCohortTable().rows.find((row) => row.span === span)!);
+      continue;
+    }
+    const cohort: string[] = [];
+    for (const [visitorId, first] of firstPage) {
+      if (first.at < window.startMs || first.at >= window.endMs) continue;
+      if (!attributionMatchesDashboardSource(first.source, args.sourceFilter)) continue;
+      cohort.push(visitorId);
+    }
+    const visitors = cohort.length;
+    let clicked = 0;
+    let accounts = 0;
+    let trials = 0;
+    let onboarded = 0;
+    for (const visitorId of cohort) {
+      if (ctaVisitors.has(visitorId)) clicked += 1;
+      const clerks = clerksByVisitor.get(visitorId);
+      if (!clerks || clerks.size === 0) continue;
+      accounts += 1;
+      let startedTrial = false;
+      let finished = false;
+      for (const clerkId of clerks) {
+        if (trialClerkIds.has(clerkId)) startedTrial = true;
+        if (onboardedClerkIds.has(clerkId)) finished = true;
+      }
+      if (startedTrial) trials += 1;
+      if (finished) onboarded += 1;
+    }
+    const accountCount = args.attributionComplete ? accounts : null;
+    const trialCount =
+      args.attributionComplete && args.stripeListComplete ? trials : null;
+    const onboardCount =
+      args.attributionComplete && args.onboardingComplete ? onboarded : null;
+    rows.push({
+      span,
+      label: VISITOR_COHORT_LABEL[span],
+      visitors,
+      clickedTrial: cohortCell(clicked, visitors),
+      createdAccount: cohortCell(accountCount, visitors),
+      startedFreeTrial: cohortCell(trialCount, visitors),
+      finishedOnboarding: cohortCell(onboardCount, visitors),
+    });
+  }
+  return { rows };
 }
