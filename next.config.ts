@@ -6,6 +6,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [...SOCIAL_BIO_REDIRECTS];
   },
+  outputFileTracingIncludes: {
+    "/api/onboarding/complete": [
+      "./src/lib/onboarding-victory-milestones/assets/**/*.jpg",
+    ],
+  },
 };
 
 export default nextConfig;

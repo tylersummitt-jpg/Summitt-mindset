@@ -5,6 +5,7 @@ import { resolveUserTimezone } from "@/lib/timezone";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { hasValidSmsConsent } from "@/lib/onboarding-sms-consent";
 import { runSobCompleteOnboardingActivation } from "@/lib/onboarding-complete-activation";
+import { seedOnboardingVictoryMilestones } from "@/lib/onboarding-victory-milestones";
 
 function safeDayNumber(raw: unknown): number | null {
   const n = typeof raw === "number" ? raw : Number(raw);
@@ -31,6 +32,14 @@ function safeSmsTimePreference(
   )
     return raw;
   return null;
+}
+
+async function seedVictoryMilestonesFailOpen(userId: string): Promise<void> {
+  try {
+    await seedOnboardingVictoryMilestones({ clerkUserId: userId });
+  } catch (err) {
+    console.error("[onboarding/complete] victory milestone seed failed", err);
+  }
 }
 
 async function healSmsAudience(
@@ -82,6 +91,7 @@ export async function POST(req: Request) {
           { status: 500 }
         );
       }
+      await seedVictoryMilestonesFailOpen(userId);
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     }
 
@@ -127,6 +137,7 @@ export async function POST(req: Request) {
       );
     }
 
+    await seedVictoryMilestonesFailOpen(userId);
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (err) {
     console.error("ONBOARDING COMPLETE ERROR:", err);
