@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   checkLearningSortCard,
@@ -567,6 +568,71 @@ function BlockView({
   }
 
   if (block.type === "choice_prompt") {
+    const illustrated = block.choices.every((choice) => choice.image);
+    if (illustrated) {
+      const selected =
+        block.choices.find((choice) => choice.id === choiceId) ?? block.choices[0] ?? null;
+      const selectedIndex = Math.max(
+        0,
+        block.choices.findIndex((choice) => choice.id === selected?.id)
+      );
+      return (
+        <div className={`${programsSectionCard} space-y-4`}>
+          <p className={`${utBody} text-stone-100`}>{block.prompt}</p>
+          <div role="tablist" aria-label={block.prompt} className="flex flex-col gap-3 sm:flex-row">
+            {block.choices.map((choice) => {
+              const active = choice.id === selected?.id;
+              return (
+                <button
+                  key={choice.id}
+                  type="button"
+                  role="tab"
+                  id={`scenario-tab-${choice.id}`}
+                  aria-selected={active}
+                  aria-controls={`scenario-panel-${choice.id}`}
+                  tabIndex={active ? 0 : -1}
+                  className={active ? `${utPrimaryBtn} w-full sm:w-auto` : `${utSecondaryBtn} w-full sm:w-auto`}
+                  onClick={() => onChoice(choice.id)}
+                  onKeyDown={(event) => {
+                    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+                    event.preventDefault();
+                    const delta = event.key === "ArrowRight" ? 1 : -1;
+                    const next = block.choices[(selectedIndex + delta + block.choices.length) % block.choices.length];
+                    if (!next) return;
+                    onChoice(next.id);
+                    event.currentTarget.parentElement
+                      ?.querySelector<HTMLButtonElement>(`#scenario-tab-${next.id}`)
+                      ?.focus();
+                  }}
+                >
+                  {choice.label}
+                </button>
+              );
+            })}
+          </div>
+          {selected?.image ? (
+            <div
+              role="tabpanel"
+              id={`scenario-panel-${selected.id}`}
+              aria-labelledby={`scenario-tab-${selected.id}`}
+              className="space-y-4"
+            >
+              <h3 className="text-xl font-semibold text-stone-50">{selected.label}</h3>
+              <div className="relative aspect-[4/3] max-w-md overflow-hidden rounded-md">
+                <Image
+                  src={selected.image.src}
+                  alt={selected.image.alt}
+                  fill
+                  className="object-cover"
+                  sizes="(min-width: 768px) 28rem, 100vw"
+                />
+              </div>
+              <ProgramsProse text={selected.response} />
+            </div>
+          ) : null}
+        </div>
+      );
+    }
     const selected = block.choices.find((choice) => choice.id === choiceId) ?? null;
     return (
       <div className={`${programsSectionCard} space-y-4`}>

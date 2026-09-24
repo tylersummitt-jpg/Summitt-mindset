@@ -123,8 +123,8 @@ export function ProgramsAudio({
   return (
     <figure className={`${programsSectionCard} space-y-4`}>
       <figcaption className="text-base font-semibold text-stone-50">{label}</figcaption>
-      <audio className="w-full" controls preload="none" src={src}>
-        {label}
+      <audio className="w-full" controls preload="none">
+        <source src={src} type="audio/mpeg" />
       </audio>
       <blockquote className={`${utBody} break-words text-stone-100`}>{transcript}</blockquote>
     </figure>

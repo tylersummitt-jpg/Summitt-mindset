@@ -928,4 +928,65 @@ describe("step experience", () => {
     expect(screen.getByText(/Thank you/)).toBeTruthy();
     expect(screen.queryByText("Saved")).toBeNull();
   });
+
+  it("hides the familiarity reflection until grading and restores it only after See results", async () => {
+    const user = userEvent.setup();
+    const loaded = getLearningStepForClient("dd_mp_12", "dd_mp_12_st_003");
+    if (!loaded) throw new Error("missing familiarity step");
+    const reflection = /What tells you that you need to make a change/;
+    const reading = /You must be the change you want to see in the world/;
+    const renderFamiliarity = () =>
+      render(
+        <StepExperience
+          miniProgramId="dd_mp_12"
+          collectionTitle="Definite Dozen"
+          step={loaded}
+          stepCount={15}
+          previousHref={null}
+          initialAnswers={{}}
+          enforceRequirements
+          isLastStep={false}
+        />
+      );
+
+    renderFamiliarity();
+    expect(screen.queryByText(reflection)).toBeNull();
+    expect(screen.queryByText(reading)).toBeNull();
+    expect(screen.getByText(/Change Is a Must: Introduction/)).toBeTruthy();
+    gradeLearningStep.mockResolvedValueOnce({
+      ok: true,
+      quiz: { correctCount: 0, questionCount: 1, minimumCorrect: 1, questions: [] },
+    });
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizCheckResults }));
+    expect(await screen.findByText(reflection)).toBeTruthy();
+    expect(screen.getByText(reading)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.quizTakeAgain }));
+    expect(screen.queryByText(reflection)).toBeNull();
+    expect(screen.queryByText(reading)).toBeNull();
+    cleanup();
+    renderFamiliarity();
+    expect(screen.queryByText(reflection)).toBeNull();
+    expect(screen.queryByText(reading)).toBeNull();
+  });
+
+  it("keeps the second change reflection hidden until the first one is revealed", () => {
+    const loaded = getLearningStepForClient("dd_mp_12", "dd_mp_12_st_006");
+    if (!loaded) throw new Error("missing change step");
+    render(
+      <StepExperience
+        miniProgramId="dd_mp_12"
+        collectionTitle="Definite Dozen"
+        step={loaded}
+        stepCount={15}
+        previousHref={null}
+        initialAnswers={{}}
+        enforceRequirements={false}
+        isLastStep={false}
+      />
+    );
+    expect(screen.getByText(/If someone comes to you and says you have changed/)).toBeTruthy();
+    expect(screen.queryByText(/How do you decide what change is important/)).toBeNull();
+    expect(screen.queryByText(/Coach John Wooden/)).toBeNull();
+  });
 });

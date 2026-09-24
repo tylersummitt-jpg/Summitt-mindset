@@ -198,7 +198,7 @@
         },
         {
           "type": "markdown",
-          "markdown": "Thinking of change from Gandhi's perspective makes it quite practical and applicable. In order to inspire change in others, you have to be able to conceive of change within yourself. In other words, from within your heart and mind, do you have the ability to conceptualize change and make the shifts necessary to make it happen? Incredible entrepreneurs who want to reshape the world must first overcome their own doubts and surround themselves with people who believe their work can change the world. Companies made up of leaders and top performers who have this ability to shift and believe in themselves usually have a much better chance of getting the market to believe in them.\n\nThe willingness to experiment with change may be the most essential ingredient to success at anything.\n\n— Pat Summitt\n\nThink about the concept of familiarity. Which of these statements do you think apply to familiarity? Select all that apply.\n\nFamiliarity drives ongoing achievement and success.\n\nFamiliarity can lead to laziness.\n\nWe can continually improve when we stick to the familiar.\n\nGrowth and achievement require stretching beyond the familiar."
+          "markdown": "Thinking of change from Gandhi's perspective makes it quite practical and applicable. In order to inspire change in others, you have to be able to conceive of change within yourself. In other words, from within your heart and mind, do you have the ability to conceptualize change and make the shifts necessary to make it happen? Incredible entrepreneurs who want to reshape the world must first overcome their own doubts and surround themselves with people who believe their work can change the world. Companies made up of leaders and top performers who have this ability to shift and believe in themselves usually have a much better chance of getting the market to believe in them."
         },
         {
           "type": "quiz",
@@ -236,12 +236,18 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_12_st_003_reflection_01",
-          "prompt": "What tells you that you need to make a change? In other words, how do you test your own limits and know when change might be warranted?"
+          "prompt": "What tells you that you need to make a change? In other words, how do you test your own limits and know when change might be warranted?",
+          "reveal_after": "quiz"
+        },
+        {
+          "type": "callout",
+          "text": "The willingness to experiment with change may be the most essential ingredient to success at anything. — Pat Summitt",
+          "reveal_after": "quiz"
         },
         {
           "type": "callout",
           "text": "You must be the change you want to see in the world. — Mahatma Gandhi",
-          "reveal_after": "dd_mp_12_st_003_reflection_01"
+          "reveal_after": "quiz"
         }
       ]
     },
@@ -430,7 +436,8 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_12_st_006_reflection_02",
-          "prompt": "How do you decide what change is important for yourself? How do you make sense of what to change and what to keep the same?"
+          "prompt": "How do you decide what change is important for yourself? How do you make sense of what to change and what to keep the same?",
+          "reveal_after": "dd_mp_12_st_006_reflection_01"
         },
         {
           "type": "callout",

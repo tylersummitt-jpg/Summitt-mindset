@@ -146,6 +146,8 @@ export type LearningReflectionBlock = {
   persist?: boolean;
   /** Shown after a non-persisted response is submitted. Not stored. */
   confirmation?: string;
+  /** Hide until the named reflection is submitted or the quiz is graded. */
+  reveal_after?: string;
 };
 
 export type LearningChoicePromptBlock = {
@@ -155,6 +157,7 @@ export type LearningChoicePromptBlock = {
     id: string;
     label: string;
     response: string;
+    image?: { src: string; alt: string };
   }>;
 };
 
@@ -547,6 +550,7 @@ function parseBlock(
         prompt: requireString(value.prompt, `${label}.prompt`),
         ...(value.persist === false ? { persist: false as const } : {}),
         ...(confirmation ? { confirmation } : {}),
+        ...revealField(value, label),
       };
     }
     case "choice_prompt":
@@ -651,10 +655,21 @@ function parseChoicePrompt(
       if (!isRecord(choiceValue)) {
         throw new Error(`Invalid curriculum: ${label} choice ${index}`);
       }
+      const image = isRecord(choiceValue.image) ? choiceValue.image : null;
+      const imageSrc = image ? requireString(image.src, `${label} choice image src`) : "";
+      if (imageSrc) curatedPublicSrc(imageSrc, `${label} choice image src`);
       return {
         id: requireString(choiceValue.id, `${label} choice id`),
         label: requireString(choiceValue.label, `${label} choice label`),
         response: requireString(choiceValue.response, `${label} choice response`),
+        ...(imageSrc
+          ? {
+              image: {
+                src: imageSrc,
+                alt: requireString(image?.alt, `${label} choice image alt`),
+              },
+            }
+          : {}),
       };
     }),
   };
