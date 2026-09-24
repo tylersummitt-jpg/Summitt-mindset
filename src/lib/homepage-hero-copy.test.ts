@@ -9,10 +9,11 @@ function read(rel: string): string {
 }
 
 describe("homepage hero copy hierarchy (source)", () => {
-  it("uses the approved headline and subtitle only", () => {
+  it("uses the approved headline and no hero subtitle", () => {
     const home = read("src/app/page.tsx");
-    expect(home).toContain("BECOME WHO YOU WANT TO BE.");
-    expect(home).toContain(
+    expect(home).toContain("Coach Pat in your corner.");
+    expect(home).not.toContain("BECOME WHO YOU WANT TO BE.");
+    expect(home).not.toContain(
       "Pat Summitt in your corner with personalized accountability texts that turn your goals into daily action."
     );
     expect(home).not.toContain(

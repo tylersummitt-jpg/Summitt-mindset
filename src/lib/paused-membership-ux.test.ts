@@ -183,7 +183,7 @@ describe("paused membership UX wiring (source)", () => {
   it("home page shows Phase 2 monthly pricing copy", () => {
     const home = read("src/app/page.tsx");
     expect(home).toContain(
-      "7 days free · then $29/month · no charge today · cancel anytime"
+      "7 days free · then $29/month · cancel anytime"
     );
     expect(home).not.toContain("$19.99");
   });

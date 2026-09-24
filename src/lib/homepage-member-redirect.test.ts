@@ -21,7 +21,7 @@ describe("homepage entitled member redirect (source)", () => {
 
     const redirectIndex = home.indexOf('redirect("/post-sign-in")');
     const quoteFetchIndex = home.indexOf("/api/quote-of-the-day");
-    const headlineIndex = home.indexOf("BECOME WHO YOU WANT TO BE.");
+    const headlineIndex = home.indexOf("Coach Pat in your corner.");
 
     expect(redirectIndex).toBeGreaterThan(-1);
     expect(quoteFetchIndex).toBeGreaterThan(redirectIndex);
@@ -30,7 +30,7 @@ describe("homepage entitled member redirect (source)", () => {
 
   it("keeps signed-out marketing copy in the homepage source", () => {
     const home = read("src/app/page.tsx");
-    expect(home).toContain("BECOME WHO YOU WANT TO BE.");
-    expect(home).toContain("Start My 7-Day Free Trial");
+    expect(home).toContain("Coach Pat in your corner.");
+    expect(home).toContain("Start Free — $0 Today");
   });
 });

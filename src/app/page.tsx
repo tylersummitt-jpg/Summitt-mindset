@@ -187,13 +187,10 @@ export default async function HomePage() {
           />
           <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-10 pb-12 md:mx-0 md:ml-6 lg:ml-10 xl:ml-12 md:mr-auto md:py-20 md:pb-24 md:justify-center md:items-start">
             <div className="flex w-full max-w-2xl flex-col gap-5 md:gap-8 min-w-0">
-              <div className="space-y-3 md:space-y-5">
-                <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-5xl md:leading-tight lg:text-6xl">
-                  BECOME WHO YOU WANT TO BE.
+              <div>
+                <h1 className="text-2xl font-bold leading-snug tracking-tight text-white drop-shadow-sm sm:text-3xl md:text-5xl md:leading-tight">
+                  Coach Pat in your corner.
                 </h1>
-                <p className="text-base leading-snug text-white/90 drop-shadow-sm sm:text-lg sm:leading-relaxed md:text-xl md:leading-relaxed">
-                  Pat Summitt in your corner with personalized accountability texts that turn your goals into daily action.
-                </p>
               </div>
 
               {user && (
@@ -246,12 +243,12 @@ export default async function HomePage() {
                 <>
                   <div className="w-full max-w-md">
                     <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
-                      {isNativeApp ? trialCtaLabel : "Start My 7-Day Free Trial"}
+                      {isNativeApp ? trialCtaLabel : "Start Free — $0 Today"}
                     </Link>
                   </div>
                   {showPricingCopy ? (
-                    <p className="text-base font-medium text-white/90 drop-shadow-sm">
-                      7 days free · then $29/month · no charge today · cancel anytime
+                    <p className="text-sm font-medium tracking-tight text-white/90 drop-shadow-sm">
+                      7 days free · then $29/month · cancel anytime
                     </p>
                   ) : null}
                 </>
