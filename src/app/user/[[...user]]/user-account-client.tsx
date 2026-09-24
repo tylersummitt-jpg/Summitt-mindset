@@ -8,7 +8,7 @@ import {
   useUser,
 } from "@clerk/nextjs";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import ManageMembershipButton from "@/components/manage-membership-button";
 import ResumeMembershipButton from "@/components/resume-membership-button";
@@ -91,12 +91,70 @@ function AccountMembershipRows() {
   );
 }
 
+function UpdatePaymentMethodButton() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleUpdatePaymentMethod() {
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/stripe/customer-portal", {
+        method: "POST",
+        credentials: "include",
+      });
+      const body = await res.json().catch(() => ({}));
+      const url = typeof body?.url === "string" ? body.url : "";
+      let portalUrl: URL | null = null;
+      try {
+        portalUrl = new URL(url);
+      } catch {
+        portalUrl = null;
+      }
+      if (
+        !res.ok ||
+        portalUrl?.protocol !== "https:" ||
+        portalUrl.hostname !== "billing.stripe.com"
+      ) {
+        setError("We couldn’t open payment update right now. Please try again.");
+        setLoading(false);
+        return;
+      }
+      window.location.assign(portalUrl.toString());
+    } catch {
+      setError("We couldn’t open payment update right now. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex w-full flex-col gap-2 sm:w-auto">
+      <button
+        type="button"
+        onClick={handleUpdatePaymentMethod}
+        disabled={loading}
+        className={utSecondaryBtn}
+        data-testid="update-payment-method"
+      >
+        {loading ? "Opening…" : "Update payment method"}
+      </button>
+      {error ? (
+        <p className="text-sm text-red-400 break-words max-w-md">{error}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function AccountTopCard({
   dangerZone,
   showSubscribeAgain,
+  showUpdatePaymentMethod,
 }: {
   dangerZone?: ReactNode;
   showSubscribeAgain: boolean;
+  showUpdatePaymentMethod: boolean;
 }) {
   const { user, isLoaded } = useUser();
   const md = user?.publicMetadata as Record<string, unknown> | undefined;
@@ -142,6 +200,7 @@ function AccountTopCard({
               <ManageMembershipButton />
             </div>
           ) : null}
+          {showUpdatePaymentMethod ? <UpdatePaymentMethodButton /> : null}
         </div>
       </section>
 
@@ -160,9 +219,11 @@ function AccountTopCard({
 export default function UserAccountClient({
   dangerZone,
   showSubscribeAgain = false,
+  showUpdatePaymentMethod = false,
 }: {
   dangerZone?: ReactNode;
   showSubscribeAgain?: boolean;
+  showUpdatePaymentMethod?: boolean;
 }) {
   return (
     <>
@@ -176,6 +237,7 @@ export default function UserAccountClient({
             <AccountTopCard
               dangerZone={dangerZone}
               showSubscribeAgain={showSubscribeAgain}
+              showUpdatePaymentMethod={showUpdatePaymentMethod}
             />
 
             <div className="w-full space-y-2">

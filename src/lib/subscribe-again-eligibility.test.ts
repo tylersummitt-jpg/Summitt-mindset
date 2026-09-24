@@ -242,7 +242,6 @@ describe("subscribe again wiring", () => {
     expect(client).not.toContain("stripeCustomerId");
     expect(client).not.toContain("stripeSubscriptionId");
     expect(client).not.toContain("create-checkout-session");
-    expect(client).not.toContain("customer-portal");
   });
 
   it("hides Manage or Cancel when Subscribe Again is shown", () => {

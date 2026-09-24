@@ -4,6 +4,7 @@ import AccountDeletionDangerZone from "@/components/account-deletion-danger-zone
 import { shouldShowAccountDeletionDangerZone } from "@/lib/account-deletion/account-deletion-initiation-access.server";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { resolveShowSubscribeAgain } from "@/lib/subscribe-again-eligibility.server";
+import { showUpdatePaymentMethodFromMetadata } from "@/lib/update-payment-method-visibility";
 
 import UserAccountClient from "./user-account-client";
 
@@ -25,21 +26,25 @@ export default async function UserProfilePage() {
   const showDangerZone = shouldShowAccountDeletionDangerZone(userId);
 
   let showSubscribeAgain = false;
+  let showUpdatePaymentMethod = false;
   if (userId) {
     const [user, isNativeApp] = await Promise.all([
       currentUser(),
       isNativeSummittMindsetAppRequest(),
     ]);
+    const publicMetadata = (user?.publicMetadata || {}) as Record<string, unknown>;
     showSubscribeAgain = await resolveShowSubscribeAgain({
       userId,
       isNativeApp,
-      publicMetadata: (user?.publicMetadata || {}) as Record<string, unknown>,
+      publicMetadata,
     });
+    showUpdatePaymentMethod = showUpdatePaymentMethodFromMetadata(publicMetadata);
   }
 
   return (
     <UserAccountClient
       showSubscribeAgain={showSubscribeAgain}
+      showUpdatePaymentMethod={showUpdatePaymentMethod}
       dangerZone={
         showDangerZone ? <AccountDeletionDangerZone surface="dark" /> : null
       }
