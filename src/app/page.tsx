@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
+import { HomepageMemberTestimonials } from "@/components/homepage-member-testimonials";
 import {
   marketingAcquisitionHref,
   marketingSubscribeCtaLabel,
@@ -263,35 +264,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* --------------------------------------------------
-          Member testimonial
-          -------------------------------------------------- */}
-      <section className="border-y border-gray-100 bg-white px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
-        <div className="relative mx-auto max-w-5xl min-w-0 text-center">
-          <div className="relative z-[1] flex items-center justify-center gap-3 sm:gap-4">
-            <span className="h-px w-12 bg-orange-500/40 sm:w-20" aria-hidden />
-            <p className="text-sm font-bold uppercase tracking-[0.25em] text-[var(--brand)] sm:text-base">
-              MEMBER FEEDBACK
-            </p>
-            <span className="h-px w-12 bg-orange-500/40 sm:w-20" aria-hidden />
-          </div>
-
-          <blockquote className="relative z-[1] mx-auto mt-8 min-w-0 max-w-4xl sm:mt-10">
-            <p className="text-2xl font-semibold leading-relaxed text-gray-950 sm:text-3xl sm:leading-snug lg:text-4xl lg:leading-snug">
-              &ldquo;I&apos;ve really enjoyed the daily text messages. Some days they remind me,
-              and some days they challenge me. Either way, they help me work on becoming a better
-              version of myself.&rdquo;
-            </p>
-            <div
-              className="mx-auto mt-6 h-1 w-12 rounded-full bg-[var(--brand)]"
-              aria-hidden
-            />
-            <footer className="mt-5 text-lg font-bold text-[var(--brand)] sm:text-xl">
-              Jackie D.
-            </footer>
-          </blockquote>
-        </div>
-      </section>
+      <HomepageMemberTestimonials />
 
       {/* --------------------------------------------------
           Quote of the Day
@@ -455,43 +428,11 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* --------------------------------------------------
-          Family Perspective testimonial
-          -------------------------------------------------- */}
-      <section className="border-t border-[var(--border)] bg-neutral-950 px-4 py-10 text-white sm:px-6 sm:py-12 lg:px-8 lg:py-14">
-        <div className="mx-auto max-w-7xl min-w-0">
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-6 shadow-lg shadow-black/25 backdrop-blur-sm sm:p-7 lg:p-8">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)] sm:text-sm">
-              A FAMILY PERSPECTIVE
-            </p>
-            <div className="mt-6 flex min-w-0 flex-col gap-6 lg:flex-row lg:items-stretch lg:gap-8">
-              <div className="flex min-w-0 flex-1 gap-5 sm:gap-6">
-                <span
-                  className="hidden w-1 shrink-0 self-stretch rounded-full bg-[var(--brand)] sm:block"
-                  aria-hidden
-                />
-                <blockquote className="min-w-0 flex-1">
-                  <p className="text-xl font-semibold leading-relaxed text-white/90 sm:text-2xl sm:leading-relaxed">
-                    &ldquo;Summitt Mindset carries forward the kind of accountability Pat believed
-                    in. It is simple, direct, and built to help people follow through.&rdquo;
-                  </p>
-                </blockquote>
-              </div>
-              <div
-                className="hidden w-px shrink-0 self-stretch bg-white/10 lg:block"
-                aria-hidden
-              />
-              <footer className="min-w-0 shrink-0 lg:max-w-xs lg:self-center">
-                <p className="text-lg font-bold text-white sm:text-xl">R.B. Summitt</p>
-              </footer>
-            </div>
-          </div>
-
-          <div className="mt-8 flex justify-center sm:mt-10">
-            <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
-              {trialCtaLabelLong}
-            </Link>
-          </div>
+      <section className="border-t border-[var(--border)] bg-neutral-950 px-4 py-8 text-white sm:px-6 sm:py-10 lg:px-8">
+        <div className="mx-auto flex min-w-0 max-w-7xl justify-center">
+          <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
+            {trialCtaLabelLong}
+          </Link>
         </div>
       </section>
     </div>
