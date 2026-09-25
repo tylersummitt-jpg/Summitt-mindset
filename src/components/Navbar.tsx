@@ -110,7 +110,9 @@ export function Navbar() {
   // APP NAV (logged in)
   // --------------------------------------------------
   const appLinks = [
-    { href: "/", label: "Home", key: "home" },
+    ...(!isSubscribed
+      ? [{ href: "/", label: "Home", key: "home" }]
+      : []),
     { href: "/dashboard/victory-room", label: "Victory Room", key: "victory-room" },
     { href: "/ask-pat", label: "Ask Pat", key: "ask-pat" },
     { href: "/film-room", label: "Film Room", key: "film-room" },
