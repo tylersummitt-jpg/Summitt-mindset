@@ -2,16 +2,11 @@
 
 import { useRef, useState } from "react";
 
-type QuoteSegment = {
-  text: string;
-  emphasis?: boolean;
-};
-
 type MemberTestimonial = {
   id: "kathy" | "jordan" | "rb" | "jackie";
   name: string;
   detail: string;
-  paragraphs: QuoteSegment[][];
+  quote: string;
 };
 
 export const TESTIMONIAL_SWIPE_THRESHOLD_PX = 48;
@@ -21,58 +16,29 @@ export const MEMBER_TESTIMONIALS: readonly MemberTestimonial[] = [
     id: "kathy",
     name: "Kathy P.",
     detail: "Oregon",
-    paragraphs: [
-      [
-        {
-          text: "Talking with \u201CCoach Pat\u201D through Summitt Mindset feels like having Pat Summitt sitting on my shoulder\u2014challenging me, encouraging me, and reminding me of what I am capable of.",
-        },
-      ],
-      [
-        { text: "My whole approach to my life is changing, and " },
-        { text: "life feels easier", emphasis: true },
-        { text: "." },
-      ],
-    ],
+    quote:
+      "\u201CCoach Pat\u201D encourages me, challenges me, and reminds me of what I\u2019m capable of. My whole approach to life is changing and life feels easier.",
   },
   {
     id: "jordan",
     name: "Jordan P.",
     detail: "Father of 2",
-    paragraphs: [
-      [
-        { text: "Summitt Mindset is as close as somebody can get to having " },
-        { text: "Pat Summitt as a life coach", emphasis: true },
-        { text: "." },
-      ],
-    ],
+    quote:
+      "Summitt Mindset is as close as somebody can get to having Pat Summitt as a life coach.",
   },
   {
     id: "rb",
     name: "R.B. Summitt",
     detail: "Pat\u2019s former husband",
-    paragraphs: [
-      [
-        {
-          text: "Summitt Mindset carries forward the kind of accountability Pat believed in. It is simple, direct, and built to help people ",
-        },
-        { text: "follow through", emphasis: true },
-        { text: "." },
-      ],
-    ],
+    quote:
+      "Summitt Mindset carries forward the kind of accountability Pat believed in. It is simple, direct, and built to help people follow through.",
   },
   {
     id: "jackie",
     name: "Jackie D.",
     detail: "Ohio",
-    paragraphs: [
-      [
-        {
-          text: "I\u2019ve really enjoyed the daily text messages. Some days they remind me, and some days they challenge me. Either way, they help me work on becoming a ",
-        },
-        { text: "better version of myself", emphasis: true },
-        { text: "." },
-      ],
-    ],
+    quote:
+      "I\u2019ve really enjoyed the daily text messages. Some days they remind me, and some days they challenge me. Either way, they help me work on becoming a better version of myself.",
   },
 ];
 
@@ -92,20 +58,8 @@ export function resolveTestimonialSwipe(
 const controlButtonClass =
   "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-700 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-white";
 
-function QuoteSegments({ segments }: { segments: QuoteSegment[] }) {
-  return segments.map((segment, index) =>
-    segment.emphasis ? (
-      <span
-        key={index}
-        className="text-[1.12em] font-bold leading-snug text-orange-700"
-      >
-        {segment.text}
-      </span>
-    ) : (
-      <span key={index}>{segment.text}</span>
-    )
-  );
-}
+const quoteClass =
+  "text-lg font-semibold leading-relaxed text-gray-950 sm:text-xl lg:text-2xl";
 
 export function HomepageMemberTestimonials() {
   const [index, setIndex] = useState(0);
@@ -151,7 +105,7 @@ export function HomepageMemberTestimonials() {
   return (
     <section
       aria-labelledby="member-feedback-heading"
-      className="border-y border-gray-100 bg-white px-4 py-14 sm:px-6 sm:py-16 lg:px-8 lg:py-20"
+      className="border-y border-gray-100 bg-white px-4 pb-6 pt-8 sm:px-6 sm:pb-7 sm:pt-9 lg:px-8 lg:pb-8 lg:pt-10"
     >
       <div className="mx-auto min-w-0 max-w-5xl text-center">
         <div className="flex items-center justify-center gap-3 sm:gap-4">
@@ -169,30 +123,20 @@ export function HomepageMemberTestimonials() {
           role="region"
           aria-roledescription="carousel"
           aria-label="Member testimonials"
-          className="mx-auto mt-8 min-w-0 max-w-3xl sm:mt-10"
+          className="mx-auto mt-5 min-w-0 max-w-3xl sm:mt-6"
           onKeyDown={onKeyDown}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
         >
-          <blockquote
-            aria-live="polite"
-            className="min-h-[4.5rem] min-w-0 sm:min-h-[5.5rem]"
-          >
-            {testimonial.paragraphs.map((paragraph, paragraphIndex) => (
-              <p
-                key={paragraphIndex}
-                className={`text-lg font-semibold leading-relaxed text-gray-950 sm:text-xl lg:text-2xl ${
-                  paragraphIndex > 0 ? "mt-3" : ""
-                }`}
-              >
-                <QuoteSegments segments={paragraph} />
-              </p>
-            ))}
+          <blockquote aria-live="polite" className="min-w-0">
+            <div className="flex min-h-[11.5rem] items-center justify-center min-[360px]:min-h-[9.5rem] min-[430px]:min-h-[7.75rem] sm:min-h-[6.5rem] lg:min-h-[7.75rem]">
+              <p className={quoteClass}>{testimonial.quote}</p>
+            </div>
             <div
-              className="mx-auto mt-6 h-1 w-12 rounded-full bg-[var(--brand)]"
+              className="mx-auto mt-4 h-1 w-12 rounded-full bg-[var(--brand)]"
               aria-hidden
             />
-            <footer className="mt-5 text-sm text-gray-950 sm:text-base">
+            <footer className="mt-3 text-sm text-gray-950 sm:text-base">
               <span className="font-bold">{testimonial.name}</span>
               <span className="font-medium text-slate-600">
                 {" "}
@@ -201,7 +145,7 @@ export function HomepageMemberTestimonials() {
             </footer>
           </blockquote>
 
-          <div className="mt-6 flex items-center justify-center gap-1">
+          <div className="mt-3 flex items-center justify-center gap-1">
             <button
               type="button"
               className={controlButtonClass}

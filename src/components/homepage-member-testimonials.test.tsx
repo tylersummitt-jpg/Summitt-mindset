@@ -20,9 +20,10 @@ function read(rel: string): string {
   return readFileSync(join(root, rel), "utf8");
 }
 
-const KATHY_P1 =
-  "Talking with \u201CCoach Pat\u201D through Summitt Mindset feels like having Pat Summitt sitting on my shoulder\u2014challenging me, encouraging me, and reminding me of what I am capable of.";
-const KATHY_P2 = "My whole approach to my life is changing, and life feels easier.";
+const KATHY =
+  "\u201CCoach Pat\u201D encourages me, challenges me, and reminds me of what I\u2019m capable of. My whole approach to life is changing and life feels easier.";
+const KATHY_OLD =
+  "Talking with \u201CCoach Pat\u201D through Summitt Mindset feels like having Pat Summitt sitting on my shoulder";
 const JORDAN =
   "Summitt Mindset is as close as somebody can get to having Pat Summitt as a life coach.";
 const RB =
@@ -66,11 +67,13 @@ describe("homepage member testimonials", () => {
   it("shows Kathy first and only one blockquote", () => {
     render(<HomepageMemberTestimonials />);
     expect(document.querySelectorAll("blockquote")).toHaveLength(1);
-    expect(paragraphText()).toContain(KATHY_P1);
-    expect(paragraphText()).toContain(KATHY_P2);
+    expect(paragraphText()).toBe(KATHY);
+    expect(paragraphText()).not.toContain(KATHY_OLD);
     expect(screen.getByText("Kathy P.")).toBeInTheDocument();
     expect(screen.getByText(/Oregon/)).toBeInTheDocument();
-    expect(screen.getByText("life feels easier").className).toContain("text-orange-700");
+    expect(document.querySelector("blockquote p")?.className).toBe(
+      "text-lg font-semibold leading-relaxed text-gray-950 sm:text-xl lg:text-2xl"
+    );
     expect(screen.queryByText("Jordan P.")).not.toBeInTheDocument();
     expect(screen.queryByText("R.B. Summitt")).not.toBeInTheDocument();
     expect(screen.queryByText("Jackie D.")).not.toBeInTheDocument();
@@ -84,19 +87,19 @@ describe("homepage member testimonials", () => {
     expect(paragraphText()).toBe(JORDAN);
     expect(screen.getByText("Jordan P.")).toBeInTheDocument();
     expect(screen.getByText(/Father of 2/)).toBeInTheDocument();
-    expect(screen.getByText("Pat Summitt as a life coach").className).toContain("text-orange-700");
+    expect(document.querySelector("blockquote p")?.className).not.toMatch(
+      /orange|1\.12em|font-bold/
+    );
 
     await user.click(screen.getByRole("button", { name: "Show testimonial 3 of 4, R.B. Summitt" }));
     expect(paragraphText()).toBe(RB);
     expect(screen.getByText("R.B. Summitt")).toBeInTheDocument();
     expect(screen.getByText(/Pat\u2019s former husband/)).toBeInTheDocument();
-    expect(screen.getByText("follow through").className).toContain("text-orange-700");
 
     await user.click(screen.getByRole("button", { name: "Show testimonial 4 of 4, Jackie D." }));
     expect(paragraphText()).toBe(JACKIE);
     expect(screen.getByText("Jackie D.")).toBeInTheDocument();
     expect(screen.getByText(/Ohio/)).toBeInTheDocument();
-    expect(screen.getByText("better version of myself").className).toContain("text-orange-700");
     expect(document.querySelectorAll("blockquote")).toHaveLength(1);
   });
 
@@ -189,6 +192,15 @@ describe("homepage member testimonials", () => {
     expect(source).not.toContain("onTouchMove");
     expect(source).not.toMatch(/touchmove[\s\S]{0,120}preventDefault/i);
     expect(source).toContain('"use client"');
+    expect(source).not.toContain("emphasis");
+    expect(source).not.toContain("text-orange-700");
+    expect(source).not.toContain("text-[1.12em]");
+    expect(source).toContain("min-h-[11.5rem]");
+    expect(source).toContain("min-[360px]:min-h-[9.5rem]");
+    expect(source).toContain("min-[430px]:min-h-[7.75rem]");
+    expect(source).toContain("sm:min-h-[6.5rem]");
+    expect(source).toContain("lg:min-h-[7.75rem]");
+    expect(source).not.toContain("sitting on my shoulder");
   });
 
   it("keeps the homepage server component, legacy section, and trial CTA", () => {
