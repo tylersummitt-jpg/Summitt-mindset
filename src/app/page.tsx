@@ -196,11 +196,6 @@ export default async function HomePage() {
                     Every day.
                   </span>
                 </h1>
-                {!user && (
-                  <p className="mt-3 text-base font-semibold leading-snug text-white sm:text-lg md:mt-4 md:text-xl">
-                    Setting goals is easy. Following through is the hard part.
-                  </p>
-                )}
               </div>
 
               {user && (
