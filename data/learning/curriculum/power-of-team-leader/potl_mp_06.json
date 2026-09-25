@@ -197,7 +197,7 @@
         },
         {
           "type": "sort",
-          "prompt": "Having a project kickoff meeting with all parties involved",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Overcommunicating” or “Under-communicating.”",
           "categories": [
             "Overcommunicating",
             "Under-communicating"
@@ -465,7 +465,7 @@
         },
         {
           "type": "sort",
-          "prompt": "Introducing them to team members they’ll be working with closely",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Setting People Up to Win” or “NOT Setting People Up to Win.”",
           "categories": [
             "Setting People Up to Win",
             "NOT Setting People Up to Win"

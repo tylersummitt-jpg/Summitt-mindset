@@ -166,7 +166,7 @@
         },
         {
           "type": "sort",
-          "prompt": "Allowing uninterrupted focus time, with a quiet place to work",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Introverts” or “Extroverts.”",
           "categories": [
             "Introverts",
             "Extroverts"
@@ -233,7 +233,7 @@
         },
         {
           "type": "sort",
-          "prompt": "Use precise language with data to support your argument",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Thinkers” or “Feelers.”",
           "categories": [
             "Thinkers",
             "Feelers"

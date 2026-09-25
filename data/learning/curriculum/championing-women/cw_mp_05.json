@@ -452,7 +452,7 @@
         },
         {
           "type": "sort",
-          "prompt": "Complete all interactive states shown in the source lesson.",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Avoid” or “Do.”",
           "categories": [
             "Avoid",
             "Do"
@@ -596,7 +596,7 @@
         },
         {
           "type": "sort",
-          "prompt": "Complete all interactive states shown in the source lesson.",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Microaggressions” or “Macroaggressions.”",
           "categories": [
             "Microaggressions",
             "Macroaggressions"

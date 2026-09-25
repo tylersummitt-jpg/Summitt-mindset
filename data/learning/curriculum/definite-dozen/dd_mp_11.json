@@ -267,21 +267,6 @@
           "alt": "Appreciate Your Rival process image"
         },
         {
-          "type": "heading",
-          "level": 3,
-          "text": "Let's Summarize"
-        },
-        {
-          "type": "list",
-          "ordered": false,
-          "items": [
-            "Don't seek out weak competition. Compete against the best.",
-            "Identify the rival.",
-            "Keep your rival in sight to motivate you.",
-            "Appreciate your rival."
-          ]
-        },
-        {
           "type": "reflection",
           "question_id": "dd_mp_11_st_003_reflection_02",
           "prompt": "In your team or organization, how can the leader ignite a sense of competitiveness?"

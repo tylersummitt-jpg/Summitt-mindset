@@ -550,16 +550,6 @@
           "markdown": "Yes, emotional intelligence can be developed! The keys are four building blocks:"
         },
         {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Understand Yourself",
-            "Manage Yourself",
-            "Understand Others",
-            "Manage Relationships"
-          ]
-        },
-        {
           "type": "process",
           "steps": [
             {
@@ -789,18 +779,6 @@
         {
           "type": "callout",
           "text": "While dealing with conflict isn't easy, having a plan or process to effectively deal with it can be very helpful:"
-        },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Own the conversation.",
-            "Disarm the tension.",
-            "Describe the situation factually, without emotion.",
-            "Describe the impact.",
-            "Ask for a response.",
-            "Conclude and state your request."
-          ]
         }
       ]
     },

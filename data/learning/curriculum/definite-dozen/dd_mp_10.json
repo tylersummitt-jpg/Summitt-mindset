@@ -457,7 +457,8 @@
             "Dream",
             "Believe",
             "Act"
-          ]
+          ],
+          "role": "concepts"
         },
         {
           "type": "markdown",
@@ -518,24 +519,6 @@
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_10_st_006_image_04.jpg",
           "alt": "Image illustrating expecting the extraordinary"
-        },
-        {
-          "type": "heading",
-          "level": 3,
-          "text": "Summary"
-        },
-        {
-          "type": "markdown",
-          "markdown": "Again, these three steps can help you as a leader when you face the negative forces of adversity:"
-        },
-        {
-          "type": "list",
-          "ordered": false,
-          "items": [
-            "Make it personal.",
-            "See every setback as an opportunity to learn.",
-            "Expect the extraordinary."
-          ]
         }
       ]
     },

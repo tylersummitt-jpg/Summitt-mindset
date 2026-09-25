@@ -26,6 +26,16 @@ export const programsProgressFill = "block h-full rounded-full bg-[var(--brand)]
 
 export const programsSectionCard = `${utCard} space-y-4 p-5 sm:p-6`;
 
+export const programsSortActivityTitle =
+  "text-xl font-semibold tracking-tight text-balance text-stone-50";
+
+export const programsSortCardIndex = "text-base font-semibold leading-relaxed text-stone-200";
+
+export const programsSortCardHeading = "text-lg font-semibold leading-snug text-stone-50";
+
+export const programsConceptListItem =
+  "text-xl font-semibold tracking-tight text-balance break-words text-stone-50";
+
 export const programsQuote = `${utCard} border-l-2 border-l-[var(--brand)] px-5 py-4`;
 
 export const programsSuccessPanel =

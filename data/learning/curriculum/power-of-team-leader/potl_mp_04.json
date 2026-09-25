@@ -222,7 +222,7 @@
         },
         {
           "type": "sort",
-          "prompt": "Letting team members experiment with new methods",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Hands-off” or “Hands-on.”",
           "categories": [
             "Hands-off",
             "Hands-on"
@@ -290,7 +290,7 @@
         },
         {
           "type": "sort",
-          "prompt": "Approving minor updates to the website",
+          "prompt": "You'll see one item at a time. Decide whether it belongs with “Micromanaging” or “Macromanaging.”",
           "categories": [
             "Micromanaging",
             "Macromanaging"

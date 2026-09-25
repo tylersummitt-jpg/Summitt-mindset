@@ -162,22 +162,6 @@
           "speaker": "Teela Jackson"
         },
         {
-          "type": "choice_prompt",
-          "prompt": "Could I play for me? In your world, would you want you as a boss?",
-          "choices": [
-            {
-              "id": "yes",
-              "label": "Yes, I would!",
-              "response": "That's great! What is it about your leadership that allows others to respect you enough to want to follow?"
-            },
-            {
-              "id": "no",
-              "label": "No, not really.",
-              "response": "What is it about your level of self-respect that keeps you from being the type of boss that you and others would follow?"
-            }
-          ]
-        },
-        {
           "type": "sort",
           "prompt": "You'll see one action at a time. Decide whether it is a great way to earn respect or a way to destroy or harm it.",
           "categories": [
@@ -359,20 +343,6 @@
           "markdown": "Coach Summitt found that several physical habits help build and sustain self-respect from within:"
         },
         {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Keep moving",
-            "Meet standing up",
-            "Have a brain break each hour",
-            "Go exercise",
-            "Eat well",
-            "Hydrate",
-            "Sleep",
-            "Remove technology from where you sleep"
-          ]
-        },
-        {
           "type": "sections",
           "sections": [
             {
@@ -416,24 +386,6 @@
               "body": "You may have heard about this old trick for doing well on exams in school. For decades, instructors have suggested that students study for their exam in the place where the exam is going to take place. The reason this is said to work is because when you learn something new, your surroundings and the context of your surroundings make a difference. Learning to hit a tennis ball on a golf driving range wouldn’t create the familiarity in your brain that learning it on a tennis court would.\n\nThis idea of familiarity makes a difference to learning something new, and the same is true with technology. If your handheld tools are used on a consistent basis to help you work as hard as you can with the utmost concentration and engagement at work, it’s a bad idea to curl up with that same piece of technology and try to go to sleep. Many people struggle mightily with their sleep habits, due in part to the habit of taking technology to bed with us and our eyes being exposed to the stimulating screen light. Thoughtful leaders once again respect themselves enough to remove these distractions when it benefits them, which in this case results in the restorative advantage of sleep."
             }
           ]
-        },
-        {
-          "type": "markdown",
-          "markdown": "To summarize, there are several important physical habits that can help you establish and build self-respect from within:"
-        },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Keep moving",
-            "Meet standing up",
-            "Have a brain break each hour",
-            "Go exercise",
-            "Eat well",
-            "Hydrate",
-            "Sleep",
-            "Remove technology from where you sleep"
-          ]
         }
       ]
     },
@@ -446,16 +398,6 @@
         {
           "type": "markdown",
           "markdown": "Four Mental Habits for Building Self-Respect from Within\n\nIn addition to physical approaches to building self-respect, four key mental habits can help establish self-respect from within:"
-        },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Minimize multitasking",
-            "Leverage mornings",
-            "Take distraction-free vacations",
-            "Turn off notifications"
-          ]
         },
         {
           "type": "sections",
@@ -481,20 +423,6 @@
               "body": "Notifications are good for business—the app business, that is. Remember, as wonderful as our phones and mobile devices have become in helping us execute our daily functions, there is embedded functionality within them designed primarily to advance the business interests within the applications on our phones. It is in the best interest of our most popular social media destinations to keep our eyes glued to the screen and to continue scrolling. The same is true for all of our embedded news channels or personal interest apps. Think of each of them like baby birds in the nest, screeching for the mother’s attention. Every time one of these baby bird applications chirps and your phone causes you to move away from whatever you’re doing and towards the content, you are submitting to their business intention instead of your own.\n\nTo be clear, there’s nothing wrong with a good product trying to entice us and capture our attention. However, what we would suggest is that you at least turn off your notifications and refrain from responding like Pavlov’s dog every time one of your favorite app destinations pushes out an update. Simply put, our brain can’t withstand that many interruptions a day. We’re more likely to be successful if we can schedule our own time to catch up on our favorite social media. We get to limit the exposure and choose to spend time in these spaces at a point where it makes sense in our day - not when the app company decides to focus and get our attention."
             }
           ]
-        },
-        {
-          "type": "markdown",
-          "markdown": "To summarize, there are four important mental habits that can help you establish and build self-respect from within:"
-        },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Minimize multitasking",
-            "Leverage mornings",
-            "Take distraction-free vacations",
-            "Turn off notifications"
-          ]
         }
       ]
     },
@@ -507,15 +435,6 @@
         {
           "type": "markdown",
           "markdown": "Three Emotional Habits for Building Self-Respect from Within\n\nWe've gone over both physical and mental habits for building self-respect. There's yet another dimension: emotional habits. There are three important emotional habits that can help you establish and build self-respect from within:"
-        },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Establish weekly and daily gratitude practice",
-            "Unleash laughter",
-            "Declare appreciation"
-          ]
         },
         {
           "type": "sections",
@@ -535,19 +454,6 @@
               "title": "Declare appreciation",
               "body": "When the people you work with feel good, it’s palpable to others. The leader who genuinely and authentically declares appreciation for coworkers creates an amazing feeling of goodwill on the team or individual. Think about the last time you looked into someone’s eyes and thanked them and told them how much you appreciated them for who they were or what they were doing.\n\nHow did you feel the last time someone said that to you? When that appreciation is declared, it’s impossible to ignore, and we share a mutually good feeling. When you declare appreciation for somebody in a group, everyone feels that good grace, and the team invariably grows closer and improves their bond to one another."
             }
-          ]
-        },
-        {
-          "type": "markdown",
-          "markdown": "To summarize, there are three important emotional habits that can help you establish and build self-respect from within:"
-        },
-        {
-          "type": "list",
-          "ordered": true,
-          "items": [
-            "Establish weekly and daily gratitude practice",
-            "Unleash laughter",
-            "Declare appreciation"
           ]
         }
       ]
@@ -723,7 +629,8 @@
             "Authentic trust",
             "Healthy debate",
             "Commitment"
-          ]
+          ],
+          "role": "concepts"
         },
         {
           "type": "markdown",

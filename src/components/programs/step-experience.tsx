@@ -37,6 +37,9 @@ import {
   programsEyebrow,
   programsMissPanel,
   programsSectionCard,
+  programsSortActivityTitle,
+  programsSortCardHeading,
+  programsSortCardIndex,
   programsSuccessPanel,
 } from "@/components/programs/programs-visual";
 import type { PublicLearningBlock, PublicLearningStep } from "@/lib/learning/curriculum-types";
@@ -759,9 +762,9 @@ function BlockView({
   return (
     <div className="space-y-4">
       <ProgramsTeaching>
-        <p className={`${utBody} text-stone-100`}>
+        <h2 className={programsSortActivityTitle}>
           {nativeSortDirections(block.prompt, block.categories)}
-        </p>
+        </h2>
       </ProgramsTeaching>
       {sortFeedback === "right" ? (
         <p className={programsSuccessPanel} role="status">
@@ -774,8 +777,8 @@ function BlockView({
             sortFeedback === "wrong" ? "border-red-500/40" : ""
           }`}
         >
-          <p className={utBodyMuted}>{sortCardLabel(placedCount + 1, block.cards.length)}</p>
-          <p className={`${utBody} text-lg text-stone-50`}>{active.text}</p>
+          <p className={programsSortCardIndex}>{sortCardLabel(placedCount + 1, block.cards.length)}</p>
+          <p className={programsSortCardHeading}>{active.text}</p>
           {sortFeedback === "wrong" ? (
             <p className={programsMissPanel} role="status">
               {PROGRAMS_COPY.sortRetry}

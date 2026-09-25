@@ -3,7 +3,11 @@
 import { useState } from "react";
 import Image from "next/image";
 import { utBody, utBodyMuted } from "@/components/utility-page-visual";
-import { programsQuote, programsSectionCard } from "@/components/programs/programs-visual";
+import {
+  programsConceptListItem,
+  programsQuote,
+  programsSectionCard,
+} from "@/components/programs/programs-visual";
 import type {
   LearningCalloutBlock,
   LearningHeadingBlock,
@@ -24,8 +28,10 @@ export function ProgramsHeading({ block }: { block: LearningHeadingBlock }) {
 }
 
 export function ProgramsList({ block }: { block: LearningListBlock }) {
+  const itemClass =
+    block.role === "concepts" ? programsConceptListItem : `${utBody} break-words text-stone-100`;
   const items = block.items.map((item) => (
-    <li key={item} className={`${utBody} break-words text-stone-100`}>
+    <li key={item} className={itemClass}>
       {item}
     </li>
   ));

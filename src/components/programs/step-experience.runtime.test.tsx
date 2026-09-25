@@ -10,6 +10,14 @@ import {
   sortCardLabel,
   sortCompleteMessage,
 } from "@/lib/learning/programs-copy";
+import {
+  programsConceptListItem,
+  programsEyebrow,
+  programsSortActivityTitle,
+  programsSortCardHeading,
+  programsSortCardIndex,
+} from "@/components/programs/programs-visual";
+import { utBody } from "@/components/utility-page-visual";
 import { StepExperience } from "./step-experience";
 
 const saveLearningReflection = vi.hoisted(() => vi.fn());
@@ -691,10 +699,23 @@ describe("step experience", () => {
 
   it("restarts a scenario after showing it complete", async () => {
     const user = userEvent.setup();
-    renderStep("dd_mp_02_st_003");
-    await user.click(screen.getByRole("button", { name: "Yes, I would!" }));
+    const step = getLearningStepForClient("dd_mp_03", "dd_mp_03_st_001");
+    if (!step) throw new Error("missing scenario");
+    render(
+      <StepExperience
+        miniProgramId="dd_mp_03"
+        collectionTitle="Definite Dozen"
+        step={step}
+        stepCount={step.sequence}
+        previousHref={null}
+        initialAnswers={{}}
+        enforceRequirements={false}
+        isLastStep={false}
+      />
+    );
+    await user.click(screen.getByRole("button", { name: "Talk to Tyler" }));
     expect(screen.getByText(PROGRAMS_COPY.scenarioComplete)).toBeTruthy();
-    expect(screen.getByText(/What is it about your leadership/)).toBeTruthy();
+    expect(screen.getByText(/That's exactly what Pat did/)).toBeTruthy();
     await user.click(screen.getByRole("button", { name: PROGRAMS_COPY.scenarioStartOver }));
     expect(screen.queryByText(PROGRAMS_COPY.scenarioComplete)).toBeNull();
   });
@@ -744,7 +765,8 @@ describe("step experience", () => {
     );
     expect(listed).toHaveLength(0);
     expect(screen.getByText(/Coach Summitt found that several physical habits/)).toBeTruthy();
-    expect(screen.getByText(/To summarize, there are several important physical habits/)).toBeTruthy();
+    expect(screen.queryByText(/To summarize, there are several important physical habits/)).toBeNull();
+    expect(screen.queryByRole("list")).toBeNull();
     cleanup();
 
     const mental = renderStep("dd_mp_02_st_008");
@@ -764,6 +786,61 @@ describe("step experience", () => {
     renderStep("dd_mp_02_st_016");
     expect(screen.getByText(/one behavior at a time/i)).toBeTruthy();
     expect(screen.queryByText(/stack of cards/i)).toBeNull();
+  });
+
+  it("gives sort cards a heading hierarchy and leaves other card labels alone", () => {
+    renderStep("dd_mp_02_st_016");
+    const activityTitle = screen.getByRole("heading", {
+      name: /You'll see one behavior at a time/i,
+    });
+    expect(activityTitle.tagName).toBe("H2");
+    expect(activityTitle.className).toBe(programsSortActivityTitle);
+    const index = screen.getByText(sortCardLabel(1, 8));
+    expect(index.className).toBe(programsSortCardIndex);
+    expect(index.className).not.toContain("text-sm");
+    const card = screen.getByText("Having honest, healthy debates");
+    expect(card.className).toBe(programsSortCardHeading);
+    expect(card.className).toContain("text-lg");
+    expect(card.className).toContain("font-semibold");
+    cleanup();
+
+    renderStep("dd_mp_02_st_007");
+    const revealTitle = screen.getByRole("button", { name: /Keep moving/ });
+    expect(revealTitle.className).toContain("text-base");
+    expect(revealTitle.className).toContain("font-semibold");
+    expect(revealTitle.className).not.toContain("text-xl");
+    expect(revealTitle.className).not.toBe(programsSortCardHeading);
+    cleanup();
+
+    renderStep("dd_mp_02_st_005");
+    const label = screen.getAllByText("Reflection")[0];
+    expect(label?.className).toBe(programsEyebrow);
+    cleanup();
+
+    renderStep("dd_mp_02_st_011");
+    const concept = screen.getByText("Authentic trust");
+    expect(concept.tagName).toBe("LI");
+    expect(concept.className).toBe(programsConceptListItem);
+    cleanup();
+
+    const ordinary = getLearningStepForClient("dd_mp_10", "dd_mp_10_st_003");
+    if (!ordinary) throw new Error("missing word bank");
+    render(
+      <StepExperience
+        miniProgramId="dd_mp_10"
+        collectionTitle="Definite Dozen"
+        step={ordinary}
+        stepCount={ordinary.sequence}
+        previousHref={null}
+        initialAnswers={{}}
+        enforceRequirements={false}
+        isLastStep={false}
+      />
+    );
+    const word = screen.getByText("positive");
+    expect(word.tagName).toBe("LI");
+    expect(word.className).toBe(`${utBody} break-words text-stone-100`);
+    expect(word.className).not.toContain("text-xl");
   });
 
   it("grades both questions in one quiz and still allows Continue at every score", async () => {

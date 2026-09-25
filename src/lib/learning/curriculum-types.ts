@@ -60,6 +60,8 @@ export type LearningListBlock = {
   type: "list";
   ordered: boolean;
   items: string[];
+  /** Named principles, stages, or pillars. Ordinary lists omit this. */
+  role?: "concepts";
   reveal_after?: string;
 };
 
@@ -430,9 +432,13 @@ function parseBlock(
       if (!Array.isArray(value.items) || value.items.length === 0) {
         throw new Error(`Invalid curriculum: ${label}.items`);
       }
+      if (value.role != null && value.role !== "concepts") {
+        throw new Error(`Invalid curriculum: ${label}.role`);
+      }
       return {
         type: "list",
         ordered: value.ordered === true,
+        ...(value.role === "concepts" ? { role: "concepts" as const } : {}),
         items: value.items.map((item, index) => requireString(item, `${label}.items[${index}]`)),
         ...revealField(value, label),
       };
