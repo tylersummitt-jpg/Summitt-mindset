@@ -252,7 +252,7 @@ export default async function HomePage() {
                     </Link>
                   </div>
                   {showPricingCopy ? (
-                    <p className="text-sm font-medium tracking-tight text-white/90 drop-shadow-sm">
+                    <p className="text-[13px] font-semibold tracking-tight text-stone-300 drop-shadow-sm sm:text-sm">
                       7 days free · then $29/month · cancel anytime
                     </p>
                   ) : null}
