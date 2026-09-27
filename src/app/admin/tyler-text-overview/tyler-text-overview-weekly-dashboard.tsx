@@ -29,6 +29,10 @@ import {
   WEEKLY_TTO_SAVE_ONLY_COPY,
   WEEKLY_TTO_STALE_DRAFT_GUIDANCE,
   formatTtoGenerateAllProgressLine,
+  formatWeeklyBulkApplyConfirm,
+  WEEKLY_TTO_BULK_APPLY_BUTTON,
+  WEEKLY_TTO_BULK_APPLY_HELP,
+  WEEKLY_TTO_BULK_APPLY_TITLE,
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
   ADMIN_INTERPRETATION_LINE,
@@ -42,6 +46,10 @@ import type {
   TylerTextOverviewAdminDraftRow,
 } from "@/lib/tyler-text-overview-types";
 import { SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT } from "@/lib/tyler-text-overview-types";
+import {
+  MAX_WEEKLY_EDITABLE_BODY,
+  weeklyEditableBodyExceedsMax,
+} from "@/lib/weekly-tto-editable-max";
 
 type EditState = Record<string, string>;
 
@@ -110,6 +118,10 @@ export default function TylerTextOverviewWeeklyDashboard() {
     null
   );
   const [toast, setToast] = useState<string | null>(null);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkApplying, setBulkApplying] = useState(false);
+  const [confirmBulkApply, setConfirmBulkApply] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState<string | null>(null);
 
   type WeeklyGenerateAllSnapshot = {
     audienceClerkUserIds: string[];
@@ -367,6 +379,42 @@ export default function TylerTextOverviewWeeklyDashboard() {
     }
   }
 
+  const bulkTrimmed = bulkText.trim();
+  const bulkTooLong = weeklyEditableBodyExceedsMax(bulkTrimmed);
+  const bulkApplyDisabled =
+    bulkTrimmed.length === 0 || bulkTooLong || bulkApplying || generatingMissingAll;
+
+  async function applyBulkWeeklyText() {
+    setConfirmBulkApply(false);
+    setBulkApplying(true);
+    setBulkMessage(null);
+    try {
+      const res = await fetch("/api/admin/tyler-text-overview/weekly-bulk-save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          draft_for_day_key: selectedDayKey,
+          operation: "apply_all",
+          body: bulkText,
+        }),
+      });
+      const json = await res.json();
+      if (json?.result?.message) {
+        setBulkMessage(String(json.result.message));
+      } else {
+        setBulkMessage(json?.error || "Weekly bulk apply failed.");
+      }
+      if (json?.result) {
+        await load(selectedDayKey, searchQuery);
+      }
+    } catch (err) {
+      console.error("Weekly bulk apply failed", err);
+      setBulkMessage("Weekly bulk apply failed.");
+    } finally {
+      setBulkApplying(false);
+    }
+  }
+
   const dayFilterOptions = (() => {
     const keys = [...availableDayKeys];
     const selected = selectedDayKey.trim();
@@ -379,6 +427,42 @@ export default function TylerTextOverviewWeeklyDashboard() {
 
   return (
     <div className="space-y-6">
+      {confirmBulkApply ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="weekly-bulk-apply-confirm-title"
+        >
+          <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 shadow-lg space-y-4">
+            <h2 id="weekly-bulk-apply-confirm-title" className="text-lg font-semibold text-gray-900">
+              {WEEKLY_TTO_BULK_APPLY_TITLE}
+            </h2>
+            <p className="whitespace-pre-wrap text-sm text-gray-700">
+              {formatWeeklyBulkApplyConfirm(selectedDayKey, bulkTrimmed)}
+            </p>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900"
+                onClick={() => setConfirmBulkApply(false)}
+                disabled={bulkApplying}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded border border-gray-900 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
+                disabled={bulkApplyDisabled}
+                onClick={() => applyBulkWeeklyText()}
+              >
+                {WEEKLY_TTO_BULK_APPLY_BUTTON}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {confirmGenerateMissing ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -539,6 +623,36 @@ export default function TylerTextOverviewWeeklyDashboard() {
             placeholder="name, phone, user id"
           />
         </label>
+      </div>
+
+      <div className="rounded-md border border-gray-200 bg-white px-4 py-3 space-y-3">
+        <h2 className="text-sm font-semibold text-gray-900">{WEEKLY_TTO_BULK_APPLY_TITLE}</h2>
+        <p className="text-sm text-gray-700">{WEEKLY_TTO_BULK_APPLY_HELP}</p>
+        <label className="block text-sm text-gray-700">
+          Text for every current Weekly draft this Sunday
+          <textarea
+            className="mt-1 block w-full rounded border border-gray-300 px-3 py-2 text-sm"
+            rows={5}
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
+            disabled={bulkApplying || generatingMissingAll}
+          />
+        </label>
+        <p className={`text-xs ${bulkTooLong ? "text-red-700" : "text-gray-600"}`}>
+          {bulkTrimmed.length} / {MAX_WEEKLY_EDITABLE_BODY} characters
+          {bulkTooLong ? ". Too long to apply." : ""}
+        </p>
+        <button
+          type="button"
+          className="rounded border border-gray-900 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
+          disabled={bulkApplyDisabled}
+          onClick={() => setConfirmBulkApply(true)}
+        >
+          {bulkApplying ? "Applying…" : WEEKLY_TTO_BULK_APPLY_BUTTON}
+        </button>
+        {bulkMessage ? (
+          <p className="whitespace-pre-wrap text-sm text-gray-800">{bulkMessage}</p>
+        ) : null}
       </div>
 
       {counts ? (

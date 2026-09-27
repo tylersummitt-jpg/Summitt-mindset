@@ -28,10 +28,7 @@ import {
 import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-overview-writer-capture";
 import {
   isTylerTextOverviewEnabled,
-  isProtectedFromMorningDraftOverwrite,
-  isProtectedTylerProvenanceDraft,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
-  SMS_DAILY_DRAFTS_TABLE,
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
   SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
@@ -56,42 +53,6 @@ import {
 } from "@/lib/sms-proactive-relationship-touch";
 
 export const MORNING_RELATIONSHIP_ROUTE_KIND = "morning_relationship" as const;
-
-/** Slots where Tyler-saved draft bodies (including intentional blank) survive regenerate. */
-function isProtectedTtoOverwriteSlot(sendSlot: SmsDailySendSlot): boolean {
-  return (
-    sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT ||
-    sendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT ||
-    sendSlot === SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT
-  );
-}
-
-function existingCurrentDraftBlocksOverwrite(args: {
-  sendSlot: SmsDailySendSlot;
-  respectProtectedMorningDraft?: boolean;
-  protectTylerProvenanceOnly?: boolean;
-  existing: {
-    status: string;
-    current_body_to_send: string | null;
-    edited_by_tyler: boolean;
-    current_body_source: string | null;
-  } | null;
-}): boolean {
-  if (args.respectProtectedMorningDraft === false) return false;
-  if (!isProtectedTtoOverwriteSlot(args.sendSlot)) return false;
-  if (!args.existing || args.existing.status !== "current") return false;
-  if (args.protectTylerProvenanceOnly === true) {
-    return isProtectedTylerProvenanceDraft({
-      edited_by_tyler: args.existing.edited_by_tyler,
-      current_body_source: args.existing.current_body_source,
-    });
-  }
-  return isProtectedFromMorningDraftOverwrite({
-    current_body_to_send: args.existing.current_body_to_send,
-    edited_by_tyler: args.existing.edited_by_tyler,
-    current_body_source: args.existing.current_body_source,
-  });
-}
 
 function mapOpenAiMessagesToWriterCapture(
   messages: Array<{ role: string; content?: unknown }>
@@ -646,17 +607,13 @@ export async function persistMorningTtoGeneration(args: {
     notebookVerdictReason: args.notebookVerdictReason,
   });
 
-  const existingDraft = await loadExistingCurrentDraft(
-    args.clerkUserId,
-    args.draftForDayKey,
-    sendSlot
-  );
-  const protectExistingDraft = existingCurrentDraftBlocksOverwrite({
-    sendSlot,
-    respectProtectedMorningDraft: args.respectProtectedMorningDraft,
-    protectTylerProvenanceOnly: args.protectTylerProvenanceOnly,
-    existing: existingDraft,
-  });
+  if (args.respectProtectedMorningDraft === false) {
+    return {
+      ok: false,
+      reason: "upsert_failed",
+      error: "protected_draft_bypass_refused",
+    };
+  }
 
   const inserted = await insertGenerationRow(generationRow);
   if ("error" in inserted) {
@@ -664,52 +621,7 @@ export async function persistMorningTtoGeneration(args: {
   }
 
   const nowIso = args.now.toISOString();
-
-  // Protected draft: keep history, but never supersede the still-authoritative generation
-  // the draft continues to point at (would leave current_generation_id → superseded row).
-  if (protectExistingDraft && existingDraft) {
-    const authoritativeId = existingDraft.current_generation_id;
-    if (authoritativeId) {
-      const { error: orphanError } = await supabaseServer
-        .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-        .update({
-          superseded_by_generation_id: authoritativeId,
-          superseded_at: nowIso,
-        })
-        .eq("id", inserted.id);
-      if (orphanError) {
-        console.warn("[tyler-text-overview] protected_history_generation_mark_failed", {
-          clerk_user_id: args.clerkUserId,
-          draft_for_day_key: args.draftForDayKey,
-          generation_id: inserted.id,
-          message: orphanError.message,
-        });
-      }
-    }
-    return {
-      ok: true,
-      generationId: inserted.id,
-      supersedeFailed: false,
-      currentDraftProtected: true,
-    };
-  }
-
-  const supersede = await supersedePriorGenerations({
-    clerkUserId: args.clerkUserId,
-    draftForDayKey: args.draftForDayKey,
-    sendSlot,
-    newGenerationId: inserted.id,
-    nowIso,
-  });
-  if (!supersede.ok) {
-    console.warn("[tyler-text-overview] supersede_prior_generation_failed", {
-      clerk_user_id: args.clerkUserId,
-      draft_for_day_key: args.draftForDayKey,
-      message: supersede.error,
-    });
-  }
-
-  const upsert = await upsertCurrentDraft({
+  const finished = await finishTtoGenerationPersistence({
     clerkUserId: args.clerkUserId,
     draftForDayKey: args.draftForDayKey,
     sendSlot,
@@ -717,18 +629,17 @@ export async function persistMorningTtoGeneration(args: {
     machineBody: generationRow.machine_draft_body,
     machineBodyHash: generationRow.machine_body_hash,
     nowIso,
-    respectProtectedMorningDraft: args.respectProtectedMorningDraft,
     protectTylerProvenanceOnly: args.protectTylerProvenanceOnly,
   });
-  if (!upsert.ok) {
-    return { ok: false, reason: "upsert_failed", error: upsert.error };
+  if (!finished.ok) {
+    return { ok: false, reason: "upsert_failed", error: finished.error };
   }
 
   return {
     ok: true,
     generationId: inserted.id,
-    supersedeFailed: !supersede.ok,
-    currentDraftProtected: upsert.protected === true,
+    supersedeFailed: false,
+    currentDraftProtected: finished.protected,
   };
 }
 
@@ -775,76 +686,7 @@ async function insertGenerationRow(
   return { error: "generation_insert_retry_exhausted" };
 }
 
-async function supersedePriorGenerations(args: {
-  clerkUserId: string;
-  draftForDayKey: string;
-  sendSlot: SmsDailySendSlot;
-  newGenerationId: string;
-  nowIso: string;
-}): Promise<{ ok: boolean; error?: string }> {
-  const { error } = await supabaseServer
-    .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-    .update({
-      superseded_by_generation_id: args.newGenerationId,
-      superseded_at: args.nowIso,
-    })
-    .eq("clerk_user_id", args.clerkUserId)
-    .eq("draft_for_day_key", args.draftForDayKey)
-    .eq("send_slot", args.sendSlot)
-    .neq("id", args.newGenerationId)
-    .is("superseded_at", null);
-
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-  return { ok: true };
-}
-
-async function loadExistingCurrentDraft(
-  clerkUserId: string,
-  draftForDayKey: string,
-  sendSlot: SmsDailySendSlot = SMS_DAILY_PRODUCTION_SEND_SLOT
-): Promise<{
-  status: string;
-  current_body_to_send: string | null;
-  current_generation_id: string | null;
-  current_body_source: string | null;
-  edited_by_tyler: boolean;
-} | null> {
-  const { data, error } = await supabaseServer
-    .from(SMS_DAILY_DRAFTS_TABLE)
-    .select(
-      "status, current_body_to_send, current_generation_id, current_body_source, edited_by_tyler"
-    )
-    .eq("clerk_user_id", clerkUserId)
-    .eq("draft_for_day_key", draftForDayKey)
-    .eq("send_slot", sendSlot)
-    .eq("status", "current")
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`current_draft_lookup_failed:${error.message}`);
-  }
-
-  if (!data || typeof data.status !== "string") {
-    return null;
-  }
-
-  return {
-    status: data.status,
-    current_body_to_send:
-      typeof data.current_body_to_send === "string" ? data.current_body_to_send : null,
-    current_generation_id:
-      typeof data.current_generation_id === "string" && data.current_generation_id.trim()
-        ? data.current_generation_id.trim()
-        : null,
-    current_body_source:
-      typeof data.current_body_source === "string" ? data.current_body_source : null,
-    edited_by_tyler: data.edited_by_tyler === true,
-  };
-}
-
-async function upsertCurrentDraft(args: {
+async function finishTtoGenerationPersistence(args: {
   clerkUserId: string;
   draftForDayKey: string;
   sendSlot: SmsDailySendSlot;
@@ -852,48 +694,45 @@ async function upsertCurrentDraft(args: {
   machineBody: string | null;
   machineBodyHash: string | null;
   nowIso: string;
-  respectProtectedMorningDraft?: boolean;
   protectTylerProvenanceOnly?: boolean;
-}): Promise<{ ok: boolean; error?: string; protected?: boolean }> {
-  const existing = await loadExistingCurrentDraft(
-    args.clerkUserId,
-    args.draftForDayKey,
-    args.sendSlot
-  );
-  if (
-    existingCurrentDraftBlocksOverwrite({
-      sendSlot: args.sendSlot,
-      respectProtectedMorningDraft: args.respectProtectedMorningDraft,
-      protectTylerProvenanceOnly: args.protectTylerProvenanceOnly,
-      existing,
-    })
-  ) {
-    return { ok: true, protected: true };
-  }
-
-  const { error } = await supabaseServer.from(SMS_DAILY_DRAFTS_TABLE).upsert(
-    {
+}): Promise<{ ok: true; protected: boolean } | { ok: false; error: string }> {
+  const { data, error } = await supabaseServer.rpc("tto_finish_generation_persistence", {
+    p_clerk_user_id: args.clerkUserId,
+    p_draft_for_day_key: args.draftForDayKey,
+    p_send_slot: args.sendSlot,
+    p_new_generation_id: args.generationId,
+    p_machine_body: args.machineBody,
+    p_machine_body_hash: args.machineBodyHash,
+    p_now: args.nowIso,
+    p_protect_tyler_provenance_only: args.protectTylerProvenanceOnly === true,
+  });
+  if (error) {
+    console.error("[tyler-text-overview] tto_finish_generation_persistence_failed", {
       clerk_user_id: args.clerkUserId,
       draft_for_day_key: args.draftForDayKey,
-      send_slot: args.sendSlot,
-      current_generation_id: args.generationId,
-      current_body_to_send: args.machineBody,
-      current_body_source: "machine",
-      edited_by_tyler: false,
-      edited_at: null,
-      edit_distance_chars: null,
-      machine_body_hash: args.machineBodyHash,
-      current_body_hash: args.machineBodyHash,
-      status: "current",
-      updated_at: args.nowIso,
-    },
-    { onConflict: "clerk_user_id,draft_for_day_key,send_slot" }
-  );
-
-  if (error) {
+      generation_id: args.generationId,
+      message: error.message,
+    });
     return { ok: false, error: error.message };
   }
-  return { ok: true };
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { ok?: boolean; protected?: boolean; reason?: string }
+    | null
+    | undefined;
+  if (!row || row.ok !== true) {
+    const reason =
+      row && typeof row.reason === "string" && row.reason.trim()
+        ? row.reason.trim()
+        : "tto_finish_generation_persistence_failed";
+    console.error("[tyler-text-overview] tto_finish_generation_persistence_rejected", {
+      clerk_user_id: args.clerkUserId,
+      draft_for_day_key: args.draftForDayKey,
+      generation_id: args.generationId,
+      reason,
+    });
+    return { ok: false, error: reason };
+  }
+  return { ok: true, protected: row.protected === true };
 }
 
 export async function loadTylerTextOverviewAudienceRow(
@@ -989,21 +828,13 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
     generationMetadataExtra: args.generationMetadataExtra,
   });
 
-  const existingDraft = await loadExistingCurrentDraft(
-    args.clerkUserId,
-    args.draftForDayKey,
-    sendSlot
-  );
-  const protectExistingDraft =
-    args.respectProtectedMorningDraft !== false &&
-    isProtectedTtoOverwriteSlot(sendSlot) &&
-    existingDraft != null &&
-    existingDraft.status === "current" &&
-    isProtectedFromMorningDraftOverwrite({
-      current_body_to_send: existingDraft.current_body_to_send,
-      edited_by_tyler: existingDraft.edited_by_tyler,
-      current_body_source: existingDraft.current_body_source,
-    });
+  if (args.respectProtectedMorningDraft === false) {
+    return {
+      ok: false,
+      reason: "upsert_failed",
+      error: "protected_draft_bypass_refused",
+    };
+  }
 
   const inserted = await insertGenerationRow(generationRow);
   if ("error" in inserted) {
@@ -1011,52 +842,7 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
   }
 
   const nowIso = args.now.toISOString();
-
-  // Protected draft: keep history, but never supersede the still-authoritative generation
-  // the draft continues to point at (would leave current_generation_id → superseded row).
-  if (protectExistingDraft) {
-    const authoritativeId = existingDraft.current_generation_id;
-    if (authoritativeId) {
-      const { error: orphanError } = await supabaseServer
-        .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-        .update({
-          superseded_by_generation_id: authoritativeId,
-          superseded_at: nowIso,
-        })
-        .eq("id", inserted.id);
-      if (orphanError) {
-        console.warn("[tyler-text-overview] protected_history_generation_mark_failed", {
-          clerk_user_id: args.clerkUserId,
-          draft_for_day_key: args.draftForDayKey,
-          generation_id: inserted.id,
-          message: orphanError.message,
-        });
-      }
-    }
-    return {
-      ok: true,
-      generationId: inserted.id,
-      supersedeFailed: false,
-      currentDraftProtected: true,
-    };
-  }
-
-  const supersede = await supersedePriorGenerations({
-    clerkUserId: args.clerkUserId,
-    draftForDayKey: args.draftForDayKey,
-    sendSlot,
-    newGenerationId: inserted.id,
-    nowIso,
-  });
-  if (!supersede.ok) {
-    console.warn("[tyler-text-overview] supersede_prior_generation_failed", {
-      clerk_user_id: args.clerkUserId,
-      draft_for_day_key: args.draftForDayKey,
-      message: supersede.error,
-    });
-  }
-
-  const upsert = await upsertCurrentDraft({
+  const finished = await finishTtoGenerationPersistence({
     clerkUserId: args.clerkUserId,
     draftForDayKey: args.draftForDayKey,
     sendSlot,
@@ -1064,17 +850,17 @@ export async function persistTylerTextOverviewDraftFromBuilt(args: {
     machineBody: generationRow.machine_draft_body,
     machineBodyHash: generationRow.machine_body_hash,
     nowIso,
-    respectProtectedMorningDraft: args.respectProtectedMorningDraft,
+    protectTylerProvenanceOnly: false,
   });
-  if (!upsert.ok) {
-    return { ok: false, reason: "upsert_failed", error: upsert.error };
+  if (!finished.ok) {
+    return { ok: false, reason: "upsert_failed", error: finished.error };
   }
 
   return {
     ok: true,
     generationId: inserted.id,
-    supersedeFailed: !supersede.ok,
-    currentDraftProtected: upsert.protected === true,
+    supersedeFailed: false,
+    currentDraftProtected: finished.protected,
   };
 }
 

@@ -146,12 +146,6 @@ function readMetadataString(metadata: Record<string, unknown>, key: string): str
   return null;
 }
 
-function isUniqueViolation(error: { code?: string; message?: string } | null): boolean {
-  if (!error) return false;
-  if (error.code === "23505") return true;
-  return (error.message ?? "").toLowerCase().includes("duplicate");
-}
-
 export function mapWeeklyTtoRefusalToCronSkipReason(
   code: WeeklyTtoManualSendRefusalCode
 ): WeeklyTtoCronAuthoritySkipReason | "skipped_duplicate_weekly_send" | "skipped_missing_twilio" | "skipped_awaiting_manual_pat_answer" | "failed" | null {
@@ -609,87 +603,189 @@ async function evaluateWeeklyManualSendEligibility(args: {
   return null;
 }
 
-async function reserveWeeklySmsSendEvent(args: {
+type WeeklyReserveRow = {
+  ok?: boolean;
+  reason?: string | null;
+  event_id?: string | null;
+  draft_id?: string | null;
+  generation_id?: string | null;
+  body?: string | null;
+  week_start?: string | null;
+  week_end?: string | null;
+  draft_for_day_key?: string | null;
+  timezone?: string | null;
+};
+
+function weeklyReserveRefusal(
+  reason: string,
+  draft: WeeklyTtoAuthoritativeDraft
+): WeeklyTtoManualSendResult {
+  if (reason === "duplicate_weekly_send") {
+    return refuse(
+      "duplicate_weekly_send",
+      "Weekly send already reserved or sent for this user/week_key",
+      {
+        draftId: draft.draftId,
+        clerkUserId: draft.clerkUserId,
+        weekKey: draft.weekKey,
+      }
+    );
+  }
+  if (reason === "blank_body") {
+    return refuse("blank_body", "Weekly draft body is empty", {
+      draftId: draft.draftId,
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+    });
+  }
+  if (reason === "ambiguous_weekly_draft") {
+    return refuse("ambiguous_weekly_draft", "More than one current weekly draft matches this week", {
+      draftId: draft.draftId,
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+    });
+  }
+  if (reason === "missing_generation") {
+    return refuse("missing_generation", "Weekly draft has no generation", {
+      draftId: draft.draftId,
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+    });
+  }
+  if (reason === "no_draft") {
+    return refuse("no_draft", "No current weekly draft for this week", {
+      draftId: draft.draftId,
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+    });
+  }
+  return refuse("reservation_failed", `weekly_tto_reserve_send refused: ${reason}`, {
+    draftId: draft.draftId,
+    clerkUserId: draft.clerkUserId,
+    weekKey: draft.weekKey,
+  });
+}
+
+async function markReservedWeeklySendFailed(args: {
   clerkUserId: string;
   weekKey: string;
-  draftId: string;
-  generationId: string;
-  weekStart: string | null;
-  weekEnd: string | null;
-  draftForDayKey: string;
-  timezone: string | null;
   sendSource: WeeklyTtoSendSource;
-}): Promise<
-  | { ok: true; eventId: string }
-  | { ok: false; result: WeeklyTtoManualSendResult }
-> {
-  const reserveMetadata = {
-    send_source: args.sendSource,
-    draft_id: args.draftId,
-    generation_id: args.generationId,
-    week_key: args.weekKey,
-    week_start: args.weekStart,
-    week_end: args.weekEnd,
-    draft_for_day_key: args.draftForDayKey,
-    timezone: args.timezone,
-    note:
-      args.sendSource === WEEKLY_TTO_CRON_SEND_SOURCE
-        ? "reserved_by_weekly_tto_cron"
-        : "reserved_by_weekly_tto_manual_send",
-  };
-
-  const { data, error } = await supabaseServer
+  draft: WeeklyTtoAuthoritativeDraft;
+  bodyWithoutFooter: string;
+  error: string;
+  twilioSendAttempted: boolean;
+  requestedByClerkUserId?: string | null;
+}): Promise<void> {
+  const { error } = await supabaseServer
     .from("sms_weekly_send_events")
-    .insert({
+    .update({
+      status: "send_failed",
+      metadata: {
+        send_source: args.sendSource,
+        draft_id: args.draft.draftId,
+        generation_id: args.draft.generationId,
+        week_key: args.weekKey,
+        week_start: args.draft.weekStart,
+        week_end: args.draft.weekEnd,
+        draft_for_day_key: args.draft.draftForDayKey,
+        timezone: args.draft.timezone,
+        body_without_footer: args.bodyWithoutFooter,
+        draft_excludes_compliance_footer: WEEKLY_TTO_DRAFT_EXCLUDES_COMPLIANCE_FOOTER,
+        twilio_send_attempted: args.twilioSendAttempted,
+        error: args.error,
+        ...(args.requestedByClerkUserId
+          ? { requested_by_clerk_user_id: args.requestedByClerkUserId }
+          : {}),
+      },
+    })
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("week_key", args.weekKey);
+  if (error) {
+    console.error("[tyler-text-overview-weekly-send] send_failed bookkeeping failed", {
       clerk_user_id: args.clerkUserId,
       week_key: args.weekKey,
-      status: "reserved",
-      metadata: reserveMetadata,
-    })
-    .select("id")
-    .maybeSingle();
+      message: error.message,
+    });
+  }
+}
+
+async function reserveWeeklySmsSendEvent(args: {
+  draft: WeeklyTtoAuthoritativeDraft;
+  sendSource: WeeklyTtoSendSource;
+}): Promise<
+  | {
+      ok: true;
+      eventId: string;
+      draftId: string;
+      generationId: string;
+      body: string;
+      weekStart: string | null;
+      weekEnd: string | null;
+      draftForDayKey: string;
+      timezone: string | null;
+    }
+  | { ok: false; result: WeeklyTtoManualSendResult }
+> {
+  const { data, error } = await supabaseServer.rpc("weekly_tto_reserve_send", {
+    p_clerk_user_id: args.draft.clerkUserId,
+    p_week_key: args.draft.weekKey,
+    p_send_source: args.sendSource,
+  });
 
   if (error) {
-    if (isUniqueViolation(error)) {
-      return {
-        ok: false,
-        result: refuse(
-          "duplicate_weekly_send",
-          "Weekly send already reserved or sent for this user/week_key",
-          {
-            draftId: args.draftId,
-            clerkUserId: args.clerkUserId,
-            weekKey: args.weekKey,
-          }
-        ),
-      };
-    }
+    console.error("[tyler-text-overview-weekly-send] weekly_tto_reserve_send failed", {
+      clerk_user_id: args.draft.clerkUserId,
+      week_key: args.draft.weekKey,
+      message: error.message,
+    });
     return {
       ok: false,
       result: refuse(
         "reservation_failed",
-        `sms_weekly_send_events reservation failed: ${error.message}`,
+        `weekly_tto_reserve_send failed: ${error.message}`,
         {
-          draftId: args.draftId,
-          clerkUserId: args.clerkUserId,
-          weekKey: args.weekKey,
+          draftId: args.draft.draftId,
+          clerkUserId: args.draft.clerkUserId,
+          weekKey: args.draft.weekKey,
         }
       ),
     };
   }
 
-  if (!data?.id) {
+  const row = (Array.isArray(data) ? data[0] : data) as WeeklyReserveRow | null | undefined;
+  if (!row || row.ok !== true) {
+    const reason = typeof row?.reason === "string" && row.reason.trim() ? row.reason.trim() : "reservation_failed";
+    return { ok: false, result: weeklyReserveRefusal(reason, args.draft) };
+  }
+
+  const eventId = typeof row.event_id === "string" ? row.event_id.trim() : "";
+  const draftId = typeof row.draft_id === "string" ? row.draft_id.trim() : "";
+  const generationId = typeof row.generation_id === "string" ? row.generation_id.trim() : "";
+  const body = typeof row.body === "string" ? row.body.trim() : "";
+  const draftForDayKey =
+    typeof row.draft_for_day_key === "string" ? row.draft_for_day_key.trim() : "";
+  if (!eventId || !draftId || !generationId || !body || !draftForDayKey) {
     return {
       ok: false,
-      result: refuse("reservation_failed", "sms_weekly_send_events reservation returned no id", {
-        draftId: args.draftId,
-        clerkUserId: args.clerkUserId,
-        weekKey: args.weekKey,
+      result: refuse("reservation_failed", "weekly_tto_reserve_send returned an incomplete reservation", {
+        draftId: args.draft.draftId,
+        clerkUserId: args.draft.clerkUserId,
+        weekKey: args.draft.weekKey,
       }),
     };
   }
 
-  return { ok: true, eventId: String(data.id) };
+  return {
+    ok: true,
+    eventId,
+    draftId,
+    generationId,
+    body,
+    weekStart: typeof row.week_start === "string" ? row.week_start : null,
+    weekEnd: typeof row.week_end === "string" ? row.week_end : null,
+    draftForDayKey,
+    timezone: typeof row.timezone === "string" ? row.timezone : null,
+  };
 }
 
 async function finalizeWeeklyDraftAfterSend(args: {
@@ -865,8 +961,83 @@ export async function sendWeeklyTtoDraftAuthoritative(args: {
     });
   }
 
-  const bodyWithoutFooter = draft.bodyWithoutFooter;
+  const reservation = await reserveWeeklySmsSendEvent({
+    draft,
+    sendSource: args.sendSource,
+  });
+  if (!reservation.ok) return reservation.result;
+
+  draft = {
+    ...draft,
+    draftId: reservation.draftId,
+    generationId: reservation.generationId,
+    bodyWithoutFooter: reservation.body,
+    weekStart: reservation.weekStart,
+    weekEnd: reservation.weekEnd,
+    draftForDayKey: reservation.draftForDayKey,
+    timezone: reservation.timezone,
+  };
+
+  const { data: reservedGeneration, error: reservedGenerationError } = await supabaseServer
+    .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+    .select("generation_metadata")
+    .eq("id", reservation.generationId)
+    .maybeSingle();
+  if (reservedGenerationError) {
+    await markReservedWeeklySendFailed({
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+      sendSource: args.sendSource,
+      draft,
+      bodyWithoutFooter: reservation.body,
+      error: reservedGenerationError.message,
+      twilioSendAttempted: false,
+      requestedByClerkUserId: args.requestedByClerkUserId,
+    });
+    return refuse(
+      "reservation_failed",
+      `Reserved weekly generation metadata could not be read: ${reservedGenerationError.message}`,
+      {
+        draftId: draft.draftId,
+        clerkUserId: draft.clerkUserId,
+        weekKey: draft.weekKey,
+      }
+    );
+  }
+  const reservedMetadata = asRecord(reservedGeneration?.generation_metadata);
+  if (reservedMetadata) {
+    draft = { ...draft, generationMetadata: reservedMetadata };
+  }
+
+  const bodyWithoutFooter = reservation.body.trim();
+  if (!bodyWithoutFooter) {
+    await markReservedWeeklySendFailed({
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+      sendSource: args.sendSource,
+      draft,
+      bodyWithoutFooter,
+      error: "blank_body_after_reserve",
+      twilioSendAttempted: false,
+      requestedByClerkUserId: args.requestedByClerkUserId,
+    });
+    return refuse("blank_body", "Weekly draft body is empty", {
+      draftId: draft.draftId,
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+    });
+  }
   if (weeklyEditableBodyExceedsMax(bodyWithoutFooter)) {
+    await markReservedWeeklySendFailed({
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+      sendSource: args.sendSource,
+      draft,
+      bodyWithoutFooter,
+      error: WEEKLY_TTO_DRAFT_BODY_EXCEEDS_EDITABLE_MAX,
+      twilioSendAttempted: false,
+      requestedByClerkUserId: args.requestedByClerkUserId,
+    });
     return refuse("body_too_long", WEEKLY_TTO_DRAFT_BODY_EXCEEDS_EDITABLE_MAX, {
       draftId: draft.draftId,
       clerkUserId: draft.clerkUserId,
@@ -875,25 +1046,22 @@ export async function sendWeeklyTtoDraftAuthoritative(args: {
   }
   const finalBody = buildWeeklyTtoFinalBodyWithFooter(bodyWithoutFooter);
   if (weeklyFinalBodyExceedsTwilioMax(finalBody)) {
+    await markReservedWeeklySendFailed({
+      clerkUserId: draft.clerkUserId,
+      weekKey: draft.weekKey,
+      sendSource: args.sendSource,
+      draft,
+      bodyWithoutFooter,
+      error: WEEKLY_TTO_FINAL_BODY_EXCEEDS_TWILIO_MAX,
+      twilioSendAttempted: false,
+      requestedByClerkUserId: args.requestedByClerkUserId,
+    });
     return refuse("body_too_long", WEEKLY_TTO_FINAL_BODY_EXCEEDS_TWILIO_MAX, {
       draftId: draft.draftId,
       clerkUserId: draft.clerkUserId,
       weekKey: draft.weekKey,
     });
   }
-
-  const reservation = await reserveWeeklySmsSendEvent({
-    clerkUserId: draft.clerkUserId,
-    weekKey: draft.weekKey,
-    draftId: draft.draftId,
-    generationId: draft.generationId,
-    weekStart: draft.weekStart,
-    weekEnd: draft.weekEnd,
-    draftForDayKey: draft.draftForDayKey,
-    timezone: draft.timezone,
-    sendSource: args.sendSource,
-  });
-  if (!reservation.ok) return reservation.result;
 
   let twilioMessageSid: string;
   let twilioStatus: string;

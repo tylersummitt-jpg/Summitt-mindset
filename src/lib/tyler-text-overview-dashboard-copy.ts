@@ -163,6 +163,29 @@ export const WEEKLY_TTO_GENERATE_MISSING_CONFIRM_TITLE = "Generate missing weekl
 export const WEEKLY_TTO_GENERATE_MISSING_CONFIRM_COPY =
   "This generates weekly drafts for sendable users who are missing a draft or whose last generation failed. It does not send texts, does not overwrite Tyler edits or blanks, and skips successful current drafts and users already sent this week. Keep this page open to continue chunks.";
 
+export const WEEKLY_TTO_BULK_APPLY_TITLE = "Apply same text to all";
+
+export const WEEKLY_TTO_BULK_APPLY_BUTTON = "Apply text to all";
+
+export const WEEKLY_TTO_BULK_APPLY_HELP =
+  "Applies this exact text to existing current Weekly drafts for the selected Sunday. Search does not narrow it. This click sends no SMS.";
+
+export function formatWeeklyBulkApplyConfirm(draftForDayKey: string, trimmedBody: string): string {
+  return [
+    `Apply this exact text to current Weekly drafts for Sunday ${draftForDayKey}?`,
+    "",
+    "This uses the full sendable audience. Search does not narrow it.",
+    "Only existing current drafts for this Sunday are updated. Missing drafts are not created.",
+    "Prior Tyler edits and blanks on those drafts are replaced.",
+    "Any week that already has a send event is skipped.",
+    "This click sends no SMS.",
+    "A non-empty Tyler save can still go out on a later Weekly send even if machine should-send was false.",
+    "Later generation keeps this Tyler text.",
+    "",
+    trimmedBody,
+  ].join("\n");
+}
+
 export function weeklyGenerateMissingButtonLabel(
   isGenerating: boolean,
   resumeAvailable?: boolean

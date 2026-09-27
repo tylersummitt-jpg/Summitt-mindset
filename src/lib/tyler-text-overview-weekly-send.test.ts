@@ -41,6 +41,8 @@ const db = vi.hoisted(() => ({
   commitmentEvents: [] as Array<Record<string, unknown>>,
   inboundJobs: [] as Array<Record<string, unknown>>,
   forceWeeklyInsertError: null as { code?: string; message?: string } | null,
+  forceReserveRpcError: null as string | null,
+  reserveReturnedBody: null as string | null,
   smsSendEventsInsertCount: 0,
   checkSentWriteCount: 0,
   commitmentEventInsertCount: 0,
@@ -91,6 +93,8 @@ function seedWeeklyDraft(overrides?: {
   db.commitmentEvents = [];
   db.inboundJobs = [];
   db.forceWeeklyInsertError = null;
+  db.forceReserveRpcError = null;
+  db.reserveReturnedBody = null;
   db.smsSendEventsInsertCount = 0;
   db.checkSentWriteCount = 0;
   db.commitmentEventInsertCount = 0;
@@ -236,9 +240,93 @@ function makeChain(state: {
   return self;
 }
 
+function simulateWeeklyReserve(args: Record<string, unknown>) {
+  if (db.forceReserveRpcError) {
+    return { data: null, error: { message: db.forceReserveRpcError } };
+  }
+  const clerk = args.p_clerk_user_id;
+  const weekKey = args.p_week_key;
+  const source = args.p_send_source;
+  const existing = db.weeklyEvents.find(
+    (event) => event.clerk_user_id === clerk && event.week_key === weekKey
+  );
+  if (existing) {
+    return { data: [{ ok: false, reason: "duplicate_weekly_send" }], error: null };
+  }
+  const drafts = db.drafts
+    .filter(
+      (draft) =>
+        draft.clerk_user_id === clerk &&
+        draft.send_slot === "weekly_review" &&
+        draft.status === "current"
+    )
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  const matches: Array<{ draft: Record<string, unknown>; gen: Record<string, unknown> | undefined }> =
+    [];
+  for (const draft of drafts) {
+    const gen = db.generations.find((row) => row.id === draft.current_generation_id);
+    const meta = (gen?.generation_metadata ?? {}) as Record<string, unknown>;
+    if (meta.week_key === weekKey) matches.push({ draft, gen });
+  }
+  if (matches.length === 0) return { data: [{ ok: false, reason: "no_draft" }], error: null };
+  if (matches.length > 1) {
+    return { data: [{ ok: false, reason: "ambiguous_weekly_draft" }], error: null };
+  }
+  const { draft, gen } = matches[0]!;
+  const storedBody =
+    typeof draft.current_body_to_send === "string" ? draft.current_body_to_send.trim() : "";
+  if (!storedBody) return { data: [{ ok: false, reason: "blank_body" }], error: null };
+  const meta = (gen?.generation_metadata ?? {}) as Record<string, unknown>;
+  const note =
+    source === "weekly_tto_cron"
+      ? "reserved_by_weekly_tto_cron"
+      : "reserved_by_weekly_tto_manual_send";
+  const row = {
+    id: `weekly-evt-${db.weeklyEvents.length + 1}`,
+    clerk_user_id: clerk,
+    week_key: weekKey,
+    status: "reserved",
+    metadata: {
+      send_source: source,
+      draft_id: draft.id,
+      generation_id: draft.current_generation_id,
+      week_key: weekKey,
+      week_start: meta.week_start ?? null,
+      week_end: meta.week_end ?? null,
+      draft_for_day_key: draft.draft_for_day_key,
+      timezone: gen?.timezone_snapshot ?? meta.timezone ?? null,
+      note,
+    },
+  };
+  db.weeklyEvents.push(row);
+  return {
+    data: [
+      {
+        ok: true,
+        reason: "reserved",
+        event_id: row.id,
+        draft_id: draft.id,
+        generation_id: draft.current_generation_id,
+        body: db.reserveReturnedBody ?? storedBody,
+        week_start: meta.week_start ?? null,
+        week_end: meta.week_end ?? null,
+        draft_for_day_key: draft.draft_for_day_key,
+        timezone: gen?.timezone_snapshot ?? meta.timezone ?? null,
+      },
+    ],
+    error: null,
+  };
+}
+
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {
     from: vi.fn((table: string) => makeChain({ table, action: "select", payload: {} })),
+    rpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
+      if (fn !== "weekly_tto_reserve_send") {
+        return { data: null, error: { message: `missing_rpc:${fn}` } };
+      }
+      return simulateWeeklyReserve(args ?? {});
+    }),
   },
 }));
 
@@ -965,7 +1053,8 @@ describe("weekly send route / UI static contracts", () => {
     expect(dash).toContain("WEEKLY_TTO_FOOTER_AT_SEND_COPY");
     expect(dash).toContain("confirmSendRow.currentBodyToSend");
     expect(dash).not.toContain("Send all");
-    expect(dash).not.toContain("bulk");
+    expect(dash).toContain("WEEKLY_TTO_BULK_APPLY_TITLE");
+    expect(dash).toContain("/api/admin/tyler-text-overview/weekly-bulk-save");
     expect(dash.toLowerCase()).not.toContain("cron cutover");
   });
 
@@ -1027,5 +1116,72 @@ describe("weekly send does not touch forbidden paths", () => {
     const vercel = readFileSync(join(REPO, "vercel.json"), "utf8");
     expect(vercel).toContain("/api/cron/weekly-sms");
     expect(vercel).not.toContain("weekly-tto");
+  });
+
+  it("reserves through weekly_tto_reserve_send and does not insert events directly", () => {
+    const src = readFileSync(join(REPO, "src/lib/tyler-text-overview-weekly-send.ts"), "utf8");
+    expect(src).toContain('rpc("weekly_tto_reserve_send"');
+    expect(src).not.toContain(".insert(");
+    expect(src).not.toContain("updateTylerTextOverviewDraftBody");
+  });
+});
+
+describe("weekly reserve RPC body is the Twilio body", () => {
+  beforeEach(() => {
+    seedWeeklyDraft();
+    sendSmsMock.mockReset();
+    sendSmsMock.mockResolvedValue({ sid: "SM-weekly-rpc", status: "queued" });
+    isTwilioReadyMock.mockReturnValue(true);
+    loadAudienceMock.mockResolvedValue({
+      clerk_user_id: "user_weekly",
+      phone_number: "+15551234567",
+      sms_enabled: true,
+      stopped_at: null,
+      timezone: "America/New_York",
+      summitt_subscribed: true,
+    });
+    resolveV2Mock.mockResolvedValue({ fullyOnV2: true });
+    fetchCommsMock.mockResolvedValue(null);
+    isPauseActiveMock.mockReturnValue(false);
+    getActiveCommitmentMock.mockResolvedValue({ id: COMMITMENT_ID });
+    upsertThreadMemoryMock.mockResolvedValue({ ok: true });
+  });
+
+  it("appends the footer once to the RPC body", async () => {
+    db.reserveReturnedBody = "LOCKED BODY FROM RESERVE";
+    const result = await sendWeeklyTtoDraftManually({
+      draftId: "draft-weekly-1",
+      requestedByClerkUserId: "admin_tyler",
+    });
+    expect(result.ok).toBe(true);
+    const sent = sendSmsMock.mock.calls[0]?.[0].body as string;
+    expect(sent).toBe(buildWeeklyTtoFinalBodyWithFooter("LOCKED BODY FROM RESERVE"));
+    expect(sent.split(WEEKLY_TTO_COMPLIANCE_FOOTER).length - 1).toBe(1);
+    expect(sent).not.toContain(WEEKLY_BODY);
+  });
+
+  it("does not call Twilio when the reserve RPC errors", async () => {
+    db.forceReserveRpcError = "function weekly_tto_reserve_send does not exist";
+    const result = await sendWeeklyTtoDraftManually({
+      draftId: "draft-weekly-1",
+      requestedByClerkUserId: "admin_tyler",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe("reservation_failed");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+    expect(db.weeklyEvents).toHaveLength(0);
+  });
+
+  it("Twilio failure leaves a send event that later bulk must treat as a block", async () => {
+    sendSmsMock.mockRejectedValue(new Error("twilio boom"));
+    const result = await sendWeeklyTtoDraftManually({
+      draftId: "draft-weekly-1",
+      requestedByClerkUserId: "admin_tyler",
+    });
+    expect(result.ok).toBe(false);
+    expect(db.weeklyEvents).toHaveLength(1);
+    expect(db.weeklyEvents[0]?.status).toBe("send_failed");
+    expect(db.drafts[0]?.status).toBe("current");
   });
 });

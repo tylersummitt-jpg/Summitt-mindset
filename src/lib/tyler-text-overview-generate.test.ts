@@ -56,7 +56,76 @@ const db = vi.hoisted(() => ({
   smsSendEvents: [] as Array<Record<string, unknown>>,
   smsWeeklySendEvents: [] as Array<Record<string, unknown>>,
   smsSendEventsSelectError: null as string | null,
+  forceFinishRpcError: null as string | null,
 }));
+
+function simulateFinishGeneration(args: Record<string, unknown>) {
+  if (db.forceFinishRpcError) {
+    return { data: null, error: { message: db.forceFinishRpcError } };
+  }
+  const slot = String(args.p_send_slot ?? "");
+  if (!["morning", "evening_checkin", "weekly_review"].includes(slot)) {
+    return { data: [{ ok: false, protected: false, reason: "bad_slot" }], error: null };
+  }
+  const clerk = args.p_clerk_user_id;
+  const day = args.p_draft_for_day_key;
+  const newId = String(args.p_new_generation_id ?? "");
+  const protectOnly = args.p_protect_tyler_provenance_only === true;
+  const nowIso = args.p_now;
+  const draft = db.drafts.find(
+    (row) =>
+      row.clerk_user_id === clerk &&
+      row.draft_for_day_key === day &&
+      (row.send_slot ?? "morning") === slot &&
+      row.status === "current"
+  );
+  const body = typeof draft?.current_body_to_send === "string" ? draft.current_body_to_send : "";
+  const nonempty = body.trim().length > 0;
+  const tyler =
+    draft?.edited_by_tyler === true || draft?.current_body_source === "tyler_edit";
+  const isProtected = Boolean(draft) && (tyler || (!protectOnly && nonempty));
+  if (isProtected && draft) {
+    const created = db.generations.find((row) => row.id === newId);
+    if (created && typeof draft.current_generation_id === "string" && draft.current_generation_id) {
+      created.superseded_by_generation_id = draft.current_generation_id;
+      created.superseded_at = nowIso;
+    }
+    return { data: [{ ok: true, protected: true, reason: "protected" }], error: null };
+  }
+  for (const generation of db.generations) {
+    if (
+      generation.clerk_user_id === clerk &&
+      generation.draft_for_day_key === day &&
+      (generation.send_slot ?? "morning") === slot &&
+      generation.id !== newId &&
+      generation.superseded_at == null
+    ) {
+      generation.superseded_by_generation_id = newId;
+      generation.superseded_at = nowIso;
+    }
+  }
+  const next = {
+    clerk_user_id: clerk,
+    draft_for_day_key: day,
+    send_slot: slot,
+    current_generation_id: newId,
+    current_body_to_send: args.p_machine_body ?? null,
+    current_body_source: "machine",
+    edited_by_tyler: false,
+    edited_at: null,
+    edit_distance_chars: null,
+    machine_body_hash: args.p_machine_body_hash ?? null,
+    current_body_hash: args.p_machine_body_hash ?? null,
+    status: "current",
+    updated_at: nowIso,
+  };
+  if (draft) {
+    Object.assign(draft, next);
+  } else {
+    db.drafts.push(next);
+  }
+  return { data: [{ ok: true, protected: false, reason: "applied" }], error: null };
+}
 
 function makeChain(handlers: {
   table: string;
@@ -355,6 +424,12 @@ vi.mock("@/lib/supabase-server", () => {
       from: vi.fn((name: string) =>
         makeChain({ table: name, action: "select", payload: {} })
       ),
+      rpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
+        if (fn !== "tto_finish_generation_persistence") {
+          return { data: null, error: { message: `missing_rpc:${fn}` } };
+        }
+        return simulateFinishGeneration(args ?? {});
+      }),
     },
   };
 });
@@ -2624,6 +2699,7 @@ describe("Weekly persist explicit regenerate authority", () => {
     db.generations = [];
     db.drafts = [];
     db.nextGenId = 1;
+    db.forceFinishRpcError = null;
   });
 
   async function persistWeeklyMachineBody(body: string) {
@@ -2790,6 +2866,45 @@ describe("Weekly persist explicit regenerate authority", () => {
     expect(db.drafts[0]?.current_body_to_send).toBe("Recovered machine body");
     expect(db.drafts[0]?.current_body_source).toBe("machine");
     expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+  });
+
+  it("does not clear Tyler provenance when the finish RPC errors", async () => {
+    db.generations.push({
+      id: "gen-A",
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-12",
+      send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      generation_number: 1,
+      machine_draft_body: "Machine body A",
+      superseded_at: null,
+    });
+    db.drafts.push({
+      clerk_user_id: AUDIENCE_USER.clerk_user_id,
+      draft_for_day_key: "2026-07-12",
+      send_slot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      status: "current",
+      current_generation_id: "gen-A",
+      current_body_to_send: "Tyler edit A",
+      current_body_source: "tyler_edit",
+      edited_by_tyler: true,
+    });
+    db.forceFinishRpcError = "function tto_finish_generation_persistence does not exist";
+    const result = await persistWeeklyMachineBody("Machine body B");
+    expect(result.ok).toBe(false);
+    expect(db.drafts[0]?.current_body_to_send).toBe("Tyler edit A");
+    expect(db.drafts[0]?.current_body_source).toBe("tyler_edit");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    expect(db.drafts[0]?.current_generation_id).toBe("gen-A");
+    const genA = db.generations.find((row) => row.id === "gen-A");
+    expect(genA?.superseded_at == null).toBe(true);
+  });
+
+  it("finishes persistence only through tto_finish_generation_persistence", () => {
+    const src = readFileSync(join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"), "utf8");
+    expect(src).toContain('rpc("tto_finish_generation_persistence"');
+    expect(src).not.toContain(".upsert(");
+    expect(src).not.toContain("supersedePriorGenerations");
+    expect(src).not.toContain("respectProtectedMorningDraft: false");
   });
 });
 
