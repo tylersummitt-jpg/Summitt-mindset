@@ -17,6 +17,7 @@ vi.mock("@/lib/morning-tto-brief-canonical-load-v1", async (importOriginal) => {
 });
 
 import { deriveConsistencySupportedFromSpine } from "@/lib/morning-tto-brief-canonical-input-v1";
+import { MORNING_BRIEF_INTERPRETER_MODEL } from "@/lib/morning-tto-brief-interpreter-v1";
 import { MORNING_COACHING_BRIEF_VERSION, parseMorningCoachingBriefV1 } from "@/lib/morning-tto-coaching-brief-v1";
 import type { MorningCoachingBriefV1 } from "@/lib/morning-tto-coaching-brief-v1";
 import type { WeeklyRelationshipPacket } from "@/lib/weekly-tto-relationship-packet";
@@ -420,9 +421,11 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT).toContain("goal_role_today");
   });
 
-  it("Terra request: gpt-5.6-terra, low reasoning, json_schema, no temperature, one schema retry", async () => {
+  it("Sol request: gpt-5.6-sol, low reasoning, json_schema, no temperature, one schema retry", async () => {
     expect(parseMorningCoachingBriefV1(validBrief())).not.toBeNull();
-    expect(WEEKLY_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-terra");
+    expect(MORNING_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-sol");
+    expect(WEEKLY_BRIEF_INTERPRETER_MODEL).toBe(MORNING_BRIEF_INTERPRETER_MODEL);
+    expect(WEEKLY_BRIEF_INTERPRETER_MODEL).toBe("gpt-5.6-sol");
     expect(WEEKLY_BRIEF_INTERPRETER_REASONING_EFFORT).toBe("low");
     expect(WEEKLY_BRIEF_INTERPRETER_TEMPERATURE).toBeNull();
     expect(WEEKLY_BRIEF_INTERPRETER_PROMPT_PATH).toBe("weekly_brief_interpreter_v1");
@@ -447,7 +450,7 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(create).toHaveBeenCalledTimes(2);
     expect(create.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
-        model: "gpt-5.6-terra",
+        model: "gpt-5.6-sol",
         reasoning_effort: "low",
         max_completion_tokens: 2500,
         response_format: expect.objectContaining({
