@@ -408,6 +408,45 @@ describe("weekly-tto-brief-interpreter", () => {
     expect((p.match(/message_for \(local_date/g) ?? []).length).toBe(1);
   });
 
+  it("system prompt carries Morning quality laws without enabling intentional_space", () => {
+    const p = WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT;
+    expect(p).toContain("remains genuinely unexplored");
+    expect(p).toContain(
+      "Unanswered does not by itself make the same missing information unexplored."
+    );
+    expect(p).toContain("Do not use this preference to displace a direct question");
+    expect(p).toContain("Do not force a question if no useful unexplored detail exists.");
+    expect(p).toContain("Do not mechanically mine weekly_accountability_events for a question.");
+    expect(p).toContain(
+      "North Star: would this person be glad this text appeared on their phone even if they had absolutely no intention of replying?"
+    );
+    expect(p).toContain("This quality bar does not change the send decision.");
+    expect(p).not.toContain("QUIET RELATIONSHIP VALUE");
+    expect(p).not.toContain("proactive_decision = intentional_space");
+    expect(p).toContain(
+      "a dated historical fact may be a grounded doorway to one new question"
+    );
+    expect(p).toContain("Do not pick a Gold Question merely because relationship memory exists.");
+    expect(p).toContain("Never name-drop people or identity to prove memory.");
+    expect(p).toContain(
+      "Do not manufacture engagement, topics, or coaching energy just because a proactive Sunday text exists."
+    );
+    expect(p).toContain("Do not invent a question just to get a reply.");
+    expect(p).toContain("A useful statement with no question is valid.");
+    expect(p).toContain("question_policy none");
+    expect(p).toContain(
+      "This law does not freeze ordinary unanswered outcome questions"
+    );
+    expect(p).toContain("Do not behave as though continue / keep checking in was selected.");
+    expect(p).toContain("coaching_direction.proactive_decision must be send");
+    expect(p).toContain("Weekly does not use intentional_space");
+    expect(p).toContain("Sunday around noon");
+    expect(p).toContain("The current week is nearing its close");
+    expect(p).toContain("Monday has not begun");
+    expect(p).toContain("It is facts, not a score");
+    expect(p).toContain("Do not force synthesis");
+  });
+
   it("goal role enum remains shared: central / background / unresolved / do_not_mention / unknown", () => {
     const schemaSrc = readFileSync(
       join(REPO, "src/lib/morning-tto-coaching-brief-json-schema-v1.ts"),
