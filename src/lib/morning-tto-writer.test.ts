@@ -203,7 +203,7 @@ describe("morning-tto-writer Phase 2D", () => {
     expect(MORNING_TTO_SYSTEM_PROMPT).not.toMatch(/post-writer|repair pass/i);
   });
 
-  it("shared Morning/Evening writer uses Coach Pat Summitt identity; other lanes do not", () => {
+  it("shared Morning/Evening writer uses Coach Pat Summitt identity; Weekly writer matches it; other lanes do not", () => {
     const nextTurn =
       "The message should feel like the next human turn from Coach Pat Summitt: speak naturally in first person as a real coach texting this member.";
     const oldNextTurn = "The message should feel like the next human turn in the relationship.";
@@ -257,9 +257,8 @@ describe("morning-tto-writer Phase 2D", () => {
       path.join(process.cwd(), "src/lib/weekly-tto-writer.ts"),
       "utf8"
     );
-    expect(weeklyPrompt).not.toContain(nextTurn);
-    expect(weeklyPrompt).not.toContain("Coach Pat and Pat Summitt are the same person.");
-    expect(weeklyPrompt).toContain("Write the next natural human text in this relationship.");
+    expect(weeklyPrompt).toContain(nextTurn);
+    expect(weeklyPrompt).toContain("Coach Pat and Pat Summitt are the same person.");
 
     const inboundPrompt = readFileSync(
       path.join(process.cwd(), "src/lib/inbound-sol-writer.ts"),

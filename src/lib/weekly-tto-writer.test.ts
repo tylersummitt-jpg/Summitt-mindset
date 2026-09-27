@@ -19,6 +19,7 @@ import type { MorningCoachingBriefV1 } from "@/lib/morning-tto-coaching-brief-v1
 import type { WeeklyRelationshipPacket } from "@/lib/weekly-tto-relationship-packet";
 import {
   WEEKLY_TTO_SYSTEM_PROMPT,
+  WEEKLY_TTO_WRITER_MAX_COMPLETION_TOKENS,
   WEEKLY_TTO_WRITER_MODEL,
   WEEKLY_TTO_WRITER_REASONING_EFFORT,
   WEEKLY_TTO_WRITER_TEMPERATURE,
@@ -185,39 +186,66 @@ describe("weekly-tto-writer", () => {
     expect(user).toContain('"source":"user_message"');
   });
 
-  it("system prompt is Brief-following Sunday writer, not a second Weekly brain", () => {
+  it("system prompt uses Morning writer laws plus the Sunday week adapter", () => {
     const p = WEEKLY_TTO_SYSTEM_PROMPT;
+    expect(p).toContain("Coach Pat and Pat Summitt are the same person.");
+    expect(p).toContain("Speak naturally in first person as Pat.");
+    expect(p).toContain(
+      "You may use one short first-person story or lesson only when the supplied Brief or packet actually supports that claim"
+    );
+    expect(p).toContain("Otherwise do not tell a Pat story.");
+    expect(p).toContain("Do not invent a memory, quote, or autobiography.");
+    expect(p).toContain("If nothing supplied supports autobiography, do not invent it.");
     expect(p).toContain("The Brief controls coaching meaning. You control natural language only.");
-    expect(p).toContain("Do not rediscover the relationship");
-    expect(p).toContain("Do not re-interpret");
+    expect(p).toContain("Do not rediscover the whole relationship from scratch.");
+    expect(p).toContain("answered before coaching");
+    expect(p).toContain('If primary_move is "answer", answer first.');
+    expect(p).toContain("Current Goal is context, not compulsory daily homework.");
+    expect(p).toContain("Follow goal_role_today.");
+    expect(p).toContain("Meaningful life moments may outrank goal talk");
+    expect(p).toContain("family, faith, grief");
+    expect(p).toContain("AVAILABLE does not mean MENTION.");
+    expect(p).toContain("selected_person");
+    expect(p).toContain(
+      "Do not manufacture current events, feelings, problems, or behavior from identity or roles."
+    );
+    expect(p).toContain("Do not promise, announce, or imply future messaging cadence");
+    expect(p).toContain("not style samples");
+    expect(p).toContain(
+      "The message should feel like the next human turn from Coach Pat Summitt: speak naturally in first person as a real coach texting this member."
+    );
+    expect(p).toContain("At most one useful question.");
+    expect(p).toContain("If it is one_useful_question, you may ask that one question. If it is none, do not ask.");
+    expect(p).toContain("One completion is not consistency.");
+    expect(p).toContain("Preserve uncertainty from the Brief");
+    expect(p).toContain("do not recap that event as completed");
     expect(p).toContain("Sunday around noon");
+    expect(p).toContain("The week is nearing its close but is not over.");
+    expect(p).toContain("Monday has not started.");
+    expect(p).toContain("Do not talk as though the next week has already begun.");
+    expect(p).toContain(
+      "Use the week lens only when looking across the week reveals something useful that is not obvious from the latest turn alone."
+    );
+    expect(p).toContain("Do not force a weekly recap");
     expect(p).toContain("Do not invent weekly perspective if the Brief does not contain it");
+    expect(p).toContain("weekly_accountability_events are facts, not a scorecard.");
+    expect(p).toContain("Do not mechanically summarize every yes, no, or partial.");
     expect(p).toContain("Write as much as this moment needs and no more");
     expect(p).toContain("little more room than a Morning or Evening text");
     expect(p).toContain("still a text message, not an essay");
     expect(p).toContain("Do not write a compliance footer");
+    expect(p).toContain('Do not write "Reply STOP to opt out."');
+    expect(p).toContain('Do not write "Reply HELP for help."');
     expect(p).toContain("Do not use em dashes, en dashes, or hyphens as punctuation between thoughts in the SMS, but hyphenated words are fine.");
     expect(p).toContain("Do not use Pat Pause openers");
-    expect(p).toContain("fake Pat quotes");
     expect(p).toContain("No should_send");
-    expect(p).toContain("Preserve uncertainty from the Brief");
-    expect(p).toContain("do not recap that event as completed");
     expect(p).toContain('{"body":"<sms text>"}');
     expect(p).not.toMatch(/320/);
     expect(p).not.toContain("Keep it naturally concise");
     expect(p).not.toContain("Do not pad");
     expect(p).not.toContain("Do not aim for length");
-    expect(p).not.toContain("Current Goal is context");
-    expect(p).not.toContain("At most one useful question");
-    expect(p).not.toContain("One completion is not consistency");
-    expect(p).not.toContain("goal_role_today");
-    expect(p).not.toContain("human_situation");
-    expect(p).not.toMatch(/family, faith, grief/);
-    expect(p).toContain("Write the next natural human text in this relationship.");
-    expect(p).not.toContain(
-      "The message should feel like the next human turn from Coach Pat Summitt: speak naturally in first person as a real coach texting this member."
-    );
-    expect(p).not.toContain("Coach Pat and Pat Summitt are the same person.");
+    expect(p).not.toContain("first-person Pat memories, or invented Pat stories");
+    expect(p).not.toContain("OPTIONAL_PAT_SOURCE_EVIDENCE_V1");
   });
 
   it("Sol request shape: gpt-5.6-sol, low reasoning, json_object, no temperature, body only", async () => {
@@ -234,9 +262,11 @@ describe("weekly-tto-writer", () => {
     expect(WEEKLY_TTO_WRITER_MODEL).toBe("gpt-5.6-sol");
     expect(WEEKLY_TTO_WRITER_REASONING_EFFORT).toBe("low");
     expect(WEEKLY_TTO_WRITER_TEMPERATURE).toBeNull();
+    expect(WEEKLY_TTO_WRITER_MAX_COMPLETION_TOKENS).toBe(1200);
     const req = createMock.mock.calls[0]?.[0];
     expect(req.model).toBe("gpt-5.6-sol");
     expect(req.reasoning_effort).toBe("low");
+    expect(req.max_completion_tokens).toBe(1200);
     expect(req.response_format).toEqual({ type: "json_object" });
     expect(req).not.toHaveProperty("temperature");
     expect(createMock).toHaveBeenCalledTimes(1);
