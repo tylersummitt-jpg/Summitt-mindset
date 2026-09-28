@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { MORNING_BODY_COMPARISON_INTENTIONAL_SPACE } from "@/lib/tyler-text-overview-dashboard-sections";
 import {
@@ -127,6 +127,8 @@ export default function TylerTextOverviewWeeklyDashboard() {
   const [bulkApplying, setBulkApplying] = useState(false);
   const [confirmBulkApply, setConfirmBulkApply] = useState(false);
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
+  const loadGenerationRef = useRef(0);
+  const loadAbortRef = useRef<AbortController | null>(null);
 
   type WeeklyGenerateAllSnapshot = {
     audienceClerkUserIds: string[];
@@ -168,13 +170,23 @@ export default function TylerTextOverviewWeeklyDashboard() {
   }
 
   const load = useCallback(async (dayKey: string) => {
+    const generation = ++loadGenerationRef.current;
+    loadAbortRef.current?.abort();
+    const abort = new AbortController();
+    loadAbortRef.current = abort;
+
     setLoading(true);
     try {
       const params = new URLSearchParams();
       params.set("send_slot", sendSlot);
       if (dayKey) params.set("draft_for_day_key", dayKey);
-      const res = await fetch(`/api/admin/tyler-text-overview?${params.toString()}`);
+      const res = await fetch(`/api/admin/tyler-text-overview?${params.toString()}`, {
+        signal: abort.signal,
+      });
       const json = await res.json();
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       if (!res.ok || !json.ok) {
         showToast(json.error || "Could not load weekly drafts.");
         setRows([]);
@@ -194,15 +206,26 @@ export default function TylerTextOverviewWeeklyDashboard() {
         )
       );
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       console.error("Failed to load Weekly TTO drafts", err);
       showToast("Could not load weekly drafts.");
     } finally {
-      setLoading(false);
+      if (generation === loadGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     load(selectedDayKey);
+    return () => {
+      loadAbortRef.current?.abort();
+    };
   }, [load, selectedDayKey]);
 
   const blankBodyCount = useMemo(
