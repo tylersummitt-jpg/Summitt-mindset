@@ -12,7 +12,14 @@ import {
   fetchV2UserSmsCommsPreferences,
   shouldSkipWeeklyForCommsPrefs,
 } from "@/lib/v2-sms-comms-preferences";
+import { countRecentUnansweredOutboundFromExactThread } from "@/lib/morning-tto-brief-canonical-load-v1";
 import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
+import {
+  MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
+  clampProactiveDecision,
+  isIntentionalSpaceDecision,
+  resolveQuietRelationshipMechanicalFacts,
+} from "@/lib/sms-proactive-relationship-touch";
 import { resolveSmsUserTimezone } from "@/lib/timezone";
 import type { WeeklyV3RelationshipLaneResult } from "@/lib/v3-weekly-outbound-relationship-lane";
 import { resolveTylerTextOverviewWeeklyPeriod } from "@/lib/tyler-text-overview-weekly-period";
@@ -247,15 +254,102 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
     has_pending_goal_change: packet.hard_state.pending_goal_change != null,
   };
 
+  const quietFacts = await resolveQuietRelationshipMechanicalFacts({
+    clerkUserId,
+    timezone,
+    localDate: period.draftForDayKey,
+    daysSinceLastUserResponse: packet.last_user_response.days_since,
+    neverReplied: packet.last_user_response.never_replied,
+    recentUnansweredOutboundCount: countRecentUnansweredOutboundFromExactThread(
+      packet.exact_thread.messages
+    ),
+  });
+
   const interpreterResult = await runWeeklyBriefInterpreterV1({
     packet,
     clerkUserId,
     commitmentId,
+    quietFacts,
   });
-  const weeklyCoachingBrief = interpreterResult.brief;
+  const clampedDecision = clampProactiveDecision({
+    decision: interpreterResult.brief.coaching_direction.proactive_decision,
+    quietRelationshipEligible: quietFacts.quiet_relationship_eligible,
+    messageRequiredToday: quietFacts.message_required_today,
+    clockLookupFailed: quietFacts.clock_lookup_failed === true,
+  });
+  const weeklyCoachingBrief =
+    clampedDecision === interpreterResult.brief.coaching_direction.proactive_decision
+      ? interpreterResult.brief
+      : {
+          ...interpreterResult.brief,
+          coaching_direction: {
+            ...interpreterResult.brief.coaching_direction,
+            proactive_decision: clampedDecision,
+          },
+        };
   const interpreterMeta = buildWeeklyBriefInterpreterMetadataV1(interpreterResult.capture);
   if (!interpreterResult.ok) {
     interpreterMeta.fallback_brief_used = true;
+  }
+  const quietMeta = {
+    quiet_relationship_eligible: quietFacts.quiet_relationship_eligible,
+    message_required_today: quietFacts.message_required_today,
+    clock_lookup_failed: quietFacts.clock_lookup_failed,
+    clock_lookup_error: quietFacts.clock_lookup_error,
+    days_since_last_successful_proactive_send:
+      quietFacts.days_since_last_successful_proactive_send,
+    days_since_first_successful_proactive_send:
+      quietFacts.days_since_first_successful_proactive_send,
+    proactive_decision: weeklyCoachingBrief.coaching_direction.proactive_decision,
+  };
+
+  if (isIntentionalSpaceDecision(weeklyCoachingBrief.coaching_direction.proactive_decision)) {
+    const persisted = await persistMorningTtoGeneration({
+      clerkUserId,
+      draftForDayKey: period.draftForDayKey,
+      generationReason: "manual_regenerate",
+      commitmentId,
+      timezone,
+      sendPrefSnapshot,
+      now,
+      sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+      failure: { error: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE },
+      packetMetadata,
+      generationEffectiveAsk: packet.current_goal.text,
+      generationMetadataExtra: {
+        ...weeklyMetaBase,
+        weekly_brief_interpreter_v1: interpreterMeta,
+        morning_coaching_brief_v1: weeklyCoachingBrief,
+        message_for: packet.message_for,
+        weekly_relationship_packet_v1: packet,
+        ...quietMeta,
+        intentional_space: true,
+        error: null,
+      },
+      respectProtectedMorningDraft: true,
+      protectTylerProvenanceOnly: true,
+      ...weeklyPersistForensics(false),
+      notebookVerdictReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
+    });
+
+    if (!persisted.ok) {
+      return { ok: false, reason: persisted.reason, error: persisted.error };
+    }
+
+    return {
+      ok: true,
+      draftForDayKey: period.draftForDayKey,
+      weekKey: period.weekKey,
+      weekStart: period.weekStart,
+      weekEnd: period.weekEnd,
+      timezone,
+      generationId: persisted.generationId,
+      machineShouldSend: false,
+      machineDraftBody: null,
+      machineNoSendReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
+      currentDraftProtected: persisted.currentDraftProtected === true,
+      sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+    };
   }
 
   const writerResult = await writeWeeklyTtoBody({
@@ -297,6 +391,8 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
     morning_coaching_brief_v1: weeklyCoachingBrief,
     message_for: packet.message_for,
     weekly_relationship_packet_v1: packet,
+    ...quietMeta,
+    intentional_space: false,
   };
 
   if (!writerResult.ok) {

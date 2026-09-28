@@ -420,9 +420,9 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(p).toContain(
       "North Star: would this person be glad this text appeared on their phone even if they had absolutely no intention of replying?"
     );
-    expect(p).toContain("This quality bar does not change the send decision.");
-    expect(p).not.toContain("QUIET RELATIONSHIP VALUE");
-    expect(p).not.toContain("proactive_decision = intentional_space");
+    expect(p).toContain("Sunday existing on the calendar is not by itself a reason to send.");
+    expect(p).toContain("QUIET RELATIONSHIP VALUE");
+    expect(p).toContain("proactive_decision = intentional_space");
     expect(p).toContain(
       "a dated historical fact may be a grounded doorway to one new question"
     );
@@ -438,8 +438,9 @@ describe("weekly-tto-brief-interpreter", () => {
       "This law does not freeze ordinary unanswered outcome questions"
     );
     expect(p).toContain("Do not behave as though continue / keep checking in was selected.");
-    expect(p).toContain("coaching_direction.proactive_decision must be send");
-    expect(p).toContain("Weekly does not use intentional_space");
+    expect(p).toContain("intentional_space is valid only when mechanical.quiet_relationship_eligible is true");
+    expect(p).not.toContain("Weekly does not use intentional_space");
+    expect(p).not.toContain("proactive_decision must be send");
     expect(p).toContain("Sunday around noon");
     expect(p).toContain("The current week is nearing its close");
     expect(p).toContain("Monday has not begun");
@@ -523,16 +524,83 @@ describe("weekly-tto-brief-interpreter", () => {
     expect(user).toContain("No SMS body. No should_send.");
   });
 
-  it("Weekly assemble clamps quiet flags off so SPACE cannot survive merge", () => {
+  it("passes real quiet facts through and does not let week evidence force them off", () => {
     const assembled = assembleWeeklyBriefInterpreterInputFromPacket({
-      packet: samplePacket(),
+      packet: samplePacket({
+        weekly_accountability_events: [
+          {
+            event_type: "user_yes",
+            occurred_at: "2026-07-08T16:00:00.000Z",
+            local_day_key: "2026-07-08",
+            source: "sms_v2",
+            user_visible_proof_line: null,
+          },
+        ],
+      }),
       extras: extras(1),
+      quietRelationshipEligible: true,
+      messageRequiredToday: false,
     });
     if ("ok" in assembled) throw new Error("assemble failed");
-    expect(assembled.mechanical.quiet_relationship_eligible).toBe(false);
+    expect(assembled.mechanical.quiet_relationship_eligible).toBe(true);
     expect(assembled.mechanical.message_required_today).toBe(false);
-    expect(WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT).toContain(
-      "coaching_direction.proactive_decision must be send"
-    );
+    expect(assembled.canonical_goal.text.length).toBeGreaterThan(0);
+    expect(assembled.weekly_accountability_events).toHaveLength(1);
+  });
+
+  it("shared clamp keeps intentional_space only when Morning would allow it", async () => {
+    async function decide(args: {
+      quiet: boolean;
+      required: boolean;
+      model: "send" | "intentional_space";
+    }) {
+      const draft = validBrief();
+      draft.coaching_direction.proactive_decision = args.model;
+      const create = vi.fn().mockResolvedValue({
+        choices: [{ message: { content: JSON.stringify(draft) }, finish_reason: "stop" }],
+      });
+      return runWeeklyBriefInterpreterV1({
+        packet: samplePacket(),
+        clerkUserId: "user_1",
+        commitmentId: "cmt_1",
+        client: { chat: { completions: { create } } } as never,
+        quietFacts: {
+          quiet_relationship_eligible: args.quiet,
+          message_required_today: args.required,
+        },
+      });
+    }
+
+    const active = await decide({ quiet: false, required: false, model: "intentional_space" });
+    expect(active.brief.coaching_direction.proactive_decision).toBe("send");
+    expect(active.input?.mechanical.quiet_relationship_eligible).toBe(false);
+
+    const required = await decide({ quiet: true, required: true, model: "intentional_space" });
+    expect(required.brief.coaching_direction.proactive_decision).toBe("send");
+    expect(required.input?.mechanical.message_required_today).toBe(true);
+
+    const space = await decide({ quiet: true, required: false, model: "intentional_space" });
+    expect(space.ok).toBe(true);
+    expect(space.brief.coaching_direction.proactive_decision).toBe("intentional_space");
+    expect(space.input?.mechanical.quiet_relationship_eligible).toBe(true);
+
+    const quietSend = await decide({ quiet: true, required: false, model: "send" });
+    expect(quietSend.brief.coaching_direction.proactive_decision).toBe("send");
+  });
+
+  it("interpreter failure stays send even when quiet facts would allow space", async () => {
+    const create = vi.fn().mockRejectedValue(new Error("down"));
+    const result = await runWeeklyBriefInterpreterV1({
+      packet: samplePacket(),
+      clerkUserId: "user_1",
+      commitmentId: "cmt_1",
+      client: { chat: { completions: { create } } } as never,
+      quietFacts: {
+        quiet_relationship_eligible: true,
+        message_required_today: false,
+      },
+    });
+    expect(result.ok).toBe(false);
+    expect(result.brief.coaching_direction.proactive_decision).toBe("send");
   });
 });

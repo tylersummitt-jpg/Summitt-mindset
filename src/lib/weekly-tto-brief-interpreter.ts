@@ -107,7 +107,7 @@ Current Goal remains canonical state until existing pending/inbound confirmation
 
 Do not behave as though continue / keep checking in was selected. Do not recap or coach the disputed focus as though it was reaffirmed. Do not assign new work on that disputed focus merely because it remains canonical. Prefer goal_role_today.role unresolved or background, goal_alignment unknown or possibly_stale, and action_guidance none unless the exact thread contains an independent reason to continue a live practical thread (a later user turn about that work, a distinct user request, or a separate live operational thread). Keep the unanswered choice in conversation_continuity.open_loop. Do not re-ask the same coaching-focus choice.
 
-This law does not freeze ordinary unanswered outcome questions, ordinary life questions, operational detail questions, or unanswered coaching-method menus. Weekly remains send-only: coaching_direction.proactive_decision must be send. Do not use intentional_space. Reconnect, perspective, support, useful Sunday value, and independent live threads remain legal.
+This law does not freeze ordinary unanswered outcome questions, ordinary life questions, operational detail questions, or unanswered coaching-method menus. Do not create intentional SPACE from this law. When mechanical.quiet_relationship_eligible is not true, proactive_decision remains send. Unresolved focus is semantic context only; existing Quiet Relationship laws still decide SEND vs SPACE when eligible. Reconnect, perspective, support, useful Sunday value, and independent live threads remain legal.
 
 SUNDAY-NOON TEMPORAL POSTURE
 - message_for (local_date, local_weekday, daypart=weekly, timezone, week_start_local_date, week_end_local_date) is the only clock. Ignore generation wall-clock, including Friday/Saturday generation.
@@ -124,12 +124,35 @@ WEEKLY PERSPECTIVE DECISION
 
 QUALITY NORTH STAR
 North Star: would this person be glad this text appeared on their phone even if they had absolutely no intention of replying?
-Use that standard for usefulness, specificity, and pressure. Avoid empty engagement bait. This quality bar does not change the send decision.
+Use that standard for usefulness, specificity, and pressure. Avoid empty engagement bait. Sunday existing on the calendar is not by itself a reason to send. This quality bar does not override mechanical.message_required_today.
+
+QUIET RELATIONSHIP VALUE
+When mechanical.quiet_relationship_eligible is true (member has not replied for at least 10 days, or has never replied despite meaningful outbound history), additional proactive options become available. Quiet eligibility expands the available coaching moves. It does not force a passive posture.
+
+Do not treat elapsed silence alone as evidence that conversation should stop, that the member is disengaged, struggling, avoiding, failing, preferring no questions, or that Current Goal missed. Silence is not automatically disengagement.
+
+Consider the full relationship: prior engagement, whether they historically replied, whether they welcomed accountability, meaningful recent life events, the week tape, known temporary context such as travel/vacation, unresolved real threads, open loops, recent explicit plans, what Coach has already asked, and whether a natural reentry would actually add value.
+
+If the member was previously engaged, there is a meaningful recent life event, a real unresolved conversational thread, or a grounded reason to reopen conversation, normal conversational coaching or one useful reentry question may be the best move. A previously engaged member on a known trip is not the same as someone who has never replied.
+
+If the relationship has become genuinely one-way and repeated questions/check-ins add little value, broaden how Coach serves the person using grounded identity, responsibilities, important relationships, life context, and prior conversation. Prefer giving over asking when the relationship has become one-way. Do not turn prefer-giving into never-ask. Do not manufacture engagement just because Sunday arrived.
+
+Known roles/identity are domains for useful wisdom, not evidence of current circumstances, feelings, problems, or behavior. The week tape, an active goal, a pending question, identity, people, and historical evidence are evidence for whether something useful exists. They are not a mechanical order to send.
+
+North Star: would this person be glad this text appeared on their phone even if they had absolutely no intention of replying?
+
+Standalone value may include principles, perspectives, advice, small challenges, and standards. Do not fabricate quotes, studies, statistics, or attributed sayings. Avoid repeated just-checking-in, how-are-you, thinking-of-you, I'm-here-whenever, no-pressure, generic well-wishes, and generic door-open language. Do not force stale Current Goal discussion.
+
+If there is no genuinely useful grounded message worth adding this Sunday, and the mechanical rules permit space: proactive_decision = intentional_space.
+
+When mechanical.message_required_today is true: intentional_space is unavailable. Choose send and find the best grounded value or conversational move available. Do not mention silence length, cadence, anti-ghost logic, required touch, or internal system decisions.
+
+When mechanical.quiet_relationship_eligible is not true: existing live-relationship laws remain controlling. Continue conversation, answer questions, discuss Current Goal when relevant, challenge appropriately, and ask one useful question when appropriate. Do not convert active coaching into passive inspirational copy. intentional_space is not available.
 
 OUTPUT CONTRACT
 - Never include keys: body, sms_body, message, final_message, reply, should_send.
 - You do not change goals, identity, people, proof, outcomes, or timing.
-- coaching_direction.proactive_decision must be send. Weekly does not use intentional_space.
+- coaching_direction.proactive_decision is send or intentional_space. intentional_space is valid only when mechanical.quiet_relationship_eligible is true, mechanical.message_required_today is not true, and there is no genuinely useful grounded Sunday message. Otherwise proactive_decision is send.
 
 ${buildMorningBriefExactContractPromptAppendix()}`;
 
@@ -183,8 +206,6 @@ function weeklyInputAsMorningMergeView(
     },
     mechanical: {
       ...input.mechanical,
-      quiet_relationship_eligible: false,
-      message_required_today: false,
     },
   };
 }
@@ -203,12 +224,14 @@ function weeklyTapeFieldsFromPacket(packet: WeeklyRelationshipPacket): Pick<
 export function assembleWeeklyBriefInterpreterInputFromPacket(args: {
   packet: WeeklyRelationshipPacket;
   extras: Awaited<ReturnType<typeof loadMorningBriefCanonicalExtrasV1>>;
+  messageRequiredToday?: boolean;
+  quietRelationshipEligible?: boolean;
 }): WeeklyBriefInterpreterInputV1 | { ok: false; error: string } {
   const assembled = assembleMorningBriefInterpreterInputFromPacket({
     packet: weeklyPacketAsMorningAssemblerView(args.packet),
     extras: args.extras,
-    messageRequiredToday: false,
-    quietRelationshipEligible: false,
+    messageRequiredToday: args.messageRequiredToday === true,
+    quietRelationshipEligible: args.quietRelationshipEligible === true,
   });
   if ("ok" in assembled) return assembled;
   return {
@@ -306,11 +329,31 @@ export function buildWeeklyBriefInterpreterMetadataV1(
  * Weekly interpreter. Fail-soft Brief on schema/OpenAI failure (same as Morning).
  * Never returns should_send. Never writes SMS.
  */
+function weeklyMechanicalFromQuietFacts(args: {
+  packet: WeeklyRelationshipPacket;
+  quietFacts?: {
+    quiet_relationship_eligible: boolean;
+    message_required_today: boolean;
+  };
+}) {
+  return {
+    days_since_last_user_response: args.packet.last_user_response.days_since,
+    never_replied: args.packet.last_user_response.never_replied,
+    recent_unanswered_outbound_count: 0,
+    message_required_today: args.quietFacts?.message_required_today === true,
+    quiet_relationship_eligible: args.quietFacts?.quiet_relationship_eligible === true,
+  };
+}
+
 export async function runWeeklyBriefInterpreterV1(args: {
   packet: WeeklyRelationshipPacket;
   clerkUserId: string;
   commitmentId: string;
   client?: OpenAI | null;
+  quietFacts?: {
+    quiet_relationship_eligible: boolean;
+    message_required_today: boolean;
+  };
 }): Promise<WeeklyBriefInterpreterResultV1> {
   let extras;
   try {
@@ -332,13 +375,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
           local_weekday: args.packet.message_for.local_weekday,
           daypart: "morning",
         },
-        mechanical: {
-          days_since_last_user_response: args.packet.last_user_response.days_since,
-          never_replied: args.packet.last_user_response.never_replied,
-          recent_unanswered_outbound_count: 0,
-          message_required_today: false,
-          quiet_relationship_eligible: false,
-        },
+        mechanical: weeklyMechanicalFromQuietFacts(args),
         canonical_goal: { text: args.packet.current_goal.text },
         pending_goal_change: args.packet.hard_state.pending_goal_change,
         available_identity: args.packet.current_identity.text
@@ -382,13 +419,7 @@ export async function runWeeklyBriefInterpreterV1(args: {
         canonical_input: {
           version: "morning_brief_interpreter_input_v1",
           message_for: args.packet.message_for,
-          mechanical: {
-            days_since_last_user_response: args.packet.last_user_response.days_since,
-            never_replied: args.packet.last_user_response.never_replied,
-            recent_unanswered_outbound_count: 0,
-            message_required_today: false,
-            quiet_relationship_eligible: false,
-          },
+          mechanical: weeklyMechanicalFromQuietFacts(args),
           canonical_goal: { text: args.packet.current_goal.text },
           pending_goal_change: args.packet.hard_state.pending_goal_change,
           available_identity: args.packet.current_identity.text
@@ -438,18 +469,14 @@ export async function runWeeklyBriefInterpreterV1(args: {
   const assembled = assembleWeeklyBriefInterpreterInputFromPacket({
     packet: args.packet,
     extras,
+    messageRequiredToday: args.quietFacts?.message_required_today === true,
+    quietRelationshipEligible: args.quietFacts?.quiet_relationship_eligible === true,
   });
   if ("ok" in assembled) {
     const failInput: WeeklyBriefInterpreterInputV1 = {
       version: "morning_brief_interpreter_input_v1",
       message_for: args.packet.message_for,
-      mechanical: {
-        days_since_last_user_response: args.packet.last_user_response.days_since,
-        never_replied: args.packet.last_user_response.never_replied,
-        recent_unanswered_outbound_count: 0,
-        message_required_today: false,
-        quiet_relationship_eligible: false,
-      },
+      mechanical: weeklyMechanicalFromQuietFacts(args),
       canonical_goal: { text: args.packet.current_goal.text },
       pending_goal_change: args.packet.hard_state.pending_goal_change,
       available_identity: args.packet.current_identity.text

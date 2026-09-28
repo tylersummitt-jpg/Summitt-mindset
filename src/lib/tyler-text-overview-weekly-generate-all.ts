@@ -2,11 +2,14 @@
  * Batch Weekly TTO generation — chunked, resumable, missing/incomplete only.
  * Generation only: never sends SMS, never writes send/check events.
  *
- * COMPLETE skip (resume): nonempty current machine body, Tyler protected edit/blank, sent.
- * INCOMPLETE/retryable: OpenAI failure, empty machine body, validator-blocked machine attempt.
+ * COMPLETE skip (resume): nonempty current machine body, Tyler protected edit/blank,
+ * exact machine_no_send_reason intentional_space, or sent.
+ * INCOMPLETE/retryable: OpenAI failure, empty machine body without that reason,
+ * validator-blocked machine attempt.
  */
 
 import { getClerkUser } from "@/lib/clerk-rest";
+import { MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE } from "@/lib/sms-proactive-relationship-touch";
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveSmsUserTimezone } from "@/lib/timezone";
 import { loadSendableTylerTextOverviewAudienceMembers } from "@/lib/tyler-text-overview-admin";
@@ -360,6 +363,12 @@ export async function generateMissingWeeklyDraftsForAllSendableUsers(args?: {
         continue;
       }
       if (result.ok) {
+        if (result.machineNoSendReason === MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE) {
+          generated += 1;
+          weekKeysSeen.add(result.weekKey);
+          draftForDayKeysSeen.add(result.draftForDayKey);
+          continue;
+        }
         const softError = generateAllSoftFailureError({
           body: result.machineDraftBody,
           machineNoSendReason: result.machineNoSendReason,
@@ -643,6 +652,9 @@ export async function generateWeeklyTtoDraftBatch(args?: {
           };
         }
         if (result.currentDraftProtected === true) {
+          return { clerkUserId, member, outcome: { ok: true as const } };
+        }
+        if (result.machineNoSendReason === MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE) {
           return { clerkUserId, member, outcome: { ok: true as const } };
         }
         const softError = generateAllSoftFailureError({

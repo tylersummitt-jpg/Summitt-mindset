@@ -181,12 +181,18 @@ describe("quiet relationship value — prompt law + clamp + writer skip", () => 
     }
   });
 
-  it("Weekly prompt is SEND-only and does not add quiet-relationship complexity", () => {
-    expect(WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT).toContain(
-      "coaching_direction.proactive_decision must be send"
+  it("Weekly prompt uses the same quiet-relationship law as Morning", () => {
+    const p = WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT;
+    expect(p).toContain("QUIET RELATIONSHIP VALUE");
+    expect(p).toContain("proactive_decision = intentional_space");
+    expect(p).toContain(
+      "When mechanical.message_required_today is true: intentional_space is unavailable"
     );
-    expect(WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT).toContain("Weekly does not use intentional_space");
-    expect(WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT).not.toContain("QUIET RELATIONSHIP VALUE");
+    expect(p).toContain("When mechanical.quiet_relationship_eligible is not true");
+    expect(p).toContain("Sunday existing on the calendar is not by itself a reason to send");
+    expect(p).toContain("Prefer giving over asking when the relationship has become one-way");
+    expect(p).not.toContain("Weekly does not use intentional_space");
+    expect(p).not.toContain("proactive_decision must be send");
   });
 
   it("parser missing/invalid proactive_decision defaults to send, never SPACE", () => {
@@ -373,14 +379,19 @@ describe("quiet relationship value — prompt law + clamp + writer skip", () => 
     }
   });
 
-  it("Weekly generate never skips writer for SPACE", () => {
+  it("Weekly generate skips the writer only through the shared intentional_space clamp", () => {
     const weekly = readFileSync(
       path.join(process.cwd(), "src/lib/tyler-text-overview-weekly-generate.ts"),
       "utf8"
     );
-    expect(weekly).not.toContain("isIntentionalSpaceDecision");
-    expect(weekly).not.toContain("MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE");
-    expect(weekly).toContain("writeWeeklyTtoBody");
+    expect(weekly).toContain("resolveQuietRelationshipMechanicalFacts");
+    expect(weekly).toContain("clampProactiveDecision");
+    expect(weekly).toContain("isIntentionalSpaceDecision");
+    expect(weekly).toContain("MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE");
+    expect(weekly.indexOf("isIntentionalSpaceDecision")).toBeLessThan(
+      weekly.indexOf("writeWeeklyTtoBody")
+    );
+    expect(weekly).not.toContain("weekly_accountability_events.length");
   });
 
   it("send path does not read required-touch as an override of Tyler blank or delivery prefs", () => {

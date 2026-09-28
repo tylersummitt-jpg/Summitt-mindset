@@ -294,15 +294,16 @@ describe("unresolved coaching-focus choice — prompt law", () => {
     expect(p).not.toMatch(/\/change your goal\/|regex/i);
   });
 
-  it("Weekly prompt carries the same meaning and stays SEND-only", () => {
+  it("Weekly prompt carries the same unresolved-focus meaning and the shared quiet law", () => {
     const p = WEEKLY_BRIEF_INTERPRETER_SYSTEM_PROMPT;
     expect(p).toContain("UNRESOLVED COACHING-FOCUS CHOICE");
     expect(p).toContain("continue, change, pause, or redefine the current coaching focus");
     expect(p).toContain("preserve the unresolved choice");
     expect(p).toContain("Do not recap or coach the disputed focus as though it was reaffirmed");
-    expect(p).toContain("coaching_direction.proactive_decision must be send");
-    expect(p).toContain("Do not use intentional_space");
+    expect(p).toContain("Do not create intentional SPACE from this law");
+    expect(p).toContain("existing Quiet Relationship laws still decide SEND vs SPACE");
     expect(p).toContain("Reconnect, perspective, support, useful Sunday value");
+    expect(p).not.toContain("Do not use intentional_space");
     expect(p).not.toContain(RACHAEL_FOCUS_CHOICE);
   });
 

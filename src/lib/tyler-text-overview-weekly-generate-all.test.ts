@@ -371,6 +371,53 @@ describe("weekly-generate-all missing_only service", () => {
     expect(result.errors_preview[0]?.error).toBe("openai_429");
   });
 
+  it("counts a real intentional_space generation as generated, not failed", async () => {
+    const generateForUser = vi.fn().mockResolvedValue({
+      ok: true,
+      draftForDayKey: "2026-07-12",
+      weekKey: "2026-W29",
+      weekStart: "2026-07-06",
+      weekEnd: "2026-07-12",
+      timezone: "America/New_York",
+      generationId: "gen-space",
+      machineShouldSend: false,
+      machineDraftBody: null,
+      machineNoSendReason: "intentional_space",
+      sendSlot: "weekly_review",
+    });
+    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
+      now,
+      deps: {
+        loadAudienceRows: async () => [
+          {
+            clerk_user_id: "user_space_new",
+            phone_number: "+15551234567",
+            sms_enabled: true,
+            stopped_at: null,
+            timezone: "America/New_York",
+            summitt_subscribed: true,
+          },
+        ],
+        getClerkUserFn: async () =>
+          ({
+            id: "user_space_new",
+            public_metadata: { timezone: "America/New_York" },
+          }) as never,
+        hasWeeklySendEvent: async () => false,
+        findDraftForWeek: async () => ({
+          draft: null,
+          machineDraftBody: null,
+          machineNoSendReason: null,
+          hasSent: false,
+        }),
+        generateForUser,
+      },
+    });
+    expect(generateForUser).toHaveBeenCalledTimes(1);
+    expect(result.generated).toBe(1);
+    expect(result.failed).toBe(0);
+  });
+
   it("protects Tyler blank current drafts", async () => {
     const generateForUser = vi.fn();
     const result = await generateMissingWeeklyDraftsForAllSendableUsers({
