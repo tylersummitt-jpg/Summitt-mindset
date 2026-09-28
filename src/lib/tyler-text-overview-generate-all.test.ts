@@ -297,6 +297,101 @@ describe("classifyTtoGenerateAllMember", () => {
       })
     ).toBe("failed_or_incomplete");
   });
+
+  it("exact intentional_space is generated_complete when the caller passes it", () => {
+    expect(
+      classifyTtoGenerateAllMember({
+        draft: {
+          clerk_user_id: "u",
+          status: "current",
+          current_generation_id: "g",
+          edited_by_tyler: false,
+          current_body_source: "machine",
+          current_body_to_send: null,
+        },
+        machineDraftBody: null,
+        machineNoSendReason: "intentional_space",
+      })
+    ).toBe("generated_complete");
+  });
+
+  it("non-space reasons and a missing reason stay retryable", () => {
+    const currentBlank = {
+      clerk_user_id: "u",
+      status: "current",
+      current_generation_id: "g",
+      edited_by_tyler: false,
+      current_body_source: "machine",
+      current_body_to_send: null,
+    };
+    for (const machineNoSendReason of [
+      "openai_429",
+      "packet_failed",
+      "weekly_block_validator",
+      "over_max",
+      "not_a_real_reason",
+      " intentional_space",
+      "intentional_space ",
+      "INTENTIONAL_SPACE",
+    ]) {
+      expect(
+        classifyTtoGenerateAllMember({
+          draft: currentBlank,
+          machineDraftBody: null,
+          machineNoSendReason,
+        })
+      ).toBe("failed_or_incomplete");
+    }
+    expect(
+      classifyTtoGenerateAllMember({
+        draft: currentBlank,
+        machineDraftBody: null,
+        machineNoSendReason: null,
+      })
+    ).toBe("failed_or_incomplete");
+  });
+
+  it("omitted reason keeps Morning/Evening null-body rows retryable", () => {
+    expect(
+      classifyTtoGenerateAllMember({
+        draft: {
+          clerk_user_id: "u",
+          status: "current",
+          current_generation_id: "g",
+          edited_by_tyler: false,
+          current_body_source: "machine",
+          current_body_to_send: null,
+        },
+        machineDraftBody: null,
+      })
+    ).toBe("failed_or_incomplete");
+  });
+
+  it("a missing draft stays pending even if a space reason is supplied", () => {
+    expect(
+      classifyTtoGenerateAllMember({
+        draft: null,
+        machineDraftBody: null,
+        machineNoSendReason: "intentional_space",
+      })
+    ).toBe("pending");
+  });
+
+  it("Morning/Evening frozen-audience classification does not pass a no-send reason", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-generate-all.ts"),
+      "utf8"
+    );
+    const frozen = source.slice(
+      source.indexOf("async function loadMachineBodiesByGenerationId"),
+      source.indexOf("export function generateAllSoftFailureError")
+    );
+    expect(frozen).toContain(
+      "classifyTtoGenerateAllMember({ draft, machineDraftBody: body })"
+    );
+    expect(frozen).not.toContain("machineNoSendReason");
+    expect(frozen).toContain('.select("id, machine_draft_body")');
+  });
 });
 
 describe("runPoolWithBudget", () => {

@@ -1,4 +1,5 @@
 import { getDateKeyInTimezone } from "@/lib/timezone";
+import { MORNING_BODY_COMPARISON_INTENTIONAL_SPACE } from "@/lib/tyler-text-overview-dashboard-sections";
 import { TWILIO_SMS_BODY_MAX_CHARS } from "@/lib/sms-transport-max";
 import { resolveTylerTextOverviewWeeklyPeriod } from "@/lib/tyler-text-overview-weekly-period";
 import {
@@ -383,10 +384,44 @@ export function formatEveningEmptyBodyPanelCopy(args: {
   };
 }
 
+/**
+ * Weekly admin representation of a legitimate intentional_space row.
+ * Exact machine_no_send_reason, or the derived authoritative status.
+ * A metadata boolean alone is not enough.
+ */
+export function isWeeklyIntentionalSpaceRepresentation(args: {
+  authoritativeMachineDraftStatus?: string | null;
+  machineNoSendReason?: string | null;
+}): boolean {
+  if (args.authoritativeMachineDraftStatus === "intentional_space") return true;
+  if (args.authoritativeMachineDraftStatus === "available") return false;
+  return args.machineNoSendReason === "intentional_space";
+}
+
+/** Client blank tally only. Intentional space is blank by design, not a missing draft. */
+export function countsAsWeeklyBlankNeedsGeneration(row: {
+  rowState: string;
+  currentBodyToSend?: string | null;
+  authoritativeMachineDraftStatus?: string | null;
+  machineNoSendReason?: string | null;
+}): boolean {
+  if (row.rowState !== "draft_current") return false;
+  if ((row.currentBodyToSend ?? "").trim().length > 0) return false;
+  if (isWeeklyIntentionalSpaceRepresentation(row)) return false;
+  return true;
+}
+
 export function formatWeeklyEmptyBodyPanelCopy(args: {
   machineShouldSend: boolean | null | undefined;
   machineNoSendReason?: string | null;
+  authoritativeMachineDraftStatus?: string | null;
 }): { primary: string; secondary: string | null } {
+  if (isWeeklyIntentionalSpaceRepresentation(args)) {
+    return {
+      primary: MORNING_BODY_COMPARISON_INTENTIONAL_SPACE,
+      secondary: null,
+    };
+  }
   const reason = args.machineNoSendReason?.trim() || null;
   if (args.machineShouldSend === false) {
     return {

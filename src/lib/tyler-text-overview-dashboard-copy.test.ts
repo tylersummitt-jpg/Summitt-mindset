@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { MORNING_BODY_COMPARISON_INTENTIONAL_SPACE } from "@/lib/tyler-text-overview-dashboard-sections";
 import {
   adminCountLabel,
+  countsAsWeeklyBlankNeedsGeneration,
+  formatWeeklyEmptyBodyPanelCopy,
+  isWeeklyIntentionalSpaceRepresentation,
   buildSiblingTylerTextOverviewPageHref,
   eveningGenerateButtonLabel,
   eveningSendButtonLabel,
@@ -1074,5 +1078,108 @@ describe("TTO admin default draft day (slot-aware ET)", () => {
     expect(dashboard).not.toMatch(/setSelectedDayKey\([^)]*resolveEveningTtoInitial/);
     // Manual day change is the only selected-day setter besides initializer.
     expect(dashboard).toContain("setSelectedDayKey(nextDay)");
+  });
+});
+
+describe("weekly intentional space representation", () => {
+  const weeklyDashboard = readFileSync(
+    join(
+      process.cwd(),
+      "src/app/admin/tyler-text-overview/tyler-text-overview-weekly-dashboard.tsx"
+    ),
+    "utf8"
+  );
+
+  it("uses Morning intentional-space copy and does not call a space row Not sendable", () => {
+    const space = formatWeeklyEmptyBodyPanelCopy({
+      machineShouldSend: false,
+      machineNoSendReason: "intentional_space",
+      authoritativeMachineDraftStatus: "intentional_space",
+    });
+    expect(space.primary).toBe(MORNING_BODY_COMPARISON_INTENTIONAL_SPACE);
+    expect(space.primary).toContain("INTENTIONAL SPACE");
+    expect(space.primary).toMatch(/writer skipped/i);
+    expect(space.primary).not.toMatch(/Not sendable/i);
+    expect(space.primary).not.toMatch(/generation failed/i);
+    expect(space.primary).not.toMatch(/needs generation/i);
+    expect(space.secondary).toBeNull();
+  });
+
+  it("still labels ordinary machine no-send as Not sendable", () => {
+    const failed = formatWeeklyEmptyBodyPanelCopy({
+      machineShouldSend: false,
+      machineNoSendReason: "openai_429",
+      authoritativeMachineDraftStatus: "generation_failed",
+    });
+    expect(failed.primary).toBe("Not sendable");
+    expect(failed.secondary).toBe("Reason: openai_429");
+  });
+
+  it("does not treat a metadata-only flag or an unknown reason as intentional space", () => {
+    expect(
+      isWeeklyIntentionalSpaceRepresentation({
+        authoritativeMachineDraftStatus: "generation_failed",
+        machineNoSendReason: "openai_429",
+      })
+    ).toBe(false);
+    expect(
+      formatWeeklyEmptyBodyPanelCopy({
+        machineShouldSend: false,
+        machineNoSendReason: " intentional_space",
+        authoritativeMachineDraftStatus: "generation_failed",
+      }).primary
+    ).toBe("Not sendable");
+  });
+
+  it("excludes intentional space from the blank-needs-generation tally and keeps other blanks", () => {
+    expect(
+      countsAsWeeklyBlankNeedsGeneration({
+        rowState: "draft_current",
+        currentBodyToSend: null,
+        authoritativeMachineDraftStatus: "intentional_space",
+        machineNoSendReason: "intentional_space",
+      })
+    ).toBe(false);
+    expect(
+      countsAsWeeklyBlankNeedsGeneration({
+        rowState: "draft_current",
+        currentBodyToSend: null,
+        authoritativeMachineDraftStatus: "generation_failed",
+        machineNoSendReason: "openai_429",
+      })
+    ).toBe(true);
+    expect(
+      countsAsWeeklyBlankNeedsGeneration({
+        rowState: "draft_current",
+        currentBodyToSend: null,
+        editedByTyler: true,
+        currentBodySource: "tyler_edit",
+        authoritativeMachineDraftStatus: "generation_failed",
+        machineNoSendReason: null,
+      } as never)
+    ).toBe(true);
+    expect(
+      countsAsWeeklyBlankNeedsGeneration({
+        rowState: "no_draft_yet",
+        currentBodyToSend: null,
+      })
+    ).toBe(false);
+  });
+
+  it("keeps the weekly row editable and keeps Tyler override controls", () => {
+    expect(weeklyDashboard).toContain("INTENTIONAL SPACE");
+    expect(weeklyDashboard).toContain("MORNING_BODY_COMPARISON_INTENTIONAL_SPACE");
+    expect(weeklyDashboard).toContain("countsAsWeeklyBlankNeedsGeneration");
+    expect(weeklyDashboard).toContain("No weekly draft yet.");
+    expect(weeklyDashboard).toContain("<textarea");
+    expect(weeklyDashboard).toContain("Save Weekly Text");
+    expect(weeklyDashboard).toContain("machine_should_send");
+    expect(weeklyDashboard).not.toMatch(/disabled=\{[^}]*intentionalSpace/);
+    const editFn = weeklyDashboard.slice(
+      weeklyDashboard.indexOf("function canEditWeeklyDraft"),
+      weeklyDashboard.indexOf("function isWeeklyDraftDirty")
+    );
+    expect(editFn).not.toContain("intentional_space");
+    expect(editFn).toContain('row.rowState === "draft_current"');
   });
 });

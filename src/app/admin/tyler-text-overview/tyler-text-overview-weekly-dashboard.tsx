@@ -4,10 +4,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { MORNING_BODY_COMPARISON_INTENTIONAL_SPACE } from "@/lib/tyler-text-overview-dashboard-sections";
 import {
   adminCountLabel,
+  countsAsWeeklyBlankNeedsGeneration,
   formatWeeklyEmptyBodyPanelCopy,
   formatWeeklyGenerateSuccessToast,
+  isWeeklyIntentionalSpaceRepresentation,
   isWeeklyManualSendEligible,
   isWeeklySendBusy,
   resolveWeeklyTtoInitialSelectedDayKey,
@@ -202,11 +205,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
   }, [load, selectedDayKey, searchQuery]);
 
   const blankBodyCount = useMemo(
-    () =>
-      rows.filter(
-        (r) =>
-          r.rowState === "draft_current" && !(r.currentBodyToSend?.trim() ?? "")
-      ).length,
+    () => rows.filter((r) => countsAsWeeklyBlankNeedsGeneration(r)).length,
     [rows]
   );
 
@@ -703,6 +702,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
               sent && row.finalBodySent?.trim()
                 ? row.finalBodySent
                 : row.currentBodyToSend;
+            const intentionalSpace = isWeeklyIntentionalSpaceRepresentation(row);
             const emptyCopy =
               !(readOnlyBody?.trim() || (row.draftId ? edits[row.draftId]?.trim() : ""))
                 ? row.rowState === "no_draft_yet"
@@ -710,6 +710,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
                   : formatWeeklyEmptyBodyPanelCopy({
                       machineShouldSend: row.machineShouldSend,
                       machineNoSendReason: row.machineNoSendReason,
+                      authoritativeMachineDraftStatus: row.authoritativeMachineDraftStatus,
                     })
                 : null;
             const provenance = buildWeeklyProvenanceExplanationBlocks(row);
@@ -725,6 +726,11 @@ export default function TylerTextOverviewWeeklyDashboard() {
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
                       {rowStateLabel(row.rowState, sendSlot)}
                     </span>
+                    {intentionalSpace ? (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-800">
+                        INTENTIONAL SPACE
+                      </span>
+                    ) : null}
                     {sent ? (
                       <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
                         SENT
@@ -867,6 +873,11 @@ export default function TylerTextOverviewWeeklyDashboard() {
                       )
                     ) : (
                       <>
+                        {intentionalSpace ? (
+                          <p className="mt-1 text-sm font-medium text-gray-800">
+                            {MORNING_BODY_COMPARISON_INTENTIONAL_SPACE}
+                          </p>
+                        ) : null}
                         <textarea
                           className="mt-1 w-full min-h-[96px] rounded border border-gray-300 px-3 py-2 text-sm font-mono"
                           value={edits[row.draftId as string] ?? ""}

@@ -286,6 +286,49 @@ describe("weekly-generate-all missing_only service", () => {
     expect(result.skipped_existing_current).toBe(0);
   });
 
+  it("skips an existing intentional_space row as complete", async () => {
+    const generateForUser = vi.fn();
+    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
+      now,
+      deps: {
+        loadAudienceRows: async () => [
+          {
+            clerk_user_id: "user_space",
+            phone_number: "+15551234567",
+            sms_enabled: true,
+            stopped_at: null,
+            timezone: "America/New_York",
+            summitt_subscribed: true,
+          },
+        ],
+        getClerkUserFn: async () =>
+          ({
+            id: "user_space",
+            public_metadata: { timezone: "America/New_York" },
+          }) as never,
+        hasWeeklySendEvent: async () => false,
+        findDraftForWeek: async () => ({
+          draft: {
+            clerk_user_id: "user_space",
+            status: "current",
+            current_generation_id: "gen-space",
+            edited_by_tyler: false,
+            current_body_source: "machine",
+            current_body_to_send: null,
+          },
+          machineDraftBody: null,
+          machineNoSendReason: "intentional_space",
+          hasSent: false,
+        }),
+        generateForUser,
+      },
+    });
+    expect(generateForUser).not.toHaveBeenCalled();
+    expect(result.generated).toBe(0);
+    expect(result.failed).toBe(0);
+    expect(result.skipped_existing_current).toBe(1);
+  });
+
   it("counts technical no-send (empty machine body) as failed, not generated", async () => {
     const generateForUser = vi.fn().mockResolvedValue({
       ok: true,
@@ -763,6 +806,57 @@ describe("weekly generate-all classification", () => {
         machineDraftBody: null,
       })
     ).toBe("protected_complete");
+  });
+
+  it("treats exact intentional_space as generated_complete and other reasons as retryable", () => {
+    const currentBlank = {
+      clerk_user_id: "u",
+      status: "current" as const,
+      current_generation_id: "g",
+      edited_by_tyler: false,
+      current_body_source: "machine",
+      current_body_to_send: null,
+    };
+    expect(
+      classifyWeeklyGenerateAllMember({
+        draft: currentBlank,
+        machineDraftBody: null,
+        machineNoSendReason: "intentional_space",
+      })
+    ).toBe("generated_complete");
+    for (const machineNoSendReason of [
+      "openai_429",
+      "packet_failed",
+      "weekly_block_validator",
+      "over_max",
+      "unknown_reason",
+      null,
+    ]) {
+      expect(
+        classifyWeeklyGenerateAllMember({
+          draft: currentBlank,
+          machineDraftBody: null,
+          machineNoSendReason,
+        })
+      ).toBe("failed_or_incomplete");
+    }
+    expect(
+      classifyWeeklyGenerateAllMember({
+        draft: null,
+        machineDraftBody: null,
+        machineNoSendReason: null,
+      })
+    ).toBe("pending");
+  });
+
+  it("explicit per-user regenerate does not use Generate Missing classification", () => {
+    const route = readFileSync(
+      join(process.cwd(), "src/app/api/admin/tyler-text-overview/weekly-generate/route.ts"),
+      "utf8"
+    );
+    expect(route).toContain("generateTylerTextOverviewWeeklyDraftForUser");
+    expect(route).not.toContain("classifyWeeklyGenerateAllMember");
+    expect(route).not.toContain("classifyTtoGenerateAllMember");
   });
 
   it("reuses Morning chunk size, concurrency, and budget", () => {

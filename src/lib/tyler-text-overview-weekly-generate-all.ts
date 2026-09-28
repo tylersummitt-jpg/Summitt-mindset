@@ -136,6 +136,7 @@ export async function findWeeklyReviewDraftForWeek(args: {
 }): Promise<{
   draft: WeeklyDraftClassifyRow | null;
   machineDraftBody: string | null;
+  machineNoSendReason: string | null;
   hasSent: boolean;
 }> {
   const { data: draftRows, error: draftError } = await supabaseServer
@@ -153,6 +154,7 @@ export async function findWeeklyReviewDraftForWeek(args: {
 
   let matched: WeeklyDraftClassifyRow | null = null;
   let machineDraftBody: string | null = null;
+  let machineNoSendReason: string | null = null;
   let hasSent = false;
 
   for (const draftRow of draftRows ?? []) {
@@ -164,7 +166,7 @@ export async function findWeeklyReviewDraftForWeek(args: {
 
     const { data: generationRow, error: generationError } = await supabaseServer
       .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-      .select("id, generation_metadata, machine_draft_body")
+      .select("id, generation_metadata, machine_draft_body, machine_no_send_reason")
       .eq("id", generationId)
       .maybeSingle();
 
@@ -196,10 +198,14 @@ export async function findWeeklyReviewDraftForWeek(args: {
         typeof generationRow.machine_draft_body === "string"
           ? generationRow.machine_draft_body
           : null;
+      machineNoSendReason =
+        typeof generationRow.machine_no_send_reason === "string"
+          ? generationRow.machine_no_send_reason
+          : null;
     }
   }
 
-  return { draft: matched, machineDraftBody, hasSent };
+  return { draft: matched, machineDraftBody, machineNoSendReason, hasSent };
 }
 
 export async function findWeeklyReviewDraftStatusesForWeek(args: {
@@ -213,6 +219,7 @@ export async function findWeeklyReviewDraftStatusesForWeek(args: {
 export function classifyWeeklyGenerateAllMember(args: {
   draft: WeeklyDraftClassifyRow | null;
   machineDraftBody: string | null | undefined;
+  machineNoSendReason?: string | null;
   hasWeeklySendEvent?: boolean;
   hasSent?: boolean;
 }): TtoGenerateAllMemberClass {
@@ -220,6 +227,7 @@ export function classifyWeeklyGenerateAllMember(args: {
   return classifyTtoGenerateAllMember({
     draft: args.draft,
     machineDraftBody: args.machineDraftBody,
+    machineNoSendReason: args.machineNoSendReason,
   });
 }
 
@@ -323,6 +331,7 @@ export async function generateMissingWeeklyDraftsForAllSendableUsers(args?: {
       const classification = classifyWeeklyGenerateAllMember({
         draft: found.draft,
         machineDraftBody: found.machineDraftBody,
+        machineNoSendReason: found.machineNoSendReason,
         hasSent: found.hasSent,
       });
       if (classification === "already_sent") {
@@ -495,6 +504,7 @@ async function classifyWeeklyFrozenAudience(args: {
       classifyWeeklyGenerateAllMember({
         draft: found.draft,
         machineDraftBody: found.machineDraftBody,
+        machineNoSendReason: found.machineNoSendReason,
         hasWeeklySendEvent: hasEvent,
         hasSent: found.hasSent,
       })
