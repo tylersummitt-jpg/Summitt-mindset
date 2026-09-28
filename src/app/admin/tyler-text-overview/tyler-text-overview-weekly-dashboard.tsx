@@ -33,6 +33,8 @@ import {
   WEEKLY_TTO_STALE_DRAFT_GUIDANCE,
   formatTtoGenerateAllProgressLine,
   formatWeeklyBulkApplyConfirm,
+  matchesTylerTextOverviewSearchQuery,
+  TTO_FILTERED_ROWS_LABEL,
   WEEKLY_TTO_BULK_APPLY_BUTTON,
   WEEKLY_TTO_BULK_APPLY_HELP,
   WEEKLY_TTO_BULK_APPLY_TITLE,
@@ -165,13 +167,12 @@ export default function TylerTextOverviewWeeklyDashboard() {
     setTimeout(() => setToast(null), 2800);
   }
 
-  const load = useCallback(async (dayKey: string, query: string) => {
+  const load = useCallback(async (dayKey: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       params.set("send_slot", sendSlot);
       if (dayKey) params.set("draft_for_day_key", dayKey);
-      if (query.trim()) params.set("q", query.trim());
       const res = await fetch(`/api/admin/tyler-text-overview?${params.toString()}`);
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -201,12 +202,20 @@ export default function TylerTextOverviewWeeklyDashboard() {
   }, []);
 
   useEffect(() => {
-    load(selectedDayKey, searchQuery);
-  }, [load, selectedDayKey, searchQuery]);
+    load(selectedDayKey);
+  }, [load, selectedDayKey]);
 
   const blankBodyCount = useMemo(
     () => rows.filter((r) => countsAsWeeklyBlankNeedsGeneration(r)).length,
     [rows]
+  );
+
+  const visibleRows = useMemo(
+    () =>
+      searchQuery.trim()
+        ? rows.filter((row) => matchesTylerTextOverviewSearchQuery(row, searchQuery))
+        : rows,
+    [rows, searchQuery]
   );
 
   const navPages = tylerTextOverviewNavPages("weekly");
@@ -270,7 +279,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
           currentDraftProtected: json.current_draft_protected === true,
         })
       );
-      await load(selectedDayKey, searchQuery);
+      await load(selectedDayKey);
     } catch (err) {
       console.error("Failed to generate weekly draft", err);
       showToast("Weekly draft generation failed.");
@@ -341,7 +350,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
           break;
         }
       }
-      await load(selectedDayKey, searchQuery);
+      await load(selectedDayKey);
     } catch (err) {
       console.error("Failed to generate missing weekly drafts", err);
       showToast("Generate missing weekly drafts failed.");
@@ -369,7 +378,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
         return;
       }
       showToast("Weekly text sent.");
-      await load(selectedDayKey, searchQuery);
+      await load(selectedDayKey);
     } catch (err) {
       console.error("Failed to send weekly draft", err);
       showToast("Weekly send failed.");
@@ -404,7 +413,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
         setBulkMessage(json?.error || "Weekly bulk apply failed.");
       }
       if (json?.result) {
-        await load(selectedDayKey, searchQuery);
+        await load(selectedDayKey);
       }
     } catch (err) {
       console.error("Weekly bulk apply failed", err);
@@ -669,13 +678,21 @@ export default function TylerTextOverviewWeeklyDashboard() {
         </dl>
       ) : null}
 
+      {searchQuery.trim() && counts ? (
+        <p className="text-xs text-gray-600">
+          {TTO_FILTERED_ROWS_LABEL}: {visibleRows.length} (search does not change global counts)
+        </p>
+      ) : null}
+
       {loading ? (
         <p className="text-sm text-gray-500">Loading drafts…</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-gray-600">No sendable audience rows.</p>
+      ) : visibleRows.length === 0 ? (
+        <p className="text-sm text-gray-500">No sendable users match this filter.</p>
       ) : (
         <ul className="space-y-8">
-          {rows.map((row) => {
+          {visibleRows.map((row) => {
             const sent = isWeeklyDraftSent(row);
             const editable = canEditWeeklyDraft(row);
             const dirty = editable && isWeeklyDraftDirty(row, edits);
