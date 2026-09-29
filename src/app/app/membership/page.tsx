@@ -11,7 +11,11 @@ import {
 } from "@/lib/legal/account-deletion-public-availability";
 import IosAppleMembershipPanel from "@/components/ios-apple-membership-panel";
 import SignInWithAnotherAccountButton from "@/components/app-sign-in/SignInWithAnotherAccountButton";
-import { APP_SIGN_IN_PATH } from "@/lib/app-sign-in/app-sign-in-constants";
+import {
+  APP_POST_AUTH_PATH,
+  APP_SIGN_IN_PATH,
+} from "@/lib/app-sign-in/app-sign-in-constants";
+import { repairStripeMembershipForUser } from "@/lib/stripe-membership-repair";
 import {
   detectSummittMindsetPlatformRequest,
   isNativeSummittMindsetAppRequest,
@@ -77,6 +81,17 @@ export default async function AppMembershipPage() {
 
   if (isSubscribedFromMetadata(md)) {
     redirect(MEMBER_APP_HOME_PATH);
+  }
+
+  let repaired = false;
+  try {
+    const repair = await repairStripeMembershipForUser(userId);
+    repaired = repair.repaired;
+  } catch {
+    repaired = false;
+  }
+  if (repaired) {
+    redirect(APP_POST_AUTH_PATH);
   }
 
   const platform = await detectSummittMindsetPlatformRequest();

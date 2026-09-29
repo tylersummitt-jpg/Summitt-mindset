@@ -2,10 +2,17 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const currentUserMock = vi.fn();
+const repairMock = vi.fn();
 
 vi.mock("next/navigation", () => ({
-  redirect: vi.fn(),
+  redirect: (url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  },
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+}));
+
+vi.mock("@/lib/stripe-membership-repair", () => ({
+  repairStripeMembershipForUser: (...args: unknown[]) => repairMock(...args),
 }));
 
 vi.mock("next/link", () => ({
@@ -66,14 +73,20 @@ describe("/app/membership existing-member recovery", () => {
   afterEach(() => {
     cleanup();
     currentUserMock.mockReset();
+    repairMock.mockReset();
   });
 
-  it("shows the signed-in email and puts account recovery above Apple", async () => {
+  function unentitledUser() {
     currentUserMock.mockResolvedValue({
       primaryEmailAddressId: "idn_1",
       emailAddresses: [{ id: "idn_1", emailAddress: "member@example.com" }],
       publicMetadata: {},
     });
+    repairMock.mockResolvedValue({ repaired: false, reason: "not_proven" });
+  }
+
+  it("shows the signed-in email and puts account recovery above Apple", async () => {
+    unentitledUser();
 
     render(await AppMembershipPage());
 
@@ -114,6 +127,7 @@ describe("/app/membership existing-member recovery", () => {
   });
 
   it("does not invent an email when Clerk has none", async () => {
+    repairMock.mockResolvedValue({ repaired: false, reason: "not_proven" });
     currentUserMock.mockResolvedValue({
       emailAddresses: [],
       publicMetadata: {},
@@ -123,5 +137,40 @@ describe("/app/membership existing-member recovery", () => {
 
     expect(screen.queryByText("Signed in as:")).toBeNull();
     expect(screen.getByRole("heading", { name: "Already a member?" })).toBeTruthy();
+  });
+
+  it("redirects a successful repair through /post-sign-in", async () => {
+    unentitledUser();
+    repairMock.mockResolvedValue({ repaired: true, reason: "repaired" });
+
+    await expect(AppMembershipPage()).rejects.toThrow(
+      "NEXT_REDIRECT:/post-sign-in"
+    );
+    expect(repairMock).toHaveBeenCalledTimes(1);
+    expect(repairMock).toHaveBeenCalledWith("user_1");
+  });
+
+  it("renders the current recovery screen when repair does not succeed", async () => {
+    unentitledUser();
+
+    render(await AppMembershipPage());
+
+    expect(repairMock).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("heading", { name: "Let's find your membership" })
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Already a member?" })).toBeTruthy();
+    expect(screen.getByText("APPLE_PANEL_MARKER")).toBeTruthy();
+  });
+
+  it("does not repair when Clerk metadata already grants membership", async () => {
+    currentUserMock.mockResolvedValue({
+      publicMetadata: { summittSubscribed: true, summittPlan: "monthly" },
+    });
+
+    await expect(AppMembershipPage()).rejects.toThrow(
+      "NEXT_REDIRECT:/dashboard/victory-room"
+    );
+    expect(repairMock).not.toHaveBeenCalled();
   });
 });
