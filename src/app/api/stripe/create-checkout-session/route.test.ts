@@ -80,6 +80,7 @@ const listCustomersMock = vi.fn();
 const createCustomerMock = vi.fn();
 const createSessionMock = vi.fn();
 const updateCustomerMock = vi.fn();
+const retrieveCustomerMock = vi.fn();
 const listCheckoutSessionsMock = vi.fn();
 const retrieveCheckoutSessionMock = vi.fn();
 
@@ -91,6 +92,7 @@ vi.mock("stripe", () => {
     };
     customers = {
       list: (...args: unknown[]) => listCustomersMock(...args),
+      retrieve: (...args: unknown[]) => retrieveCustomerMock(...args),
       update: (...args: unknown[]) => updateCustomerMock(...args),
       create: (...args: unknown[]) => createCustomerMock(...args),
     };
@@ -195,6 +197,10 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     updateClerkPublicMetadataMock.mockResolvedValue(undefined);
     persistMetaMock.mockResolvedValue(undefined);
     updateCustomerMock.mockResolvedValue({});
+    retrieveCustomerMock.mockImplementation(async (id: string) => ({
+      id,
+      metadata: {},
+    }));
     createCustomerMock.mockResolvedValue({ id: "cus_created" });
     createSessionMock.mockResolvedValue({
       id: "cs_new",
@@ -569,7 +575,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(createSessionMock).not.toHaveBeenCalled();
   });
 
-  it("Path B: legacy Price ID (no metadata) still blocks as already_subscribed", async () => {
+  it("Path B: legacy Price ID without Clerk ownership blocks checkout but does not attach", async () => {
     getClerkPublicMetadataMock.mockResolvedValue({
       stripeCustomerId: "cus_1",
       summittSubscribed: false,
@@ -601,8 +607,12 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
       })
     );
     expect(res.status).toBe(409);
-    expect((await res.json()).error).toBe("already_subscribed");
+    expect(await res.json()).toMatchObject({
+      error: "existing_summitt_subscription",
+    });
     expect(createSessionMock).not.toHaveBeenCalled();
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(updateCustomerMock).not.toHaveBeenCalled();
   });
 
   it("Path B: unrelated Price ID without metadata does not block Checkout", async () => {
@@ -1543,6 +1553,10 @@ describe("POST /api/stripe/create-checkout-session trusted return origin", () =>
     updateClerkPublicMetadataMock.mockResolvedValue(undefined);
     persistMetaMock.mockResolvedValue(undefined);
     updateCustomerMock.mockResolvedValue({});
+    retrieveCustomerMock.mockImplementation(async (id: string) => ({
+      id,
+      metadata: {},
+    }));
     createCustomerMock.mockResolvedValue({ id: "cus_created" });
     createSessionMock.mockResolvedValue({
       id: "cs_new",
@@ -1701,5 +1715,428 @@ describe("POST /api/stripe/create-checkout-session trusted return origin", () =>
     expect(createSessionMock.mock.calls[0][1]).toEqual({
       idempotencyKey: "checkout-subscription-v2:user_1:monthly:coach",
     });
+  });
+});
+
+describe("POST /api/stripe/create-checkout-session ownership", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    assertDeletionMock.mockResolvedValue({ ok: true });
+    process.env.STRIPE_SECRET_KEY = "sk_test_checkout";
+    process.env.STRIPE_PRICE_ID_MONTHLY = "price_1TtRauHP6uKt4BBoupJRggJ2";
+    process.env.STRIPE_PRICE_ID_ANNUAL = "price_1TtRdEHP6uKt4BBo0Ex8Xw8a";
+    process.env.STRIPE_LEGACY_PRICE_IDS =
+      "price_1SzRiNHP6uKt4BBok7FrpmQY,price_1SZY92HP6uKt4BBo9gP2ZMXb";
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+    authMock.mockResolvedValue({ userId: "user_1" });
+    currentUserMock.mockResolvedValue({
+      emailAddresses: [{ emailAddress: "a@example.com" }],
+    });
+    getClerkPublicMetadataMock.mockResolvedValue({});
+    listCustomersMock.mockResolvedValue({ data: [] });
+    listSubsMock.mockResolvedValue({ data: [] });
+    listCheckoutSessionsMock.mockResolvedValue({ data: [], has_more: false });
+    appleLookup.data = [];
+    appleLookup.error = null;
+    updateClerkPublicMetadataMock.mockResolvedValue(undefined);
+    persistMetaMock.mockResolvedValue(undefined);
+    updateCustomerMock.mockResolvedValue({});
+    retrieveCustomerMock.mockImplementation(async (id: string) => ({
+      id,
+      metadata: {},
+    }));
+    createCustomerMock.mockResolvedValue({ id: "cus_created" });
+    createSessionMock.mockResolvedValue({
+      id: "cs_new",
+      status: "open",
+      url: "https://checkout.stripe.test/session",
+      customer: "cus_created",
+    });
+  });
+
+  async function postCheckout(
+    plan = "monthly",
+    headers?: Record<string, string>
+  ) {
+    const { POST } = await import("./route");
+    return POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify({ plan }),
+      })
+    );
+  }
+
+  function summittPriceSub(
+    partial: Record<string, unknown> & { metadata?: Record<string, string> }
+  ) {
+    return makeSub({
+      id: "sub_other",
+      customer: "cus_other",
+      status: "active",
+      metadata: partial.metadata ?? {},
+      items: {
+        data: [
+          {
+            current_period_end: 2_000_000_000,
+            price: {
+              id: "price_1TtRauHP6uKt4BBoupJRggJ2",
+              recurring: { interval: "month" },
+            },
+          },
+        ],
+      },
+      ...partial,
+    });
+  }
+
+  function emailCustomer(metadata: Record<string, string>) {
+    listCustomersMock.mockResolvedValue({
+      data: [
+        {
+          id: "cus_other",
+          email: "a@example.com",
+          metadata,
+        },
+      ],
+    });
+  }
+
+  it("does not grant when the same email has a different Stripe metadata.userId", async () => {
+    emailCustomer({ userId: "user_other" });
+    listSubsMock.mockResolvedValue({
+      data: [
+        summittPriceSub({
+          metadata: { userId: "user_other", plan: "monthly" },
+        }),
+      ],
+    });
+
+    const res = await postCheckout();
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: "existing_summitt_subscription",
+    });
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(updateCustomerMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not attach a recognized Summitt price found only by email", async () => {
+    emailCustomer({});
+    listSubsMock.mockResolvedValue({
+      data: [summittPriceSub({ metadata: {} })],
+    });
+
+    const res = await postCheckout();
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: "existing_summitt_subscription",
+    });
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(updateCustomerMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not attach a Summitt plan owned by a different Clerk user", async () => {
+    emailCustomer({ userId: "user_other" });
+    listSubsMock.mockResolvedValue({
+      data: [
+        makeSub({
+          id: "sub_other",
+          customer: "cus_other",
+          status: "active",
+          metadata: { userId: "user_other", plan: "annual" },
+          items: {
+            data: [
+              {
+                current_period_end: 2_000_000_000,
+                price: {
+                  id: "price_not_summitt",
+                  recurring: { interval: "year" },
+                },
+              },
+            ],
+          },
+        }),
+      ],
+    });
+
+    const res = await postCheckout();
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: "existing_summitt_subscription",
+    });
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(updateCustomerMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not let customer metadata for this user override a different subscription owner", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    retrieveCustomerMock.mockImplementation(async (id: string) => ({
+      id,
+      metadata: { userId: "user_1" },
+    }));
+    listSubsMock.mockResolvedValue({
+      data: [
+        summittPriceSub({
+          id: "sub_foreign",
+          customer: "cus_1",
+          metadata: { userId: "user_other", plan: "monthly" },
+        }),
+      ],
+    });
+
+    const res = await postCheckout();
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("existing_summitt_subscription");
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(updateCustomerMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not overwrite another Clerk user's Stripe customer metadata.userId", async () => {
+    emailCustomer({ userId: "user_other" });
+    retrieveCustomerMock.mockImplementation(async (id: string) => ({
+      id,
+      metadata: { userId: "user_other" },
+    }));
+    listSubsMock.mockResolvedValue({
+      data: [summittPriceSub({ metadata: {} })],
+    });
+
+    const res = await postCheckout();
+
+    expect(res.status).toBe(409);
+    expect(updateCustomerMock).not.toHaveBeenCalled();
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("still blocks and attaches when subscription metadata.userId is the signed-in user", async () => {
+    emailCustomer({});
+    listSubsMock.mockResolvedValue({
+      data: [
+        summittPriceSub({
+          id: "sub_owned",
+          metadata: { userId: "user_1", plan: "monthly" },
+        }),
+      ],
+    });
+
+    const res = await postCheckout();
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("already_subscribed");
+    expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({
+        stripeCustomerId: "cus_other",
+        stripeSubscriptionId: "sub_owned",
+      })
+    );
+    expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith("user_1", {
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
+    expect(updateCustomerMock).toHaveBeenCalledWith("cus_other", {
+      metadata: { userId: "user_1" },
+    });
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("recognizes customer-metadata ownership when the subscription has no userId and is a Summitt product", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    retrieveCustomerMock.mockImplementation(async (id: string) => ({
+      id,
+      metadata: { userId: "user_1" },
+    }));
+    listSubsMock.mockResolvedValue({
+      data: [
+        summittPriceSub({
+          id: "sub_customer_owned",
+          customer: "cus_1",
+          metadata: {},
+        }),
+      ],
+    });
+
+    const res = await postCheckout();
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("already_subscribed");
+    expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({
+        stripeCustomerId: "cus_1",
+        stripeSubscriptionId: "sub_customer_owned",
+      })
+    );
+    expect(updateClerkPublicMetadataMock).toHaveBeenCalledWith("user_1", {
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
+    expect(updateCustomerMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("does not attach a non-Summitt subscription owned only by customer metadata", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    retrieveCustomerMock.mockImplementation(async (id: string) => ({
+      id,
+      metadata: { userId: "user_1" },
+    }));
+    listSubsMock.mockResolvedValue({
+      data: [
+        makeSub({
+          id: "sub_not_summitt",
+          customer: "cus_1",
+          status: "active",
+          metadata: {},
+          items: {
+            data: [
+              {
+                current_period_end: 2_000_000_000,
+                price: {
+                  id: "price_not_summitt",
+                  recurring: { interval: "month" },
+                },
+              },
+            ],
+          },
+        }),
+      ],
+    });
+
+    const res = await postCheckout();
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      url: "https://checkout.stripe.test/session",
+    });
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(updateCustomerMock).not.toHaveBeenCalled();
+    expect(createSessionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer: "cus_1",
+        client_reference_id: "user_1",
+        metadata: { userId: "user_1", plan: "monthly" },
+      }),
+      expect.any(Object)
+    );
+  });
+
+  it("does not grant a stored customer's subscription that belongs to someone else", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    retrieveCustomerMock.mockImplementation(async (id: string) => ({
+      id,
+      metadata: { userId: "user_other" },
+    }));
+    listSubsMock.mockResolvedValue({
+      data: [
+        summittPriceSub({
+          id: "sub_foreign",
+          customer: "cus_1",
+          metadata: { userId: "user_other", plan: "monthly" },
+        }),
+      ],
+    });
+
+    const res = await postCheckout();
+
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe("existing_summitt_subscription");
+    expect(updateClerkPublicMetadataMock).not.toHaveBeenCalled();
+    expect(updateCustomerMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("creates checkout for a new subscriber with no blocking subscription", async () => {
+    const res = await postCheckout();
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      url: "https://checkout.stripe.test/session",
+    });
+    expect(createCustomerMock).toHaveBeenCalledWith(
+      {
+        email: "a@example.com",
+        metadata: { userId: "user_1" },
+      },
+      expect.objectContaining({
+        idempotencyKey: expect.any(String),
+      })
+    );
+    expect(createSessionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer: "cus_created",
+        client_reference_id: "user_1",
+        metadata: { userId: "user_1", plan: "monthly" },
+      }),
+      expect.any(Object)
+    );
+    expect(updateCustomerMock).not.toHaveBeenCalled();
+  });
+
+  it("blocks a second checkout for an owned active or trialing subscription", async () => {
+    for (const status of ["active", "trialing"] as const) {
+      vi.clearAllMocks();
+      assertDeletionMock.mockResolvedValue({ ok: true });
+      updateClerkPublicMetadataMock.mockResolvedValue(undefined);
+      getClerkPublicMetadataMock.mockResolvedValue({
+        stripeCustomerId: "cus_1",
+        stripeSubscriptionId: "sub_1",
+        summittSubscribed: true,
+        summittPlan: "monthly",
+      });
+      retrieveMock.mockResolvedValue(
+        makeSub({
+          status,
+          metadata: { userId: "user_1", plan: "monthly" },
+        })
+      );
+
+      const res = await postCheckout();
+
+      expect(res.status).toBe(409);
+      expect((await res.json()).error).toBe("already_subscribed");
+      expect(createSessionMock).not.toHaveBeenCalled();
+      expect(updateCustomerMock).not.toHaveBeenCalled();
+    }
+  });
+
+  it("rejects a native user-agent before creating a Stripe checkout", async () => {
+    const res = await postCheckout("monthly", {
+      "User-Agent":
+        "Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 SummittMindsetiOS",
+    });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "native_app_checkout_unavailable",
+    });
+    expect(authMock).not.toHaveBeenCalled();
+    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(retrieveMock).not.toHaveBeenCalled();
+    expect(listCustomersMock).not.toHaveBeenCalled();
   });
 });

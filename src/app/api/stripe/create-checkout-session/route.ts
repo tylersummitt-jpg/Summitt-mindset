@@ -62,61 +62,162 @@ function isTruthySubscribed(raw: unknown): boolean {
 }
 
 /**
- * Avoid blocking on unrelated Stripe subscriptions on the same customer/email.
+ * Product identity only. A Summitt plan or recognized price does not prove
+ * that the subscription belongs to the authenticated Clerk user.
  */
-function isLikelySummittSubscription(
-  sub: Stripe.Subscription,
-  clerkUserId: string
-): boolean {
-  const mdUser = sub.metadata?.userId;
-  if (typeof mdUser === "string" && mdUser.trim() === clerkUserId) return true;
-  const mdPlan = sub.metadata?.plan;
-  if (mdPlan === "monthly" || mdPlan === "annual") return true;
-  const pid = sub.items.data[0]?.price?.id;
-  if (typeof pid === "string") {
-    const recognized = getRecognizedSummittPriceIds({
-      monthly: monthlyPriceId,
-      annual: annualPriceId,
-      legacyCsv: process.env.STRIPE_LEGACY_PRICE_IDS,
-    });
-    if (recognized.has(pid)) return true;
-  }
-  return false;
+function isSummittProductSubscription(sub: Stripe.Subscription): boolean {
+  const plan = sub.metadata?.plan;
+  if (plan === "monthly" || plan === "annual") return true;
+  const priceId = sub.items.data[0]?.price?.id;
+  if (typeof priceId !== "string") return false;
+  const recognized = getRecognizedSummittPriceIds({
+    monthly: monthlyPriceId,
+    annual: annualPriceId,
+    legacyCsv: process.env.STRIPE_LEGACY_PRICE_IDS,
+  });
+  return recognized.has(priceId);
 }
 
-type BlockingHit = {
+function readStripeMetadataUserId(
+  metadata: Stripe.Metadata | null | undefined
+): string | null {
+  const value = metadata?.userId;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+type CheckoutOwnership = "owned" | "other" | "unproven";
+
+/**
+ * Clerk user id is the account. Email, plan, and price are not ownership.
+ * Subscription metadata wins. Customer metadata applies only when the
+ * subscription itself has no userId.
+ */
+async function resolveSubscriptionOwnership(args: {
+  stripe: Stripe;
+  sub: Stripe.Subscription;
+  clerkUserId: string;
+  customerId: string;
+  customerCache: Map<string, Stripe.Customer | null>;
+}): Promise<CheckoutOwnership> {
+  const subscriptionUserId = readStripeMetadataUserId(args.sub.metadata);
+  if (subscriptionUserId) {
+    return subscriptionUserId === args.clerkUserId ? "owned" : "other";
+  }
+  const customer = await loadStripeCustomer(
+    args.stripe,
+    args.customerId,
+    args.customerCache
+  );
+  const customerUserId = customer
+    ? readStripeMetadataUserId(customer.metadata)
+    : null;
+  if (!customerUserId) return "unproven";
+  return customerUserId === args.clerkUserId ? "owned" : "other";
+}
+
+async function loadStripeCustomer(
+  stripe: Stripe,
+  customerId: string,
+  cache: Map<string, Stripe.Customer | null>
+): Promise<Stripe.Customer | null> {
+  if (cache.has(customerId)) return cache.get(customerId) ?? null;
+  try {
+    const customer = await stripe.customers.retrieve(customerId);
+    if ("deleted" in customer && customer.deleted) {
+      cache.set(customerId, null);
+      return null;
+    }
+    cache.set(customerId, customer);
+    return customer;
+  } catch (err) {
+    console.warn(
+      "[stripe/create-checkout-session] customer retrieve failed during ownership check",
+      {
+        stripeCustomerId: customerId,
+        message: err instanceof Error ? err.message : String(err),
+      }
+    );
+    cache.set(customerId, null);
+    return null;
+  }
+}
+
+const UNCLAIMED_EXISTING_SUBSCRIPTION_BODY = {
+  error: "existing_summitt_subscription",
+  message:
+    "A Summitt Mindset subscription already exists, so a new checkout was not started.",
+} as const;
+
+type OwnedBlockingHit = {
+  action: "attach";
   subscription: Stripe.Subscription;
   customerId: string;
   source: "clerk_stripe_customer_id" | "stripe_email_lookup";
   classification: SummittMembershipClass;
 };
 
+type CheckoutBlockingDecision =
+  | OwnedBlockingHit
+  | { action: "block_unclaimed" };
+
 /**
- * Find any Summitt-like subscription that should block Checkout
- * (entitled, past_due, or paused_recoverable) for this user email
- * and/or Clerk-linked Stripe customer.
+ * Subscription metadata.userId may attach even when the price is not Summitt.
+ * Customer metadata.userId may attach only when the subscription is also a
+ * Summitt product. Email or stored-customer Summitt products that are not
+ * owned only block a second checkout. They are not attached or granted.
  */
 async function findBlockingSummittSubscription(args: {
   stripe: Stripe;
   clerkUserId: string;
   userEmail: string;
   existingCustomerId: string | null;
-}): Promise<BlockingHit | null> {
+}): Promise<CheckoutBlockingDecision | null> {
   const { stripe, clerkUserId, userEmail, existingCustomerId } = args;
-  const candidates: BlockingHit[] = [];
+  const owned: OwnedBlockingHit[] = [];
   const seenSubIds = new Set<string>();
+  const customerCache = new Map<string, Stripe.Customer | null>();
+  let unclaimedSummittBlock = false;
 
-  const consider = (
+  const consider = async (
     sub: Stripe.Subscription,
     customerId: string,
-    source: BlockingHit["source"]
+    source: OwnedBlockingHit["source"]
   ) => {
+    if (seenSubIds.has(sub.id)) return;
     const classification = classifySummittMembership(sub);
     if (!isCheckoutBlockedMembershipClass(classification)) return;
-    if (!isLikelySummittSubscription(sub, clerkUserId)) return;
-    if (seenSubIds.has(sub.id)) return;
-    seenSubIds.add(sub.id);
-    candidates.push({ subscription: sub, customerId, source, classification });
+    const ownership = await resolveSubscriptionOwnership({
+      stripe,
+      sub,
+      clerkUserId,
+      customerId,
+      customerCache,
+    });
+    if (ownership === "owned") {
+      const provedBySubscriptionUserId =
+        readStripeMetadataUserId(sub.metadata) === clerkUserId;
+      // Customer-metadata fallback is not Summitt membership by itself.
+      if (
+        provedBySubscriptionUserId ||
+        isSummittProductSubscription(sub)
+      ) {
+        seenSubIds.add(sub.id);
+        owned.push({
+          action: "attach",
+          subscription: sub,
+          customerId,
+          source,
+          classification,
+        });
+      }
+      return;
+    }
+    if (isSummittProductSubscription(sub)) {
+      seenSubIds.add(sub.id);
+      unclaimedSummittBlock = true;
+    }
   };
 
   if (existingCustomerId) {
@@ -125,7 +226,7 @@ async function findBlockingSummittSubscription(args: {
       limit: 50,
     });
     for (const sub of list.data) {
-      consider(sub, existingCustomerId, "clerk_stripe_customer_id");
+      await consider(sub, existingCustomerId, "clerk_stripe_customer_id");
     }
   }
 
@@ -136,28 +237,53 @@ async function findBlockingSummittSubscription(args: {
       if (!c.id) continue;
       const list = await stripe.subscriptions.list({ customer: c.id, limit: 50 });
       for (const sub of list.data) {
-        consider(sub, c.id, "stripe_email_lookup");
+        await consider(sub, c.id, "stripe_email_lookup");
       }
     }
   }
 
-  if (candidates.length === 0) return null;
+  if (owned.length > 0) {
+    owned.sort((a, b) => {
+      const rank = (c: SummittMembershipClass) => {
+        if (c === "entitled") return 0;
+        if (c === "past_due_recoverable") return 1;
+        if (c === "paused_recoverable") return 2;
+        return 3;
+      };
+      const r = rank(a.classification) - rank(b.classification);
+      if (r !== 0) return r;
+      const endA = a.subscription.items.data[0]?.current_period_end ?? 0;
+      const endB = b.subscription.items.data[0]?.current_period_end ?? 0;
+      return endB - endA;
+    });
+    return owned[0] ?? null;
+  }
 
-  candidates.sort((a, b) => {
-    const rank = (c: SummittMembershipClass) => {
-      if (c === "entitled") return 0;
-      if (c === "past_due_recoverable") return 1;
-      if (c === "paused_recoverable") return 2;
-      return 3;
-    };
-    const r = rank(a.classification) - rank(b.classification);
-    if (r !== 0) return r;
-    const endA = a.subscription.items.data[0]?.current_period_end ?? 0;
-    const endB = b.subscription.items.data[0]?.current_period_end ?? 0;
-    return endB - endA;
+  if (unclaimedSummittBlock) return { action: "block_unclaimed" };
+  return null;
+}
+
+/**
+ * Repair an empty customer owner only after subscription/customer metadata
+ * already proved this Clerk user owns the customer. Never replace another
+ * Clerk id, including when the customer was discovered by email.
+ */
+async function repairUnassignedCustomerOwner(args: {
+  stripe: Stripe;
+  customerId: string;
+  clerkUserId: string;
+}): Promise<void> {
+  const customer = await loadStripeCustomer(
+    args.stripe,
+    args.customerId,
+    new Map()
+  );
+  if (!customer) return;
+  const existingOwner = readStripeMetadataUserId(customer.metadata);
+  if (existingOwner) return;
+  await args.stripe.customers.update(args.customerId, {
+    metadata: { userId: args.clerkUserId },
   });
-
-  return candidates[0] ?? null;
 }
 
 const OPEN_CHECKOUT_LIST_PAGE_SIZE = 100;
@@ -402,16 +528,42 @@ export async function POST(req: Request) {
         const classification = classifySummittMembership(existingSub);
         const blockBody = checkoutBlockErrorForClass(classification);
         if (blockBody) {
-          console.log(
-            "[stripe/create-checkout-session] blocked: Clerk stripeSubscriptionId classification",
-            {
-              userId,
-              stripeSubscriptionId: existingSub.id,
-              status: existingSub.status,
-              classification,
-            }
-          );
-          return NextResponse.json(blockBody, { status: 409 });
+          const storedCustomerId =
+            typeof existingSub.customer === "string"
+              ? existingSub.customer
+              : existingSub.customer?.id ?? "";
+          const ownership = await resolveSubscriptionOwnership({
+            stripe,
+            sub: existingSub,
+            clerkUserId: userId,
+            customerId: storedCustomerId,
+            customerCache: new Map(),
+          });
+          if (ownership === "owned") {
+            console.log(
+              "[stripe/create-checkout-session] blocked: Clerk stripeSubscriptionId classification",
+              {
+                userId,
+                stripeSubscriptionId: existingSub.id,
+                status: existingSub.status,
+                classification,
+              }
+            );
+            return NextResponse.json(blockBody, { status: 409 });
+          }
+          if (isSummittProductSubscription(existingSub)) {
+            console.warn(
+              "[stripe/create-checkout-session] blocked unclaimed stored subscription; not attached",
+              {
+                userId,
+                stripeSubscriptionId: existingSub.id,
+                ownership,
+              }
+            );
+            return NextResponse.json(UNCLAIMED_EXISTING_SUBSCRIPTION_BODY, {
+              status: 409,
+            });
+          }
         }
       } catch (retrieveErr) {
         const mdSaysActive =
@@ -452,7 +604,17 @@ export async function POST(req: Request) {
       existingCustomerId,
     });
 
-    if (blockingHit) {
+    if (blockingHit?.action === "block_unclaimed") {
+      console.warn(
+        "[stripe/create-checkout-session] blocked unclaimed Summitt subscription; not attached",
+        { userId }
+      );
+      return NextResponse.json(UNCLAIMED_EXISTING_SUBSCRIPTION_BODY, {
+        status: 409,
+      });
+    }
+
+    if (blockingHit?.action === "attach") {
       const sub = blockingHit.subscription;
       const classification = blockingHit.classification;
       const blockBody = checkoutBlockErrorForClass(classification);
@@ -518,8 +680,10 @@ export async function POST(req: Request) {
       }
 
       try {
-        await stripe.customers.update(blockingHit.customerId, {
-          metadata: { userId },
+        await repairUnassignedCustomerOwner({
+          stripe,
+          customerId: blockingHit.customerId,
+          clerkUserId: userId,
         });
       } catch (custErr) {
         console.warn(
@@ -547,11 +711,26 @@ export async function POST(req: Request) {
       legacyCsv: process.env.STRIPE_LEGACY_PRICE_IDS,
     });
 
+    let checkoutCustomerId = existingCustomerId;
+    if (existingCustomerId) {
+      const storedCustomer = await loadStripeCustomer(
+        stripe,
+        existingCustomerId,
+        new Map()
+      );
+      const storedOwner = storedCustomer
+        ? readStripeMetadataUserId(storedCustomer.metadata)
+        : null;
+      if (storedOwner && storedOwner !== userId) {
+        checkoutCustomerId = null;
+      }
+    }
+
     const resolvedCustomerId = await resolveStripeCustomerForCheckout({
       stripe,
       userId,
       userEmail,
-      existingCustomerId,
+      existingCustomerId: checkoutCustomerId,
     });
     if (resolvedCustomerId === "lookup_failed") {
       return new NextResponse("Internal Server Error", { status: 500 });
@@ -718,7 +897,12 @@ export async function POST(req: Request) {
         userEmail,
         existingCustomerId: resolvedCustomerId,
       });
-      if (blockingAgain) {
+      if (blockingAgain?.action === "block_unclaimed") {
+        return NextResponse.json(UNCLAIMED_EXISTING_SUBSCRIPTION_BODY, {
+          status: 409,
+        });
+      }
+      if (blockingAgain?.action === "attach") {
         const blockBody = checkoutBlockErrorForClass(blockingAgain.classification);
         return NextResponse.json(
           blockBody ?? {
