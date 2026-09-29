@@ -46,6 +46,10 @@ import {
   getWeeklyRawNotebookSectionCopy,
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import { notebookFamilyLabel } from "@/lib/tyler-text-overview-notebook-display";
+import {
+  shouldShowTtoBackgroundRefreshing,
+  shouldShowTtoFullPageLoader,
+} from "@/lib/tyler-text-overview-dashboard-refresh";
 import type {
   TylerTextOverviewAdminCounts,
   TylerTextOverviewAdminDraftRow,
@@ -91,11 +95,50 @@ function canEditWeeklyDraft(row: TylerTextOverviewAdminDraftRow): boolean {
   );
 }
 
+function weeklyDraftBody(value: string | null | undefined): string {
+  return value ?? "";
+}
+
 function isWeeklyDraftDirty(row: TylerTextOverviewAdminDraftRow, edits: EditState): boolean {
   if (!row.draftId) return false;
   const edited = edits[row.draftId] ?? "";
   const saved = row.currentBodyToSend ?? "";
   return edited !== saved;
+}
+
+function hasWeeklyUnsavedEdits(
+  rows: TylerTextOverviewAdminDraftRow[],
+  edits: EditState
+): boolean {
+  return rows.some((row) => canEditWeeklyDraft(row) && isWeeklyDraftDirty(row, edits));
+}
+
+function mergeWeeklyEditsFromBaseline(args: {
+  nextRows: TylerTextOverviewAdminDraftRow[];
+  baselineRows: TylerTextOverviewAdminDraftRow[];
+  latestEdits: EditState;
+  forceOverwrite: boolean;
+}): EditState {
+  const baselineById = new Map<string, string>();
+  for (const row of args.baselineRows) {
+    if (!row.draftId) continue;
+    baselineById.set(row.draftId, weeklyDraftBody(row.currentBodyToSend));
+  }
+  const next: EditState = {};
+  for (const row of args.nextRows) {
+    if (!row.draftId) continue;
+    const id = row.draftId;
+    const serverBody = weeklyDraftBody(row.currentBodyToSend);
+    if (!args.forceOverwrite && baselineById.has(id)) {
+      const latestLocal = weeklyDraftBody(args.latestEdits[id]);
+      if (latestLocal !== baselineById.get(id)) {
+        next[id] = latestLocal;
+        continue;
+      }
+    }
+    next[id] = serverBody;
+  }
+  return next;
 }
 
 export default function TylerTextOverviewWeeklyDashboard() {
@@ -127,8 +170,16 @@ export default function TylerTextOverviewWeeklyDashboard() {
   const [bulkApplying, setBulkApplying] = useState(false);
   const [confirmBulkApply, setConfirmBulkApply] = useState(false);
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
+  const [loadedDayKey, setLoadedDayKey] = useState<string | null>(null);
   const loadGenerationRef = useRef(0);
   const loadAbortRef = useRef<AbortController | null>(null);
+  const rowsRef = useRef(rows);
+  const editsRef = useRef(edits);
+  const loadedDayKeyRef = useRef<string | null>(null);
+  const selectedDayKeyRef = useRef(selectedDayKey);
+  rowsRef.current = rows;
+  editsRef.current = edits;
+  selectedDayKeyRef.current = selectedDayKey;
 
   type WeeklyGenerateAllSnapshot = {
     audienceClerkUserIds: string[];
@@ -169,13 +220,27 @@ export default function TylerTextOverviewWeeklyDashboard() {
     setTimeout(() => setToast(null), 2800);
   }
 
-  const load = useCallback(async (dayKey: string) => {
+  const load = useCallback(async (
+    dayKey: string,
+    opts?: { forceOverwrite?: boolean; revertDayKeyOnFailure?: string }
+  ) => {
+    const forceOverwrite = opts?.forceOverwrite === true;
+    const revertDayKeyOnFailure = opts?.revertDayKeyOnFailure;
+    const baselineRows = rowsRef.current;
     const generation = ++loadGenerationRef.current;
     loadAbortRef.current?.abort();
     const abort = new AbortController();
     loadAbortRef.current = abort;
 
     setLoading(true);
+    const failCurrentLoad = (message: string) => {
+      showToast(message);
+      const loaded = loadedDayKeyRef.current;
+      if (revertDayKeyOnFailure && loaded && loaded !== dayKey) {
+        selectedDayKeyRef.current = revertDayKeyOnFailure;
+        setSelectedDayKey(revertDayKeyOnFailure);
+      }
+    };
     try {
       const params = new URLSearchParams();
       params.set("send_slot", sendSlot);
@@ -188,23 +253,24 @@ export default function TylerTextOverviewWeeklyDashboard() {
         return;
       }
       if (!res.ok || !json.ok) {
-        showToast(json.error || "Could not load weekly drafts.");
-        setRows([]);
-        setCounts(null);
-        setAvailableDayKeys([]);
+        failCurrentLoad(json.error || "Could not load weekly drafts.");
         return;
       }
       const nextRows = (json.rows || []) as TylerTextOverviewAdminDraftRow[];
+      const nextEdits = mergeWeeklyEditsFromBaseline({
+        nextRows,
+        baselineRows,
+        latestEdits: editsRef.current,
+        forceOverwrite,
+      });
+      rowsRef.current = nextRows;
+      editsRef.current = nextEdits;
+      loadedDayKeyRef.current = dayKey;
       setRows(nextRows);
+      setEdits(nextEdits);
       setCounts((json.counts as TylerTextOverviewAdminCounts | undefined) ?? null);
       setAvailableDayKeys((json.availableDayKeys || []) as string[]);
-      setEdits(
-        Object.fromEntries(
-          nextRows
-            .filter((row) => row.draftId)
-            .map((row) => [row.draftId as string, row.currentBodyToSend ?? ""])
-        )
-      );
+      setLoadedDayKey(dayKey);
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         return;
@@ -213,7 +279,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
         return;
       }
       console.error("Failed to load Weekly TTO drafts", err);
-      showToast("Could not load weekly drafts.");
+      failCurrentLoad("Could not load weekly drafts.");
     } finally {
       if (generation === loadGenerationRef.current) {
         setLoading(false);
@@ -222,11 +288,28 @@ export default function TylerTextOverviewWeeklyDashboard() {
   }, []);
 
   useEffect(() => {
-    load(selectedDayKey);
+    void load(selectedDayKeyRef.current, { forceOverwrite: true });
     return () => {
       loadAbortRef.current?.abort();
     };
-  }, [load, selectedDayKey]);
+    // Initial Sunday only. A later Sunday loads from requestSundayChange so a failed
+    // switch can restore the selector without fetching again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load]);
+
+  function requestSundayChange(nextDay: string) {
+    if (nextDay === selectedDayKeyRef.current) return;
+    if (hasWeeklyUnsavedEdits(rowsRef.current, editsRef.current)) {
+      const ok = window.confirm(
+        "You have unsaved edits. Change draft day and discard local unsaved changes?"
+      );
+      if (!ok) return;
+    }
+    const previousDayKey = selectedDayKeyRef.current;
+    selectedDayKeyRef.current = nextDay;
+    setSelectedDayKey(nextDay);
+    void load(nextDay, { forceOverwrite: true, revertDayKeyOnFailure: previousDayKey });
+  }
 
   const blankBodyCount = useMemo(
     () => rows.filter((r) => countsAsWeeklyBlankNeedsGeneration(r)).length,
@@ -245,12 +328,14 @@ export default function TylerTextOverviewWeeklyDashboard() {
 
   async function saveDraft(row: TylerTextOverviewAdminDraftRow) {
     if (!row.draftId) return;
-    setSavingDraftId(row.draftId);
+    const draftId = row.draftId;
+    const submitted = weeklyDraftBody(editsRef.current[draftId]);
+    setSavingDraftId(draftId);
     try {
-      const res = await fetch(`/api/admin/tyler-text-overview/${encodeURIComponent(row.draftId)}`, {
+      const res = await fetch(`/api/admin/tyler-text-overview/${encodeURIComponent(draftId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentBodyToSend: edits[row.draftId] ?? "" }),
+        body: JSON.stringify({ currentBodyToSend: submitted }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -258,12 +343,20 @@ export default function TylerTextOverviewWeeklyDashboard() {
         return;
       }
       const updated = json.row as TylerTextOverviewAdminDraftRow;
-      setRows((prev) => prev.map((r) => (r.draftId === updated.draftId ? updated : r)));
+      setRows((prev) => {
+        const next = prev.map((r) => (r.draftId === updated.draftId ? updated : r));
+        rowsRef.current = next;
+        return next;
+      });
       if (updated.draftId) {
-        setEdits((prev) => ({
-          ...prev,
-          [updated.draftId as string]: updated.currentBodyToSend ?? "",
-        }));
+        const latest = weeklyDraftBody(editsRef.current[updated.draftId]);
+        if (latest === submitted) {
+          editsRef.current = {
+            ...editsRef.current,
+            [updated.draftId]: weeklyDraftBody(updated.currentBodyToSend),
+          };
+        }
+        setEdits(editsRef.current);
       }
       showToast("Saved. Draft only — did not send.");
     } catch (err) {
@@ -302,7 +395,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
           currentDraftProtected: json.current_draft_protected === true,
         })
       );
-      await load(selectedDayKey);
+      await load(selectedDayKeyRef.current, { forceOverwrite: false });
     } catch (err) {
       console.error("Failed to generate weekly draft", err);
       showToast("Weekly draft generation failed.");
@@ -373,7 +466,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
           break;
         }
       }
-      await load(selectedDayKey);
+      await load(selectedDayKeyRef.current, { forceOverwrite: false });
     } catch (err) {
       console.error("Failed to generate missing weekly drafts", err);
       showToast("Generate missing weekly drafts failed.");
@@ -401,7 +494,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
         return;
       }
       showToast("Weekly text sent.");
-      await load(selectedDayKey);
+      await load(selectedDayKeyRef.current, { forceOverwrite: false });
     } catch (err) {
       console.error("Failed to send weekly draft", err);
       showToast("Weekly send failed.");
@@ -436,7 +529,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
         setBulkMessage(json?.error || "Weekly bulk apply failed.");
       }
       if (json?.result) {
-        await load(selectedDayKey);
+        await load(selectedDayKeyRef.current, { forceOverwrite: true });
       }
     } catch (err) {
       console.error("Weekly bulk apply failed", err);
@@ -455,6 +548,20 @@ export default function TylerTextOverviewWeeklyDashboard() {
     }
     return keys;
   })();
+
+  const hasCompletedSuccessfulLoad = loadedDayKey !== null;
+  const sundaySwitchPending =
+    loading && hasCompletedSuccessfulLoad && loadedDayKey !== selectedDayKey;
+  const showFullPageLoader =
+    shouldShowTtoFullPageLoader({
+      loading,
+      rowCount: rows.length,
+      hasCompletedSuccessfulLoad,
+    }) || sundaySwitchPending;
+  const backgroundRefreshing = shouldShowTtoBackgroundRefreshing({
+    loading,
+    showFullPageLoader,
+  });
 
   return (
     <div className="space-y-6">
@@ -636,7 +743,7 @@ export default function TylerTextOverviewWeeklyDashboard() {
           <select
             className="mt-1 block rounded border border-gray-300 px-3 py-2 text-sm"
             value={selectedDayKey}
-            onChange={(e) => setSelectedDayKey(e.target.value)}
+            onChange={(e) => requestSundayChange(e.target.value)}
           >
             {dayFilterOptions.map((k) => (
               <option key={k} value={k}>
@@ -707,7 +814,11 @@ export default function TylerTextOverviewWeeklyDashboard() {
         </p>
       ) : null}
 
-      {loading ? (
+      {backgroundRefreshing ? (
+        <p className="text-sm text-gray-500">Refreshing…</p>
+      ) : null}
+
+      {showFullPageLoader ? (
         <p className="text-sm text-gray-500">Loading drafts…</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-gray-600">No sendable audience rows.</p>
@@ -921,12 +1032,11 @@ export default function TylerTextOverviewWeeklyDashboard() {
                         <textarea
                           className="mt-1 w-full min-h-[96px] rounded border border-gray-300 px-3 py-2 text-sm font-mono"
                           value={edits[row.draftId as string] ?? ""}
-                          onChange={(e) =>
-                            setEdits((prev) => ({
-                              ...prev,
-                              [row.draftId as string]: e.target.value,
-                            }))
-                          }
+                          onChange={(e) => {
+                            const draftId = row.draftId as string;
+                            editsRef.current = { ...editsRef.current, [draftId]: e.target.value };
+                            setEdits(editsRef.current);
+                          }}
                         />
                         <p className="mt-1 text-xs text-gray-600">{WEEKLY_TTO_SAVE_ONLY_COPY}</p>
                         <p className="mt-1 text-xs text-gray-600">{WEEKLY_TTO_MANUAL_SEND_NOTE}</p>

@@ -240,7 +240,9 @@ describe("weekly dashboard stale list requests", () => {
     await waitFor(() => expect(listRequests).toHaveLength(3));
 
     resolveList(1, STALE);
-    await screen.findByText("Loading drafts…");
+    await screen.findByText("Refreshing…");
+    expect(screen.queryByText("Loading drafts…")).toBeNull();
+    expect(screen.getByText("Initial Person")).toBeTruthy();
     expect(screen.queryByText("Stale Alpha")).toBeNull();
     expect(sendableCount()).toBe("1");
     expect(screen.queryByRole("option", { name: "1999-01-01" })).toBeNull();
@@ -248,6 +250,7 @@ describe("weekly dashboard stale list requests", () => {
     resolveList(2, CURRENT);
     await screen.findByText("Current Beta");
     expect(screen.queryByText("Loading drafts…")).toBeNull();
+    expect(screen.queryByText("Refreshing…")).toBeNull();
     expect(sendableCount()).toBe("9");
   });
 
@@ -259,9 +262,11 @@ describe("weekly dashboard stale list requests", () => {
     await waitFor(() => expect(listRequests).toHaveLength(2));
     await user.selectOptions(screen.getByRole("combobox"), "2026-07-12");
     await waitFor(() => expect(listRequests).toHaveLength(3));
-    await screen.findByText("Loading drafts…");
+    await screen.findByText("Refreshing…");
+    expect(screen.queryByText("Loading drafts…")).toBeNull();
 
     expect(screen.queryByText("Could not load weekly drafts.")).toBeNull();
+    expect(screen.getByText("Initial Person")).toBeTruthy();
     expect(screen.queryByText("Stale Alpha")).toBeNull();
     expect(sendableCount()).toBe("1");
     expect(consoleError).not.toHaveBeenCalled();

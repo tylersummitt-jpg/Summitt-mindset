@@ -152,6 +152,7 @@ describe("weekly dashboard local search", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("filters loaded Sunday rows locally and keeps unsaved textarea text", async () => {
@@ -207,6 +208,7 @@ describe("weekly dashboard local search", () => {
     expect(screen.getByDisplayValue(pasted)).toBeTruthy();
     expect(screen.getByDisplayValue("Pat server body")).toBeTruthy();
 
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     await user.selectOptions(screen.getByRole("combobox"), "2026-07-05");
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -222,11 +224,12 @@ describe("weekly dashboard search source contract", () => {
   const dashboard = readFileSync(DASHBOARD_PATH, "utf8");
   const apiRoute = readFileSync(API_ROUTE_PATH, "utf8");
 
-  it("does not load or send q when search changes, and still loads on Sunday change", () => {
-    expect(dashboard).toContain("load(selectedDayKey);");
-    expect(dashboard).toContain("}, [load, selectedDayKey]);");
+  it("does not load or send q when search changes, and Sunday change loads explicitly", () => {
+    expect(dashboard).toContain("void load(selectedDayKeyRef.current, { forceOverwrite: true });");
+    expect(dashboard).toContain("void load(nextDay, { forceOverwrite: true, revertDayKeyOnFailure: previousDayKey });");
     expect(dashboard).not.toContain("load(selectedDayKey, searchQuery)");
     expect(dashboard).not.toContain("[load, selectedDayKey, searchQuery]");
+    expect(dashboard).not.toContain("[load, selectedDayKey]");
     expect(dashboard).not.toContain('params.set("q"');
     expect(dashboard).toContain("matchesTylerTextOverviewSearchQuery");
     expect(dashboard).toContain("visibleRows");
@@ -234,12 +237,13 @@ describe("weekly dashboard search source contract", () => {
     expect(dashboard).toContain("{counts[key]}");
     expect(dashboard).toContain("rows.filter((r) => countsAsWeeklyBlankNeedsGeneration(r))");
     expect(dashboard).toContain('onChange={(e) => setSearchQuery(e.target.value)}');
-    expect(dashboard).toContain('onChange={(e) => setSelectedDayKey(e.target.value)}');
-    expect(dashboard).toContain("await load(selectedDayKey);");
+    expect(dashboard).toContain("requestSundayChange(e.target.value)");
+    expect(dashboard).toContain("await load(selectedDayKeyRef.current, { forceOverwrite: false });");
+    expect(dashboard).toContain("hasWeeklyUnsavedEdits(rowsRef.current, editsRef.current)");
 
     const loadEffect = dashboard.slice(
-      dashboard.indexOf("useEffect(() => {\n    load(selectedDayKey);"),
-      dashboard.indexOf("const blankBodyCount")
+      dashboard.indexOf("useEffect(() => {\n    void load(selectedDayKeyRef.current, { forceOverwrite: true });"),
+      dashboard.indexOf("function requestSundayChange")
     );
     expect(loadEffect).not.toContain("searchQuery");
     expect(loadEffect).not.toContain("setEdits");
