@@ -11,6 +11,7 @@ import {
   type NativeToWebAppleIapEvent,
 } from "@/lib/native-apple-iap/bridge";
 import { APPLE_IAP_MONTHLY_PRODUCT_ID } from "@/lib/native-apple-iap/constants";
+import SignInWithAnotherAccountButton from "@/components/app-sign-in/SignInWithAnotherAccountButton";
 import {
   fetchAppleAccountToken,
   postAppleSignedTransaction,
@@ -38,12 +39,12 @@ const USER_MESSAGES: Record<IosAppleMembershipUiState, string> = {
   purchasing: "Confirming with Apple…",
   pending: "This purchase is pending approval. You can return here once it is approved.",
   verifying: "Confirming your membership…",
-  restoring: "Restoring purchases…",
+  restoring: "Looking for your Apple membership…",
   success: "Membership confirmed. Continuing…",
   unavailable:
-    "The App Store membership is unavailable right now. Try again, or email Support@SummittMindset.com.",
+    "Apple membership is unavailable right now. Try again, or email Support@SummittMindset.com.",
   conflict:
-    "This Apple subscription belongs to a different Summitt Mindset account. Sign in with the account that purchased it, or email Support@SummittMindset.com.",
+    "This Apple membership belongs to a different Summitt Mindset account. Sign in with the email you used for that membership, or email Support@SummittMindset.com.",
   error:
     "We couldn't complete this right now. Try again, or email Support@SummittMindset.com.",
 };
@@ -70,6 +71,7 @@ export default function IosAppleMembershipPanel({
     bridge ?? createWebkitAppleIapBridge()
   );
   const [state, setState] = useState<IosAppleMembershipUiState>("waiting_bridge");
+  const [restoreEmpty, setRestoreEmpty] = useState(false);
   const [displayPrice, setDisplayPrice] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("Summitt Mindset membership");
   const displayPriceRef = useRef<string | null>(null);
@@ -88,6 +90,7 @@ export default function IosAppleMembershipPanel({
     state === "success";
 
   const completeMembership = useCallback(async () => {
+    setRestoreEmpty(false);
     setState("success");
     try {
       await user?.reload();
@@ -193,6 +196,7 @@ export default function IosAppleMembershipPanel({
         case "restoreEmpty":
           inFlightRef.current = false;
           userInitiatedRef.current = false;
+          setRestoreEmpty(true);
           setState(displayPriceRef.current ? "ready" : "unavailable");
           break;
       }
@@ -203,6 +207,7 @@ export default function IosAppleMembershipPanel({
 
   async function onPurchase() {
     if (busy || inFlightRef.current || state !== "ready") return;
+    setRestoreEmpty(false);
     inFlightRef.current = true;
     userInitiatedRef.current = true;
     setState("purchasing");
@@ -226,6 +231,7 @@ export default function IosAppleMembershipPanel({
 
   async function onRestore() {
     if (busy || inFlightRef.current) return;
+    setRestoreEmpty(false);
     inFlightRef.current = true;
     userInitiatedRef.current = true;
     setState("restoring");
@@ -244,16 +250,18 @@ export default function IosAppleMembershipPanel({
       className="space-y-6"
       data-app-membership="apple-iap"
       data-apple-iap-state={state}
+      data-apple-restore-empty={restoreEmpty ? "true" : "false"}
       data-testid="apple-iap-panel"
     >
-      <p className="text-base leading-7 text-[var(--muted)]">
-        Your account does not currently have an active Summitt Mindset
-        membership.
-      </p>
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-5 space-y-4">
-        <h2 className="text-lg font-semibold text-[var(--text)]">
-          {displayName}
+      <div className="space-y-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-5">
+        <h2 className="text-xl font-semibold text-[var(--text)]">
+          Need a membership?
         </h2>
+        <p className="text-base leading-7 text-[var(--text)]">
+          This starts a new membership through Apple. You do not need this if
+          you already joined on our website.
+        </p>
+        <p className="text-lg font-semibold text-[var(--text)]">{displayName}</p>
         <p className="text-sm text-[var(--muted)]">Monthly membership</p>
         <p
           className="text-2xl font-semibold tracking-tight text-[var(--text)]"
@@ -262,20 +270,20 @@ export default function IosAppleMembershipPanel({
           {displayPrice ?? "—"}
         </p>
         {statusMessage ? (
-          <p className="text-sm leading-6 text-[var(--muted)]" role="status">
+          <p className="text-base leading-7 text-[var(--text)]" role="status">
             {statusMessage}
           </p>
         ) : (
-          <p className="text-sm leading-6 text-[var(--muted)]">
-            Auto-renewing. Charged to your Apple ID. Cancel anytime in your
-            Apple subscription settings.
+          <p className="text-base leading-7 text-[var(--muted)]">
+            This renews with Apple. You can cancel it in your Apple
+            subscription settings.
           </p>
         )}
         <div>
-          <p className="text-sm font-medium text-[var(--text)]">
+          <p className="text-base font-medium text-[var(--text)]">
             Membership includes:
           </p>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-[var(--muted)]">
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-base leading-7 text-[var(--muted)]">
             <li>Victory Room for your identity, Current Goal, and Wins</li>
             <li>Ask Pat coaching inspired by Pat Summitt’s standards</li>
             <li>Film Room leadership lessons</li>
@@ -285,25 +293,47 @@ export default function IosAppleMembershipPanel({
           type="button"
           onClick={() => void onPurchase()}
           disabled={state !== "ready" || !displayPrice || busy}
-          className="w-full rounded-md bg-[var(--text)] px-4 py-3 font-semibold text-[var(--bg)] disabled:opacity-50"
+          className="w-full rounded-md border border-[var(--border)] px-4 py-3 text-base font-semibold text-[var(--text)] disabled:opacity-50"
           data-testid="apple-iap-subscribe"
         >
           Subscribe with Apple
-        </button>
-        <button
-          type="button"
-          onClick={() => void onRestore()}
-          disabled={busy || state === "waiting_bridge"}
-          className="w-full rounded-md border border-[var(--border)] px-4 py-3 font-medium text-[var(--text)] disabled:opacity-50"
-          data-testid="apple-iap-restore"
-        >
-          Restore Purchases
         </button>
         <div className="flex justify-center gap-4 text-sm underline">
           <Link href="/privacy">Privacy Policy</Link>
           <Link href="/terms">Terms of Use</Link>
         </div>
         <p className="sr-only">{APPLE_IAP_MONTHLY_PRODUCT_ID}</p>
+      </div>
+      <div className="space-y-3 rounded-lg border border-[var(--border)] px-4 py-5">
+        <h2 className="text-xl font-semibold text-[var(--text)]">
+          Bought your membership through Apple before?
+        </h2>
+        <p className="text-base leading-7 text-[var(--text)]">
+          This only looks for a membership you paid for with Apple. It will
+          not find a membership you bought on our website.
+        </p>
+        <button
+          type="button"
+          onClick={() => void onRestore()}
+          disabled={busy || state === "waiting_bridge"}
+          className="w-full rounded-md border border-[var(--border)] px-4 py-3 text-base font-semibold text-[var(--text)] disabled:opacity-50"
+          data-testid="apple-iap-restore"
+        >
+          Find My Apple Membership
+        </button>
+        {restoreEmpty ? (
+          <div className="space-y-3" role="status">
+            <p className="text-base leading-7 text-[var(--text)]">
+              We couldn&apos;t find a Summitt Mindset membership that was paid
+              for through Apple.
+            </p>
+            <p className="text-base leading-7 text-[var(--text)]">
+              If you joined on our website, sign in with the same email you
+              used there.
+            </p>
+            <SignInWithAnotherAccountButton />
+          </div>
+        ) : null}
       </div>
     </section>
   );

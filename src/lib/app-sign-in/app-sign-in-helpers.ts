@@ -31,7 +31,7 @@ export function mapAppAuthError(error: unknown): AppAuthMappedError {
         return {
           kind: "identifier_not_found",
           message:
-            "We could not find an account with that email. You can create a new account instead.",
+            "We couldn't find a Summitt Mindset account with that email.",
         };
       case "form_identifier_exists":
       case "form_email_address_exists":

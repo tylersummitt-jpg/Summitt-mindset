@@ -25,9 +25,6 @@ export const APP_SIGN_IN_SUCCESS_PATH = APP_POST_AUTH_PATH;
 
 export const APP_SIGN_IN_HEADING = "Welcome to Summitt Mindset" as const;
 
-export const APP_SIGN_IN_SUPPORTING_COPY =
-  "Sign in to your existing account or create a new account." as const;
-
 export const APP_SIGN_IN_LEGAL_PREFIX =
   "By continuing, you agree to the" as const;
 

@@ -96,7 +96,8 @@ describe("native membership gate surfaces", () => {
 
   it("/app/membership keeps Android/browser website copy and iOS Apple purchase", () => {
     const page = readSrc("src/app/app/membership/page.tsx");
-    expect(page).toContain("Membership required");
+    expect(page).toContain("Let's find your membership");
+    expect(page).not.toContain("Membership required");
     expect(page).toContain("Memberships are managed on the Summitt Mindset website");
     expect(page).toContain("IosAppleMembershipPanel");
     expect(page).toContain('platform === "ios"');
@@ -114,7 +115,12 @@ describe("native membership gate surfaces", () => {
     expect(page).not.toContain("Membership includes:");
     const panel = readSrc("src/components/ios-apple-membership-panel.tsx");
     expect(panel).toContain("Subscribe with Apple");
-    expect(panel).toContain("Restore Purchases");
+    expect(panel).toContain("Find My Apple Membership");
+    expect(panel).toContain("Bought your membership through Apple before?");
+    expect(panel).toContain('type: "restore"');
+    expect(panel).not.toContain("Restore Apple Membership");
+    expect(panel).not.toContain("Restore Purchases");
+    expect(panel).not.toContain("Apple ID");
     expect(panel).toContain("displayPrice");
     expect(panel).toContain("Membership includes:");
     expect(panel).toContain("Victory Room for your identity, Current Goal, and Wins");

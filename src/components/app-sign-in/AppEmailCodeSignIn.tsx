@@ -9,7 +9,6 @@ import {
   APP_SIGN_IN_HEADING,
   APP_SIGN_IN_LEGAL_MID,
   APP_SIGN_IN_LEGAL_PREFIX,
-  APP_SIGN_IN_SUPPORTING_COPY,
 } from "@/lib/app-sign-in/app-sign-in-constants";
 import {
   findEmailCodeFirstFactor,
@@ -102,6 +101,14 @@ export default function AppEmailCodeSignIn() {
   }
 
   function goToEmailCodeStep() {
+    setStep("email");
+    setCode("");
+    clearPassword();
+    clearFeedback();
+  }
+
+  function tryDifferentSignInEmail() {
+    setEmail("");
     setStep("email");
     setCode("");
     clearPassword();
@@ -339,10 +346,14 @@ export default function AppEmailCodeSignIn() {
         ? "Create account"
         : null;
 
+  const sameWebsiteEmail =
+    "Use the same email you used for Summitt Mindset on the website.";
   const signInSupporting =
-    step === "password"
-      ? "Sign in with your email and password."
-      : "Sign in with your email to continue.";
+    step === "code"
+      ? "Enter the code we sent to your email."
+      : sameWebsiteEmail;
+  const identifierNotFoundRecovery =
+    errorKind === "identifier_not_found" && mode === "sign-in";
 
   return (
     <div
@@ -358,13 +369,24 @@ export default function AppEmailCodeSignIn() {
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl">
           {APP_SIGN_IN_HEADING}
         </h1>
-        <p className="text-base leading-7 text-[var(--muted)]">
-          {mode === "choose"
-            ? APP_SIGN_IN_SUPPORTING_COPY
-            : mode === "sign-in"
+        {mode === "choose" ? (
+          <p className="text-lg font-semibold leading-7 text-[var(--text)]">
+            Already a member? Sign in with the same email you used for Summitt
+            Mindset on the website.
+          </p>
+        ) : (
+          <p
+            className={
+              mode === "sign-in"
+                ? "text-base font-medium leading-7 text-[var(--text)]"
+                : "text-base leading-7 text-[var(--muted)]"
+            }
+          >
+            {mode === "sign-in"
               ? signInSupporting
               : "Create a new account with your email."}
-        </p>
+          </p>
+        )}
         {modeLabel ? (
           <p className="text-sm font-medium text-[var(--text)]">{modeLabel}</p>
         ) : null}
@@ -373,19 +395,33 @@ export default function AppEmailCodeSignIn() {
       <div className="mt-8 space-y-4">
         {error ? (
           <div
-            className="space-y-3 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-800"
+            className="space-y-3 rounded-md border border-red-200 bg-red-50 px-3 py-3 text-base leading-7 text-red-900"
             role="alert"
           >
             <p>{error}</p>
             {errorKind === "identifier_not_found" && mode === "sign-in" ? (
-              <button
-                type="button"
-                disabled={submitting}
-                className={secondaryBtnClass}
-                onClick={() => goToMode("sign-up", true)}
-              >
-                Create account
-              </button>
+              <div className="space-y-3">
+                <p className="text-base leading-7 text-[var(--text)]">
+                  If you already joined on our website, try the email you used
+                  there.
+                </p>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  className={primaryBtnClass}
+                  onClick={tryDifferentSignInEmail}
+                >
+                  Use a different email
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  className={linkBtnClass}
+                  onClick={() => goToMode("sign-up", false)}
+                >
+                  New to Summitt Mindset? Create an account
+                </button>
+              </div>
             ) : null}
             {errorKind === "identifier_exists" && mode === "sign-up" ? (
               <button
@@ -411,15 +447,15 @@ export default function AppEmailCodeSignIn() {
             </button>
             <button
               type="button"
-              className={secondaryBtnClass}
+              className={linkBtnClass}
               onClick={() => goToMode("sign-up", true)}
             >
-              Create account
+              New to Summitt Mindset? Create an account
             </button>
           </div>
         ) : null}
 
-        {mode === "sign-in" && step === "email" ? (
+        {mode === "sign-in" && step === "email" && !identifierNotFoundRecovery ? (
           <form className="space-y-4" onSubmit={handleSignInSendCode} noValidate>
             <label className="block space-y-2">
               <span className="text-sm font-medium text-[var(--text)]">
@@ -469,7 +505,7 @@ export default function AppEmailCodeSignIn() {
           </form>
         ) : null}
 
-        {mode === "sign-in" && step === "password" ? (
+        {mode === "sign-in" && step === "password" && !identifierNotFoundRecovery ? (
           <form
             className="space-y-4"
             onSubmit={handlePasswordSignIn}
@@ -547,16 +583,12 @@ export default function AppEmailCodeSignIn() {
           </form>
         ) : null}
 
-        {mode === "sign-in" && step === "code" ? (
+        {mode === "sign-in" && step === "code" && !identifierNotFoundRecovery ? (
           <form
             className="space-y-4"
             onSubmit={handleSignInVerifyCode}
             noValidate
           >
-            <p className="text-sm leading-6 text-[var(--muted)]">
-              Enter the verification code we sent to your email. Check your spam
-              folder if you do not see it.
-            </p>
             <label className="block space-y-2">
               <span className="text-sm font-medium text-[var(--text)]">
                 Verification code
@@ -630,9 +662,8 @@ export default function AppEmailCodeSignIn() {
               </label>
             ) : (
               <>
-                <p className="text-sm leading-6 text-[var(--muted)]">
-                  Enter the verification code we sent to your email. Check your
-                  spam folder if you do not see it.
+                <p className="text-base font-medium leading-7 text-[var(--text)]">
+                  Enter the code we sent to your email.
                 </p>
                 <label className="block space-y-2">
                   <span className="text-sm font-medium text-[var(--text)]">

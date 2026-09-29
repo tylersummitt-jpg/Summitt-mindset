@@ -7,7 +7,6 @@ import {
   APP_POST_AUTH_PATH,
   APP_SIGN_IN_HEADING,
   APP_SIGN_IN_PATH,
-  APP_SIGN_IN_SUPPORTING_COPY,
 } from "@/lib/app-sign-in/app-sign-in-constants";
 import {
   findEmailCodeFirstFactor,
@@ -49,11 +48,13 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     const page = readSrc("src/app/app/sign-in/page.tsx");
 
     expect(APP_SIGN_IN_HEADING).toBe("Welcome to Summitt Mindset");
-    expect(APP_SIGN_IN_SUPPORTING_COPY).toBe(
+    expect(client).toContain("APP_SIGN_IN_HEADING");
+    expect(client).not.toContain(
       "Sign in to your existing account or create a new account."
     );
-    expect(client).toContain("APP_SIGN_IN_HEADING");
-    expect(client).toContain("APP_SIGN_IN_SUPPORTING_COPY");
+    expect(client).toContain(
+      "Already a member? Sign in with the same email you used for Summitt"
+    );
     expect(client).toMatch(/>\s*Sign in\s*</);
     expect(client).toMatch(/>\s*Create account\s*</);
     expect(client).toContain('data-app-auth-mode={mode}');

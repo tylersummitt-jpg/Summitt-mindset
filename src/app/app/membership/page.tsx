@@ -10,6 +10,7 @@ import {
   ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
 } from "@/lib/legal/account-deletion-public-availability";
 import IosAppleMembershipPanel from "@/components/ios-apple-membership-panel";
+import SignInWithAnotherAccountButton from "@/components/app-sign-in/SignInWithAnotherAccountButton";
 import { APP_SIGN_IN_PATH } from "@/lib/app-sign-in/app-sign-in-constants";
 import {
   detectSummittMindsetPlatformRequest,
@@ -30,6 +31,23 @@ export const metadata: Metadata = {
  * env flags into the client.
  */
 export const dynamic = "force-dynamic";
+
+function signedInEmail(
+  user: {
+    primaryEmailAddressId?: string | null;
+    emailAddresses?: Array<{ id?: string; emailAddress?: string | null }>;
+  } | null
+): string | null {
+  const addresses = user?.emailAddresses;
+  if (!addresses?.length) return null;
+  const primary = addresses.find(
+    (address) => address.id && address.id === user?.primaryEmailAddressId
+  );
+  const raw = (primary ?? addresses[0])?.emailAddress;
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
 
 function isSubscribedFromMetadata(md: Record<string, unknown>): boolean {
   const subscribedRaw = md?.summittSubscribed;
@@ -65,6 +83,7 @@ export default async function AppMembershipPage() {
   const isPaused = isPausedFromPublicMetadata(md);
   const showIosApplePurchase = platform === "ios" && !isPaused;
   const showDangerZone = shouldShowAccountDeletionDangerZone(userId);
+  const email = signedInEmail(user);
 
   return (
     <main
@@ -76,9 +95,32 @@ export default async function AppMembershipPage() {
           Summitt Mindset
         </p>
         <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl">
-          {isPaused ? "Membership paused" : "Membership required"}
+          {isPaused ? "Membership paused" : "Let's find your membership"}
         </h1>
       </header>
+
+      {email ? (
+        <p className="mt-6 text-center text-base leading-7 text-[var(--text)]">
+          Signed in as:
+          <span className="mt-1 block break-all font-semibold">{email}</span>
+        </p>
+      ) : null}
+
+      {!isPaused ? (
+        <section className="mt-8 space-y-3 text-center" aria-labelledby="already-a-member">
+          <h2
+            id="already-a-member"
+            className="text-xl font-semibold text-[var(--text)]"
+          >
+            Already a member?
+          </h2>
+          <p className="text-base leading-7 text-[var(--text)]">
+            Sign in with the same email you used for Summitt Mindset on the
+            website.
+          </p>
+          <SignInWithAnotherAccountButton />
+        </section>
+      ) : null}
 
       <div className="mt-8 space-y-4 text-base leading-7 text-[var(--muted)]">
         {isPaused ? (
@@ -100,6 +142,7 @@ export default async function AppMembershipPage() {
               </Link>
               .
             </p>
+            <SignInWithAnotherAccountButton prominence="quiet" />
           </>
         ) : showIosApplePurchase ? (
           <IosAppleMembershipPanel />

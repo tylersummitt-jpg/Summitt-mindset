@@ -15,6 +15,13 @@ const push = vi.fn();
 
 vi.mock("@clerk/nextjs", () => ({
   useUser: () => ({ user: { reload } }),
+  SignOutButton: ({
+    children,
+    redirectUrl,
+  }: {
+    children: React.ReactNode;
+    redirectUrl?: string;
+  }) => <div data-redirect-url={redirectUrl}>{children}</div>,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -106,11 +113,23 @@ describe("IosAppleMembershipPanel", () => {
       screen.getByText("Ask Pat coaching inspired by Pat Summitt’s standards")
     ).toBeTruthy();
     expect(screen.getByText("Film Room leadership lessons")).toBeTruthy();
-    expect(screen.getByText("Restore Purchases")).toBeTruthy();
+    expect(screen.getByText("Find My Apple Membership")).toBeTruthy();
+    expect(screen.queryByText("Restore Apple Membership")).toBeNull();
+    expect(screen.queryByText(/Apple ID/i)).toBeNull();
+    const subscribe = screen.getByTestId("apple-iap-subscribe");
+    expect(subscribe.className).toContain("border");
+    expect(subscribe.className).not.toContain("bg-[var(--text)]");
+    expect(screen.getByText("Need a membership?")).toBeTruthy();
+    expect(
+      screen.getByText("Bought your membership through Apple before?")
+    ).toBeTruthy();
+    const body = document.body.textContent ?? "";
+    expect(body.indexOf("Need a membership?")).toBeLessThan(
+      body.indexOf("Bought your membership through Apple before?")
+    );
     expect(screen.getByText("Privacy Policy")).toBeTruthy();
     expect(screen.getByText("Terms of Use")).toBeTruthy();
 
-    const body = document.body.textContent ?? "";
     expect(body.indexOf("Membership includes:")).toBeGreaterThan(-1);
     expect(body.indexOf("Membership includes:")).toBeLessThan(
       body.indexOf("Subscribe with Apple")
@@ -390,6 +409,99 @@ describe("IosAppleMembershipPanel", () => {
     expect(bridge.posted.some((c) => c.type === "backendVerified")).toBe(
       false
     );
+  });
+
+  it("explains restoreEmpty instead of returning to a blank ready screen", async () => {
+    const bridge = createMockBridge();
+    render(<IosAppleMembershipPanel bridge={bridge} />);
+    bridge.emit({ type: "bridgeReady" });
+    bridge.emit({
+      type: "products",
+      productId: APPLE_IAP_MONTHLY_PRODUCT_ID,
+      displayName: "Membership",
+      displayPrice: "US$4.99",
+    });
+    await userEvent.click(screen.getByTestId("apple-iap-restore"));
+    expect(bridge.posted).toContainEqual({ type: "restore" });
+    bridge.emit({ type: "restoreEmpty" });
+
+    expect(
+      await screen.findByText(
+        /couldn't find a Summitt Mindset membership that was paid for through Apple/i
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText(/Apple ID/i)).toBeNull();
+    expect(
+      screen.getByText(
+        /If you joined on our website, sign in with the same email you used there/i
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Sign in with another email" })
+    ).toBeTruthy();
+    expect(
+      screen.getByTestId("apple-iap-panel").getAttribute("data-apple-restore-empty")
+    ).toBe("true");
+
+    bridge.emit({
+      type: "products",
+      productId: APPLE_IAP_MONTHLY_PRODUCT_ID,
+      displayName: "Membership",
+      displayPrice: "US$4.99",
+    });
+    expect(
+      screen.getByText(
+        /couldn't find a Summitt Mindset membership that was paid for through Apple/i
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText("Restore Purchases")).toBeNull();
+    expect(screen.queryByText(/Apple ID/i)).toBeNull();
+  });
+
+  it("clears the empty-restore explanation when membership is confirmed", async () => {
+    const bridge = createMockBridge();
+    const verifyTransaction = vi.fn(async () => ({ kind: "verified" as const }));
+    render(
+      <IosAppleMembershipPanel
+        bridge={bridge}
+        verifyTransaction={verifyTransaction}
+      />
+    );
+    bridge.emit({ type: "bridgeReady" });
+    bridge.emit({
+      type: "products",
+      productId: APPLE_IAP_MONTHLY_PRODUCT_ID,
+      displayName: "Membership",
+      displayPrice: "US$4.99",
+    });
+    await userEvent.click(screen.getByTestId("apple-iap-restore"));
+    expect(bridge.posted).toContainEqual({ type: "restore" });
+    bridge.emit({ type: "restoreEmpty" });
+    expect(
+      await screen.findByText(
+        /couldn't find a Summitt Mindset membership that was paid for through Apple/i
+      )
+    ).toBeTruthy();
+
+    bridge.emit({
+      type: "signedTransaction",
+      transactionId: "1001",
+      jws: "aaa.bbb.ccc",
+    });
+
+    expect(await screen.findByText(/Membership confirmed/i)).toBeTruthy();
+    expect(
+      screen.queryByText(
+        /couldn't find a Summitt Mindset membership that was paid for through Apple/i
+      )
+    ).toBeNull();
+    expect(
+      screen.getByTestId("apple-iap-panel").getAttribute("data-apple-restore-empty")
+    ).toBe("false");
+    expect(bridge.posted).toContainEqual({
+      type: "backendVerified",
+      transactionId: "1001",
+    });
   });
 
   it("restore posts the native restore command", async () => {

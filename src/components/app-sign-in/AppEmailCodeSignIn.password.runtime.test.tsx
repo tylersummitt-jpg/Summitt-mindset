@@ -109,7 +109,11 @@ describe("AppEmailCodeSignIn optional password factor", () => {
   it("does not offer password mode on Create account", async () => {
     const user = userEvent.setup();
     render(<AppEmailCodeSignIn />);
-    await user.click(screen.getByRole("button", { name: "Create account" }));
+    await user.click(
+      screen.getByRole("button", {
+        name: "New to Summitt Mindset? Create an account",
+      })
+    );
 
     expect(
       screen.getByRole("button", { name: "Send verification code" })
@@ -324,7 +328,11 @@ describe("AppEmailCodeSignIn optional password factor", () => {
     });
 
     render(<AppEmailCodeSignIn />);
-    await user.click(screen.getByRole("button", { name: "Create account" }));
+    await user.click(
+      screen.getByRole("button", {
+        name: "New to Summitt Mindset? Create an account",
+      })
+    );
     await user.type(screen.getByLabelText(/^Email$/i), "new@example.com");
     await user.click(
       screen.getByRole("button", { name: "Send verification code" })
