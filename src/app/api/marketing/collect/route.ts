@@ -6,6 +6,7 @@ import {
   isClientCollectEventType,
   readMarketingCookiesFromRequest,
 } from "@/lib/marketing-collect";
+import { isHomepageVideoEventType, parseVimeoVideoId } from "@/lib/homepage-video";
 import {
   allowlistedCtaSurface,
   isMarketingPageViewPath,
@@ -53,6 +54,19 @@ export async function POST(req: NextRequest) {
       if (!path || !isMarketingPageViewPath(path)) {
         return collectFailOpenResponse();
       }
+    }
+
+    if (isHomepageVideoEventType(eventType)) {
+      const vimeoVideoId = parseVimeoVideoId(rec.vimeo_video_id);
+      if (!vimeoVideoId) return collectFailOpenResponse();
+      await insertMarketingEventFailOpen({
+        event_type: eventType,
+        visitor_id: cookies.visitorId,
+        path: path || null,
+        attribution: cookies.attribution,
+        metadata: { vimeo_video_id: vimeoVideoId },
+      });
+      return collectFailOpenResponse();
     }
 
     const metadata =

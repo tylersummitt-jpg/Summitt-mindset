@@ -15,6 +15,10 @@ import {
   SM_VISITOR_COOKIE,
   type AcquisitionCookiePayload,
 } from "@/lib/marketing-attribution-pure";
+import {
+  isHomepageVideoEventType,
+  parseVimeoVideoId,
+} from "@/lib/homepage-video";
 import { supabaseServer } from "@/lib/supabase-server";
 
 const CTA_METADATA_KEYS = new Set(["cta_surface"]);
@@ -32,6 +36,10 @@ export const MARKETING_EVENT_TYPES = [
   "sms_consent_completed",
   "setup_completed",
   "first_reply_received",
+  "homepage_video_reached",
+  "homepage_video_started",
+  "homepage_video_50",
+  "homepage_video_completed",
 ] as const;
 
 export type MarketingEventType = (typeof MARKETING_EVENT_TYPES)[number];
@@ -39,6 +47,10 @@ export type MarketingEventType = (typeof MARKETING_EVENT_TYPES)[number];
 export const CLIENT_COLLECT_EVENT_TYPES = [
   "page_viewed",
   "trial_cta_clicked",
+  "homepage_video_reached",
+  "homepage_video_started",
+  "homepage_video_50",
+  "homepage_video_completed",
 ] as const;
 
 export type ClientCollectEventType = (typeof CLIENT_COLLECT_EVENT_TYPES)[number];
@@ -57,12 +69,18 @@ export type MarketingEventInsert = {
   clerk_user_id?: string | null;
   path?: string | null;
   attribution: AcquisitionCookiePayload;
-  metadata?: { cta_surface?: string } | null;
+  metadata?: { cta_surface?: string; vimeo_video_id?: string } | null;
 };
 
 function sanitizeMetadata(
-  raw: { cta_surface?: string } | null | undefined
-): { cta_surface: string } | null {
+  eventType: MarketingEventType,
+  raw: { cta_surface?: string; vimeo_video_id?: string } | null | undefined
+): { cta_surface?: string; vimeo_video_id?: string } | null {
+  if (isHomepageVideoEventType(eventType)) {
+    const id = parseVimeoVideoId(raw?.vimeo_video_id);
+    if (!id) return null;
+    return { vimeo_video_id: id };
+  }
   if (!raw || typeof raw.cta_surface !== "string") return null;
   const surface = raw.cta_surface.trim().slice(0, 40);
   if (!surface) return null;
@@ -73,8 +91,16 @@ export async function insertMarketingEventFailOpen(
   row: MarketingEventInsert
 ): Promise<"ok" | "failed"> {
   try {
-    const metadata = sanitizeMetadata(row.metadata);
-    if (row.metadata && Object.keys(row.metadata).some((k) => !CTA_METADATA_KEYS.has(k))) {
+    const metadata = sanitizeMetadata(row.event_type, row.metadata);
+    if (isHomepageVideoEventType(row.event_type) && !metadata?.vimeo_video_id) {
+      return "ok";
+    }
+    if (
+      row.metadata &&
+      Object.keys(row.metadata).some(
+        (key) => !CTA_METADATA_KEYS.has(key) && key !== "vimeo_video_id"
+      )
+    ) {
       // extra keys dropped — never persist unknown metadata
     }
     const { error } = await supabaseServer.from("marketing_events").insert({

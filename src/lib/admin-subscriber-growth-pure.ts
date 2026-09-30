@@ -3,6 +3,7 @@
  * Unknown metrics stay `null` and must render as "—", never a guessed 0.
  */
 
+import type { HomepageVideoReport } from "@/lib/admin-homepage-video";
 import { attributionMatchesDashboardSource } from "@/lib/marketing-attribution-pure";
 import { hasPauseCollection } from "@/lib/summitt-subscription-membership";
 import { getDateKeyInTimezone, utcInstantForLocalMidnight } from "@/lib/timezone";
@@ -1701,6 +1702,7 @@ export type SubscriberGrowthDashboardData = {
   recentActivityPaymentFailedIncluded: boolean;
   trialOnboardingFunnel: TrialOnboardingFunnelCounts;
   visitorCohortTable: VisitorCohortTable;
+  homepageVideo: HomepageVideoReport;
 };
 
 export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {

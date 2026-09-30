@@ -157,6 +157,94 @@ describe("POST /api/marketing/collect", () => {
     expect(insertMock).not.toHaveBeenCalled();
   });
 
+  it("accepts homepage video milestones only with a 6 to 20 digit Vimeo id", async () => {
+    for (const eventType of [
+      "homepage_video_reached",
+      "homepage_video_started",
+      "homepage_video_50",
+      "homepage_video_completed",
+    ]) {
+      insertMock.mockClear();
+      const res = await POST(
+        req({
+          event_type: eventType,
+          path: "/",
+          vimeo_video_id: " 1234567890 ",
+          email: "hidden@example.com",
+          cta_surface: "hero",
+        })
+      );
+      expect(res.status).toBe(204);
+      expect(insertMock).toHaveBeenCalledTimes(1);
+      expect(insertMock.mock.calls[0][0].metadata).toEqual({
+        vimeo_video_id: "1234567890",
+      });
+      expect(JSON.stringify(insertMock.mock.calls[0][0])).not.toMatch(/hidden@example.com/);
+    }
+  });
+
+  it("fail-opens without inserting an invalid or unknown video event", async () => {
+    for (const vimeoVideoId of [
+      "https://vimeo.com/1234567890",
+      "abc123456",
+      "",
+      "   ",
+      "12345",
+      "123456789012345678901",
+    ]) {
+      insertMock.mockClear();
+      const res = await POST(
+        req({
+          event_type: "homepage_video_reached",
+          path: "/",
+          vimeo_video_id: vimeoVideoId,
+        })
+      );
+      expect(res.status).toBe(204);
+      expect(insertMock).not.toHaveBeenCalled();
+    }
+    const unknown = await POST(
+      req({ event_type: "homepage_video_25", path: "/", vimeo_video_id: "123456" })
+    );
+    expect(unknown.status).toBe(204);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts the homepage_video CTA surface and still stores other allowlisted surfaces", async () => {
+    const video = await POST(
+      req({ event_type: "trial_cta_clicked", path: "/", cta_surface: "homepage_video" })
+    );
+    expect(video.status).toBe(204);
+    expect(insertMock.mock.calls[0][0].metadata).toEqual({ cta_surface: "homepage_video" });
+
+    insertMock.mockClear();
+    const hero = await POST(
+      req({ event_type: "trial_cta_clicked", path: "/", cta_surface: "hero" })
+    );
+    expect(hero.status).toBe(204);
+    expect(insertMock.mock.calls[0][0].metadata).toEqual({ cta_surface: "hero" });
+
+    insertMock.mockClear();
+    const unknown = await POST(
+      req({ event_type: "trial_cta_clicked", path: "/", cta_surface: "not_a_surface" })
+    );
+    expect(unknown.status).toBe(204);
+    expect(insertMock.mock.calls[0][0].metadata).toBeNull();
+  });
+
+  it("does not insert a homepage video event for the native app", async () => {
+    nativeMock.mockReturnValueOnce(true);
+    const res = await POST(
+      req({
+        event_type: "homepage_video_started",
+        path: "/",
+        vimeo_video_id: "1234567890",
+      })
+    );
+    expect(res.status).toBe(204);
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
   it("rejects server-authoritative event types from the public collect route", async () => {
     for (const eventType of SERVER_AUTHORITATIVE_EVENT_TYPES) {
       insertMock.mockClear();
@@ -169,7 +257,14 @@ describe("POST /api/marketing/collect", () => {
 
 describe("internal marketing event types", () => {
   it("accepts existing client events plus future server milestones internally", () => {
-    expect(CLIENT_COLLECT_EVENT_TYPES).toEqual(["page_viewed", "trial_cta_clicked"]);
+    expect(CLIENT_COLLECT_EVENT_TYPES).toEqual([
+      "page_viewed",
+      "trial_cta_clicked",
+      "homepage_video_reached",
+      "homepage_video_started",
+      "homepage_video_50",
+      "homepage_video_completed",
+    ]);
     expect(MARKETING_EVENT_TYPES).toEqual([
       "page_viewed",
       "trial_cta_clicked",
@@ -183,6 +278,10 @@ describe("internal marketing event types", () => {
       "sms_consent_completed",
       "setup_completed",
       "first_reply_received",
+      "homepage_video_reached",
+      "homepage_video_started",
+      "homepage_video_50",
+      "homepage_video_completed",
     ]);
     expect(SERVER_AUTHORITATIVE_EVENT_TYPES).toHaveLength(10);
   });

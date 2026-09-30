@@ -577,6 +577,70 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
   },
 ];
 
+function HomepageVideoSection({
+  report,
+}: {
+  report: SubscriberGrowthDashboardData["homepageVideo"];
+}) {
+  const playback = [
+    ["Reached", report.reached, "Browsers whose video shell was half in view."],
+    ["Started", report.started, "Those who pressed play on that same video."],
+    ["Start rate", report.startRate, "Started divided by reached."],
+    ["Watched 50%", report.watched50, "Those who actually played at least half."],
+    ["50% rate", report.watched50Rate, "Watched 50% divided by reached."],
+    ["Completed", report.completed, "Ended after playing at least 90%."],
+    ["Completion rate", report.completionRate, "Completed divided by reached."],
+  ] as const;
+  const after = [
+    ["Video CTA after 50%", report.videoCtaAfter50, "Clicked the button under the video at or after the halfway point."],
+    ["Video CTA rate", report.videoCtaRate, "Video CTA divided by watched 50%."],
+    ["Any CTA after 50%", report.anyCtaAfter50, "Any trial button at or after halfway. A click before halfway does not count."],
+    ["Any CTA rate", report.anyCtaRate, "Any CTA divided by watched 50%."],
+    ["Stripe trials after 50%", report.stripeTrialsAfter50, "Distinct Stripe trials linked to that browser, starting at or after halfway. Apple is not included."],
+    ["Trial rate", report.trialRate, "Stripe trials after 50% divided by watched 50%."],
+    ["Stripe paid after 50%", report.stripePaidAfter50, "Distinct Stripe paid starts at or after halfway. Apple is not included."],
+    ["Paid rate", report.paidRate, "Stripe paid after 50% divided by watched 50%."],
+  ] as const;
+
+  function metricValue(label: string, value: number | null) {
+    return label.endsWith("rate") || label.endsWith("Rate") || label.includes(" rate")
+      ? formatUnknownablePercent(value)
+      : formatUnknownableCount(value);
+  }
+
+  return (
+    <section>
+      <p className="mb-1.5 text-sm font-semibold text-gray-900">Homepage Video</p>
+      <p className="mb-1.5 text-[10px] leading-snug text-gray-500">
+        Reached is the entry group for the selected dates and source. Starts,
+        halfway watches, finishes, button clicks, Stripe trials, and Stripe
+        payments can happen after that date range and still count. Rates stay{" "}
+        {UNKNOWN_METRIC} when the denominator is zero or the data is incomplete.
+      </p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        {playback.map(([label, value, scope]) => (
+          <MetricCard
+            key={label}
+            label={label}
+            value={metricValue(label, value)}
+            scope={scope}
+          />
+        ))}
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {after.map(([label, value, scope]) => (
+          <MetricCard
+            key={label}
+            label={label}
+            value={metricValue(label, value)}
+            scope={scope}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function SubscriberGrowthDashboard({
   data,
 }: {
@@ -936,6 +1000,8 @@ export default function SubscriberGrowthDashboard({
           ))}
         </div>
       </section>
+
+      <HomepageVideoSection report={data.homepageVideo} />
 
       <section>
         <p className="mb-1.5 text-sm font-semibold text-gray-900">

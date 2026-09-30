@@ -122,9 +122,12 @@ export default function PrivacyPage() {
             </strong>
             — on the normal Summitt Mindset website (browser), we may use Meta
             Pixel and related tools to measure page views, selected marketing
-            interactions, and advertising performance. See section 5. Meta Pixel
-            is not loaded in the Summitt Mindset iOS app or the Summitt Mindset
-            Android app.
+            interactions, and advertising performance. Related first-party
+            measurement may also record, using the existing visitor cookie and
+            without name, email, or phone number, whether a browser reached,
+            started, watched half of, or finished the homepage explainer video.
+            See sections 5 and 6. Meta Pixel is not loaded in the Summitt Mindset
+            iOS app or the Summitt Mindset Android app.
           </li>
         </ul>
       </section>
@@ -215,8 +218,8 @@ export default function PrivacyPage() {
             or the Summitt Mindset Android app.
           </li>
           <li>
-            Vimeo — embedded video playback for Film Room and related lessons
-            (see section 6)
+            Vimeo — embedded video playback for Film Room, related lessons, and
+            the public homepage explainer (see section 6)
           </li>
         </ul>
         <p className="text-base leading-7 text-[var(--muted)]">
@@ -243,7 +246,10 @@ export default function PrivacyPage() {
           Meta Pixel (a technology provided by Meta Platforms, Inc.) when it is
           configured for our site. We use it to help measure website usage,
           understand marketing performance, evaluate selected marketing funnel
-          actions, and improve advertising effectiveness.
+          actions, and improve advertising effectiveness. Separate first-party
+          measurement on that website may record whether a browser reached,
+          started, watched half of, or finished the homepage explainer, using
+          the existing visitor cookie and without name, email, or phone number.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
           When Meta Pixel runs, Meta may receive browser, device, and interaction
@@ -285,12 +291,17 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">6. Embedded video (Vimeo)</h2>
         <p className="text-base leading-7 text-[var(--muted)]">
-          Summitt Mindset embeds Vimeo videos for Film Room and related lessons.
-          When an embedded Vimeo player loads, Vimeo may receive technical and
-          device information, page or referrer context, video identifiers,
-          cookies or similar identifiers, and playback or interaction
-          information. We use this sharing to provide and operate embedded video
-          playback.
+          Summitt Mindset embeds Vimeo videos for Film Room, related lessons, and
+          the public homepage explainer. When an embedded Vimeo player loads,
+          Vimeo may receive technical and device information, page or referrer
+          context, video identifiers, cookies or similar identifiers, and
+          playback or interaction information. We use this sharing to provide
+          and operate embedded video playback. The homepage player requests
+          Vimeo’s Do Not Track option. First-party site analytics may record
+          whether that browser reached the player, started playback, watched
+          half, or finished, using the existing visitor cookie. We do not put
+          name, email, phone, or Clerk user IDs into the homepage Vimeo player.
+          Do Not Track does not mean Vimeo performs zero logging.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
           Summitt Mindset does not place journals, Ask Pat conversations, goals,

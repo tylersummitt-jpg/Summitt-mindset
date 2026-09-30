@@ -57,6 +57,14 @@ import {
   type TrialOnboardingInboundRow,
   type VisitorCohortTable,
 } from "@/lib/admin-subscriber-growth-pure";
+import {
+  computeHomepageVideoReport,
+  emptyHomepageVideoReport,
+  loadHomepageVideoCohortEvents,
+  type HomepageVideoEventInput,
+  type HomepageVideoScopedQuery,
+} from "@/lib/admin-homepage-video";
+import { HOMEPAGE_VIDEO_EVENT_TYPES } from "@/lib/homepage-video";
 import { attributionMatchesDashboardSource } from "@/lib/marketing-attribution-pure";
 import { isLikelySmsComplianceOrOptOutTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
 import { isAppleRowCurrentlyGranting } from "@/lib/summitt-membership-entitlement";
@@ -597,6 +605,7 @@ async function loadMarketingEvents(args: {
       .select(
         "event_type, visitor_id, occurred_at, source_normalized, is_paid_acquisition, referrer_host, utm_source, utm_campaign, utm_content, clerk_user_id"
       )
+      .not("event_type", "in", `(${HOMEPAGE_VIDEO_EVENT_TYPES.join(",")})`)
       .lt("occurred_at", new Date(args.endMs).toISOString())
       .order("occurred_at", { ascending: true })
       .range(from, from + MARKETING_EVENT_PAGE - 1);
@@ -634,6 +643,88 @@ async function loadMarketingEvents(args: {
     from += MARKETING_EVENT_PAGE;
   }
   return { rows, earliestMs, complete: false };
+}
+
+const HOMEPAGE_VIDEO_OUTCOME_END_MS = Date.UTC(2100, 0, 1);
+
+function homepageEventMetadata(
+  raw: unknown
+): HomepageVideoEventInput["metadata"] {
+  if (!raw || typeof raw !== "object") return null;
+  const rec = raw as Record<string, unknown>;
+  const metadata: { vimeo_video_id?: string; cta_surface?: string } = {};
+  if (typeof rec.vimeo_video_id === "string") metadata.vimeo_video_id = rec.vimeo_video_id;
+  if (typeof rec.cta_surface === "string") metadata.cta_surface = rec.cta_surface;
+  return metadata;
+}
+
+async function pageHomepageVideoEvents(args: {
+  eventTypes: readonly string[];
+  startMs: number | null;
+  endMs: number;
+  visitorIds: readonly string[] | null;
+}): Promise<{ rows: HomepageVideoEventInput[]; complete: boolean }> {
+  const rows: HomepageVideoEventInput[] = [];
+  let from = 0;
+  for (let page = 0; page < MARKETING_MAX_PAGES; page += 1) {
+    let q = supabaseServer
+      .from("marketing_events")
+      .select(
+        "event_type, visitor_id, occurred_at, source_normalized, path, metadata"
+      )
+      .in("event_type", [...args.eventTypes])
+      .lt("occurred_at", new Date(args.endMs).toISOString())
+      .order("occurred_at", { ascending: true })
+      .range(from, from + MARKETING_EVENT_PAGE - 1);
+    if (args.startMs != null) {
+      q = q.gte("occurred_at", new Date(args.startMs).toISOString());
+    }
+    if (args.visitorIds) {
+      q = q.in("visitor_id", [...args.visitorIds]);
+    }
+    const { data, error } = await q;
+    if (error) {
+      console.warn("[subscriber-growth] homepage video query failed", error.message);
+      return { rows: [], complete: false };
+    }
+    const batch = data ?? [];
+    for (const raw of batch) {
+      if (typeof raw.event_type !== "string" || typeof raw.visitor_id !== "string") continue;
+      if (typeof raw.occurred_at !== "string") continue;
+      rows.push({
+        event_type: raw.event_type,
+        visitor_id: raw.visitor_id,
+        occurred_at: raw.occurred_at,
+        source_normalized:
+          typeof raw.source_normalized === "string" ? raw.source_normalized : null,
+        path: typeof raw.path === "string" ? raw.path : null,
+        metadata: homepageEventMetadata(raw.metadata),
+      });
+    }
+    if (batch.length < MARKETING_EVENT_PAGE) return { rows, complete: true };
+    from += MARKETING_EVENT_PAGE;
+  }
+  return { rows, complete: false };
+}
+
+async function loadScopedMarketingEvents(
+  args: HomepageVideoScopedQuery
+): Promise<{ rows: HomepageVideoEventInput[]; complete: boolean }> {
+  if (args.visitorIds == null) {
+    return pageHomepageVideoEvents({ ...args, visitorIds: null });
+  }
+  const rows: HomepageVideoEventInput[] = [];
+  for (const chunk of chunkClerkIds(args.visitorIds)) {
+    const page = await pageHomepageVideoEvents({
+      eventTypes: args.eventTypes,
+      startMs: args.startMs,
+      endMs: args.endMs,
+      visitorIds: chunk,
+    });
+    if (!page.complete) return { rows: [], complete: false };
+    rows.push(...page.rows);
+  }
+  return { rows, complete: true };
 }
 
 async function loadInstrumentationStartMs(): Promise<number | null> {
@@ -945,6 +1036,7 @@ export async function loadSubscriberGrowthDashboard(args: {
       recentActivityPaymentFailedIncluded: false,
       trialOnboardingFunnel: emptyUnknownTrialOnboardingFunnel(),
       visitorCohortTable: emptyVisitorCohortTable(),
+      homepageVideo: emptyHomepageVideoReport(),
     };
   }
 
@@ -1384,6 +1476,32 @@ export async function loadSubscriberGrowthDashboard(args: {
     onboardingComplete,
   });
 
+  let homepageVideo = emptyHomepageVideoReport();
+  try {
+    const videoEvents = await loadHomepageVideoCohortEvents({
+      windowStartMs: period.startMs,
+      windowEndMs: period.endMs,
+      outcomeEndMs: HOMEPAGE_VIDEO_OUTCOME_END_MS,
+      source,
+      query: (scoped) => loadScopedMarketingEvents(scoped),
+    });
+    homepageVideo = computeHomepageVideoReport({
+      events: videoEvents,
+      windowStartMs: period.startMs,
+      windowEndMs: period.endMs,
+      source,
+      attributions,
+      attributionComplete: attributionLoad.complete,
+      stripeSubs,
+      stripeListComplete,
+      recognizedPriceIds: recognized,
+      paidInvoiceSubIds,
+    });
+  } catch (err) {
+    console.warn("[subscriber-growth] homepage video report failed", err);
+    homepageVideo = emptyHomepageVideoReport();
+  }
+
   return {
     range,
     source,
@@ -1403,5 +1521,6 @@ export async function loadSubscriberGrowthDashboard(args: {
     recentActivityPaymentFailedIncluded: includePaymentFailed && recentActivity != null,
     trialOnboardingFunnel,
     visitorCohortTable,
+    homepageVideo,
   };
 }

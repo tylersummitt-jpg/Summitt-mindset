@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { emptyHomepageVideoReport } from "@/lib/admin-homepage-video";
 import {
   emptyUnknownSnapshot,
   emptyUnknownTrialOnboardingFunnel,
@@ -63,6 +64,7 @@ describe("subscriber growth page authorization", () => {
       recentActivityPaymentFailedIncluded: true,
       trialOnboardingFunnel: emptyUnknownTrialOnboardingFunnel(),
       visitorCohortTable: emptyVisitorCohortTable(),
+      homepageVideo: emptyHomepageVideoReport(),
     });
   });
 

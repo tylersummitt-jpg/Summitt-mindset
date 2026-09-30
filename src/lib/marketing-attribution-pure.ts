@@ -50,6 +50,7 @@ export const CTA_SURFACES = [
   "film_card",
   "coach",
   "other",
+  "homepage_video",
 ] as const;
 
 export type CtaSurface = (typeof CTA_SURFACES)[number];

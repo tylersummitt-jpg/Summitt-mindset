@@ -79,12 +79,36 @@ describe("Vimeo embed surfaces", () => {
   });
 });
 
+describe("homepage Vimeo SDK boundary", () => {
+  it("keeps @vimeo/player off Film Room, Programs, and the shared iframe helper", () => {
+    const player = readSrc("src/components/homepage-how-it-works-video.tsx");
+    expect(player).toContain('import("@vimeo/player")');
+    expect(player).not.toContain("autoplay");
+    for (const rel of [
+      "src/lib/vimeo-player-embed.ts",
+      "src/app/film-room/[id]/page.tsx",
+      "src/app/film-room/page.tsx",
+      "src/components/programs/programs-video.tsx",
+      "src/components/programs/step-experience.tsx",
+    ]) {
+      expect(readSrc(rel)).not.toContain("@vimeo/player");
+    }
+    expect(readSrc("src/lib/vimeo-player-embed.ts")).toContain("dnt=1");
+    expect(readSrc("src/components/programs/programs-video.tsx")).toContain("<iframe");
+    expect(readSrc("src/app/film-room/[id]/page.tsx")).toContain("<iframe");
+  });
+});
+
 describe("Privacy Policy Vimeo disclosure", () => {
   const privacy = readSrc("src/app/privacy/page.tsx");
 
   it("names Vimeo and describes technical/playback data", () => {
     expect(privacy).toContain("Vimeo");
     expect(privacy).toMatch(/Film Room/i);
+    expect(privacy).toMatch(/public homepage explainer/i);
+    expect(privacy).toMatch(/existing visitor cookie/i);
+    expect(privacy).toMatch(/watched half/i);
+    expect(privacy).toMatch(/Do Not Track does not mean Vimeo performs zero logging/i);
     expect(privacy).toMatch(/technical and\s+device information/i);
     expect(privacy).toMatch(/playback or\s+interaction/i);
     expect(privacy).toMatch(/cookies or similar identifiers/i);

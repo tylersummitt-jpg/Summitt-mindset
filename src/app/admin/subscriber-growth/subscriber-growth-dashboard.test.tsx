@@ -4,6 +4,7 @@ import React from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { emptyHomepageVideoReport } from "@/lib/admin-homepage-video";
 import {
   emptyUnknownSnapshot,
   emptyUnknownTrialOnboardingFunnel,
@@ -96,6 +97,7 @@ function dashboardData(
     recentActivityPaymentFailedIncluded: true,
     trialOnboardingFunnel: emptyUnknownTrialOnboardingFunnel(),
     visitorCohortTable: emptyVisitorCohortTable(),
+    homepageVideo: emptyHomepageVideoReport(),
   };
 }
 

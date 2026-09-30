@@ -7,7 +7,9 @@ import { redirect } from "next/navigation";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
+import { HomepageHowItWorksVideo } from "@/components/homepage-how-it-works-video";
 import { HomepageMemberTestimonials } from "@/components/homepage-member-testimonials";
+import { HOMEPAGE_VIMEO_VIDEO_ID } from "@/lib/homepage-video";
 import {
   marketingAcquisitionHref,
   marketingSubscribeCtaLabel,
@@ -19,91 +21,6 @@ import {
 /** Hero primary CTA — matches coach kit ring offset on dark hero */
 const ctaHeroPrimaryClass =
   "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
-
-const howItWorksIconClass = "h-14 w-14";
-
-function HowItWorksIdentityIcon() {
-  return (
-    <svg
-      className={howItWorksIconClass}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="12" cy="8" r="4" className="text-white" />
-      <path d="M5 20c0-3.5 3-5 7-5s7 1.5 7 5" className="text-white" />
-    </svg>
-  );
-}
-
-function HowItWorksGoalIcon() {
-  return (
-    <svg
-      className={howItWorksIconClass}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="8" className="text-white" />
-      <circle cx="12" cy="12" r="4" className="text-white" />
-      <path d="M12 4v2M12 18v2M4 12h2M18 12h2" className="text-[var(--brand)]" />
-      <path d="m16 8-2 2 2 2" className="text-[var(--brand)]" />
-    </svg>
-  );
-}
-
-function HowItWorksTextsIcon() {
-  return (
-    <svg
-      className={howItWorksIconClass}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path
-        d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-        className="text-white"
-      />
-      <circle cx="9" cy="11" r="1" fill="var(--brand)" stroke="none" />
-      <circle cx="12" cy="11" r="1" fill="var(--brand)" stroke="none" />
-      <circle cx="15" cy="11" r="1" fill="var(--brand)" stroke="none" />
-    </svg>
-  );
-}
-
-function HowItWorksGrowthIcon() {
-  return (
-    <svg
-      className={howItWorksIconClass}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <circle cx="12" cy="7" r="3.5" className="text-white" />
-      <path d="M5 20c0-3 2.5-4.5 7-4.5s7 1.5 7 4.5" className="text-white" />
-      <path d="M16 10l2-2M16 10v3" className="text-[var(--brand)]" />
-    </svg>
-  );
-}
-
-const howItWorksStepCardClass =
-  "relative flex min-h-[22rem] flex-col rounded-3xl border border-white/10 bg-white/[0.03] px-6 pb-8 pt-12 text-center shadow-lg shadow-black/25 backdrop-blur-sm sm:min-h-[23rem]";
 
 export default async function HomePage() {
   const user = await currentUser();
@@ -306,74 +223,15 @@ export default async function HomePage() {
             </p>
           </div>
 
-          <div className="mt-12 grid grid-cols-1 gap-8 pt-2 md:grid-cols-2 md:gap-6 xl:grid-cols-4 xl:gap-5">
-            <article className={howItWorksStepCardClass}>
-              <span className="absolute -top-5 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-2 border-[var(--brand)] bg-neutral-950 text-lg font-bold tabular-nums text-[var(--brand)] shadow-md shadow-black/40">
-                1
-              </span>
-              <div className="mx-auto mb-6 mt-2 flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-black/25 sm:h-28 sm:w-28">
-                <HowItWorksIdentityIcon />
-              </div>
-              <h3 className="text-xl font-bold leading-tight text-white sm:text-2xl">
-                Define your identity
-              </h3>
-              <div className="mx-auto mt-5 h-1 w-10 rounded-full bg-[var(--brand)]" aria-hidden />
-              <p className="mt-5 flex-1 text-base leading-relaxed text-white/65">
-                Decide who you want to become.
-              </p>
-            </article>
-
-            <article className={howItWorksStepCardClass}>
-              <span className="absolute -top-5 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-2 border-[var(--brand)] bg-neutral-950 text-lg font-bold tabular-nums text-[var(--brand)] shadow-md shadow-black/40">
-                2
-              </span>
-              <div className="mx-auto mb-6 mt-2 flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-black/25 sm:h-28 sm:w-28">
-                <HowItWorksGoalIcon />
-              </div>
-              <h3 className="text-xl font-bold leading-tight text-white sm:text-2xl">
-                Choose your current goal
-              </h3>
-              <div className="mx-auto mt-5 h-1 w-10 rounded-full bg-[var(--brand)]" aria-hidden />
-              <p className="mt-5 flex-1 text-base leading-relaxed text-white/65">
-                Pick one goal to focus on right now.
-              </p>
-            </article>
-
-            <article className={howItWorksStepCardClass}>
-              <span className="absolute -top-5 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-2 border-[var(--brand)] bg-neutral-950 text-lg font-bold tabular-nums text-[var(--brand)] shadow-md shadow-black/40">
-                3
-              </span>
-              <div className="mx-auto mb-6 mt-2 flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-black/25 sm:h-28 sm:w-28">
-                <HowItWorksTextsIcon />
-              </div>
-              <h3 className="text-xl font-bold leading-tight text-white sm:text-2xl">
-                Respond to daily texts from Pat Summitt AI
-              </h3>
-              <div className="mx-auto mt-5 h-1 w-10 rounded-full bg-[var(--brand)]" aria-hidden />
-              <p className="mt-5 flex-1 text-base leading-relaxed text-white/65">
-                Check in honestly and stay accountable every day.
-              </p>
-            </article>
-
-            <article className={howItWorksStepCardClass}>
-              <span className="absolute -top-5 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border-2 border-[var(--brand)] bg-neutral-950 text-lg font-bold tabular-nums text-[var(--brand)] shadow-md shadow-black/40">
-                4
-              </span>
-              <div className="mx-auto mb-6 mt-2 flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-black/25 sm:h-28 sm:w-28">
-                <HowItWorksGrowthIcon />
-              </div>
-              <h3 className="text-xl font-bold leading-tight text-white sm:text-2xl">
-                Become the person you want to be
-              </h3>
-              <div className="mx-auto mt-5 h-1 w-10 rounded-full bg-[var(--brand)]" aria-hidden />
-              <p className="mt-5 flex-1 text-base leading-relaxed text-white/65">
-                Build proof, confidence, and real consistency over time.
-              </p>
-            </article>
-          </div>
+          <HomepageHowItWorksVideo videoId={HOMEPAGE_VIMEO_VIDEO_ID} />
 
           <div className="mt-12 flex justify-center sm:mt-14">
-            <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
+            <Link
+              href={signInSubscribeHref}
+              className={ctaHeroPrimaryClass}
+              data-growth-cta="trial"
+              data-growth-surface="homepage_video"
+            >
               {trialCtaLabelLong}
             </Link>
           </div>
