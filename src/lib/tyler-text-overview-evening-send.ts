@@ -50,7 +50,10 @@ import {
   isPauseActive,
 } from "@/lib/v2-sms-comms-preferences";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
-import { ensureCurrentTtoDraftFreshForSend } from "@/lib/tto-draft-fresh-for-send";
+import {
+  ensureCurrentTtoDraftFreshForSend,
+  savedProactiveSentenceOutgrownByRealConversation,
+} from "@/lib/tto-draft-fresh-for-send";
 
 /** @deprecated E5: 4h stale rule removed from auto-send eligibility. Kept only for legacy imports. */
 export const EVENING_PREVIEW_STALE_MS = 4 * 60 * 60 * 1000;
@@ -955,6 +958,26 @@ export async function sendEveningTtoAuthoritativeCronSend(args: {
     sent_body_equals_current_body_to_send: true,
     preview_only_ignored_for_evening_auto_send: true,
   };
+
+  const moved = await savedProactiveSentenceOutgrownByRealConversation({
+    clerkUserId: args.clerkUserId,
+    sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+    draftForDayKey: dayKey,
+  });
+  if (moved !== "current") {
+    await markEveningSendEventFailed({
+      smsSendEventId: reserved.smsSendEventId,
+      existingMeta: eventMeta,
+      note: "conversation_moved_again",
+      twilioSendAttempted: false,
+      errorMessage: "A newer real conversation arrived before Twilio.",
+    });
+    return refuse(
+      "tto_draft_not_fresh",
+      "TTO draft not fresh (conversation_moved_again)",
+      { ...base, draftId: draft.draftId }
+    );
+  }
 
   let messageSid = "";
   let twilioStatus: string | null = null;

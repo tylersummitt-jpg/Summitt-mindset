@@ -38,6 +38,7 @@ import {
   type TylerTextOverviewNotebookVerdict,
 } from "@/lib/tyler-text-overview-types";
 import { resolveSmsUserTimezone } from "@/lib/timezone";
+import { staleTylerConversationReplacementMetadata } from "@/lib/tto-stale-tyler-replacement";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
 import {
@@ -567,6 +568,10 @@ export async function persistMorningTtoGeneration(args: {
   respectProtectedMorningDraft?: boolean;
   /** Weekly explicit regenerate: pin Tyler edit/blank only; allow replacing untouched machine copy. */
   protectTylerProvenanceOnly?: boolean;
+  /** Send-time only. Default false. Replaces a nonempty Tyler sentence. A blank stays pinned. */
+  allowReplaceStaleTylerNonempty?: boolean;
+  replacedStaleTylerBody?: string | null;
+  replacedStaleTylerEditedAt?: string | null;
   routeKind?: string;
   notebookVerdictReason?: string;
 }): Promise<
@@ -589,6 +594,23 @@ export async function persistMorningTtoGeneration(args: {
     };
   }
 
+  const generationMetadataExtra =
+    args.allowReplaceStaleTylerNonempty === true
+      ? {
+          ...(args.generationMetadataExtra ?? {}),
+          ...staleTylerConversationReplacementMetadata({
+            body:
+              typeof args.replacedStaleTylerBody === "string"
+                ? args.replacedStaleTylerBody
+                : null,
+            editedAt:
+              typeof args.replacedStaleTylerEditedAt === "string"
+                ? args.replacedStaleTylerEditedAt
+                : null,
+          }),
+        }
+      : args.generationMetadataExtra;
+
   const generationRow = mapMorningWriterToGenerationRow({
     clerkUserId: args.clerkUserId,
     draftForDayKey: args.draftForDayKey,
@@ -601,7 +623,7 @@ export async function persistMorningTtoGeneration(args: {
     success: args.success,
     failure: args.failure,
     packetMetadata: args.packetMetadata,
-    generationMetadataExtra: args.generationMetadataExtra,
+    generationMetadataExtra,
     generationEffectiveAsk: args.generationEffectiveAsk,
     routeKind: args.routeKind,
     notebookVerdictReason: args.notebookVerdictReason,
@@ -630,6 +652,7 @@ export async function persistMorningTtoGeneration(args: {
     machineBodyHash: generationRow.machine_body_hash,
     nowIso,
     protectTylerProvenanceOnly: args.protectTylerProvenanceOnly,
+    allowReplaceStaleTylerNonempty: args.allowReplaceStaleTylerNonempty === true,
   });
   if (!finished.ok) {
     return { ok: false, reason: "upsert_failed", error: finished.error };
@@ -695,6 +718,7 @@ async function finishTtoGenerationPersistence(args: {
   machineBodyHash: string | null;
   nowIso: string;
   protectTylerProvenanceOnly?: boolean;
+  allowReplaceStaleTylerNonempty?: boolean;
 }): Promise<{ ok: true; protected: boolean } | { ok: false; error: string }> {
   const { data, error } = await supabaseServer.rpc("tto_finish_generation_persistence", {
     p_clerk_user_id: args.clerkUserId,
@@ -705,6 +729,7 @@ async function finishTtoGenerationPersistence(args: {
     p_machine_body_hash: args.machineBodyHash,
     p_now: args.nowIso,
     p_protect_tyler_provenance_only: args.protectTylerProvenanceOnly === true,
+    p_allow_replace_stale_tyler_nonempty: args.allowReplaceStaleTylerNonempty === true,
   });
   if (error) {
     console.error("[tyler-text-overview] tto_finish_generation_persistence_failed", {
@@ -1114,12 +1139,24 @@ export async function generateTylerTextOverviewDraftForUser(args: {
   generationReason?: TylerTextOverviewGenerationReason;
   /** Relationship-state refresh: overwrite machine copy; pin Tyler edit/blank. */
   protectTylerProvenanceOnly?: boolean;
+  /** Send-time stale conversation only. Default false. */
+  allowReplaceStaleTylerNonempty?: boolean;
+  replacedStaleTylerBody?: string | null;
+  replacedStaleTylerEditedAt?: string | null;
 }): Promise<TylerTextOverviewMorningDraftResult> {
   const draftForDayKey = requireTylerTextOverviewDraftDayKey(args.draftForDayKey);
-  const persistProtect =
-    args.protectTylerProvenanceOnly === true
+  const persistProtect = {
+    ...(args.protectTylerProvenanceOnly === true
       ? { protectTylerProvenanceOnly: true as const }
-      : {};
+      : {}),
+    ...(args.allowReplaceStaleTylerNonempty === true
+      ? {
+          allowReplaceStaleTylerNonempty: true as const,
+          replacedStaleTylerBody: args.replacedStaleTylerBody ?? null,
+          replacedStaleTylerEditedAt: args.replacedStaleTylerEditedAt ?? null,
+        }
+      : {}),
+  };
   const clerkUserId = args.audienceUser.clerk_user_id;
   const user = await getClerkUser(clerkUserId);
   const md = (user.public_metadata ?? {}) as Record<string, unknown>;
@@ -1525,6 +1562,10 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   now?: Date;
   /** Relationship-state refresh: overwrite machine copy; pin Tyler edit/blank. */
   protectTylerProvenanceOnly?: boolean;
+  /** Send-time stale conversation only. Default false. */
+  allowReplaceStaleTylerNonempty?: boolean;
+  replacedStaleTylerBody?: string | null;
+  replacedStaleTylerEditedAt?: string | null;
 }): Promise<TylerTextOverviewEveningPreviewResult> {
   if (!isTylerTextOverviewEnabled()) {
     return { ok: false, reason: "disabled" };
@@ -1535,10 +1576,18 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     return { ok: false, reason: "audience", error: "missing_clerk_user_id" };
   }
 
-  const persistProtect =
-    args.protectTylerProvenanceOnly === true
+  const persistProtect = {
+    ...(args.protectTylerProvenanceOnly === true
       ? { protectTylerProvenanceOnly: true as const }
-      : {};
+      : {}),
+    ...(args.allowReplaceStaleTylerNonempty === true
+      ? {
+          allowReplaceStaleTylerNonempty: true as const,
+          replacedStaleTylerBody: args.replacedStaleTylerBody ?? null,
+          replacedStaleTylerEditedAt: args.replacedStaleTylerEditedAt ?? null,
+        }
+      : {}),
+  };
 
   const audienceUser = await loadTylerTextOverviewAudienceRow(clerkUserId);
   if (!audienceUser) {

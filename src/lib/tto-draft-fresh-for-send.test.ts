@@ -15,6 +15,7 @@ const generateTylerTextOverviewWeeklyDraftForUser = vi.hoisted(() => vi.fn());
 const getActiveCommitment = vi.hoisted(() => vi.fn());
 const markCurrentTtoDraftUnusable = vi.hoisted(() => vi.fn());
 const supabaseFrom = vi.hoisted(() => vi.fn());
+const readLatestRealConversationAt = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: { from: supabaseFrom },
@@ -38,6 +39,11 @@ vi.mock("@/lib/v2-commitment", async (importOriginal) => {
 vi.mock("@/lib/tto-mark-current-draft-unusable", () => ({
   markCurrentTtoDraftUnusable,
 }));
+
+vi.mock("@/lib/tto-latest-real-conversation-at", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/tto-latest-real-conversation-at")>();
+  return { ...actual, readLatestRealConversationAt };
+});
 
 import { ensureCurrentTtoDraftFreshForSend } from "@/lib/tto-draft-fresh-for-send";
 
@@ -66,12 +72,15 @@ type DraftRow = {
   current_body_to_send: string | null;
   current_body_source: string | null;
   edited_by_tyler: boolean;
+  edited_at: string | null;
   current_generation_id: string | null;
 };
 
 type GenerationRow = {
   id: string;
   generation_metadata: Record<string, unknown>;
+  generated_at: string | null;
+  machine_should_send: boolean | null;
 };
 
 const db = {
@@ -113,6 +122,10 @@ function commitment(overrides: Partial<ActiveV2CommitmentRow> = {}): ActiveV2Com
   };
 }
 
+const GENERATED_AT = "2026-09-01T00:00:00.000Z";
+const CONVERSATION_AFTER_GENERATION = "2026-09-08T12:00:00.000Z";
+const TYLER_EDITED_AFTER_CONVERSATION = "2026-09-08T15:00:00.000Z";
+
 function seedMachineDraft(args: {
   sendSlot: string;
   body: string;
@@ -121,6 +134,9 @@ function seedMachineDraft(args: {
   generationId?: string;
   editedByTyler?: boolean;
   currentBodySource?: string | null;
+  editedAt?: string | null;
+  generatedAt?: string | null;
+  machineShouldSend?: boolean | null;
 }) {
   const draftId = args.draftId ?? `d-${args.sendSlot}`;
   const generationId = args.generationId ?? `g-${args.sendSlot}`;
@@ -134,6 +150,7 @@ function seedMachineDraft(args: {
       current_body_to_send: args.body,
       current_body_source: args.currentBodySource ?? "machine",
       edited_by_tyler: args.editedByTyler === true,
+      edited_at: args.editedAt ?? null,
       current_generation_id: generationId,
     },
   ];
@@ -141,21 +158,52 @@ function seedMachineDraft(args: {
   if (args.generationAsk != null) {
     metadata.generation_effective_ask = args.generationAsk;
   }
-  db.generations = [{ id: generationId, generation_metadata: metadata }];
+  db.generations = [
+    {
+      id: generationId,
+      generation_metadata: metadata,
+      generated_at: args.generatedAt === undefined ? GENERATED_AT : args.generatedAt,
+      machine_should_send:
+        args.machineShouldSend === undefined ? true : args.machineShouldSend,
+    },
+  ];
 }
 
-function persistFreshBody(sendSlot: string, body: string, ask: string | null) {
+function replacementExtra(callArgs: {
+  allowReplaceStaleTylerNonempty?: boolean;
+  replacedStaleTylerBody?: string | null;
+  replacedStaleTylerEditedAt?: string | null;
+} | undefined): Record<string, unknown> | undefined {
+  if (callArgs?.allowReplaceStaleTylerNonempty !== true) return undefined;
+  return {
+    replaced_stale_tyler_body: callArgs.replacedStaleTylerBody ?? null,
+    replaced_stale_tyler_edited_at: callArgs.replacedStaleTylerEditedAt ?? null,
+    replacement_reason: "conversation_newer_than_tyler_edit",
+  };
+}
+
+function persistFreshBody(
+  sendSlot: string,
+  body: string,
+  ask: string | null,
+  extra?: Record<string, unknown>
+) {
   const draft = db.drafts.find((d) => d.send_slot === sendSlot && d.status === "current");
   if (!draft) return;
   const generationId = `g-fresh-${sendSlot}`;
   draft.current_body_to_send = body;
   draft.current_generation_id = generationId;
-  const metadata: Record<string, unknown> = {};
+  draft.current_body_source = "machine";
+  draft.edited_by_tyler = false;
+  draft.edited_at = null;
+  const metadata: Record<string, unknown> = { ...(extra ?? {}) };
   if (ask != null) {
     metadata.generation_effective_ask = ask;
   }
   db.generations.push({
     id: generationId,
+    generated_at: NOW.toISOString(),
+    machine_should_send: true,
     generation_metadata: metadata,
   });
 }
@@ -216,19 +264,20 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
     db.draftLookupError = null;
     db.generationLookupError = null;
     installSupabase();
+    readLatestRealConversationAt.mockResolvedValue({ ok: true, at: null });
     getActiveCommitment.mockResolvedValue(commitment());
     loadTylerTextOverviewAudienceRow.mockResolvedValue(AUDIENCE);
     markCurrentTtoDraftUnusable.mockResolvedValue(true);
-    generateTylerTextOverviewDraftForUser.mockImplementation(async () => {
-      persistFreshBody("morning", "FRESH MORNING", ASK_A);
+    generateTylerTextOverviewDraftForUser.mockImplementation(async (callArgs) => {
+      persistFreshBody("morning", "FRESH MORNING", ASK_A, replacementExtra(callArgs));
       return { ok: true };
     });
-    generateTylerTextOverviewEveningPreviewForUser.mockImplementation(async () => {
-      persistFreshBody("evening_checkin", "FRESH EVENING", ASK_A);
+    generateTylerTextOverviewEveningPreviewForUser.mockImplementation(async (callArgs) => {
+      persistFreshBody("evening_checkin", "FRESH EVENING", ASK_A, replacementExtra(callArgs));
       return { ok: true };
     });
-    generateTylerTextOverviewWeeklyDraftForUser.mockImplementation(async () => {
-      persistFreshBody("weekly_review", "FRESH WEEKLY", ASK_A);
+    generateTylerTextOverviewWeeklyDraftForUser.mockImplementation(async (callArgs) => {
+      persistFreshBody("weekly_review", "FRESH WEEKLY", ASK_A, replacementExtra(callArgs));
       return { ok: true };
     });
   });
@@ -365,6 +414,7 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
       generationAsk: ASK_B,
       editedByTyler: true,
       currentBodySource: "tyler_edit",
+      editedAt: TYLER_EDITED_AFTER_CONVERSATION,
     });
     const result = await freshFor("morning");
     expect(result.ok).toBe(true);
@@ -498,6 +548,7 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
       generationAsk: ASK_B,
       editedByTyler: true,
       currentBodySource: "tyler_edit",
+      editedAt: TYLER_EDITED_AFTER_CONVERSATION,
     });
     const result = await freshFor("morning");
     expect(result.ok).toBe(true);
@@ -516,6 +567,245 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
     markCurrentTtoDraftUnusable.mockResolvedValue(false);
     const result = await freshFor("morning");
     expect(result).toEqual({ ok: false, reason: "stale_draft_could_not_be_disabled" });
+    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("machine nonempty with no newer conversation stays eligible", async () => {
+    seedMachineDraft({ sendSlot: "morning", body: "CURRENT MORNING", generationAsk: ASK_A });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: GENERATED_AT,
+    });
+    const result = await freshFor("morning");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("fresh");
+    expect(result.currentBodyToSend).toBe("CURRENT MORNING");
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
+  });
+
+  it("machine nonempty regenerates once when a real conversation is newer", async () => {
+    seedMachineDraft({ sendSlot: "morning", body: "OLD MACHINE", generationAsk: ASK_A });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: CONVERSATION_AFTER_GENERATION,
+    });
+    const result = await freshFor("morning");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("regenerated");
+    expect(result.currentBodyToSend).toBe("FRESH MORNING");
+    expect(result.currentBodyToSend).not.toBe("OLD MACHINE");
+    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
+    expect(
+      generateTylerTextOverviewDraftForUser.mock.calls[0]?.[0]?.allowReplaceStaleTylerNonempty
+    ).not.toBe(true);
+  });
+
+  it("sent coach reply after generated_at is one regeneration", async () => {
+    seedMachineDraft({ sendSlot: "evening_checkin", body: "OLD EVENING", generationAsk: ASK_A });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: CONVERSATION_AFTER_GENERATION,
+    });
+    const result = await freshFor("evening_checkin");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.currentBodyToSend).toBe("FRESH EVENING");
+    expect(generateTylerTextOverviewEveningPreviewForUser).toHaveBeenCalledTimes(1);
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
+  });
+
+  it("nonempty Tyler edit after the latest conversation stays eligible", async () => {
+    seedMachineDraft({
+      sendSlot: "morning",
+      body: "TYLER STILL RIGHT",
+      generationAsk: ASK_B,
+      editedByTyler: true,
+      currentBodySource: "tyler_edit",
+      editedAt: TYLER_EDITED_AFTER_CONVERSATION,
+    });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: CONVERSATION_AFTER_GENERATION,
+    });
+    const result = await freshFor("morning");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("tyler_protected");
+    expect(result.currentBodyToSend).toBe("TYLER STILL RIGHT");
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
+  });
+
+  it("stale nonempty Tyler edit is replaced once and the old sentence is kept on the new generation", async () => {
+    seedMachineDraft({
+      sendSlot: "morning",
+      body: "TYLER OLD SENTENCE",
+      generationAsk: ASK_A,
+      editedByTyler: true,
+      currentBodySource: "tyler_edit",
+      editedAt: GENERATED_AT,
+    });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: CONVERSATION_AFTER_GENERATION,
+    });
+    const result = await freshFor("morning");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("regenerated");
+    expect(result.currentBodyToSend).toBe("FRESH MORNING");
+    expect(result.currentBodyToSend).not.toBe("TYLER OLD SENTENCE");
+    const draft = db.drafts[0];
+    expect(draft?.edited_by_tyler).toBe(false);
+    expect(draft?.edited_at).toBeNull();
+    expect(draft?.current_body_source).toBe("machine");
+    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
+    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        protectTylerProvenanceOnly: true,
+        allowReplaceStaleTylerNonempty: true,
+        replacedStaleTylerBody: "TYLER OLD SENTENCE",
+        replacedStaleTylerEditedAt: GENERATED_AT,
+      })
+    );
+    const fresh = db.generations.find((row) => row.id === result.currentGenerationId);
+    expect(fresh?.generation_metadata.replaced_stale_tyler_body).toBe("TYLER OLD SENTENCE");
+    expect(fresh?.generation_metadata.replaced_stale_tyler_edited_at).toBe(GENERATED_AT);
+    expect(fresh?.generation_metadata.replacement_reason).toBe(
+      "conversation_newer_than_tyler_edit"
+    );
+  });
+
+  it("Tyler blank stays a no-send after a later conversation", async () => {
+    seedMachineDraft({
+      sendSlot: "morning",
+      body: "   ",
+      generationAsk: ASK_B,
+      editedByTyler: true,
+      currentBodySource: "tyler_edit",
+      editedAt: GENERATED_AT,
+    });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: CONVERSATION_AFTER_GENERATION,
+    });
+    const result = await freshFor("morning");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("tyler_protected");
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
+    expect(getActiveCommitment).not.toHaveBeenCalled();
+  });
+
+  it("empty machine no-send does not regenerate because a conversation exists", async () => {
+    seedMachineDraft({
+      sendSlot: "evening_checkin",
+      body: "",
+      generationAsk: ASK_A,
+      machineShouldSend: false,
+    });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: CONVERSATION_AFTER_GENERATION,
+    });
+    const result = await freshFor("evening_checkin");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("fresh");
+    expect(result.currentBodyToSend).toBe("");
+    expect(generateTylerTextOverviewEveningPreviewForUser).not.toHaveBeenCalled();
+  });
+
+  it("conversation and ask both stale cause one generation", async () => {
+    seedMachineDraft({ sendSlot: "weekly_review", body: "OLD WEEKLY", generationAsk: ASK_B });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: CONVERSATION_AFTER_GENERATION,
+    });
+    const result = await freshFor("weekly_review");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.currentBodyToSend).toBe("FRESH WEEKLY");
+    expect(generateTylerTextOverviewWeeklyDraftForUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("generator failure does not send the stale sentence", async () => {
+    seedMachineDraft({ sendSlot: "morning", body: "STALE MACHINE", generationAsk: ASK_A });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: CONVERSATION_AFTER_GENERATION,
+    });
+    generateTylerTextOverviewDraftForUser.mockResolvedValue({
+      ok: false,
+      reason: "insert_failed",
+    });
+    const result = await freshFor("morning");
+    expect(result).toEqual({ ok: false, reason: "stale_draft_disabled" });
+    expect(markCurrentTtoDraftUnusable).toHaveBeenCalledTimes(1);
+    expect(db.drafts[0]?.current_body_to_send).toBe("STALE MACHINE");
+  });
+
+  it("a successful regeneration is not repeated on the next attempt without a new conversation", async () => {
+    seedMachineDraft({ sendSlot: "morning", body: "OLD MACHINE", generationAsk: ASK_A });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: CONVERSATION_AFTER_GENERATION,
+    });
+    const first = await freshFor("morning");
+    expect(first.ok).toBe(true);
+    const second = await freshFor("morning");
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.status).toBe("fresh");
+    expect(second.currentBodyToSend).toBe("FRESH MORNING");
+    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("a conversation that arrives after regeneration skips this attempt without another generation", async () => {
+    seedMachineDraft({ sendSlot: "morning", body: "OLD MACHINE", generationAsk: ASK_A });
+    readLatestRealConversationAt
+      .mockResolvedValueOnce({ ok: true, at: CONVERSATION_AFTER_GENERATION })
+      .mockResolvedValueOnce({ ok: true, at: "2026-09-08T18:00:00.000Z" });
+    const result = await freshFor("morning");
+    expect(result).toEqual({ ok: false, reason: "conversation_moved_again" });
+    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
+    expect(markCurrentTtoDraftUnusable).not.toHaveBeenCalled();
+  });
+
+  it("morning evening and weekly each use the existing generator once", async () => {
+    const generators = {
+      morning: generateTylerTextOverviewDraftForUser,
+      evening_checkin: generateTylerTextOverviewEveningPreviewForUser,
+      weekly_review: generateTylerTextOverviewWeeklyDraftForUser,
+    };
+    for (const slot of ["morning", "evening_checkin", "weekly_review"] as const) {
+      generateTylerTextOverviewDraftForUser.mockClear();
+      generateTylerTextOverviewEveningPreviewForUser.mockClear();
+      generateTylerTextOverviewWeeklyDraftForUser.mockClear();
+      readLatestRealConversationAt.mockResolvedValue({
+        ok: true,
+        at: CONVERSATION_AFTER_GENERATION,
+      });
+      seedMachineDraft({ sendSlot: slot, body: "OLD", generationAsk: ASK_A });
+      const result = await freshFor(slot);
+      expect(result.ok).toBe(true);
+      expect(generators[slot]).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("nonempty Tyler with no edited_at is not treated as fresh", async () => {
+    seedMachineDraft({
+      sendSlot: "morning",
+      body: "TYLER WITHOUT A CLOCK",
+      generationAsk: ASK_A,
+      editedByTyler: true,
+      currentBodySource: "tyler_edit",
+    });
+    const result = await freshFor("morning");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.status).toBe("regenerated");
     expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
   });
 

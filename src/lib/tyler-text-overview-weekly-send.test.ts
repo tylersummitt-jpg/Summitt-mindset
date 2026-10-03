@@ -383,8 +383,12 @@ const ensureCurrentTtoDraftFreshForSend = vi.hoisted(() =>
     currentGenerationId: "gen-weekly-1",
   }))
 );
+const savedProactiveSentenceOutgrownByRealConversation = vi.hoisted(() =>
+  vi.fn(async () => "current" as const)
+);
 vi.mock("@/lib/tto-draft-fresh-for-send", () => ({
   ensureCurrentTtoDraftFreshForSend,
+  savedProactiveSentenceOutgrownByRealConversation,
 }));
 
 const REPO = process.cwd();

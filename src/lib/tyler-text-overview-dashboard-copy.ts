@@ -180,8 +180,9 @@ export function formatWeeklyBulkApplyConfirm(draftForDayKey: string, trimmedBody
     "Prior Tyler edits and blanks on those drafts are replaced.",
     "Any week that already has a send event is skipped.",
     "This click sends no SMS.",
-    "A non-empty Tyler save can still go out on a later Weekly send even if machine should-send was false.",
-    "Later generation keeps this Tyler text.",
+    "A nonempty Tyler save still goes out on a later Weekly send when no newer real conversation has happened, even if machine should-send was false.",
+    "A newer real conversation replaces that nonempty sentence at send time. A blank stays blank.",
+    "Admin Generate and Goal Change still keep this Tyler text.",
     "",
     trimmedBody,
   ].join("\n");

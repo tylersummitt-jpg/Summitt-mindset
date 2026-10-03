@@ -192,8 +192,12 @@ const ensureCurrentTtoDraftFreshForSend = vi.hoisted(() =>
     currentGenerationId: "gen-e",
   }))
 );
+const savedProactiveSentenceOutgrownByRealConversation = vi.hoisted(() =>
+  vi.fn(async () => "current" as const)
+);
 vi.mock("@/lib/tto-draft-fresh-for-send", () => ({
   ensureCurrentTtoDraftFreshForSend,
+  savedProactiveSentenceOutgrownByRealConversation,
 }));
 
 import {

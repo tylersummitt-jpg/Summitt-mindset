@@ -142,6 +142,10 @@ function weeklyPersistForensics(capturePresent: boolean): {
 export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
   clerkUserId: string;
   now?: Date;
+  /** Send-time stale conversation only. Default false. */
+  allowReplaceStaleTylerNonempty?: boolean;
+  replacedStaleTylerBody?: string | null;
+  replacedStaleTylerEditedAt?: string | null;
 }): Promise<TylerTextOverviewWeeklyGenerateResult> {
   if (!isTylerTextOverviewEnabled()) {
     return { ok: false, reason: "disabled" };
@@ -158,6 +162,14 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
   }
 
   const now = args.now ?? new Date();
+  const staleTylerReplace =
+    args.allowReplaceStaleTylerNonempty === true
+      ? {
+          allowReplaceStaleTylerNonempty: true as const,
+          replacedStaleTylerBody: args.replacedStaleTylerBody ?? null,
+          replacedStaleTylerEditedAt: args.replacedStaleTylerEditedAt ?? null,
+        }
+      : {};
   const user = await getClerkUser(clerkUserId);
   const md = (user.public_metadata ?? {}) as Record<string, unknown>;
 
@@ -223,6 +235,7 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
       generationMetadataExtra: weeklyMetaBase,
       respectProtectedMorningDraft: true,
       protectTylerProvenanceOnly: true,
+      ...staleTylerReplace,
       ...weeklyPersistForensics(false),
     });
 
@@ -328,6 +341,7 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
       },
       respectProtectedMorningDraft: true,
       protectTylerProvenanceOnly: true,
+      ...staleTylerReplace,
       ...weeklyPersistForensics(false),
       notebookVerdictReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
     });
@@ -420,6 +434,7 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
       generationMetadataExtra,
       respectProtectedMorningDraft: true,
       protectTylerProvenanceOnly: true,
+      ...staleTylerReplace,
       ...weeklyPersistForensics(Boolean(writerMessages?.length)),
     });
 
@@ -473,6 +488,7 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
       },
       respectProtectedMorningDraft: true,
       protectTylerProvenanceOnly: true,
+      ...staleTylerReplace,
       ...weeklyPersistForensics(Boolean(writerMessages?.length)),
     });
 
@@ -520,6 +536,7 @@ export async function generateTylerTextOverviewWeeklyDraftForUser(args: {
     generationMetadataExtra,
     respectProtectedMorningDraft: true,
     protectTylerProvenanceOnly: true,
+    ...staleTylerReplace,
     ...weeklyPersistForensics(true),
   });
 

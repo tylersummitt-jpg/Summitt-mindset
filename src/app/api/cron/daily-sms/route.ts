@@ -52,7 +52,10 @@ import {
   type TylerTextOverviewSendContext,
 } from "@/lib/tyler-text-overview-send";
 import { SMS_DAILY_PRODUCTION_SEND_SLOT, isTylerTextOverviewEnabled } from "@/lib/tyler-text-overview-types";
-import { ensureCurrentTtoDraftFreshForSend } from "@/lib/tto-draft-fresh-for-send";
+import {
+  ensureCurrentTtoDraftFreshForSend,
+  savedProactiveSentenceOutgrownByRealConversation,
+} from "@/lib/tto-draft-fresh-for-send";
 import {
   AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
   hasAwaitingManualPatAnswer,
@@ -280,6 +283,31 @@ async function attemptMorningTtoTwilioSend(args: {
 
   if (!isTwilioReady() || args.dryRun) {
     return { outcome: "dry_run" };
+  }
+
+  const moved = await savedProactiveSentenceOutgrownByRealConversation({
+    clerkUserId: args.clerkUserId,
+    sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    draftForDayKey: args.todayKey,
+  });
+  if (moved !== "current") {
+    await supabaseServer
+      .from("sms_send_events")
+      .update({
+        status: "send_failed",
+        metadata: {
+          ...args.existingMeta,
+          note: "conversation_moved_again",
+          twilio_send_attempted: false,
+          retry_count: args.retryCount ?? 0,
+          timezone: args.timezone,
+          local_time: args.localNow.toISOString(),
+        },
+      })
+      .eq("clerk_user_id", args.clerkUserId)
+      .eq("day_key", args.todayKey)
+      .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
+    return { outcome: "blocked" };
   }
 
   try {
@@ -1210,16 +1238,18 @@ export async function GET(req: Request) {
                 now,
               });
               if (!morningFreshRetry.ok) {
-                await recordMorningTtoAuthoritativeGateFailure({
-                  clerkUserId: audienceUser.clerk_user_id,
-                  todayKey,
-                  reason: `tto_draft_not_fresh:${morningFreshRetry.reason}`,
-                  hasSendEventRow: true,
-                  existingMeta,
-                  retryCount,
-                  timezone,
-                  localNow,
-                });
+                if (morningFreshRetry.reason !== "conversation_moved_again") {
+                  await recordMorningTtoAuthoritativeGateFailure({
+                    clerkUserId: audienceUser.clerk_user_id,
+                    todayKey,
+                    reason: `tto_draft_not_fresh:${morningFreshRetry.reason}`,
+                    hasSendEventRow: true,
+                    existingMeta,
+                    retryCount,
+                    timezone,
+                    localNow,
+                  });
+                }
                 stats.skippedTtoAuthoritativeFailClosed += 1;
                 stats.skippedIntentional += 1;
                 continue;

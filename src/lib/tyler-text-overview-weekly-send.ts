@@ -42,7 +42,10 @@ import {
   AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
   hasAwaitingSmsOptOutReview,
 } from "@/lib/sms-opt-out-review-hold";
-import { ensureCurrentTtoDraftFreshForSend } from "@/lib/tto-draft-fresh-for-send";
+import {
+  ensureCurrentTtoDraftFreshForSend,
+  savedProactiveSentenceOutgrownByRealConversation,
+} from "@/lib/tto-draft-fresh-for-send";
 
 export {
   WEEKLY_TTO_COMPLIANCE_FOOTER,
@@ -1086,6 +1089,30 @@ export async function sendWeeklyTtoDraftAuthoritative(args: {
       clerkUserId: draft.clerkUserId,
       weekKey: draft.weekKey,
     });
+  }
+
+  const moved = await savedProactiveSentenceOutgrownByRealConversation({
+    clerkUserId: draft.clerkUserId,
+    sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+    draftForDayKey: draft.draftForDayKey,
+  });
+  if (moved !== "current") {
+    await supabaseServer
+      .from("sms_weekly_send_events")
+      .delete()
+      .eq("id", reservation.eventId)
+      .eq("clerk_user_id", draft.clerkUserId)
+      .eq("week_key", draft.weekKey)
+      .eq("status", "reserved");
+    return refuse(
+      "tto_draft_not_fresh",
+      "TTO draft not fresh (conversation_moved_again)",
+      {
+        draftId: draft.draftId,
+        clerkUserId: draft.clerkUserId,
+        weekKey: draft.weekKey,
+      }
+    );
   }
 
   let twilioMessageSid: string;

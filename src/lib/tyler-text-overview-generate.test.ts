@@ -71,6 +71,7 @@ function simulateFinishGeneration(args: Record<string, unknown>) {
   const day = args.p_draft_for_day_key;
   const newId = String(args.p_new_generation_id ?? "");
   const protectOnly = args.p_protect_tyler_provenance_only === true;
+  const allowReplace = args.p_allow_replace_stale_tyler_nonempty === true;
   const nowIso = args.p_now;
   const draft = db.drafts.find(
     (row) =>
@@ -83,7 +84,9 @@ function simulateFinishGeneration(args: Record<string, unknown>) {
   const nonempty = body.trim().length > 0;
   const tyler =
     draft?.edited_by_tyler === true || draft?.current_body_source === "tyler_edit";
-  const isProtected = Boolean(draft) && (tyler || (!protectOnly && nonempty));
+  const replaceStaleTyler = allowReplace && tyler && nonempty;
+  const isProtected =
+    Boolean(draft) && ((tyler && !replaceStaleTyler) || (!protectOnly && nonempty));
   if (isProtected && draft) {
     const created = db.generations.find((row) => row.id === newId);
     if (created && typeof draft.current_generation_id === "string" && draft.current_generation_id) {
