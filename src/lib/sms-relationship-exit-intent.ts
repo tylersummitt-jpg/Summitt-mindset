@@ -197,6 +197,18 @@ export function isRelationshipExitLaneActive(args: {
   return args.detection.confidence === "high" || args.detection.confidence === "medium";
 }
 
+/**
+ * Goal Change commits before the inbound Sol brief, except when an exclusive
+ * lane already owns the turn. Texting phrases stay in that lane, so a Sol
+ * opt-out judgment cannot open a pending goal on those turns.
+ */
+export function goalChangeCommitsBeforeInboundSolBrief(args: {
+  relationshipExitLaneActive: boolean;
+  identityEditLaneActive: boolean;
+}): boolean {
+  return !args.relationshipExitLaneActive && !args.identityEditLaneActive;
+}
+
 export function applyRelationshipExitGatedOverride(
   detection: SmsRelationshipExitDetection
 ): V2InboundGatedDecision {

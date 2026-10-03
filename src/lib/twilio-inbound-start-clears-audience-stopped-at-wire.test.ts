@@ -29,13 +29,19 @@ describe("twilio inbound START clears sms_audience.stopped_at", () => {
   });
 
   it("B: runStopFlow still sets stoppedAt timestamp and disables SMS", () => {
+    const stopSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/sms-canonical-stop.ts"),
+      "utf8"
+    );
     const stopFlowIdx = routeSrc.indexOf("async function runStopFlow");
     const startFlowIdx = routeSrc.indexOf("async function runStartFlow");
     const block = routeSrc.slice(stopFlowIdx, startFlowIdx);
-    expect(block).toContain("sms_enabled: false");
-    expect(block).toContain("stopped_at:");
-    expect(block).toContain("smsEnabled: false");
-    expect(block).toContain("stoppedAt: new Date().toISOString()");
+    expect(block).toContain("applyCanonicalSmsStop");
+    expect(stopSrc).toContain("sms_enabled: false");
+    expect(stopSrc).toContain("stopped_at:");
+    expect(stopSrc).toContain("smsEnabled: false");
+    expect(stopSrc).toContain("stoppedAt: new Date().toISOString()");
+    expect(stopSrc).toContain("syncSmsAudience");
   });
 
   it("C: exact START returns before ensureCoachJobPresent", () => {

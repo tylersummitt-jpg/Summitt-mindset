@@ -156,6 +156,14 @@ vi.mock("@/lib/openai-win-candidate-equivalence-v1", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/sms-opt-out-review-hold", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/sms-opt-out-review-hold")>();
+  return {
+    ...actual,
+    findOpenSmsOptOutReviewMessageSid: vi.fn(async () => null),
+  };
+});
+
 import { inboundSolFreshWinInsertProof, runInboundSolRelationshipTurn } from "@/lib/inbound-sol-relationship-turn";
 
 const commitment = {
@@ -168,6 +176,7 @@ function brief(
   overrides: Partial<InboundCoachingBriefV1["inbound"]> = {},
   continuityOverrides: Partial<InboundCoachingBriefV1["conversation_continuity"]> = {}
 ): InboundCoachingBriefV1 {
+  const { likely_all_proactive_sms_stop, ...inboundRest } = overrides;
   return {
     version: MORNING_COACHING_BRIEF_VERSION,
     confidence: "high",
@@ -240,7 +249,8 @@ function brief(
       durable_user_evidence: null,
       win_presentation: EMPTY_INBOUND_SOL_WIN_PRESENTATION,
       coach_relationship_memory_changes: null,
-      ...overrides,
+      likely_all_proactive_sms_stop: likely_all_proactive_sms_stop ?? "no",
+      ...inboundRest,
     },
   };
 }
@@ -3450,6 +3460,82 @@ describe("runInboundSolRelationshipTurn", () => {
     expect(result.photoRequested).toBe(false);
     expect(result.candidatePhotoTargetWinId).toBeNull();
     expect(result.shouldSend).toBe(true);
+  });
+
+  it("Sol yes parks an opt-out review and does not commit goal change, wins, memory, or the writer", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({ likely_all_proactive_sms_stop: "yes" }),
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Please stop texting me.",
+      messageSid: "SMyes",
+      recentEventsNewestFirst: [],
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      classifierEventType: "user_no",
+      classifierNormalizedHint: null,
+      exclusiveLaneOwnsTurn: true,
+      relationshipBoundaryTurn: true,
+      pendingConfirmationConflict: false,
+    });
+    expect(result.shouldSend).toBe(false);
+    expect(result.noSendReason).toBe("sms_opt_out_review");
+    expect(writeInboundSolBody).not.toHaveBeenCalled();
+    expect(persistInboundAccountabilityOutcomeEvent).not.toHaveBeenCalled();
+    expect(persistInboundWinsWithAccountability).not.toHaveBeenCalled();
+    expect(persistRecognizedWins).not.toHaveBeenCalled();
+    expect(persistSolInboundUserEvidence).not.toHaveBeenCalled();
+    expect(persistSolCoachRelationshipMemory).not.toHaveBeenCalled();
+    expect(applySolAnsweredOpenCoachQuestion).not.toHaveBeenCalled();
+  });
+
+  it("Sol no on a relationship-boundary turn does not score or celebrate, and the writer gets exit guardrails", async () => {
+    runInboundSolBriefInterpreter.mockResolvedValue({
+      ok: true,
+      brief: brief({
+        likely_all_proactive_sms_stop: "no",
+        accountability_interpretation: {
+          relevance: "central",
+          outcome: "completed",
+          confidence: "high",
+          evidence: "Leave me alone.",
+        },
+      }),
+      capture: { retry_occurred: false },
+    });
+    writeInboundSolBody.mockResolvedValue({
+      ok: true,
+      body: "I hear you. Reply STOP if you want every text off.",
+      capture: { retry_occurred: false },
+    });
+    const result = await runInboundSolRelationshipTurn({
+      clerkUserId: "user_1",
+      timezone: "America/Chicago",
+      commitment,
+      latestInboundText: "Leave me alone.",
+      messageSid: "SMboundary",
+      recentEventsNewestFirst: [],
+      gatedDecision: defaultGatedDecision("user_no", "test"),
+      classifierEventType: "user_no",
+      classifierNormalizedHint: null,
+      exclusiveLaneOwnsTurn: true,
+      relationshipBoundaryTurn: true,
+      pendingConfirmationConflict: false,
+    });
+    expect(result.shouldSend).toBe(true);
+    expect(persistInboundAccountabilityOutcomeEvent).not.toHaveBeenCalled();
+    expect(persistInboundWinsWithAccountability).not.toHaveBeenCalled();
+    expect(persistRecognizedWins).not.toHaveBeenCalled();
+    expect(persistSolInboundUserEvidence).not.toHaveBeenCalled();
+    expect(persistSolCoachRelationshipMemory).not.toHaveBeenCalled();
+    expect(writeInboundSolBody).toHaveBeenCalledTimes(1);
+    const guardrails = writeInboundSolBody.mock.calls[0]?.[0]?.relationshipExitGuardrails;
+    expect(String(guardrails)).toContain("do NOT congratulate");
+    expect(String(guardrails)).toContain("Do NOT convert non-exact");
   });
 });
 

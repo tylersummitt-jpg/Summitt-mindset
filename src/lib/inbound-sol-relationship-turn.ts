@@ -58,6 +58,11 @@ import {
   skippedPatSourceEvidenceForensics,
   type PatSourceEvidencePacketV1,
 } from "@/lib/inbound-pat-source-evidence";
+import {
+  findOpenSmsOptOutReviewMessageSid,
+  SMS_OPT_OUT_REVIEW_ACK_BODY,
+} from "@/lib/sms-opt-out-review-hold";
+import { buildRelationshipExitLaneGuardrails } from "@/lib/sms-relationship-exit-intent";
 
 export function isInboundSolMainCoachingBranch(args: {
   normalInboundV3OwnershipEligible: boolean;
@@ -157,6 +162,12 @@ export async function runInboundSolRelationshipTurn(args: {
   classifierEventType: V2InboundEventType;
   classifierNormalizedHint: string | null;
   exclusiveLaneOwnsTurn: boolean;
+  /**
+   * Texting relationship-exit phrases. Sol still judges the opt-out hold.
+   * Accountability, wins, evidence, and standing memory do not commit,
+   * and the writer receives the existing relationship-exit guardrails.
+   */
+  relationshipBoundaryTurn?: boolean;
   pendingConfirmationConflict: boolean;
   /** Webhook enqueue time (job.created_at). Authoritative product day. */
   receivedAt?: Date | string | null;
@@ -182,11 +193,11 @@ export async function runInboundSolRelationshipTurn(args: {
   ): InboundSolRelationshipTurnResult => ({
     shouldSend: false,
     noSendReason,
-    body: null,
     packet: extras?.packet ?? null,
     brief: extras?.brief ?? null,
     persistResult: extras?.persistResult ?? skippedPersist("sol_not_applicable"),
     winResult: extras?.winResult ?? null,
+    body: typeof extras?.body === "string" ? extras.body : null,
     photoRequested: extras?.photoRequested === true,
     candidatePhotoTargetWinId: extras?.candidatePhotoTargetWinId ?? null,
     forensics: {
@@ -229,9 +240,33 @@ export async function runInboundSolRelationshipTurn(args: {
   const brief = interpreted.brief;
   Object.assign(baseForensics, compactInboundSolBriefForTelemetry(brief));
 
-  try {
+  if (brief.inbound.likely_all_proactive_sms_stop === "yes") {
+    const openSid = await findOpenSmsOptOutReviewMessageSid(args.clerkUserId);
+    if (openSid && openSid !== args.messageSid) {
+      return noSend("sms_opt_out_review_already_open", {
+        packet,
+        brief,
+        body: SMS_OPT_OUT_REVIEW_ACK_BODY,
+        forensics: { inbound_sol_sms_opt_out_review_already_open: openSid },
+      });
+    }
+    return noSend("sms_opt_out_review", {
+      packet,
+      brief,
+      forensics: { inbound_sol_sms_opt_out_review: true },
+    });
+  }
+
+  const commitment = args.commitment;
+  const goalChangeAuthorization = args.goalChangeConfirmationAuthorization ?? null;
+  const relationshipBoundaryTurn = args.relationshipBoundaryTurn === true;
+  if (relationshipBoundaryTurn) {
+    baseForensics.inbound_sol_relationship_boundary = true;
+  }
+
+  if (!relationshipBoundaryTurn) try {
     const openQuestionApply = await applySolAnsweredOpenCoachQuestion({
-      commitmentId: args.commitment.id,
+      commitmentId: commitment.id,
       clerkUserId: args.clerkUserId,
       messageSid: args.messageSid,
       expectedOpenQuestion: packet.hard_state.open_coach_question,
@@ -256,7 +291,7 @@ export async function runInboundSolRelationshipTurn(args: {
   const advice = shouldPersistSolInboundAccountabilityOutcome({
     inbound: brief.inbound,
     messageSid: args.messageSid,
-    commitmentId: args.commitment.id,
+    commitmentId: commitment.id,
     hasActiveCommitment: true,
     exclusiveLaneOwnsTurn: args.exclusiveLaneOwnsTurn,
     pendingConfirmationConflict: args.pendingConfirmationConflict,
@@ -278,7 +313,7 @@ export async function runInboundSolRelationshipTurn(args: {
       rawBody: args.latestInboundText,
     });
     persistResult = await persistInboundAccountabilityOutcomeEvent({
-      commitmentId: args.commitment.id,
+      commitmentId: commitment.id,
       clerkUserId: args.clerkUserId,
       messageSid: args.messageSid,
       rawBody: args.latestInboundText,
@@ -314,7 +349,7 @@ export async function runInboundSolRelationshipTurn(args: {
   }
 
   const sideEffects = await applySolInboundOutcomeSideEffects({
-    commitmentId: args.commitment.id,
+    commitmentId: commitment.id,
     persistResult,
   });
   baseForensics.inbound_sol_memory_recomputed = sideEffects.recomputed;
@@ -325,17 +360,17 @@ export async function runInboundSolRelationshipTurn(args: {
     (persistResult.status === "inserted" || persistResult.status === "duplicate") &&
     persistResult.eventType === "user_yes";
 
-  try {
+  if (!relationshipBoundaryTurn) try {
     winResult = await persistSolInboundWins({
       persistResult,
       inbound: brief.inbound,
       inboundText: args.latestInboundText,
       clerkUserId: args.clerkUserId,
       messageSid: args.messageSid,
-      commitmentId: args.commitment.id,
+      commitmentId: commitment.id,
       occurredAtIso: loaded.receivedAt.toISOString(),
       effectiveAsk: packet.current_goal.text,
-      behaviorStatement: args.commitment.behavior_statement,
+      behaviorStatement: commitment.behavior_statement,
     });
     if (winResult) {
       baseForensics.inbound_sol_win_persisted = winResult.persisted;
@@ -351,7 +386,7 @@ export async function runInboundSolRelationshipTurn(args: {
     baseForensics.inbound_sol_win_persisted = 0;
   }
 
-  try {
+  if (!relationshipBoundaryTurn) try {
     const evidencePersist = await persistSolInboundUserEvidence({
       clerkUserId: args.clerkUserId,
       messageSid: args.messageSid,
@@ -371,7 +406,7 @@ export async function runInboundSolRelationshipTurn(args: {
   const oldMemoryItems = packet.coach_relationship_memory_items ?? [];
   baseForensics.inbound_sol_coach_relationship_memory_old_item_count =
     oldMemoryItems.length;
-  try {
+  if (!relationshipBoundaryTurn) try {
     const memoryPersist = await persistSolCoachRelationshipMemory({
       clerkUserId: args.clerkUserId,
       changes: brief.inbound.coach_relationship_memory_changes,
@@ -491,10 +526,8 @@ export async function runInboundSolRelationshipTurn(args: {
         currentTurnMessageSids.push(sid);
       }
       const bindingConfirmationRequired =
-        args.goalChangeConfirmationAuthorization?.goal_change_confirmation_authorized ===
-          true ||
-        args.goalChangeConfirmationAuthorization?.temporary_adjustment_confirmation_authorized ===
-          true;
+        goalChangeAuthorization?.goal_change_confirmation_authorized === true ||
+        goalChangeAuthorization?.temporary_adjustment_confirmation_authorized === true;
       const [eligibilityState, hasCurrentTurnMedia] = await Promise.all([
         loadPhotoRequestEligibilityState(args.clerkUserId, now),
         hasCurrentTurnInboundMediaOccupancy({
@@ -525,6 +558,9 @@ export async function runInboundSolRelationshipTurn(args: {
     goalWinFreshlyInserted,
     lifeWinFreshlyInserted,
     photoRequestAllowed,
+    relationshipExitGuardrails: relationshipBoundaryTurn
+      ? buildRelationshipExitLaneGuardrails()
+      : null,
   });
   baseForensics.inbound_sol_retry_writer = written.capture.retry_occurred;
   baseForensics.writer_model = INBOUND_SOL_WRITER_MODEL;
@@ -589,7 +625,7 @@ export async function runInboundSolRelationshipTurn(args: {
 
   const guarded = applyGoalChangeMachineBodySafety({
     body: written.body,
-    authorization: args.goalChangeConfirmationAuthorization,
+    authorization: goalChangeAuthorization,
   });
   if (guarded.blocked) {
     baseForensics.goal_change_binding_confirmation_blocked = true;

@@ -163,6 +163,11 @@ export type InboundSolBriefExtras = {
    * null and do not invalidate extras.
    */
   coach_relationship_memory_changes: CoachRelationshipMemoryChanges | null;
+  /**
+   * yes only when Sol says the newest text is a clear request to stop all
+   * proactive texts. Missing or anything other than "yes" is no.
+   */
+  likely_all_proactive_sms_stop: "yes" | "no";
 };
 
 export type InboundCoachingBriefV1 = MorningCoachingBriefV1 & {
@@ -245,6 +250,8 @@ export function parseInboundSolBriefExtras(raw: unknown): InboundSolBriefExtras 
     coach_relationship_memory_changes: parseCoachRelationshipMemoryChanges(
       o.coach_relationship_memory_changes
     ),
+    likely_all_proactive_sms_stop:
+      o.likely_all_proactive_sms_stop === "yes" ? "yes" : "no",
   };
 }
 
@@ -347,6 +354,7 @@ export function compactInboundSolBriefForTelemetry(
       isCoachRelationshipMemoryChangesProposed(
         brief.inbound.coach_relationship_memory_changes
       ),
+    inbound_sol_likely_all_proactive_sms_stop: brief.inbound.likely_all_proactive_sms_stop,
     inbound_sol_pending_photo_relation: brief.inbound.pending_photo_relation.relation,
     inbound_sol_most_alive_preview:
       typeof brief.human_situation.most_alive === "string"

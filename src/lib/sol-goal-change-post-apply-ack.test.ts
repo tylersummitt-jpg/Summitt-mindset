@@ -153,6 +153,7 @@ function brief(): InboundCoachingBriefV1 {
       coaching_after_answer: "no",
       requires_pat_personal_knowledge: "unknown",
       user_is_correcting_coach: false,
+      likely_all_proactive_sms_stop: "no",
       accountability_interpretation: {
         relevance: "related",
         outcome: "not_applicable",

@@ -38,6 +38,10 @@ import {
   AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
   hasAwaitingManualPatAnswer,
 } from "@/lib/has-awaiting-manual-pat-answer";
+import {
+  AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
+  hasAwaitingSmsOptOutReview,
+} from "@/lib/sms-opt-out-review-hold";
 import { ensureCurrentTtoDraftFreshForSend } from "@/lib/tto-draft-fresh-for-send";
 
 export {
@@ -77,6 +81,7 @@ export type WeeklyTtoManualSendRefusalCode =
   | "reservation_failed"
   | "post_send_bookkeeping_failed"
   | "awaiting_manual_pat_answer"
+  | "awaiting_sms_opt_out_review"
   | "tto_draft_not_fresh";
 
 /** Cron-facing skip reasons (authority failures). */
@@ -148,7 +153,7 @@ function readMetadataString(metadata: Record<string, unknown>, key: string): str
 
 export function mapWeeklyTtoRefusalToCronSkipReason(
   code: WeeklyTtoManualSendRefusalCode
-): WeeklyTtoCronAuthoritySkipReason | "skipped_duplicate_weekly_send" | "skipped_missing_twilio" | "skipped_awaiting_manual_pat_answer" | "failed" | null {
+): WeeklyTtoCronAuthoritySkipReason | "skipped_duplicate_weekly_send" | "skipped_missing_twilio" | "skipped_awaiting_manual_pat_answer" | "skipped_awaiting_sms_opt_out_review" | "failed" | null {
   switch (code) {
     case "no_draft":
     case "draft_not_current":
@@ -187,6 +192,8 @@ export function mapWeeklyTtoRefusalToCronSkipReason(
       return null;
     case "awaiting_manual_pat_answer":
       return "skipped_awaiting_manual_pat_answer";
+    case "awaiting_sms_opt_out_review":
+      return "skipped_awaiting_sms_opt_out_review";
     case "tto_draft_not_fresh":
       return "failed";
     default:
@@ -909,6 +916,24 @@ export async function sendWeeklyTtoDraftAuthoritative(args: {
     return refuse(
       "awaiting_manual_pat_answer",
       "A Coach Pat question is waiting for a manual answer.",
+      {
+        draftId: draft.draftId,
+        clerkUserId: draft.clerkUserId,
+        weekKey: draft.weekKey,
+      }
+    );
+  }
+
+  if (await hasAwaitingSmsOptOutReview(draft.clerkUserId)) {
+    console.log("[weekly-tto-send] skip awaiting_sms_opt_out_review", {
+      clerk_user_id: draft.clerkUserId,
+      week_key: draft.weekKey,
+      send_source: args.sendSource,
+      skip_reason: AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
+    });
+    return refuse(
+      "awaiting_sms_opt_out_review",
+      "A possible SMS opt-out is waiting for review.",
       {
         draftId: draft.draftId,
         clerkUserId: draft.clerkUserId,

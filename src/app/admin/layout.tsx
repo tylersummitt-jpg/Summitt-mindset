@@ -54,6 +54,12 @@ export default async function AdminLayout({
               Tyler Text Overview
             </Link>
             <Link
+              href="/admin/sms-opt-out-reviews"
+              className="text-gray-700 underline hover:text-gray-900"
+            >
+              SMS Opt-Out Reviews
+            </Link>
+            <Link
               href="/admin/tyler-text-overview/reply-report"
               className="text-gray-700 underline hover:text-gray-900"
             >

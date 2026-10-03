@@ -11,6 +11,7 @@ import { parseInboundCoachingBriefV1 } from "@/lib/inbound-sol-coaching-brief";
 import { MORNING_COACHING_BRIEF_VERSION } from "@/lib/morning-tto-coaching-brief-v1";
 import type { InboundRelationshipPacket } from "@/lib/inbound-relationship-packet";
 import type { PatSourceEvidencePacketV1 } from "@/lib/inbound-pat-source-evidence";
+import { buildRelationshipExitLaneGuardrails } from "@/lib/sms-relationship-exit-intent";
 
 function packet(latest: string): InboundRelationshipPacket {
   return {
@@ -354,6 +355,21 @@ describe("writer contract via writeInboundSolBody", () => {
 });
 
 describe("writer prompt contract (semantic fixtures, not live GPT)", () => {
+  it("relationship-exit guardrails are present only when the turn passes them", () => {
+    const guardrails = buildRelationshipExitLaneGuardrails();
+    const withBoundary = String(
+      buildInboundSolWriterMessages(packet("Leave me alone."), brief(), null, null, null, guardrails)[1]
+        ?.content
+    );
+    const ordinary = String(
+      buildInboundSolWriterMessages(packet("Got the lift in."), brief())[1]?.content
+    );
+    expect(withBoundary).toContain("RELATIONSHIP_EXIT_GUARDRAILS");
+    expect(withBoundary).toContain("do NOT congratulate");
+    expect(withBoundary).toContain("Do NOT convert non-exact");
+    expect(ordinary).not.toContain("RELATIONSHIP_EXIT_GUARDRAILS");
+  });
+
   it("writer packet JSON includes inbound current_local_time from message_for", () => {
     const user = String(buildInboundSolWriterMessages(packet("Need a 5 passenger SUV"), brief())[1]?.content);
     expect(user).toContain('"current_local_time":"11:00"');

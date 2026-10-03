@@ -37,6 +37,10 @@ import {
   AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
   hasAwaitingManualPatAnswer,
 } from "@/lib/has-awaiting-manual-pat-answer";
+import {
+  AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
+  hasAwaitingSmsOptOutReview,
+} from "@/lib/sms-opt-out-review-hold";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,6 +100,7 @@ export type WeeklySmsCronStats = {
   skippedTtoAmbiguousWeeklyDraft: number;
   skippedTtoWrongSlot: number;
   skippedAwaitingManualPatAnswer: number;
+  skippedAwaitingSmsOptOutReview: number;
   skippedDuplicateWeeklySend: number;
   skippedMissingTwilio: number;
   skippedV2WeeklyPendingResolution: number;
@@ -126,6 +131,7 @@ function emptyStats(): WeeklySmsCronStats {
     skippedTtoAmbiguousWeeklyDraft: 0,
     skippedTtoWrongSlot: 0,
     skippedAwaitingManualPatAnswer: 0,
+    skippedAwaitingSmsOptOutReview: 0,
     skippedDuplicateWeeklySend: 0,
     skippedMissingTwilio: 0,
     skippedV2WeeklyPendingResolution: 0,
@@ -168,6 +174,9 @@ function bumpAuthoritySkip(
       break;
     case "skipped_awaiting_manual_pat_answer":
       stats.skippedAwaitingManualPatAnswer += 1;
+      break;
+    case "skipped_awaiting_sms_opt_out_review":
+      stats.skippedAwaitingSmsOptOutReview += 1;
       break;
     case "skipped_duplicate_weekly_send":
       stats.skippedDuplicateWeeklySend += 1;
@@ -268,6 +277,15 @@ export async function GET(req: Request) {
           skip_reason: AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
         });
         stats.skippedAwaitingManualPatAnswer += 1;
+        continue;
+      }
+
+      if (await hasAwaitingSmsOptOutReview(user.id)) {
+        console.log("[weekly-sms] skip awaiting_sms_opt_out_review", {
+          clerk_user_id: user.id,
+          skip_reason: AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
+        });
+        stats.skippedAwaitingSmsOptOutReview += 1;
         continue;
       }
 

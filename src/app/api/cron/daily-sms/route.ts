@@ -57,6 +57,10 @@ import {
   AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
   hasAwaitingManualPatAnswer,
 } from "@/lib/has-awaiting-manual-pat-answer";
+import {
+  AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
+  hasAwaitingSmsOptOutReview,
+} from "@/lib/sms-opt-out-review-hold";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,6 +77,10 @@ async function shouldSkipDailyForActiveInboundThread(clerkUserId: string): Promi
 
 async function shouldSkipDailyForAwaitingManualPatAnswer(clerkUserId: string): Promise<boolean> {
   return hasAwaitingManualPatAnswer(clerkUserId);
+}
+
+async function shouldSkipDailyForAwaitingSmsOptOutReview(clerkUserId: string): Promise<boolean> {
+  return hasAwaitingSmsOptOutReview(clerkUserId);
 }
 
 function timeOfDayForOutboundContext(_md: Record<string, unknown>): "morning" | "evening" {
@@ -845,6 +853,7 @@ export async function GET(req: Request) {
     skippedSilenceCadenceSpace: 0,
     skippedActiveInboundThread: 0,
     skippedAwaitingManualPatAnswer: 0,
+    skippedAwaitingSmsOptOutReview: 0,
     skippedReactivationCooldown: 0,
     skippedRefreshIdentityAwaiting: 0,
     skippedPendingResolutionRecentConfirmation: 0,
@@ -1132,6 +1141,18 @@ export async function GET(req: Request) {
               continue;
             }
 
+            if (await shouldSkipDailyForAwaitingSmsOptOutReview(audienceUser.clerk_user_id)) {
+              console.log("[daily-sms] skip awaiting_sms_opt_out_review", {
+                clerk_user_id: audienceUser.clerk_user_id,
+                day_key: todayKey,
+                path: "retry",
+                skip_reason: AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
+              });
+              stats.skippedAwaitingSmsOptOutReview += 1;
+              stats.skippedIntentional += 1;
+              continue;
+            }
+
             stage = "active_inbound_thread_gate";
             if (await shouldSkipDailyForActiveInboundThread(audienceUser.clerk_user_id)) {
               await supabaseServer
@@ -1395,6 +1416,18 @@ export async function GET(req: Request) {
           skip_reason: AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
         });
         stats.skippedAwaitingManualPatAnswer += 1;
+        stats.skippedIntentional += 1;
+        continue;
+      }
+
+      if (await shouldSkipDailyForAwaitingSmsOptOutReview(audienceUser.clerk_user_id)) {
+        console.log("[daily-sms] skip awaiting_sms_opt_out_review", {
+          clerk_user_id: audienceUser.clerk_user_id,
+          day_key: todayKey,
+          path: "main",
+          skip_reason: AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
+        });
+        stats.skippedAwaitingSmsOptOutReview += 1;
         stats.skippedIntentional += 1;
         continue;
       }

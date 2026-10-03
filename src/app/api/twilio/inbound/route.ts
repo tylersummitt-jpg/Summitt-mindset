@@ -3,7 +3,12 @@
 import { NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { supabaseServer } from "@/lib/supabase-server";
+import { applyCanonicalSmsStop } from "@/lib/sms-canonical-stop";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
+import {
+  closeOpenSmsOptOutReviewsAfterMemberStart,
+  closeOpenSmsOptOutReviewsAfterMemberStop,
+} from "@/lib/sms-opt-out-review-resolve";
 import { hasUnresolvedAccountDeletionRequest } from "@/lib/account-deletion/deletion-guards";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
@@ -212,28 +217,7 @@ async function ensureCoachJobPresent(args: {
 }
 
 async function runStopFlow(userId: string, from: string) {
-  await supabaseServer
-    .from("sms_identities")
-    .update({
-      sms_enabled: false,
-      stopped_at: new Date().toISOString(),
-    })
-    .eq("phone_number", from);
-
-  await updateClerkPublicMetadata(userId, {
-    smsEnabled: false,
-    smsStoppedAt: new Date().toISOString(),
-  });
-
-  await syncSmsAudience({
-    userId,
-    phoneNumber: from,
-    smsEnabled: false,
-    stoppedAt: new Date().toISOString(),
-    timezone: null,
-    smsTimePreference: null,
-    summittSubscribed: null,
-  });
+  await applyCanonicalSmsStop({ userId, phoneNumber: from });
 }
 
 function inboundSafetyTwimlResponse(body: string, fromPhone: string, messageSid: string) {
@@ -376,6 +360,7 @@ export async function POST(req: Request) {
       if (code === "23505") {
         if (isStopCommand(body)) {
           await runStopFlow(userId, from);
+          await closeOpenSmsOptOutReviewsAfterMemberStop(userId);
           return twiml("You have been unsubscribed. Reply START to rejoin.");
         }
 
@@ -388,6 +373,7 @@ export async function POST(req: Request) {
           if (startOutcome === "blocked_account_deleting") {
             return fastAckTwiml();
           }
+          await closeOpenSmsOptOutReviewsAfterMemberStart(userId);
           return twiml(START_TWIML_BODY);
         }
 
@@ -445,6 +431,7 @@ export async function POST(req: Request) {
 
     if (isStopCommand(body)) {
       await runStopFlow(userId, from);
+      await closeOpenSmsOptOutReviewsAfterMemberStop(userId);
       return twiml("You have been unsubscribed. Reply START to rejoin.");
     }
 
@@ -457,6 +444,7 @@ export async function POST(req: Request) {
       if (startOutcome === "blocked_account_deleting") {
         return fastAckTwiml();
       }
+      await closeOpenSmsOptOutReviewsAfterMemberStart(userId);
       return twiml(START_TWIML_BODY);
     }
 

@@ -10,12 +10,13 @@ import { recentEventsIncludeUserYesOnLocalDay } from "@/lib/north-star-sms-conte
 import type { V2EventRowForAi } from "@/lib/v2-commitment";
 
 function extras(overrides: Partial<InboundSolBriefExtras> = {}): InboundSolBriefExtras {
-  const { accountability_interpretation, ...rest } = overrides;
+  const { accountability_interpretation, likely_all_proactive_sms_stop, ...rest } = overrides;
   return {
     answer_priority: "normal",
     coaching_after_answer: "yes",
     requires_pat_personal_knowledge: "unknown",
     user_is_correcting_coach: false,
+    likely_all_proactive_sms_stop: likely_all_proactive_sms_stop ?? "no",
     accountability_interpretation: {
       relevance: "central",
       outcome: "completed",

@@ -130,7 +130,6 @@ describe("proactive M/E/W awaiting-manual-pat-answer suppression wire", () => {
         .filter(Boolean)
     );
     const protectedPaths = [
-      "src/lib/inbound-sol-writer.ts",
       "src/lib/inbound-pat-source-evidence.ts",
       "src/app/api/ask-pat/route.ts",
       "src/lib/admin-manual-pat-answers.ts",

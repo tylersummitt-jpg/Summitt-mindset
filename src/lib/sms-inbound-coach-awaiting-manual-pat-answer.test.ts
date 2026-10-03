@@ -31,6 +31,16 @@ function solNoSendBlock(src: string): string {
   return block.slice(noSend, replyReady);
 }
 
+/** Full no-send branch, including the goal-change fallback that writes reply_ready before the generic cancel. */
+function solNoSendBranch(src: string): string {
+  const block = solMainBlock(src);
+  const noSend = block.indexOf("if (!solTurn.shouldSend || !solTurn.body?.trim())");
+  const end = block.indexOf("const inboundReplyBody", noSend);
+  expect(noSend).toBeGreaterThan(0);
+  expect(end).toBeGreaterThan(noSend);
+  return block.slice(noSend, end);
+}
+
 function claimStatusLiterals(src: string): string[][] {
   const re = /\.in\(\s*"status"\s*,\s*\[([^\]]+)\]\s*\)/g;
   const out: string[][] = [];
@@ -135,7 +145,7 @@ describe("commit 2 — durable awaiting_manual_pat_answer job state", () => {
   });
 
   it("D: generic Sol no-send still cancels exactly as before", () => {
-    const noSend = solNoSendBlock(src);
+    const noSend = solNoSendBranch(src);
     const genericTag = noSend.indexOf('tag: "inbound_sol_main_no_send"');
     expect(genericTag).toBeGreaterThan(0);
     const genericIdx = noSend.lastIndexOf('status: "cancelled"', genericTag);
@@ -186,7 +196,7 @@ describe("commit 2 — durable awaiting_manual_pat_answer job state", () => {
   it("G: NO/UNKNOWN ordinary inbound still cannot produce manual_pat_answer_needed", () => {
     expect(turn).toContain('noSend("writer_manual_pat_flag_without_yes"');
     expect(turn).toContain('requires_pat_personal_knowledge !== "yes"');
-    const noSend = solNoSendBlock(src);
+    const noSend = solNoSendBranch(src);
     expect(noSend).toContain('solTurn.noSendReason === "manual_pat_answer_needed"');
     const generic = noSend.slice(noSend.indexOf("} else {"));
     expect(generic).toContain('status: "cancelled"');
@@ -215,7 +225,7 @@ describe("commit 2 — durable awaiting_manual_pat_answer job state", () => {
     expect(noSend).not.toContain("writeInboundSolBody");
     expect(noSend).not.toContain("runInboundSolBriefInterpreter");
     expect(noSend).not.toContain("embeddings.create");
-    expect(src.split("await runInboundSolRelationshipTurn({").length - 1).toBe(1);
+    expect(src.split("await runInboundSolRelationshipTurn({").length - 1).toBe(2);
     expect(turn.split("writeInboundSolBody({").length - 1).toBe(1);
     expect(turn.split("runInboundSolBriefInterpreter({").length - 1).toBe(1);
     expect(writer.split("chat.completions.create").length - 1).toBe(1);
@@ -250,7 +260,7 @@ describe("commit 2 — durable awaiting_manual_pat_answer job state", () => {
   });
 
   it("telemetry uses existing last_error / log / compact no_send_reason seams only", () => {
-    const manual = solNoSendBlock(src);
+    const manual = solNoSendBranch(src);
     expect(manual).toContain('tag: "inbound_sol_awaiting_manual_pat_answer"');
     expect(manual).toContain("[sms-inbound-coach] inbound_sol_awaiting_manual_pat_answer");
     expect(manual).toContain("insertInboundTurnTelemetryBestEffort");

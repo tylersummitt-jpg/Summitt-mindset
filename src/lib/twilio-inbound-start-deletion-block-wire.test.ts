@@ -62,12 +62,17 @@ describe("APP-041B2a START blocked by account deletion (wire)", () => {
   });
 
   it("STOP path remains unchanged", () => {
+    const stopSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/sms-canonical-stop.ts"),
+      "utf8"
+    );
     const stopFlowIdx = src.indexOf("async function runStopFlow");
     const startFlowIdx = src.indexOf("async function runStartFlow");
     const stopBlock = src.slice(stopFlowIdx, startFlowIdx);
-    expect(stopBlock).toContain("sms_enabled: false");
-    expect(stopBlock).toContain("stopped_at:");
-    expect(stopBlock).toContain("smsEnabled: false");
+    expect(stopBlock).toContain("applyCanonicalSmsStop");
+    expect(stopSrc).toContain("sms_enabled: false");
+    expect(stopSrc).toContain("stopped_at:");
+    expect(stopSrc).toContain("smsEnabled: false");
     expect(handler).toContain(
       'return twiml("You have been unsubscribed. Reply START to rejoin.")'
     );

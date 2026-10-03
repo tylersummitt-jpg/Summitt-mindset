@@ -26,7 +26,13 @@ describe("twilio inbound START clears comms prefs", () => {
 
   it("STOP path does not clear comms prefs via helper", () => {
     const stopFlowIdx = src.indexOf("async function runStopFlow");
-    const stopBlock = src.slice(stopFlowIdx, stopFlowIdx + 600);
+    const startFlowIdx = src.indexOf("async function runStartFlow");
+    const stopBlock = src.slice(stopFlowIdx, startFlowIdx);
+    const stopSrc = fs.readFileSync(
+      path.join(process.cwd(), "src/lib/sms-canonical-stop.ts"),
+      "utf8"
+    );
     expect(stopBlock).not.toContain("clearCommsPreferencesOnSmsResume");
+    expect(stopSrc).not.toContain("clearCommsPreferencesOnSmsResume");
   });
 });

@@ -42,6 +42,10 @@ import {
   hasAwaitingManualPatAnswer,
 } from "@/lib/has-awaiting-manual-pat-answer";
 import {
+  AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
+  hasAwaitingSmsOptOutReview,
+} from "@/lib/sms-opt-out-review-hold";
+import {
   fetchV2UserSmsCommsPreferences,
   isPauseActive,
 } from "@/lib/v2-sms-comms-preferences";
@@ -96,6 +100,7 @@ export type TylerTextOverviewEveningSendRefusalCode =
   | "body_changed_before_twilio"
   | "dry_run"
   | "awaiting_manual_pat_answer"
+  | "awaiting_sms_opt_out_review"
   | "tto_draft_not_fresh";
 
 export type TylerTextOverviewEveningSendResult =
@@ -839,6 +844,19 @@ export async function sendEveningTtoAuthoritativeCronSend(args: {
     return refuse(
       "awaiting_manual_pat_answer",
       "A Coach Pat question is waiting for a manual answer.",
+      { ...base, draftId: draft.draftId }
+    );
+  }
+
+  if (await hasAwaitingSmsOptOutReview(args.clerkUserId)) {
+    console.log("[evening-sms] skip awaiting_sms_opt_out_review", {
+      clerk_user_id: args.clerkUserId,
+      draft_for_day_key: dayKey,
+      skip_reason: AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
+    });
+    return refuse(
+      "awaiting_sms_opt_out_review",
+      "A possible SMS opt-out is waiting for review.",
       { ...base, draftId: draft.draftId }
     );
   }

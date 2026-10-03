@@ -40,6 +40,7 @@ const db = vi.hoisted(() => ({
   sendEvents: [] as Array<Record<string, unknown>>,
   commitmentEvents: [] as Array<Record<string, unknown>>,
   inboundJobs: [] as Array<Record<string, unknown>>,
+  inboundJobLookupError: null as { message: string } | null,
   forceWeeklyInsertError: null as { code?: string; message?: string } | null,
   forceReserveRpcError: null as string | null,
   reserveReturnedBody: null as string | null,
@@ -92,6 +93,7 @@ function seedWeeklyDraft(overrides?: {
   db.sendEvents = [];
   db.commitmentEvents = [];
   db.inboundJobs = [];
+  db.inboundJobLookupError = null;
   db.forceWeeklyInsertError = null;
   db.forceReserveRpcError = null;
   db.reserveReturnedBody = null;
@@ -131,6 +133,12 @@ function makeChain(state: {
     }
 
     if (table === "sms_inbound_coach_jobs" && state.action === "select") {
+      if (
+        db.inboundJobLookupError &&
+        payload.status === "awaiting_sms_opt_out_review"
+      ) {
+        return { data: null, error: db.inboundJobLookupError };
+      }
       let rows = [...db.inboundJobs];
       if (payload.clerk_user_id) {
         rows = rows.filter((j) => j.clerk_user_id === payload.clerk_user_id);
@@ -759,6 +767,37 @@ describe("sendWeeklyTtoDraftManually", () => {
     expect(db.drafts[0]?.status).toBe("current");
   });
 
+  it("an open SMS opt-out review blocks manual Weekly send, including a Tyler-edited body", async () => {
+    const edited = "Tyler edited weekly body — keep this exact text.";
+    seedWeeklyDraft({ draft: { current_body_to_send: edited, edited_by_tyler: true } });
+    db.inboundJobs = [
+      {
+        message_sid: "SMhold",
+        clerk_user_id: "user_weekly",
+        status: "awaiting_sms_opt_out_review",
+      },
+    ];
+    const result = await sendWeeklyTtoDraftManually({
+      draftId: "draft-weekly-1",
+      requestedByClerkUserId: "admin_tyler",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("awaiting_sms_opt_out_review");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+    expect(db.weeklyEvents).toHaveLength(0);
+  });
+
+  it("an opt-out review lookup error blocks manual Weekly send", async () => {
+    db.inboundJobLookupError = { message: "db down" };
+    const result = await sendWeeklyTtoDraftManually({
+      draftId: "draft-weekly-1",
+      requestedByClerkUserId: "admin_tyler",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("awaiting_sms_opt_out_review");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+  });
+
   it("one answered and one still pending still blocks Weekly send", async () => {
     db.inboundJobs = [
       {
@@ -987,6 +1026,25 @@ describe("sendWeeklyTtoDraftViaCron / shared core", () => {
     expect(db.weeklyEvents).toHaveLength(0);
     expect(db.drafts[0]?.status).toBe("current");
     expect(db.drafts[0]?.current_body_to_send).toBe(WEEKLY_BODY);
+  });
+
+  it("an open SMS opt-out review blocks the Weekly cron send", async () => {
+    db.inboundJobs = [
+      {
+        message_sid: "SMhold",
+        clerk_user_id: "user_weekly",
+        status: "awaiting_sms_opt_out_review",
+      },
+    ];
+    const result = await sendWeeklyTtoDraftViaCron({
+      clerkUserId: "user_weekly",
+      weekKey: WEEK_KEY,
+      phoneTo: "+15551234567",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.refusalCode).toBe("awaiting_sms_opt_out_review");
+    expect(sendSmsMock).not.toHaveBeenCalled();
+    expect(db.weeklyEvents).toHaveLength(0);
   });
 
   it("manual-sent duplicate blocks cron before Twilio", async () => {

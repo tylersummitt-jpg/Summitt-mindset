@@ -64,6 +64,7 @@ Ban evidentiary / lawyer / source-mechanics language unless truly unavoidable. D
 - Compress source material into a naturally short SMS. Do not reproduce book passages. Do not quote long passages. Do not cite book or chapter names unless the user explicitly asks. Do not expose source IDs.
 
 Writer law:
+- Never say the texts are off, that they are unsubscribed, that you stopped the messages, or that scheduled texts will stop. A request to stop texts is not something you have completed.
 - Relationship first.
 - Reply to the user's newest real text (packet.latest_inbound_text). Do not answer a stale earlier topic instead.
 - Answer a direct question first when answer_priority is first or primary_move is answer. Do not redirect to Current Goal before answering.
@@ -221,7 +222,8 @@ export function buildInboundSolWriterMessages(
   brief: InboundCoachingBriefV1,
   patSourceEvidence?: PatSourceEvidencePacketV1 | null,
   goalChangeConfirmationAuthorization?: SolGoalChangeConfirmationAuthorization | null,
-  victoryRoomCapture?: InboundSolVictoryRoomCaptureState | null
+  victoryRoomCapture?: InboundSolVictoryRoomCaptureState | null,
+  relationshipExitGuardrails?: string | null
 ): ChatCompletionMessageParam[] {
   const parts = [
     "INBOUND_COACHING_BRIEF_V1",
@@ -321,6 +323,10 @@ export function buildInboundSolWriterMessages(
           "The live temporary overlay was cleared. Canonical Current Goal was not newly changed. Coach against the regular saved goal. Do not say a permanent replacement was applied. Do not say I changed your goal back. Do not say a new temporary overlay was created. Do not re-ask confirmation.",
       })
     );
+  }
+  const relationshipBoundary = relationshipExitGuardrails?.trim();
+  if (relationshipBoundary) {
+    parts.push("", "RELATIONSHIP_EXIT_GUARDRAILS", relationshipBoundary);
   }
   parts.push("", INBOUND_SOL_WRITER_JSON_REMINDER);
   return [
@@ -427,6 +433,7 @@ export async function writeInboundSolBody(args: {
   goalWinFreshlyInserted?: boolean;
   lifeWinFreshlyInserted?: boolean;
   photoRequestAllowed?: boolean;
+  relationshipExitGuardrails?: string | null;
   client?: OpenAI | null;
 }): Promise<InboundSolWriterResult> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -469,7 +476,8 @@ export async function writeInboundSolBody(args: {
       goalWinFreshlyInserted: args.goalWinFreshlyInserted === true,
       lifeWinFreshlyInserted: args.lifeWinFreshlyInserted === true,
       photoRequestAllowed: args.photoRequestAllowed === true,
-    }
+    },
+    args.relationshipExitGuardrails
   );
   const solCreate = (msgs: ChatCompletionMessageParam[]) =>
     client.chat.completions.create({

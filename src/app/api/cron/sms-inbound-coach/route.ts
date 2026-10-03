@@ -501,6 +501,7 @@ import {
   applyRelationshipExitGatedOverride,
   buildInboundV3RelationshipExitFacts,
   detectSmsRelationshipExitIntent,
+  goalChangeCommitsBeforeInboundSolBrief,
   isRelationshipExitLaneActive,
   shouldDeferRelationshipExitToGoalHandoff,
 } from "@/lib/sms-relationship-exit-intent";
@@ -536,7 +537,13 @@ import {
 import { applyFinalVoiceOwnershipGate, type VoiceOwnershipResult } from "@/lib/v3-sms-voice-ownership";
 import { isAppleMessengerTapbackLine } from "@/lib/sms-imessage-reaction";
 import { notifyManualPatAnswerNeeded } from "@/lib/notify-manual-pat-answer";
+import { notifySmsOptOutReviewNeeded } from "@/lib/notify-sms-opt-out-review";
 import { hasAwaitingManualPatAnswer } from "@/lib/has-awaiting-manual-pat-answer";
+import {
+  AWAITING_SMS_OPT_OUT_REVIEW_STATUS,
+  sendSmsOptOutReviewAcknowledgment,
+  SMS_OPT_OUT_REVIEW_ACK_BODY,
+} from "@/lib/sms-opt-out-review-hold";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -1886,6 +1893,7 @@ async function repairOutboundSidWithoutSentAt(): Promise<number> {
     .select("message_sid")
     .not("outbound_message_sid", "is", null)
     .is("sent_at", null)
+    .neq("status", AWAITING_SMS_OPT_OUT_REVIEW_STATUS)
     .limit(25);
 
   if (error || !rows?.length) return 0;
@@ -4169,8 +4177,13 @@ async function processV2NormalInboundOutcome(
     gatedDecision = applyIdentityEditGatedOverride(identityEditDetection);
   }
 
+  const textingSoftOptOutHoldJudgment =
+    relationshipExitDetection.category === "texting_soft_opt_out";
+  const relationshipExitSuppressesOrdinaryCoaching =
+    relationshipExitLaneActive && !textingSoftOptOutHoldJudgment;
+
   const inboundSolMainLikely = isLikelyInboundSolMainBeforeHandoff({
-    relationshipExitLaneActive,
+    relationshipExitLaneActive: relationshipExitSuppressesOrdinaryCoaching,
     identityEditLaneActive,
     commitmentChangeIntentLikely: isLikelyCommitmentChangeIntentTurn(userMessage),
     conversationBrainControlTurnActive: conversationBrainControlTurn != null,
@@ -4352,9 +4365,14 @@ async function processV2NormalInboundOutcome(
     !isLikelySmsComplianceOrOptOutTurn(userMessage) &&
     !isLikelyCommitmentChangeIntentTurn(userMessage);
 
-  /** Phase 3G-1: soft opt-out phrases use V3 integrity lane, not legacy transactional composer. */
+  /**
+   * Phase 3G-1: compliance phrases are not the legacy transactional composer.
+   * texting_soft_opt_out is not an exclusive lane and is not this exception:
+   * Sol must see "please stop texting me" and judge yes/no.
+   */
   const isInboundTransactionalException =
-    isLikelySmsComplianceOrOptOutTurn(userMessage) && !relationshipExitLaneActive;
+    isLikelySmsComplianceOrOptOutTurn(userMessage) && !relationshipExitLaneActive &&
+    relationshipExitDetection.category !== "texting_soft_opt_out";
 
   const pendingResolutionPreHandoff = getPendingResolutionOrNull(commitment);
   const patternSignalPreHandoff = deriveSmsPatternSignal({
@@ -5368,22 +5386,28 @@ async function processV2NormalInboundOutcome(
   // Do not open hidden saved-replace pending while exit or identity replies.
   // Goal-only abandonment defers exit (relationshipExitLaneActive false) and still
   // reaches this pending-open. Planned interruption must not skip it.
+  const goalChangeLastCoachExact = (
+    inboundRelationshipMemoryPacket.last_outbound_full_body ?? lastOutboundSmsPreview
+  )?.trim();
+  const goalChangeRecentExactThread = [
+    ...(goalChangeLastCoachExact
+      ? [{ sender: "coach" as const, body: goalChangeLastCoachExact }]
+      : []),
+    { sender: "user" as const, body: userMessage },
+  ];
   if (relationshipExitLaneActive || identityEditLaneActive) {
     console.info("[sol-goal-change-pending-open] skipped_exclusive_lane", {
       message_sid: job.message_sid,
       commitment_id: commitment.id,
       relationship_exit_lane_active: relationshipExitLaneActive,
       identity_edit_lane_active: identityEditLaneActive,
+      goal_change_commits_before_sol: goalChangeCommitsBeforeInboundSolBrief({
+        relationshipExitLaneActive,
+        identityEditLaneActive,
+      }),
     });
   } else {
     try {
-      const lastCoachExact = (
-        inboundRelationshipMemoryPacket.last_outbound_full_body ?? lastOutboundSmsPreview
-      )?.trim();
-      const recentExactThread = [
-        ...(lastCoachExact ? [{ sender: "coach" as const, body: lastCoachExact }] : []),
-        { sender: "user" as const, body: userMessage },
-      ];
       const solGoalChangePendingOpen = await runSolGoalChangePendingOpenForInbound({
         clerkUserId: userId,
         commitment,
@@ -5392,7 +5416,7 @@ async function processV2NormalInboundOutcome(
         plannedInterruptionKnown: plannedInterruptionActionable,
         timezone,
         now: job.created_at ? new Date(job.created_at) : new Date(),
-        recentExactThread,
+        recentExactThread: goalChangeRecentExactThread,
       });
       commitment = solGoalChangePendingOpen.commitment;
       goalChangeConfirmationAuthorization = solGoalChangePendingOpen.authorization;
@@ -5425,7 +5449,7 @@ async function processV2NormalInboundOutcome(
     if (
       isInboundSolMainCoachingBranch({
         normalInboundV3OwnershipEligible: true,
-        relationshipExitLaneActive,
+        relationshipExitLaneActive: relationshipExitSuppressesOrdinaryCoaching,
         identityEditLaneActive,
         commitmentChangeHeuristicContext,
         conversationBrainControlTurnActive: conversationBrainControlTurn != null,
@@ -5478,7 +5502,8 @@ async function processV2NormalInboundOutcome(
         gatedDecision,
         classifierEventType: eventType,
         classifierNormalizedHint: normalizedHint ?? null,
-        exclusiveLaneOwnsTurn: false,
+        exclusiveLaneOwnsTurn: textingSoftOptOutHoldJudgment,
+        relationshipBoundaryTurn: textingSoftOptOutHoldJudgment,
         pendingConfirmationConflict: isSmsInboundPendingResolutionActionable(commitment),
         receivedAt: job.created_at ?? null,
         currentTurnMessageSids: [...splitSuppressedMessageSids, job.message_sid],
@@ -5489,6 +5514,85 @@ async function processV2NormalInboundOutcome(
         ...solTurn.forensics,
         inbound_sol_main: true,
       };
+
+      if (
+        solTurn.noSendReason === "sms_opt_out_review" ||
+        solTurn.noSendReason === "sms_opt_out_review_already_open"
+      ) {
+        const ack = await sendSmsOptOutReviewAcknowledgment({
+          messageSid: job.message_sid,
+          clerkUserId: userId,
+          toPhone: job.from_phone,
+        });
+        if (ack.ok) {
+          await insertInboundTurnTelemetryBestEffort({
+            commitmentId: commitment.id,
+            clerkUserId: userId,
+            messageSid: job.message_sid,
+            rawBody: userMessage,
+            replyBody: SMS_OPT_OUT_REVIEW_ACK_BODY,
+            coachingMoveSource: "inbound_sol_relationship_turn",
+            laneMetadata: {
+              ...solLaneMetadata,
+              inbound_sol_sms_opt_out_review: true,
+              ack_outcome: ack.outcome,
+            },
+            routePurpose: "normal_inbound_reply",
+            branchName: "inbound_sol_sms_opt_out_review",
+            visibleSentIntended: ack.outcome === "acknowledged",
+            branch: "main",
+          });
+          if (ack.outcome === "acknowledged") {
+            try {
+              await notifySmsOptOutReviewNeeded({
+                preferredName,
+                triggeringText: userMessage,
+                messageSid: job.message_sid,
+              });
+            } catch (notifyErr) {
+              console.warn("[sms-inbound-coach] sms_opt_out_review_notification_failed", {
+                message_sid: job.message_sid,
+                error: notifyErr instanceof Error ? notifyErr.message : String(notifyErr),
+              });
+            }
+          }
+          return;
+        }
+        if (ack.outcome === "already_open_other") {
+          await markJobFinal({
+            messageSid: job.message_sid,
+            status: "cancelled",
+            nextRetry: farFutureIso(),
+            replyBody: null,
+            lastError: JSON.stringify({
+              tag: "inbound_sol_sms_opt_out_review_already_open",
+              no_send_reason: solTurn.noSendReason,
+            }).slice(0, 1900),
+          });
+          await insertInboundTurnTelemetryBestEffort({
+            commitmentId: commitment.id,
+            clerkUserId: userId,
+            messageSid: job.message_sid,
+            rawBody: userMessage,
+            replyBody: "",
+            coachingMoveSource: "inbound_sol_relationship_turn",
+            laneMetadata: {
+              ...solLaneMetadata,
+              inbound_sol_sms_opt_out_review_already_open: true,
+            },
+            routePurpose: "normal_inbound_reply",
+            branchName: "inbound_sol_sms_opt_out_review_already_open",
+            visibleSentIntended: false,
+            branch: "main",
+          });
+          return;
+        }
+        console.warn("[sms-inbound-coach] sms_opt_out_review_ack_not_sent", {
+          message_sid: job.message_sid,
+          error: ack.error,
+        });
+        return;
+      }
 
       if (!solTurn.shouldSend || !solTurn.body?.trim()) {
         if (solTurn.noSendReason === "manual_pat_answer_needed") {
@@ -12467,6 +12571,13 @@ async function processJob(claimedJob: JobRow): Promise<void> {
 
   if (job.status === "awaiting_manual_pat_answer") {
     console.info("[sms-inbound-coach] inbound_sol_awaiting_manual_pat_answer_idempotent", {
+      message_sid: job.message_sid,
+    });
+    return;
+  }
+
+  if (job.status === AWAITING_SMS_OPT_OUT_REVIEW_STATUS) {
+    console.info("[sms-inbound-coach] sms_opt_out_review_idempotent", {
       message_sid: job.message_sid,
     });
     return;

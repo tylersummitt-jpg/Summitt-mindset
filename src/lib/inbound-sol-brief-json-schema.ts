@@ -22,6 +22,7 @@ const INBOUND_EXTRAS_SCHEMA = {
     "durable_user_evidence",
     "win_presentation",
     "coach_relationship_memory_changes",
+    "likely_all_proactive_sms_stop",
   ],
   properties: {
     answer_priority: { type: "string", enum: ["first", "normal", "unknown"] },
@@ -121,6 +122,7 @@ const INBOUND_EXTRAS_SCHEMA = {
         life_detail: { anyOf: [{ type: "string" }, { type: "null" }] },
       },
     },
+    likely_all_proactive_sms_stop: { type: "string", enum: ["yes", "no"] },
     coach_relationship_memory_changes: {
       anyOf: [
         {
@@ -228,6 +230,12 @@ export function buildInboundSolBriefExactContractPromptAppendix(): string {
     "existing_win: target_win_id MUST be copied from pending_media_context.recent_wins[].id. Never invent a UUID.",
     "current_turn_win means this inbound text is about the pending photo AND the Win created from THIS turn (UUID not known yet).",
     "If awaiting_user is true, clarification_body is the exact Coach question already sent. Answering it is current_turn_win when this text is the Win.",
+    "likely_all_proactive_sms_stop: yes | no",
+    "yes ONLY when the newest inbound is clearly asking for ALL proactive Summitt Mindset texts to stop.",
+    "yes examples: \"Please stop texting me.\"; \"I don't want these messages anymore.\"; \"I need to stop getting these messages.\"; \"Don't send me these coaching texts anymore.\"",
+    "no examples: \"Stop asking me about workouts.\"; \"Can we stop talking about this goal?\"; \"I'm done with this goal.\"; \"Pause texts until Monday.\"; \"Only text me in the mornings.\"; \"Text me less.\"; \"These texts are too much.\"; \"Leave me alone.\"; \"I need to stop eating junk food.\"; \"Don't stop encouraging me.\"; \"I stopped working out.\"; \"Delete my account.\"; \"Cancel my account.\"",
+    "If the request is unclear, partial, temporary, about one topic, about one goal, about cadence, about account deletion, or ordinary use of the word stop: no.",
+    "yes does not unsubscribe them. It only tells the server a human should review before another scheduled text goes out.",
     "Inbound replies: proactive_decision must be send.",
     "Explicit photo/picture/image nouns are not required. A later caption of the same moment may be current_turn_win.",
     "Elapsed time alone never pairs. Recency/sequence may be one contextual clue with conversational continuity and text meaning.",
