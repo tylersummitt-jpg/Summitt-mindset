@@ -93,6 +93,7 @@ import {
   TTO_PERSISTED_EXACT_THREAD_UNAVAILABLE,
   TTO_PERSISTED_PACKET_HEADING,
   TTO_PERSISTED_PACKET_UNAVAILABLE,
+  TTO_CURRENT_BODY_COPY_PASTE_LABEL,
   TTO_INTERPRETER_OPENAI_ERROR_HEADING,
   TTO_WRITER_OPENAI_ERROR_HEADING,
   buildProvenanceExplanationBlocks,
@@ -2456,6 +2457,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                             }))
                           }
                         />
+                        <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          {TTO_CURRENT_BODY_COPY_PASTE_LABEL}
+                        </p>
+                        <pre
+                          data-testid="tto-current-body-copy"
+                          className="mt-1 w-full min-h-[96px] rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono whitespace-pre-wrap"
+                        >{edits[row.draftId as string] ?? ""}</pre>
                         <p className="mt-1 text-xs text-gray-600">
                           {formatTtoBodyCharCount(editorTransportBody.length)}
                         </p>

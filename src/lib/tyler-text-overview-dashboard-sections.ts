@@ -19,6 +19,12 @@ export const RAW_NOTEBOOK_SECTION_LABEL =
 export const RAW_NOTEBOOK_EMPTY_MESSAGE =
   "No raw OpenAI input exists for this generation because the writer was not called.";
 
+/**
+ * Visible label for the page-copy mirror of the live editor body.
+ * The adjacent pre contains only that body — no placeholder.
+ */
+export const TTO_CURRENT_BODY_COPY_PASTE_LABEL = "CURRENT BODY FOR COPY/PASTE";
+
 /** Morning historical writer-record section copy (exact persisted strings). */
 export const MORNING_CURRENT_BODY_HEADING = "CURRENT BODY THAT WILL SEND";
 export const MORNING_CURRENT_BODY_LABEL =

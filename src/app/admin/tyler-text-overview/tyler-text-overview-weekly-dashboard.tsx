@@ -41,6 +41,7 @@ import {
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
   ADMIN_INTERPRETATION_LINE,
+  TTO_CURRENT_BODY_COPY_PASTE_LABEL,
   buildWeeklyProvenanceExplanationBlocks,
   formatPersistedMessageForLine,
   getWeeklyRawNotebookSectionCopy,
@@ -1038,6 +1039,13 @@ export default function TylerTextOverviewWeeklyDashboard() {
                             setEdits(editsRef.current);
                           }}
                         />
+                        <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          {TTO_CURRENT_BODY_COPY_PASTE_LABEL}
+                        </p>
+                        <pre
+                          data-testid="tto-current-body-copy"
+                          className="mt-1 w-full min-h-[96px] rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono whitespace-pre-wrap"
+                        >{edits[row.draftId as string] ?? ""}</pre>
                         <p className="mt-1 text-xs text-gray-600">{WEEKLY_TTO_SAVE_ONLY_COPY}</p>
                         <p className="mt-1 text-xs text-gray-600">{WEEKLY_TTO_MANUAL_SEND_NOTE}</p>
                         {dirty ? (
