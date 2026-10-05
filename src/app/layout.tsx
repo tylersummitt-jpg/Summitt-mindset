@@ -83,6 +83,9 @@ export default async function RootLayout({
                   <span>© {new Date().getFullYear()} Summitt Mindset</span>
 
                   <div className="flex flex-wrap gap-x-4 gap-y-2 underline">
+                    <a href="/about" className="py-0.5">
+                      About
+                    </a>
                     <a href="/privacy" className="py-0.5">
                       Privacy Policy
                     </a>

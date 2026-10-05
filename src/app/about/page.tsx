@@ -1,6 +1,32 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { PageHero } from "@/components/PageHero";
 import { getPageImage } from "@/data/page-images";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "About Summitt Mindset | Created by Pat Summitt's Family",
+  },
+  description:
+    "Learn why Pat Summitt's family created Summitt Mindset to bring her principles of accountability, discipline, and consistency into everyday life.",
+  alternates: {
+    canonical: "https://summittmindset.com/about",
+  },
+  openGraph: {
+    type: "website",
+    url: "https://summittmindset.com/about",
+    siteName: "Summitt Mindset",
+    title: "About Summitt Mindset | Created by Pat Summitt's Family",
+    description:
+      "Learn why Pat Summitt's family created Summitt Mindset to bring her principles of accountability, discipline, and consistency into everyday life.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "About Summitt Mindset | Created by Pat Summitt's Family",
+    description:
+      "Learn why Pat Summitt's family created Summitt Mindset to bring her principles of accountability, discipline, and consistency into everyday life.",
+  },
+};
 
 export default function AboutPage() {
   const image = getPageImage("/about");

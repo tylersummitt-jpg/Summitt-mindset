@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import type { Metadata } from "next";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
@@ -17,6 +18,56 @@ import {
   marketingTrialCtaLabelLong,
   shouldShowMarketingPricingCopy,
 } from "@/lib/native-app/native-safe-marketing-cta";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "Summitt Mindset | Daily Coaching Inspired by Pat Summitt",
+  },
+  description:
+    "Created by Pat Summitt's family, Summitt Mindset offers personalized daily accountability by text. Start your 7-day free trial. Cancel anytime.",
+  alternates: {
+    canonical: "https://summittmindset.com/",
+  },
+  openGraph: {
+    type: "website",
+    url: "https://summittmindset.com/",
+    siteName: "Summitt Mindset",
+    title: "Summitt Mindset | Daily Coaching Inspired by Pat Summitt",
+    description:
+      "Created by Pat Summitt's family, Summitt Mindset offers personalized daily accountability by text. Start your 7-day free trial. Cancel anytime.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Summitt Mindset | Daily Coaching Inspired by Pat Summitt",
+    description:
+      "Created by Pat Summitt's family, Summitt Mindset offers personalized daily accountability by text. Start your 7-day free trial. Cancel anytime.",
+  },
+};
+
+const brandSchema = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://summittmindset.com/#organization",
+      name: "Summitt Mindset",
+      legalName: "Summitt Mindset LLC",
+      url: "https://summittmindset.com/",
+      description:
+        "Created by Pat Summitt's family, Summitt Mindset provides personalized daily accountability rooted in her principles.",
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://summittmindset.com/#website",
+      name: "Summitt Mindset",
+      url: "https://summittmindset.com/",
+      publisher: {
+        "@id": "https://summittmindset.com/#organization",
+      },
+      inLanguage: "en-US",
+    },
+  ],
+};
 
 /** Hero primary CTA — matches coach kit ring offset on dark hero */
 const ctaHeroPrimaryClass =
@@ -76,6 +127,12 @@ export default async function HomePage() {
 
   return (
     <div>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(brandSchema).replace(/</g, "\\u003c"),
+        }}
+      />
       {/* Homepage hero — image-led, live HTML overlay */}
       <section className="relative w-full overflow-hidden border-b border-[var(--border)] bg-neutral-950">
         <div className="relative isolate min-h-[72vh] md:min-h-[80vh] w-full min-w-0">
@@ -269,6 +326,10 @@ export default async function HomePage() {
             <p className="mt-5 text-base leading-relaxed text-slate-700 sm:text-lg sm:leading-relaxed">
               Summitt Mindset was created by Pat Summitt&apos;s family to bring her standard of
               accountability, discipline, and daily consistency into everyday life.
+            </p>
+            <p className="mt-4 text-base leading-relaxed text-slate-700 sm:text-lg sm:leading-relaxed">
+              Looking for Summit Mindset? You&apos;re in the right place. Summitt Mindset is
+              spelled with two T&apos;s, in honor of Pat Summitt, and was created by her family.
             </p>
             <div className="mt-6 flex min-w-0 gap-4 border-l-4 border-[var(--brand)] pl-5">
               <p className="text-lg font-medium italic leading-relaxed text-slate-800 sm:text-xl">
