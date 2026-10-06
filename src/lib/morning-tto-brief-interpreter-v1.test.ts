@@ -318,6 +318,45 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(src).not.toMatch(/daypart === ["']evening["'].*SYSTEM_PROMPT|SYSTEM_PROMPT.*daypart ===/);
   });
 
+  it("receive-time boundary clause is additive and does not say near, a numeric threshold, or do not send", () => {
+    const p = MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT;
+    const start = p.indexOf("- Receive-time boundary:");
+    const end = p.indexOf("- Relative time:");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const clause = p.slice(start, end);
+    expect(clause).toContain("intended_receive_time_local");
+    expect(clause).toContain("stated time span that covers that receive time");
+    expect(clause).toContain("do not treat that opportunity as safely still ahead");
+    expect(clause).toContain("Do not assign that time-bound action as the next step");
+    expect(clause).toContain("Do not ask whether it already happened");
+    expect(clause).toContain("Do not call it completed");
+    expect(clause).toContain("Do not call it missed");
+    expect(clause).toContain("Preserve the temporal uncertainty for that opportunity");
+    expect(clause).toContain("clearly earlier stated time remains an elapsed opportunity");
+    expect(clause).toContain("clearly later stated time remains still ahead");
+    expect(clause).toContain("outranks this boundary");
+    expect(clause).toContain("outside this clause");
+    expect(clause).not.toMatch(/\bnear\b/i);
+    expect(clause).not.toMatch(/do not send/i);
+    expect(clause).not.toMatch(/\bspace\b/i);
+    expect(clause).not.toMatch(/stay quiet/i);
+    expect(clause).not.toMatch(/cadence/i);
+    expect(clause).not.toMatch(/when timing is uncertain/i);
+    expect(clause).not.toMatch(/\d/);
+    expect(clause).not.toMatch(/±|minute/i);
+    expect(p).toContain(
+      "evening alone must not imply every goal/action opportunity has already happened"
+    );
+    expect(p).toContain("later-night action");
+    expect(p).toContain("beginning-of-day receive context");
+    expect(p).toContain("near-end-of-day receive context");
+    expect(p).toContain("daypart alone never creates evidence");
+    expect(p).toContain(
+      "message_for (local_date, local_weekday, daypart, timezone) is the authoritative target"
+    );
+  });
+
   it("same shared interpreter system prompt for morning and evening daypart inputs", () => {
     const morningMessages = buildMorningBriefInterpreterMessages(
       assembleOrThrow({ daypart: "morning" })
