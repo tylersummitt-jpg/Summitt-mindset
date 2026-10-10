@@ -42,6 +42,11 @@ import {
   NO_CONTROLLED_EXPERIMENTS,
   type ExperimentRegistry,
 } from "@/lib/operating-experiments";
+import {
+  formatRetentionIntelligence,
+  RETENTION_NOT_LOADED,
+  type RetentionIntelligence,
+} from "@/lib/retention-intelligence";
 
 export { NO_CONTROLLED_EXPERIMENTS };
 
@@ -128,6 +133,7 @@ export type OperatingSnapshot = {
   experiments: ExperimentRegistry;
   landingPages: LandingPagePerformance;
   landingExperiments: ProudTestReport[];
+  retentionIntelligence: RetentionIntelligence;
   limitations: string[];
   report: string;
 };
@@ -178,6 +184,7 @@ function buildActions(args: {
   experiments: ExperimentRegistry;
   landingPages: LandingPagePerformance;
   landingExperiments: ProudTestReport[];
+  retentionIntelligence: RetentionIntelligence;
 }): OperatingAction[] {
   const actions: OperatingAction[] = [];
   const period = args.growth.snapshot.period;
@@ -222,6 +229,18 @@ function buildActions(args: {
       kind: "limitation",
       evidence: "Stripe invoices could not be read, so paid conversions were not assigned to a page.",
       nextStep: "Reload Distribution after the invoice read succeeds. Do not call a trial paid.",
+    });
+  }
+
+  if (args.retentionIntelligence.status === "unreadable") {
+    actions.push({
+      id: "retention-unreadable",
+      title: "Paid retention could not be read",
+      category: "retention",
+      priority: "high",
+      kind: "limitation",
+      evidence: args.retentionIntelligence.definition,
+      nextStep: args.retentionIntelligence.recommendedStep,
     });
   }
 
@@ -439,10 +458,13 @@ function buildLimitations(args: {
   experiments: ExperimentRegistry;
   landingPages: LandingPagePerformance;
   landingExperiments: ProudTestReport[];
+  retentionIntelligence: RetentionIntelligence;
 }): string[] {
   const notes = args.growth.snapshot.notes;
   const lines = [
-    "D30, D60, and D90 retention cohorts are not available. This page does not estimate them.",
+    args.retentionIntelligence.status === "not_loaded"
+      ? "D30, D60, and D90 retention cohorts are not available. This page does not estimate them."
+      : null,
     `Checkout measurement is instrumentation version ${CHECKOUT_TRACKING_VERSION}. Only Stripe Checkout Sessions marked summittCheckoutTrack=${CHECKOUT_TRACKING_VERSION} are counted. Earlier sessions are not backfilled.`,
     "A checkout count is sessions, not unique people. One person can start more than one checkout.",
     "Pending means the session is still open and less than 24 hours old. Expired means Stripe marked the session expired. Incomplete means it is still open after 24 hours. Expired sessions are not also counted as incomplete.",
@@ -458,7 +480,8 @@ function buildLimitations(args: {
     notes.stripeChurnOnly
       ? "Paid subscriber churn is the existing Stripe churn rate. Apple churn is not in that rate."
       : "Paid subscriber churn uses the existing calculator.",
-  ];
+    ...args.retentionIntelligence.limitations,
+  ].filter((line): line is string => Boolean(line));
   if (notes.sourceTrackingUnavailable) {
     lines.push(
       notes.trackingFromNote ??
@@ -550,6 +573,9 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     ...snapshot.actions.map((action) => `- ${action.nextStep}`),
     ...experimentDecisionLines(snapshot.experiments).map((line) => `- ${line}`),
   ];
+  if (snapshot.retentionIntelligence.recommendedStep) {
+    nextSteps.push(`- ${snapshot.retentionIntelligence.recommendedStep}`);
+  }
   if (nextSteps.length === 0) {
     nextSteps.push("No next step is recommended from recorded exceptions in this view.");
   }
@@ -612,6 +638,8 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     `Stripe payment failures in range: ${snapshot.retention.paymentFailedInRange}`,
     `Free week running now: ${snapshot.retention.freeWeekNow}`,
     `Stripe revenue: ${snapshot.retention.stripeRevenue}`,
+    "",
+    ...formatRetentionIntelligence(snapshot.retentionIntelligence),
     "",
     "TODAY'S ACTIONS",
     ...actionLines,
@@ -704,6 +732,7 @@ export function buildOperatingSnapshot(args: {
   experiments?: ExperimentRegistry;
   landingPages?: LandingPagePerformance;
   landingExperiments?: ProudTestReport[];
+  retentionIntelligence?: RetentionIntelligence;
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
@@ -712,6 +741,7 @@ export function buildOperatingSnapshot(args: {
   const experiments = args.experiments ?? EMPTY_EXPERIMENT_REGISTRY;
   const landingPages = args.landingPages ?? EMPTY_LANDING_PERFORMANCE;
   const landingExperiments = args.landingExperiments ?? [EMPTY_PROUD_TEST_REPORT];
+  const retentionIntelligence = args.retentionIntelligence ?? RETENTION_NOT_LOADED;
   const days = daysInRange(args.growth.range);
   const trialsPerDay =
     days != null && period.freeTrialsStarted != null
@@ -762,10 +792,12 @@ export function buildOperatingSnapshot(args: {
       experiments,
       landingPages,
       landingExperiments,
+      retentionIntelligence,
     }),
     experiments,
     landingPages,
     landingExperiments,
+    retentionIntelligence,
     limitations: buildLimitations({
       growth: args.growth,
       challengeAttention: args.challengeAttention,
@@ -775,6 +807,7 @@ export function buildOperatingSnapshot(args: {
       experiments,
       landingPages,
       landingExperiments,
+      retentionIntelligence,
     }),
   };
 

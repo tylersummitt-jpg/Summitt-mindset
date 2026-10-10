@@ -347,6 +347,17 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
         )}
       </section>
 
+      <section className="space-y-2">
+        <h2 className="text-lg font-semibold text-gray-900">Connection to retention</h2>
+        <p className="text-sm text-gray-700">{snapshot.retentionIntelligence.bridge}</p>
+        <p className="text-sm text-gray-700">
+          <Link href="/admin/retention" className="text-gray-800 underline">
+            Open Retention
+          </Link>{" "}
+          for cohort, tenure, and source detail. A source with a higher rate is not a winner.
+        </p>
+      </section>
+
       <LandingPagePerformance snapshot={snapshot} />
       <LandingExperiments snapshot={snapshot} />
     </>
@@ -507,8 +518,45 @@ function LandingPagePerformance({ snapshot }: { snapshot: OperatingSnapshot }) {
   );
 }
 
+function RetentionGroupList({
+  title,
+  rows,
+  hiddenSmall,
+  empty,
+}: {
+  title: string;
+  rows: OperatingSnapshot["retentionIntelligence"]["sources"];
+  hiddenSmall?: number;
+  empty: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <h3 className="font-medium text-gray-900">{title}</h3>
+      {rows.length === 0 ? (
+        <p>{empty}</p>
+      ) : (
+        <ul className="space-y-2">
+          {rows.map((row) => (
+            <li key={row.label}>
+              <span className="font-medium text-gray-900">{row.label}: </span>
+              {row.rate}. Continuously retained {row.retained}. Ended {row.ended}. Rejoined{" "}
+              {row.rejoined}. Unknown {row.unknown}. Not old enough {row.immature}.
+              {row.retained + row.ended + row.rejoined > 0 &&
+              row.retained + row.ended + row.rejoined < 15
+                ? " Small sample."
+                : ""}
+            </li>
+          ))}
+        </ul>
+      )}
+      {hiddenSmall ? <p>{hiddenSmall} smaller groups are not shown.</p> : null}
+    </div>
+  );
+}
+
 function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
   const r = snapshot.retention;
+  const intel = snapshot.retentionIntelligence;
   return (
     <>
       <section className="grid gap-3 sm:grid-cols-2">
@@ -550,9 +598,208 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
         </p>
         <p>
           <span className="font-medium text-gray-900">Unknown: </span>
-          D30, D60, and D90 cohorts are not available. This page does not guess
-          why someone left, and it does not flag someone for being quiet.
+          {intel.status === "ready"
+            ? "Milestone retention is in the sections below. A quiet member is not an incident."
+            : "D30, D60, and D90 cohorts are not available. This page does not guess why someone left, and it does not flag someone for being quiet."}
         </p>
+      </section>
+
+      <section className="space-y-3 text-sm text-gray-700">
+        <h2 className="text-lg font-semibold text-gray-900">Retention intelligence</h2>
+        <p>
+          Lifetime of paid membership. The date range above applies to the counts in the first
+          section. It does not change these cohorts.
+        </p>
+        <details className="rounded border border-gray-200 bg-white px-4 py-3">
+          <summary className="cursor-pointer font-medium text-gray-900">How this works</summary>
+          <div className="mt-3 space-y-2">
+            <p>
+              Retention here means a person is still entitled to a paid membership a set number
+              of days after their first confirmed payment.
+            </p>
+            <p>
+              Day 30, 60, 90, 180, and 365 show whether people are still members after a month,
+              two months, a quarter, half a year, and a year.
+            </p>
+            <p>
+              Only members who have already reached that day are counted. Someone who started
+              paying 20 days ago is left out of day 30. They are not a failure.
+            </p>
+            <p>
+              The free trial is not paid time. Paid time starts at the first confirmed paid
+              invoice, not at the trial start.
+            </p>
+            <p>
+              The longest-lasting list uses verified paid time for members with a Clerk id. It
+              is only on this page. The copied report has the totals, not the names or ids.
+            </p>
+            <p>
+              An annual membership stays active until it ends. A missing monthly payment does
+              not end it, because an annual plan is not billed every month.
+            </p>
+            <p>
+              Member-requested means Stripe recorded that the member asked to cancel. Payment
+              failure means Stripe recorded a failed payment and the membership has an end time.
+              A canceled status by itself is not a request. Past due and paused memberships are
+              still entitled.
+            </p>
+            <p>
+              Feature use is compared beside retention. That is an observation. It does not
+              prove the feature made someone stay.
+            </p>
+            <p>
+              Source, campaign, landing page, and controlled-test labels come from the same
+              first-touch attribution the business already stores. A higher rate is not an
+              experiment result.
+            </p>
+            <p>
+              Apple memberships are not in these cohorts, because a first confirmed Apple
+              payment time is not stored. A membership with no reliable end time is Unknown.
+              A paid subscription with no Clerk id is Unknown. Unknown is not churn.
+            </p>
+            <p>
+              The page calculates this from existing billing and product records when it loads.
+              Tyler reads it and decides what to change. This page does not cancel, contact,
+              or start a test.
+            </p>
+            <p>
+              The later goal is to see which acquisition sources and product experiences show
+              up among members who stay for years. This version only measures. It does not
+              pick a winner.
+            </p>
+          </div>
+        </details>
+        <p>{intel.definition}</p>
+        {intel.partial ? (
+          <p className="text-gray-900">Partial read. Do not quote this as the whole business.</p>
+        ) : null}
+        {intel.status === "unreadable" || intel.withheld ? (
+          <p>{intel.withheld ?? intel.definition}</p>
+        ) : (
+          <>
+            <h3 className="font-medium text-gray-900">Retention over time</h3>
+            {intel.milestones.map((milestone) => (
+              <p key={milestone.label}>
+                <span className="font-medium text-gray-900">{milestone.label}: </span>
+                {milestone.rate}. {milestone.coverage}
+              </p>
+            ))}
+
+            <h3 className="font-medium text-gray-900">Membership longevity</h3>
+            <p>
+              Completed paid periods: {intel.completedCount}. Average {intel.averageCompletedDays}.
+              Median {intel.medianCompletedDays}. Current active memberships are not included in
+              the average or median.
+            </p>
+            <p>
+              Longest completed {intel.longestCompletedDays}. Longest active {intel.longestActiveDays}.
+              Current paying members: {intel.activeCount}.
+            </p>
+            <ul className="space-y-1">
+              {intel.activeByBand.map((band) => (
+                <li key={band.label}>
+                  {band.label}: {band.count}
+                </li>
+              ))}
+            </ul>
+
+            <h3 className="font-medium text-gray-900">Longest-lasting members</h3>
+            <p>
+              Admin lookup only. Phone numbers and email addresses are not shown. This list is
+              not in the copied report.
+            </p>
+            {intel.longestMembers.length === 0 ? (
+              <p>No verified paid tenure in this read.</p>
+            ) : (
+              <ul className="space-y-1">
+                {intel.longestMembers.map((member) => (
+                  <li key={`${member.clerkUserId}-${member.state}`}>
+                    {member.days} days, {member.state}, {member.plan}. {member.clerkUserId}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p>
+              <Link href="/admin/customers" className="text-gray-800 underline">
+                Open Customers
+              </Link>
+            </p>
+
+            <h3 className="font-medium text-gray-900">Why memberships end</h3>
+            <p>
+              Member-requested {intel.memberRequested}. Payment failure {intel.paymentFailure}.
+              Other known {intel.otherKnown}. Unknown reason {intel.unknownReason}. End time
+              unknown {intel.endTimeUnknown}.
+            </p>
+            <p>{intel.churnNote}</p>
+            <p>
+              {intel.customerFeedbackCount > 0
+                ? `Stripe stored a feedback value on ${intel.customerFeedbackCount} ended memberships. Those words are not copied here.`
+                : "No customer-written cancellation reason is stored on these ended memberships."}
+            </p>
+            <p>
+              <Link href="/admin/feedback" className="text-gray-800 underline">
+                Weekly Feedback
+              </Link>
+            </p>
+
+            <h3 className="font-medium text-gray-900">Member experiences and retention</h3>
+            <p>{intel.engagementNote}</p>
+            {intel.engagement.map((row) => (
+              <p key={`paid-${row.label}`}>
+                {row.window}, {row.label}: used {row.usedRate}; did not use {row.unusedRate}.
+                {row.small ? " Small sample." : ""}
+              </p>
+            ))}
+            {intel.trialEngagement.length > 0 ? (
+              <p className="font-medium text-gray-900">During the free trial, among people who later paid</p>
+            ) : null}
+            {intel.trialEngagement.map((row) => (
+              <p key={`trial-${row.label}`}>
+                {row.label}: used {row.usedRate}; did not use {row.unusedRate}.
+                {row.small ? " Small sample." : ""}
+              </p>
+            ))}
+
+            <h3 className="font-medium text-gray-900">Where long-lasting members come from</h3>
+            <p>Day 30, observational. Unknown stays visible. This is not an experiment result.</p>
+            <RetentionGroupList
+              title="First-touch source"
+              rows={intel.sources}
+              hiddenSmall={intel.sourceHiddenSmall}
+              empty={
+                intel.acquisitionReadable
+                  ? "No source rows in this read."
+                  : "Acquisition source could not be joined."
+              }
+            />
+            <RetentionGroupList
+              title="Campaign"
+              rows={intel.campaigns}
+              empty={intel.acquisitionReadable ? "No campaign rows in this read." : "Campaigns could not be joined."}
+            />
+            <RetentionGroupList
+              title="Content"
+              rows={intel.content}
+              empty={intel.acquisitionReadable ? "No content rows in this read." : "Content could not be joined."}
+            />
+            <RetentionGroupList
+              title="Landing page"
+              rows={intel.landings}
+              empty={intel.landingReadable ? "No landing-page rows in this read." : "Landing page could not be joined."}
+            />
+            <RetentionGroupList
+              title="Controlled experiment"
+              rows={intel.experiments}
+              empty={
+                intel.experimentReadable
+                  ? "No experiment rows in this read."
+                  : "Experiment exposure could not be joined."
+              }
+            />
+          </>
+        )}
+        <p>{intel.appleNote}</p>
       </section>
     </>
   );

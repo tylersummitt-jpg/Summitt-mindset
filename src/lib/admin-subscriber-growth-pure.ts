@@ -104,6 +104,9 @@ export type GrowthStripeSubscription = {
   pause_collection?: { behavior?: string | null } | null;
   metadata?: Record<string, string> | null;
   items?: { data?: GrowthStripeItem[] } | null;
+  /** Present when Stripe returned it. Brooke's counts do not read this. */
+  cancellation_reason?: string | null;
+  cancellation_feedback?: string | null;
 };
 
 export type GrowthAppleRow = {
@@ -1703,6 +1706,14 @@ export type SubscriberGrowthDashboardData = {
   trialOnboardingFunnel: TrialOnboardingFunnelCounts;
   visitorCohortTable: VisitorCohortTable;
   homepageVideo: HomepageVideoReport;
+  /**
+   * Subscriptions already listed for this dashboard load.
+   * Set only when the operating snapshot asks. Brooke's page does not ask and does not render it.
+   */
+  retentionSubscriptions?: {
+    complete: boolean;
+    subs: GrowthStripeSubscription[];
+  };
   /** Slim billing join for landing-page attribution. Brooke's page does not render it. */
   landingBilling?: {
     subscriptionsReadable: boolean;

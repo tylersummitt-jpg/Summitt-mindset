@@ -20,12 +20,20 @@ import {
   ensureProudTestExperiment,
   loadLandingExperimentReports,
 } from "@/lib/landing-experiment.server";
+import { loadRetentionIntelligence } from "@/lib/retention-intelligence.server";
+import {
+  unreadableRetentionIntelligence,
+  type RetentionIntelligence,
+} from "@/lib/retention-intelligence";
 
 export async function loadOperatingSnapshot(args: {
   searchParams?: Record<string, string | string[] | undefined>;
   now?: Date;
 }): Promise<OperatingSnapshot> {
-  const growth = await loadSubscriberGrowthDashboard(args);
+  const growth = await loadSubscriberGrowthDashboard({
+    ...args,
+    retentionInputs: true,
+  });
 
   let challengeAttention: number | null = null;
   try {
@@ -128,6 +136,20 @@ export async function loadOperatingSnapshot(args: {
     ];
   }
 
+  let retentionIntelligence: RetentionIntelligence = unreadableRetentionIntelligence(
+    "Stripe subscriptions or paid invoices could not be read."
+  );
+  try {
+    retentionIntelligence = await loadRetentionIntelligence(
+      args.now ?? new Date(),
+      growth.retentionSubscriptions ?? null
+    );
+  } catch (err) {
+    console.warn("[operating] retention intelligence failed", {
+      reason: err instanceof Error ? err.message : "retention_intelligence_failed",
+    });
+  }
+
   return buildOperatingSnapshot({
     growth,
     challengeAttention,
@@ -138,5 +160,6 @@ export async function loadOperatingSnapshot(args: {
     experiments,
     landingPages,
     landingExperiments,
+    retentionIntelligence,
   });
 }

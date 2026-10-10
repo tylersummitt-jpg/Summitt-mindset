@@ -466,13 +466,15 @@ describe("proud test stays off the homepage and Brooke's page", () => {
     expect(isLandingExperimentEntryPath("/go/https://evil.test")).toBe(false);
     expect(() => readFileSync(join(root, "src/app/go/proud-test/route.ts"), "utf8")).toThrow();
     expect(screen).toContain("Controlled landing test");
-    expect(screen).toContain("How this works");
-    expect(screen).toContain("five landing pages");
+    const retentionAt = screen.indexOf("function RetentionBody");
+    const retention = screen.slice(retentionAt);
+    expect(screen.slice(0, retentionAt)).toContain("How this works");
+    expect(screen.slice(0, retentionAt)).toContain("five landing pages");
     expect(screen).toContain("does not pick a winner");
-    expect(screen.slice(screen.indexOf("function RetentionBody"))).not.toContain(
-      "Controlled landing test"
-    );
-    expect(screen.slice(screen.indexOf("function RetentionBody"))).not.toContain("How this works");
+    expect(retention).toContain("How this works");
+    expect(retention).toContain("paid membership");
+    expect(retention).not.toContain("Controlled landing test");
+    expect(retention).not.toContain("five landing pages");
   });
 
   it("includes the controlled test in the shared report without an action while it is unloaded", () => {

@@ -94,6 +94,14 @@ function firstQueryValue(
   return raw;
 }
 
+function stripeCancellationFeedbackRecorded(sub: Stripe.Subscription): boolean {
+  const details = sub.cancellation_details;
+  if (!details) return false;
+  const feedback = typeof details.feedback === "string" ? details.feedback.trim() : "";
+  const comment = typeof details.comment === "string" ? details.comment.trim() : "";
+  return feedback.length > 0 || comment.length > 0;
+}
+
 function mapStripeSubscription(
   sub: Stripe.Subscription
 ): GrowthStripeSubscription {
@@ -133,6 +141,11 @@ function mapStripeSubscription(
       : null,
     metadata: (sub.metadata ?? null) as Record<string, string> | null,
     items: { data: [{ price: mappedPrice }] },
+    cancellation_reason:
+      typeof sub.cancellation_details?.reason === "string"
+        ? sub.cancellation_details.reason
+        : null,
+    cancellation_feedback: stripeCancellationFeedbackRecorded(sub) ? "recorded" : null,
   };
 }
 
@@ -1015,6 +1028,8 @@ async function loadTrialOnboardingFunnel(args: {
 export async function loadSubscriberGrowthDashboard(args: {
   searchParams?: Record<string, string | string[] | undefined>;
   now?: Date;
+  /** Operating snapshot only. Brooke's page leaves this unset. */
+  retentionInputs?: boolean;
 }): Promise<SubscriberGrowthDashboardData> {
   const now = args.now ?? new Date();
   const range = parseGrowthDateRange(firstQueryValue(args.searchParams?.range));
@@ -1552,5 +1567,13 @@ export async function loadSubscriberGrowthDashboard(args: {
       recognizedPriceIds: recognized,
       paidInvoices: paidAtBySubscription,
     }),
+    ...(args.retentionInputs
+      ? {
+          retentionSubscriptions: {
+            complete: stripeListComplete,
+            subs: stripeSubs,
+          },
+        }
+      : {}),
   };
 }
