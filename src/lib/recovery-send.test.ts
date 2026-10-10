@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it, vi } from "vitest";
 
 import type { ResendSendLike } from "@/lib/challenge-send-outcome";
@@ -9,6 +11,7 @@ import {
   interpretResendRecoveryEvent,
   planRecoveryEnrollment,
   recoveryGeography,
+  recoveryInboxTestAllowed,
   RECOVERY_FROM,
   RECOVERY_REPLY_TO,
   recoveryReplyTo,
@@ -245,6 +248,41 @@ describe("recovery provider send", () => {
     expect(recoveryReplyTo({ token: "abc12345678901234567890", inboundDomain: "inbound.summittmindset.com" })).toBe(
       "r+abc12345678901234567890@inbound.summittmindset.com"
     );
+  });
+
+  it("allows an inbox test only to the approved mailbox while sending stays off", () => {
+    expect(recoveryInboxTestAllowed({
+      status: "off",
+      sendingAuthorized: false,
+      recipient: "tyler@summittmindset.com",
+    }).ok).toBe(true);
+    expect(recoveryInboxTestAllowed({
+      status: "pilot",
+      sendingAuthorized: false,
+      recipient: "tyler@summittmindset.com",
+    }).ok).toBe(false);
+    expect(recoveryInboxTestAllowed({
+      status: "off",
+      sendingAuthorized: true,
+      recipient: "tyler@summittmindset.com",
+    }).ok).toBe(false);
+    expect(recoveryInboxTestAllowed({
+      status: "off",
+      sendingAuthorized: false,
+      recipient: "person@example.com",
+    }).ok).toBe(false);
+    const server = readFileSync("src/lib/recovery.server.ts", "utf8");
+    expect(readFileSync("src/lib/recovery-engine.ts", "utf8")).toContain(
+      'export const RECOVERY_INBOX_TEST_EMAIL = "tyler@summittmindset.com"'
+    );
+    expect(server).toContain("RECOVERY_INBOX_TEST_CLERK_ID");
+    expect(server).toContain("to: RECOVERY_INBOX_TEST_EMAIL");
+    expect(server).not.toContain("to: recipient");
+    expect(server).toContain("The inbox test was already sent.");
+    expect(server).not.toContain("recovery:inbox-test:2");
+    expect(server).not.toContain("Dandridge");
+    expect(readFileSync("src/lib/recovery-engine.ts", "utf8")).not.toContain("Dandridge");
+    expect(readFileSync("src/lib/send-challenge-email.ts", "utf8")).not.toContain("Green Top");
   });
 
   it("reads provider bounce, complaint, and received events without guessing a person", () => {

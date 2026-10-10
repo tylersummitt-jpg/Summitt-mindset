@@ -13,10 +13,10 @@ function middlewarePublicRoutePatterns(): string[] {
 }
 
 describe("recovery inbound webhook exposure", () => {
-  it("opens only the exact inbound route and leaves admin and unsubscribe protected", () => {
+  it("opens only the exact inbound and unsubscribe routes", () => {
     const patterns = middlewarePublicRoutePatterns();
     expect(patterns).toContain("/api/recovery/inbound");
-    expect(patterns).not.toContain("/api/recovery/unsubscribe");
+    expect(patterns).toContain("/api/recovery/unsubscribe");
     expect(patterns.some((pattern) => pattern === "/api/recovery(.*)" || pattern === "/api/recovery/*")).toBe(false);
 
     const isPublicRoute = createRouteMatcher(patterns);
@@ -25,7 +25,8 @@ describe("recovery inbound webhook exposure", () => {
 
     expect(isPublicRoute(req("/api/recovery/inbound"))).toBe(true);
     expect(isPublicRoute(req("/api/recovery/inbound/extra"))).toBe(false);
-    expect(isPublicRoute(req("/api/recovery/unsubscribe"))).toBe(false);
+    expect(isPublicRoute(req("/api/recovery/unsubscribe"))).toBe(true);
+    expect(isPublicRoute(req("/api/recovery/unsubscribe/extra"))).toBe(false);
     expect(isPublicRoute(req("/api/recovery"))).toBe(false);
     expect(isPublicRoute(req("/admin"))).toBe(false);
     expect(isPublicRoute(req("/admin/distribution"))).toBe(false);

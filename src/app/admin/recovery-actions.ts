@@ -3,11 +3,17 @@
 import { revalidatePath } from "next/cache";
 
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
-import { markRecoveryReplyHandled, pauseRecoverySettings } from "@/lib/recovery.server";
+import { markRecoveryReplyHandled, pauseRecoverySettings, sendRecoveryInboxTest } from "@/lib/recovery.server";
 
 export async function pauseRecoveryAutomation(_formData: FormData): Promise<void> {
   await requireTylerAdmin();
   const result = await pauseRecoverySettings();
+  if (result.ok) revalidatePath("/admin/distribution");
+}
+
+export async function sendRecoveryInboxTestAction(_formData: FormData): Promise<void> {
+  await requireTylerAdmin();
+  const result = await sendRecoveryInboxTest();
   if (result.ok) revalidatePath("/admin/distribution");
 }
 

@@ -86,6 +86,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/apple/webhook",
   // Exact recovery inbound route. The handler verifies the Svix signature.
   "/api/recovery/inbound",
+  // Exact recovery unsubscribe route. The handler requires that message's token.
+  "/api/recovery/unsubscribe",
 
   // Challenge signup and unsubscribe (anonymous; no Clerk account)
   "/api/challenge/signup",

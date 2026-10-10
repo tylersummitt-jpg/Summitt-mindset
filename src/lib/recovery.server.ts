@@ -4,13 +4,16 @@ import { Resend } from "resend";
 
 import type { ClerkUserResponse } from "@/lib/clerk-rest";
 import { getClerkUser, listClerkUsers } from "@/lib/clerk-rest";
-import type { ResendSendLike } from "@/lib/challenge-send-outcome";
+import { classifyResendSend, type ResendSendLike } from "@/lib/challenge-send-outcome";
 import { loadNonmemberCensus } from "@/lib/nonmember-census.server";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   combineSuppression,
   configuredInboundDomain,
   decideRecoverySend,
+  RECOVERY_INBOX_TEST_CLERK_ID,
+  RECOVERY_INBOX_TEST_EMAIL,
+  recoveryInboxTestAllowed,
   evaluateAutomation,
   executeRecoveryBatch,
   classifyRecoveryInbound,
@@ -371,7 +374,7 @@ async function loadDueJobs(
   const jobs = [];
   for (const row of data) {
     const enrollment = oneEnrollment(row.recovery_enrollments);
-    if (!enrollment) continue;
+    if (!enrollment || enrollment.clerk_user_id === RECOVERY_INBOX_TEST_CLERK_ID) continue;
     const step = row.step === 1 || row.step === 2 || row.step === 3 ? row.step : null;
     if (!step || typeof row.idempotency_key !== "string") continue;
     const createdAtMs = Date.parse(enrollment.account_created_at);
@@ -852,4 +855,111 @@ async function matchReply(token: string | null, inReplyTo: string | null, messag
 function headerValue(headers: Record<string, string>, name: string): string | null {
   const found = Object.entries(headers).find(([key]) => key.toLowerCase() === name);
   return found?.[1]?.trim() || null;
+}
+
+const INBOX_TEST_STEP_ONE = "recovery:inbox-test:1";
+
+export async function sendRecoveryInboxTest(): Promise<{ ok: true } | { ok: false; error: string }> {
+  const settings = await readRecoverySettings();
+  const allowed = recoveryInboxTestAllowed({
+    status: settings?.status ?? "unavailable",
+    sendingAuthorized: process.env.RECOVERY_SENDING_AUTHORIZED === "yes",
+    recipient: RECOVERY_INBOX_TEST_EMAIL,
+  });
+  if (!allowed.ok) return allowed;
+  if (!configuredInboundDomain(process.env.RECOVERY_INBOUND_DOMAIN) || !process.env.RECOVERY_INBOUND_WEBHOOK_SECRET) {
+    return { ok: false, error: "The recovery reply route is not configured." };
+  }
+  const postal = process.env.RECOVERY_POSTAL_ADDRESS?.trim() ?? "";
+  if (!postal) return { ok: false, error: "The physical mailing address is not recorded." };
+
+  const { data: existing } = await supabaseServer
+    .from("recovery_messages")
+    .select("status")
+    .eq("idempotency_key", INBOX_TEST_STEP_ONE)
+    .maybeSingle();
+  if (existing && !["scheduled", "failed"].includes(String(existing.status))) {
+    return { ok: false, error: "The inbox test was already sent." };
+  }
+
+  const { data: enrollment } = await supabaseServer
+    .from("recovery_enrollments")
+    .select("id")
+    .eq("clerk_user_id", RECOVERY_INBOX_TEST_CLERK_ID)
+    .maybeSingle();
+  let enrollmentId = enrollment?.id ? String(enrollment.id) : "";
+  if (!enrollmentId) {
+    const inserted = await supabaseServer
+      .from("recovery_enrollments")
+      .insert({
+        clerk_user_id: RECOVERY_INBOX_TEST_CLERK_ID,
+        email_normalized: RECOVERY_INBOX_TEST_EMAIL,
+        assignment: "recovery",
+        account_created_at: new Date().toISOString(),
+      })
+      .select("id")
+      .maybeSingle();
+    if (inserted.error || !inserted.data?.id) return { ok: false, error: "The inbox test could not be prepared." };
+    enrollmentId = String(inserted.data.id);
+  }
+  if (!existing) {
+    const stepOne = await supabaseServer.from("recovery_messages").insert({
+      enrollment_id: enrollmentId,
+      step: 1,
+      status: "scheduled",
+      idempotency_key: INBOX_TEST_STEP_ONE,
+      scheduled_at: new Date().toISOString(),
+    });
+    if (stepOne.error) return { ok: false, error: "The inbox test could not be prepared." };
+  }
+
+  const token = newRecoveryToken();
+  const claimed = await supabaseServer
+    .from("recovery_messages")
+    .update({
+      token_hash: recoveryTokenHash(token),
+      status: "claimed",
+      claimed_at: new Date().toISOString(),
+    })
+    .eq("idempotency_key", INBOX_TEST_STEP_ONE)
+    .in("status", ["scheduled", "failed"])
+    .select("id");
+  if (claimed.error || !Array.isArray(claimed.data) || claimed.data.length !== 1) {
+    return { ok: false, error: "The inbox test could not be claimed." };
+  }
+  const copy = recoveryMessageCopy({
+    step: 1,
+    firstName: null,
+    unsubscribeUrl: `https://summittmindset.com/api/recovery/unsubscribe?token=${token}`,
+    postalAddress: postal,
+  });
+  let provider: ResendSendLike | undefined;
+  let threw: unknown;
+  try {
+    provider = await sendWithResend({
+      from: RECOVERY_FROM,
+      to: RECOVERY_INBOX_TEST_EMAIL,
+      replyTo: recoveryReplyTo({ token, inboundDomain: process.env.RECOVERY_INBOUND_DOMAIN ?? null }),
+      subject: copy.subject,
+      text: copy.text,
+      html: recoveryHtml(copy.text),
+      headers: {
+        "List-Unsubscribe": `<https://summittmindset.com/api/recovery/unsubscribe?token=${token}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+      idempotencyKey: INBOX_TEST_STEP_ONE,
+    });
+  } catch (error) {
+    threw = error;
+  }
+  const classified = classifyResendSend(threw !== undefined ? { threw } : { result: provider });
+  const accepted = classified.outcome === "accepted";
+  await supabaseServer.from("recovery_messages").update({
+    status: accepted ? "accepted" : "uncertain",
+    provider_message_id: classified.providerMessageId,
+    claim_until: null,
+    attempt_count: 1,
+  }).eq("idempotency_key", INBOX_TEST_STEP_ONE);
+  if (!accepted) return { ok: false, error: "The inbox test did not get a provider acceptance." };
+  return { ok: true };
 }

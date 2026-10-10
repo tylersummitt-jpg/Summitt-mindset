@@ -1,4 +1,4 @@
-import { markRecoveryHandled, pauseRecoveryAutomation } from "@/app/admin/recovery-actions";
+import { markRecoveryHandled, pauseRecoveryAutomation, sendRecoveryInboxTestAction } from "@/app/admin/recovery-actions";
 import type { NonmemberRecovery } from "@/lib/nonmember-recovery";
 import type { RecoveryAttention } from "@/lib/recovery-report";
 
@@ -17,6 +17,11 @@ export function NonmemberRecoveryPanel({
       <form action={pauseRecoveryAutomation}>
         <button type="submit" className="rounded border border-gray-300 bg-white px-3 py-1">
           Emergency Pause
+        </button>
+      </form>
+      <form action={sendRecoveryInboxTestAction}>
+        <button type="submit" className="rounded border border-gray-300 bg-white px-3 py-1">
+          Send inbox test
         </button>
       </form>
       <details className="rounded border border-gray-200 bg-white px-4 py-3">
@@ -66,7 +71,8 @@ export function NonmemberRecoveryPanel({
             address, then forwards a copy to the Tyler mailbox.
           </p>
           <p>
-            The hourly job does not send while the switch is off. Emergency Pause sets the
+            The hourly job does not send while the switch is off. Send inbox test goes
+            only to the approved Tyler mailbox and does not start the pilot. Emergency Pause sets the
             server status to paused. A later send must recheck suppression and membership
             immediately before sending. Missing country stays unknown. It is not labeled
             United States, and it does not block the whole program. A known restricted

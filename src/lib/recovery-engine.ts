@@ -10,6 +10,8 @@ import { classifyResendSend, type ResendSendLike } from "@/lib/challenge-send-ou
 
 export const RECOVERY_FROM = "Tyler Summitt <tyler@summittmindset.com>";
 export const RECOVERY_REPLY_TO = "tyler@summittmindset.com";
+export const RECOVERY_INBOX_TEST_EMAIL = "tyler@summittmindset.com";
+export const RECOVERY_INBOX_TEST_CLERK_ID = "recovery_inbox_test";
 export const RECOVERY_ASSIGNMENT_SALT = "nonmember-recovery-v1";
 export const RECOVERY_PRIMARY_WINDOW_DAYS = 14;
 export const RECOVERY_DAILY_CAP = 25;
@@ -270,7 +272,7 @@ export function recoveryMessageCopy(args: {
   const footer = [
     "",
     "Tyler Summitt",
-    "Summitt Mindset",
+    "Summitt Mindset, LLC",
     args.postalAddress,
     `Unsubscribe: ${args.unsubscribeUrl}`,
   ];
@@ -396,6 +398,19 @@ export function recoveryReplyTo(args: { token: string; inboundDomain: string | n
   const domain = configuredInboundDomain(args.inboundDomain);
   if (!domain) return RECOVERY_REPLY_TO;
   return `r+${args.token}@${domain}`;
+}
+
+export function recoveryInboxTestAllowed(args: {
+  status: RecoveryAutomationStatus;
+  sendingAuthorized: boolean;
+  recipient: string;
+}): { ok: true } | { ok: false; reason: string } {
+  if (args.sendingAuthorized) return { ok: false, reason: "Sending authorization is on." };
+  if (args.status === "pilot" || args.status === "active") return { ok: false, reason: "Automation is not off." };
+  if (args.recipient.trim().toLowerCase() !== RECOVERY_INBOX_TEST_EMAIL) {
+    return { ok: false, reason: "Only the approved inbox can receive the test." };
+  }
+  return { ok: true };
 }
 
 export function configuredInboundDomain(domain: string | null | undefined): string | null {

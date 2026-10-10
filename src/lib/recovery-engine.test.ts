@@ -200,6 +200,10 @@ describe("recovery send gates", () => {
       postalAddress: "1 Example Street",
     });
     expect(copy.text).toContain("Hey!");
+    expect(copy.text).toContain("Summitt Mindset, LLC");
+    expect(copy.text).toContain("1 Example Street");
+    expect(copy.text).toContain("https://summittmindset.com/api/recovery/unsubscribe?token=example");
+    expect(copy.text).not.toContain("Dandridge");
     expect(copy.text).not.toContain("abandoned");
     const snapshot = buildOperatingSnapshot({
       growth: {
