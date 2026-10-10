@@ -5,7 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { ResendSendLike } from "@/lib/challenge-send-outcome";
 import {
   combineSuppression,
+  decideRecoverySend,
   executeRecoveryBatch,
+  membershipFromAccountCheck,
+  recoverySkipDisposition,
+  selectDueRecoverySteps,
   explicitCountryCode,
   interpretContactLookup,
   interpretResendRecoveryEvent,
@@ -283,6 +287,192 @@ describe("recovery provider send", () => {
     expect(server).not.toContain("Dandridge");
     expect(readFileSync("src/lib/recovery-engine.ts", "utf8")).not.toContain("Dandridge");
     expect(readFileSync("src/lib/send-challenge-email.ts", "utf8")).not.toContain("Green Top");
+    const fresh = server.slice(server.indexOf("async function freshMembership"), server.indexOf("async function clerkProfile"));
+    expect(fresh).toContain("loadOneAccountMembership");
+    expect(fresh).not.toContain("loadNonmemberCensus");
+  });
+
+  it("waits when one enrolled account cannot be checked and sends once after the check recovers", async () => {
+    expect(membershipFromAccountCheck({
+      clerk: "unavailable",
+      appleReadable: true,
+      stripeReadable: true,
+      checkoutReadable: true,
+      sessionsReadable: true,
+      judged: null,
+    })).toBe("unavailable");
+    expect(membershipFromAccountCheck({
+      clerk: "found",
+      appleReadable: true,
+      stripeReadable: false,
+      checkoutReadable: true,
+      sessionsReadable: true,
+      judged: null,
+    })).toBe("unavailable");
+    expect(membershipFromAccountCheck({
+      clerk: "found",
+      appleReadable: true,
+      stripeReadable: true,
+      checkoutReadable: false,
+      sessionsReadable: true,
+      judged: null,
+    })).toBe("unavailable");
+    expect(membershipFromAccountCheck({
+      clerk: "found",
+      appleReadable: true,
+      stripeReadable: true,
+      checkoutReadable: true,
+      sessionsReadable: true,
+      judged: "unknown",
+    })).toBe("unknown");
+    expect(membershipFromAccountCheck({
+      clerk: "found",
+      appleReadable: true,
+      stripeReadable: true,
+      checkoutReadable: true,
+      sessionsReadable: true,
+      judged: "verified_nonmember",
+    })).toBe("verified_nonmember");
+    expect(membershipFromAccountCheck({
+      clerk: "missing",
+      appleReadable: true,
+      stripeReadable: true,
+      checkoutReadable: true,
+      sessionsReadable: true,
+      judged: "verified_nonmember",
+    })).toBe("missing");
+
+    const waiting = decideRecoverySend({
+      nowMs: NOW,
+      settings: settings(),
+      candidate: candidate({ membership: "unavailable" }),
+      assignment: "recovery",
+      message: message(),
+      priorAcceptedAtMs: null,
+      alreadySentToday: 0,
+    });
+    expect(waiting.send).toBe(false);
+    if (!waiting.send) expect(recoverySkipDisposition(waiting.reason)).toBe("release");
+
+    const member = decideRecoverySend({
+      nowMs: NOW,
+      settings: settings(),
+      candidate: candidate({ membership: "member" }),
+      assignment: "recovery",
+      message: message(),
+      priorAcceptedAtMs: null,
+      alreadySentToday: 0,
+    });
+    expect(member.send).toBe(false);
+    if (!member.send) expect(recoverySkipDisposition(member.reason)).toBe("stop");
+
+    const suppressed = decideRecoverySend({
+      nowMs: NOW,
+      settings: settings(),
+      candidate: candidate({ suppressed: true }),
+      assignment: "recovery",
+      message: message(),
+      priorAcceptedAtMs: null,
+      alreadySentToday: 0,
+    });
+    expect(suppressed.send).toBe(false);
+    if (!suppressed.send) expect(recoverySkipDisposition(suppressed.reason)).toBe("stop");
+
+    const missing = decideRecoverySend({
+      nowMs: NOW,
+      settings: settings(),
+      candidate: candidate({ membership: "missing" }),
+      assignment: "recovery",
+      message: message(),
+      priorAcceptedAtMs: null,
+      alreadySentToday: 0,
+    });
+    expect(missing.send).toBe(false);
+    if (!missing.send) expect(recoverySkipDisposition(missing.reason)).toBe("stop");
+    const confirmedUnknown = decideRecoverySend({
+      nowMs: NOW,
+      settings: settings(),
+      candidate: candidate({ membership: "unknown" }),
+      assignment: "recovery",
+      message: message(),
+      priorAcceptedAtMs: null,
+      alreadySentToday: 0,
+    });
+    expect(confirmedUnknown.send).toBe(false);
+    if (!confirmedUnknown.send) expect(recoverySkipDisposition(confirmedUnknown.reason)).toBe("stop");
+
+    const send = vi.fn(async () => ({ data: { id: "email_1" }, error: null }));
+    const record = vi.fn(async () => {});
+    let membership: RecoveryCandidate["membership"] = "unavailable";
+    let status: RecoveryMessageState["status"] = "claimed";
+    const batch = () => executeRecoveryBatch({
+      nowMs: NOW,
+      settings: settings(),
+      jobs: [job()],
+      claim: async () => true,
+      reread: async () => ({
+        settings: settings(),
+        candidate: candidate({ membership }),
+        assignment: "recovery" as const,
+        message: message({ status }),
+        priorAcceptedAtMs: null,
+        alreadySentToday: 0,
+      }),
+      buildPayload: async () => payload(),
+      send,
+      record,
+    });
+    await batch();
+    expect(send).not.toHaveBeenCalled();
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({ outcome: "release" }));
+    membership = "verified_nonmember";
+    status = "scheduled";
+    await batch();
+    expect(send).toHaveBeenCalledTimes(1);
+    status = "accepted";
+    await batch();
+    expect(send).toHaveBeenCalledTimes(1);
+
+    const due = selectDueRecoverySteps([
+      { enrollmentId: "older-than-scan", step: 1 as const, scheduledAtMs: NOW - 1000 },
+      { enrollmentId: "older-than-scan", step: 2 as const, scheduledAtMs: NOW - 1000 },
+      { enrollmentId: "older-than-scan", step: 2 as const, scheduledAtMs: NOW + 86_400_000 },
+    ], NOW);
+    expect(due.map((row) => row.step)).toEqual([1]);
+  });
+
+  it("does not send a later recovery step in the same run as an earlier one", async () => {
+    const send = vi.fn(async () => ({ data: { id: "email_1" }, error: null }));
+    const record = vi.fn(async () => {});
+    await executeRecoveryBatch({
+      nowMs: NOW,
+      settings: settings(),
+      jobs: [
+        job(),
+        {
+          ...job(),
+          idempotencyKey: "recovery:enr:2",
+          message: message({ step: 2, idempotencyKey: "recovery:enr:2" }),
+        },
+      ],
+      claim: async () => true,
+      reread: async (key) => ({
+        settings: settings(),
+        candidate: candidate(),
+        assignment: "recovery" as const,
+        message: message({ step: key.endsWith(":2") ? 2 : 1, idempotencyKey: key }),
+        priorAcceptedAtMs: key.endsWith(":2") ? NOW : null,
+        alreadySentToday: 0,
+      }),
+      buildPayload: async () => payload(),
+      send,
+      record,
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({
+      idempotencyKey: "recovery:enr:2",
+      outcome: "release",
+    }));
   });
 
   it("reads provider bounce, complaint, and received events without guessing a person", () => {

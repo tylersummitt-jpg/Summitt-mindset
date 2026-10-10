@@ -5,7 +5,7 @@ import { Resend } from "resend";
 import type { ClerkUserResponse } from "@/lib/clerk-rest";
 import { getClerkUser, listClerkUsers } from "@/lib/clerk-rest";
 import { classifyResendSend, type ResendSendLike } from "@/lib/challenge-send-outcome";
-import { loadNonmemberCensus } from "@/lib/nonmember-census.server";
+import { loadNonmemberCensus, loadOneAccountMembership } from "@/lib/nonmember-census.server";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   combineSuppression,
@@ -32,6 +32,8 @@ import {
   recoveryReplyTo,
   recoveryStepsForAssignment,
   recoveryTokenHash,
+  recoveryWaitReason,
+  selectDueRecoverySteps,
   type RecoveryBatchOutcome,
   type RecoveryCandidate,
   type RecoveryDeliveryPayload,
@@ -192,9 +194,10 @@ async function readRecoveryCounts(): Promise<{
   repliesNeeding: number | null;
   repliesReceived: number | null;
   matchedReplies: number | null;
+  verificationHolds: number | null;
 } | null> {
   const [enrollments, messages, suppressions, replies] = await Promise.all([
-    supabaseServer.from("recovery_enrollments").select("assignment"),
+    supabaseServer.from("recovery_enrollments").select("assignment, status, stop_reason"),
     supabaseServer.from("recovery_messages").select("status"),
     supabaseServer.from("recovery_suppressions").select("reason"),
     supabaseServer.from("recovery_replies").select("status, classification, enrollment_id"),
@@ -217,6 +220,9 @@ async function readRecoveryCounts(): Promise<{
     repliesNeeding: replyRows.filter((row) => row.status === "needs_reply" && row.classification === "human" && row.enrollment_id).length,
     repliesReceived: replyRows.length,
     matchedReplies: replyRows.filter((row) => row.classification === "human" && row.enrollment_id).length,
+    verificationHolds: assignment.filter((row) =>
+      row.status === "active" && typeof row.stop_reason === "string" && row.stop_reason.startsWith("Waiting:")
+    ).length,
   };
 }
 
@@ -403,7 +409,12 @@ async function loadDueJobs(
       },
     });
   }
-  return jobs;
+  return selectDueRecoverySteps(jobs.map((job) => ({
+    ...job,
+    enrollmentId: job.candidate.clerkUserId,
+    step: job.message.step,
+    scheduledAtMs: 0,
+  })), 0).map(({ enrollmentId: _enrollmentId, step: _step, scheduledAtMs: _scheduledAtMs, ...job }) => job);
 }
 
 async function countSentToday(now: Date): Promise<number> {
@@ -526,10 +537,9 @@ async function contactSuppression(email: string): Promise<"suppressed" | "clear"
 
 async function freshMembership(clerkUserId: string, now: Date): Promise<RecoveryCandidate["membership"]> {
   try {
-    const census = await loadNonmemberCensus(now);
-    return membershipFromCensus(clerkUserId, census.eligibility);
+    return await loadOneAccountMembership(clerkUserId, now);
   } catch {
-    return "unknown";
+    return "unavailable";
   }
 }
 
@@ -644,6 +654,9 @@ async function recordOutcome(outcome: RecoveryBatchOutcome, now: Date): Promise<
       claim_until: null,
       attempt_count: 1,
     }).eq("id", data.id);
+    await supabaseServer.from("recovery_enrollments").update({ stop_reason: null })
+      .eq("id", data.enrollment_id)
+      .eq("status", "active");
     await scheduleNext(String(data.enrollment_id), data.step, now);
     return;
   }
@@ -668,6 +681,12 @@ async function recordOutcome(outcome: RecoveryBatchOutcome, now: Date): Promise<
   if (outcome.outcome === "stop") {
     await stopEnrollment(String(data.enrollment_id), stopReason(outcome.reason));
     return;
+  }
+  const wait = recoveryWaitReason(outcome.reason);
+  if (wait) {
+    await supabaseServer.from("recovery_enrollments").update({ stop_reason: wait })
+      .eq("id", data.enrollment_id)
+      .eq("status", "active");
   }
   await supabaseServer.from("recovery_messages").update({
     status: "scheduled",
@@ -721,6 +740,7 @@ async function insertSuppression(email: string, reason: "bounce" | "complaint" |
 }
 
 function stopReason(reason: string): string {
+  if (reason.includes("no longer exists")) return "account_missing";
   if (reason.includes("current member") || reason.includes("verified trial")) return "member";
   if (reason.includes("former")) return "former";
   if (reason.includes("unknown")) return "unknown_membership";

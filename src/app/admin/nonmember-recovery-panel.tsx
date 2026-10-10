@@ -71,7 +71,9 @@ export function NonmemberRecoveryPanel({
             address, then forwards a copy to the Tyler mailbox.
           </p>
           <p>
-            The hourly job does not send while the switch is off. Send inbox test goes
+            The hourly job does not send while the switch is off. A membership check that
+            cannot be completed waits for the next hourly run and does not cancel the
+            sequence. Send inbox test goes
             only to the approved Tyler mailbox and does not start the pilot. Emergency Pause sets the
             server status to paused. A later send must recheck suppression and membership
             immediately before sending. Missing country stays unknown. It is not labeled
@@ -120,6 +122,7 @@ export function NonmemberRecoveryPanel({
         Accepted {attention.accepted}. Delivered {attention.delivered}. Failed {attention.failed}.
         Suppressed {attention.suppressed}.
       </p>
+      <p>Membership checks waiting: {attention.verificationHolds}. A failed check leaves that message scheduled.</p>
       <p>Unsubscribes {attention.unsubscribes}. Complaints {attention.complaints}.</p>
       <h3 className="text-base font-semibold text-gray-900">Experiment results</h3>
       <p>{attention.trialConversion}</p>

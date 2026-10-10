@@ -34,6 +34,7 @@ export type RecoveryAttention = {
   trialConversion: string;
   payments: string;
   retention: string;
+  verificationHolds: string;
   nextAction: string;
   mailboxNote: string;
   replies: RecoveryReplyView[];
@@ -69,6 +70,7 @@ export function attentionFrom(
     repliesNeeding: number | null;
     repliesReceived?: number | null;
     matchedReplies?: number | null;
+    verificationHolds?: number | null;
   } | null,
   replies: RecoveryReplyView[] = []
 ): RecoveryAttention {
@@ -103,6 +105,7 @@ export function attentionFrom(
     trialConversion: "Not available. No recovery assignment has a mature 14-day trial window.",
     payments: NOT_AVAILABLE,
     retention: "Not available. Recovered members are not classified until an assignment and a paid outcome both exist.",
+    verificationHolds: count(counts?.verificationHolds),
     nextAction: "Leave sending off. Connect reply monitoring, verify suppression, record the mailing address, and set an enrollment start before any authorization.",
     mailboxNote: "Open tyler@summittmindset.com in the mailbox. A direct link to one message is not connected.",
     replies: matchingConfirmed ? replies : [],
@@ -143,6 +146,7 @@ export function formatRecoveryOperations(view: RecoveryAttention): string[] {
     `Trial conversion in the 14-day window: ${view.trialConversion}`,
     `Confirmed payments from recovery: ${view.payments}.`,
     `Mature retention of recovered members: ${view.retention}`,
+    `Membership checks waiting: ${view.verificationHolds}.`,
     "Blockers",
     ...view.blockers.map((line) => `- ${line}`),
     view.nextAction,

@@ -53,7 +53,7 @@ export type RecoverySettings = {
 export type RecoveryCandidate = {
   clerkUserId: string;
   createdAtMs: number;
-  membership: "verified_nonmember" | "member" | "former" | "unknown";
+  membership: "verified_nonmember" | "member" | "former" | "unknown" | "unavailable" | "missing";
   countryCode: string | null;
   email: string | null;
   firstName: string | null;
@@ -125,6 +125,12 @@ export function decideRecoverySend(args: {
   if (!gate.process) return { send: false, reason: gate.reason };
   if (args.candidate.createdAtMs < (args.settings.enrollmentStartsAtMs as number)) {
     return { send: false, reason: "Account was created before the enrollment start." };
+  }
+  if (args.candidate.membership === "unavailable") {
+    return { send: false, reason: "Membership could not be verified. The message stays scheduled." };
+  }
+  if (args.candidate.membership === "missing") {
+    return { send: false, reason: "The Clerk account no longer exists." };
   }
   if (args.candidate.membership === "unknown") {
     return { send: false, reason: "Membership is unknown. Unknown is not send-ready." };
@@ -544,8 +550,47 @@ export function combineSuppression(
   return false;
 }
 
+export function membershipFromAccountCheck(args: {
+  clerk: "found" | "missing" | "unavailable";
+  appleReadable: boolean;
+  stripeReadable: boolean;
+  checkoutReadable: boolean;
+  sessionsReadable: boolean;
+  judged: "verified_nonmember" | "member" | "former" | "unknown" | null;
+}): RecoveryCandidate["membership"] {
+  if (args.clerk === "missing") return "missing";
+  if (
+    args.clerk === "unavailable"
+    || !args.appleReadable
+    || !args.stripeReadable
+    || !args.checkoutReadable
+    || !args.sessionsReadable
+  ) {
+    return "unavailable";
+  }
+  return args.judged ?? "unavailable";
+}
+
+export function recoveryWaitReason(reason: string): string | null {
+  if (!/could not be verified|not checked/i.test(reason)) return null;
+  return `Waiting: ${reason}`.slice(0, 240);
+}
+
+export function selectDueRecoverySteps<T extends { enrollmentId: string; step: 1 | 2 | 3; scheduledAtMs: number }>(
+  rows: readonly T[],
+  nowMs: number
+): T[] {
+  const chosen = new Map<string, T>();
+  for (const row of rows) {
+    if (row.scheduledAtMs > nowMs) continue;
+    const current = chosen.get(row.enrollmentId);
+    if (!current || row.step < current.step) chosen.set(row.enrollmentId, row);
+  }
+  return [...chosen.values()];
+}
+
 export function recoverySkipDisposition(reason: string): "stop" | "release" {
-  if (/current member|former member|Membership is unknown|Geography|address is suppressed|human reply|not reliable|before the enrollment|holdout/i.test(reason)) {
+  if (/current member|former member|Membership is unknown|no longer exists|Geography|address is suppressed|human reply|not reliable|before the enrollment|holdout/i.test(reason)) {
     return "stop";
   }
   return "release";
@@ -595,7 +640,20 @@ export async function executeRecoveryBatch(args: {
   let uncertain = 0;
   let skipped = 0;
   let sentThisRun = 0;
-  for (const job of args.jobs) {
+  const seenThisRun = new Set<string>();
+  const jobs = [...args.jobs].sort((a, b) => a.message.step - b.message.step);
+  for (const job of jobs) {
+    if (seenThisRun.has(job.candidate.clerkUserId)) {
+      await args.record({
+        idempotencyKey: job.idempotencyKey,
+        outcome: "release",
+        providerMessageId: null,
+        reason: "An earlier recovery email is still outstanding.",
+      });
+      skipped += 1;
+      continue;
+    }
+    seenThisRun.add(job.candidate.clerkUserId);
     const claimed = await args.claim(job.idempotencyKey);
     if (!claimed) {
       skipped += 1;

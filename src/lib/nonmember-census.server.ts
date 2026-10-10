@@ -2,7 +2,7 @@ import "server-only";
 
 import Stripe from "stripe";
 
-import { countClerkUsers, listClerkUsers, type ClerkUserResponse } from "@/lib/clerk-rest";
+import { countClerkUsers, getClerkUserOrNull, listClerkUsers, type ClerkUserResponse } from "@/lib/clerk-rest";
 import {
   classifyCheckoutSession,
   isCheckoutSessionId,
@@ -25,6 +25,7 @@ import {
   type NonmemberCensusTally,
 } from "@/lib/nonmember-census";
 import { clerkStripeSubscriptionId } from "@/lib/admin-customers-dashboard-pure";
+import { membershipFromAccountCheck } from "@/lib/recovery-engine";
 import {
   classifySummittMembership,
   type SummittSubscriptionLike,
@@ -280,6 +281,61 @@ function accountInput(args: {
     creationFailed: mine.some((event) => event.eventType === "checkout_creation_failed"),
     eventsComplete: args.eventsComplete,
   };
+}
+
+export async function loadOneAccountMembership(
+  clerkUserId: string,
+  now: Date
+): Promise<"verified_nonmember" | "member" | "former" | "unknown" | "unavailable" | "missing"> {
+  const id = clerkUserId.trim();
+  if (!id) return "missing";
+  let user: ClerkUserResponse | null;
+  try {
+    user = await getClerkUserOrNull(id);
+  } catch {
+    return "unavailable";
+  }
+  if (!user) return "missing";
+  const apple = await loadAppleGrants([id], now);
+  const subscriptionId = clerkStripeSubscriptionId(
+    (user.public_metadata || {}) as Record<string, unknown>
+  );
+  const stripeById = subscriptionId
+    ? await retrieveStripeClasses([subscriptionId])
+    : new Map<string, CensusStripeEvidence>();
+  const stripeValue = subscriptionId ? stripeById.get(subscriptionId) : "no_subscription_id";
+  const stripeReadable = stripeValue !== "lookup_failed" && stripeValue !== "not_retrieved" && stripeValue != null;
+  const checkout = await loadCheckoutEvents([id]);
+  const sessionIds = [...new Set(
+    checkout.events
+      .filter((event) => event.eventType === "checkout_opened" && event.sessionId)
+      .map((event) => event.sessionId as string)
+  )];
+  const sessions = await retrieveSessions(sessionIds, now.getTime());
+  const sessionsReadable = sessionIds.every((sessionId) => {
+    const evidence = sessions.get(sessionId);
+    return Boolean(evidence) && evidence !== "unreadable";
+  });
+  const readable = apple.complete && stripeReadable && checkout.complete && sessionsReadable;
+  const judged = readable
+    ? eligibilityFor(judgeCensusAccount(accountInput({
+      user,
+      appleComplete: apple.complete,
+      appleGrants: apple.byUser.get(id) === true,
+      stripeById,
+      events: checkout.events,
+      eventsComplete: checkout.complete,
+      sessions,
+    })))
+    : null;
+  return membershipFromAccountCheck({
+    clerk: "found",
+    appleReadable: apple.complete,
+    stripeReadable,
+    checkoutReadable: checkout.complete,
+    sessionsReadable,
+    judged,
+  });
 }
 
 export async function loadNonmemberCensus(now = new Date()): Promise<NonmemberCensusData> {
