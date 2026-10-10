@@ -39,10 +39,48 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 const releaseDedupeMock = vi.fn();
+const readClaimMock = vi.fn();
+const reclaimMock = vi.fn();
+const finishDedupeMock = vi.fn();
 vi.mock("@/lib/stripe-webhook-dedupe", () => ({
   releaseStripeWebhookEventDedupe: (...args: unknown[]) =>
     releaseDedupeMock(...args),
+  readStripeWebhookEventClaim: (...args: unknown[]) => readClaimMock(...args),
+  reclaimAbandonedStripeWebhookEvent: (...args: unknown[]) =>
+    reclaimMock(...args),
+  finishStripeWebhookEventDedupe: (...args: unknown[]) =>
+    finishDedupeMock(...args),
+  stripeWebhookClaimIsLive: (
+    claimedAt: string | null,
+    nowMs: number,
+    leaseMs = 60_000
+  ) => {
+    if (!claimedAt) return false;
+    const claimed = Date.parse(claimedAt);
+    if (!Number.isFinite(claimed)) return false;
+    return nowMs - claimed < leaseMs;
+  },
 }));
+
+function completedWebhookClaim() {
+  return {
+    ok: true,
+    found: true,
+    completedAt: "2026-01-01T00:00:00.000Z",
+    claimedAt: new Date(Date.now() - 120_000).toISOString(),
+    legacyUnverified: false,
+  };
+}
+
+function abandonedWebhookClaim() {
+  return {
+    ok: true,
+    found: true,
+    completedAt: null,
+    claimedAt: new Date(Date.now() - 120_000).toISOString(),
+    legacyUnverified: false,
+  };
+}
 
 const updateClerkMock = vi.fn();
 const getClerkMdMock = vi.fn();
@@ -129,6 +167,9 @@ describe("Stripe webhook B3b anti-resurrection", () => {
     maybeStartTrialMock.mockResolvedValue(undefined);
     maybeSubscribeMock.mockResolvedValue(undefined);
     releaseDedupeMock.mockResolvedValue({ ok: true });
+    readClaimMock.mockResolvedValue(completedWebhookClaim());
+    reclaimMock.mockResolvedValue({ ok: true, reclaimed: false });
+    finishDedupeMock.mockResolvedValue({ ok: true });
     evaluateUnlockMock.mockResolvedValue({ decision: "allowed" });
     updateClerkMock.mockResolvedValue(undefined);
     getClerkMdMock.mockResolvedValue({});
@@ -548,6 +589,9 @@ describe("Stripe webhook Phase 3 membership cutover", () => {
     maybeStartTrialMock.mockResolvedValue(undefined);
     maybeSubscribeMock.mockResolvedValue(undefined);
     releaseDedupeMock.mockResolvedValue({ ok: true });
+    readClaimMock.mockResolvedValue(completedWebhookClaim());
+    reclaimMock.mockResolvedValue({ ok: true, reclaimed: false });
+    finishDedupeMock.mockResolvedValue({ ok: true });
     evaluateUnlockMock.mockResolvedValue({ decision: "allowed" });
     updateClerkMock.mockResolvedValue(undefined);
     getClerkMdMock.mockResolvedValue({});
@@ -845,6 +889,9 @@ describe("Stripe webhook Meta CAPI fail-open wiring", () => {
     maybeStartTrialMock.mockResolvedValue(undefined);
     maybeSubscribeMock.mockResolvedValue(undefined);
     releaseDedupeMock.mockResolvedValue({ ok: true });
+    readClaimMock.mockResolvedValue(completedWebhookClaim());
+    reclaimMock.mockResolvedValue({ ok: true, reclaimed: false });
+    finishDedupeMock.mockResolvedValue({ ok: true });
     evaluateUnlockMock.mockResolvedValue({ decision: "allowed" });
     updateClerkMock.mockResolvedValue(undefined);
     getClerkMdMock.mockResolvedValue({});
@@ -923,5 +970,344 @@ describe("Stripe webhook Meta CAPI fail-open wiring", () => {
     expect(res.status).toBe(200);
     expect(maybeSubscribeMock).not.toHaveBeenCalled();
     expect(maybeStartTrialMock).not.toHaveBeenCalled();
+  });
+});
+
+function checkoutRetryEvent(id: string) {
+  return {
+    id,
+    type: "checkout.session.completed",
+    created: 1_700_000_000,
+    data: {
+      object: {
+        id: "cs_retry",
+        client_reference_id: "user_1",
+        subscription: "sub_1",
+        customer: "cus_1",
+        metadata: {},
+      },
+    },
+  };
+}
+
+describe("Stripe webhook retry reliability", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    process.env.STRIPE_SECRET_KEY = "sk_test_wh";
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    process.env.CLERK_SECRET_KEY = "sk_clerk";
+    insertMock.mockResolvedValue({ error: null });
+    deleteEqMock.mockResolvedValue({ error: null });
+    appleEqMock.mockResolvedValue({ data: [], error: null });
+    maybeStartTrialMock.mockResolvedValue(undefined);
+    maybeSubscribeMock.mockResolvedValue(undefined);
+    releaseDedupeMock.mockResolvedValue({ ok: true });
+    readClaimMock.mockResolvedValue(completedWebhookClaim());
+    reclaimMock.mockResolvedValue({ ok: true, reclaimed: false });
+    finishDedupeMock.mockResolvedValue({ ok: true });
+    evaluateUnlockMock.mockResolvedValue({ decision: "allowed" });
+    updateClerkMock.mockResolvedValue(undefined);
+    getClerkMdMock.mockResolvedValue({});
+    syncSmsMock.mockResolvedValue(undefined);
+    retrieveSubMock.mockResolvedValue(activeSub());
+  });
+
+  it("first delivery succeeds and marks the event finished", async () => {
+    constructEventMock.mockReturnValue(checkoutRetryEvent("evt_first"));
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ received: true });
+    expect(updateClerkMock).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({ summittSubscribed: true })
+    );
+    expect(finishDedupeMock).toHaveBeenCalledWith("evt_first");
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+  });
+
+  it("duplicate delivery after success is acknowledged without reprocessing", async () => {
+    insertMock.mockResolvedValue({
+      error: { code: "23505", message: "duplicate" },
+    });
+    constructEventMock.mockReturnValue(checkoutRetryEvent("evt_done"));
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ received: true });
+    expect(updateClerkMock).not.toHaveBeenCalled();
+    expect(syncSmsMock).not.toHaveBeenCalled();
+    expect(maybeStartTrialMock).not.toHaveBeenCalled();
+    expect(finishDedupeMock).not.toHaveBeenCalled();
+    expect(reclaimMock).not.toHaveBeenCalled();
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+  });
+
+  it("failure before membership side effects releases the claim and a retry finishes", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    evaluateUnlockMock
+      .mockRejectedValueOnce(new Error("lookup exploded member@example.com"))
+      .mockResolvedValue({ decision: "allowed" });
+    constructEventMock.mockReturnValue(checkoutRetryEvent("evt_before"));
+    const { POST } = await import("./route");
+    const first = await POST(webhookReq() as never);
+    expect(first.status).toBe(500);
+    expect(updateClerkMock).not.toHaveBeenCalled();
+    expect(finishDedupeMock).not.toHaveBeenCalled();
+    expect(releaseDedupeMock).toHaveBeenCalledWith("evt_before");
+    const logged = errorSpy.mock.calls.flat().map((part) => JSON.stringify(part)).join(" ");
+    expect(logged).toContain("evt_before");
+    expect(logged).toContain("[email]");
+    expect(logged).not.toContain("member@example.com");
+
+    releaseDedupeMock.mockClear();
+    const second = await POST(webhookReq() as never);
+    expect(second.status).toBe(200);
+    expect(updateClerkMock).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({ summittSubscribed: true })
+    );
+    expect(finishDedupeMock).toHaveBeenCalledWith("evt_before");
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("partial deletion-safe write retries without changing the membership result", async () => {
+    evaluateUnlockMock.mockResolvedValue({
+      decision: "blocked_due_to_deletion",
+      scope: "unresolved",
+    });
+    syncSmsMock
+      .mockRejectedValueOnce(new Error("sms down"))
+      .mockResolvedValue(undefined);
+    constructEventMock.mockReturnValue({
+      id: "evt_partial",
+      type: "customer.subscription.updated",
+      data: {
+        object: activeSub({
+          pause_collection: { behavior: "mark_uncollectible" },
+        }),
+      },
+    });
+    const { POST } = await import("./route");
+    const first = await POST(webhookReq() as never);
+    expect(first.status).toBe(500);
+    expect(updateClerkMock).toHaveBeenCalledTimes(1);
+    expect(updateClerkMock).toHaveBeenCalledWith("user_1", {
+      summittSubscribed: false,
+      summittPlan: null,
+    });
+    expect(releaseDedupeMock).toHaveBeenCalledWith("evt_partial");
+    expect(finishDedupeMock).not.toHaveBeenCalled();
+    expect(maybeStartTrialMock).not.toHaveBeenCalled();
+    expect(maybeSubscribeMock).not.toHaveBeenCalled();
+    expect(appleEqMock).not.toHaveBeenCalled();
+
+    releaseDedupeMock.mockClear();
+    const second = await POST(webhookReq() as never);
+    expect(second.status).toBe(200);
+    expect(updateClerkMock).toHaveBeenCalledTimes(2);
+    expect(updateClerkMock).toHaveBeenNthCalledWith(2, "user_1", {
+      summittSubscribed: false,
+      summittPlan: null,
+    });
+    expect(syncSmsMock).toHaveBeenCalledTimes(2);
+    expect(finishDedupeMock).toHaveBeenCalledWith("evt_partial");
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+    expect(appleEqMock).not.toHaveBeenCalled();
+  });
+
+  it("two concurrent deliveries let one worker finish and do not ack the in-flight claim", async () => {
+    let inserts = 0;
+    insertMock.mockImplementation(() => {
+      inserts += 1;
+      if (inserts === 1) return Promise.resolve({ error: null });
+      return Promise.resolve({ error: { code: "23505", message: "duplicate" } });
+    });
+    readClaimMock.mockResolvedValue({
+      ok: true,
+      found: true,
+      completedAt: null,
+      claimedAt: new Date().toISOString(),
+      legacyUnverified: false,
+    });
+    constructEventMock.mockReturnValue(checkoutRetryEvent("evt_race"));
+    const { POST } = await import("./route");
+    const [first, second] = await Promise.all([
+      POST(webhookReq() as never),
+      POST(webhookReq() as never),
+    ]);
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([200, 500]);
+    expect(updateClerkMock).toHaveBeenCalledTimes(2);
+    expect(updateClerkMock).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({ summittSubscribed: true })
+    );
+    expect(syncSmsMock).toHaveBeenCalledTimes(1);
+    expect(maybeStartTrialMock).toHaveBeenCalledTimes(1);
+    expect(finishDedupeMock).toHaveBeenCalledTimes(1);
+    expect(finishDedupeMock).toHaveBeenCalledWith("evt_race");
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+  });
+
+  it("a fresh duplicate claim is not treated as finished", async () => {
+    insertMock.mockResolvedValue({
+      error: { code: "23505", message: "duplicate" },
+    });
+    readClaimMock.mockResolvedValue({
+      ok: true,
+      found: true,
+      completedAt: null,
+      claimedAt: new Date().toISOString(),
+      legacyUnverified: false,
+    });
+    constructEventMock.mockReturnValue(checkoutRetryEvent("evt_live"));
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(500);
+    expect(updateClerkMock).not.toHaveBeenCalled();
+    expect(reclaimMock).not.toHaveBeenCalled();
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+    expect(finishDedupeMock).not.toHaveBeenCalled();
+  });
+
+  it("a legacy event is acknowledged without replay or a completion timestamp", async () => {
+    insertMock.mockResolvedValue({
+      error: { code: "23505", message: "duplicate" },
+    });
+    readClaimMock.mockResolvedValue({
+      ok: true,
+      found: true,
+      completedAt: null,
+      claimedAt: new Date(Date.now() - 120_000).toISOString(),
+      legacyUnverified: true,
+    });
+    constructEventMock.mockReturnValue(checkoutRetryEvent("evt_legacy"));
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ received: true });
+    expect(updateClerkMock).not.toHaveBeenCalled();
+    expect(syncSmsMock).not.toHaveBeenCalled();
+    expect(maybeStartTrialMock).not.toHaveBeenCalled();
+    expect(reclaimMock).not.toHaveBeenCalled();
+    expect(finishDedupeMock).not.toHaveBeenCalled();
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+  });
+
+  it("an abandoned unfinished claim is reclaimed and processed", async () => {
+    insertMock.mockResolvedValue({
+      error: { code: "23505", message: "duplicate" },
+    });
+    readClaimMock.mockResolvedValue(abandonedWebhookClaim());
+    reclaimMock.mockResolvedValue({ ok: true, reclaimed: true });
+    constructEventMock.mockReturnValue(checkoutRetryEvent("evt_abandoned"));
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(reclaimMock).toHaveBeenCalledWith("evt_abandoned");
+    expect(updateClerkMock).toHaveBeenCalledWith(
+      "user_1",
+      expect.objectContaining({ summittSubscribed: true })
+    );
+    expect(finishDedupeMock).toHaveBeenCalledWith("evt_abandoned");
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+  });
+
+  it("an abandoned subscription update projects the live subscription, not the stale event", async () => {
+    insertMock.mockResolvedValue({
+      error: { code: "23505", message: "duplicate" },
+    });
+    readClaimMock.mockResolvedValue(abandonedWebhookClaim());
+    reclaimMock.mockResolvedValue({ ok: true, reclaimed: true });
+    retrieveSubMock.mockResolvedValue(activeSub({ status: "active" }));
+    constructEventMock.mockReturnValue({
+      id: "evt_stale",
+      type: "customer.subscription.updated",
+      data: {
+        object: activeSub({ status: "past_due" }),
+      },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(retrieveSubMock).toHaveBeenCalledWith("sub_1");
+    expect(updateClerkMock).toHaveBeenCalledWith("user_1", {
+      summittSubscribed: true,
+      summittPlan: "monthly",
+    });
+    expect(finishDedupeMock).toHaveBeenCalledWith("evt_stale");
+  });
+
+  it("an abandoned checkout does not replace a newer subscription id", async () => {
+    insertMock.mockResolvedValue({
+      error: { code: "23505", message: "duplicate" },
+    });
+    readClaimMock.mockResolvedValue(abandonedWebhookClaim());
+    reclaimMock.mockResolvedValue({ ok: true, reclaimed: true });
+    getClerkMdMock.mockResolvedValue({ stripeSubscriptionId: "sub_newer" });
+    constructEventMock.mockReturnValue(checkoutRetryEvent("evt_newer"));
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(updateClerkMock).not.toHaveBeenCalled();
+    expect(syncSmsMock).not.toHaveBeenCalled();
+    expect(finishDedupeMock).toHaveBeenCalledWith("evt_newer");
+  });
+
+  it("an unreadable duplicate claim is not acknowledged as finished", async () => {
+    insertMock.mockResolvedValue({
+      error: { code: "23505", message: "duplicate" },
+    });
+    readClaimMock.mockResolvedValue({
+      ok: false,
+      found: false,
+      completedAt: null,
+      claimedAt: null,
+      legacyUnverified: false,
+    });
+    constructEventMock.mockReturnValue(checkoutRetryEvent("evt_unread"));
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(500);
+    expect(updateClerkMock).not.toHaveBeenCalled();
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid Stripe signature before recording the event", async () => {
+    constructEventMock.mockImplementation(() => {
+      throw new Error("No signatures found matching the expected signature");
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("Invalid signature");
+    expect(insertMock).not.toHaveBeenCalled();
+    expect(updateClerkMock).not.toHaveBeenCalled();
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the claim after membership when a later step throws, so Meta is not replayed", async () => {
+    getClerkMdMock.mockRejectedValue(new Error("clerk read member@example.com"));
+    constructEventMock.mockReturnValue(checkoutRetryEvent("evt_after"));
+    const { POST } = await import("./route");
+    const first = await POST(webhookReq() as never);
+    expect(first.status).toBe(200);
+    expect(updateClerkMock).toHaveBeenCalled();
+    expect(maybeStartTrialMock).toHaveBeenCalledTimes(1);
+    expect(releaseDedupeMock).not.toHaveBeenCalled();
+    expect(finishDedupeMock).toHaveBeenCalledWith("evt_after");
+
+    insertMock.mockResolvedValue({
+      error: { code: "23505", message: "duplicate" },
+    });
+    maybeStartTrialMock.mockClear();
+    updateClerkMock.mockClear();
+    const second = await POST(webhookReq() as never);
+    expect(second.status).toBe(200);
+    expect(maybeStartTrialMock).not.toHaveBeenCalled();
+    expect(updateClerkMock).not.toHaveBeenCalled();
   });
 });

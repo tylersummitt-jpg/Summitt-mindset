@@ -15,7 +15,13 @@ import {
   evaluateEntitlementIncreasingWebhookWrite,
   type EntitlementRestorationDecision,
 } from "@/lib/account-deletion/deletion-guards";
-import { releaseStripeWebhookEventDedupe } from "@/lib/stripe-webhook-dedupe";
+import {
+  finishStripeWebhookEventDedupe,
+  readStripeWebhookEventClaim,
+  reclaimAbandonedStripeWebhookEvent,
+  releaseStripeWebhookEventDedupe,
+  stripeWebhookClaimIsLive,
+} from "@/lib/stripe-webhook-dedupe";
 import {
   maybeEmitMetaStartTrialFromCheckout,
   maybeEmitMetaSubscribeFromInvoicePaid,
@@ -76,6 +82,38 @@ if (!webhookSecret) console.warn("Missing STRIPE_WEBHOOK_SECRET");
 if (!clerkSecretKey) console.warn("Missing CLERK_SECRET_KEY");
 
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+
+function webhookFailureReason(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "webhook_processing_failed";
+  return raw
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+}
+
+async function abandonedReplayWouldRewindNewerSubscription(
+  userId: string,
+  eventSubscriptionId: string
+): Promise<boolean> {
+  const existing = await getClerkPublicMetadata(userId);
+  const linked =
+    typeof existing?.stripeSubscriptionId === "string"
+      ? existing.stripeSubscriptionId.trim()
+      : "";
+  return linked.length > 0 && linked !== eventSubscriptionId;
+}
+
+async function acknowledgeProcessedStripeEvent(eventId: string) {
+  const finished = await finishStripeWebhookEventDedupe(eventId);
+  if (!finished.ok) {
+    console.error("[webhook] failed to mark event finished", {
+      event_id: eventId,
+    });
+    return new NextResponse("Webhook error", { status: 500 });
+  }
+  return NextResponse.json({ received: true });
+}
 
 async function releaseDedupeAndRetry(
   eventId: string,
@@ -243,13 +281,55 @@ export async function POST(req: NextRequest) {
     .from("stripe_webhook_events")
     .insert({ event_id: event.id });
 
+  let replayingAbandonedClaim = false;
+
   if (insertError) {
     if (insertError.code === "23505") {
-      return NextResponse.json({ received: true });
+      const claim = await readStripeWebhookEventClaim(event.id);
+      if (!claim.ok || !claim.found) {
+        console.warn("[webhook] duplicate claim could not be read", {
+          event_id: event.id,
+        });
+        return new NextResponse("Webhook processing", { status: 500 });
+      }
+      if (claim.legacyUnverified) {
+        console.info("[webhook] legacy event already recorded", {
+          event_id: event.id,
+        });
+        return NextResponse.json({ received: true });
+      }
+      if (claim.completedAt) {
+        console.info("[webhook] duplicate delivery after success", {
+          event_id: event.id,
+        });
+        return NextResponse.json({ received: true });
+      }
+      if (stripeWebhookClaimIsLive(claim.claimedAt, Date.now())) {
+        console.warn("[webhook] duplicate delivery is still in progress", {
+          event_id: event.id,
+        });
+        return new NextResponse("Webhook processing", { status: 500 });
+      }
+      const reclaimed = await reclaimAbandonedStripeWebhookEvent(event.id);
+      if (!reclaimed.ok || !reclaimed.reclaimed) {
+        console.warn("[webhook] abandoned claim was not reclaimed", {
+          event_id: event.id,
+        });
+        return new NextResponse("Webhook processing", { status: 500 });
+      }
+      console.warn("[webhook] reclaimed abandoned claim", {
+        event_id: event.id,
+      });
+      replayingAbandonedClaim = true;
+    } else {
+      console.error("stripe_webhook_events insert error:", {
+        event_id: event.id,
+      });
+      return new NextResponse("Webhook error", { status: 500 });
     }
-    console.error("stripe_webhook_events insert error:", insertError);
-    return new NextResponse("Webhook error", { status: 500 });
   }
+
+  let membershipCommitted = false;
 
   try {
     // ======================================================
@@ -266,8 +346,10 @@ export async function POST(req: NextRequest) {
           : null;
 
       if (!userId) {
-        console.warn("checkout.session.completed missing userId");
-        return NextResponse.json({ received: true });
+        console.warn("[webhook] checkout.session.completed missing userId", {
+          event_id: event.id,
+        });
+        return acknowledgeProcessedStripeEvent(event.id);
       }
 
       const subscriptionId =
@@ -277,8 +359,10 @@ export async function POST(req: NextRequest) {
         typeof session.customer === "string" ? session.customer : null;
 
       if (!subscriptionId || !customerId) {
-        console.warn("Missing subscription/customer on checkout");
-        return NextResponse.json({ received: true });
+        console.warn("[webhook] checkout missing subscription or customer", {
+          event_id: event.id,
+        });
+        return acknowledgeProcessedStripeEvent(event.id);
       }
 
       let subscription: Stripe.Subscription;
@@ -294,7 +378,7 @@ export async function POST(req: NextRequest) {
 
       const firstGate = await gateEntitlementIncreasingWebhook(event.id, userId);
       if (firstGate.outcome === "ack_blocked") {
-        return NextResponse.json({ received: true });
+        return acknowledgeProcessedStripeEvent(event.id);
       }
       if (firstGate.outcome === "retry_lookup_failed") {
         return new NextResponse("Webhook lookup failed", { status: 500 });
@@ -321,10 +405,24 @@ export async function POST(req: NextRequest) {
       // Second guard: deletion may have begun after first gate / Stripe reads.
       const secondGate = await gateEntitlementIncreasingWebhook(event.id, userId);
       if (secondGate.outcome === "ack_blocked") {
-        return NextResponse.json({ received: true });
+        return acknowledgeProcessedStripeEvent(event.id);
       }
       if (secondGate.outcome === "retry_lookup_failed") {
         return new NextResponse("Webhook lookup failed", { status: 500 });
+      }
+
+      if (
+        replayingAbandonedClaim &&
+        (await abandonedReplayWouldRewindNewerSubscription(
+          userId,
+          subscriptionId
+        ))
+      ) {
+        console.warn(
+          "[webhook] abandoned checkout replay left newer subscription in place",
+          { event_id: event.id, subscription_id: subscriptionId }
+        );
+        return acknowledgeProcessedStripeEvent(event.id);
       }
 
       try {
@@ -349,6 +447,7 @@ export async function POST(req: NextRequest) {
       if (projected === "retry") {
         return new NextResponse("Webhook error", { status: 500 });
       }
+      membershipCommitted = true;
 
       try {
         await maybeEmitMetaStartTrialFromCheckout({
@@ -363,6 +462,7 @@ export async function POST(req: NextRequest) {
       const existing = await getClerkPublicMetadata(userId);
 
       if (
+        !replayingAbandonedClaim &&
         isCoachAcquisitionFromStripe &&
         entitled &&
         subscriptionId &&
@@ -410,6 +510,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (
+        !replayingAbandonedClaim &&
         !isCoachAcquisitionFromStripe &&
         entitled &&
         subscriptionId &&
@@ -471,12 +572,39 @@ export async function POST(req: NextRequest) {
     // EVENT 2 — Subscription Updated
     // ======================================================
     if (event.type === "customer.subscription.updated") {
-      const subscription = event.data.object as Stripe.Subscription;
+      let subscription = event.data.object as Stripe.Subscription;
 
       const userId = await resolveUserIdForSubscription(subscription);
       if (!userId) {
-        console.warn("subscription.updated missing userId", subscription.id);
-        return NextResponse.json({ received: true });
+        console.warn("[webhook] subscription.updated missing userId", {
+          event_id: event.id,
+          subscription_id: subscription.id,
+        });
+        return acknowledgeProcessedStripeEvent(event.id);
+      }
+
+      if (replayingAbandonedClaim) {
+        try {
+          subscription = await stripe.subscriptions.retrieve(subscription.id);
+        } catch (err) {
+          console.error(
+            "[webhook] abandoned subscription.updated retrieve failed",
+            { event_id: event.id, reason: webhookFailureReason(err) }
+          );
+          return releaseDedupeAndRetry(event.id, "stripe_lookup_failed");
+        }
+        if (
+          await abandonedReplayWouldRewindNewerSubscription(
+            userId,
+            subscription.id
+          )
+        ) {
+          console.warn(
+            "[webhook] abandoned subscription.updated left newer subscription in place",
+            { event_id: event.id, subscription_id: subscription.id }
+          );
+          return acknowledgeProcessedStripeEvent(event.id);
+        }
       }
 
       const entitled = isSummittEntitledFromSubscription(subscription);
@@ -501,26 +629,35 @@ export async function POST(req: NextRequest) {
             "[webhook] customer.subscription.updated: skip entitlement restore (account deletion)",
             { scope: deletionDecision.scope }
           );
-          return NextResponse.json({ received: true });
+          return acknowledgeProcessedStripeEvent(event.id);
         }
-        await updateClerkPublicMetadata(userId, {
-          summittSubscribed: false,
-          summittPlan: null,
-        });
-        const existingBlocked = await getClerkPublicMetadata(userId);
-        await syncSmsAudience({
-          userId: userId,
-          phoneNumber: existingBlocked?.phoneNumber ?? null,
-          smsEnabled: existingBlocked?.smsEnabled ?? null,
-          timezone: existingBlocked?.timezone ?? null,
-          smsTimePreference: existingBlocked?.smsTimePreference ?? null,
-          summittSubscribed: false,
-        });
+        try {
+          await updateClerkPublicMetadata(userId, {
+            summittSubscribed: false,
+            summittPlan: null,
+          });
+          const existingBlocked = await getClerkPublicMetadata(userId);
+          await syncSmsAudience({
+            userId: userId,
+            phoneNumber: existingBlocked?.phoneNumber ?? null,
+            smsEnabled: existingBlocked?.smsEnabled ?? null,
+            timezone: existingBlocked?.timezone ?? null,
+            smsTimePreference: existingBlocked?.smsTimePreference ?? null,
+            summittSubscribed: false,
+          });
+        } catch (err) {
+          console.error(
+            "[webhook] deletion-safe projection failed; released dedupe for retry",
+            { event_id: event.id, reason: webhookFailureReason(err) }
+          );
+          return releaseDedupeAndRetry(event.id, "deletion_projection_failed");
+        }
+        membershipCommitted = true;
         console.log(
           "✅ customer.subscription.updated → deletion-safe false/null only",
           userId
         );
-        return NextResponse.json({ received: true });
+        return acknowledgeProcessedStripeEvent(event.id);
       }
 
       if (entitled) {
@@ -530,7 +667,7 @@ export async function POST(req: NextRequest) {
           userId
         );
         if (secondGate.outcome === "ack_blocked") {
-          return NextResponse.json({ received: true });
+          return acknowledgeProcessedStripeEvent(event.id);
         }
         if (secondGate.outcome === "retry_lookup_failed") {
           return new NextResponse("Webhook lookup failed", { status: 500 });
@@ -568,6 +705,7 @@ export async function POST(req: NextRequest) {
       if (projected === "retry") {
         return new NextResponse("Webhook error", { status: 500 });
       }
+      membershipCommitted = true;
 
       console.log("✅ customer.subscription.updated → metadata updated", userId);
     }
@@ -576,12 +714,39 @@ export async function POST(req: NextRequest) {
     // EVENT 3 — Subscription Deleted (Canceled)
     // ======================================================
     if (event.type === "customer.subscription.deleted") {
-      const subscription = event.data.object as Stripe.Subscription;
+      let subscription = event.data.object as Stripe.Subscription;
 
       const userId = await resolveUserIdForSubscription(subscription);
       if (!userId) {
-        console.warn("subscription.deleted missing userId", subscription.id);
-        return NextResponse.json({ received: true });
+        console.warn("[webhook] subscription.deleted missing userId", {
+          event_id: event.id,
+          subscription_id: subscription.id,
+        });
+        return acknowledgeProcessedStripeEvent(event.id);
+      }
+
+      if (replayingAbandonedClaim) {
+        try {
+          subscription = await stripe.subscriptions.retrieve(subscription.id);
+        } catch (err) {
+          console.error(
+            "[webhook] abandoned subscription.deleted retrieve failed",
+            { event_id: event.id, reason: webhookFailureReason(err) }
+          );
+          return releaseDedupeAndRetry(event.id, "stripe_lookup_failed");
+        }
+        if (
+          await abandonedReplayWouldRewindNewerSubscription(
+            userId,
+            subscription.id
+          )
+        ) {
+          console.warn(
+            "[webhook] abandoned subscription.deleted left newer subscription in place",
+            { event_id: event.id, subscription_id: subscription.id }
+          );
+          return acknowledgeProcessedStripeEvent(event.id);
+        }
       }
 
       console.log("🚫 Subscription canceled → projecting membership", userId);
@@ -606,6 +771,7 @@ export async function POST(req: NextRequest) {
       if (projected === "retry") {
         return new NextResponse("Webhook error", { status: 500 });
       }
+      membershipCommitted = true;
     }
 
     // ======================================================
@@ -616,8 +782,10 @@ export async function POST(req: NextRequest) {
 
       const subscriptionId = extractSubscriptionIdFromInvoice(invoice);
       if (!subscriptionId) {
-        console.warn("invoice.payment_failed missing subscription on invoice");
-        return NextResponse.json({ received: true });
+        console.warn("[webhook] invoice.payment_failed missing subscription", {
+          event_id: event.id,
+        });
+        return acknowledgeProcessedStripeEvent(event.id);
       }
 
       let subscription: Stripe.Subscription;
@@ -633,8 +801,24 @@ export async function POST(req: NextRequest) {
 
       const userId = await resolveUserIdForSubscription(subscription);
       if (!userId) {
-        console.warn("invoice.payment_failed missing userId");
-        return NextResponse.json({ received: true });
+        console.warn("[webhook] invoice.payment_failed missing userId", {
+          event_id: event.id,
+        });
+        return acknowledgeProcessedStripeEvent(event.id);
+      }
+
+      if (
+        replayingAbandonedClaim &&
+        (await abandonedReplayWouldRewindNewerSubscription(
+          userId,
+          subscription.id
+        ))
+      ) {
+        console.warn(
+          "[webhook] abandoned invoice.payment_failed left newer subscription in place",
+          { event_id: event.id, subscription_id: subscription.id }
+        );
+        return acknowledgeProcessedStripeEvent(event.id);
       }
 
       console.log("⚠️ Payment failed → projecting membership", userId);
@@ -647,6 +831,7 @@ export async function POST(req: NextRequest) {
       if (projected === "retry") {
         return new NextResponse("Webhook error", { status: 500 });
       }
+      membershipCommitted = true;
     }
 
     // ======================================================
@@ -657,8 +842,10 @@ export async function POST(req: NextRequest) {
 
       const subscriptionId = extractSubscriptionIdFromInvoice(invoice);
       if (!subscriptionId) {
-        console.warn("invoice.paid missing subscription on invoice");
-        return NextResponse.json({ received: true });
+        console.warn("[webhook] invoice.paid missing subscription", {
+          event_id: event.id,
+        });
+        return acknowledgeProcessedStripeEvent(event.id);
       }
 
       let subscription: Stripe.Subscription;
@@ -671,8 +858,24 @@ export async function POST(req: NextRequest) {
 
       const userId = await resolveUserIdForSubscription(subscription);
       if (!userId) {
-        console.warn("invoice.paid missing userId");
-        return NextResponse.json({ received: true });
+        console.warn("[webhook] invoice.paid missing userId", {
+          event_id: event.id,
+        });
+        return acknowledgeProcessedStripeEvent(event.id);
+      }
+
+      if (
+        replayingAbandonedClaim &&
+        (await abandonedReplayWouldRewindNewerSubscription(
+          userId,
+          subscription.id
+        ))
+      ) {
+        console.warn(
+          "[webhook] abandoned invoice.paid left newer subscription in place",
+          { event_id: event.id, subscription_id: subscription.id }
+        );
+        return acknowledgeProcessedStripeEvent(event.id);
       }
 
       const entitled = isSummittEntitledFromSubscription(subscription);
@@ -683,7 +886,7 @@ export async function POST(req: NextRequest) {
           userId
         );
         if (firstGate.outcome === "ack_blocked") {
-          return NextResponse.json({ received: true });
+          return acknowledgeProcessedStripeEvent(event.id);
         }
         if (firstGate.outcome === "retry_lookup_failed") {
           return new NextResponse("Webhook lookup failed", { status: 500 });
@@ -694,7 +897,7 @@ export async function POST(req: NextRequest) {
           userId
         );
         if (secondGate.outcome === "ack_blocked") {
-          return NextResponse.json({ received: true });
+          return acknowledgeProcessedStripeEvent(event.id);
         }
         if (secondGate.outcome === "retry_lookup_failed") {
           return new NextResponse("Webhook lookup failed", { status: 500 });
@@ -715,6 +918,7 @@ export async function POST(req: NextRequest) {
       if (projected === "retry") {
         return new NextResponse("Webhook error", { status: 500 });
       }
+      membershipCommitted = true;
 
       try {
         await maybeEmitMetaSubscribeFromInvoicePaid({
@@ -729,12 +933,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ received: true });
+    return acknowledgeProcessedStripeEvent(event.id);
   } catch (err) {
-    // Keep stripe_webhook_events row (event_id) so Stripe retries dedupe via 23505 and do not re-run handlers.
-    console.error("🔥 Webhook processing error (dedupe row retained):", {
+    const reason = webhookFailureReason(err);
+    if (membershipCommitted) {
+      console.error("[webhook] processing_failed_after_membership", {
+        event_id: event.id,
+        reason,
+      });
+      return acknowledgeProcessedStripeEvent(event.id);
+    }
+    await releaseStripeWebhookEventDedupe(event.id);
+    console.error("[webhook] processing_failed_before_membership", {
       event_id: event.id,
-      err,
+      reason,
     });
     return new NextResponse("Webhook error", { status: 500 });
   }
