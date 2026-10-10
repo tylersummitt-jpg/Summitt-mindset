@@ -3,6 +3,7 @@ import "server-only";
 import Stripe from "stripe";
 
 import { listAdSpendInRange } from "@/lib/admin-ad-spend";
+import { toLandingBilling } from "@/lib/landing-page-performance";
 import {
   activationSeedsFromTrials,
   clerkIdsActivatedWithin24h,
@@ -218,11 +219,13 @@ async function listPeriodStripeInvoices(args: {
 }): Promise<{
   revenueCents: MetricNumber;
   paidInvoiceSubIds: Set<string>;
+  paidInvoices: { subscriptionId: string; paidAtUnix: number }[];
   failedIdentities: Set<string>;
   failedInvoices: RecentActivityFailedInvoice[];
   complete: boolean;
 }> {
   const paidInvoiceSubIds = new Set<string>();
+  const paidInvoices: { subscriptionId: string; paidAtUnix: number }[] = [];
   const failedIdentities = new Set<string>();
   const failedInvoices: RecentActivityFailedInvoice[] = [];
   let cents = 0;
@@ -248,7 +251,16 @@ async function listPeriodStripeInvoices(args: {
       const subId = invoiceSubscriptionId(invoice);
       if (invoice.status === "paid" && invoice.amount_paid && invoice.amount_paid > 0) {
         cents += invoice.amount_paid;
-        if (subId) paidInvoiceSubIds.add(subId);
+        if (subId) {
+          paidInvoiceSubIds.add(subId);
+          const paidAt = (
+            invoice as { status_transitions?: { paid_at?: number | null } }
+          ).status_transitions?.paid_at;
+          const paidAtUnix = typeof paidAt === "number" ? paidAt : invoice.created;
+          if (typeof paidAtUnix === "number" && Number.isFinite(paidAtUnix)) {
+            paidInvoices.push({ subscriptionId: subId, paidAtUnix });
+          }
+        }
       }
       if (isStripeInvoicePaymentFailed(invoice)) {
         failedIdentities.add(subId ? `sub:${subId}` : `inv:${invoice.id}`);
@@ -265,6 +277,7 @@ async function listPeriodStripeInvoices(args: {
       return {
         revenueCents: cents,
         paidInvoiceSubIds,
+        paidInvoices,
         failedIdentities,
         failedInvoices,
         complete: true,
@@ -275,6 +288,7 @@ async function listPeriodStripeInvoices(args: {
       return {
         revenueCents: null,
         paidInvoiceSubIds,
+        paidInvoices,
         failedIdentities,
         failedInvoices,
         complete: false,
@@ -284,6 +298,7 @@ async function listPeriodStripeInvoices(args: {
   return {
     revenueCents: null,
     paidInvoiceSubIds,
+    paidInvoices,
     failedIdentities,
     failedInvoices,
     complete: false,
@@ -1037,6 +1052,12 @@ export async function loadSubscriberGrowthDashboard(args: {
       trialOnboardingFunnel: emptyUnknownTrialOnboardingFunnel(),
       visitorCohortTable: emptyVisitorCohortTable(),
       homepageVideo: emptyHomepageVideoReport(),
+      landingBilling: {
+        subscriptionsReadable: false,
+        paymentsReadable: false,
+        trials: [],
+        payments: [],
+      },
     };
   }
 
@@ -1046,6 +1067,7 @@ export async function loadSubscriberGrowthDashboard(args: {
   let stripeListComplete = false;
   let stripeRevenueCents: MetricNumber = null;
   let paidInvoiceSubIds = new Set<string>();
+  let paidAtBySubscription: { subscriptionId: string; paidAtUnix: number }[] = [];
   let stripeFailedIdentities = new Set<string>();
   let failedInvoices: RecentActivityFailedInvoice[] = [];
   let invoiceListComplete = false;
@@ -1087,6 +1109,7 @@ export async function loadSubscriberGrowthDashboard(args: {
         summitSubIds,
       });
       paidInvoiceSubIds = invoices.paidInvoiceSubIds;
+      paidAtBySubscription = invoices.paidInvoices;
       stripeFailedIdentities = invoices.failedIdentities;
       failedInvoices = invoices.failedInvoices;
       invoiceListComplete = invoices.complete;
@@ -1522,5 +1545,12 @@ export async function loadSubscriberGrowthDashboard(args: {
     trialOnboardingFunnel,
     visitorCohortTable,
     homepageVideo,
+    landingBilling: toLandingBilling({
+      subscriptionsReadable: stripeListComplete,
+      paymentsReadable: stripeListComplete && invoiceListComplete,
+      subs: stripeSubs,
+      recognizedPriceIds: recognized,
+      paidInvoices: paidAtBySubscription,
+    }),
   };
 }

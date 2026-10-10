@@ -55,11 +55,23 @@ export async function loadOperatingSnapshot(args: {
   let landingPages: LandingPagePerformance = {
     available: false,
     incomplete: false,
+    billingConnected: false,
+    journeyUnreadable: false,
+    billingUnreadable: false,
+    paymentsUnreadable: false,
     rows: [],
     note: "Landing-page analytics could not be read. Do not treat that as zero visitors.",
   };
   try {
-    landingPages = await loadLandingPagePerformance(args);
+    landingPages = await loadLandingPagePerformance({
+      ...args,
+      billing: growth.landingBilling ?? {
+        subscriptionsReadable: false,
+        paymentsReadable: false,
+        trials: [],
+        payments: [],
+      },
+    });
   } catch (err) {
     console.warn("[operating] landing page performance failed", {
       reason: err instanceof Error ? err.message : "landing_page_performance_failed",

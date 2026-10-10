@@ -379,9 +379,10 @@ function LandingPagePerformance({ snapshot }: { snapshot: OperatingSnapshot }) {
               <p className="mt-2">Unique visitors: {row.visitors}</p>
               <p>Trial-button clicks: {row.ctaClicks}</p>
               <p>Click rate: {row.ctaRate}</p>
-              <p>New free trials: {row.trials}</p>
+              <p>Attributed trials: {row.trials}</p>
               <p>Visitor-to-trial: {row.visitorToTrial}</p>
-              <p>New paying members: {row.paid}</p>
+              <p>Confirmed paid conversions: {row.paid}</p>
+              <p>Trial-to-paid, mature trials: {row.trialToPaid}</p>
               <p className="mt-2 text-gray-600">{row.gap}</p>
             </article>
           ))}

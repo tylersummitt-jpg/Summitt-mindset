@@ -186,6 +186,36 @@ function buildActions(args: {
       evidence: "Distribution could not read page views for the homepage and the four landing pages.",
       nextStep: "Reload Distribution after the marketing events read succeeds. Do not guess a winning page.",
     });
+  } else if (args.landingPages.journeyUnreadable) {
+    actions.push({
+      id: "landing-page-journey-unreadable",
+      title: "Landing-page trials could not be tied to visitors",
+      category: "distribution",
+      priority: "high",
+      kind: "limitation",
+      evidence: "The landing-page history or the visitor-to-account link could not be read completely.",
+      nextStep: "Reload Distribution after the marketing read succeeds. Do not assign trials to a page.",
+    });
+  } else if (args.landingPages.billingUnreadable) {
+    actions.push({
+      id: "landing-page-billing-unreadable",
+      title: "Landing-page trials could not be tied to billing",
+      category: "distribution",
+      priority: "high",
+      kind: "limitation",
+      evidence: "Stripe subscriptions could not be read for landing-page trial credit.",
+      nextStep: "Reload Distribution after the Stripe read succeeds. Do not treat missing trials as zero.",
+    });
+  } else if (args.landingPages.paymentsUnreadable) {
+    actions.push({
+      id: "landing-page-payments-unreadable",
+      title: "Landing-page payments could not be confirmed",
+      category: "distribution",
+      priority: "high",
+      kind: "limitation",
+      evidence: "Stripe invoices could not be read, so paid conversions were not assigned to a page.",
+      nextStep: "Reload Distribution after the invoice read succeeds. Do not call a trial paid.",
+    });
   }
 
   if (!args.experiments.available) {
@@ -451,9 +481,21 @@ function buildLimitations(args: {
     lines.push(
       "Landing-page analytics could not be read. Do not treat that as zero visitors."
     );
-  } else {
+  } else if (args.landingPages.billingUnreadable || args.landingPages.journeyUnreadable) {
+    lines.push(
+      "Landing-page trials could not be assigned. Do not treat that as zero trials."
+    );
+  } else if (!args.landingPages.billingConnected) {
     lines.push(
       "Landing-page visitor-to-trial and paying-member counts are not available. A page view, a button click, an account, and a checkout start are different events."
+    );
+  } else if (args.landingPages.paymentsUnreadable) {
+    lines.push(
+      "Landing-page trial starts are counted. Paid conversions could not be confirmed from invoices."
+    );
+  } else {
+    lines.push(
+      "Landing-page trial credit is the first page on or after October 10, 2026. It does not replace first-touch source. Apple memberships are not included. past_due is not paid. Trials still running are excluded from the trial-to-paid rate."
     );
   }
   if (args.experiments.available && args.experiments.records.length >= 200) {

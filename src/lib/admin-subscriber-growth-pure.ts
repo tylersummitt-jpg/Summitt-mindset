@@ -1703,6 +1703,18 @@ export type SubscriberGrowthDashboardData = {
   trialOnboardingFunnel: TrialOnboardingFunnelCounts;
   visitorCohortTable: VisitorCohortTable;
   homepageVideo: HomepageVideoReport;
+  /** Slim billing join for landing-page attribution. Brooke's page does not render it. */
+  landingBilling?: {
+    subscriptionsReadable: boolean;
+    paymentsReadable: boolean;
+    trials: Array<{
+      clerkUserId: string | null;
+      trialStartMs: number;
+      trialEndMs: number | null;
+      status: string;
+    }>;
+    payments: Array<{ clerkUserId: string; paidAtMs: number }>;
+  };
 };
 
 export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {

@@ -13,8 +13,13 @@ import {
   emptyVisitorCohortTable,
 } from "@/lib/admin-subscriber-growth-pure";
 import {
+  LANDING_FIRST_PAYMENT_WINDOW_MS,
   LANDING_PAGE_MEASUREMENT_CUTOVER_MS,
   summarizeLandingPagePerformance,
+  toLandingBilling,
+  type LandingBillingInput,
+  type LandingIdentityLink,
+  type LandingTrialSeed,
 } from "@/lib/landing-page-performance";
 import {
   resolveMarketingCookies,
@@ -117,7 +122,7 @@ describe("landing page measurement", () => {
       "landing-page-analytics-unreadable"
     );
     expect(snapshot.report).toContain("LANDING PAGE PERFORMANCE");
-    expect(snapshot.report).toContain("New free trials: Not available");
+    expect(snapshot.report).toContain("Attributed trials: Not available");
     expect(snapshot.report).not.toMatch(/\bwon\b/i);
   });
 
@@ -143,6 +148,382 @@ describe("landing page measurement", () => {
     expect(trialCtaSurfaceFromHref("/sign-up?redirect_url=%2Fcheckout%2Fstart", "/leadership")).toBe(
       "landing_leadership"
     );
+  });
+});
+
+const CLERK = "user_landing";
+const DAY = 24 * 60 * 60 * 1000;
+
+function readyBilling(
+  trials: LandingTrialSeed[],
+  payments: LandingBillingInput["payments"] = []
+): LandingBillingInput {
+  return {
+    subscriptionsReadable: true,
+    paymentsReadable: true,
+    trials,
+    payments,
+  };
+}
+
+function link(visitorId = VISITOR, clerkUserId = CLERK): LandingIdentityLink {
+  return { clerkUserId, visitorId, acquisitionSource: "meta" };
+}
+
+describe("landing page trial and paid attribution", () => {
+  it("credits one trial to the first page and then one confirmed payment", () => {
+    const summary = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 8 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: VISITOR, path: "/daily-coaching", occurredAtMs: AFTER + DAY },
+        { kind: "checkout", visitorId: VISITOR, path: null, occurredAtMs: AFTER + DAY },
+      ],
+      identities: [link()],
+      billing: readyBilling(
+        [
+          {
+            clerkUserId: CLERK,
+            trialStartMs: AFTER + 2 * DAY,
+            trialEndMs: AFTER + 9 * DAY,
+            status: "active",
+          },
+          {
+            clerkUserId: CLERK,
+            trialStartMs: AFTER + 4 * DAY,
+            trialEndMs: AFTER + 11 * DAY,
+            status: "trialing",
+          },
+        ],
+        [{ clerkUserId: CLERK, paidAtMs: AFTER + 9 * DAY }]
+      ),
+    });
+    const leadership = summary.rows.find((row) => row.id === "leadership");
+    const daily = summary.rows.find((row) => row.id === "daily_coaching");
+    expect(leadership?.trials).toBe(1);
+    expect(leadership?.visitorToTrial).toBe("100.0%");
+    expect(leadership?.paid).toBe(1);
+    expect(leadership?.trialToPaid).toBe("100.0%");
+    expect(daily?.trials).toBe(0);
+    expect(daily?.paid).toBe(0);
+    expect(summary.note).toContain("no reliable landing page: 0");
+    expect(leadership?.gap).toContain("meta 1");
+  });
+
+  it("keeps a trial unattributed when the account link is missing or conflicts", () => {
+    const trial: LandingTrialSeed = {
+      clerkUserId: CLERK,
+      trialStartMs: AFTER + DAY,
+      trialEndMs: AFTER + 8 * DAY,
+      status: "trialing",
+    };
+    const missing = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 2 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER },
+      ],
+      identities: [],
+      billing: readyBilling([trial]),
+    });
+    expect(missing.note).toContain("no reliable landing page: 1");
+    expect(missing.rows.every((row) => row.trials === 0)).toBe(true);
+
+    const conflict = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 2 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER },
+      ],
+      identities: [link(VISITOR), link(OTHER)],
+      billing: readyBilling([trial]),
+    });
+    expect(conflict.note).toContain("no reliable landing page: 1");
+    expect(conflict.rows.every((row) => row.trials === 0)).toBe(true);
+  });
+
+  it("does not move credit to a page visited after the trial starts", () => {
+    const summary = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 2 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/life-worth-remembering", occurredAtMs: AFTER + DAY },
+      ],
+      identities: [link()],
+      billing: readyBilling([
+        {
+          clerkUserId: CLERK,
+          trialStartMs: AFTER,
+          trialEndMs: AFTER + 7 * DAY,
+          status: "trialing",
+        },
+      ]),
+    });
+    expect(summary.note).toContain("no reliable landing page: 1");
+    expect(summary.rows.every((row) => row.trials === 0)).toBe(true);
+  });
+
+  it("leaves a running trial out of the mature paid rate", () => {
+    const summary = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 2 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/", occurredAtMs: AFTER },
+      ],
+      identities: [link()],
+      billing: readyBilling([
+        {
+          clerkUserId: CLERK,
+          trialStartMs: AFTER + DAY,
+          trialEndMs: AFTER + 8 * DAY,
+          status: "trialing",
+        },
+      ]),
+    });
+    const home = summary.rows.find((row) => row.id === "homepage");
+    expect(home?.trials).toBe(1);
+    expect(home?.paid).toBe(0);
+    expect(home?.trialToPaid).toBe("Not available");
+    expect(home?.gap).toContain("Trials still running: 1");
+  });
+
+  it("does not call past_due or an ended trial without a payment paid", () => {
+    const summary = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 10 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: OTHER, path: "/daily-coaching", occurredAtMs: AFTER },
+      ],
+      identities: [
+        link(VISITOR, CLERK),
+        { clerkUserId: "user_other", visitorId: OTHER, acquisitionSource: null },
+      ],
+      billing: readyBilling([
+        {
+          clerkUserId: CLERK,
+          trialStartMs: AFTER + DAY,
+          trialEndMs: AFTER + 8 * DAY,
+          status: "past_due",
+        },
+        {
+          clerkUserId: "user_other",
+          trialStartMs: AFTER + DAY,
+          trialEndMs: AFTER + 8 * DAY,
+          status: "canceled",
+        },
+      ]),
+    });
+    const leadership = summary.rows.find((row) => row.id === "leadership");
+    const daily = summary.rows.find((row) => row.id === "daily_coaching");
+    expect(leadership?.paid).toBe(0);
+    expect(leadership?.trialToPaid).toBe("0.0%");
+    expect(leadership?.gap).toContain("ended without a confirmed payment: 1");
+    expect(daily?.paid).toBe(0);
+    expect(daily?.trialToPaid).toBe("0.0%");
+  });
+
+  it("does not treat an active subscription without a successful payment as paid", () => {
+    const summary = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 10 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
+      ],
+      identities: [link()],
+      billing: readyBilling([
+        {
+          clerkUserId: CLERK,
+          trialStartMs: AFTER + DAY,
+          trialEndMs: AFTER + 8 * DAY,
+          status: "active",
+        },
+      ]),
+    });
+    const leadership = summary.rows.find((row) => row.id === "leadership");
+    expect(leadership?.paid).toBe(0);
+    expect(leadership?.trialToPaid).toBe("Not available");
+    expect(leadership?.gap).toContain("Paid outcome unknown: 1");
+    expect(leadership?.gap).toContain("Apple memberships are not included");
+  });
+
+  it("ignores a renewal and an Apple-only payment", () => {
+    const trialEnd = AFTER + 8 * DAY;
+    const summary = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: trialEnd + LANDING_FIRST_PAYMENT_WINDOW_MS + DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
+      ],
+      identities: [link()],
+      billing: readyBilling(
+        [
+          {
+            clerkUserId: CLERK,
+            trialStartMs: AFTER + DAY,
+            trialEndMs: trialEnd,
+            status: "active",
+          },
+        ],
+        [
+          { clerkUserId: CLERK, paidAtMs: trialEnd + LANDING_FIRST_PAYMENT_WINDOW_MS + 1000 },
+          { clerkUserId: "apple_only", paidAtMs: AFTER + 9 * DAY },
+        ]
+      ),
+    });
+    const leadership = summary.rows.find((row) => row.id === "leadership");
+    expect(leadership?.trials).toBe(1);
+    expect(leadership?.paid).toBe(0);
+    expect(summary.rows.reduce((sum, row) => sum + (row.paid === "Not available" ? 0 : row.paid), 0)).toBe(0);
+  });
+
+  it("excludes an earlier page view from the visitor-to-trial rate", () => {
+    const periodStart = AFTER + 2 * DAY;
+    const summary = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 4 * DAY,
+      periodStartMs: periodStart,
+      periodEndMs: AFTER + 5 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: periodStart + 1000 },
+      ],
+      attributionViews: [
+        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER + 1000 },
+        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: periodStart + 1000 },
+      ],
+      identities: [link()],
+      billing: readyBilling([
+        {
+          clerkUserId: CLERK,
+          trialStartMs: AFTER + 3 * DAY,
+          trialEndMs: AFTER + 10 * DAY,
+          status: "trialing",
+        },
+      ]),
+    });
+    const leadership = summary.rows.find((row) => row.id === "leadership");
+    expect(leadership?.visitors).toBe(1);
+    expect(leadership?.trials).toBe(1);
+    expect(leadership?.visitorToTrial).toBe("0.0%");
+    expect(leadership?.gap).toContain("not in the visitor-to-trial rate");
+  });
+
+  it("does not use a pre-cutover page view or a checkout as a trial", () => {
+    const summary = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + DAY,
+      observations: [
+        {
+          kind: "page_view",
+          visitorId: VISITOR,
+          path: "/leadership",
+          occurredAtMs: LANDING_PAGE_MEASUREMENT_CUTOVER_MS - 1000,
+        },
+        { kind: "checkout", visitorId: OTHER, path: null, occurredAtMs: AFTER },
+      ],
+      identities: [link()],
+      billing: readyBilling([
+        {
+          clerkUserId: CLERK,
+          trialStartMs: AFTER,
+          trialEndMs: AFTER + 7 * DAY,
+          status: "trialing",
+        },
+      ]),
+    });
+    expect(summary.rows.every((row) => row.trials === 0)).toBe(true);
+    expect(summary.note).toContain("no reliable landing page: 1");
+  });
+
+  it("maps a Stripe trial and a paid invoice without counting a customer id as payment", () => {
+    const billing = toLandingBilling({
+      subscriptionsReadable: true,
+      paymentsReadable: true,
+      recognizedPriceIds: new Set(["price_123"]),
+      subs: [
+        {
+          id: "sub_trial",
+          status: "trialing",
+          trial_start: 100,
+          trial_end: 200,
+          metadata: { userId: CLERK },
+        },
+        {
+          id: "sub_other",
+          status: "active",
+          trial_start: 100,
+          metadata: {},
+          customer: "cus_123",
+        },
+      ],
+      paidInvoices: [{ subscriptionId: "sub_trial", paidAtUnix: 180 }],
+    });
+    expect(billing.trials).toEqual([
+      {
+        clerkUserId: CLERK,
+        trialStartMs: 100000,
+        trialEndMs: 200000,
+        status: "trialing",
+      },
+    ]);
+    expect(billing.payments).toEqual([{ clerkUserId: CLERK, paidAtMs: 180000 }]);
+    expect(toLandingBilling({
+      subscriptionsReadable: false,
+      paymentsReadable: false,
+      recognizedPriceIds: new Set(),
+      subs: [],
+      paidInvoices: [],
+    }).subscriptionsReadable).toBe(false);
+  });
+
+  it("puts the same trial and paid lines in the shared report", () => {
+    const landing = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 8 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
+      ],
+      identities: [link()],
+      billing: readyBilling(
+        [
+          {
+            clerkUserId: CLERK,
+            trialStartMs: AFTER + DAY,
+            trialEndMs: AFTER + 8 * DAY,
+            status: "active",
+          },
+        ],
+        [{ clerkUserId: CLERK, paidAtMs: AFTER + 8 * DAY }]
+      ),
+    });
+    const data = growth();
+    data.snapshot.notes.sourceTrackingUnavailable = false;
+    const snapshot = buildOperatingSnapshot({
+      growth: data,
+      challengeAttention: 0,
+      deletions: null,
+      deletionsAvailable: true,
+      landingPages: landing,
+    });
+    expect(snapshot.actions).toEqual([]);
+    expect(snapshot.report).toContain("Attributed trials: 1");
+    expect(snapshot.report).toContain("Confirmed paid conversions: 1");
+    expect(snapshot.report).toContain("Trial-to-paid, mature trials: 100.0%");
+    expect(snapshot.report).not.toMatch(/\bwon\b/i);
+    expect(snapshot.report).not.toContain(CLERK);
+    expect(snapshot.report).not.toContain(VISITOR);
   });
 });
 
