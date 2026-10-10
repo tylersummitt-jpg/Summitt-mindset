@@ -207,7 +207,8 @@ describe("census report and boundaries", () => {
     expect(snapshot.census.rows[0]?.clerkUserId).toBe("user_secret_row");
     expect(snapshot.report).toContain("ACCOUNTS WITHOUT MEMBERSHIP");
     expect(snapshot.report).toContain("Confirmed nonmembers in this scan: 4");
-    expect(snapshot.report).toContain("Promotional follow-up permission: Unknown");
+    expect(snapshot.report).toContain("Advance marketing opt-in is not required");
+    expect(snapshot.report).toContain("Marketing suppression status is not verified");
     expect(snapshot.report).not.toContain("user_secret_row");
     expect(snapshot.report).not.toMatch(/@/);
     const { report, ...rest } = snapshot;

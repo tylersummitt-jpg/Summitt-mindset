@@ -48,6 +48,11 @@ import {
   type DistributionIntelligence,
 } from "@/lib/distribution-intelligence";
 import {
+  buildNonmemberRecovery,
+  formatNonmemberRecovery,
+  type NonmemberRecovery,
+} from "@/lib/nonmember-recovery";
+import {
   formatRetentionIntelligence,
   RETENTION_NOT_LOADED,
   type RetentionIntelligence,
@@ -140,6 +145,7 @@ export type OperatingSnapshot = {
   landingExperiments: ProudTestReport[];
   retentionIntelligence: RetentionIntelligence;
   distributionIntelligence: DistributionIntelligence;
+  nonmemberRecovery: NonmemberRecovery;
   limitations: string[];
   report: string;
 };
@@ -510,7 +516,7 @@ function buildLimitations(args: {
     "The account census examines the newest Clerk accounts, at most 200. A partial scan is not a complete census."
   );
   lines.push(
-    "Promotional email and SMS permission for nonmembers is unknown. An email address on the account is not permission to write. This page does not send anything."
+    "U.S. commercial email does not require advance marketing opt-in. Marketing suppression records are not connected, so a missing list is not zero unsubscribes. Coaching SMS rules are separate. This page does not send anything."
   );
   lines.push(
     "Checkout categories use instrumentation version 1 only. Accounts created before that tracking are not called checkout abandoners."
@@ -635,6 +641,8 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     snapshot.census.emailFact,
     snapshot.census.permission,
     "",
+    ...formatNonmemberRecovery(snapshot.nonmemberRecovery),
+    "",
     "RETENTION",
     `Current paying members: ${snapshot.retention.payingMembers}`,
     `Trials that converted to paid: ${snapshot.retention.trialsConverted}`,
@@ -696,10 +704,10 @@ function censusText(census: NonmemberCensusData): OperatingSnapshot["census"] {
         census.coverage === "failed" ? null : census.categories[category]
       ),
     })),
-    recovery: `Possible recovery pool: ${countText(census.nonmembers)} confirmed nonmembers in this scan. This is not permission to email or text.`,
+    recovery: `Verified nonmembers in this scan: ${countText(census.nonmembers)}. Former members are excluded from potential recovery prospects. This scan is not a send.`,
     emailFact: `Examined accounts with an email address: ${countText(census.withEmail)}. An email address is not permission to write.`,
     permission:
-      "Promotional follow-up permission: Unknown. Service-message permission: Unknown. Email unsubscribe status: Unknown.",
+      "U.S. commercial email uses an opt-out model. Advance marketing opt-in is not required. Marketing suppression status is not verified. An unsubscribe still blocks email. Coaching SMS rules are separate.",
     rows: census.rows.map((row) => ({
       clerkUserId: row.clerkUserId,
       createdLabel: censusCreatedLabel(row.createdAtMs),
@@ -746,6 +754,7 @@ export function buildOperatingSnapshot(args: {
   const now = args.growth.snapshot.asOfNow;
   const checkout = args.checkout ?? emptyCheckoutMeasurement();
   const census = args.census ?? emptyNonmemberCensus();
+  const nonmemberRecovery = buildNonmemberRecovery(census);
   const experiments = args.experiments ?? EMPTY_EXPERIMENT_REGISTRY;
   const landingPages = args.landingPages ?? EMPTY_LANDING_PERFORMANCE;
   const landingExperiments = args.landingExperiments ?? [EMPTY_PROUD_TEST_REPORT];
@@ -816,6 +825,7 @@ export function buildOperatingSnapshot(args: {
     landingExperiments,
     retentionIntelligence,
     distributionIntelligence,
+    nonmemberRecovery,
     limitations: [
       ...buildLimitations({
         growth: args.growth,
@@ -829,6 +839,7 @@ export function buildOperatingSnapshot(args: {
         retentionIntelligence,
       }),
       ...distributionIntelligence.limitations,
+      ...nonmemberRecovery.limitations,
     ],
   };
 

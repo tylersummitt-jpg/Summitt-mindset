@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { CopyBusinessReportButton } from "@/app/admin/copy-business-report-button";
 import { DistributionIntelligencePanel } from "@/app/admin/distribution-intelligence-panel";
+import { NonmemberRecoveryPanel } from "@/app/admin/nonmember-recovery-panel";
 import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
@@ -326,6 +327,8 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
       <CheckoutFunnel snapshot={snapshot} />
 
       <AccountsWithoutMembership snapshot={snapshot} />
+
+      <NonmemberRecoveryPanel recovery={snapshot.nonmemberRecovery} />
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Where trials came from</h2>
