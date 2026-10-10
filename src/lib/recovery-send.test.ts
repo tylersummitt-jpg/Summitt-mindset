@@ -75,7 +75,7 @@ function payload(): RecoveryDeliveryPayload {
     from: RECOVERY_FROM,
     to: "person@example.com",
     replyTo: RECOVERY_REPLY_TO,
-    subject: "Your Summitt Mindset account is ready",
+    subject: "A quick note from Tyler Summitt",
     text: "Hey!",
     html: "<div>Hey!</div>",
     headers: { "List-Unsubscribe": "<https://summittmindset.com/api/recovery/unsubscribe?token=example>" },

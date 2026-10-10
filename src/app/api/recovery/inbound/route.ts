@@ -3,6 +3,7 @@ import { Resend } from "resend";
 
 import {
   interpretResendRecoveryEvent,
+  RECOVERY_FROM,
   RECOVERY_REPLY_TO,
   shouldForwardRecoveryReply,
   verifyResendWebhook,
@@ -76,12 +77,17 @@ async function forwardReplyToTyler(emailId: string): Promise<void> {
   const key = process.env.RESEND_API_KEY;
   if (!key || !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(domain) || domain === "summittmindset.com") return;
   try {
-    await new Resend(key).emails.receiving.forward({
+    // inbound.summittmindset.com can receive mail and cannot send it.
+    // The forward uses the address that already sends.
+    const forwarded = await new Resend(key).emails.receiving.forward({
       emailId,
       to: RECOVERY_REPLY_TO,
-      from: `inbound@${domain}`,
+      from: RECOVERY_FROM,
       passthrough: true,
     });
+    if (forwarded.error) {
+      console.warn("[recovery] reply was stored and the inbox forward did not complete");
+    }
   } catch {
     console.warn("[recovery] reply was stored and the inbox forward did not complete");
   }

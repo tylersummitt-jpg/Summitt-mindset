@@ -76,6 +76,8 @@ describe("POST /api/recovery/inbound", () => {
     const route = readFileSync(join(process.cwd(), "src/app/api/recovery/inbound/route.ts"), "utf8");
     const store = readFileSync(join(process.cwd(), "src/lib/recovery.server.ts"), "utf8");
     expect(route).toContain("verifyResendWebhook");
+    expect(route).toContain("from: RECOVERY_FROM");
+    expect(route).not.toContain("from: `inbound@");
     expect(route).not.toContain("auth()");
     expect(route).not.toContain("emails.send");
     expect(store).toContain("provider_event_id");

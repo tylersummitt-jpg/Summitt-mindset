@@ -272,8 +272,7 @@ export function recoveryMessageCopy(args: {
   firstName: string | null;
   unsubscribeUrl: string;
   postalAddress: string;
-}): { subject: string; text: string } {
-  const hello = recoveryGreeting(args.firstName);
+}): { subject: string; text: string; html: string } {
   const cta = `https://summittmindset.com/subscribe?utm_source=email&utm_medium=recovery&utm_campaign=nonmember_recovery&utm_content=email_${args.step}`;
   const footer = [
     "",
@@ -283,46 +282,57 @@ export function recoveryMessageCopy(args: {
     `Unsubscribe: ${args.unsubscribeUrl}`,
   ];
   if (args.step === 1) {
-    return {
-      subject: "Your Summitt Mindset account is ready",
-      text: [
-        hello,
-        "",
-        "You created a Summitt Mindset account, and the free trial has not started.",
-        "If you still want daily coaching, you can finish here:",
-        cta,
-        "",
-        "If now is not the right time, you can ignore this note.",
-        ...footer,
-      ].join("\n"),
-    };
-  }
-  if (args.step === 2) {
-    return {
-      subject: "Need a hand starting your free trial?",
-      text: [
-        hello,
-        "",
-        "If something got in the way of starting the free trial, reply to this email.",
-        "Tyler reads those replies.",
-        "Or finish here:",
-        cta,
-        ...footer,
-      ].join("\n"),
-    };
-  }
-  return {
-    subject: "Last note about your Summitt Mindset trial",
-    text: [
-      hello,
+    const text = [
+      "Hey there! Tyler Summitt here.",
       "",
-      "This is the last note in this short series.",
-      "The free trial is still available here:",
+      "I noticed you created a Summitt Mindset account but haven't started your free trial yet.",
+      "",
+      "We built Summitt Mindset to help people use my mom's approach to accountability to follow through on their goals and build a life they're proud of.",
+      "",
+      "If you'd like to give it a try, you can start your 7-day free trial here:",
+      "",
       cta,
       "",
-      "If you do not want these notes, use the unsubscribe link below.",
+      "And if you have any questions, just reply to this email. I'd be happy to help.",
       ...footer,
-    ].join("\n"),
+    ].join("\n");
+    return {
+      subject: "A quick note from Tyler Summitt",
+      text,
+      html: recoveryHtml(text, { url: cta, label: "Start My Free Trial" }),
+    };
+  }
+  const hello = recoveryGreeting(args.firstName);
+  if (args.step === 2) {
+    const text = [
+      hello,
+      "",
+      "If something got in the way of starting the free trial, reply to this email.",
+      "Tyler reads those replies.",
+      "Or finish here:",
+      cta,
+      ...footer,
+    ].join("\n");
+    return {
+      subject: "Need a hand starting your free trial?",
+      text,
+      html: recoveryHtml(text),
+    };
+  }
+  const text = [
+    hello,
+    "",
+    "This is the last note in this short series.",
+    "The free trial is still available here:",
+    cta,
+    "",
+    "If you do not want these notes, use the unsubscribe link below.",
+    ...footer,
+  ].join("\n");
+  return {
+    subject: "Last note about your Summitt Mindset trial",
+    text,
+    html: recoveryHtml(text),
   };
 }
 
@@ -429,11 +439,20 @@ export function shouldForwardRecoveryReply(recipients: readonly string[]): boole
   return !recipients.some((recipient) => recipient.toLowerCase().includes(RECOVERY_REPLY_TO));
 }
 
-export function recoveryHtml(text: string): string {
-  const escaped = text
+function escapeRecoveryHtml(value: string): string {
+  return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export function recoveryHtml(text: string, link?: { url: string; label: string }): string {
+  let escaped = escapeRecoveryHtml(text);
+  if (link) {
+    const url = escapeRecoveryHtml(link.url);
+    escaped = escaped.replace(url, `<a href="${url}">${escapeRecoveryHtml(link.label)}</a>`);
+  }
   return `<div>${escaped.replace(/\n/g, "<br>")}</div>`;
 }
 

@@ -199,12 +199,31 @@ describe("recovery send gates", () => {
       unsubscribeUrl: "https://summittmindset.com/api/recovery/unsubscribe?token=example",
       postalAddress: "1 Example Street",
     });
-    expect(copy.text).toContain("Hey!");
+    expect(copy.subject).toBe("A quick note from Tyler Summitt");
+    expect(copy.text).toContain("Hey there! Tyler Summitt here.");
+    expect(copy.text).toContain("haven't started your free trial yet.");
+    expect(copy.text).toContain(
+      "https://summittmindset.com/subscribe?utm_source=email&utm_medium=recovery&utm_campaign=nonmember_recovery&utm_content=email_1"
+    );
+    expect(copy.html).toContain(
+      '<a href="https://summittmindset.com/subscribe?utm_source=email&amp;utm_medium=recovery&amp;utm_campaign=nonmember_recovery&amp;utm_content=email_1">Start My Free Trial</a>'
+    );
     expect(copy.text).toContain("Summitt Mindset, LLC");
     expect(copy.text).toContain("1 Example Street");
     expect(copy.text).toContain("https://summittmindset.com/api/recovery/unsubscribe?token=example");
     expect(copy.text).not.toContain("Dandridge");
     expect(copy.text).not.toContain("abandoned");
+    const later = recoveryMessageCopy({
+      step: 2,
+      firstName: "Avery",
+      unsubscribeUrl: "https://summittmindset.com/api/recovery/unsubscribe?token=example",
+      postalAddress: "1 Example Street",
+    });
+    expect(later.subject).toBe("Need a hand starting your free trial?");
+    expect(later.text).toContain("Hi Avery,");
+    expect(later.html).toBe(
+      `<div>${later.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\n/g, "<br>")}</div>`
+    );
     const snapshot = buildOperatingSnapshot({
       growth: {
         range: "last_30",

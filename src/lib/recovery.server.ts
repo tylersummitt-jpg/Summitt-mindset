@@ -25,7 +25,6 @@ import {
   RECOVERY_DELAYS_MS,
   RECOVERY_FROM,
   RECOVERY_REPLY_TO,
-  recoveryHtml,
   recoveryIdempotencyKey,
   recoveryMessageCopy,
   recoveryPreview,
@@ -616,7 +615,7 @@ async function buildPayload(
     replyTo: recoveryReplyTo({ token, inboundDomain: process.env.RECOVERY_INBOUND_DOMAIN ?? null }),
     subject: copy.subject,
     text: copy.text,
-    html: recoveryHtml(copy.text),
+    html: copy.html,
     headers: {
       "List-Unsubscribe": `<https://summittmindset.com/api/recovery/unsubscribe?token=${token}>`,
       "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -962,7 +961,7 @@ export async function sendRecoveryInboxTest(): Promise<{ ok: true } | { ok: fals
       replyTo: recoveryReplyTo({ token, inboundDomain: process.env.RECOVERY_INBOUND_DOMAIN ?? null }),
       subject: copy.subject,
       text: copy.text,
-      html: recoveryHtml(copy.text),
+      html: copy.html,
       headers: {
         "List-Unsubscribe": `<https://summittmindset.com/api/recovery/unsubscribe?token=${token}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
