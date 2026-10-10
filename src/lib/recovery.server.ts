@@ -866,7 +866,7 @@ export async function sendRecoveryInboxTest(): Promise<{ ok: true } | { ok: fals
     sendingAuthorized: process.env.RECOVERY_SENDING_AUTHORIZED === "yes",
     recipient: RECOVERY_INBOX_TEST_EMAIL,
   });
-  if (!allowed.ok) return allowed;
+  if (!allowed.ok) return { ok: false, error: allowed.reason };
   if (!configuredInboundDomain(process.env.RECOVERY_INBOUND_DOMAIN) || !process.env.RECOVERY_INBOUND_WEBHOOK_SECRET) {
     return { ok: false, error: "The recovery reply route is not configured." };
   }
