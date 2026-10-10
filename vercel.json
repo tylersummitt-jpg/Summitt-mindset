@@ -17,6 +17,10 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/cron/recovery",
+      "schedule": "15 * * * *"
+    },
+    {
       "path": "/api/cron/sms-inbound-coach",
       "schedule": "* * * * *"
     },

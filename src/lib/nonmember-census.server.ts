@@ -364,6 +364,10 @@ export async function loadNonmemberCensus(now = new Date()): Promise<NonmemberCe
       createdAtMs: row.input.createdAtMs,
       category: row.judgment.kind === "nonmember" ? row.judgment.category : "unknown",
     }));
+  const eligibility: Record<string, "verified_nonmember" | "former" | "member" | "unknown"> = {};
+  for (const row of judged) {
+    eligibility[row.user.id] = eligibilityFor(row.judgment);
+  }
 
   return {
     coverage: coverage.coverage,
@@ -376,5 +380,16 @@ export async function loadNonmemberCensus(now = new Date()): Promise<NonmemberCe
     withEmail: tally.withEmail,
     categories: tally.categories,
     rows,
+    eligibility,
   };
+}
+
+function eligibilityFor(
+  judgment: { kind: "member" } | { kind: "unknown"; reason: string } | { kind: "nonmember"; category: string }
+): "verified_nonmember" | "former" | "member" | "unknown" {
+  if (judgment.kind === "member") return "member";
+  if (judgment.kind !== "nonmember") return "unknown";
+  if (judgment.category === "previously_subscribed") return "former";
+  if (judgment.category === "unknown" || judgment.category === "insufficient_history") return "unknown";
+  return "verified_nonmember";
 }

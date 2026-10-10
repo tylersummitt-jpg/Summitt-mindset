@@ -2,16 +2,27 @@
 
 import React from "react";
 import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
+vi.mock("@/lib/auth/require-tyler-admin", () => ({
+  requireTylerAdmin: vi.fn(),
+}));
 
 import { NonmemberRecoveryPanel } from "@/app/admin/nonmember-recovery-panel";
 import { emptyNonmemberCensus } from "@/lib/nonmember-census";
 import { buildNonmemberRecovery } from "@/lib/nonmember-recovery";
+import { emptyRecoveryAttention } from "@/lib/recovery-report";
 
 describe("nonmember recovery explanation", () => {
   it("keeps How this works collapsed", () => {
     const view = render(
-      <NonmemberRecoveryPanel recovery={buildNonmemberRecovery(emptyNonmemberCensus())} />
+      <NonmemberRecoveryPanel
+        recovery={buildNonmemberRecovery(emptyNonmemberCensus())}
+        attention={emptyRecoveryAttention()}
+      />
     );
     const details = view.container.querySelector("details");
     expect(details?.hasAttribute("open")).toBe(false);
@@ -21,5 +32,7 @@ describe("nonmember recovery explanation", () => {
     expect(details?.textContent).toContain("does not override an unsubscribe");
     expect(details?.textContent).toContain("does not send");
     expect(details?.textContent).toContain("immediately before sending");
+    expect(details?.textContent).toContain("Sending is off");
+    expect(details?.textContent).toContain("Reply monitoring is not connected");
   });
 });

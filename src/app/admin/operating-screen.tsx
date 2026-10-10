@@ -328,7 +328,22 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
 
       <AccountsWithoutMembership snapshot={snapshot} />
 
-      <NonmemberRecoveryPanel recovery={snapshot.nonmemberRecovery} />
+      <p className="text-sm text-gray-800">
+        {snapshot.recoveryAutomation.repliesNeeding == null ? (
+          <>Reply monitoring is not connected. This is not zero replies.</>
+        ) : snapshot.recoveryAutomation.repliesNeeding > 0 ? (
+          <a href="#needs-your-reply" className="font-medium underline">
+            Recovery replies needing your attention: {snapshot.recoveryAutomation.repliesNeeding}
+          </a>
+        ) : (
+          <>Recovery replies needing your attention: 0</>
+        )}
+      </p>
+
+      <NonmemberRecoveryPanel
+        recovery={snapshot.nonmemberRecovery}
+        attention={snapshot.recoveryAutomation}
+      />
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Where trials came from</h2>

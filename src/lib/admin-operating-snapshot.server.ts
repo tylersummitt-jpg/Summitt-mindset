@@ -25,6 +25,8 @@ import {
   unreadableRetentionIntelligence,
   type RetentionIntelligence,
 } from "@/lib/retention-intelligence";
+import { loadRecoveryAttention } from "@/lib/recovery.server";
+import { emptyRecoveryAttention, type RecoveryAttention } from "@/lib/recovery-report";
 
 export async function loadOperatingSnapshot(args: {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -150,6 +152,15 @@ export async function loadOperatingSnapshot(args: {
     });
   }
 
+  let recoveryAutomation: RecoveryAttention = emptyRecoveryAttention();
+  try {
+    recoveryAutomation = await loadRecoveryAttention(args.now ?? new Date());
+  } catch (err) {
+    console.warn("[operating] recovery attention failed", {
+      reason: err instanceof Error ? err.message : "recovery_attention_failed",
+    });
+  }
+
   return buildOperatingSnapshot({
     growth,
     challengeAttention,
@@ -161,5 +172,6 @@ export async function loadOperatingSnapshot(args: {
     landingPages,
     landingExperiments,
     retentionIntelligence,
+    recoveryAutomation,
   });
 }

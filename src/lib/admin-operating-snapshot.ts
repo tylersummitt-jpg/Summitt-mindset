@@ -53,6 +53,11 @@ import {
   type NonmemberRecovery,
 } from "@/lib/nonmember-recovery";
 import {
+  emptyRecoveryAttention,
+  formatRecoveryOperations,
+  type RecoveryAttention,
+} from "@/lib/recovery-report";
+import {
   formatRetentionIntelligence,
   RETENTION_NOT_LOADED,
   type RetentionIntelligence,
@@ -146,6 +151,7 @@ export type OperatingSnapshot = {
   retentionIntelligence: RetentionIntelligence;
   distributionIntelligence: DistributionIntelligence;
   nonmemberRecovery: NonmemberRecovery;
+  recoveryAutomation: RecoveryAttention;
   limitations: string[];
   report: string;
 };
@@ -643,6 +649,8 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     "",
     ...formatNonmemberRecovery(snapshot.nonmemberRecovery),
     "",
+    ...formatRecoveryOperations(snapshot.recoveryAutomation),
+    "",
     "RETENTION",
     `Current paying members: ${snapshot.retention.payingMembers}`,
     `Trials that converted to paid: ${snapshot.retention.trialsConverted}`,
@@ -749,12 +757,14 @@ export function buildOperatingSnapshot(args: {
   landingPages?: LandingPagePerformance;
   landingExperiments?: ProudTestReport[];
   retentionIntelligence?: RetentionIntelligence;
+  recoveryAutomation?: RecoveryAttention;
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
   const checkout = args.checkout ?? emptyCheckoutMeasurement();
   const census = args.census ?? emptyNonmemberCensus();
   const nonmemberRecovery = buildNonmemberRecovery(census);
+  const recoveryAutomation = args.recoveryAutomation ?? emptyRecoveryAttention();
   const experiments = args.experiments ?? EMPTY_EXPERIMENT_REGISTRY;
   const landingPages = args.landingPages ?? EMPTY_LANDING_PERFORMANCE;
   const landingExperiments = args.landingExperiments ?? [EMPTY_PROUD_TEST_REPORT];
@@ -826,6 +836,7 @@ export function buildOperatingSnapshot(args: {
     retentionIntelligence,
     distributionIntelligence,
     nonmemberRecovery,
+    recoveryAutomation,
     limitations: [
       ...buildLimitations({
         growth: args.growth,

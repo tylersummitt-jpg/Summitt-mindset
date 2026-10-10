@@ -73,9 +73,9 @@ export function buildNonmemberRecovery(census: NonmemberCensusData): NonmemberRe
     journeyNote:
       "These stages come from the census checkout record for that account. A missing step is unknown. Pricing-page views and membership clicks are not joined to these accounts.",
     sendReady:
-      "None. A prospect is not send-ready until a future sender can check suppression, geography, provider rules, and a valid address immediately before sending.",
+      "None. A prospect is not send-ready while sending is off. Missing country is not labeled United States. A known restricted country is excluded.",
     experiment: [
-      "Plan only. This is not in the experiment registry, not assigned, and not running.",
+      "Plan only. This is not in the experiment registry and has no declared winner. A holdout is stored only after sending is separately authorized.",
       "Control: no new recovery message.",
       "Challenger: one helpful follow-up that honors opt-out and the other applicable rules.",
       "Primary outcome: a verified free-trial start inside a window declared before anyone is assigned.",
@@ -83,10 +83,10 @@ export function buildNonmemberRecovery(census: NonmemberCensusData): NonmemberRe
       "Nobody is classified as a recovered member until an assignment and an outcome both exist.",
     ],
     safety: [
-      "A later sender would have to recheck, immediately before sending, that the person is still a verified nonmember, is not suppressed, is allowed for that geography and provider, and has a valid address.",
-      "It would also need a holdout, a finite limit, duplicate-send prevention, an opt-out, and delivery tracking.",
-      "It must not send to current members or to people whose membership is uncertain.",
-      "That sender is not built. This page does not export addresses.",
+      "The sender rechecks, immediately before sending, that the person is still a verified nonmember, is not suppressed, is not in a known restricted country, and has a valid address.",
+      "It keeps a holdout, a three-email limit, a daily cap, duplicate-send prevention, an opt-out, and delivery tracking.",
+      "It does not send to current members or to people whose membership is uncertain.",
+      "Sending is off until it is separately authorized. This page does not export addresses.",
     ],
     limitations: [
       "U.S. commercial email does not require advance marketing opt-in. An unsubscribe still blocks email.",
@@ -94,7 +94,7 @@ export function buildNonmemberRecovery(census: NonmemberCensusData): NonmemberRe
       "Coaching SMS consent and STOP are not promotional email permission.",
       "Challenge email signup and challenge unsubscribe are not a marketing list.",
       "Instantly, Kit, and ActiveCampaign are not connected.",
-      "The recovery comparison is a written plan. It does not send and it does not change the landing-page experiment.",
+      "This comparison does not change the landing-page experiment. Sending stays off until a separate authorization.",
     ],
     sending: "No recovery email or text is sent from this page.",
   };

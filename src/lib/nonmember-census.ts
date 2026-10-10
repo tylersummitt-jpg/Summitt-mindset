@@ -190,6 +190,8 @@ export type NonmemberCensusData = {
     createdAtMs: number | null;
     category: NonmemberCategory;
   }>;
+  /** Every account in this scan. Absent when the scan failed. Not limited to the display list. */
+  eligibility?: Record<string, "verified_nonmember" | "former" | "member" | "unknown">;
 };
 
 export function emptyNonmemberCensus(): NonmemberCensusData {
