@@ -348,7 +348,122 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
       </section>
 
       <LandingPagePerformance snapshot={snapshot} />
+      <LandingExperiments snapshot={snapshot} />
     </>
+  );
+}
+
+function LandingExperiments({ snapshot }: { snapshot: OperatingSnapshot }) {
+  const tests = snapshot.landingExperiments.filter((test) => test.loaded);
+  return (
+    <section className="space-y-4">
+      <h2 className="text-lg font-semibold text-gray-900">Controlled landing test</h2>
+      <details className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+        <summary className="cursor-pointer font-medium text-gray-900">How this works</summary>
+        <div className="mt-3 space-y-2">
+          <p>
+            We have five landing pages: the homepage, Leadership, Become Proud, Daily Coaching,
+            and Life Worth Remembering.
+          </p>
+          <p>
+            A test compares two of those pages. It has one entry link, such as /go/proud-test.
+            Only people who use that link are in the test. Someone who opens a page on their own
+            is not in the test.
+          </p>
+          <p>
+            To make a test, create a planned experiment, type a short slug, and choose the two
+            pages. The link is /go/ plus that slug. You do not need a new page or a new route.
+          </p>
+          <p>
+            Start lets new visitors through that link get a page. Pause stops new people from
+            joining. People already in the test keep their page. Complete is where you record
+            the decision. The app does not pick a winner.
+          </p>
+          <p>
+            Each person is placed once, about half on each page. The same person keeps the same
+            page on later visits. Bots are left out. If placement fails, they see the homepage.
+          </p>
+          <p>
+            Placement is not the same as seeing the page. We count a person only after they land
+            on the page they were given. The redirect itself is not a view. A refresh does not
+            count them again.
+          </p>
+          <p>
+            A free trial counts when that person starts a real trial within 7 days and we can tie
+            them to one page. A confirmed payment is a paid invoice after that trial. Changing
+            Today or Last 7 Days on this dashboard does not change those numbers.
+          </p>
+          <p>
+            Ads, email, and people who arrive on their own are different traffic. This test only
+            compares people who came through the same entry link.
+          </p>
+          <p>
+            A higher percentage is not a winner. Wait for 200 people on each page and 14 days.
+            Trials that are still running are not finished payment results. If the tracking is
+            unclear, the result is inconclusive.
+          </p>
+          <p>
+            The app can prepare the planned test and count views, trials, and payments. You
+            choose when to start, pause, and complete, and you write the decision.
+          </p>
+          <p>
+            Later, these tests can be tied to who stays and what a customer is worth. This test
+            does not do that yet.
+          </p>
+        </div>
+      </details>
+      {tests.map((test) => (
+        <LandingExperimentResult key={test.entrySlug ?? test.name} test={test} />
+      ))}
+    </section>
+  );
+}
+
+function LandingExperimentResult({ test }: { test: OperatingSnapshot["landingExperiments"][number] }) {
+  return (
+    <div className="space-y-3">
+      <h3 className="text-base font-medium text-gray-900">{test.name}</h3>
+      {test.entrySlug ? (
+        <p className="text-sm text-gray-700">Entry: /go/{test.entrySlug}</p>
+      ) : null}
+      <p className="text-sm text-gray-700">{test.note}</p>
+      <p className="text-sm text-gray-700">
+        Status: {test.status}. Evidence: {test.evidence ?? "Not recorded."} Started:{" "}
+        {test.startOn ?? "Not started."}
+      </p>
+      <p className="text-sm text-gray-700">
+        Decision: {test.conclusion ?? "No measured result is stored."}
+      </p>
+      <p className="text-sm text-gray-700">Next: {test.nextAction ?? "No next action recorded."}</p>
+      <p className="text-sm text-gray-700">Trial-start rate difference: {test.difference}</p>
+      <p className="text-sm text-gray-600">{test.coverage}</p>
+      {test.exposuresUnreadable ? (
+        <p className="text-sm text-gray-800">
+          Exposures could not be read. Do not treat that as zero visitors.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {test.rows.map((row) => (
+            <article
+              key={row.variant}
+              className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800"
+            >
+              <h3 className="font-medium text-gray-900">
+                {row.label} <span className="font-normal text-gray-500">{row.path}</span>
+              </h3>
+              <p className="mt-2">Exposed visitors: {row.exposed}</p>
+              <p>Join clicks: {row.clicks}</p>
+              <p>Checkout starts: {row.checkouts}</p>
+              <p>Checkout creation failures: {row.checkoutFailures}</p>
+              <p>Attributed trials: {row.trials}</p>
+              <p>Trial-start rate: {row.trialRate}</p>
+              <p>Confirmed paid conversions: {row.paid}</p>
+              <p>Mature paid-conversion rate: {row.matureRate}</p>
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

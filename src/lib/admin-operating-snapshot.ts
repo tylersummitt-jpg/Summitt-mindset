@@ -31,6 +31,11 @@ import {
   type LandingPagePerformance,
 } from "@/lib/landing-page-performance";
 import {
+  EMPTY_PROUD_TEST_REPORT,
+  formatProudTestReport,
+  type ProudTestReport,
+} from "@/lib/landing-experiment";
+import {
   EMPTY_EXPERIMENT_REGISTRY,
   experimentDecisionLines,
   formatExperimentReport,
@@ -122,6 +127,7 @@ export type OperatingSnapshot = {
   actions: OperatingAction[];
   experiments: ExperimentRegistry;
   landingPages: LandingPagePerformance;
+  landingExperiments: ProudTestReport[];
   limitations: string[];
   report: string;
 };
@@ -171,6 +177,7 @@ function buildActions(args: {
   census: NonmemberCensusData;
   experiments: ExperimentRegistry;
   landingPages: LandingPagePerformance;
+  landingExperiments: ProudTestReport[];
 }): OperatingAction[] {
   const actions: OperatingAction[] = [];
   const period = args.growth.snapshot.period;
@@ -215,6 +222,18 @@ function buildActions(args: {
       kind: "limitation",
       evidence: "Stripe invoices could not be read, so paid conversions were not assigned to a page.",
       nextStep: "Reload Distribution after the invoice read succeeds. Do not call a trial paid.",
+    });
+  }
+
+  if (args.landingExperiments.some((test) => test.loaded && test.exposuresUnreadable)) {
+    actions.push({
+      id: "proud-test-exposures-unreadable",
+      title: "The controlled landing test exposures could not be read",
+      category: "distribution",
+      priority: "high",
+      kind: "limitation",
+      evidence: "Distribution could not read who actually saw a proud-test variant.",
+      nextStep: "Reload Distribution after the exposure read succeeds. Do not compare the variants.",
     });
   }
 
@@ -419,6 +438,7 @@ function buildLimitations(args: {
   census: NonmemberCensusData;
   experiments: ExperimentRegistry;
   landingPages: LandingPagePerformance;
+  landingExperiments: ProudTestReport[];
 }): string[] {
   const notes = args.growth.snapshot.notes;
   const lines = [
@@ -496,6 +516,11 @@ function buildLimitations(args: {
   } else {
     lines.push(
       "Landing-page trial credit is the first page on or after October 10, 2026. It does not replace first-touch source. Apple memberships are not included. past_due is not paid. Trials still running are excluded from the trial-to-paid rate."
+    );
+  }
+  if (args.landingExperiments.some((test) => test.loaded)) {
+    lines.push(
+      "A landing experiment compares only visitors assigned at its /go entry. Direct visits are separate. A higher rate is not a winner. Paid results follow that exposure cohort and stay the same when the dashboard date range changes."
     );
   }
   if (args.experiments.available && args.experiments.records.length >= 200) {
@@ -593,6 +618,8 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     "",
     ...formatLandingPageReport(snapshot.landingPages),
     "",
+    ...snapshot.landingExperiments.flatMap((report) => [...formatProudTestReport(report), ""]),
+    "",
     "EXPERIMENTS",
     ...formatExperimentReport(snapshot.experiments),
     "",
@@ -676,6 +703,7 @@ export function buildOperatingSnapshot(args: {
   census?: NonmemberCensusData;
   experiments?: ExperimentRegistry;
   landingPages?: LandingPagePerformance;
+  landingExperiments?: ProudTestReport[];
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
@@ -683,6 +711,7 @@ export function buildOperatingSnapshot(args: {
   const census = args.census ?? emptyNonmemberCensus();
   const experiments = args.experiments ?? EMPTY_EXPERIMENT_REGISTRY;
   const landingPages = args.landingPages ?? EMPTY_LANDING_PERFORMANCE;
+  const landingExperiments = args.landingExperiments ?? [EMPTY_PROUD_TEST_REPORT];
   const days = daysInRange(args.growth.range);
   const trialsPerDay =
     days != null && period.freeTrialsStarted != null
@@ -732,9 +761,11 @@ export function buildOperatingSnapshot(args: {
       census,
       experiments,
       landingPages,
+      landingExperiments,
     }),
     experiments,
     landingPages,
+    landingExperiments,
     limitations: buildLimitations({
       growth: args.growth,
       challengeAttention: args.challengeAttention,
@@ -743,6 +774,7 @@ export function buildOperatingSnapshot(args: {
       census,
       experiments,
       landingPages,
+      landingExperiments,
     }),
   };
 

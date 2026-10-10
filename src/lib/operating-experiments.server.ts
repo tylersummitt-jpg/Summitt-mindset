@@ -2,6 +2,11 @@ import "server-only";
 
 import { supabaseServer } from "@/lib/supabase-server";
 import {
+  landingColumnPayload,
+  parseStoredLanding,
+  type LandingDestinations,
+} from "@/lib/landing-experiment-shared";
+import {
   EXPERIMENT_EVIDENCE,
   EXPERIMENT_STATUSES,
   editPlannedExperiment,
@@ -36,6 +41,9 @@ type ExperimentRow = {
   conclusion: string | null;
   next_action: string | null;
   limitations: string | null;
+  entry_slug?: string | null;
+  control_path?: string | null;
+  challenger_path?: string | null;
 };
 
 type AmendmentRow = {
@@ -72,6 +80,7 @@ function mapRecord(row: ExperimentRow, amendments: AmendmentRow[]): ExperimentRe
   if (!(EXPERIMENT_EVIDENCE as readonly string[]).includes(row.evidence)) {
     throw new Error("unexpected experiment evidence");
   }
+  const landing = parseStoredLanding(row);
   const definition = parseExperimentDefinition({
     name: row.name,
     area: row.area,
@@ -93,6 +102,9 @@ function mapRecord(row: ExperimentRow, amendments: AmendmentRow[]): ExperimentRe
     conclusion: row.conclusion,
     nextAction: row.next_action,
     limitations: row.limitations,
+    entrySlug: landing?.entrySlug ?? null,
+    controlPath: landing?.controlPath ?? null,
+    challengerPath: landing?.challengerPath ?? null,
     amendments: amendments
       .filter((amendment) => amendment.experiment_id === row.id)
       .map((amendment) => ({
@@ -107,7 +119,7 @@ export async function loadExperimentRegistry(): Promise<ExperimentRegistry> {
   const experiments = await supabaseServer
     .from("operating_experiments")
     .select(
-      "id, name, area, hypothesis, control_description, challenger_description, primary_outcome, decision_criteria, secondary_outcomes, start_on, end_on, decision_on, status, evidence, conclusion, next_action, limitations, updated_at"
+      "id, name, area, hypothesis, control_description, challenger_description, primary_outcome, decision_criteria, secondary_outcomes, start_on, end_on, decision_on, status, evidence, conclusion, next_action, limitations, entry_slug, control_path, challenger_path, updated_at"
     )
     .order("updated_at", { ascending: false })
     .limit(200);
@@ -154,7 +166,7 @@ async function loadOne(id: string): Promise<ExperimentRecord | null | "unavailab
   const result = await supabaseServer
     .from("operating_experiments")
     .select(
-      "id, name, area, hypothesis, control_description, challenger_description, primary_outcome, decision_criteria, secondary_outcomes, start_on, end_on, decision_on, status, evidence, conclusion, next_action, limitations, updated_at"
+      "id, name, area, hypothesis, control_description, challenger_description, primary_outcome, decision_criteria, secondary_outcomes, start_on, end_on, decision_on, status, evidence, conclusion, next_action, limitations, entry_slug, control_path, challenger_path, updated_at"
     )
     .eq("id", id)
     .maybeSingle();
@@ -177,10 +189,12 @@ async function loadOne(id: string): Promise<ExperimentRecord | null | "unavailab
 
 export async function insertPlannedExperiment(
   definition: ExperimentDefinition,
-  actor: string
+  actor: string,
+  landing: LandingDestinations | null = null
 ): Promise<ExperimentSaveResult> {
   const { error } = await supabaseServer.from("operating_experiments").insert({
     ...plannedWritePayload(definition),
+    ...landingColumnPayload(landing),
     updated_by: actor,
   });
   const message = saveError(error);
@@ -190,7 +204,8 @@ export async function insertPlannedExperiment(
 export async function updatePlannedExperiment(
   id: string,
   definition: ExperimentDefinition,
-  actor: string
+  actor: string,
+  landing: LandingDestinations | null = null
 ): Promise<ExperimentSaveResult> {
   const current = await loadOne(id);
   if (current === "unavailable") {
@@ -209,6 +224,7 @@ export async function updatePlannedExperiment(
     .from("operating_experiments")
     .update({
       ...plannedWritePayload(definition),
+      ...landingColumnPayload(landing),
       updated_by: actor,
     })
     .eq("id", id)

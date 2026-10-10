@@ -3,6 +3,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { ExperimentExposureBeacon } from "@/components/experiment-exposure-beacon";
 import { MarketingCtaCapture } from "@/components/marketing-cta-capture";
 import { MarketingPageViewBeacon } from "@/components/marketing-page-view-beacon";
 import { MetaPixelRoot } from "@/components/MetaPixelRoot";
@@ -71,6 +72,7 @@ export default async function RootLayout({
                 <MetaPixelRoot />
                 <MarketingPageViewBeacon />
                 <MarketingCtaCapture />
+                <ExperimentExposureBeacon />
               </>
             ) : null}
             <div className="flex flex-col min-h-screen">

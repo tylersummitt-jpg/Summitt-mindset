@@ -8,6 +8,7 @@ import {
   AUDIENCE_LANDING_CTA_SURFACES,
   AUDIENCE_LANDING_PATHS,
 } from "@/lib/audience-landing-pages";
+import { isLandingExperimentEntryPath } from "@/lib/landing-experiment-shared";
 import { sanitizeMetaFbclid } from "@/lib/meta-capi-web-identifier-validation";
 
 export const SM_VISITOR_COOKIE = "sm_visitor";
@@ -177,7 +178,11 @@ export function isBrowserSignUpPath(pathname: string): boolean {
  * Does not include /sign-in, /app/sign-in, or /checkout/start.
  */
 export function isAcquisitionIdentityPath(pathname: string): boolean {
-  return isMarketingPageViewPath(pathname) || isBrowserSignUpPath(pathname);
+  return (
+    isMarketingPageViewPath(pathname) ||
+    isBrowserSignUpPath(pathname) ||
+    isLandingExperimentEntryPath(normalizePathname(pathname))
+  );
 }
 
 export function isCoachMarketingPath(pathname: string): boolean {

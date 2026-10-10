@@ -9,6 +9,7 @@ import {
   insertPlannedExperiment,
   updatePlannedExperiment,
 } from "@/lib/operating-experiments.server";
+import { landingAssignmentFromInput } from "@/lib/landing-experiment-shared";
 import { parseExperimentDefinition } from "@/lib/operating-experiments";
 import { getDateKeyInTimezone } from "@/lib/timezone";
 
@@ -28,6 +29,14 @@ function invalid(error: unknown): { ok: false; error: string } {
   };
 }
 
+function landingFromForm(formData: FormData) {
+  return landingAssignmentFromInput({
+    entrySlug: field(formData, "entrySlug"),
+    controlPath: field(formData, "controlPath"),
+    challengerPath: field(formData, "challengerPath"),
+  });
+}
+
 function definitionFromForm(formData: FormData) {
   return parseExperimentDefinition({
     name: field(formData, "name"),
@@ -44,7 +53,11 @@ function definitionFromForm(formData: FormData) {
 export async function createOperatingExperiment(formData: FormData) {
   const { userId } = await requireTylerAdmin();
   try {
-    const result = await insertPlannedExperiment(definitionFromForm(formData), userId);
+    const result = await insertPlannedExperiment(
+      definitionFromForm(formData),
+      userId,
+      landingFromForm(formData)
+    );
     if (result.ok) refresh();
     return result;
   } catch (err) {
@@ -58,7 +71,8 @@ export async function editOperatingExperiment(formData: FormData) {
     const result = await updatePlannedExperiment(
       field(formData, "id"),
       definitionFromForm(formData),
-      userId
+      userId,
+      landingFromForm(formData)
     );
     if (result.ok) refresh();
     return result;

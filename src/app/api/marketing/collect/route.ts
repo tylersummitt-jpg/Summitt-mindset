@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { PROUD_TEST_COOKIE } from "@/lib/landing-experiment";
+import { recordLandingExposures } from "@/lib/landing-experiment.server";
 import {
   collectFailOpenResponse,
   insertMarketingEventFailOpen,
@@ -52,6 +54,15 @@ export async function POST(req: NextRequest) {
       typeof rec.path === "string" ? normalizePathname(rec.path) : "";
     if (eventType === "page_viewed") {
       if (!path || !isMarketingPageViewPath(path)) {
+        return collectFailOpenResponse();
+      }
+      if (rec.experiment_exposure === true) {
+        await recordLandingExposures({
+          visitorId: cookies.visitorId,
+          path,
+          assignmentCookie: req.cookies.get(PROUD_TEST_COOKIE)?.value,
+          attribution: cookies.attribution,
+        });
         return collectFailOpenResponse();
       }
     }

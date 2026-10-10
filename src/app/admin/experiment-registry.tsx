@@ -12,6 +12,7 @@ import {
   resumeOperatingExperiment,
   startOperatingExperiment,
 } from "@/app/admin/experiment-actions";
+import { APPROVED_LANDING_DESTINATIONS } from "@/lib/landing-experiment-shared";
 import {
   EXPERIMENT_EVIDENCE,
   experimentEvidenceLabel,
@@ -187,7 +188,47 @@ function DefinitionFields({
         defaultValue={record?.secondaryOutcomes}
         multiline
       />
+      <TextField
+        label="Entry slug"
+        name="entrySlug"
+        defaultValue={record?.entrySlug}
+        hint="Optional. Lowercase letters, numbers, and hyphens. The public URL is /go/this-slug. Leave all three landing fields blank if this is not a landing-page test."
+      />
+      <DestinationField
+        label="Control page"
+        name="controlPath"
+        defaultValue={record?.controlPath}
+      />
+      <DestinationField
+        label="Challenger page"
+        name="challengerPath"
+        defaultValue={record?.challengerPath}
+      />
     </>
+  );
+}
+
+function DestinationField({
+  label,
+  name,
+  defaultValue,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string | null;
+}) {
+  return (
+    <label className="block text-xs text-gray-600">
+      {label}
+      <select name={name} defaultValue={defaultValue ?? ""} className={fieldClass}>
+        <option value="">Not a landing-page test</option>
+        {APPROVED_LANDING_DESTINATIONS.map((path) => (
+          <option key={path} value={path}>
+            {path}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -209,6 +250,12 @@ function ExperimentCard({ record }: { record: ExperimentRecord }) {
       <p className="text-gray-700">Hypothesis: {record.hypothesis}</p>
       <p className="text-gray-700">Control: {record.control}</p>
       <p className="text-gray-700">Challenger: {record.challenger}</p>
+      {record.entrySlug ? (
+        <p className="text-gray-700">
+          Entry: /go/{record.entrySlug}. Control page: {record.controlPath}. Challenger page:{" "}
+          {record.challengerPath}.
+        </p>
+      ) : null}
       <p className="text-gray-700">Primary outcome: {record.primaryOutcome}</p>
       <p className="text-gray-700">Decision criteria: {record.decisionCriteria}</p>
       <p className="text-gray-700">

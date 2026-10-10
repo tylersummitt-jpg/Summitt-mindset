@@ -48,6 +48,9 @@ export type ExperimentRecord = {
   conclusion: string | null;
   nextAction: string | null;
   limitations: string | null;
+  entrySlug: string | null;
+  controlPath: string | null;
+  challengerPath: string | null;
   amendments: ExperimentAmendment[];
 };
 
@@ -200,6 +203,9 @@ export function createPlannedExperiment(
     conclusion: null,
     nextAction: null,
     limitations: null,
+    entrySlug: null,
+    controlPath: null,
+    challengerPath: null,
     amendments: [],
   };
 }
@@ -361,6 +367,13 @@ function experimentBlock(record: ExperimentRecord): string[] {
     `  Hypothesis: ${record.hypothesis}`,
     `  Control: ${record.control}`,
     `  Challenger: ${record.challenger}`,
+    ...(record.entrySlug
+      ? [
+          `  Entry: /go/${record.entrySlug}`,
+          `  Control page: ${record.controlPath ?? "Not recorded."}`,
+          `  Challenger page: ${record.challengerPath ?? "Not recorded."}`,
+        ]
+      : []),
     `  Primary outcome: ${record.primaryOutcome}`,
     `  Decision criteria: ${record.decisionCriteria}`,
     `  Secondary outcomes: ${record.secondaryOutcomes ?? "None recorded."}`,
