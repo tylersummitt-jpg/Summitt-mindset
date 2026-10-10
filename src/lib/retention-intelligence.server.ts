@@ -3,9 +3,12 @@ import "server-only";
 import Stripe from "stripe";
 
 import {
+  humanFirstTouchLabel,
   isLikelySummittStripeSubscription,
+  organicSocialPlatformLabel,
   type GrowthStripeSubscription,
 } from "@/lib/admin-subscriber-growth-pure";
+import { parseContentProduction } from "@/lib/content-production";
 import {
   buildRetentionIntelligence,
   spellFromSubscription,
@@ -348,7 +351,7 @@ async function loadAcquisition(clerkIds: string[]): Promise<{
   }
   const attribution = await readChunked(
     "marketing_attribution",
-    "clerk_user_id, visitor_id, source_normalized, utm_campaign, utm_content",
+    "clerk_user_id, visitor_id, source_normalized, is_paid_acquisition, source_detail, referrer_host, utm_source, utm_campaign, utm_content",
     clerkIds
   );
   if (!attribution.ok) {
@@ -374,6 +377,8 @@ async function loadAcquisition(clerkIds: string[]): Promise<{
       source: records.length === 0 ? null : singleText(records.map((row) => row.source_normalized)),
       campaign: records.length === 0 ? null : singleText(records.map((row) => row.utm_campaign)),
       content: records.length === 0 ? null : singleText(records.map((row) => row.utm_content)),
+      channel: records.length === 0 ? null : singleText(records.map((row) => channelLabel(row))),
+      production: null,
       landing: null,
       experiment: null,
     };
@@ -402,8 +407,37 @@ async function loadAcquisition(clerkIds: string[]): Promise<{
     const earliest = [...visits].sort((a, b) => (isoMs(a.occurred_at) ?? 0) - (isoMs(b.occurred_at) ?? 0))[0];
     row.landing = text(earliest?.path);
     row.experiment = experimentLabel(visits);
+    row.production = productionFromVisits(visits);
   }
   return { readable: true, landingReadable: true, experimentReadable: true, rows };
+}
+
+function channelLabel(row: Record<string, unknown>): string | null {
+  const source = text(row.source_normalized);
+  if (!source) return null;
+  const platform = organicSocialPlatformLabel(source, text(row.utm_source));
+  if (platform) return platform;
+  return humanFirstTouchLabel({
+    source_normalized: source,
+    is_paid_acquisition: row.is_paid_acquisition === true,
+    source_detail: text(row.source_detail),
+    referrer_host: text(row.referrer_host),
+    utm_source: text(row.utm_source),
+  });
+}
+
+function productionFromVisits(visits: Array<Record<string, unknown>>): string | null {
+  const labels = new Set<string>();
+  for (const visit of visits) {
+    const metadata = visit.metadata;
+    if (!metadata || typeof metadata !== "object") continue;
+    const production = parseContentProduction(
+      (metadata as { production?: unknown }).production
+    );
+    if (production) labels.add(production);
+  }
+  if (labels.size === 1) return [...labels][0] ?? null;
+  return null;
 }
 
 function experimentLabel(visits: Array<Record<string, unknown>>): string {

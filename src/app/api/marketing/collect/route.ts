@@ -14,6 +14,7 @@ import {
   isMarketingPageViewPath,
   normalizePathname,
 } from "@/lib/marketing-attribution-pure";
+import { parseContentProduction } from "@/lib/content-production";
 import { isNativeSummittMindsetAppRequestFromRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 
 export const runtime = "nodejs";
@@ -80,12 +81,15 @@ export async function POST(req: NextRequest) {
       return collectFailOpenResponse();
     }
 
+    const production = parseContentProduction(rec.content_production);
     const metadata =
       eventType === "trial_cta_clicked"
         ? allowlistedCtaSurface(rec.cta_surface)
           ? { cta_surface: allowlistedCtaSurface(rec.cta_surface)! }
           : null
-        : null;
+        : eventType === "page_viewed" && production
+          ? { production }
+          : null;
 
     await insertMarketingEventFailOpen({
       event_type: eventType,

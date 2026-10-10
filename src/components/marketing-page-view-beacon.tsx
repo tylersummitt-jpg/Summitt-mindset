@@ -8,12 +8,20 @@ import { isMarketingPageViewPath } from "@/lib/marketing-attribution-pure";
 
 function firePageView(path: string) {
   try {
+    const production = new URLSearchParams(window.location.search).get("sm_prod");
+    const body: { event_type: "page_viewed"; path: string; content_production?: string } = {
+      event_type: "page_viewed",
+      path,
+    };
+    if (production === "brooke" || production === "ai" || production === "hybrid") {
+      body.content_production = production;
+    }
     void fetch("/api/marketing/collect", {
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "same-origin",
       keepalive: true,
-      body: JSON.stringify({ event_type: "page_viewed", path }),
+      body: JSON.stringify(body),
     });
   } catch {
     // fail open

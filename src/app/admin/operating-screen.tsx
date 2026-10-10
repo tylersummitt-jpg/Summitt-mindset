@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { CopyBusinessReportButton } from "@/app/admin/copy-business-report-button";
+import { DistributionIntelligencePanel } from "@/app/admin/distribution-intelligence-panel";
 import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
@@ -346,6 +347,8 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
           </ul>
         )}
       </section>
+
+      <DistributionIntelligencePanel intel={snapshot.distributionIntelligence} />
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Connection to retention</h2>

@@ -43,6 +43,11 @@ import {
   type ExperimentRegistry,
 } from "@/lib/operating-experiments";
 import {
+  buildDistributionIntelligence,
+  formatDistributionIntelligence,
+  type DistributionIntelligence,
+} from "@/lib/distribution-intelligence";
+import {
   formatRetentionIntelligence,
   RETENTION_NOT_LOADED,
   type RetentionIntelligence,
@@ -134,6 +139,7 @@ export type OperatingSnapshot = {
   landingPages: LandingPagePerformance;
   landingExperiments: ProudTestReport[];
   retentionIntelligence: RetentionIntelligence;
+  distributionIntelligence: DistributionIntelligence;
   limitations: string[];
   report: string;
 };
@@ -598,6 +604,8 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     "Known acquisition sources",
     ...sourceLines,
     "",
+    ...formatDistributionIntelligence(snapshot.distributionIntelligence),
+    "",
     "CHECKOUT FUNNEL",
     snapshot.checkout.cutover,
     snapshot.checkout.definitions,
@@ -742,6 +750,15 @@ export function buildOperatingSnapshot(args: {
   const landingPages = args.landingPages ?? EMPTY_LANDING_PERFORMANCE;
   const landingExperiments = args.landingExperiments ?? [EMPTY_PROUD_TEST_REPORT];
   const retentionIntelligence = args.retentionIntelligence ?? RETENTION_NOT_LOADED;
+  const distributionIntelligence = buildDistributionIntelligence({
+    trackingReadable: !args.growth.snapshot.notes.sourceTrackingUnavailable,
+    spendReadable: args.growth.adSpendQueryComplete,
+    retentionReady: retentionIntelligence.status === "ready" && retentionIntelligence.withheld == null,
+    trafficRows: args.growth.snapshot.trafficRows,
+    rangeTrials: period.freeTrialsStarted,
+    rangePaid: period.trialsConvertedToPaid,
+    cohorts: retentionIntelligence.cohortBuckets,
+  });
   const days = daysInRange(args.growth.range);
   const trialsPerDay =
     days != null && period.freeTrialsStarted != null
@@ -798,17 +815,21 @@ export function buildOperatingSnapshot(args: {
     landingPages,
     landingExperiments,
     retentionIntelligence,
-    limitations: buildLimitations({
-      growth: args.growth,
-      challengeAttention: args.challengeAttention,
-      deletionsAvailable: args.deletionsAvailable,
-      checkout,
-      census,
-      experiments,
-      landingPages,
-      landingExperiments,
-      retentionIntelligence,
-    }),
+    distributionIntelligence,
+    limitations: [
+      ...buildLimitations({
+        growth: args.growth,
+        challengeAttention: args.challengeAttention,
+        deletionsAvailable: args.deletionsAvailable,
+        checkout,
+        census,
+        experiments,
+        landingPages,
+        landingExperiments,
+        retentionIntelligence,
+      }),
+      ...distributionIntelligence.limitations,
+    ],
   };
 
   return {

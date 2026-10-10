@@ -3,6 +3,8 @@
  * A missing fact stays unknown. It is not counted as retained or churned.
  */
 
+import { contentProductionLabel } from "@/lib/content-production";
+
 export const RETENTION_DAY_MS = 86_400_000;
 const CONTINUITY_SLACK_MS = RETENTION_DAY_MS;
 const SMALL_SAMPLE = 15;
@@ -44,6 +46,26 @@ export type RetentionAcquisition = {
   content: string | null;
   landing: string | null;
   experiment: string | null;
+  channel?: string | null;
+  production?: string | null;
+};
+
+export type CohortCounts = {
+  retained: number;
+  ended: number;
+  rejoined: number;
+  unknown: number;
+  immature: number;
+};
+
+export type AcquisitionCohortBucket = {
+  channel: string;
+  campaign: string;
+  content: string;
+  production: string;
+  d30: CohortCounts;
+  d60: CohortCounts;
+  d90: CohortCounts;
 };
 
 export type RetentionIntelligenceInput = {
@@ -142,6 +164,7 @@ export type RetentionIntelligence = {
   content: RetentionGroup[];
   landings: RetentionGroup[];
   experiments: RetentionGroup[];
+  cohortBuckets: AcquisitionCohortBucket[];
   sourceHiddenSmall: number;
   appleNote: string;
   limitations: string[];
@@ -339,6 +362,9 @@ export function buildRetentionIntelligence(
     content: grouped.content.rows,
     landings: grouped.landings.rows,
     experiments: grouped.experiments.rows,
+    cohortBuckets: input.acquisitionReadable
+      ? cohortBuckets(chainsByClerk, input)
+      : [],
     sourceHiddenSmall: grouped.sources.hiddenSmall,
     appleNote: appleNote(input.appleRows),
     limitations,
@@ -651,6 +677,46 @@ function trialWindow(chain: Chain): { start: number; end: number } | null {
   return { start: chain.trialStartMs, end: chain.startMs };
 }
 
+function cohortBuckets(
+  chainsByClerk: Map<string, Chain[]>,
+  input: RetentionIntelligenceInput
+): AcquisitionCohortBucket[] {
+  const acquisition = new Map(input.acquisition.map((row) => [row.clerkUserId, row]));
+  const buckets = new Map<string, AcquisitionCohortBucket>();
+  for (const [clerkUserId, chains] of chainsByClerk) {
+    const first = chains[0];
+    if (!first) continue;
+    const row = acquisition.get(clerkUserId);
+    const channel = row?.channel?.trim() || row?.source?.trim() || "Unknown";
+    const campaign = row?.campaign?.trim() || "Unknown";
+    const content = row?.content?.trim() || "Unknown";
+    const production = contentProductionLabel(row?.production);
+    const key = `${channel}\u0000${campaign}\u0000${content}\u0000${production}`;
+    const bucket = buckets.get(key) ?? {
+      channel,
+      campaign,
+      content,
+      production,
+      d30: emptyCohortCounts(),
+      d60: emptyCohortCounts(),
+      d90: emptyCohortCounts(),
+    };
+    addCohort(bucket.d30, outcomeAt(first, chains.length > 1, input.nowMs, 30));
+    addCohort(bucket.d60, outcomeAt(first, chains.length > 1, input.nowMs, 60));
+    addCohort(bucket.d90, outcomeAt(first, chains.length > 1, input.nowMs, 90));
+    buckets.set(key, bucket);
+  }
+  return [...buckets.values()];
+}
+
+function emptyCohortCounts(): CohortCounts {
+  return { retained: 0, ended: 0, rejoined: 0, unknown: 0, immature: 0 };
+}
+
+function addCohort(counts: CohortCounts, outcome: MilestoneOutcome) {
+  counts[outcome] += 1;
+}
+
 function groupAcquisition(
   chainsByClerk: Map<string, Chain[]>,
   outcomes: Map<string, MilestoneOutcome>,
@@ -864,6 +930,7 @@ function emptyIntelligence(args: {
     content: [],
     landings: [],
     experiments: [],
+    cohortBuckets: [],
     sourceHiddenSmall: 0,
     appleNote: args.appleNote ?? "",
     limitations: args.limitations,

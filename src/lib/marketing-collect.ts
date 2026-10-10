@@ -19,9 +19,10 @@ import {
   isHomepageVideoEventType,
   parseVimeoVideoId,
 } from "@/lib/homepage-video";
+import { parseContentProduction } from "@/lib/content-production";
 import { supabaseServer } from "@/lib/supabase-server";
 
-const CTA_METADATA_KEYS = new Set(["cta_surface"]);
+const CTA_METADATA_KEYS = new Set(["cta_surface", "production"]);
 
 export const MARKETING_EVENT_TYPES = [
   "page_viewed",
@@ -70,18 +71,20 @@ export type MarketingEventInsert = {
   clerk_user_id?: string | null;
   path?: string | null;
   attribution: AcquisitionCookiePayload;
-  metadata?: { cta_surface?: string; vimeo_video_id?: string } | null;
+  metadata?: { cta_surface?: string; vimeo_video_id?: string; production?: string } | null;
 };
 
 function sanitizeMetadata(
   eventType: MarketingEventType,
-  raw: { cta_surface?: string; vimeo_video_id?: string } | null | undefined
-): { cta_surface?: string; vimeo_video_id?: string } | null {
+  raw: { cta_surface?: string; vimeo_video_id?: string; production?: string } | null | undefined
+): { cta_surface?: string; vimeo_video_id?: string; production?: string } | null {
   if (isHomepageVideoEventType(eventType)) {
     const id = parseVimeoVideoId(raw?.vimeo_video_id);
     if (!id) return null;
     return { vimeo_video_id: id };
   }
+  const production = parseContentProduction(raw?.production);
+  if (eventType === "page_viewed" && production) return { production };
   if (!raw || typeof raw.cta_surface !== "string") return null;
   const surface = raw.cta_surface.trim().slice(0, 40);
   if (!surface) return null;
