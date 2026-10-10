@@ -25,10 +25,17 @@ import {
   type NonmemberCensusData,
 } from "@/lib/nonmember-census";
 
-export const DAILY_NEW_TRIAL_GOAL = 25;
+import {
+  EMPTY_EXPERIMENT_REGISTRY,
+  experimentDecisionLines,
+  formatExperimentReport,
+  NO_CONTROLLED_EXPERIMENTS,
+  type ExperimentRegistry,
+} from "@/lib/operating-experiments";
 
-export const NO_CONTROLLED_EXPERIMENTS =
-  "No controlled experiments are running yet.";
+export { NO_CONTROLLED_EXPERIMENTS };
+
+export const DAILY_NEW_TRIAL_GOAL = 25;
 
 export type OperatingArea = "distribution" | "retention";
 
@@ -42,21 +49,6 @@ export type OperatingAction = {
   kind: OperatingActionKind;
   evidence: string;
   nextStep: string;
-};
-
-export type OperatingExperiment = {
-  name: string;
-  area: OperatingArea;
-  status: "active" | "planned" | "completed";
-  hypothesis: string;
-  primaryOutcome: string;
-  evidence:
-    | "not_yet_tested"
-    | "not_enough_mature_data"
-    | "directional"
-    | "proven"
-    | "disproven"
-    | "tracking_untrustworthy";
 };
 
 export type OperatingSnapshot = {
@@ -123,7 +115,7 @@ export type OperatingSnapshot = {
     paid: string;
   }>;
   actions: OperatingAction[];
-  experiments: OperatingExperiment[];
+  experiments: ExperimentRegistry;
   limitations: string[];
   report: string;
 };
@@ -171,10 +163,23 @@ function buildActions(args: {
   deletions: AccountDeletionAdminSummary | null;
   checkout: CheckoutMeasurement;
   census: NonmemberCensusData;
+  experiments: ExperimentRegistry;
 }): OperatingAction[] {
   const actions: OperatingAction[] = [];
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
+
+  if (!args.experiments.available) {
+    actions.push({
+      id: "experiment-registry-unreadable",
+      title: "The experiment registry could not be read",
+      category: "distribution",
+      priority: "high",
+      kind: "limitation",
+      evidence: "Distribution and Retention share one experiment table, and that read failed.",
+      nextStep: "Apply the operating experiments migration, then reload both pages.",
+    });
+  }
 
   if (args.challengeAttention != null && args.challengeAttention > 0) {
     actions.push({
@@ -363,6 +368,7 @@ function buildLimitations(args: {
   deletionsAvailable: boolean;
   checkout: CheckoutMeasurement;
   census: NonmemberCensusData;
+  experiments: ExperimentRegistry;
 }): string[] {
   const notes = args.growth.snapshot.notes;
   const lines = [
@@ -416,6 +422,16 @@ function buildLimitations(args: {
   if (args.census.coverage === "failed") {
     lines.push("The Clerk account list could not be read.");
   }
+  if (!args.experiments.available) {
+    lines.push(
+      "The experiment registry could not be read. Do not treat that as zero experiments."
+    );
+  }
+  if (args.experiments.available && args.experiments.records.length >= 200) {
+    lines.push(
+      "The experiment list stopped at 200 rows. Older experiments may be missing from this page."
+    );
+  }
   return lines;
 }
 
@@ -434,10 +450,13 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
           (source) =>
             `- ${source.label}: visitors ${source.visitors}, trials ${source.trials}, paid ${source.paid}`
         );
-  const nextSteps =
-    snapshot.actions.length === 0
-      ? ["No next step is recommended from recorded exceptions in this view."]
-      : snapshot.actions.map((action) => `- ${action.nextStep}`);
+  const nextSteps = [
+    ...snapshot.actions.map((action) => `- ${action.nextStep}`),
+    ...experimentDecisionLines(snapshot.experiments).map((line) => `- ${line}`),
+  ];
+  if (nextSteps.length === 0) {
+    nextSteps.push("No next step is recommended from recorded exceptions in this view.");
+  }
 
   return [
     "Summitt business report",
@@ -502,11 +521,7 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     ...actionLines,
     "",
     "EXPERIMENTS",
-    NO_CONTROLLED_EXPERIMENTS,
-    "Active: none.",
-    "Planned: none.",
-    "Completed: none.",
-    "Evidence: not yet tested. No winner is claimed.",
+    ...formatExperimentReport(snapshot.experiments),
     "",
     "UNKNOWNS AND DATA QUALITY",
     ...snapshot.limitations.map((line) => `- ${line}`),
@@ -586,11 +601,13 @@ export function buildOperatingSnapshot(args: {
   deletionsAvailable: boolean;
   checkout?: CheckoutMeasurement;
   census?: NonmemberCensusData;
+  experiments?: ExperimentRegistry;
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
   const checkout = args.checkout ?? emptyCheckoutMeasurement();
   const census = args.census ?? emptyNonmemberCensus();
+  const experiments = args.experiments ?? EMPTY_EXPERIMENT_REGISTRY;
   const days = daysInRange(args.growth.range);
   const trialsPerDay =
     days != null && period.freeTrialsStarted != null
@@ -638,14 +655,16 @@ export function buildOperatingSnapshot(args: {
       deletions: args.deletions,
       checkout,
       census,
+      experiments,
     }),
-    experiments: [] as OperatingExperiment[],
+    experiments,
     limitations: buildLimitations({
       growth: args.growth,
       challengeAttention: args.challengeAttention,
       deletionsAvailable: args.deletionsAvailable,
       checkout,
       census,
+      experiments,
     }),
   };
 

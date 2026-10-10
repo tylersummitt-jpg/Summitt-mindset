@@ -1,8 +1,10 @@
 import Link from "next/link";
 
 import { CopyBusinessReportButton } from "@/app/admin/copy-business-report-button";
+import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
+import { EXPERIMENT_NO_AUTOMATIC_WINNER } from "@/lib/operating-experiments";
 import type { GrowthDateRange } from "@/lib/admin-subscriber-growth-pure";
 
 const RANGES: Array<{ id: GrowthDateRange; label: string }> = [
@@ -131,13 +133,37 @@ export function OperatingScreen({
         )}
       </section>
 
-      <section className="space-y-2">
+      <section className="space-y-3">
         <h2 className="text-lg font-semibold text-gray-900">Experiments</h2>
-        <p className="text-sm text-gray-800">{NO_CONTROLLED_EXPERIMENTS}</p>
-        <p className="text-sm text-gray-600">
-          Active, planned, and completed are empty. Evidence is not yet tested.
-          Historical marketing changes are not listed as experiments.
-        </p>
+        {!snapshot.experiments.available ? (
+          <p className="text-sm text-gray-800">
+            The experiment registry could not be read. Do not treat that as zero
+            experiments.
+          </p>
+        ) : (
+          <>
+            {snapshot.experiments.records.some((record) => record.status === "running") ? (
+              snapshot.experiments.records.some(
+                (record) => record.area === focus && record.status === "running"
+              ) ? null : (
+                <p className="text-sm text-gray-800">
+                  No {focus} experiments are running.
+                </p>
+              )
+            ) : (
+              <p className="text-sm text-gray-800">{NO_CONTROLLED_EXPERIMENTS}</p>
+            )}
+            <p className="text-sm text-gray-600">{EXPERIMENT_NO_AUTOMATIC_WINNER}</p>
+            <p className="text-sm text-gray-600">
+              Historical marketing changes are not listed as experiments. Evidence
+              stays not yet tested until someone records a result.
+            </p>
+            <ExperimentRegistryPanel
+              focus={focus}
+              records={snapshot.experiments.records}
+            />
+          </>
+        )}
       </section>
 
       <section className="space-y-2">

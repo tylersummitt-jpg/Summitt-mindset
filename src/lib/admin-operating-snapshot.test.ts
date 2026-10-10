@@ -92,8 +92,9 @@ describe("operating snapshot", () => {
     data.snapshot.notes.sourceTrackingUnavailable = false;
     const snapshot = buildOperatingSnapshot({ growth: data, ...noExtras });
     expect(snapshot.actions).toEqual([]);
-    expect(snapshot.experiments).toEqual([]);
+    expect(snapshot.experiments).toEqual({ available: true, records: [] });
     expect(snapshot.report).toContain(NO_CONTROLLED_EXPERIMENTS);
+    expect(snapshot.report).toContain("does not calculate a winner");
     expect(snapshot.report).toContain("Nothing recorded needs action");
   });
 
@@ -144,5 +145,83 @@ describe("operating snapshot", () => {
     data.range = "all_time";
     const snapshot = buildOperatingSnapshot({ growth: data, ...noExtras });
     expect(snapshot.distribution.trialsPerDay).toContain("All time");
+  });
+
+  it("puts both areas in one report and does not treat completion as a win", () => {
+    const snapshot = buildOperatingSnapshot({
+      growth: growth(),
+      ...noExtras,
+      experiments: {
+        available: true,
+        records: [
+          {
+            id: "exp-distribution",
+            name: "Homepage paid conversion",
+            area: "distribution",
+            hypothesis: "A shorter homepage increases paid conversion.",
+            control: "Current homepage",
+            challenger: "Shorter homepage",
+            primaryOutcome: "Eventual paid conversion",
+            decisionCriteria: "Decide only after enough paid outcomes, not clicks.",
+            secondaryOutcomes: null,
+            startOn: "2026-10-01",
+            endOn: "2026-10-10",
+            decisionOn: "2026-10-10",
+            status: "completed",
+            evidence: "directional",
+            conclusion: "The difference is only directional.",
+            nextAction: "Keep the current homepage.",
+            limitations: "The paid cohort is still small.",
+            amendments: [],
+          },
+          {
+            id: "exp-retention",
+            name: "Week two reminder",
+            area: "retention",
+            hypothesis: "A reminder changes week-two retention.",
+            control: "No extra reminder",
+            challenger: "One reminder",
+            primaryOutcome: "Mature week-two retention",
+            decisionCriteria: "Wait until the cohort is mature.",
+            secondaryOutcomes: null,
+            startOn: null,
+            endOn: null,
+            decisionOn: null,
+            status: "planned",
+            evidence: "not_yet_tested",
+            conclusion: null,
+            nextAction: "Start when the cohort definition is ready.",
+            limitations: null,
+            amendments: [],
+          },
+        ],
+      },
+    });
+    const experiments = snapshot.report.split("EXPERIMENTS\n")[1]?.split("\nUNKNOWNS")[0] ?? "";
+    expect(experiments).toContain("Homepage paid conversion");
+    expect(experiments).toContain("Week two reminder");
+    expect(experiments).toContain("Directional");
+    expect(experiments).toContain("Not yet tested");
+    expect(experiments).toContain("Keep the current homepage.");
+    expect(experiments).toContain("Start when the cohort definition is ready.");
+    expect(experiments).toContain(NO_CONTROLLED_EXPERIMENTS);
+    expect(experiments).not.toContain("Proven");
+    expect(experiments).not.toMatch(/\bwon\b/i);
+    expect(experiments).not.toContain("successful");
+    expect(snapshot.report).not.toMatch(/@/);
+  });
+
+  it("says the registry is unknown when it cannot be read", () => {
+    const snapshot = buildOperatingSnapshot({
+      growth: growth(),
+      ...noExtras,
+      experiments: { available: false, records: [] },
+    });
+    expect(snapshot.report).not.toContain(NO_CONTROLLED_EXPERIMENTS);
+    expect(snapshot.report).toContain("could not be read");
+    expect(snapshot.report).toContain("Do not treat that as zero experiments.");
+    expect(snapshot.actions.map((action) => action.id)).toContain(
+      "experiment-registry-unreadable"
+    );
   });
 });

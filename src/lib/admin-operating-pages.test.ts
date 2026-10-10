@@ -18,6 +18,9 @@ const loadOperatingSnapshotMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/require-tyler-admin", () => ({
   requireTylerAdmin: (...args: unknown[]) => requireTylerAdminMock(...args),
 }));
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { from: vi.fn() },
+}));
 vi.mock("@/lib/admin-operating-snapshot.server", () => ({
   loadOperatingSnapshot: (...args: unknown[]) => loadOperatingSnapshotMock(...args),
 }));
@@ -129,5 +132,20 @@ describe("new pages stay off Brooke's subscriber growth", () => {
     expect(screen).toContain("CopyBusinessReportButton");
     expect(screen).toContain("NO_CONTROLLED_EXPERIMENTS");
     expect(screen).toContain("snapshot.report");
+    expect(screen).toContain("ExperimentRegistryPanel");
+    expect(brooke).not.toContain("operating_experiments");
+    expect(brooke).not.toContain("ExperimentRegistryPanel");
+    const actions = readFileSync(
+      join(ROOT, "src/app/admin/experiment-actions.ts"),
+      "utf8"
+    );
+    const createFn = actions.slice(
+      actions.indexOf("export async function createOperatingExperiment")
+    );
+    expect(createFn.indexOf("requireTylerAdmin")).toBeGreaterThan(-1);
+    expect(createFn.indexOf("requireTylerAdmin")).toBeLessThan(
+      createFn.indexOf("insertPlannedExperiment")
+    );
+    expect(actions).not.toContain("sessions.create");
   });
 });

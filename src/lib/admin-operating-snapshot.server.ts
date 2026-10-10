@@ -8,6 +8,8 @@ import { unavailableCheckoutMeasurement } from "@/lib/checkout-tracking";
 import { loadNonmemberCensus } from "@/lib/nonmember-census.server";
 import { failedNonmemberCensus } from "@/lib/nonmember-census";
 import { createSupabaseChallengeStore } from "@/lib/challenge-supabase-store";
+import { loadExperimentRegistry } from "@/lib/operating-experiments.server";
+import type { ExperimentRegistry } from "@/lib/operating-experiments";
 
 export async function loadOperatingSnapshot(args: {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -48,6 +50,15 @@ export async function loadOperatingSnapshot(args: {
     });
   }
 
+  let experiments: ExperimentRegistry = { available: false, records: [] };
+  try {
+    experiments = await loadExperimentRegistry();
+  } catch (err) {
+    console.warn("[operating] experiment registry failed", {
+      reason: err instanceof Error ? err.message : "experiment_registry_failed",
+    });
+  }
+
   return buildOperatingSnapshot({
     growth,
     challengeAttention,
@@ -55,5 +66,6 @@ export async function loadOperatingSnapshot(args: {
     deletionsAvailable: deletions.ok,
     checkout,
     census,
+    experiments,
   });
 }
