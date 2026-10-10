@@ -5,6 +5,8 @@ import { loadSubscriberGrowthDashboard } from "@/lib/admin-subscriber-growth";
 import { buildOperatingSnapshot, type OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { loadCheckoutMeasurement } from "@/lib/checkout-tracking-load.server";
 import { unavailableCheckoutMeasurement } from "@/lib/checkout-tracking";
+import { loadNonmemberCensus } from "@/lib/nonmember-census.server";
+import { failedNonmemberCensus } from "@/lib/nonmember-census";
 import { createSupabaseChallengeStore } from "@/lib/challenge-supabase-store";
 
 export async function loadOperatingSnapshot(args: {
@@ -37,11 +39,21 @@ export async function loadOperatingSnapshot(args: {
     });
   }
 
+  let census = failedNonmemberCensus();
+  try {
+    census = await loadNonmemberCensus(args.now ?? new Date());
+  } catch (err) {
+    console.warn("[operating] nonmember census failed", {
+      reason: err instanceof Error ? err.message : "nonmember_census_failed",
+    });
+  }
+
   return buildOperatingSnapshot({
     growth,
     challengeAttention,
     deletions: deletions.ok ? deletions.value.summary : null,
     deletionsAvailable: deletions.ok,
     checkout,
+    census,
   });
 }

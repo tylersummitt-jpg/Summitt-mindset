@@ -18,6 +18,12 @@ import {
   emptyCheckoutMeasurement,
   type CheckoutMeasurement,
 } from "@/lib/checkout-tracking";
+import {
+  emptyNonmemberCensus,
+  NONMEMBER_CATEGORY_LABEL,
+  NONMEMBER_CATEGORIES,
+  type NonmemberCensusData,
+} from "@/lib/nonmember-census";
 
 export const DAILY_NEW_TRIAL_GOAL = 25;
 
@@ -85,6 +91,19 @@ export type OperatingSnapshot = {
     cutover: string;
     definitions: string;
   };
+  census: {
+    coverage: string;
+    examined: string;
+    clerkTotal: string;
+    members: string;
+    nonmembers: string;
+    unknown: string;
+    categories: Array<{ label: string; value: string }>;
+    recovery: string;
+    emailFact: string;
+    permission: string;
+    rows: Array<{ clerkUserId: string; createdLabel: string; category: string }>;
+  };
   retention: {
     payingMembers: string;
     trialsConverted: string;
@@ -151,6 +170,7 @@ function buildActions(args: {
   challengeAttention: number | null;
   deletions: AccountDeletionAdminSummary | null;
   checkout: CheckoutMeasurement;
+  census: NonmemberCensusData;
 }): OperatingAction[] {
   const actions: OperatingAction[] = [];
   const period = args.growth.snapshot.period;
@@ -211,6 +231,52 @@ function buildActions(args: {
       evidence: `${args.checkout.openedEvents} local checkout_opened records and ${args.checkout.sessions} marked Checkout Sessions are in this range.`,
       nextStep:
         "Do not treat the local event count as the funnel total. The page uses marked Stripe sessions.",
+    });
+  }
+
+  if (args.census.coverage === "failed") {
+    actions.push({
+      id: "clerk-census-failed",
+      title: "Clerk accounts could not be listed",
+      category: "distribution",
+      priority: "high",
+      kind: "limitation",
+      evidence: "The nonmember census did not receive a Clerk account list.",
+      nextStep: "Do not treat a missing census as zero nonmembers. Retry this page later.",
+    });
+  } else if (args.census.coverage === "partial") {
+    actions.push({
+      id: "clerk-census-partial",
+      title: "The account census is only a partial scan",
+      category: "distribution",
+      priority: "medium",
+      kind: "limitation",
+      evidence: `${args.census.examined ?? "Some"} Clerk accounts were examined. This is not every account.`,
+      nextStep: "Do not quote these nonmember counts as the full customer list.",
+    });
+  }
+
+  if ((args.census.unknownEntitlement ?? 0) > 0) {
+    actions.push({
+      id: "census-verification-incomplete",
+      title: "Some account membership checks could not be finished",
+      category: "distribution",
+      priority: "medium",
+      kind: "limitation",
+      evidence: `${args.census.unknownEntitlement} examined accounts have unknown entitlement. They are not counted as nonmembers.`,
+      nextStep: "Do not email or text those accounts. Unknown is not the same as no membership.",
+    });
+  }
+
+  if ((args.census.unverifiedTrial ?? 0) > 0) {
+    actions.push({
+      id: "census-unverified-trial",
+      title: "A checkout record could not be matched to membership",
+      category: "distribution",
+      priority: "medium",
+      kind: "limitation",
+      evidence: `${args.census.unverifiedTrial} examined accounts have checkout evidence whose current membership could not be verified.`,
+      nextStep: "Do not call those accounts nonmembers until the subscription can be read.",
     });
   }
 
@@ -296,6 +362,7 @@ function buildLimitations(args: {
   challengeAttention: number | null;
   deletionsAvailable: boolean;
   checkout: CheckoutMeasurement;
+  census: NonmemberCensusData;
 }): string[] {
   const notes = args.growth.snapshot.notes;
   const lines = [
@@ -333,6 +400,21 @@ function buildLimitations(args: {
   }
   if (!args.checkout.eventsComplete) {
     lines.push("Checkout creation-failure records could not be read for this range.");
+  }
+  lines.push(
+    "The account census examines the newest Clerk accounts, at most 200. A partial scan is not a complete census."
+  );
+  lines.push(
+    "Promotional email and SMS permission for nonmembers is unknown. An email address on the account is not permission to write. This page does not send anything."
+  );
+  lines.push(
+    "Checkout categories use instrumentation version 1 only. Accounts created before that tracking are not called checkout abandoners."
+  );
+  if (args.census.coverage === "partial") {
+    lines.push("This census did not examine every Clerk account.");
+  }
+  if (args.census.coverage === "failed") {
+    lines.push("The Clerk account list could not be read.");
   }
   return lines;
 }
@@ -392,6 +474,18 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     `No visitor match: ${snapshot.checkout.noVisitorMatch}`,
     `Unknown source: ${snapshot.checkout.unknownSource}`,
     "",
+    "ACCOUNTS WITHOUT MEMBERSHIP",
+    snapshot.census.coverage,
+    `Clerk accounts examined: ${snapshot.census.examined}`,
+    `Clerk accounts in total, when the count could be read: ${snapshot.census.clerkTotal}`,
+    `Confirmed current members in this scan: ${snapshot.census.members}`,
+    `Confirmed nonmembers in this scan: ${snapshot.census.nonmembers}`,
+    `Membership status unknown: ${snapshot.census.unknown}`,
+    ...snapshot.census.categories.map((row) => `- ${row.label}: ${row.value}`),
+    snapshot.census.recovery,
+    snapshot.census.emailFact,
+    snapshot.census.permission,
+    "",
     "RETENTION",
     `Current paying members: ${snapshot.retention.payingMembers}`,
     `Trials that converted to paid: ${snapshot.retention.trialsConverted}`,
@@ -423,6 +517,46 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
   ].join("\n");
 }
 
+function censusCreatedLabel(ms: number | null): string {
+  if (ms == null) return "Created date unknown";
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    dateStyle: "medium",
+  }).format(new Date(ms));
+}
+
+function censusText(census: NonmemberCensusData): OperatingSnapshot["census"] {
+  const coverage =
+    census.coverage === "complete"
+      ? "Coverage: complete for the accounts examined."
+      : census.coverage === "partial"
+        ? "Coverage: partial. This is not a complete census."
+        : "Coverage: the Clerk list could not be read. Counts below are unavailable.";
+  return {
+    coverage,
+    examined: countText(census.examined),
+    clerkTotal: countText(census.clerkTotal),
+    members: countText(census.members),
+    nonmembers: countText(census.nonmembers),
+    unknown: countText(census.unknownEntitlement),
+    categories: NONMEMBER_CATEGORIES.map((category) => ({
+      label: NONMEMBER_CATEGORY_LABEL[category],
+      value: countText(
+        census.coverage === "failed" ? null : census.categories[category]
+      ),
+    })),
+    recovery: `Possible recovery pool: ${countText(census.nonmembers)} confirmed nonmembers in this scan. This is not permission to email or text.`,
+    emailFact: `Examined accounts with an email address: ${countText(census.withEmail)}. An email address is not permission to write.`,
+    permission:
+      "Promotional follow-up permission: Unknown. Service-message permission: Unknown. Email unsubscribe status: Unknown.",
+    rows: census.rows.map((row) => ({
+      clerkUserId: row.clerkUserId,
+      createdLabel: censusCreatedLabel(row.createdAtMs),
+      category: NONMEMBER_CATEGORY_LABEL[row.category],
+    })),
+  };
+}
+
 function checkoutText(measurement: CheckoutMeasurement): OperatingSnapshot["checkout"] {
   return {
     joinClicks: "",
@@ -451,10 +585,12 @@ export function buildOperatingSnapshot(args: {
   deletions: AccountDeletionAdminSummary | null;
   deletionsAvailable: boolean;
   checkout?: CheckoutMeasurement;
+  census?: NonmemberCensusData;
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
   const checkout = args.checkout ?? emptyCheckoutMeasurement();
+  const census = args.census ?? emptyNonmemberCensus();
   const days = daysInRange(args.growth.range);
   const trialsPerDay =
     days != null && period.freeTrialsStarted != null
@@ -482,6 +618,7 @@ export function buildOperatingSnapshot(args: {
       ...checkoutText(checkout),
       joinClicks: countText(period.freeTrialButtonClicks),
     },
+    census: censusText(census),
     retention: {
       payingMembers: countText(now.activePaid),
       trialsConverted: countText(period.trialsConvertedToPaid),
@@ -500,6 +637,7 @@ export function buildOperatingSnapshot(args: {
       challengeAttention: args.challengeAttention,
       deletions: args.deletions,
       checkout,
+      census,
     }),
     experiments: [] as OperatingExperiment[],
     limitations: buildLimitations({
@@ -507,6 +645,7 @@ export function buildOperatingSnapshot(args: {
       challengeAttention: args.challengeAttention,
       deletionsAvailable: args.deletionsAvailable,
       checkout,
+      census,
     }),
   };
 

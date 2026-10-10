@@ -221,6 +221,55 @@ function CheckoutFunnel({ snapshot }: { snapshot: OperatingSnapshot }) {
   );
 }
 
+function AccountsWithoutMembership({ snapshot }: { snapshot: OperatingSnapshot }) {
+  const census = snapshot.census;
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-gray-900">Accounts Without Membership</h2>
+      <p className="text-sm text-gray-700">{census.coverage}</p>
+      <p className="text-sm text-gray-700">{census.recovery}</p>
+      <p className="text-sm text-gray-700">{census.permission}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Metric label="Clerk accounts examined" value={census.examined} />
+        <Metric label="Clerk accounts in total" value={census.clerkTotal} note="Blank means the total count could not be read." />
+        <Metric label="Confirmed current members" value={census.members} note="Stripe entitled, trialing, past due, or paused, or a current Apple grant." />
+        <Metric label="Confirmed nonmembers" value={census.nonmembers} />
+        <Metric label="Membership status unknown" value={census.unknown} note="Unknown is not counted as no membership." />
+      </div>
+      <ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">
+        {census.categories.map((row) => (
+          <li key={row.label}>
+            {row.label}: {row.value}
+          </li>
+        ))}
+      </ul>
+      <p className="text-sm text-gray-700">{census.emailFact}</p>
+      <p className="text-sm text-gray-700">
+        <Link href="/admin/customers" className="underline">
+          Open Customers
+        </Link>{" "}
+        to look up a person. This list has no email addresses or phone numbers.
+      </p>
+      {census.rows.length === 0 ? (
+        <p className="text-sm text-gray-600">No confirmed nonmembers in this scan.</p>
+      ) : (
+        <ul className="space-y-2">
+          {census.rows.map((row) => (
+            <li
+              key={row.clerkUserId}
+              className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800"
+            >
+              <span className="font-medium">{row.category}</span>
+              {". "}
+              {row.createdLabel}. Clerk id {row.clerkUserId}.
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
   const d = snapshot.distribution;
   return (
@@ -248,6 +297,8 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
       </section>
 
       <CheckoutFunnel snapshot={snapshot} />
+
+      <AccountsWithoutMembership snapshot={snapshot} />
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Where trials came from</h2>

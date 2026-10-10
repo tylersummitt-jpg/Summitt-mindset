@@ -81,6 +81,8 @@ export async function getClerkPublicMetadata(
 export async function listClerkUsers(args?: {
   limit?: number;
   offset?: number;
+  /** Clerk order_by, for example "-created_at". Omit to keep the API default. */
+  orderBy?: string;
 }): Promise<ClerkUserResponse[]> {
   const key = getClerkSecretKey();
 
@@ -94,6 +96,7 @@ export async function listClerkUsers(args?: {
   const url = new URL("https://api.clerk.com/v1/users");
   url.searchParams.set("limit", String(limit));
   url.searchParams.set("offset", String(offset));
+  if (args?.orderBy) url.searchParams.set("order_by", args.orderBy);
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${key}` },
@@ -106,6 +109,24 @@ export async function listClerkUsers(args?: {
   }
 
   return (await res.json()) as ClerkUserListResponse;
+}
+
+/** Total Clerk users. Throws if the count cannot be read. */
+export async function countClerkUsers(): Promise<number> {
+  const key = getClerkSecretKey();
+  const res = await fetch("https://api.clerk.com/v1/users/count", {
+    headers: { Authorization: `Bearer ${key}` },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to count Clerk users: ${text}`);
+  }
+  const body = (await res.json()) as { total_count?: unknown };
+  if (typeof body.total_count !== "number" || !Number.isFinite(body.total_count)) {
+    throw new Error("Clerk user count was not a number");
+  }
+  return body.total_count;
 }
 
 const CLERK_USERS_BY_IDS_MAX = 100;
