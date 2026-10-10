@@ -346,7 +346,48 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
           </ul>
         )}
       </section>
+
+      <LandingPagePerformance snapshot={snapshot} />
     </>
+  );
+}
+
+function LandingPagePerformance({ snapshot }: { snapshot: OperatingSnapshot }) {
+  const landing = snapshot.landingPages;
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-gray-900">Landing Page Performance</h2>
+      <p className="text-sm text-gray-700">
+        Range: {snapshot.rangeLabel}. {snapshot.timezone}.
+      </p>
+      <p className="text-sm text-gray-700">{landing.note}</p>
+      {!landing.available ? (
+        <p className="text-sm text-gray-800">
+          Landing-page analytics could not be read. Do not treat that as zero visitors.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {landing.rows.map((row) => (
+            <article
+              key={row.id}
+              className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800"
+            >
+              <h3 className="font-medium text-gray-900">
+                {row.label}{" "}
+                <span className="font-normal text-gray-500">{row.path}</span>
+              </h3>
+              <p className="mt-2">Unique visitors: {row.visitors}</p>
+              <p>Trial-button clicks: {row.ctaClicks}</p>
+              <p>Click rate: {row.ctaRate}</p>
+              <p>New free trials: {row.trials}</p>
+              <p>Visitor-to-trial: {row.visitorToTrial}</p>
+              <p>New paying members: {row.paid}</p>
+              <p className="mt-2 text-gray-600">{row.gap}</p>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

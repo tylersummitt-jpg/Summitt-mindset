@@ -26,6 +26,11 @@ import {
 } from "@/lib/nonmember-census";
 
 import {
+  EMPTY_LANDING_PERFORMANCE,
+  formatLandingPageReport,
+  type LandingPagePerformance,
+} from "@/lib/landing-page-performance";
+import {
   EMPTY_EXPERIMENT_REGISTRY,
   experimentDecisionLines,
   formatExperimentReport,
@@ -116,6 +121,7 @@ export type OperatingSnapshot = {
   }>;
   actions: OperatingAction[];
   experiments: ExperimentRegistry;
+  landingPages: LandingPagePerformance;
   limitations: string[];
   report: string;
 };
@@ -164,10 +170,23 @@ function buildActions(args: {
   checkout: CheckoutMeasurement;
   census: NonmemberCensusData;
   experiments: ExperimentRegistry;
+  landingPages: LandingPagePerformance;
 }): OperatingAction[] {
   const actions: OperatingAction[] = [];
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
+
+  if (!args.landingPages.available) {
+    actions.push({
+      id: "landing-page-analytics-unreadable",
+      title: "Landing-page analytics could not be read",
+      category: "distribution",
+      priority: "high",
+      kind: "limitation",
+      evidence: "Distribution could not read page views for the homepage and the four landing pages.",
+      nextStep: "Reload Distribution after the marketing events read succeeds. Do not guess a winning page.",
+    });
+  }
 
   if (!args.experiments.available) {
     actions.push({
@@ -369,6 +388,7 @@ function buildLimitations(args: {
   checkout: CheckoutMeasurement;
   census: NonmemberCensusData;
   experiments: ExperimentRegistry;
+  landingPages: LandingPagePerformance;
 }): string[] {
   const notes = args.growth.snapshot.notes;
   const lines = [
@@ -425,6 +445,15 @@ function buildLimitations(args: {
   if (!args.experiments.available) {
     lines.push(
       "The experiment registry could not be read. Do not treat that as zero experiments."
+    );
+  }
+  if (!args.landingPages.available) {
+    lines.push(
+      "Landing-page analytics could not be read. Do not treat that as zero visitors."
+    );
+  } else {
+    lines.push(
+      "Landing-page visitor-to-trial and paying-member counts are not available. A page view, a button click, an account, and a checkout start are different events."
     );
   }
   if (args.experiments.available && args.experiments.records.length >= 200) {
@@ -520,6 +549,8 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     "TODAY'S ACTIONS",
     ...actionLines,
     "",
+    ...formatLandingPageReport(snapshot.landingPages),
+    "",
     "EXPERIMENTS",
     ...formatExperimentReport(snapshot.experiments),
     "",
@@ -602,12 +633,14 @@ export function buildOperatingSnapshot(args: {
   checkout?: CheckoutMeasurement;
   census?: NonmemberCensusData;
   experiments?: ExperimentRegistry;
+  landingPages?: LandingPagePerformance;
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
   const checkout = args.checkout ?? emptyCheckoutMeasurement();
   const census = args.census ?? emptyNonmemberCensus();
   const experiments = args.experiments ?? EMPTY_EXPERIMENT_REGISTRY;
+  const landingPages = args.landingPages ?? EMPTY_LANDING_PERFORMANCE;
   const days = daysInRange(args.growth.range);
   const trialsPerDay =
     days != null && period.freeTrialsStarted != null
@@ -656,8 +689,10 @@ export function buildOperatingSnapshot(args: {
       checkout,
       census,
       experiments,
+      landingPages,
     }),
     experiments,
+    landingPages,
     limitations: buildLimitations({
       growth: args.growth,
       challengeAttention: args.challengeAttention,
@@ -665,6 +700,7 @@ export function buildOperatingSnapshot(args: {
       checkout,
       census,
       experiments,
+      landingPages,
     }),
   };
 

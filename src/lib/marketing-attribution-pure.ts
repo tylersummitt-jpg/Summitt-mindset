@@ -3,6 +3,11 @@
  * helpers. No I/O. Safe to import from middleware, client, and tests.
  */
 
+import {
+  audienceLandingCtaSurface,
+  AUDIENCE_LANDING_CTA_SURFACES,
+  AUDIENCE_LANDING_PATHS,
+} from "@/lib/audience-landing-pages";
 import { sanitizeMetaFbclid } from "@/lib/meta-capi-web-identifier-validation";
 
 export const SM_VISITOR_COOKIE = "sm_visitor";
@@ -51,6 +56,7 @@ export const CTA_SURFACES = [
   "coach",
   "other",
   "homepage_video",
+  ...AUDIENCE_LANDING_CTA_SURFACES,
 ] as const;
 
 export type CtaSurface = (typeof CTA_SURFACES)[number];
@@ -155,6 +161,7 @@ export function isMarketingPageViewPath(pathname: string): boolean {
   }
   if (path.startsWith("/pat-summitt")) return true;
   if (path === "/challenge" || path.startsWith("/challenge/")) return true;
+  if ((AUDIENCE_LANDING_PATHS as readonly string[]).includes(path)) return true;
   return false;
 }
 
@@ -581,6 +588,13 @@ export function trialCtaSurfaceFromHref(
     return "coach";
   }
   const path = normalizePathname(pathname ?? "");
+  const landingSurface = audienceLandingCtaSurface(path);
+  if (
+    landingSurface &&
+    (CTA_SURFACES as readonly string[]).includes(landingSurface)
+  ) {
+    return landingSurface as CtaSurface;
+  }
   if (path === "/") return "hero";
   if (path.startsWith("/ask-pat-preview") || path.startsWith("/film-room-preview")) {
     return "preview";

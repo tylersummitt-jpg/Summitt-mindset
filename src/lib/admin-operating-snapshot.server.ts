@@ -10,6 +10,8 @@ import { failedNonmemberCensus } from "@/lib/nonmember-census";
 import { createSupabaseChallengeStore } from "@/lib/challenge-supabase-store";
 import { loadExperimentRegistry } from "@/lib/operating-experiments.server";
 import type { ExperimentRegistry } from "@/lib/operating-experiments";
+import { loadLandingPagePerformance } from "@/lib/landing-page-performance.server";
+import type { LandingPagePerformance } from "@/lib/landing-page-performance";
 
 export async function loadOperatingSnapshot(args: {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -50,6 +52,20 @@ export async function loadOperatingSnapshot(args: {
     });
   }
 
+  let landingPages: LandingPagePerformance = {
+    available: false,
+    incomplete: false,
+    rows: [],
+    note: "Landing-page analytics could not be read. Do not treat that as zero visitors.",
+  };
+  try {
+    landingPages = await loadLandingPagePerformance(args);
+  } catch (err) {
+    console.warn("[operating] landing page performance failed", {
+      reason: err instanceof Error ? err.message : "landing_page_performance_failed",
+    });
+  }
+
   let experiments: ExperimentRegistry = { available: false, records: [] };
   try {
     experiments = await loadExperimentRegistry();
@@ -67,5 +83,6 @@ export async function loadOperatingSnapshot(args: {
     checkout,
     census,
     experiments,
+    landingPages,
   });
 }
