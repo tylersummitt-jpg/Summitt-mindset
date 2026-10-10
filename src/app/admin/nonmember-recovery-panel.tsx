@@ -40,9 +40,10 @@ export function NonmemberRecoveryPanel({
             rule that applies.
           </p>
           <p>
-            Creating an account does not override an unsubscribe. Email and coaching texts use
-            different rules. Marketing-email suppression data is not connected yet, so a missing
-            list is not zero unsubscribes.
+            Creating an account does not override an unsubscribe. Coaching texts use
+            different rules and are not part of this email list. The recovery suppression
+            table and the Resend contact list were reviewed and held no confirmed recovery
+            opt-outs. Kit and Instantly could not be read, so this is not zero unsubscribes.
           </p>
           <p>
             The stopping points are checkout records already stored for that account. They do
@@ -54,9 +55,11 @@ export function NonmemberRecoveryPanel({
           </p>
           <p>
             Sending is off until it is separately authorized. Deploying this page does not send.
-            A verified nonmember is not send-ready. The sequence is at most three emails:
-            about 24 hours after the account, then three days, then four days. It stops for a
-            trial, a reply, an unsubscribe, or any failed check.
+            Only a Clerk account created at or after the stored enrollment start can be enrolled.
+            Earlier accounts are not added. A verified nonmember is not send-ready. The sequence
+            is at most three emails: about 24 hours after the account, then three days, then four
+            days. At most 25 recovery emails are accepted per UTC day. It stops for a trial, a
+            current or former member, a reply, or an unsubscribe.
           </p>
           <p>
             Eligible people are split once into recovery email or a no-email holdout. The
@@ -65,10 +68,12 @@ export function NonmemberRecoveryPanel({
           </p>
           <p>
             Tyler personally answers a real reply. There is no automatic reply. Marking it
-            handled does not restart the emails. Reply monitoring is not connected until a
-            reply to a recovery message is matched and listed here. A test email sent only
-            to the inbound address does not confirm that match. The reply path uses one
-            address, then forwards a copy to the Tyler mailbox.
+            handled does not restart the emails. A reply to the inbound address on a recovery
+            message is matched and listed here. That match was confirmed with the test reply.
+            A copy is forwarded to the Tyler mailbox. The inbound domain can receive mail and
+            cannot send it, so the forward uses the existing Tyler sending address. Distribution
+            counts real recovery sends and replies. Trial, payment, and retention results stay
+            unavailable until a recovery assignment has that outcome.
           </p>
           <p>
             The hourly job does not send while the switch is off. A membership check that

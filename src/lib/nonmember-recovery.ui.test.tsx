@@ -33,6 +33,9 @@ describe("nonmember recovery explanation", () => {
     expect(details?.textContent).toContain("does not send");
     expect(details?.textContent).toContain("immediately before sending");
     expect(details?.textContent).toContain("Sending is off");
-    expect(details?.textContent).toContain("Reply monitoring is not connected");
+    expect(details?.textContent).toContain("forwarded to the Tyler mailbox");
+    expect(details?.textContent).toContain("not zero unsubscribes");
+    expect(details?.textContent).toContain("enrollment start");
+    expect(details?.textContent).toContain("25");
   });
 });

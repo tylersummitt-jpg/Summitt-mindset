@@ -106,7 +106,7 @@ export function attentionFrom(
     payments: NOT_AVAILABLE,
     retention: "Not available. Recovered members are not classified until an assignment and a paid outcome both exist.",
     verificationHolds: count(counts?.verificationHolds),
-    nextAction: "Leave sending off. Connect reply monitoring, verify suppression, record the mailing address, and set an enrollment start before any authorization.",
+    nextAction: "Sending stays off until Tyler authorizes the pilot.",
     mailboxNote: "Open tyler@summittmindset.com in the mailbox. A direct link to one message is not connected.",
     replies: matchingConfirmed ? replies : [],
   };
