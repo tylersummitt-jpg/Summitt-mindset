@@ -13,6 +13,11 @@ import {
   type TrafficSourceRow,
 } from "@/lib/admin-subscriber-growth-pure";
 import type { AccountDeletionAdminSummary } from "@/lib/account-deletion/admin-observability";
+import {
+  CHECKOUT_TRACKING_VERSION,
+  emptyCheckoutMeasurement,
+  type CheckoutMeasurement,
+} from "@/lib/checkout-tracking";
 
 export const DAILY_NEW_TRIAL_GOAL = 25;
 
@@ -62,6 +67,23 @@ export type OperatingSnapshot = {
     accountsCreated: string;
     trialsPerDay: string;
     goal: string;
+  };
+  checkout: {
+    joinClicks: string;
+    sessions: string;
+    completedTrial: string;
+    pending: string;
+    expired: string;
+    incomplete: string;
+    unknown: string;
+    creationFailed: string;
+    withVisitor: string;
+    accountWithoutVisitor: string;
+    noVisitorMatch: string;
+    unknownSource: string;
+    stepRate: string;
+    cutover: string;
+    definitions: string;
   };
   retention: {
     payingMembers: string;
@@ -128,6 +150,7 @@ function buildActions(args: {
   growth: SubscriberGrowthDashboardData;
   challengeAttention: number | null;
   deletions: AccountDeletionAdminSummary | null;
+  checkout: CheckoutMeasurement;
 }): OperatingAction[] {
   const actions: OperatingAction[] = [];
   const period = args.growth.snapshot.period;
@@ -143,6 +166,51 @@ function buildActions(args: {
       evidence: `${args.challengeAttention} unfinished challenge participants have a recorded send problem.`,
       nextStep:
         "Use the internal challenge alert already sent to the coach inbox. Do not resend an uncertain lesson from this page.",
+    });
+  }
+
+  if (
+    args.checkout.creationFailed != null &&
+    args.checkout.creationFailed > 0
+  ) {
+    actions.push({
+      id: "checkout-creation-failed",
+      title: "Stripe could not create some Checkout Sessions",
+      category: "distribution",
+      priority: "high",
+      kind: "recorded",
+      evidence: `${args.checkout.creationFailed} checkout creation failures were recorded in this range. Those attempts never became a Checkout Session.`,
+      nextStep:
+        "Read the checkout-tracking server log for the Stripe error. Do not treat unfinished checkouts as this failure.",
+    });
+  }
+
+  if (!args.checkout.listComplete) {
+    actions.push({
+      id: "checkout-outcomes-unreadable",
+      title: "Checkout outcomes could not be read",
+      category: "distribution",
+      priority: "medium",
+      kind: "limitation",
+      evidence:
+        "Instrumented Checkout Sessions could not be listed for this range, so pending, expired, incomplete, and completed trial counts are unavailable.",
+      nextStep:
+        "Do not decide where checkout loses people until the Stripe session list can be read.",
+    });
+  } else if (
+    args.checkout.openedEvents != null &&
+    args.checkout.sessions != null &&
+    args.checkout.openedEvents > args.checkout.sessions
+  ) {
+    actions.push({
+      id: "checkout-marker-gap",
+      title: "Some recorded checkout starts are missing the Stripe marker",
+      category: "distribution",
+      priority: "medium",
+      kind: "limitation",
+      evidence: `${args.checkout.openedEvents} local checkout_opened records and ${args.checkout.sessions} marked Checkout Sessions are in this range.`,
+      nextStep:
+        "Do not treat the local event count as the funnel total. The page uses marked Stripe sessions.",
     });
   }
 
@@ -227,11 +295,19 @@ function buildLimitations(args: {
   growth: SubscriberGrowthDashboardData;
   challengeAttention: number | null;
   deletionsAvailable: boolean;
+  checkout: CheckoutMeasurement;
 }): string[] {
   const notes = args.growth.snapshot.notes;
   const lines = [
     "D30, D60, and D90 retention cohorts are not available. This page does not estimate them.",
-    "Checkout abandonment is not measured yet.",
+    `Checkout measurement is instrumentation version ${CHECKOUT_TRACKING_VERSION}. Only Stripe Checkout Sessions marked summittCheckoutTrack=${CHECKOUT_TRACKING_VERSION} are counted. Earlier sessions are not backfilled.`,
+    "A checkout count is sessions, not unique people. One person can start more than one checkout.",
+    "Pending means the session is still open and less than 24 hours old. Expired means Stripe marked the session expired. Incomplete means it is still open after 24 hours. Expired sessions are not also counted as incomplete.",
+    "Completed trial means the session is complete and the subscription has a trial start. The trial-start number elsewhere on this page is still the existing subscription count.",
+    "A completed checkout without a verified trial start is unknown. This page does not guess why someone left.",
+    "Technical creation failures never became a session, so they are not inside the session total.",
+    "Visitors, join clicks, accounts, checkout sessions, and trial starts are different counts, so no single step-to-step rate is shown.",
+    "A Stripe customer id is not proof that someone paid or started a trial.",
     "Cancellation reasons written by members are not on this page. Weekly Feedback has their words. Observed cancellations are counts, not reasons.",
     "Historical Stripe webhook completion is unverified. Older event rows are kept so they are not processed again. A row from before the completion marker is not proof the event finished successfully.",
     "Apple revenue is not included. Stripe revenue is the existing Stripe total and is gross of refunds.",
@@ -251,6 +327,12 @@ function buildLimitations(args: {
   }
   if (!args.deletionsAvailable) {
     lines.push("The account-deletion summary could not be read.");
+  }
+  if (!args.checkout.listComplete) {
+    lines.push("Checkout session outcomes could not be read for this range.");
+  }
+  if (!args.checkout.eventsComplete) {
+    lines.push("Checkout creation-failure records could not be read for this range.");
   }
   return lines;
 }
@@ -293,6 +375,23 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     "Known acquisition sources",
     ...sourceLines,
     "",
+    "CHECKOUT FUNNEL",
+    snapshot.checkout.cutover,
+    snapshot.checkout.definitions,
+    snapshot.checkout.stepRate,
+    `Join clicks: ${snapshot.checkout.joinClicks}`,
+    `Checkout sessions started: ${snapshot.checkout.sessions}`,
+    `Completed trial: ${snapshot.checkout.completedTrial}`,
+    `Still pending: ${snapshot.checkout.pending}`,
+    `Expired: ${snapshot.checkout.expired}`,
+    `Technical creation failures: ${snapshot.checkout.creationFailed}`,
+    `Incomplete after 24 hours: ${snapshot.checkout.incomplete}`,
+    `Unknown outcome: ${snapshot.checkout.unknown}`,
+    `Sessions with a visitor id: ${snapshot.checkout.withVisitor}`,
+    `Known account, no visitor id: ${snapshot.checkout.accountWithoutVisitor}`,
+    `No visitor match: ${snapshot.checkout.noVisitorMatch}`,
+    `Unknown source: ${snapshot.checkout.unknownSource}`,
+    "",
     "RETENTION",
     `Current paying members: ${snapshot.retention.payingMembers}`,
     `Trials that converted to paid: ${snapshot.retention.trialsConverted}`,
@@ -324,14 +423,38 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
   ].join("\n");
 }
 
+function checkoutText(measurement: CheckoutMeasurement): OperatingSnapshot["checkout"] {
+  return {
+    joinClicks: "",
+    sessions: countText(measurement.sessions),
+    completedTrial: countText(measurement.completedTrial),
+    pending: countText(measurement.pending),
+    expired: countText(measurement.expired),
+    incomplete: countText(measurement.incomplete),
+    unknown: countText(measurement.unknown),
+    creationFailed: countText(measurement.creationFailed),
+    withVisitor: countText(measurement.withVisitor),
+    accountWithoutVisitor: countText(measurement.accountWithoutVisitor),
+    noVisitorMatch: countText(measurement.noVisitorMatch),
+    unknownSource: countText(measurement.unknownSource),
+    stepRate:
+      "Not shown. Visitors, join clicks, accounts, checkout sessions, and trial starts are different counts.",
+    cutover: `Instrumentation version ${CHECKOUT_TRACKING_VERSION}. Checkout starts are Stripe Checkout Sessions marked summittCheckoutTrack=${CHECKOUT_TRACKING_VERSION}. Earlier sessions are not included.`,
+    definitions:
+      "Pending is still open and under 24 hours. Expired is Stripe's expired status. Incomplete is still open after 24 hours. Those are separate. Completed trial requires a subscription trial start. Creation failures are not sessions. This does not say why someone left.",
+  };
+}
+
 export function buildOperatingSnapshot(args: {
   growth: SubscriberGrowthDashboardData;
   challengeAttention: number | null;
   deletions: AccountDeletionAdminSummary | null;
   deletionsAvailable: boolean;
+  checkout?: CheckoutMeasurement;
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
+  const checkout = args.checkout ?? emptyCheckoutMeasurement();
   const days = daysInRange(args.growth.range);
   const trialsPerDay =
     days != null && period.freeTrialsStarted != null
@@ -355,6 +478,10 @@ export function buildOperatingSnapshot(args: {
       trialsPerDay,
       goal: `Goal: ${DAILY_NEW_TRIAL_GOAL} new trials per day. This is a target, not a measured result.`,
     },
+    checkout: {
+      ...checkoutText(checkout),
+      joinClicks: countText(period.freeTrialButtonClicks),
+    },
     retention: {
       payingMembers: countText(now.activePaid),
       trialsConverted: countText(period.trialsConvertedToPaid),
@@ -372,12 +499,14 @@ export function buildOperatingSnapshot(args: {
       growth: args.growth,
       challengeAttention: args.challengeAttention,
       deletions: args.deletions,
+      checkout,
     }),
     experiments: [] as OperatingExperiment[],
     limitations: buildLimitations({
       growth: args.growth,
       challengeAttention: args.challengeAttention,
       deletionsAvailable: args.deletionsAvailable,
+      checkout,
     }),
   };
 

@@ -61,6 +61,7 @@ const SERVER_AUTHORITATIVE_EVENT_TYPES = [
   "plan_selected",
   "auth_completed",
   "checkout_opened",
+  "checkout_creation_failed",
   "trial_created",
   "identity_completed",
   "goal_completed",
@@ -272,6 +273,7 @@ describe("internal marketing event types", () => {
       "plan_selected",
       "auth_completed",
       "checkout_opened",
+      "checkout_creation_failed",
       "trial_created",
       "identity_completed",
       "goal_completed",
@@ -283,6 +285,6 @@ describe("internal marketing event types", () => {
       "homepage_video_50",
       "homepage_video_completed",
     ]);
-    expect(SERVER_AUTHORITATIVE_EVENT_TYPES).toHaveLength(10);
+    expect(SERVER_AUTHORITATIVE_EVENT_TYPES).toHaveLength(11);
   });
 });

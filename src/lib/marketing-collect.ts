@@ -30,6 +30,7 @@ export const MARKETING_EVENT_TYPES = [
   "plan_selected",
   "auth_completed",
   "checkout_opened",
+  "checkout_creation_failed",
   "trial_created",
   "identity_completed",
   "goal_completed",

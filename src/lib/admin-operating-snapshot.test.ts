@@ -82,7 +82,9 @@ describe("operating snapshot", () => {
     expect(snapshot.report).toContain("D30, D60, and D90");
     expect(snapshot.report).toContain("not available");
     expect(snapshot.report).toContain("Historical Stripe webhook completion is unverified");
-    expect(snapshot.report).toContain("Checkout abandonment is not measured yet");
+    expect(snapshot.report).toContain("Instrumentation version 1");
+    expect(snapshot.report).toContain("not unique people");
+    expect(snapshot.report).not.toContain("Checkout abandonment is not measured yet");
   });
 
   it("does not invent actions when nothing is recorded", () => {

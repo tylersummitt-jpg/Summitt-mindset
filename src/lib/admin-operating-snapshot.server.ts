@@ -3,6 +3,8 @@ import "server-only";
 import { listAccountDeletionRequestsForAdmin } from "@/lib/account-deletion/list-account-deletion-admin";
 import { loadSubscriberGrowthDashboard } from "@/lib/admin-subscriber-growth";
 import { buildOperatingSnapshot, type OperatingSnapshot } from "@/lib/admin-operating-snapshot";
+import { loadCheckoutMeasurement } from "@/lib/checkout-tracking-load.server";
+import { unavailableCheckoutMeasurement } from "@/lib/checkout-tracking";
 import { createSupabaseChallengeStore } from "@/lib/challenge-supabase-store";
 
 export async function loadOperatingSnapshot(args: {
@@ -26,10 +28,20 @@ export async function loadOperatingSnapshot(args: {
     status: "all",
   });
 
+  let checkout = unavailableCheckoutMeasurement();
+  try {
+    checkout = await loadCheckoutMeasurement(args);
+  } catch (err) {
+    console.warn("[operating] checkout measurement failed", {
+      reason: err instanceof Error ? err.message : "checkout_measurement_failed",
+    });
+  }
+
   return buildOperatingSnapshot({
     growth,
     challengeAttention,
     deletions: deletions.ok ? deletions.value.summary : null,
     deletionsAvailable: deletions.ok,
+    checkout,
   });
 }

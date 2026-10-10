@@ -165,6 +165,62 @@ export function OperatingScreen({
   );
 }
 
+function CheckoutFunnel({ snapshot }: { snapshot: OperatingSnapshot }) {
+  const c = snapshot.checkout;
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-gray-900">Checkout funnel</h2>
+      <p className="text-sm text-gray-700">{c.cutover}</p>
+      <p className="text-sm text-gray-700">{c.stepRate}</p>
+      <p className="text-sm text-gray-700">{c.definitions}</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Metric
+          label="Visitors"
+          value={snapshot.distribution.visitors}
+          note="Unique people with a recorded page view."
+        />
+        <Metric
+          label="Join clicks"
+          value={c.joinClicks}
+          note="Recorded trial_cta_clicked events. A click is not a checkout start."
+        />
+        <Metric
+          label="Accounts created"
+          value={snapshot.distribution.accountsCreated}
+          note="Existing Clerk account count for this range."
+        />
+        <Metric
+          label="Checkout started"
+          value={c.sessions}
+          note="Marked Checkout Sessions, not unique people and not Stripe customer ids."
+        />
+        <Metric
+          label="Trials started"
+          value={snapshot.distribution.trialStarts}
+          note="Existing subscription trial starts. Not a second definition."
+        />
+      </div>
+      <h3 className="text-base font-semibold text-gray-900">
+        What happened to those checkout sessions
+      </h3>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Metric label="Completed trial" value={c.completedTrial} />
+        <Metric label="Still pending" value={c.pending} />
+        <Metric label="Expired" value={c.expired} />
+        <Metric label="Incomplete after 24 hours" value={c.incomplete} />
+        <Metric label="Technical creation failures" value={c.creationFailed} note="Not included in the session total." />
+        <Metric label="Unknown outcome" value={c.unknown} />
+      </div>
+      <p className="text-sm text-gray-700">
+        Visitor link: {c.withVisitor} with a visitor id, {c.accountWithoutVisitor}{" "}
+        known account without a visitor id, {c.noVisitorMatch} with no visitor
+        match. Unknown source: {c.unknownSource}. Unattributed sessions stay in
+        the checkout total.
+      </p>
+    </section>
+  );
+}
+
 function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
   const d = snapshot.distribution;
   return (
@@ -190,6 +246,8 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
         <Metric label="Accounts created" value={d.accountsCreated} />
         <Metric label="Trials per day in this range" value={d.trialsPerDay} />
       </section>
+
+      <CheckoutFunnel snapshot={snapshot} />
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Where trials came from</h2>

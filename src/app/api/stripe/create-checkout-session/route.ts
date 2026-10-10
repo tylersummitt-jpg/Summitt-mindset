@@ -40,6 +40,10 @@ import {
   type PendingCheckoutSessionLike,
 } from "@/lib/stripe-pending-checkout-session";
 import { resolveStripeCheckoutReturnOrigin } from "@/lib/stripe-checkout-return-origin";
+import {
+  trackCheckoutCreationFailed,
+  trackFreshCheckoutSession,
+} from "@/lib/checkout-tracking-record.server";
 
 export const runtime = "nodejs";
 
@@ -860,6 +864,12 @@ export async function POST(req: Request) {
         idempotencyKey: primaryIdempotencyKey,
       });
     } catch (createErr: unknown) {
+      await trackCheckoutCreationFailed({
+        clerkUserId: userId,
+        plan,
+        channel,
+        req,
+      });
       if (isStripeIdempotencyError(createErr)) {
         console.warn(
           "[stripe/create-checkout-session] Stripe idempotency error; not creating successor",
@@ -869,6 +879,15 @@ export async function POST(req: Request) {
       }
       throw createErr;
     }
+    await trackFreshCheckoutSession({
+      stripe,
+      session,
+      clerkUserId: userId,
+      plan,
+      channel,
+      coach: src === "coach",
+      req,
+    });
     let usable = asPendingCheckoutSession(session);
 
     if (

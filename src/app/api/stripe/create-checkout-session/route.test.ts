@@ -83,6 +83,7 @@ const updateCustomerMock = vi.fn();
 const retrieveCustomerMock = vi.fn();
 const listCheckoutSessionsMock = vi.fn();
 const retrieveCheckoutSessionMock = vi.fn();
+const updateCheckoutSessionMock = vi.fn();
 
 vi.mock("stripe", () => {
   class StripeMock {
@@ -101,6 +102,7 @@ vi.mock("stripe", () => {
         create: (...args: unknown[]) => createSessionMock(...args),
         list: (...args: unknown[]) => listCheckoutSessionsMock(...args),
         retrieve: (...args: unknown[]) => retrieveCheckoutSessionMock(...args),
+        update: (...args: unknown[]) => updateCheckoutSessionMock(...args),
       },
     };
   }
@@ -208,6 +210,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
       url: "https://checkout.stripe.test/session",
       customer: "cus_1",
     });
+    updateCheckoutSessionMock.mockResolvedValue({});
   });
 
   it("Path A: paused subscription → membership_paused", async () => {
@@ -1232,6 +1235,68 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(createSessionMock.mock.calls[0][1]).toEqual({
       idempotencyKey: "checkout-subscription-v2:user_1:monthly:web",
     });
+    expect(updateCheckoutSessionMock).not.toHaveBeenCalled();
+  });
+
+  it("still returns the Checkout URL when checkout tracking throws", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    createSessionMock.mockResolvedValue({
+      id: "cs_fresh",
+      status: "open",
+      url: "https://checkout.stripe.test/session",
+      customer: "cus_1",
+      created: Math.floor(Date.now() / 1000),
+      metadata: { userId: "user_1", plan: "monthly" },
+    });
+    updateCheckoutSessionMock.mockRejectedValue(new Error("stripe mark failed"));
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      url: "https://checkout.stripe.test/session",
+    });
+    const createArg = createSessionMock.mock.calls[0][0] as {
+      subscription_data: { trial_period_days: number };
+      metadata: Record<string, string>;
+    };
+    expect(createArg.subscription_data.trial_period_days).toBe(7);
+    expect(createArg.metadata).toEqual({ userId: "user_1", plan: "monthly" });
+    expect(createSessionMock.mock.calls[0][1]).toEqual({
+      idempotencyKey: "checkout-subscription-v2:user_1:monthly:web",
+    });
+    expect(updateCheckoutSessionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not mark an idempotent replay of an older Checkout Session", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    createSessionMock.mockResolvedValue({
+      id: "cs_old",
+      status: "open",
+      url: "https://checkout.stripe.test/session",
+      customer: "cus_1",
+      created: Math.floor(Date.now() / 1000) - 60 * 60,
+      metadata: { userId: "user_1", plan: "monthly" },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({ plan: "monthly" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(updateCheckoutSessionMock).not.toHaveBeenCalled();
   });
 
   it("paginates customer-scoped open session list", async () => {
