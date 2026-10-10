@@ -49,6 +49,14 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong className="font-medium text-[var(--text)]">
+              7-day challenge email
+            </strong>
+            — if you start the free leadership challenge, we collect the email
+            address you submit so we can send up to seven lesson emails. That
+            sequence is not an ongoing newsletter.
+          </li>
+          <li>
+            <strong className="font-medium text-[var(--text)]">
               Phone number and SMS information
             </strong>
             — phone number, opt-in/consent status, inbound and outbound message
@@ -204,8 +212,9 @@ export default function PrivacyPage() {
             firewall tooling, and related operational observability
           </li>
           <li>
-            Resend — transactional and operational email (including service,
-            fulfillment, and administrative notifications)
+            Resend — transactional and operational email (including the 7-day
+            leadership challenge, service, fulfillment, and administrative
+            notifications)
           </li>
           <li>
             OpenAI — AI processing used to generate or support coaching-related
@@ -434,6 +443,16 @@ export default function PrivacyPage() {
             {ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY}
           </a>
           .
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          The free 7-day leadership challenge sends up to seven emails. Each one
+          includes a lesson, a reflection, and an action, and may invite you to
+          try Summitt Mindset. Those emails are not an ongoing newsletter. Every
+          challenge email includes an unsubscribe link. Using it stops any
+          remaining challenge emails. Submitting the signup form again does not
+          turn a stopped sequence back on. You can rejoin the remaining lessons
+          from the unsubscribe confirmation. A finished challenge does not start
+          over. Unsubscribing does not require an account.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
           For website analytics and advertising technologies such as Meta Pixel,

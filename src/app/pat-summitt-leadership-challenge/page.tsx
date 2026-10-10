@@ -7,21 +7,37 @@ import { getPageImage } from "@/data/page-images";
 
 export default function PatSummittLeadershipChallengePage() {
   const [email, setEmail] = useState("");
-  const [success, setSuccess] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [noticeIsError, setNoticeIsError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const image = getPageImage("/pat-summitt-leadership-challenge");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const res = await fetch("/api/challenge/signup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email }),
-    });
-    if (res.ok) {
-      setEmail("");
-      setSuccess(true);
+    if (submitting) return;
+    setSubmitting(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/challenge/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+      const data = (await res.json().catch(() => null)) as { message?: unknown } | null;
+      const message =
+        data && typeof data.message === "string" && data.message.trim()
+          ? data.message
+          : "We couldn't start your challenge. Please try again.";
+      setNotice(message);
+      setNoticeIsError(!res.ok);
+      if (res.ok) setEmail("");
+    } catch {
+      setNotice("We couldn't start your challenge. Please try again.");
+      setNoticeIsError(true);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -48,16 +64,26 @@ export default function PatSummittLeadershipChallengePage() {
           />
           <button
             type="submit"
-            className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90"
+            disabled={submitting}
+            className="inline-flex items-center justify-center px-6 py-3 rounded-md text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-90 disabled:opacity-60"
           >
-            Start the Free Challenge
+            {submitting ? "Starting…" : "Start the Free Challenge"}
           </button>
         </form>
-        {success && (
-          <p className="text-green-600 mt-4">
-            You&apos;re in! Check your email for Day 1 of the challenge.
+        <p className="text-sm text-[var(--muted)] mt-4 max-w-xl leading-relaxed">
+          By starting, you ask us to email you seven challenge lessons, one a day.
+          Each email includes the lesson, a reflection, an action, and may invite you
+          to try Summitt Mindset. This is not an ongoing newsletter. You can
+          unsubscribe in any email.{" "}
+          <Link href="/privacy" className="underline underline-offset-4">
+            Privacy Policy
+          </Link>
+        </p>
+        {notice ? (
+          <p className={`mt-4 ${noticeIsError ? "text-red-700" : "text-green-700"}`}>
+            {notice}
           </p>
-        )}
+        ) : null}
         <div className="mt-8">
           <p className="text-[var(--muted)] mb-2">
             Already ready to go deeper?
@@ -84,7 +110,7 @@ export default function PatSummittLeadershipChallengePage() {
               1. Join the challenge
             </h3>
             <p className="text-[var(--muted)] leading-relaxed">
-              Receive the first leadership lesson immediately.
+              We&apos;ll send the first lesson as soon as you&apos;re signed up.
             </p>
           </div>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">

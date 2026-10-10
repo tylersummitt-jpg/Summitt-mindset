@@ -254,11 +254,17 @@ describe("APP-041C2 challenge write paths (static)", () => {
   it("anonymous signup/cron leave clerk_user_id unset (no guess)", () => {
     const signup = readFileSync(CHALLENGE_SIGNUP, "utf8");
     const cron = readFileSync(CHALLENGE_CRON, "utf8");
-    expect(signup).toContain('.from("challenge_participants")');
-    expect(signup).toContain("insert({");
+    const store = readFileSync(
+      join(process.cwd(), "src/lib/challenge-supabase-store.ts"),
+      "utf8"
+    );
+    expect(store).toContain('.from("challenge_participants")');
+    expect(store).toContain("insert({");
+    expect(store).not.toMatch(/clerk_user_id\s*:/);
     expect(signup).not.toMatch(/clerk_user_id\s*:/);
     expect(signup).not.toMatch(/auth\(|currentUser|getAuth|clerkClient/i);
     expect(cron).not.toMatch(/clerk_user_id\s*:/);
+    expect(cron).not.toMatch(/auth\(|currentUser|getAuth|clerkClient/i);
   });
 });
 

@@ -80,8 +80,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/stripe/webhook(.*)",
   "/api/apple/webhook",
 
-  // Challenge signup (anonymous email capture)
+  // Challenge signup and unsubscribe (anonymous; no Clerk account)
   "/api/challenge/signup",
+  "/api/challenge/unsubscribe",
+  "/api/challenge/reenroll",
 
   // First-party marketing collect (anonymous, fail-open, no session required)
   "/api/marketing/collect",
