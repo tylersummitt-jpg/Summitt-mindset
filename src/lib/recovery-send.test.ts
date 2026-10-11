@@ -236,6 +236,33 @@ describe("recovery provider send", () => {
       clerkUserId: "user_example",
     });
     expect(unknownPlan.enroll).toBe(true);
+    if (unknownPlan.enroll) expect(unknownPlan.assignment).toBe("recovery");
+    for (const clerkUserId of ["user_a", "user_b", "user_c", "user_d"]) {
+      const planned = planRecoveryEnrollment({
+        createdAtMs: NOW,
+        enrollmentStartsAtMs: START,
+        membership: "verified_nonmember",
+        countryCode: null,
+        email: "person@example.com",
+        alreadyEnrolled: false,
+        locallySuppressed: false,
+        suppressionReadOk: true,
+        clerkUserId,
+      });
+      expect(planned).toEqual({ enroll: true, assignment: "recovery", email: "person@example.com" });
+    }
+    expect(planRecoveryEnrollment({
+      createdAtMs: START - 1000,
+      enrollmentStartsAtMs: START,
+      membership: "verified_nonmember",
+      countryCode: null,
+      email: "person@example.com",
+      alreadyEnrolled: false,
+      locallySuppressed: false,
+      suppressionReadOk: true,
+      clerkUserId: "user_early",
+    }).enroll).toBe(false);
+    expect(recoveryStepsForAssignment("recovery")).toEqual([1]);
     expect(planRecoveryEnrollment({
       createdAtMs: NOW,
       enrollmentStartsAtMs: START,

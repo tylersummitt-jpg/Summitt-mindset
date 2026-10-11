@@ -37,5 +37,7 @@ describe("nonmember recovery explanation", () => {
     expect(details?.textContent).toContain("not zero unsubscribes");
     expect(details?.textContent).toContain("enrollment start");
     expect(details?.textContent).toContain("25");
+    expect(details?.textContent).toContain("same three emails");
+    expect(details?.textContent).toContain("no-email holdout");
   });
 });

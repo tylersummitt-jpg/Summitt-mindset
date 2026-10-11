@@ -78,6 +78,7 @@ export function recoveryGreeting(firstName: string | null | undefined): string {
   return `Hi ${name},`;
 }
 
+/** Historical 50/50 split. New enrollments do not use it, and stored rows are not rewritten. */
 export function assignRecoveryGroup(clerkUserId: string, salt: string): RecoveryAssignment {
   const digest = createHash("sha256").update(`${salt}:${clerkUserId}`).digest();
   return digest[0] % 2 === 0 ? "control" : "recovery";
@@ -281,58 +282,55 @@ export function recoveryMessageCopy(args: {
     args.postalAddress,
     `Unsubscribe: ${args.unsubscribeUrl}`,
   ];
-  if (args.step === 1) {
-    const text = [
-      "Hey there! Tyler Summitt here.",
-      "",
-      "I noticed you created a Summitt Mindset account but haven't started your free trial yet.",
-      "",
-      "We built Summitt Mindset to help people use my mom's approach to accountability to follow through on their goals and build a life they're proud of.",
-      "",
-      "If you'd like to give it a try, you can start your 7-day free trial here:",
-      "",
-      cta,
-      "",
-      "And if you have any questions, just reply to this email. I'd be happy to help.",
-      ...footer,
-    ].join("\n");
-    return {
+  const letters: Record<1 | 2 | 3, { subject: string; before: string[]; after: string }> = {
+    1: {
       subject: "A quick note from Tyler Summitt",
-      text,
-      html: recoveryHtml(text, { url: cta, label: "Start My Free Trial" }),
-    };
-  }
-  const hello = recoveryGreeting(args.firstName);
-  if (args.step === 2) {
-    const text = [
-      hello,
-      "",
-      "If something got in the way of starting the free trial, reply to this email.",
-      "Tyler reads those replies.",
-      "Or finish here:",
-      cta,
-      ...footer,
-    ].join("\n");
-    return {
-      subject: "Need a hand starting your free trial?",
-      text,
-      html: recoveryHtml(text),
-    };
-  }
-  const text = [
-    hello,
-    "",
-    "This is the last note in this short series.",
-    "The free trial is still available here:",
-    cta,
-    "",
-    "If you do not want these notes, use the unsubscribe link below.",
-    ...footer,
-  ].join("\n");
+      before: [
+        "Hey there! Tyler Summitt here.",
+        "",
+        "I noticed you created a Summitt Mindset account but haven't started your free trial yet.",
+        "",
+        "We built Summitt Mindset to help people use my mom's approach to accountability to follow through on their goals and build a life they're proud of.",
+        "",
+        "If you'd like to give it a try, you can start your 7-day free trial here:",
+      ],
+      after: "And if you have any questions, just reply to this email. I'd be happy to help.",
+    },
+    2: {
+      subject: "Pat Summitt Mindset",
+      before: [
+        "Hey there! Tyler Summitt here.",
+        "",
+        "One thing I love about Summitt Mindset is how simple it is.",
+        "",
+        "You tell us what you're working toward, and you get daily accountability and coaching inspired by my mom's approach.",
+        "",
+        "It's about making progress, one day at a time.",
+        "",
+        "If you haven't tried it yet, here's your invitation:",
+      ],
+      after: "And if you have any questions, just reply. I'm happy to help.",
+    },
+    3: {
+      subject: "I never want to be annoying...",
+      before: [
+        "Hey there! Tyler Summitt here.",
+        "",
+        "I never want to be annoying but I just wanted to reach out one last time.",
+        "",
+        "We built Summitt Mindset because we believe everyone deserves encouragement, accountability, and a chance to build a life they're proud of.",
+        "",
+        "If you'd like to give it a try, your 7-day free trial is here:",
+      ],
+      after: "Either way, I'm rooting for you.",
+    },
+  };
+  const letter = letters[args.step];
+  const text = [...letter.before, "", cta, "", letter.after, ...footer].join("\n");
   return {
-    subject: "Last note about your Summitt Mindset trial",
+    subject: letter.subject,
     text,
-    html: recoveryHtml(text),
+    html: recoveryHtml(text, { url: cta, label: "Start My Free Trial" }),
   };
 }
 
@@ -796,7 +794,7 @@ export function planRecoveryEnrollment(args: {
   if (args.locallySuppressed) return { enroll: false, reason: "The address is suppressed." };
   return {
     enroll: true,
-    assignment: assignRecoveryGroup(args.clerkUserId, RECOVERY_ASSIGNMENT_SALT),
+    assignment: "recovery",
     email: normalizeRecoveryEmail(args.email as string),
   };
 }

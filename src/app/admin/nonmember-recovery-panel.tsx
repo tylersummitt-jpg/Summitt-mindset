@@ -42,7 +42,7 @@ export function NonmemberRecoveryPanel({
           <p>
             Creating an account does not override an unsubscribe. Coaching texts use
             different rules and are not part of this email list. The recovery suppression
-            table and the Resend contact list were reviewed and held no confirmed recovery
+            table and the provider contact list were reviewed and held no confirmed recovery
             opt-outs. Kit and Instantly could not be read, so this is not zero unsubscribes.
           </p>
           <p>
@@ -62,9 +62,10 @@ export function NonmemberRecoveryPanel({
             current or former member, a reply, or an unsubscribe.
           </p>
           <p>
-            Eligible people are split once into recovery email or a no-email holdout. The
-            holdout never receives a recovery email. Original first-touch attribution stays
-            in place. No winner is declared here.
+            Eligible new nonmembers all receive the same three emails. Future enrollments
+            do not include a no-email holdout. An assignment already stored as a holdout
+            stays that way and is not rewritten. Original first-touch attribution stays
+            in place.
           </p>
           <p>
             Tyler personally answers a real reply. There is no automatic reply. Marking it
@@ -72,8 +73,9 @@ export function NonmemberRecoveryPanel({
             message is matched and listed here. That match was confirmed with the test reply.
             A copy is forwarded to the Tyler mailbox. The inbound domain can receive mail and
             cannot send it, so the forward uses the existing Tyler sending address. Distribution
-            counts real recovery sends and replies. Trial, payment, and retention results stay
-            unavailable until a recovery assignment has that outcome.
+            counts accepted and delivered recovery emails, replies, unsubscribes, and complaints.
+            A later trial or payment appears only when that outcome is tied to a recovery
+            assignment. Until then those results stay unavailable.
           </p>
           <p>
             The hourly job does not send while the switch is off. A membership check that

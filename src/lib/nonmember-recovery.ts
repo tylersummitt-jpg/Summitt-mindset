@@ -75,16 +75,16 @@ export function buildNonmemberRecovery(census: NonmemberCensusData): NonmemberRe
     sendReady:
       "None. A prospect is not send-ready while sending is off. Missing country is not labeled United States. A known restricted country is excluded.",
     experiment: [
-      "Plan only. This is not in the experiment registry and has no declared winner. A holdout is stored only after sending is separately authorized.",
-      "Control: no new recovery message.",
-      "Challenger: one helpful follow-up that honors opt-out and the other applicable rules.",
+      "Eligible new accounts all receive the same three emails. An assignment already stored as a holdout is not rewritten.",
+      "There is no no-email group for future enrollments.",
+      "The sequence honors opt-out, a human reply, and the other eligibility checks.",
       "Primary outcome: a verified free-trial start inside a window declared before anyone is assigned.",
       "Secondary outcomes, only when recorded: confirmed first payment, opt-outs or complaints, and mature D30, D60, and D90 retention.",
       "Nobody is classified as a recovered member until an assignment and an outcome both exist.",
     ],
     safety: [
       "The sender rechecks, immediately before sending, that the person is still a verified nonmember, is not suppressed, is not in a known restricted country, and has a valid address.",
-      "It keeps a holdout, a three-email limit, a daily cap, duplicate-send prevention, an opt-out, and delivery tracking.",
+      "It keeps a three-email limit, a daily cap, duplicate-send prevention, an opt-out, and delivery tracking. A stored holdout assignment still receives no recovery email.",
       "It does not send to current members or to people whose membership is uncertain.",
       "Sending is off until it is separately authorized. This page does not export addresses.",
     ],

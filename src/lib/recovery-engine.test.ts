@@ -17,6 +17,7 @@ import {
   classifyRecoveryInbound,
   decideRecoverySend,
   evaluateAutomation,
+  planRecoveryEnrollment,
   recoveryGreeting,
   recoveryMessageCopy,
   verifyResendWebhook,
@@ -112,6 +113,8 @@ describe("recovery send gates", () => {
     expect(decide({ candidate: { countryCode: "DE" } }).reason).toContain("restricted");
     expect(decide({ candidate: { countryCode: "MX" } }).reason).toContain("initial");
     expect(decide({ candidate: { email: "not-an-email" } }).reason).toContain("address");
+    expect(decide({ alreadySentToday: 25 }).reason).toContain("cap");
+    expect(decide({ alreadySentToday: 24 }).send).toBe(true);
     expect(decide({ candidate: { suppressed: true } }).reason).toContain("suppressed");
     expect(decide({ candidate: { providerSuppressed: null } }).reason).toContain("not checked");
     expect(decide({ candidate: { createdAtMs: START - 1000 } }).reason).toContain("before");
@@ -213,17 +216,34 @@ describe("recovery send gates", () => {
     expect(copy.text).toContain("https://summittmindset.com/api/recovery/unsubscribe?token=example");
     expect(copy.text).not.toContain("Dandridge");
     expect(copy.text).not.toContain("abandoned");
-    const later = recoveryMessageCopy({
+    const second = recoveryMessageCopy({
       step: 2,
       firstName: "Avery",
       unsubscribeUrl: "https://summittmindset.com/api/recovery/unsubscribe?token=example",
       postalAddress: "1 Example Street",
     });
-    expect(later.subject).toBe("Need a hand starting your free trial?");
-    expect(later.text).toContain("Hi Avery,");
-    expect(later.html).toBe(
-      `<div>${later.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\n/g, "<br>")}</div>`
-    );
+    const third = recoveryMessageCopy({
+      step: 3,
+      firstName: null,
+      unsubscribeUrl: "https://summittmindset.com/api/recovery/unsubscribe?token=example",
+      postalAddress: "1 Example Street",
+    });
+    expect(second.subject).toBe("Pat Summitt Mindset");
+    expect(second.text).toContain("Hey there! Tyler Summitt here.");
+    expect(second.text).toContain("One thing I love about Summitt Mindset is how simple it is.");
+    expect(second.text).not.toContain("Hi Avery,");
+    expect(third.subject).toBe("I never want to be annoying...");
+    expect(third.text).toContain("I never want to be annoying but I just wanted to reach out one last time.");
+    expect(third.text).toContain("Either way, I'm rooting for you.");
+    for (const letter of [copy, second, third]) {
+      expect(letter.text).toContain("Summitt Mindset, LLC");
+      expect(letter.text).toContain("1 Example Street");
+      expect(letter.text).toContain("https://summittmindset.com/api/recovery/unsubscribe?token=example");
+      expect(letter.html).toContain(">Start My Free Trial</a>");
+      expect(letter.text).toContain("utm_source=email&utm_medium=recovery&utm_campaign=nonmember_recovery");
+    }
+    expect(second.text).toContain("utm_content=email_2");
+    expect(third.text).toContain("utm_content=email_3");
     const snapshot = buildOperatingSnapshot({
       growth: {
         range: "last_30",
