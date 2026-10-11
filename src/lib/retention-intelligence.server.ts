@@ -9,6 +9,7 @@ import {
   type GrowthStripeSubscription,
 } from "@/lib/admin-subscriber-growth-pure";
 import { parseContentProduction } from "@/lib/content-production";
+import { earliestQualifyingLandingPath } from "@/lib/landing-page-performance";
 import {
   buildRetentionIntelligence,
   spellFromSubscription,
@@ -404,8 +405,12 @@ async function loadAcquisition(clerkIds: string[]): Promise<{
       continue;
     }
     const visits = eventsByVisitor.get(visitorId) ?? [];
-    const earliest = [...visits].sort((a, b) => (isoMs(a.occurred_at) ?? 0) - (isoMs(b.occurred_at) ?? 0))[0];
-    row.landing = text(earliest?.path);
+    row.landing = earliestQualifyingLandingPath(
+      visits.map((visit) => ({
+        path: text(visit.path),
+        occurredAtMs: isoMs(visit.occurred_at) ?? Number.NaN,
+      }))
+    );
     row.experiment = experimentLabel(visits);
     row.production = productionFromVisits(visits);
   }

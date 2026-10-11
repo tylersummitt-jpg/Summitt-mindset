@@ -13,6 +13,7 @@ import {
   emptyVisitorCohortTable,
 } from "@/lib/admin-subscriber-growth-pure";
 import {
+  earliestQualifyingLandingPath,
   LANDING_FIRST_PAYMENT_WINDOW_MS,
   LANDING_PAGE_MEASUREMENT_CUTOVER_MS,
   summarizeLandingPagePerformance,
@@ -524,6 +525,42 @@ describe("landing page trial and paid attribution", () => {
     expect(snapshot.report).not.toMatch(/\bwon\b/i);
     expect(snapshot.report).not.toContain(CLERK);
     expect(snapshot.report).not.toContain(VISITOR);
+  });
+});
+
+describe("retention uses the same landing page as trial credit", () => {
+  it("keeps the earliest qualifying page on or after the cutover", () => {
+    expect(
+      earliestQualifyingLandingPath([
+        { path: "/subscribe", occurredAtMs: AFTER },
+        { path: "/", occurredAtMs: LANDING_PAGE_MEASUREMENT_CUTOVER_MS - 1 },
+        { path: "/daily-coaching", occurredAtMs: AFTER + 5_000 },
+        { path: "/leadership", occurredAtMs: AFTER + 1_000 },
+      ])
+    ).toBe("/leadership");
+  });
+
+  it("returns nothing when the visitor has no qualifying page", () => {
+    expect(
+      earliestQualifyingLandingPath([
+        { path: "/subscribe", occurredAtMs: AFTER },
+        { path: "/", occurredAtMs: LANDING_PAGE_MEASUREMENT_CUTOVER_MS - 1 },
+        { path: null, occurredAtMs: AFTER },
+      ])
+    ).toBeNull();
+    expect(earliestQualifyingLandingPath([])).toBeNull();
+  });
+
+  it("does not treat an earlier unrelated page as the original landing page", () => {
+    const root = process.cwd();
+    const server = readFileSync(join(root, "src/lib/retention-intelligence.server.ts"), "utf8");
+    const screen = readFileSync(join(root, "src/app/admin/operating-screen.tsx"), "utf8");
+    const retention = screen.slice(screen.indexOf("function RetentionBody"));
+    expect(server).toContain("earliestQualifyingLandingPath");
+    expect(server).not.toContain("row.landing = text(earliest?.path)");
+    expect(retention).toContain("on or after October 10, 2026");
+    expect(retention).toContain("it is Unknown");
+    expect(retention).not.toContain("five landing pages");
   });
 });
 

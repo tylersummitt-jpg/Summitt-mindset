@@ -103,22 +103,43 @@ function inPeriod(ms: number, startMs: number | null, endMs: number): boolean {
 
 type PageHit = { path: string; at: number };
 
-function firstLandingPage(
-  views: readonly LandingObservation[],
-  visitorId: string,
-  beforeMs: number
+/**
+ * Earliest homepage or audience landing page on or after the measurement cutover.
+ * Any other path, or a view before the cutover, does not qualify.
+ */
+export function earliestQualifyingLandingPath(
+  views: readonly { path: string | null; occurredAtMs: number }[]
+): string | null {
+  return earliestQualifyingLanding(views)?.path ?? null;
+}
+
+function earliestQualifyingLanding(
+  views: readonly { path: string | null; occurredAtMs: number }[]
 ): PageHit | null {
   let best: PageHit | null = null;
   for (const view of views) {
-    if (view.kind !== "page_view" || view.visitorId !== visitorId) continue;
-    if (view.occurredAtMs > beforeMs) continue;
+    if (!Number.isFinite(view.occurredAtMs)) continue;
     if (view.occurredAtMs < LANDING_PAGE_MEASUREMENT_CUTOVER_MS) continue;
-    if (!destinationForPath(view.path) || !view.path) continue;
+    if (!view.path || !destinationForPath(view.path)) continue;
     if (!best || view.occurredAtMs < best.at) {
       best = { path: view.path, at: view.occurredAtMs };
     }
   }
   return best;
+}
+
+function firstLandingPage(
+  views: readonly LandingObservation[],
+  visitorId: string,
+  beforeMs: number
+): PageHit | null {
+  const candidates: { path: string | null; occurredAtMs: number }[] = [];
+  for (const view of views) {
+    if (view.kind !== "page_view" || view.visitorId !== visitorId) continue;
+    if (view.occurredAtMs > beforeMs) continue;
+    candidates.push({ path: view.path, occurredAtMs: view.occurredAtMs });
+  }
+  return earliestQualifyingLanding(candidates);
 }
 
 type Identity = { visitorId: string; source: string | null } | "conflict";

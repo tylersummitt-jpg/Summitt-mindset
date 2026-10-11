@@ -669,9 +669,10 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
               prove the feature made someone stay.
             </p>
             <p>
-              Source, campaign, landing page, and controlled-test labels come from the same
-              first-touch attribution the business already stores. A higher rate is not an
-              experiment result.
+              Source, campaign, and controlled-test labels come from the same first-touch
+              attribution the business already stores. The landing page is the earliest
+              homepage or audience page recorded on or after October 10, 2026. If that page
+              cannot be linked, it is Unknown. A higher rate is not an experiment result.
             </p>
             <p>
               Apple memberships are not in these cohorts, because a first confirmed Apple
