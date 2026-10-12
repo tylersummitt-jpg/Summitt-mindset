@@ -36,12 +36,6 @@ const LINDA_MESSAGES = [
   },
 ] as const;
 
-const CORNER_STATEMENTS = [
-  "She Checks In.",
-  "She Helps You Keep Going.",
-  "She Helps You Remember.",
-] as const;
-
 const GOAL_WIN = {
   type: "Goal Win",
   date: "September 18",
@@ -195,32 +189,21 @@ export function ChallengerLandingPage({
         </div>
       </header>
 
-      <section data-exp-section="proud_coaching" className="px-4 py-12 sm:px-6 sm:py-16" aria-labelledby="corner-heading">
-        <div className="mx-auto min-w-0 max-w-6xl">
+      <section data-exp-section="proud_coaching" className="px-4 py-10 sm:px-6 sm:py-14" aria-labelledby="corner-heading">
+        <div className="mx-auto min-w-0 max-w-3xl">
           <h2
             id="corner-heading"
-            className="max-w-3xl font-serif text-3xl font-semibold leading-tight tracking-tight text-[#14110d] sm:text-5xl"
+            className="font-serif text-3xl font-semibold leading-tight tracking-tight text-[#14110d] sm:text-5xl"
           >
             Imagine Having Someone in Your Corner Every Day.
           </h2>
-          <div className="mt-5 max-w-3xl space-y-4 text-lg leading-relaxed text-[#241c14] sm:text-xl">
+          <div className="mt-5 space-y-4 text-lg leading-relaxed text-[#241c14] sm:text-xl">
             <p>
               Someone who checks in. Someone who remembers what you&apos;ve shared. Someone who
               encourages you when things get hard and celebrates when you make progress.
             </p>
             <p className="font-semibold text-[#14110d]">That&apos;s what Coach Pat is here for.</p>
           </div>
-          <ol className="mt-8 grid gap-4 lg:grid-cols-3">
-            {CORNER_STATEMENTS.map((statement, index) => (
-              <li
-                key={statement}
-                className="min-w-0 rounded-3xl bg-[#071422] px-6 py-8 text-white"
-              >
-                <p className="text-lg font-semibold text-[#f3d48a]">{index + 1}</p>
-                <p className="mt-3 font-serif text-3xl font-semibold leading-tight">{statement}</p>
-              </li>
-            ))}
-          </ol>
         </div>
       </section>
 
@@ -264,6 +247,9 @@ export function ChallengerLandingPage({
                 );
               })}
             </ol>
+          </div>
+          <div className="mt-8 sm:mt-10">
+            <TrialLink href={href} label={primaryLabel} surface={surface} onDark={false} />
           </div>
         </div>
       </section>
@@ -405,21 +391,20 @@ export function ChallengerLandingPage({
                 </li>
               ))}
             </ul>
-            <p className="mt-4 text-lg leading-relaxed text-[#241c14]">
-              Example lessons. Titles and pictures are for preview.
-            </p>
           </div>
 
-          <div className="mt-14 max-w-3xl min-w-0">
-            <h3 className="font-serif text-3xl font-semibold leading-tight sm:text-4xl">
-              Online Programs
-            </h3>
-            <p className="mt-4 text-lg leading-relaxed text-[#241c14] sm:text-xl">
-              Explore lessons and programs built around Pat Summitt&apos;s coaching and leadership
-              principles.
+          <div className="mt-14 rounded-3xl bg-[#071422] px-6 py-10 text-white sm:px-10 sm:py-14">
+            <p className="text-base font-bold tracking-[0.16em] text-[#f3d48a] sm:text-lg">
+              ALSO INCLUDED WITH MEMBERSHIP
             </p>
-            <p className="mt-4 text-lg font-semibold leading-relaxed text-[#14110d] sm:text-xl">
-              Dozens of programs are included with your membership.
+            <h3 className="mt-4 max-w-4xl font-serif text-3xl font-semibold leading-tight text-[#f3d48a] sm:text-5xl">
+              Over $1,000 in Previously Sold Online Programs.
+            </h3>
+            <p className="mt-5 max-w-3xl text-xl leading-relaxed text-white sm:text-2xl">
+              Online leadership programs previously sold for $299+ each.
+            </p>
+            <p className="mt-4 text-lg font-semibold leading-relaxed text-stone-100 sm:text-xl">
+              Included with your active Summitt Mindset membership.
             </p>
           </div>
 

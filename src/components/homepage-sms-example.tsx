@@ -39,8 +39,7 @@ export function HomepageSmsExample() {
           Coach Pat helps you keep going toward your goals and notice the moments that make life special.
         </p>
         <div className="mt-6 min-w-0 md:mx-auto md:max-w-lg md:rounded-[2rem] md:border md:border-slate-300 md:bg-[#F3F4F6] md:px-5 md:pb-6 md:pt-5">
-          <p className="text-lg font-bold leading-relaxed text-slate-950">Coach Pat</p>
-          <ol className="mt-4 space-y-3" aria-label="Example text messages between Coach Pat and Judy">
+          <ol className="space-y-3" aria-label="Example text messages between Coach Pat and Judy">
             {MESSAGES.map((message) => {
               const fromCoach = message.speaker === "Coach Pat";
               return (

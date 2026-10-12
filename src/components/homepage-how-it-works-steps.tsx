@@ -23,7 +23,7 @@ export function HomepageHowItWorksSteps() {
       aria-labelledby="how-it-works-heading"
       className="border-b border-[var(--border)] bg-slate-50 px-4 py-12 sm:px-6 sm:py-16"
     >
-      <div className="mx-auto min-w-0 max-w-3xl break-words">
+      <div className="mx-auto min-w-0 max-w-3xl break-normal lg:max-w-6xl">
         <h2
           id="how-it-works-heading"
           className="text-3xl font-bold leading-tight tracking-tight text-slate-950 sm:text-4xl"
@@ -34,7 +34,7 @@ export function HomepageHowItWorksSteps() {
           {STEPS.map((step) => (
             <li
               key={step.number}
-              className="flex min-w-0 gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:gap-5 sm:p-6"
+              className="flex min-w-0 gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:gap-5 sm:p-6 lg:flex-col lg:gap-5"
             >
               <span
                 className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--brand)] text-2xl font-bold text-white"
@@ -43,7 +43,7 @@ export function HomepageHowItWorksSteps() {
                 {step.number}
               </span>
               <div className="min-w-0">
-                <h3 className="text-2xl font-bold leading-tight text-slate-950">
+                <h3 className="text-balance break-normal text-2xl font-bold leading-tight text-slate-950">
                   <span className="sr-only">Step {step.number}. </span>
                   {step.title}
                 </h3>
