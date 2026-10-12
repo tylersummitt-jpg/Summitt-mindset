@@ -39,7 +39,7 @@ export type DistributionTrackingInput = {
 
 export function buildDistributionTrackingLink(input: DistributionTrackingInput): TrackingLinkResult {
   if (!isApprovedLandingDestination(input.destination)) {
-    return { ok: false, error: "Choose the homepage or one of the four landing pages." };
+    return { ok: false, error: "Choose the homepage or Become Proud." };
   }
   const platform = DISTRIBUTION_PLATFORMS.find((row) => row.id === input.platform);
   if (!platform) return { ok: false, error: "Choose a platform." };

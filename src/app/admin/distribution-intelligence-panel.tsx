@@ -186,8 +186,8 @@ function DistributionTrackingLink() {
     <section className="space-y-3 text-sm text-gray-700">
       <h2 className="text-lg font-semibold text-gray-900">Tracking link</h2>
       <p>
-        Builds the same kind of link as Subscriber Growth, for the homepage or one of the four
-        landing pages. Brooke&apos;s form is unchanged.
+        Builds the same kind of link as Subscriber Growth, for the homepage or Become Proud.
+        Brooke&apos;s form is unchanged.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-xs text-gray-600">

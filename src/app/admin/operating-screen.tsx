@@ -394,8 +394,7 @@ function LandingExperiments({ snapshot }: { snapshot: OperatingSnapshot }) {
         <summary className="cursor-pointer font-medium text-gray-900">How this works</summary>
         <div className="mt-3 space-y-2">
           <p>
-            We have five landing pages: the homepage, Leadership, Become Proud, Daily Coaching,
-            and Life Worth Remembering.
+            We have two landing pages: the homepage and Become Proud.
           </p>
           <p>
             A test compares two of those pages. It has one entry link, such as /go/proud-test.

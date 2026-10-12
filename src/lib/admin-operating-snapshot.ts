@@ -215,7 +215,7 @@ function buildActions(args: {
       category: "distribution",
       priority: "high",
       kind: "limitation",
-      evidence: "Distribution could not read page views for the homepage and the four landing pages.",
+      evidence: "Distribution could not read page views for the homepage and Become Proud.",
       nextStep: "Reload Distribution after the marketing events read succeeds. Do not guess a winning page.",
     });
   } else if (args.landingPages.journeyUnreadable) {

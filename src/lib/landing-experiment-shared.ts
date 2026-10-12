@@ -14,13 +14,7 @@ export const PROUD_TEST_MIN_DAYS = 14;
 export const PROUD_TEST_TRIAL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** The only pages a landing experiment may send someone to. */
-export const APPROVED_LANDING_DESTINATIONS = [
-  "/",
-  "/leadership",
-  "/become-proud",
-  "/daily-coaching",
-  "/life-worth-remembering",
-] as const;
+export const APPROVED_LANDING_DESTINATIONS = ["/", "/become-proud"] as const;
 
 export type ApprovedLandingDestination = (typeof APPROVED_LANDING_DESTINATIONS)[number];
 
@@ -196,7 +190,7 @@ export function serializeProudTestAssignment(variant: ProudTestVariant): string 
   });
 }
 
-/** Keeps only assignments whose path is one of the five approved pages. */
+/** Keeps only assignments whose path is the homepage or Become Proud. */
 export function parseLandingAssignments(
   raw: string | null | undefined
 ): LandingAssignmentCookie[] {

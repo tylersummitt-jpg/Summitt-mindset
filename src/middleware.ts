@@ -47,8 +47,9 @@ const isPublicRoute = createRouteMatcher([
   "/ask-pat-preview",
   "/film-room-preview",
   "/about",
-  "/leadership",
   "/become-proud",
+  // Retired URLs stay public so the permanent redirect is not sent to sign-in.
+  "/leadership",
   "/daily-coaching",
   "/life-worth-remembering",
   "/go/(.*)",

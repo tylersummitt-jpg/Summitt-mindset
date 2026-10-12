@@ -161,7 +161,7 @@ describe("distribution channel and content", () => {
 describe("distribution tracking links", () => {
   it("uses the existing UTM shape, approved paths, and a production param", () => {
     const built = buildDistributionTrackingLink({
-      destination: "/leadership",
+      destination: "/become-proud",
       platform: "instagram",
       trafficType: "organic",
       campaign: "Spring Launch",
@@ -173,7 +173,7 @@ describe("distribution tracking links", () => {
     if (!built.ok) return;
     const url = new URL(built.url);
     expect(url.origin).toBe("https://summittmindset.com");
-    expect(url.pathname).toBe("/leadership");
+    expect(url.pathname).toBe("/become-proud");
     expect(url.searchParams.get("utm_source")).toBe("instagram");
     expect(url.searchParams.get("utm_medium")).toBe("organic_social");
     expect(url.searchParams.get("utm_campaign")).toBe("spring_launch");
@@ -193,7 +193,7 @@ describe("distribution tracking links", () => {
     });
     expect(rejected.ok).toBe(false);
     const email = buildDistributionTrackingLink({
-      destination: "/daily-coaching",
+      destination: "/",
       platform: "email",
       trafficType: "organic",
       campaign: "welcome & follow up",
@@ -204,7 +204,7 @@ describe("distribution tracking links", () => {
     expect(email.ok).toBe(true);
     if (!email.ok) return;
     const url = new URL(email.url);
-    expect(url.pathname).toBe("/daily-coaching");
+    expect(url.pathname).toBe("/");
     expect(url.searchParams.get("utm_source")).toBe("email");
     expect(url.searchParams.get("utm_campaign")).toBe("welcome_follow_up");
     expect(url.searchParams.get("sm_prod")).toBeNull();

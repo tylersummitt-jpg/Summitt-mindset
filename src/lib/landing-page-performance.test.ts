@@ -63,13 +63,13 @@ describe("landing page measurement", () => {
       pagesReadable: true,
       outcomesReadable: true,
       observations: [
-        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
-        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER + 1000 },
-        { kind: "cta_click", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER + 2000 },
-        { kind: "cta_click", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER + 3000 },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER + 1000 },
+        { kind: "cta_click", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER + 2000 },
+        { kind: "cta_click", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER + 3000 },
       ],
     });
-    const leadership = summary.rows.find((row) => row.id === "leadership");
+    const leadership = summary.rows.find((row) => row.id === "become_proud");
     expect(leadership?.visitors).toBe(1);
     expect(leadership?.ctaClicks).toBe(1);
     expect(leadership?.ctaRate).toBe("100.0%");
@@ -84,13 +84,13 @@ describe("landing page measurement", () => {
       outcomesReadable: true,
       observations: [
         { kind: "page_view", visitorId: VISITOR, path: "/", occurredAtMs: AFTER },
-        { kind: "page_view", visitorId: VISITOR, path: "/daily-coaching", occurredAtMs: AFTER + 1000 },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER + 1000 },
         { kind: "checkout", visitorId: VISITOR, path: null, occurredAtMs: AFTER + 2000 },
         { kind: "checkout", visitorId: OTHER, path: null, occurredAtMs: AFTER },
       ],
     });
     expect(summary.rows.find((row) => row.id === "homepage")?.checkoutStarts).toBe(1);
-    expect(summary.rows.find((row) => row.id === "daily_coaching")?.checkoutStarts).toBe(0);
+    expect(summary.rows.find((row) => row.id === "become_proud")?.checkoutStarts).toBe(0);
     expect(summary.rows.every((row) => row.trials === "Not available")).toBe(true);
   });
 
@@ -135,7 +135,7 @@ describe("landing page measurement", () => {
       generatedVisitorId: VISITOR,
     });
     const later = resolveMarketingCookies({
-      pathname: "/leadership",
+      pathname: "/become-proud",
       search: "utm_source=facebook&utm_medium=cpc",
       existingVisitor: first?.visitorId,
       existingAcqRaw: serializeAcquisitionCookie(first!.payload),
@@ -144,10 +144,11 @@ describe("landing page measurement", () => {
     });
     expect(later?.visitorId).toBe(VISITOR);
     expect(later?.payload.source_normalized).toBe(first?.payload.source_normalized);
-    expect(isMarketingPageViewPath("/leadership")).toBe(true);
-    expect(isMarketingPageViewPath("/leadership/extra")).toBe(false);
-    expect(trialCtaSurfaceFromHref("/sign-up?redirect_url=%2Fcheckout%2Fstart", "/leadership")).toBe(
-      "landing_leadership"
+    expect(isMarketingPageViewPath("/become-proud")).toBe(true);
+    expect(isMarketingPageViewPath("/become-proud/extra")).toBe(false);
+    expect(isMarketingPageViewPath("/leadership")).toBe(false);
+    expect(trialCtaSurfaceFromHref("/sign-up?redirect_url=%2Fcheckout%2Fstart", "/become-proud")).toBe(
+      "landing_become_proud"
     );
   });
 });
@@ -178,8 +179,8 @@ describe("landing page trial and paid attribution", () => {
       outcomesReadable: true,
       nowMs: AFTER + 8 * DAY,
       observations: [
-        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
-        { kind: "page_view", visitorId: VISITOR, path: "/daily-coaching", occurredAtMs: AFTER + DAY },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: VISITOR, path: "/", occurredAtMs: AFTER + DAY },
         { kind: "checkout", visitorId: VISITOR, path: null, occurredAtMs: AFTER + DAY },
       ],
       identities: [link()],
@@ -201,8 +202,8 @@ describe("landing page trial and paid attribution", () => {
         [{ clerkUserId: CLERK, paidAtMs: AFTER + 9 * DAY }]
       ),
     });
-    const leadership = summary.rows.find((row) => row.id === "leadership");
-    const daily = summary.rows.find((row) => row.id === "daily_coaching");
+    const leadership = summary.rows.find((row) => row.id === "become_proud");
+    const daily = summary.rows.find((row) => row.id === "homepage");
     expect(leadership?.trials).toBe(1);
     expect(leadership?.visitorToTrial).toBe("100.0%");
     expect(leadership?.paid).toBe(1);
@@ -253,7 +254,7 @@ describe("landing page trial and paid attribution", () => {
       outcomesReadable: true,
       nowMs: AFTER + 2 * DAY,
       observations: [
-        { kind: "page_view", visitorId: VISITOR, path: "/life-worth-remembering", occurredAtMs: AFTER + DAY },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER + DAY },
       ],
       identities: [link()],
       billing: readyBilling([
@@ -300,8 +301,8 @@ describe("landing page trial and paid attribution", () => {
       outcomesReadable: true,
       nowMs: AFTER + 10 * DAY,
       observations: [
-        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
-        { kind: "page_view", visitorId: OTHER, path: "/daily-coaching", occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: OTHER, path: "/", occurredAtMs: AFTER },
       ],
       identities: [
         link(VISITOR, CLERK),
@@ -322,8 +323,8 @@ describe("landing page trial and paid attribution", () => {
         },
       ]),
     });
-    const leadership = summary.rows.find((row) => row.id === "leadership");
-    const daily = summary.rows.find((row) => row.id === "daily_coaching");
+    const leadership = summary.rows.find((row) => row.id === "become_proud");
+    const daily = summary.rows.find((row) => row.id === "homepage");
     expect(leadership?.paid).toBe(0);
     expect(leadership?.trialToPaid).toBe("0.0%");
     expect(leadership?.gap).toContain("ended without a confirmed payment: 1");
@@ -337,7 +338,7 @@ describe("landing page trial and paid attribution", () => {
       outcomesReadable: true,
       nowMs: AFTER + 10 * DAY,
       observations: [
-        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER },
       ],
       identities: [link()],
       billing: readyBilling([
@@ -349,7 +350,7 @@ describe("landing page trial and paid attribution", () => {
         },
       ]),
     });
-    const leadership = summary.rows.find((row) => row.id === "leadership");
+    const leadership = summary.rows.find((row) => row.id === "become_proud");
     expect(leadership?.paid).toBe(0);
     expect(leadership?.trialToPaid).toBe("Not available");
     expect(leadership?.gap).toContain("Paid outcome unknown: 1");
@@ -363,7 +364,7 @@ describe("landing page trial and paid attribution", () => {
       outcomesReadable: true,
       nowMs: trialEnd + LANDING_FIRST_PAYMENT_WINDOW_MS + DAY,
       observations: [
-        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER },
       ],
       identities: [link()],
       billing: readyBilling(
@@ -381,7 +382,7 @@ describe("landing page trial and paid attribution", () => {
         ]
       ),
     });
-    const leadership = summary.rows.find((row) => row.id === "leadership");
+    const leadership = summary.rows.find((row) => row.id === "become_proud");
     expect(leadership?.trials).toBe(1);
     expect(leadership?.paid).toBe(0);
     expect(summary.rows.reduce((sum, row) => sum + (row.paid === "Not available" ? 0 : row.paid), 0)).toBe(0);
@@ -396,11 +397,11 @@ describe("landing page trial and paid attribution", () => {
       periodStartMs: periodStart,
       periodEndMs: AFTER + 5 * DAY,
       observations: [
-        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: periodStart + 1000 },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: periodStart + 1000 },
       ],
       attributionViews: [
-        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER + 1000 },
-        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: periodStart + 1000 },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER + 1000 },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: periodStart + 1000 },
       ],
       identities: [link()],
       billing: readyBilling([
@@ -412,7 +413,7 @@ describe("landing page trial and paid attribution", () => {
         },
       ]),
     });
-    const leadership = summary.rows.find((row) => row.id === "leadership");
+    const leadership = summary.rows.find((row) => row.id === "become_proud");
     expect(leadership?.visitors).toBe(1);
     expect(leadership?.trials).toBe(1);
     expect(leadership?.visitorToTrial).toBe("0.0%");
@@ -428,7 +429,7 @@ describe("landing page trial and paid attribution", () => {
         {
           kind: "page_view",
           visitorId: VISITOR,
-          path: "/leadership",
+          path: "/become-proud",
           occurredAtMs: LANDING_PAGE_MEASUREMENT_CUTOVER_MS - 1000,
         },
         { kind: "checkout", visitorId: OTHER, path: null, occurredAtMs: AFTER },
@@ -494,7 +495,7 @@ describe("landing page trial and paid attribution", () => {
       outcomesReadable: true,
       nowMs: AFTER + 8 * DAY,
       observations: [
-        { kind: "page_view", visitorId: VISITOR, path: "/leadership", occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: VISITOR, path: "/become-proud", occurredAtMs: AFTER },
       ],
       identities: [link()],
       billing: readyBilling(
@@ -535,9 +536,10 @@ describe("retention uses the same landing page as trial credit", () => {
         { path: "/subscribe", occurredAtMs: AFTER },
         { path: "/", occurredAtMs: LANDING_PAGE_MEASUREMENT_CUTOVER_MS - 1 },
         { path: "/daily-coaching", occurredAtMs: AFTER + 5_000 },
-        { path: "/leadership", occurredAtMs: AFTER + 1_000 },
+        { path: "/leadership", occurredAtMs: AFTER + 4_000 },
+        { path: "/become-proud", occurredAtMs: AFTER + 1_000 },
       ])
-    ).toBe("/leadership");
+    ).toBe("/become-proud");
   });
 
   it("returns nothing when the visitor has no qualifying page", () => {
@@ -549,6 +551,12 @@ describe("retention uses the same landing page as trial credit", () => {
       ])
     ).toBeNull();
     expect(earliestQualifyingLandingPath([])).toBeNull();
+  });
+
+  it("still credits a stored visit to a retired landing page", () => {
+    expect(
+      earliestQualifyingLandingPath([{ path: "/leadership", occurredAtMs: AFTER }])
+    ).toBe("/leadership");
   });
 
   it("does not treat an earlier unrelated page as the original landing page", () => {
@@ -582,25 +590,25 @@ describe("landing pages stay off the homepage and Brooke's page", () => {
     );
     const copy = readFileSync(join(root, "src/lib/audience-landing-pages.ts"), "utf8");
     const view = readFileSync(join(root, "src/components/audience-landing-page.tsx"), "utf8");
-    expect(copy).toContain("Pat Summitt's lessons. In your corner every day.");
+    const config = readFileSync(join(root, "next.config.ts"), "utf8");
     expect(copy).toContain("Build a life you're proud of. One day at a time.");
-    expect(copy).toContain("Real accountability. One text at a time.");
-    expect(copy).toContain("Be proud of your life. Remember how you got there.");
-    expect(copy).toContain("Example conversation");
+    expect(copy).not.toContain("Pat Summitt's lessons. In your corner every day.");
+    expect(copy).toContain('export const AUDIENCE_LANDING_PATHS = ["/become-proud"]');
+    for (const path of ["/", "/become-proud", "/leadership", "/daily-coaching", "/life-worth-remembering"]) {
+      expect(copy).toContain(`path: "${path}"`);
+    }
     expect(view).toContain("marketingAcquisitionHref");
     expect(view).toContain("MEMBERSHIP_PUBLIC_OFFER");
     expect(view).toContain("You do not pay the monthly price and the yearly price together.");
     expect(view).toContain("Pat Summitt is not personally sending");
-    for (const path of [
-      "/leadership",
-      "/become-proud",
-      "/daily-coaching",
-      "/life-worth-remembering",
-    ]) {
+    const become = readFileSync(join(root, "src/app/become-proud/page.tsx"), "utf8");
+    expect(become).toContain("AudienceLandingRoute");
+    expect(become).toContain("audienceLandingMetadata");
+    for (const path of ["/leadership", "/daily-coaching", "/life-worth-remembering"]) {
       expect(middleware).toContain(`"${path}"`);
-      const page = readFileSync(join(root, `src/app${path}/page.tsx`), "utf8");
-      expect(page).toContain("AudienceLandingRoute");
-      expect(page).toContain("audienceLandingMetadata");
+      expect(config).toContain(`source: "${path}"`);
+      expect(config).toContain('destination: "/become-proud"');
+      expect(() => readFileSync(join(root, `src/app${path}/page.tsx`), "utf8")).toThrow();
     }
   });
 });

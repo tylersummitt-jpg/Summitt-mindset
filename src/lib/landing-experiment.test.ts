@@ -318,13 +318,13 @@ describe("reusable landing destinations", () => {
     expect(
       landingAssignmentFromInput({
         entrySlug: "coach-test",
-        controlPath: "/daily-coaching",
-        challengerPath: "/life-worth-remembering",
+        controlPath: "/",
+        challengerPath: "/become-proud",
       })
     ).toEqual({
       entrySlug: "coach-test",
-      controlPath: "/daily-coaching",
-      challengerPath: "/life-worth-remembering",
+      controlPath: "/",
+      challengerPath: "/become-proud",
     });
     expect(
       landingAssignmentFromInput({ entrySlug: "", controlPath: "", challengerPath: "" })
@@ -333,6 +333,9 @@ describe("reusable landing destinations", () => {
       { entrySlug: "bad", controlPath: "https://evil.test", challengerPath: "/" },
       { entrySlug: "bad", controlPath: "/checkout/start", challengerPath: "/leadership" },
       { entrySlug: "bad", controlPath: "/", challengerPath: "/" },
+      { entrySlug: "bad", controlPath: "/leadership", challengerPath: "/become-proud" },
+      { entrySlug: "bad", controlPath: "/daily-coaching", challengerPath: "/" },
+      { entrySlug: "bad", controlPath: "/", challengerPath: "/life-worth-remembering" },
       { entrySlug: "Bad Slug", controlPath: "/", challengerPath: "/leadership" },
       { entrySlug: "only-slug", controlPath: "", challengerPath: "" },
     ]) {
@@ -346,8 +349,8 @@ describe("reusable landing destinations", () => {
   it("assigns a running pair and keeps a returning visitor on that pair", () => {
     const destinations = landingAssignmentFromInput({
       entrySlug: "coach-test",
-      controlPath: "/leadership",
-      challengerPath: "/daily-coaching",
+      controlPath: "/",
+      challengerPath: "/become-proud",
     });
     const created = decideLandingEntry({
       experimentId: PROUD_TEST_EXPERIMENT_ID,
@@ -359,9 +362,7 @@ describe("reusable landing destinations", () => {
       prefetch: false,
     });
     expect(APPROVED_LANDING_DESTINATIONS).toContain(created.destination);
-    expect(created.destination === "/leadership" || created.destination === "/daily-coaching").toBe(
-      true
-    );
+    expect(created.destination === "/" || created.destination === "/become-proud").toBe(true);
     const returning = decideLandingEntry({
       experimentId: PROUD_TEST_EXPERIMENT_ID,
       status: "paused",
@@ -371,7 +372,7 @@ describe("reusable landing destinations", () => {
       userAgent: "Mozilla/5.0",
       prefetch: false,
     });
-    expect(returning.destination).toBe("/daily-coaching");
+    expect(returning.destination).toBe("/become-proud");
     expect(returning.created).toBe(false);
     expect(
       decideLandingEntry({
@@ -388,13 +389,16 @@ describe("reusable landing destinations", () => {
 
   it("counts an exposure only when the viewed page is the assigned destination", () => {
     expect(
-      exposureMatchesDestination({ viewedPath: "/daily-coaching", officialPath: "/daily-coaching" })
+      exposureMatchesDestination({ viewedPath: "/become-proud", officialPath: "/become-proud" })
     ).toBe(true);
     expect(
-      exposureMatchesDestination({ viewedPath: "/leadership", officialPath: "/daily-coaching" })
+      exposureMatchesDestination({ viewedPath: "/", officialPath: "/become-proud" })
     ).toBe(false);
     expect(
-      exposureMatchesDestination({ viewedPath: "https://evil.test", officialPath: "/leadership" })
+      exposureMatchesDestination({ viewedPath: "/leadership", officialPath: "/leadership" })
+    ).toBe(false);
+    expect(
+      exposureMatchesDestination({ viewedPath: "https://evil.test", officialPath: "/become-proud" })
     ).toBe(false);
   });
 
@@ -417,7 +421,7 @@ describe("reusable landing destinations", () => {
       signalsReadable: true,
       status: "running" as const,
       nowMs: NOW,
-      destinations: { control: "/leadership" as const, challenger: "/daily-coaching" as const },
+      destinations: { control: "/" as const, challenger: "/become-proud" as const },
       exposures: [{ visitorId: VISITOR, variant: "control" as const, occurredAtMs: EXPOSED }],
       identities: [{ clerkUserId: CLERK, visitorId: VISITOR }],
       trials: [
@@ -433,7 +437,7 @@ describe("reusable landing destinations", () => {
     const first = summarizeProudTest(input);
     const second = summarizeProudTest(input);
     expect(first.rows.find((row) => row.variant === "control")?.paid).toBe(1);
-    expect(first.rows.find((row) => row.variant === "control")?.path).toBe("/leadership");
+    expect(first.rows.find((row) => row.variant === "control")?.path).toBe("/");
     expect(second.rows.find((row) => row.variant === "control")?.paid).toBe(1);
     expect(first.coverage).toContain("dashboard date range");
     expect(first.coverage).not.toContain("selected date range");
@@ -469,7 +473,7 @@ describe("proud test stays off the homepage and Brooke's page", () => {
     const retentionAt = screen.indexOf("function RetentionBody");
     const retention = screen.slice(retentionAt);
     expect(screen.slice(0, retentionAt)).toContain("How this works");
-    expect(screen.slice(0, retentionAt)).toContain("five landing pages");
+    expect(screen.slice(0, retentionAt)).toContain("two landing pages");
     expect(screen).toContain("does not pick a winner");
     expect(retention).toContain("How this works");
     expect(retention).toContain("paid membership");
