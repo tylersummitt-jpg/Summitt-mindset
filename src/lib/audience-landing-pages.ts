@@ -12,27 +12,7 @@ export const AUDIENCE_LANDING_PAGES = [
     ctaSurface: "landing_become_proud",
     title: "Build a Life You're Proud Of | Summitt Mindset",
     description:
-      "Set a goal, follow through, and keep a record of progress with Summitt Mindset. Start a 7-day free trial of the same membership.",
-    headline: "Build a life you're proud of. One day at a time.",
-    support:
-      "Summitt Mindset is a membership for people who want to do what they said they would do. It is daily accountability for one personal goal, not a folder of generic motivation.",
-    helpTitle: "How this helps",
-    help: [
-      "You name a goal that matters to you.",
-      "You get encouragement and a direct question when the day is asking you to follow through.",
-      "You can look back and see the days you kept your word.",
-      "Pride comes from the actions you repeated, not from a slogan.",
-    ],
-    experienceTitle: "What you actually do",
-    experienceNote:
-      "Example. This shows the membership, not a real member's goal or result.",
-    lines: [
-      { speaker: "You", text: "My goal is to walk after dinner on weeknights." },
-      { speaker: "Coach Pat", text: "Then tonight has a job. Did you walk?" },
-      { speaker: "You", text: "Yes. Twenty minutes." },
-    ],
-    imageSrc: "/brand/pat_statue_grandkids_candidate_sharp.jpg",
-    imageAlt: "Pat Summitt statue with her grandkids",
+      "Get personal daily texts from Coach Pat to help you reach your goals and remember the moments that matter. 7 days free, then $29/month. Cancel anytime.",
   },
 ] as const;
 

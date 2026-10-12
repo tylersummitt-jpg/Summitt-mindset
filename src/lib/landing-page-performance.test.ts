@@ -591,7 +591,8 @@ describe("landing pages stay off the homepage and Brooke's page", () => {
     const copy = readFileSync(join(root, "src/lib/audience-landing-pages.ts"), "utf8");
     const view = readFileSync(join(root, "src/components/audience-landing-page.tsx"), "utf8");
     const config = readFileSync(join(root, "next.config.ts"), "utf8");
-    expect(copy).toContain("Build a life you're proud of. One day at a time.");
+    expect(copy).toContain("Build a Life You're Proud Of | Summitt Mindset");
+    expect(copy).not.toContain("Build a life you're proud of. One day at a time.");
     expect(copy).not.toContain("Pat Summitt's lessons. In your corner every day.");
     expect(copy).toContain('export const AUDIENCE_LANDING_PATHS = ["/become-proud"]');
     for (const path of ["/", "/become-proud", "/leadership", "/daily-coaching", "/life-worth-remembering"]) {
@@ -599,8 +600,10 @@ describe("landing pages stay off the homepage and Brooke's page", () => {
     }
     expect(view).toContain("marketingAcquisitionHref");
     expect(view).toContain("MEMBERSHIP_PUBLIC_OFFER");
-    expect(view).toContain("You do not pay the monthly price and the yearly price together.");
-    expect(view).toContain("Pat Summitt is not personally sending");
+    expect(view).toContain("ChallengerLandingPage");
+    expect(view).toContain('redirect("/post-sign-in")');
+    expect(view).not.toContain("You do not pay the monthly price and the yearly price together.");
+    expect(view).not.toContain("Pat Summitt is not personally sending");
     const become = readFileSync(join(root, "src/app/become-proud/page.tsx"), "utf8");
     expect(become).toContain("AudienceLandingRoute");
     expect(become).toContain("audienceLandingMetadata");
