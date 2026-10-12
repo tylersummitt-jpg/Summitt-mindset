@@ -9,10 +9,15 @@ function read(rel: string): string {
 }
 
 describe("homepage hero copy hierarchy (source)", () => {
-  it("uses the approved headline and no hero subtitle", () => {
+  it("uses the approved headline and supporting line", () => {
     const home = read("src/app/page.tsx");
-    expect(home).toContain("Coach Pat in your corner.");
-    expect(home).toContain("Every day.");
+    expect(home).toContain("Reach Your Goals.");
+    expect(home).toContain("Remember the Journey.");
+    expect(home).toContain(
+      "Get daily text messages from Coach Pat to help you reach your goals, celebrate your wins, and remember the special moments along the way."
+    );
+    expect(home).not.toContain("whitespace-nowrap");
+    expect(home).not.toContain("Coach Pat in your corner.");
     expect(home).not.toContain(
       "Setting goals is easy. Following through is the hard part."
     );

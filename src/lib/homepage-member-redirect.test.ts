@@ -20,17 +20,16 @@ describe("homepage entitled member redirect (source)", () => {
     expect(home).not.toContain('redirect("/dashboard/victory-room")');
 
     const redirectIndex = home.indexOf('redirect("/post-sign-in")');
-    const quoteFetchIndex = home.indexOf("/api/quote-of-the-day");
-    const headlineIndex = home.indexOf("Coach Pat in your corner.");
+    const headlineIndex = home.indexOf("Reach Your Goals.");
 
     expect(redirectIndex).toBeGreaterThan(-1);
-    expect(quoteFetchIndex).toBeGreaterThan(redirectIndex);
+    expect(home).not.toContain("/api/quote-of-the-day");
     expect(headlineIndex).toBeGreaterThan(redirectIndex);
   });
 
   it("keeps signed-out marketing copy in the homepage source", () => {
     const home = read("src/app/page.tsx");
-    expect(home).toContain("Coach Pat in your corner.");
-    expect(home).toContain("Start Free — $0 Today");
+    expect(home).toContain("Reach Your Goals.");
+    expect(home).toContain("Start My Free Trial");
   });
 });

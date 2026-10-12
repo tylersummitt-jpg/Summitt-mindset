@@ -8,14 +8,15 @@ import { redirect } from "next/navigation";
 import { MEMBER_APP_HOME_PATH } from "@/lib/member-app-home-path";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
-import { HomepageHowItWorksVideo } from "@/components/homepage-how-it-works-video";
+import { HomepageHowItWorksSteps } from "@/components/homepage-how-it-works-steps";
 import { HomepageMemberTestimonials } from "@/components/homepage-member-testimonials";
-import { HOMEPAGE_VIMEO_VIDEO_ID } from "@/lib/homepage-video";
+import { HomepageSmsExample } from "@/components/homepage-sms-example";
+import { HomepageVictoryRoom } from "@/components/homepage-victory-room";
+import { MEMBERSHIP_PUBLIC_OFFER } from "@/lib/membership-public-offer";
 import {
   marketingAcquisitionHref,
   marketingSubscribeCtaLabel,
   marketingTrialCtaLabel,
-  marketingTrialCtaLabelLong,
   shouldShowMarketingPricingCopy,
 } from "@/lib/native-app/native-safe-marketing-cta";
 
@@ -71,7 +72,7 @@ const brandSchema = {
 
 /** Hero primary CTA — matches coach kit ring offset on dark hero */
 const ctaHeroPrimaryClass =
-  "inline-flex items-center justify-center w-full sm:w-auto rounded-xl px-6 py-3 text-sm font-semibold text-white bg-[var(--brand)] hover:opacity-95 shadow-md shadow-orange-500/20 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8 md:py-4 md:text-base";
+  "inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-[var(--brand)] px-6 py-3 text-base font-semibold !text-[#111827] shadow-md shadow-orange-500/20 transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 sm:w-auto md:px-8";
 
 export default async function HomePage() {
   const user = await currentUser();
@@ -94,24 +95,6 @@ export default async function HomePage() {
 
   const showSubscribe = !!user && isSubscribed !== true;
 
-  let data: { quote?: string; url?: string } = {};
-
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
-
-    if (baseUrl) {
-      const res = await fetch(`${baseUrl}/api/quote-of-the-day`, {
-        cache: "no-store",
-      });
-
-      if (res.ok) {
-        data = (await res.json()) as { quote?: string; url?: string };
-      }
-    }
-  } catch {
-    data = {};
-  }
-
   const signInSubscribeHref = marketingAcquisitionHref({
     isNativeApp,
     isSignedIn: false,
@@ -123,7 +106,12 @@ export default async function HomePage() {
   });
   const subscribeCtaLabel = marketingSubscribeCtaLabel(isNativeApp);
   const trialCtaLabel = marketingTrialCtaLabel(isNativeApp);
-  const trialCtaLabelLong = marketingTrialCtaLabelLong(isNativeApp);
+  const finalHref = user ? subscribeCtaHref : signInSubscribeHref;
+  const finalLabel = isNativeApp
+    ? user
+      ? subscribeCtaLabel
+      : trialCtaLabel
+    : "Start My Free Trial";
 
   return (
     <div>
@@ -143,7 +131,7 @@ export default async function HomePage() {
               fill
               sizes="100vw"
               priority
-              className="object-cover object-center"
+              className="object-cover object-[center_28%]"
             />
           </div>
           <div className="absolute inset-0 hidden md:block" aria-hidden>
@@ -161,16 +149,17 @@ export default async function HomePage() {
             aria-hidden
           />
           <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-10 pb-12 md:mx-0 md:ml-6 lg:ml-10 xl:ml-12 md:mr-auto md:py-20 md:pb-24 md:justify-center md:items-start">
-            <div className="flex w-full max-w-2xl flex-col gap-5 md:gap-8 min-w-0">
+            <div className="-mx-4 flex w-[calc(100%+2rem)] max-w-none flex-col gap-5 break-words bg-neutral-950 p-4 min-w-0 sm:-mx-6 sm:w-[calc(100%+3rem)] sm:p-5 md:mx-0 md:w-full md:max-w-2xl md:gap-8 md:bg-transparent md:p-0">
               <div>
-                <h1 className="text-2xl leading-none tracking-tight drop-shadow-sm sm:text-3xl md:text-5xl">
-                  <span className="block whitespace-nowrap font-black tracking-tighter text-white">
-                    Coach Pat in your corner.
-                  </span>
-                  <span className="mt-1 block font-bold text-[var(--brand)] md:mt-1.5">
-                    Every day.
+                <h1 className="max-w-xl text-[1.65rem] font-black leading-[1.15] tracking-tight text-white drop-shadow-sm min-[390px]:text-[1.85rem] sm:text-4xl md:text-5xl md:leading-[1.05]">
+                  <span className="block">Reach Your Goals.</span>
+                  <span className="mt-1 block text-[var(--brand)] md:mt-1.5">
+                    Remember the Journey.
                   </span>
                 </h1>
+                <p className="mt-3 max-w-xl text-lg font-medium leading-relaxed text-white/90 drop-shadow-sm md:mt-4 md:text-xl">
+                  Get daily text messages from Coach Pat to help you reach your goals, celebrate your wins, and remember the special moments along the way.
+                </p>
               </div>
 
               {user && (
@@ -211,7 +200,10 @@ export default async function HomePage() {
                           : "Start your membership to turn on daily text accountability and the full app."}
                       </p>
 
-                      <Link href={subscribeCtaHref} className={ctaHeroPrimaryClass}>
+                      <Link
+                        href={subscribeCtaHref}
+                        className={ctaHeroPrimaryClass}
+                      >
                         {subscribeCtaLabel}
                       </Link>
                     </>
@@ -222,13 +214,16 @@ export default async function HomePage() {
               {!user && (
                 <>
                   <div className="w-full max-w-md">
-                    <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
-                      {isNativeApp ? trialCtaLabel : "Start Free — $0 Today"}
+                    <Link
+                      href={signInSubscribeHref}
+                      className={ctaHeroPrimaryClass}
+                    >
+                      {isNativeApp ? trialCtaLabel : "Start My Free Trial"}
                     </Link>
                   </div>
                   {showPricingCopy ? (
-                    <p className="mt-1 text-sm font-bold tracking-tighter text-white/90 drop-shadow-sm min-[375px]:tracking-tight md:text-[15px]">
-                      7 days free · then $29/month · cancel anytime
+                    <p className="mt-1 max-w-md text-lg font-bold leading-relaxed tracking-tight text-white drop-shadow-sm">
+                      7 days free · $0 today · Cancel anytime
                     </p>
                   ) : null}
                 </>
@@ -238,68 +233,13 @@ export default async function HomePage() {
         </div>
       </section>
 
+      <HomepageSmsExample />
+      <HomepageHowItWorksSteps />
+      <HomepageVictoryRoom />
       <HomepageMemberTestimonials />
 
-      {/* --------------------------------------------------
-          Quote of the Day
-          -------------------------------------------------- */}
-      {data?.quote && data?.url && (
-        <section className="max-w-3xl mx-auto px-4 py-10 sm:py-14 md:py-16 text-center">
-          <h2 className="text-2xl font-bold text-[var(--text)] mb-6">
-            Pat Summitt Quote of the Day
-          </h2>
-          <blockquote className="text-xl leading-relaxed border-l-4 border-[var(--brand)] pl-6 py-4 text-[var(--text)] text-left">
-            {data.quote}
-          </blockquote>
-          <div className="text-left mt-4">
-            <Link
-              href={data.url}
-              className="text-sm font-semibold text-[var(--brand)] hover:underline"
-            >
-              Read more
-            </Link>
-          </div>
-        </section>
-      )}
-
-      {/* --------------------------------------------------
-          How Summitt Mindset Works
-          -------------------------------------------------- */}
-      <section className="relative overflow-hidden border-t border-[var(--border)] bg-neutral-950 px-4 py-16 text-white sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-        <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-10%,rgba(249,115,22,0.14),transparent_55%),radial-gradient(ellipse_60%_40%_at_80%_100%,rgba(59,130,246,0.08),transparent_50%)]"
-          aria-hidden
-        />
-        <div className="relative mx-auto max-w-7xl min-w-0">
-          <div className="mx-auto max-w-3xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-              How Summitt Mindset Works
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-white/70 sm:text-lg">
-              A simple, honest path to lasting consistency.
-            </p>
-          </div>
-
-          <HomepageHowItWorksVideo videoId={HOMEPAGE_VIMEO_VIDEO_ID} />
-
-          <div className="mt-12 flex justify-center sm:mt-14">
-            <Link
-              href={signInSubscribeHref}
-              className={ctaHeroPrimaryClass}
-              data-growth-cta="trial"
-              data-growth-surface="homepage_video"
-            >
-              {trialCtaLabelLong}
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* --------------------------------------------------
-          Trusted Legacy
-          -------------------------------------------------- */}
-      <section className="border-t border-gray-100 bg-white px-4 py-12 sm:px-6 sm:py-14 lg:px-8 lg:py-16">
-        <div className="mx-auto grid max-w-7xl min-w-0 grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12">
+      <section className="border-b border-gray-100 bg-white px-4 py-12 sm:px-6 sm:py-16">
+        <div className="mx-auto grid max-w-5xl min-w-0 break-words grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12">
           <div className="min-w-0">
             <Image
               src="/brand/pat_statue_grandkids_candidate_sharp.jpg"
@@ -310,48 +250,45 @@ export default async function HomePage() {
               unoptimized
               className="h-auto w-full max-w-full rounded-3xl border border-gray-200/80 bg-slate-50 shadow-lg shadow-gray-900/10"
             />
-            <p className="mt-3 text-sm font-medium text-slate-800 sm:text-base">
+            <p className="mt-3 text-lg font-medium text-slate-800">
               Pat Summitt&apos;s grandkids
             </p>
           </div>
-
           <div className="min-w-0 text-left">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)] sm:text-sm">
-              A TRUSTED LEGACY
-            </p>
-            <div className="mt-3 h-1 w-12 rounded-full bg-[var(--brand)]" aria-hidden />
-            <h2 className="mt-5 font-serif text-3xl font-bold leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-[2.5rem] lg:leading-tight">
-              Created by Pat Summitt&apos;s family.
+            <h2 className="text-3xl font-bold leading-tight tracking-tight text-slate-950 sm:text-4xl">
+              Inspired by Pat Summitt. Made for Your Life.
             </h2>
-            <p className="mt-5 text-base leading-relaxed text-slate-700 sm:text-lg sm:leading-relaxed">
-              Summitt Mindset was created by Pat Summitt&apos;s family to bring her standard of
-              accountability, discipline, and daily consistency into everyday life.
+            <p className="mt-4 text-lg leading-relaxed text-slate-800 sm:text-xl">
+              Created by Pat Summitt&apos;s family, Summitt Mindset brings her coaching principles into everyday life — helping people set goals, keep moving forward, and remember the moments that matter.
             </p>
-            <p className="mt-4 text-base leading-relaxed text-slate-700 sm:text-lg sm:leading-relaxed">
-              Looking for Summit Mindset? You&apos;re in the right place. Summitt Mindset is
-              spelled with two T&apos;s, in honor of Pat Summitt, and was created by her family.
-            </p>
-            <div className="mt-6 flex min-w-0 gap-4 border-l-4 border-[var(--brand)] pl-5">
-              <p className="text-lg font-medium italic leading-relaxed text-slate-800 sm:text-xl">
-                Rooted in her legacy. Built for real life.
-              </p>
-            </div>
-            <div className="mt-8 flex flex-col items-center gap-3 text-center sm:flex-row sm:gap-4">
-              <span className="h-px w-16 bg-orange-500/40 sm:flex-1 sm:w-auto" aria-hidden />
-              <p className="max-w-full break-words text-[0.65rem] font-bold uppercase tracking-[0.18em] text-slate-800 sm:text-xs sm:tracking-[0.25em]">
-                A TRUSTED CONTINUATION OF PAT SUMMITT&apos;S VALUES.
-              </p>
-              <span className="h-px w-16 bg-orange-500/40 sm:flex-1 sm:w-auto" aria-hidden />
-            </div>
           </div>
         </div>
       </section>
 
-      <section className="border-t border-[var(--border)] bg-neutral-950 px-4 py-8 text-white sm:px-6 sm:py-10 lg:px-8">
-        <div className="mx-auto flex min-w-0 max-w-7xl justify-center">
-          <Link href={signInSubscribeHref} className={ctaHeroPrimaryClass}>
-            {trialCtaLabelLong}
-          </Link>
+      <section className="bg-neutral-950 px-4 py-12 text-white sm:px-6 sm:py-16">
+        <div className="mx-auto flex w-full min-w-0 max-w-3xl break-words flex-col">
+          <h2 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+            Your Next Chapter Starts Today.
+          </h2>
+          {showPricingCopy ? (
+            <div className="mt-6 space-y-3">
+              <p className="text-5xl font-black leading-none tracking-tight">$0 Today</p>
+              <p className="text-lg leading-relaxed text-white sm:text-xl">
+                Try Summitt Mindset free for 7 days.
+              </p>
+              <p className="text-lg leading-relaxed text-white sm:text-xl">
+                Then {MEMBERSHIP_PUBLIC_OFFER.monthly}, or choose {MEMBERSHIP_PUBLIC_OFFER.annual}.
+              </p>
+              <p className="text-lg font-semibold leading-relaxed text-white sm:text-xl">
+                {MEMBERSHIP_PUBLIC_OFFER.cancel}.
+              </p>
+            </div>
+          ) : null}
+          <div className="mt-8 w-full max-w-md">
+            <Link href={finalHref} className={ctaHeroPrimaryClass}>
+              {finalLabel}
+            </Link>
+          </div>
         </div>
       </section>
     </div>
