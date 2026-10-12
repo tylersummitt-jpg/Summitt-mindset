@@ -19,6 +19,7 @@ const STEPS = [
 export function HomepageHowItWorksSteps() {
   return (
     <section
+      data-exp-section="home_coaching"
       aria-labelledby="how-it-works-heading"
       className="border-b border-[var(--border)] bg-slate-50 px-4 py-12 sm:px-6 sm:py-16"
     >

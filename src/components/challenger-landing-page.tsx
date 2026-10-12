@@ -164,8 +164,8 @@ export function ChallengerLandingPage({
   });
 
   return (
-    <article className="min-w-0 overflow-x-clip bg-[#f6f1e7] text-[#14110d]">
-      <header className="bg-[#071422] text-white">
+    <article data-audience={surface} className="min-w-0 overflow-x-clip bg-[#f6f1e7] text-[#14110d]">
+      <header data-exp-section="proud_hero" className="bg-[#071422] text-white">
         <div className="mx-auto grid max-w-6xl min-w-0 gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center lg:gap-12 lg:py-16 [@media(max-height:500px)]:py-4">
           <div className="min-w-0">
             <h1 className="font-serif text-[1.85rem] font-semibold leading-[1.12] tracking-tight text-white min-[390px]:text-4xl sm:text-5xl sm:leading-[1.1] [@media(max-height:500px)]:text-[1.85rem] [@media(max-height:500px)]:leading-tight sm:[@media(max-height:500px)]:text-[1.85rem]">
@@ -176,7 +176,7 @@ export function ChallengerLandingPage({
               {HERO_SUPPORT}
             </p>
             <div className="mt-5 min-[390px]:mt-7 [@media(max-height:500px)]:mt-4">
-              <TrialLink href={href} label={primaryLabel} surface={surface} onDark />
+              <TrialLink href={href} label={primaryLabel} surface="proud_hero_cta" onDark />
             </div>
             <div className="mt-3 min-[390px]:mt-4">
               <OfferLines offer={offer} showPrice={showPrice} tone="light" />
@@ -197,7 +197,7 @@ export function ChallengerLandingPage({
         </div>
       </header>
 
-      <section className="px-4 py-12 sm:px-6 sm:py-16" aria-labelledby="corner-heading">
+      <section data-exp-section="proud_coaching" className="px-4 py-12 sm:px-6 sm:py-16" aria-labelledby="corner-heading">
         <div className="mx-auto min-w-0 max-w-6xl">
           <h2
             id="corner-heading"
@@ -227,6 +227,7 @@ export function ChallengerLandingPage({
       </section>
 
       <section
+        data-exp-section="proud_demo"
         className="border-y border-[#e6dcc8] bg-white px-4 py-12 sm:px-6 sm:py-16"
         aria-labelledby="linda-heading"
       >
@@ -269,7 +270,7 @@ export function ChallengerLandingPage({
         </div>
       </section>
 
-      <section className="px-4 py-12 sm:px-6 sm:py-16" aria-labelledby="outcomes-heading">
+      <section data-exp-section="proud_benefits" className="px-4 py-12 sm:px-6 sm:py-16" aria-labelledby="outcomes-heading">
         <div className="mx-auto min-w-0 max-w-6xl">
           <h2
             id="outcomes-heading"
@@ -300,7 +301,7 @@ export function ChallengerLandingPage({
         </div>
       </section>
 
-      <section className="bg-[#071422] px-4 py-12 text-white sm:px-6 sm:py-16" aria-labelledby="victory-heading">
+      <section data-exp-section="proud_victory" className="bg-[#071422] px-4 py-12 text-white sm:px-6 sm:py-16" aria-labelledby="victory-heading">
         <div className="mx-auto min-w-0 max-w-6xl">
           <h2
             id="victory-heading"
@@ -345,7 +346,7 @@ export function ChallengerLandingPage({
         </div>
       </section>
 
-      <section className="px-4 py-12 sm:px-6 sm:py-16" aria-labelledby="bonus-heading">
+      <section data-exp-section="proud_film" className="px-4 py-12 sm:px-6 sm:py-16" aria-labelledby="bonus-heading">
         <div className="mx-auto min-w-0 max-w-6xl">
           <h2
             id="bonus-heading"
@@ -432,13 +433,14 @@ export function ChallengerLandingPage({
               Included with your Summitt Mindset membership.
             </p>
             <div className="mt-5">
-              <TrialLink href={href} label={bonusLabel} surface={surface} onDark />
+              <TrialLink href={href} label={bonusLabel} surface="proud_middle_cta" onDark />
             </div>
           </div>
         </div>
       </section>
 
       <section
+        data-exp-section="proud_proof"
         className="border-y border-[#e6dcc8] bg-white px-4 py-12 sm:px-6 sm:py-16"
         aria-labelledby="feedback-heading"
       >
@@ -470,7 +472,7 @@ export function ChallengerLandingPage({
         </div>
       </section>
 
-      <section className="bg-[#071422] px-4 py-12 text-white sm:px-6 sm:py-16" aria-labelledby="legacy-heading">
+      <section data-exp-section="proud_legacy" className="bg-[#071422] px-4 py-12 text-white sm:px-6 sm:py-16" aria-labelledby="legacy-heading">
         <div className="mx-auto grid max-w-6xl min-w-0 items-center gap-8 lg:grid-cols-2 lg:gap-12">
           <figure className="min-w-0">
             <div className="relative aspect-[3/2] w-full overflow-hidden rounded-3xl border border-white/10">
@@ -498,7 +500,7 @@ export function ChallengerLandingPage({
         </div>
       </section>
 
-      <section className="px-4 py-14 sm:px-6 sm:py-20" aria-labelledby="invitation-heading">
+      <section data-exp-section="proud_offer" className="px-4 py-14 sm:px-6 sm:py-20" aria-labelledby="invitation-heading">
         <div className="mx-auto min-w-0 max-w-3xl text-left">
           <h2
             id="invitation-heading"
@@ -525,7 +527,7 @@ export function ChallengerLandingPage({
             </p>
           )}
           <div className="mt-8">
-            <TrialLink href={href} label={primaryLabel} surface={surface} onDark={false} />
+            <TrialLink href={href} label={primaryLabel} surface="proud_final_cta" onDark={false} />
           </div>
         </div>
       </section>

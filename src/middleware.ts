@@ -8,6 +8,7 @@ import {
   isCoachAttributionEnabled,
   isCoachAttributionPath,
 } from "@/lib/coach-attribution";
+import { isLandingExperimentEntryPath } from "@/lib/landing-experiment-shared";
 import { attachMarketingCookies } from "@/lib/marketing-middleware-cookies";
 import { isNativeSummittMindsetApp } from "@/lib/native-app/platform";
 import { signInPathForClient } from "@/lib/native-app/membership-paths";
@@ -127,6 +128,7 @@ export default clerkMiddleware(async (auth, req) => {
         httpOnly: false,
       });
     }
+    if (isLandingExperimentEntryPath(req.nextUrl.pathname)) return res;
     return attachMarketingCookies(req, res);
   }
 

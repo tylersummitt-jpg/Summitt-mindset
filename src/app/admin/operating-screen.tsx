@@ -394,7 +394,8 @@ function LandingExperiments({ snapshot }: { snapshot: OperatingSnapshot }) {
         <summary className="cursor-pointer font-medium text-gray-900">How this works</summary>
         <div className="mt-3 space-y-2">
           <p>
-            We have two landing pages: the homepage and Become Proud.
+            We have two landing pages: the homepage and Become Proud. Only people who open the
+            entry link are randomized. A direct visit is not an assignment.
           </p>
           <p>
             A test compares two of those pages. It has one entry link, such as /go/proud-test.
@@ -415,31 +416,40 @@ function LandingExperiments({ snapshot }: { snapshot: OperatingSnapshot }) {
             page on later visits. Bots are left out. If placement fails, they see the homepage.
           </p>
           <p>
-            Placement is not the same as seeing the page. We count a person only after they land
-            on the page they were given. The redirect itself is not a view. A refresh does not
-            count them again.
+            Placement is stored as its own record and is not the same as seeing the page. The
+            primary trial rate uses everyone who was assigned, including people who never produced
+            a page view. The exposed-visitor rate is shown separately. A refresh does not assign
+            them again. Returning visitors keep the page they were given.
           </p>
           <p>
-            A free trial counts when that person starts a real trial within 7 days and we can tie
-            them to one page. A confirmed payment is a paid invoice after that trial. Changing
-            Today or Last 7 Days on this dashboard does not change those numbers.
+            A free trial counts when Stripe starts a real trial within 7 days of assignment and
+            we can tie that person to one page. Creating an account is not a trial. A button click
+            is not a checkout. A checkout session is not proof the hosted checkout page was seen.
+            A confirmed payment is a paid invoice after that trial. Apple memberships are not
+            included. Changing Today or Last 7 Days on this dashboard does not change those numbers.
           </p>
           <p>
             Ads, email, and people who arrive on their own are different traffic. This test only
             compares people who came through the same entry link.
           </p>
           <p>
-            A higher percentage is not a winner. Wait for 200 people on each page and 14 days.
-            Trials that are still running are not finished payment results. If the tracking is
-            unclear, the result is inconclusive.
+            A higher percentage is not a winner. The screen says Collecting Data until 14 days
+            have passed and each page has 100 assigned visitors. Promising Direction means one
+            page is ahead, but that is not a reason to move the budget. Actionable Winner requires
+            28 days, 100 assigned visitors on each page, at least 15 tied trials, and a wider 99%
+            bar because these results are checked more than once. Inconclusive means that
+            observation happened and the gap is too small. Measurement Problem means the tracking
+            could not be read. This does not pick a winner. You record the decision.
           </p>
           <p>
             The app can prepare the planned test and count views, trials, and payments. You
             choose when to start, pause, and complete, and you write the decision.
           </p>
           <p>
-            Later, these tests can be tied to who stays and what a customer is worth. This test
-            does not do that yet.
+            Long-term retention is on the retention view, not this scoreboard. Scroll depth,
+            section visibility, and engaged time explain where people go. They do not decide
+            the winner. Scroll percentages are imperfect because the pages have different lengths.
+            Neither sales page currently plays a video.
           </p>
         </div>
       </details>
@@ -466,6 +476,8 @@ function LandingExperimentResult({ test }: { test: OperatingSnapshot["landingExp
         Decision: {test.conclusion ?? "No measured result is stored."}
       </p>
       <p className="text-sm text-gray-700">Next: {test.nextAction ?? "No next action recorded."}</p>
+      <p className="text-sm font-medium text-gray-900">Evidence: {test.evidenceState}</p>
+      <p className="text-sm text-gray-700">{test.evidenceNote}</p>
       <p className="text-sm text-gray-700">Trial-start rate difference: {test.difference}</p>
       <p className="text-sm text-gray-600">{test.coverage}</p>
       {test.exposuresUnreadable ? (
@@ -473,7 +485,7 @@ function LandingExperimentResult({ test }: { test: OperatingSnapshot["landingExp
           Exposures could not be read. Do not treat that as zero visitors.
         </p>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 md:grid-cols-2">
           {test.rows.map((row) => (
             <article
               key={row.variant}
@@ -482,18 +494,78 @@ function LandingExperimentResult({ test }: { test: OperatingSnapshot["landingExp
               <h3 className="font-medium text-gray-900">
                 {row.label} <span className="font-normal text-gray-500">{row.path}</span>
               </h3>
-              <p className="mt-2">Exposed visitors: {row.exposed}</p>
-              <p>Join clicks: {row.clicks}</p>
-              <p>Checkout starts: {row.checkouts}</p>
+              <p className="mt-2">Assigned visitors: {row.assigned}</p>
+              <p>Confirmed page exposures: {row.exposed}</p>
+              <p>CTA clickers: {row.clicks}</p>
+              <p>Completed accounts: {row.accounts}</p>
+              <p>Accounts that already existed: {row.priorAccounts}</p>
+              <p>Checkout sessions created: {row.checkouts}</p>
               <p>Checkout creation failures: {row.checkoutFailures}</p>
-              <p>Attributed trials: {row.trials}</p>
-              <p>Trial-start rate: {row.trialRate}</p>
-              <p>Confirmed paid conversions: {row.paid}</p>
-              <p>Mature paid-conversion rate: {row.matureRate}</p>
+              <p>Genuine free-trial starts: {row.trials}</p>
+              <p>Trial rate per assigned visitor: {row.trialRate}</p>
+              <p>Trial rate per exposed visitor: {row.exposedTrialRate}</p>
+              <p>First paying subscribers: {row.paid}</p>
+              <p>Mature trial-to-paid: {row.matureRate}</p>
             </article>
           ))}
         </div>
       )}
+      <details className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+        <summary className="cursor-pointer font-medium text-gray-900">Funnel details</summary>
+        <p className="mt-3">
+          Checkout sessions created are not proof the visitor saw the hosted checkout page. Account
+          created is not a trial. A failed checkout creation is separate from someone who left.
+        </p>
+      </details>
+      <details className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+        <summary className="cursor-pointer font-medium text-gray-900">Visitor behavior</summary>
+        <div className="mt-3 space-y-2">
+          <p>{test.behaviorNote}</p>
+          {test.ctaRows.length === 0 ? (
+            <p>No named CTA clicks recorded yet.</p>
+          ) : (
+            <ul className="space-y-1">
+              {test.ctaRows.map((row) => (
+                <li key={row.surface}>
+                  {row.label}: {row.clickers} people, {row.rawClicks} clicks, {row.rate} of exposed
+                  visitors on that page.
+                </li>
+              ))}
+            </ul>
+          )}
+          {test.sectionLines.length > 0 ? (
+            <ul className="space-y-1">
+              {test.sectionLines.map((line) => (
+                <li key={line.id}>
+                  {line.path} {line.label}: {line.reached} reached, {line.rate} of visitors with
+                  behavior telemetry.
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p>{test.scrollNote}</p>
+          <p>{test.engagedNote}</p>
+          <p>{test.videoNote}</p>
+        </div>
+      </details>
+      <details className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+        <summary className="cursor-pointer font-medium text-gray-900">Traffic and devices</summary>
+        <div className="mt-3 space-y-2">
+          <p>{test.campaignNote}</p>
+          <p>{test.deviceNote}</p>
+        </div>
+      </details>
+      <details className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+        <summary className="cursor-pointer font-medium text-gray-900">Measurement health</summary>
+        <div className="mt-3 space-y-2">
+          <p>Unknown trials: {test.unknownTrials}. These were not assigned to either page.</p>
+          <p>
+            Assignment counts are rows that were saved. A failed save is not a zero. A blocked
+            browser id is not a person.
+          </p>
+          <p>{test.videoNote}</p>
+        </div>
+      </details>
     </div>
   );
 }

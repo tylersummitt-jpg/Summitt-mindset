@@ -3,7 +3,7 @@ export const PROUD_TEST_EXPERIMENT_ID = "b8c1e2a0-7d4f-4a1e-9c3b-6f0a1d2e4b70";
 
 export const PROUD_TEST_ENTRY_PATH = "/go/proud-test";
 
-export const PROUD_TEST_INSTRUMENTATION_VERSION = "1";
+export const PROUD_TEST_INSTRUMENTATION_VERSION = "2";
 
 export const PROUD_TEST_COOKIE = "sm_exp";
 
@@ -124,9 +124,9 @@ export const PROUD_TEST_DEFINITION = {
     "Current homepage at /. Only visitors assigned at /go/proud-test while this experiment is running. A direct visit to / is not an assignment.",
   challenger:
     "Audience page /become-proud. About half of eligible visitors from the same entry URL. A direct visit to /become-proud is not an assignment.",
-  primaryOutcome: "Verified free-trial starts per unique exposed visitor.",
+  primaryOutcome: "Genuine Stripe free-trial starts per unique eligible assigned visitor.",
   decisionCriteria:
-    "Primary metric: verified free-trial starts per unique exposed visitor. A trial counts only when that visitor was exposed to one variant, the Clerk link is unambiguous, and the trial starts within 7 days after the first exposure. Minimum before a human decision: 200 exposed visitors on each variant and 14 days after the start date. Below that, the result is inconclusive. Paid outcomes: confirmed first payments and mature trial-to-paid. Do not judge paid conversion while trials are still running. past_due is not paid. Guardrail: pause if signup or checkout breaks on one variant. A higher button-click rate is not a decision. Inconclusive when the minimum is not met, too many trials cannot be tied to a visitor, or tracking is untrustworthy. A person records the decision in this registry. This system does not select a winner.",
+    "Primary metric: genuine Stripe free-trial starts per unique eligible assigned visitor. A trial counts when that visitor was assigned to one variant, the Clerk link is unambiguous, and the trial starts within 7 days after assignment. Missing exposures stay in the denominator. The exposed-visitor trial rate is a diagnostic. Paid outcomes: confirmed first payments and mature trial-to-paid. Do not judge paid conversion while trials are still running. past_due is not paid. Apple memberships are not included. Collecting data until 14 days have passed and each page has 100 assigned visitors. Promising direction when a 95% interval for the rate difference excludes a tie. Actionable review when 28 days have passed, each page has 100 assigned visitors, at least 15 trials have been tied to the test, and a 99% interval excludes a tie. The wider bar is used because the result is looked at more than once. Inconclusive when that observation is met and the interval includes a tie. Measurement problem when assignment or trial reads fail, or too many trials cannot be tied to one visitor. A higher click rate is not a decision. A person records the decision. This system does not select a winner.",
   secondaryOutcomes:
     "Join button clicks, checkout starts, confirmed first payments, and mature trial-to-paid conversion.",
   nextAction:

@@ -1,4 +1,12 @@
 import { LANDING_FIRST_PAYMENT_WINDOW_MS } from "@/lib/landing-page-performance";
+import {
+  CTA_LABELS,
+  EXPERIMENT_SECTIONS,
+  campaignMixNote,
+  deviceLine,
+  experimentEvidenceState,
+  type ExperimentCtaSurface,
+} from "@/lib/landing-experiment-telemetry";
 
 export {
   APPROVED_LANDING_DESTINATIONS,
@@ -75,6 +83,36 @@ export type ProudTestSignal = {
   visitorId: string;
   kind: "click" | "checkout" | "checkout_failed";
   occurredAtMs: number;
+  surface?: string | null;
+};
+
+export type ProudTestAssignment = {
+  visitorId: string;
+  variant: ProudTestVariant;
+  occurredAtMs: number;
+  campaign: string | null;
+  device: string | null;
+  os: string | null;
+  browser: string | null;
+  inApp: string | null;
+  synthetic: boolean;
+};
+
+export type ProudTestAccount = {
+  visitorId: string;
+  occurredAtMs: number;
+};
+
+export type ProudTestBehavior = {
+  visitorId: string;
+  viewedPath: string;
+  sections: string[];
+  scroll: number;
+  engaged: number;
+  device: string | null;
+  os: string | null;
+  browser: string | null;
+  inApp: string | null;
 };
 
 export type ProudTestCount = number | "Not available";
@@ -83,14 +121,35 @@ export type ProudTestVariantRow = {
   variant: ProudTestVariant;
   label: string;
   path: string;
+  assigned: ProudTestCount;
   exposed: ProudTestCount;
   clicks: ProudTestCount;
+  rawClicks: ProudTestCount;
   checkouts: ProudTestCount;
   checkoutFailures: ProudTestCount;
+  accounts: ProudTestCount;
+  priorAccounts: ProudTestCount;
   trials: ProudTestCount;
   trialRate: string;
+  exposedTrialRate: string;
   paid: ProudTestCount;
   matureRate: string;
+};
+
+export type ProudTestCtaRow = {
+  surface: string;
+  label: string;
+  clickers: number;
+  rawClicks: number;
+  rate: string;
+};
+
+export type ProudTestSectionLine = {
+  id: string;
+  label: string;
+  path: string;
+  reached: number;
+  rate: string;
 };
 
 export type ProudTestReport = {
@@ -108,6 +167,16 @@ export type ProudTestReport = {
   unknownTrials: ProudTestCount;
   coverage: string;
   note: string;
+  evidenceState: string;
+  evidenceNote: string;
+  ctaRows: ProudTestCtaRow[];
+  sectionLines: ProudTestSectionLine[];
+  behaviorNote: string;
+  scrollNote: string;
+  engagedNote: string;
+  deviceNote: string;
+  campaignNote: string;
+  videoNote: string;
 };
 
 const NOT_LOADED: ProudTestReport = {
@@ -125,6 +194,17 @@ const NOT_LOADED: ProudTestReport = {
   unknownTrials: "Not available",
   coverage: "Not loaded.",
   note: "Controlled landing-test results were not loaded for this view.",
+  evidenceState: "Collecting Data",
+  evidenceNote: "Controlled landing-test results were not loaded for this view.",
+  ctaRows: [],
+  sectionLines: [],
+  behaviorNote: "Not loaded.",
+  scrollNote: "Not loaded.",
+  engagedNote: "Not loaded.",
+  deviceNote: "Not available",
+  campaignNote: "Not loaded.",
+  videoNote:
+    "Neither sales page currently includes a playable video. Become Proud shows Film Room still images. Homepage video milestones that exist elsewhere are not part of this comparison.",
 };
 
 export const EMPTY_PROUD_TEST_REPORT = NOT_LOADED;
@@ -259,6 +339,12 @@ export function summarizeProudTest(args: {
   trials?: readonly ProudTestTrial[];
   payments?: readonly ProudTestPayment[];
   signals?: readonly ProudTestSignal[];
+  assignments?: readonly ProudTestAssignment[];
+  assignmentsReadable?: boolean;
+  accounts?: readonly ProudTestAccount[];
+  accountsReadable?: boolean;
+  behaviors?: readonly ProudTestBehavior[];
+  behaviorsReadable?: boolean;
   nowMs?: number;
 }): ProudTestReport {
   if (!args.loaded) return NOT_LOADED;
@@ -291,10 +377,35 @@ export function summarizeProudTest(args: {
       unknownTrials: "Not available",
       coverage: "Exposures could not be read. Do not treat that as zero visitors.",
       note: noteParts.join(" "),
+      evidenceState: "Measurement Problem",
+      evidenceNote: "Exposures could not be read. Do not treat that as zero visitors.",
+      ctaRows: [],
+      sectionLines: [],
+      behaviorNote: "Not available",
+      scrollNote: "Not available",
+      engagedNote: "Not available",
+      deviceNote: "Not available",
+      campaignNote: "Not available",
+      videoNote: NOT_LOADED.videoNote,
     };
   }
 
-  const exposed = exposureByVisitor(args.exposures ?? []);
+  const useAssigned = args.assignmentsReadable === true;
+  const syntheticVisitors = new Set(
+    (args.assignments ?? []).filter((row) => row.synthetic).map((row) => row.visitorId)
+  );
+  const assigned = exposureByVisitor(
+    (args.assignments ?? [])
+      .filter((row) => !row.synthetic)
+      .map((row) => ({
+        visitorId: row.visitorId,
+        variant: row.variant,
+        occurredAtMs: row.occurredAtMs,
+      }))
+  );
+  const exposed = exposureByVisitor(
+    (args.exposures ?? []).filter((row) => !syntheticVisitors.has(row.visitorId))
+  );
   const links = identityByClerk(args.identities ?? []);
   const paymentsByClerk = new Map<string, ProudTestPayment[]>();
   if (args.paymentsReadable) {
@@ -313,7 +424,21 @@ export function summarizeProudTest(args: {
     control: new Set<string>(),
     challenger: new Set<string>(),
   };
+  const assignedIds = {
+    control: new Set<string>(),
+    challenger: new Set<string>(),
+  };
+  const ctaClickers = new Map<string, Set<string>>();
+  const ctaRaw = new Map<string, number>();
   let splitVisitors = 0;
+  let splitAssignments = 0;
+  for (const [visitorId, state] of assigned) {
+    if (state.variant === "split") {
+      splitAssignments += 1;
+      continue;
+    }
+    assignedIds[state.variant].add(visitorId);
+  }
   for (const [visitorId, state] of exposed) {
     if (state.variant === "split") {
       splitVisitors += 1;
@@ -324,10 +449,21 @@ export function summarizeProudTest(args: {
 
   if (args.signalsReadable) {
     for (const signal of args.signals ?? []) {
+      if (syntheticVisitors.has(signal.visitorId)) continue;
       const state = exposed.get(signal.visitorId);
       if (!state || state.variant === "split" || signal.occurredAtMs < state.firstAtMs) continue;
       const bucket = buckets[state.variant];
-      if (signal.kind === "click") bucket.clicks.add(signal.visitorId);
+      if (signal.kind === "click") {
+        bucket.clicks.add(signal.visitorId);
+        bucket.rawClicks += 1;
+        const surface = signal.surface?.trim();
+        if (surface) {
+          const people = ctaClickers.get(surface) ?? new Set<string>();
+          people.add(signal.visitorId);
+          ctaClickers.set(surface, people);
+          ctaRaw.set(surface, (ctaRaw.get(surface) ?? 0) + 1);
+        }
+      }
       if (signal.kind === "checkout") bucket.checkouts.add(signal.visitorId);
       if (signal.kind === "checkout_failed") bucket.checkoutFailures.add(signal.visitorId);
     }
@@ -339,8 +475,9 @@ export function summarizeProudTest(args: {
       const clerkUserId = trial.clerkUserId ?? "";
       const link = links.get(clerkUserId);
       if (!link) continue;
+      const population = useAssigned ? assigned : exposed;
       const states = [...link.visitorIds]
-        .map((visitorId) => ({ visitorId, state: exposed.get(visitorId) }))
+        .map((visitorId) => ({ visitorId, state: population.get(visitorId) }))
         .filter((item): item is { visitorId: string; state: ExposureState } => item.state != null);
       if (states.length === 0) continue;
       const variants = new Set(states.map((item) => item.state.variant));
@@ -353,8 +490,24 @@ export function summarizeProudTest(args: {
       if (!match || !variant || variant === "split") continue;
       if (trial.trialStartMs < match.state.firstAtMs) continue;
       if (trial.trialStartMs > match.state.firstAtMs + PROUD_TEST_TRIAL_WINDOW_MS) continue;
+      if (useAssigned) {
+        const seen = exposed.get(match.visitorId);
+        if (seen && (seen.variant === "split" || seen.variant !== variant)) {
+          unknownTrials = Number(unknownTrials) + 1;
+          continue;
+        }
+      }
       const bucket = buckets[variant];
       bucket.trials.add(match.visitorId);
+      const seen = exposed.get(match.visitorId);
+      if (
+        seen &&
+        seen.variant === variant &&
+        trial.trialStartMs >= seen.firstAtMs &&
+        trial.trialStartMs <= seen.firstAtMs + PROUD_TEST_TRIAL_WINDOW_MS
+      ) {
+        bucket.exposedTrials.add(match.visitorId);
+      }
       if (!args.paymentsReadable) continue;
       const outcome = paidOutcome(trial, paymentsByClerk.get(clerkUserId) ?? [], nowMs);
       if (outcome === "confirmed") {
@@ -366,19 +519,41 @@ export function summarizeProudTest(args: {
     }
   }
 
-  const rows = (["control", "challenger"] as const).map((variant) => {
+  if (useAssigned && args.accountsReadable) {
+    for (const account of args.accounts ?? []) {
+      if (syntheticVisitors.has(account.visitorId)) continue;
+      const state = assigned.get(account.visitorId);
+      if (!state || state.variant === "split") continue;
+      const bucket = buckets[state.variant];
+      if (account.occurredAtMs < state.firstAtMs) bucket.priorAccounts.add(account.visitorId);
+      else bucket.accounts.add(account.visitorId);
+    }
+  }
+
+  const rows: ProudTestVariantRow[] = (["control", "challenger"] as const).map((variant) => {
     const bucket = buckets[variant];
     const exposedCount = exposedIds[variant].size;
+    const assignedCount = assignedIds[variant].size;
+    const primaryTrials = bucket.trials.size;
+    const primaryDenominator = useAssigned ? assignedCount : exposedCount;
     return {
       variant,
-      label: variant === "control" ? "Control A" : "Challenger B",
+      label: variant === "control" ? "Homepage" : "Become Proud",
       path: destinations[variant],
+      assigned: useAssigned ? assignedCount : "Not available",
       exposed: exposedCount,
       clicks: shown(args.signalsReadable, bucket.clicks.size),
+      rawClicks: shown(args.signalsReadable, bucket.rawClicks),
       checkouts: shown(args.signalsReadable, bucket.checkouts.size),
       checkoutFailures: shown(args.signalsReadable, bucket.checkoutFailures.size),
-      trials: shown(args.trialsReadable, bucket.trials.size),
-      trialRate: args.trialsReadable ? rate(bucket.trials.size, exposedCount) : "Not available",
+      accounts: useAssigned && args.accountsReadable ? bucket.accounts.size : "Not available",
+      priorAccounts:
+        useAssigned && args.accountsReadable ? bucket.priorAccounts.size : "Not available",
+      trials: shown(args.trialsReadable, primaryTrials),
+      trialRate: args.trialsReadable ? rate(primaryTrials, primaryDenominator) : "Not available",
+      exposedTrialRate: args.trialsReadable
+        ? rate(useAssigned ? bucket.exposedTrials.size : primaryTrials, exposedCount)
+        : "Not available",
       paid: shown(args.paymentsReadable, bucket.paid.size),
       matureRate: args.paymentsReadable
         ? rate(bucket.paid.size, bucket.mature.size)
@@ -389,9 +564,11 @@ export function summarizeProudTest(args: {
   const controlRate = rows[0]?.trialRate ?? "Not available";
   const challengerRate = rows[1]?.trialRate ?? "Not available";
   let difference = "Not available";
+  const comparedControl = useAssigned ? assignedIds.control.size : exposedIds.control.size;
+  const comparedChallenger = useAssigned ? assignedIds.challenger.size : exposedIds.challenger.size;
   if (
-    exposedIds.control.size > 0 &&
-    exposedIds.challenger.size > 0 &&
+    comparedControl > 0 &&
+    comparedChallenger > 0 &&
     controlRate !== "Not available" &&
     challengerRate !== "Not available"
   ) {
@@ -399,24 +576,122 @@ export function summarizeProudTest(args: {
     difference = `${gap.toFixed(1)} percentage points, challenger minus control. This is not a winner.`;
   }
   const elapsed = daysSince(args.startOn ?? null, nowMs);
-  const minMet =
-    exposedIds.control.size >= PROUD_TEST_MIN_EXPOSED_PER_VARIANT &&
-    exposedIds.challenger.size >= PROUD_TEST_MIN_EXPOSED_PER_VARIANT &&
-    elapsed != null &&
-    elapsed >= PROUD_TEST_MIN_DAYS;
+  const evidence = experimentEvidenceState({
+    readable: useAssigned && args.trialsReadable && args.exposuresReadable,
+    days: elapsed,
+    assignedA: assignedIds.control.size,
+    assignedB: assignedIds.challenger.size,
+    trialsA: buckets.control.trials.size,
+    trialsB: buckets.challenger.trials.size,
+  });
+  const ctaRows = [...ctaClickers.entries()].map(([surface, people]) => {
+    const proud = surface.startsWith("proud_");
+    const denominator = proud ? exposedIds.challenger.size : exposedIds.control.size;
+    return {
+      surface,
+      label: CTA_LABELS[surface as ExperimentCtaSurface] ?? surface,
+      clickers: people.size,
+      rawClicks: ctaRaw.get(surface) ?? people.size,
+      rate: rate(people.size, denominator),
+    };
+  });
+  const behaviorVisitors = new Map<string, Set<string>>();
+  const sectionVisitors = new Map<string, Set<string>>();
+  const scrollVisitors = new Map<string, Map<number, Set<string>>>();
+  const engagedVisitors = new Map<string, Map<number, Set<string>>>();
+  if (args.behaviorsReadable) {
+    for (const behavior of args.behaviors ?? []) {
+      if (syntheticVisitors.has(behavior.visitorId)) continue;
+      const onPath = behaviorVisitors.get(behavior.viewedPath) ?? new Set<string>();
+      onPath.add(behavior.visitorId);
+      behaviorVisitors.set(behavior.viewedPath, onPath);
+      for (const section of behavior.sections) {
+        const seen = sectionVisitors.get(section) ?? new Set<string>();
+        seen.add(behavior.visitorId);
+        sectionVisitors.set(section, seen);
+      }
+      for (const milestone of [25, 50, 75, 90]) {
+        if (behavior.scroll < milestone) continue;
+        const byPath = scrollVisitors.get(behavior.viewedPath) ?? new Map<number, Set<string>>();
+        const seen = byPath.get(milestone) ?? new Set<string>();
+        seen.add(behavior.visitorId);
+        byPath.set(milestone, seen);
+        scrollVisitors.set(behavior.viewedPath, byPath);
+      }
+      for (const bucket of [15, 30, 60, 120]) {
+        if (behavior.engaged < bucket) continue;
+        const byPath = engagedVisitors.get(behavior.viewedPath) ?? new Map<number, Set<string>>();
+        const seen = byPath.get(bucket) ?? new Set<string>();
+        seen.add(behavior.visitorId);
+        byPath.set(bucket, seen);
+        engagedVisitors.set(behavior.viewedPath, byPath);
+      }
+    }
+  }
+  const sectionLines = EXPERIMENT_SECTIONS.map((section) => {
+    const observed = behaviorVisitors.get(section.path)?.size ?? 0;
+    const reached = sectionVisitors.get(section.id)?.size ?? 0;
+    return {
+      id: section.id,
+      label: section.label,
+      path: section.path,
+      reached,
+      rate: args.behaviorsReadable ? rate(reached, observed) : "Not available",
+    };
+  });
+  const scrollParts = ["/", "/become-proud"].map((path) => {
+    const observed = behaviorVisitors.get(path)?.size ?? 0;
+    const marks = [25, 50, 75, 90].map((milestone) => {
+      const count = scrollVisitors.get(path)?.get(milestone)?.size ?? 0;
+      return `${milestone}% ${args.behaviorsReadable ? rate(count, observed) : "Not available"}`;
+    });
+    return `${path}: ${marks.join(", ")}`;
+  });
+  const engagedParts = ["/", "/become-proud"].map((path) => {
+    const observed = behaviorVisitors.get(path)?.size ?? 0;
+    const marks = [15, 30, 60, 120].map((bucket) => {
+      const count = engagedVisitors.get(path)?.get(bucket)?.size ?? 0;
+      return `${bucket}s ${args.behaviorsReadable ? rate(count, observed) : "Not available"}`;
+    });
+    return `${path}: ${marks.join(", ")}`;
+  });
+  const devices = { mobile: 0, desktop: 0 };
+  const systems = { ios: 0, android: 0, other: 0 };
+  const browsers = { safari: 0, chrome: 0, other: 0 };
+  const apps = { instagram: 0, facebook: 0, tiktok: 0 };
+  if (useAssigned) {
+    const seen = new Set<string>();
+    for (const row of args.assignments ?? []) {
+      if (row.synthetic || seen.has(row.visitorId)) continue;
+      seen.add(row.visitorId);
+      if (row.device === "mobile" || row.device === "desktop") devices[row.device] += 1;
+      if (row.os === "ios" || row.os === "android" || row.os === "other") systems[row.os] += 1;
+      if (row.browser === "safari" || row.browser === "chrome" || row.browser === "other") {
+        browsers[row.browser] += 1;
+      }
+      if (row.inApp === "instagram" || row.inApp === "facebook" || row.inApp === "tiktok") {
+        apps[row.inApp] += 1;
+      }
+    }
+  }
+  const observedBehavior = [...behaviorVisitors.values()].reduce((sum, set) => sum + set.size, 0);
   const coverage = [
     `Instrumentation version ${PROUD_TEST_INSTRUMENTATION_VERSION}.`,
-    minMet
-      ? "The minimum observation size has been met. A person still has to record the decision."
-      : `Inconclusive until each variant has ${PROUD_TEST_MIN_EXPOSED_PER_VARIANT} exposed visitors and ${PROUD_TEST_MIN_DAYS} days have passed since the start date.`,
+    useAssigned
+      ? "Primary trial rate uses eligible assigned visitors. People who were assigned and never produced an exposure stay in that denominator."
+      : "Assignment records were not included, so this trial rate uses exposed visitors.",
     args.paymentsReadable
-      ? "Confirmed payments follow this exposure cohort through the first-payment window. Changing the dashboard date range does not change them."
+      ? "Confirmed payments follow the counted trials through the first-payment window. Changing the dashboard date range does not change them."
       : "Confirmed payments are not available. Invoices could not be read.",
     splitVisitors > 0
       ? `${splitVisitors} visitors were seen on both variants and are not counted for either.`
       : "No visitor was counted on both variants.",
-    `Trials that could not be tied to one exposed visitor: ${unknownTrials}.`,
-  ].join(" ");
+    splitAssignments > 0 ? `${splitAssignments} visitors had two assignment records.` : "",
+    `Trials that could not be tied to one visitor: ${unknownTrials}.`,
+    evidence.note,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return {
     loaded: true,
@@ -433,12 +708,42 @@ export function summarizeProudTest(args: {
     unknownTrials,
     coverage,
     note: noteParts.join(" "),
+    evidenceState: useAssigned && args.trialsReadable ? evidence.state : "Measurement Problem",
+    evidenceNote: useAssigned && args.trialsReadable
+      ? evidence.note
+      : "Assignment records or trial results were not available for the decision rule.",
+    ctaRows,
+    sectionLines: args.behaviorsReadable ? sectionLines : [],
+    behaviorNote: args.behaviorsReadable
+      ? `Section rates use ${observedBehavior} experiment visitors who sent behavior telemetry. That is not every exposed visitor.`
+      : "Behavior telemetry could not be read.",
+    scrollNote: args.behaviorsReadable
+      ? `${scrollParts.join(" | ")} Scroll percentage is a weak comparison because the pages have different lengths.`
+      : "Scroll depth could not be read.",
+    engagedNote: args.behaviorsReadable
+      ? `${engagedParts.join(" | ")} Engaged time counts a visible tab and pauses after about 30 seconds without activity. It is not a measure of reading.`
+      : "Engaged time could not be read.",
+    deviceNote: useAssigned
+      ? `Device ${deviceLine(devices)}. System ${deviceLine(systems)}. Browser ${deviceLine(browsers)}. In-app ${deviceLine(apps)}.`
+      : "Not available",
+    campaignNote: useAssigned
+      ? campaignMixNote(
+          (args.assignments ?? [])
+            .filter((row) => !row.synthetic)
+            .map((row) => ({ campaign: row.campaign ?? "", variant: row.variant }))
+        )
+      : "Not available",
+    videoNote: NOT_LOADED.videoNote,
   };
 }
 
 function emptyBucket() {
   return {
     clicks: new Set<string>(),
+    rawClicks: 0,
+    accounts: new Set<string>(),
+    priorAccounts: new Set<string>(),
+    exposedTrials: new Set<string>(),
     checkouts: new Set<string>(),
     checkoutFailures: new Set<string>(),
     trials: new Set<string>(),
@@ -460,9 +765,16 @@ export function formatProudTestReport(report: ProudTestReport): string[] {
     `Measured decision: ${report.conclusion ?? "No measured result is stored. This does not calculate a winner."}`,
     `Next: ${report.nextAction ?? "No next action recorded."}`,
     `Started: ${report.startOn ?? "Not started."}`,
+    `Evidence state: ${report.evidenceState}. ${report.evidenceNote}`,
     `Trial-start rate difference: ${report.difference}`,
     `Unknown trials: ${report.unknownTrials}`,
-    report.coverage
+    report.coverage,
+    report.behaviorNote,
+    report.scrollNote,
+    report.engagedNote,
+    report.deviceNote,
+    report.campaignNote,
+    report.videoNote
   );
   if (report.exposuresUnreadable) {
     lines.push("Exposures could not be read. Do not treat that as zero visitors.");
@@ -470,14 +782,19 @@ export function formatProudTestReport(report: ProudTestReport): string[] {
   for (const row of report.rows) {
     lines.push(
       `- ${row.label} (${row.path})`,
+      `  Assigned visitors: ${row.assigned}`,
       `  Exposed visitors: ${row.exposed}`,
-      `  Join clicks: ${row.clicks}`,
-      `  Checkout starts: ${row.checkouts}`,
+      `  CTA clickers: ${row.clicks}`,
+      `  Raw CTA clicks: ${row.rawClicks}`,
+      `  Completed accounts: ${row.accounts}`,
+      `  Accounts that already existed: ${row.priorAccounts}`,
+      `  Checkout sessions created: ${row.checkouts}`,
       `  Checkout creation failures: ${row.checkoutFailures}`,
-      `  Attributed trials: ${row.trials}`,
-      `  Trial-start rate: ${row.trialRate}`,
-      `  Confirmed paid conversions: ${row.paid}`,
-      `  Mature paid-conversion rate: ${row.matureRate}`
+      `  Genuine free-trial starts: ${row.trials}`,
+      `  Trial rate per assigned visitor: ${row.trialRate}`,
+      `  Trial rate per exposed visitor: ${row.exposedTrialRate}`,
+      `  First paying subscribers: ${row.paid}`,
+      `  Mature trial-to-paid: ${row.matureRate}`
     );
   }
   return lines;

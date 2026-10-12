@@ -17,6 +17,9 @@ import {
   summarizeProudTest,
   type LandingAssignmentCookie,
   type LandingDestinations,
+  type ProudTestAccount,
+  type ProudTestAssignment,
+  type ProudTestBehavior,
   type ProudTestExposure,
   type ProudTestIdentity,
   type ProudTestPayment,
@@ -25,6 +28,7 @@ import {
   type ProudTestStatus,
   type ProudTestVariant,
 } from "@/lib/landing-experiment";
+import { mergeBehavior, parseClientEnvironment } from "@/lib/landing-experiment-telemetry";
 import { plannedWritePayload } from "@/lib/operating-experiments";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -153,6 +157,7 @@ async function insertExposure(args: {
     .eq("event_type", "page_viewed")
     .eq("visitor_id", args.visitorId)
     .filter("metadata->>experiment_id", "eq", args.experimentId)
+    .filter("metadata->>experiment_record", "eq", "exposure")
     .filter("metadata->>experiment_variant", "eq", args.variant)
     .limit(1);
   if (existing.error) {
@@ -174,6 +179,7 @@ async function insertExposure(args: {
     metadata: {
       experiment_id: args.experimentId,
       experiment_variant: args.variant,
+      experiment_record: "exposure",
       instrumentation_version: PROUD_TEST_INSTRUMENTATION_VERSION,
     },
   });
@@ -256,7 +262,15 @@ async function readExposures(
     const batch = data ?? [];
     for (const raw of batch) {
       if (typeof raw.visitor_id !== "string" || typeof raw.occurred_at !== "string") continue;
-      const metadata = raw.metadata as { experiment_variant?: string } | null;
+      const metadata = raw.metadata as {
+        experiment_variant?: string;
+        experiment_record?: string;
+        synthetic?: boolean;
+      } | null;
+      if (metadata?.experiment_record === "assignment" || metadata?.experiment_record === "behavior") {
+        continue;
+      }
+      if (metadata?.synthetic === true) continue;
       const variant = metadata?.experiment_variant;
       if (variant !== "control" && variant !== "challenger") continue;
       const occurredAtMs = Date.parse(raw.occurred_at);
@@ -314,7 +328,7 @@ async function readSignals(): Promise<{ rows: ProudTestSignal[]; complete: boole
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const { data, error } = await supabaseServer
       .from("marketing_events")
-      .select("event_type, visitor_id, occurred_at")
+      .select("event_type, visitor_id, occurred_at, metadata")
       .in("event_type", ["trial_cta_clicked", "checkout_opened", "checkout_creation_failed"])
       .order("occurred_at", { ascending: true })
       .range(from, from + PAGE_SIZE - 1);
@@ -333,7 +347,13 @@ async function readSignals(): Promise<{ rows: ProudTestSignal[]; complete: boole
               ? "checkout_failed"
               : null;
       if (!kind) continue;
-      rows.push({ visitorId: raw.visitor_id, kind, occurredAtMs });
+      const surface = (raw.metadata as { cta_surface?: string } | null)?.cta_surface;
+      rows.push({
+        visitorId: raw.visitor_id,
+        kind,
+        occurredAtMs,
+        surface: typeof surface === "string" ? surface : null,
+      });
     }
     if (batch.length < PAGE_SIZE) return { rows, complete: true };
     from += PAGE_SIZE;
@@ -342,23 +362,300 @@ async function readSignals(): Promise<{ rows: ProudTestSignal[]; complete: boole
 }
 
 const UNREADABLE_REPORT: ProudTestReport = {
-  ...{
-    loaded: true,
-    exposuresUnreadable: true,
-    name: "Controlled landing test",
-    entrySlug: null,
-    status: "unavailable",
-    evidence: null,
-    conclusion: null,
-    nextAction: null,
-    startOn: null,
-    rows: [],
-    difference: "Not available",
-    unknownTrials: "Not available",
-    coverage: "Exposures could not be read. Do not treat that as zero visitors.",
-    note: "The controlled landing test could not be read. Do not treat that as zero visitors.",
-  },
+  loaded: true,
+  exposuresUnreadable: true,
+  name: "Controlled landing test",
+  entrySlug: null,
+  status: "unavailable",
+  evidence: null,
+  conclusion: null,
+  nextAction: null,
+  startOn: null,
+  rows: [],
+  difference: "Not available",
+  unknownTrials: "Not available",
+  coverage: "Exposures could not be read. Do not treat that as zero visitors.",
+  note: "The controlled landing test could not be read. Do not treat that as zero visitors.",
+  evidenceState: "Measurement Problem",
+  evidenceNote: "The controlled landing test could not be read. Do not treat that as zero visitors.",
+  ctaRows: [],
+  sectionLines: [],
+  behaviorNote: "Not available",
+  scrollNote: "Not available",
+  engagedNote: "Not available",
+  deviceNote: "Not available",
+  campaignNote: "Not available",
+  videoNote:
+    "Neither sales page currently includes a playable video. Become Proud shows Film Room still images.",
 };
+
+/**
+ * One durable assignment per visitor. A refresh does not insert again.
+ * Failure is logged and does not block the redirect.
+ */
+export async function recordLandingAssignment(args: {
+  visitorId: string;
+  experimentId: string;
+  slug: string;
+  variant: ProudTestVariant;
+  attribution: AcquisitionCookiePayload;
+  userAgent: string | null;
+  synthetic: boolean;
+}): Promise<void> {
+  const existing = await supabaseServer
+    .from("marketing_events")
+    .select("id")
+    .eq("event_type", "page_viewed")
+    .eq("visitor_id", args.visitorId)
+    .filter("metadata->>experiment_id", "eq", args.experimentId)
+    .filter("metadata->>experiment_record", "eq", "assignment")
+    .limit(1);
+  if (existing.error) {
+    console.warn("[landing-experiment] assignment lookup failed", { reason: existing.error.message });
+    return;
+  }
+  if ((existing.data ?? []).length > 0) return;
+  const environment = parseClientEnvironment(args.userAgent);
+  const { error } = await supabaseServer.from("marketing_events").insert({
+    event_type: "page_viewed",
+    visitor_id: args.visitorId,
+    path: `/go/${args.slug}`,
+    utm_source: args.attribution.utm_source,
+    utm_medium: args.attribution.utm_medium,
+    utm_campaign: args.attribution.utm_campaign,
+    utm_content: args.attribution.utm_content,
+    source_normalized: args.attribution.source_normalized,
+    is_paid_acquisition: args.attribution.is_paid_acquisition,
+    referrer_host: args.attribution.referrer_host,
+    metadata: {
+      experiment_id: args.experimentId,
+      experiment_variant: args.variant,
+      experiment_record: "assignment",
+      instrumentation_version: PROUD_TEST_INSTRUMENTATION_VERSION,
+      device: environment.device,
+      os: environment.os,
+      browser: environment.browser,
+      in_app: environment.inApp,
+      synthetic: args.synthetic,
+    },
+  });
+  if (error && (error as { code?: string }).code !== "23505") {
+    console.warn("[landing-experiment] assignment insert failed", { reason: error.message });
+  }
+}
+
+export async function recordLandingBehavior(args: {
+  visitorId: string;
+  experimentId: string;
+  viewedPath: string;
+  sections: string[];
+  scroll: number;
+  engaged: number;
+  attribution: AcquisitionCookiePayload;
+  userAgent: string | null;
+  synthetic: boolean;
+}): Promise<void> {
+  const environment = parseClientEnvironment(args.userAgent);
+  const registry = await readLandingExperiments();
+  if (registry === "unavailable") return;
+  const experiment = registry.find((row) => row.id === args.experimentId);
+  if (!experiment) return;
+  const entryPath = `/go/${experiment.destinations.entrySlug}`;
+  const existing = await supabaseServer
+    .from("marketing_events")
+    .select("id, metadata")
+    .eq("event_type", "page_viewed")
+    .eq("visitor_id", args.visitorId)
+    .eq("path", entryPath)
+    .filter("metadata->>experiment_id", "eq", args.experimentId)
+    .filter("metadata->>experiment_record", "eq", "behavior")
+    .filter("metadata->>viewed_path", "eq", args.viewedPath)
+    .limit(1);
+  if (existing.error) {
+    console.warn("[landing-experiment] behavior lookup failed", { reason: existing.error.message });
+    return;
+  }
+  const previous = existing.data?.[0];
+  const previousMeta = (previous?.metadata ?? null) as {
+    sections?: string[];
+    scroll?: number;
+    engaged?: number;
+  } | null;
+  const merged = mergeBehavior({
+    previous: previousMeta
+      ? {
+          sections: previousMeta.sections ?? [],
+          scroll: previousMeta.scroll ?? 0,
+          engaged: previousMeta.engaged ?? 0,
+        }
+      : null,
+    sections: args.sections,
+    scroll: args.scroll,
+    engaged: args.engaged,
+  });
+  const metadata = {
+    experiment_id: args.experimentId,
+    experiment_record: "behavior",
+    viewed_path: args.viewedPath,
+    sections: merged.sections,
+    scroll: merged.scroll,
+    engaged: merged.engaged,
+    instrumentation_version: PROUD_TEST_INSTRUMENTATION_VERSION,
+    device: environment.device,
+    os: environment.os,
+    browser: environment.browser,
+    in_app: environment.inApp,
+    synthetic: args.synthetic,
+  };
+  if (previous?.id) {
+    const { error } = await supabaseServer
+      .from("marketing_events")
+      .update({ metadata })
+      .eq("id", previous.id);
+    if (error) console.warn("[landing-experiment] behavior update failed", { reason: error.message });
+    return;
+  }
+  const { error } = await supabaseServer.from("marketing_events").insert({
+    event_type: "page_viewed",
+    visitor_id: args.visitorId,
+    path: entryPath,
+    utm_source: args.attribution.utm_source,
+    utm_medium: args.attribution.utm_medium,
+    utm_campaign: args.attribution.utm_campaign,
+    utm_content: args.attribution.utm_content,
+    source_normalized: args.attribution.source_normalized,
+    is_paid_acquisition: args.attribution.is_paid_acquisition,
+    referrer_host: args.attribution.referrer_host,
+    metadata,
+  });
+  if (error && (error as { code?: string }).code !== "23505") {
+    console.warn("[landing-experiment] behavior insert failed", { reason: error.message });
+  }
+}
+
+async function readAssignments(
+  experimentId: string
+): Promise<{ rows: ProudTestAssignment[]; complete: boolean }> {
+  const rows: ProudTestAssignment[] = [];
+  let from = 0;
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const { data, error } = await supabaseServer
+      .from("marketing_events")
+      .select("visitor_id, occurred_at, utm_campaign, metadata")
+      .eq("event_type", "page_viewed")
+      .filter("metadata->>experiment_id", "eq", experimentId)
+      .filter("metadata->>experiment_record", "eq", "assignment")
+      .order("occurred_at", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return { rows: [], complete: false };
+    const batch = data ?? [];
+    for (const raw of batch) {
+      if (typeof raw.visitor_id !== "string" || typeof raw.occurred_at !== "string") continue;
+      const metadata = raw.metadata as {
+        experiment_variant?: string;
+        device?: string;
+        os?: string;
+        browser?: string;
+        in_app?: string;
+        synthetic?: boolean;
+      } | null;
+      const variant = metadata?.experiment_variant;
+      if (variant !== "control" && variant !== "challenger") continue;
+      const occurredAtMs = Date.parse(raw.occurred_at);
+      if (!Number.isFinite(occurredAtMs)) continue;
+      rows.push({
+        visitorId: raw.visitor_id,
+        variant,
+        occurredAtMs,
+        campaign: typeof raw.utm_campaign === "string" ? raw.utm_campaign : null,
+        device: metadata?.device ?? null,
+        os: metadata?.os ?? null,
+        browser: metadata?.browser ?? null,
+        inApp: metadata?.in_app ?? null,
+        synthetic: metadata?.synthetic === true,
+      });
+    }
+    if (batch.length < PAGE_SIZE) return { rows, complete: true };
+    from += PAGE_SIZE;
+  }
+  return { rows, complete: false };
+}
+
+async function readAccounts(): Promise<{ rows: ProudTestAccount[]; complete: boolean }> {
+  const rows: ProudTestAccount[] = [];
+  let from = 0;
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const { data, error } = await supabaseServer
+      .from("marketing_events")
+      .select("visitor_id, occurred_at")
+      .eq("event_type", "account_created")
+      .order("occurred_at", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return { rows: [], complete: false };
+    const batch = data ?? [];
+    for (const raw of batch) {
+      if (typeof raw.visitor_id !== "string" || typeof raw.occurred_at !== "string") continue;
+      const occurredAtMs = Date.parse(raw.occurred_at);
+      if (!Number.isFinite(occurredAtMs)) continue;
+      rows.push({ visitorId: raw.visitor_id, occurredAtMs });
+    }
+    if (batch.length < PAGE_SIZE) return { rows, complete: true };
+    from += PAGE_SIZE;
+  }
+  return { rows: [], complete: false };
+}
+
+async function readBehaviors(
+  experimentId: string
+): Promise<{ rows: ProudTestBehavior[]; complete: boolean }> {
+  const rows: ProudTestBehavior[] = [];
+  let from = 0;
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const { data, error } = await supabaseServer
+      .from("marketing_events")
+      .select("visitor_id, metadata")
+      .eq("event_type", "page_viewed")
+      .filter("metadata->>experiment_id", "eq", experimentId)
+      .filter("metadata->>experiment_record", "eq", "behavior")
+      .order("occurred_at", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) return { rows: [], complete: false };
+    const batch = data ?? [];
+    for (const raw of batch) {
+      if (typeof raw.visitor_id !== "string") continue;
+      const metadata = raw.metadata as {
+        viewed_path?: string;
+        sections?: unknown;
+        scroll?: number;
+        engaged?: number;
+        device?: string;
+        os?: string;
+        browser?: string;
+        in_app?: string;
+        synthetic?: boolean;
+      } | null;
+      if (metadata?.synthetic === true) continue;
+      const viewedPath = metadata?.viewed_path;
+      if (viewedPath !== "/" && viewedPath !== "/become-proud") continue;
+      rows.push({
+        visitorId: raw.visitor_id,
+        viewedPath,
+        sections: Array.isArray(metadata?.sections)
+          ? metadata.sections.filter((item): item is string => typeof item === "string")
+          : [],
+        scroll: typeof metadata?.scroll === "number" ? metadata.scroll : 0,
+        engaged: typeof metadata?.engaged === "number" ? metadata.engaged : 0,
+        device: metadata?.device ?? null,
+        os: metadata?.os ?? null,
+        browser: metadata?.browser ?? null,
+        inApp: metadata?.in_app ?? null,
+      });
+    }
+    if (batch.length < PAGE_SIZE) return { rows, complete: true };
+    from += PAGE_SIZE;
+  }
+  return { rows, complete: false };
+}
 
 function clerkFromPaidInvoice(invoice: Stripe.Invoice): ProudTestPayment | "unexpanded" | null {
   if (invoice.status !== "paid" || !invoice.amount_paid || invoice.amount_paid <= 0) return null;
@@ -438,11 +735,15 @@ export async function loadLandingExperimentReports(args: {
       },
     ];
   }
-  const [identities, signals, exposureGroups] = await Promise.all([
-    readIdentities(),
-    readSignals(),
-    Promise.all(experiments.map((experiment) => readExposures(experiment.id))),
-  ]);
+  const [identities, signals, accounts, exposureGroups, assignmentGroups, behaviorGroups] =
+    await Promise.all([
+      readIdentities(),
+      readSignals(),
+      readAccounts(),
+      Promise.all(experiments.map((experiment) => readExposures(experiment.id))),
+      Promise.all(experiments.map((experiment) => readAssignments(experiment.id))),
+      Promise.all(experiments.map((experiment) => readBehaviors(experiment.id))),
+    ]);
   let earliest: number | null = null;
   for (const group of exposureGroups) {
     for (const exposure of group.rows) {
@@ -465,9 +766,14 @@ export async function loadLandingExperimentReports(args: {
   }
   return experiments.map((experiment, index) => {
     const exposures = exposureGroups[index] ?? { rows: [], complete: false };
+    const assignments = assignmentGroups[index] ?? { rows: [], complete: false };
+    const behaviors = behaviorGroups[index] ?? { rows: [], complete: false };
     return summarizeProudTest({
       loaded: true,
       exposuresReadable: exposures.complete,
+      assignmentsReadable: assignments.complete,
+      accountsReadable: accounts.complete,
+      behaviorsReadable: behaviors.complete,
       trialsReadable: args.billing.subscriptionsReadable && identities.complete,
       paymentsReadable: paymentsReadable && exposures.complete,
       signalsReadable: signals.complete,
@@ -483,6 +789,9 @@ export async function loadLandingExperimentReports(args: {
       nextAction: experiment.nextAction,
       startOn: experiment.startOn,
       exposures: exposures.rows,
+      assignments: assignments.rows,
+      accounts: accounts.rows,
+      behaviors: behaviors.rows,
       identities: identities.links,
       trials: args.billing.trials,
       payments,

@@ -305,11 +305,109 @@ describe("proud test outcomes", () => {
 
   it("stores the decision rules and does not start the test from the definition", () => {
     const definition = parseExperimentDefinition(PROUD_TEST_DEFINITION);
-    expect(definition.primaryOutcome).toContain("per unique exposed visitor");
-    expect(definition.decisionCriteria).toContain("200 exposed visitors");
+    expect(definition.primaryOutcome).toContain("per unique eligible assigned visitor");
+    expect(definition.decisionCriteria).toContain("100 assigned visitors");
     expect(definition.decisionCriteria).toContain("does not select a winner");
     expect(definition.decisionCriteria.length).toBeLessThanOrEqual(2000);
     expect(PROUD_TEST_DEFINITION.nextAction).toContain("Do not send existing homepage visitors");
+  });
+
+  it("keeps an assigned visitor in the trial denominator when the exposure is missing", () => {
+    const report = summarizeProudTest({
+      loaded: true,
+      exposuresReadable: true,
+      paymentsReadable: true,
+      trialsReadable: true,
+      signalsReadable: true,
+      assignmentsReadable: true,
+      accountsReadable: true,
+      behaviorsReadable: true,
+      status: "running",
+      assignments: [
+        {
+          visitorId: VISITOR,
+          variant: "control",
+          occurredAtMs: EXPOSED,
+          campaign: "sm_cold",
+          device: "mobile",
+          os: "ios",
+          browser: "safari",
+          inApp: "none",
+          synthetic: false,
+        },
+        {
+          visitorId: OTHER,
+          variant: "challenger",
+          occurredAtMs: EXPOSED,
+          campaign: "sm_cold",
+          device: "desktop",
+          os: "other",
+          browser: "chrome",
+          inApp: "none",
+          synthetic: false,
+        },
+      ],
+      exposures: [],
+      identities: [{ clerkUserId: CLERK, visitorId: VISITOR }],
+      trials: [
+        {
+          clerkUserId: CLERK,
+          trialStartMs: EXPOSED + 60_000,
+          trialEndMs: null,
+          status: "trialing",
+        },
+      ],
+      payments: [],
+      signals: [],
+      nowMs: NOW,
+    });
+    const control = report.rows.find((row) => row.variant === "control");
+    expect(control?.assigned).toBe(1);
+    expect(control?.exposed).toBe(0);
+    expect(control?.trials).toBe(1);
+    expect(control?.trialRate).toBe("100.0%");
+    expect(control?.exposedTrialRate).toBe("Not available");
+    expect(report.evidenceState).toBe("Collecting Data");
+  });
+
+  it("does not credit a trial when the exposure disagrees with the assignment", () => {
+    const report = summarizeProudTest({
+      loaded: true,
+      exposuresReadable: true,
+      paymentsReadable: true,
+      trialsReadable: true,
+      signalsReadable: true,
+      assignmentsReadable: true,
+      status: "running",
+      assignments: [
+        {
+          visitorId: VISITOR,
+          variant: "control",
+          occurredAtMs: EXPOSED,
+          campaign: null,
+          device: null,
+          os: null,
+          browser: null,
+          inApp: null,
+          synthetic: false,
+        },
+      ],
+      exposures: [{ visitorId: VISITOR, variant: "challenger", occurredAtMs: EXPOSED }],
+      identities: [{ clerkUserId: CLERK, visitorId: VISITOR }],
+      trials: [
+        {
+          clerkUserId: CLERK,
+          trialStartMs: EXPOSED + 60_000,
+          trialEndMs: null,
+          status: "trialing",
+        },
+      ],
+      payments: [],
+      signals: [],
+      nowMs: NOW,
+    });
+    expect(report.rows.every((row) => row.trials === 0)).toBe(true);
+    expect(report.unknownTrials).toBe(1);
   });
 });
 
@@ -462,6 +560,7 @@ describe("proud test stays off the homepage and Brooke's page", () => {
     expect(layout).not.toContain("/go/proud-test");
     expect(route).not.toContain(".insert(");
     expect(route).not.toContain("recordLandingExposures");
+    expect(route).toContain("recordLandingAssignment");
     expect(route).toContain("decideLandingEntry");
     expect(route).not.toContain("searchParams.get");
     expect(middleware).toContain('"/go/(.*)"');

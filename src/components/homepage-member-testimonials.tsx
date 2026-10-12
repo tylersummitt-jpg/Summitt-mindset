@@ -39,6 +39,7 @@ export const MEMBER_TESTIMONIALS: readonly MemberTestimonial[] = [
 export function HomepageMemberTestimonials() {
   return (
     <section
+      data-exp-section="home_proof"
       aria-labelledby="member-feedback-heading"
       className="border-b border-gray-100 bg-white px-4 py-12 sm:px-6 sm:py-16"
     >

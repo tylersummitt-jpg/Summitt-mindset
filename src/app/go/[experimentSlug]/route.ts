@@ -9,7 +9,10 @@ import {
   PROUD_TEST_COOKIE,
   upsertLandingAssignment,
 } from "@/lib/landing-experiment";
-import { readLandingExperimentBySlug } from "@/lib/landing-experiment.server";
+import {
+  readLandingExperimentBySlug,
+  recordLandingAssignment,
+} from "@/lib/landing-experiment.server";
 import {
   marketingCookieOptions,
   resolveMarketingCookies,
@@ -69,7 +72,7 @@ export async function GET(
       cookieOptions
     );
   }
-  if (decision.created && decision.variant && row) {
+  if (decision.created && decision.variant && row && resolved) {
     response.cookies.set(
       PROUD_TEST_COOKIE,
       upsertLandingAssignment(req.cookies.get(PROUD_TEST_COOKIE)?.value, {
@@ -79,6 +82,15 @@ export async function GET(
       }),
       { ...cookieOptions, httpOnly: false }
     );
+    await recordLandingAssignment({
+      visitorId: resolved.visitorId,
+      experimentId: row.id,
+      slug: row.destinations.entrySlug,
+      variant: decision.variant,
+      attribution: resolved.payload,
+      userAgent: req.headers.get("user-agent"),
+      synthetic: req.headers.get("x-sm-exp-probe") === "1",
+    }).catch(() => undefined);
   }
   return response;
 }

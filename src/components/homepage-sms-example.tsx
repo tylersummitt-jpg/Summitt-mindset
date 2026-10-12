@@ -24,6 +24,7 @@ const MESSAGES = [
 export function HomepageSmsExample() {
   return (
     <section
+      data-exp-section="home_demo"
       aria-labelledby="sms-example-heading"
       className="border-b border-[var(--border)] bg-white px-4 pb-12 pt-8 sm:px-6 sm:pb-16 sm:pt-12"
     >

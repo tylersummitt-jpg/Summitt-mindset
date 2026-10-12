@@ -167,6 +167,13 @@ export function Navbar() {
               key={link.key}
               href={link.href}
               className={linkClass(link.href)}
+              {...(link.key === "start-trial"
+                ? {
+                    "data-growth-cta": "trial",
+                    "data-growth-surface":
+                      pathname === "/become-proud" ? "proud_nav_cta" : "home_nav_cta",
+                  }
+                : {})}
             >
               {link.label}
             </Link>
@@ -206,6 +213,13 @@ export function Navbar() {
                 href={link.href}
                 className={linkClass(link.href) + " py-3 px-2 block"}
                 onClick={() => setIsMenuOpen(false)}
+                {...(link.key === "start-trial"
+                  ? {
+                      "data-growth-cta": "trial",
+                      "data-growth-surface":
+                        pathname === "/become-proud" ? "proud_nav_cta" : "home_nav_cta",
+                    }
+                  : {})}
               >
                 {link.label}
               </Link>

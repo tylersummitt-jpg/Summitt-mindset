@@ -121,7 +121,7 @@ export default async function HomePage() {
           __html: JSON.stringify(brandSchema).replace(/</g, "\\u003c"),
         }}
       />
-      <section className="overflow-hidden border-b border-[var(--border)] bg-neutral-950">
+      <section data-exp-section="home_hero" className="overflow-hidden border-b border-[var(--border)] bg-neutral-950">
         <div className="grid w-full min-w-0 md:grid-cols-2 md:items-stretch">
           <div className="relative z-10 flex min-w-0 items-center px-4 pb-6 pt-8 sm:px-6 sm:pt-10 md:py-12 md:pl-[max(1.5rem,calc((100vw-72rem)/2+2.5rem))] md:pr-10 lg:py-14 lg:pr-14">
             <div className="flex w-full max-w-xl min-w-0 flex-col gap-5 break-words">
@@ -191,6 +191,8 @@ export default async function HomePage() {
                   <div className="w-full max-w-md">
                     <Link
                       href={signInSubscribeHref}
+                      data-growth-cta="trial"
+                      data-growth-surface="home_hero_cta"
                       className={ctaHeroPrimaryClass}
                     >
                       {isNativeApp ? trialCtaLabel : "Start My Free Trial"}
@@ -254,7 +256,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="bg-neutral-950 px-4 py-12 text-white sm:px-6 sm:py-16">
+      <section data-exp-section="home_offer" className="bg-neutral-950 px-4 py-12 text-white sm:px-6 sm:py-16">
         <div className="mx-auto flex w-full min-w-0 max-w-3xl break-words flex-col">
           <h2 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
             Your Next Chapter Starts Today.
@@ -274,7 +276,12 @@ export default async function HomePage() {
             </div>
           ) : null}
           <div className="mt-8 w-full max-w-md">
-            <Link href={finalHref} className={ctaHeroPrimaryClass}>
+            <Link
+              href={finalHref}
+              data-growth-cta="trial"
+              data-growth-surface="home_lower_cta"
+              className={ctaHeroPrimaryClass}
+            >
               {finalLabel}
             </Link>
           </div>

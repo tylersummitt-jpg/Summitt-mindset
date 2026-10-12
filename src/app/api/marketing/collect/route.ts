@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { PROUD_TEST_COOKIE } from "@/lib/landing-experiment";
-import { recordLandingExposures } from "@/lib/landing-experiment.server";
+import { parseLandingAssignments, PROUD_TEST_COOKIE } from "@/lib/landing-experiment";
+import {
+  recordLandingBehavior,
+  recordLandingExposures,
+} from "@/lib/landing-experiment.server";
+import {
+  parseEngagedBucket,
+  parseScrollMilestone,
+  parseSectionList,
+} from "@/lib/landing-experiment-telemetry";
 import {
   collectFailOpenResponse,
   insertMarketingEventFailOpen,
@@ -63,6 +71,24 @@ export async function POST(req: NextRequest) {
           path,
           assignmentCookie: req.cookies.get(PROUD_TEST_COOKIE)?.value,
           attribution: cookies.attribution,
+        });
+        return collectFailOpenResponse();
+      }
+      if (rec.experiment_behavior === true) {
+        const assignment = parseLandingAssignments(req.cookies.get(PROUD_TEST_COOKIE)?.value).find(
+          (item) => item.path === path
+        );
+        if (!assignment) return collectFailOpenResponse();
+        await recordLandingBehavior({
+          visitorId: cookies.visitorId,
+          experimentId: assignment.experimentId,
+          viewedPath: path,
+          sections: parseSectionList(rec.sections, path),
+          scroll: parseScrollMilestone(rec.scroll),
+          engaged: parseEngagedBucket(rec.engaged),
+          attribution: cookies.attribution,
+          userAgent: req.headers.get("user-agent"),
+          synthetic: req.headers.get("x-sm-exp-probe") === "1",
         });
         return collectFailOpenResponse();
       }

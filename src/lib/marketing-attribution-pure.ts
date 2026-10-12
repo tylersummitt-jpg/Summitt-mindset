@@ -8,6 +8,7 @@ import {
   AUDIENCE_LANDING_CTA_SURFACES,
   AUDIENCE_LANDING_PATHS,
 } from "@/lib/audience-landing-pages";
+import { EXPERIMENT_CTA_SURFACES } from "@/lib/landing-experiment-telemetry";
 import { isLandingExperimentEntryPath } from "@/lib/landing-experiment-shared";
 import { sanitizeMetaFbclid } from "@/lib/meta-capi-web-identifier-validation";
 
@@ -58,6 +59,7 @@ export const CTA_SURFACES = [
   "other",
   "homepage_video",
   ...AUDIENCE_LANDING_CTA_SURFACES,
+  ...EXPERIMENT_CTA_SURFACES,
 ] as const;
 
 export type CtaSurface = (typeof CTA_SURFACES)[number];

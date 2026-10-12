@@ -92,6 +92,7 @@ export function HomepageVictoryRoom() {
 
   return (
     <section
+      data-exp-section="home_victory"
       aria-labelledby="victory-room-heading"
       className="border-b border-[var(--border)] bg-white px-4 py-12 sm:px-6 sm:py-16"
     >
