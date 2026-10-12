@@ -72,15 +72,21 @@ describe("become-proud challenger", () => {
     expect(page).toContain("Included with your Summitt Mindset membership.");
   });
 
-  it("names the four Film Room lessons and only uses stored thumbnails", () => {
+  it("shows four photographic Film Room lessons and no name-only placeholders", () => {
     expect(page).toContain("Peyton Manning");
     expect(page).toContain("No Shortcuts to Success");
+    expect(page).toContain("/brand/film-room-peyton-manning.jpg");
     expect(page).toContain("Morgan Vance");
     expect(page).toContain("Personal Brand: What's Yours?");
+    expect(page).toContain("/brand/film-room-morgan-vance.jpg");
     expect(page).toContain("Phillip Fulmer");
     expect(page).toContain("Set High Goals");
-    expect(page).toContain("Model the Change");
-    expect(page).toContain("challengeLessons.find");
+    expect(page).toContain("/brand/film-room-phillip-fulmer.jpg");
+    expect(page).toContain("Pat Summitt");
+    expect(page).toContain("Invest in Yourself");
+    expect(page).toContain("/brand/film-room-pat-summitt-invest.jpg");
+    expect(page).not.toContain("Model the Change");
+    expect(page).not.toContain("aria-hidden=\"true\"");
     expect(page).not.toContain('href="/film-room');
   });
 

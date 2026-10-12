@@ -3,7 +3,6 @@ import Link from "next/link";
 
 import { MEMBER_TESTIMONIALS } from "@/components/homepage-member-testimonials";
 import { VrIconGoal, VrIconStar } from "@/components/VictoryRoomIcons";
-import { challengeLessons } from "@/lib/challenge-lessons";
 import { MEMBERSHIP_PUBLIC_OFFER } from "@/lib/membership-public-offer";
 
 const HERO_LEAD = "Build a Life You're Proud Of.";
@@ -59,32 +58,31 @@ const PROUD_MOMENT = {
   body: "My grandson and I spent the afternoon playing and laughing at the park. A few months ago, I would not have had the energy. Today, I did. I want to remember that.",
 } as const;
 
-/**
- * Exact Film Room lesson thumbnails stored in this repo.
- * Morgan Vance and "Model the Change" have no local image file and no stored thumbnail URL.
- */
+/** Still frames from real Film Room lessons. */
 const FILM_LESSONS = [
   {
     speaker: "Peyton Manning",
     title: "No Shortcuts to Success",
-    image:
-      challengeLessons.find((lesson) => lesson.title === "No Shortcuts to Success")?.thumbnail ??
-      null,
+    image: "/brand/film-room-peyton-manning.jpg",
+    alt: "Peyton Manning in the Film Room lesson No Shortcuts to Success",
   },
   {
     speaker: "Morgan Vance",
     title: "Personal Brand: What's Yours?",
-    image: null,
+    image: "/brand/film-room-morgan-vance.jpg",
+    alt: "Morgan Vance in the Film Room lesson Personal Brand: What's Yours?",
   },
   {
     speaker: "Phillip Fulmer",
     title: "Set High Goals",
-    image: challengeLessons.find((lesson) => lesson.title === "Set High Goals")?.thumbnail ?? null,
+    image: "/brand/film-room-phillip-fulmer.jpg",
+    alt: "Phillip Fulmer in the Film Room lesson Set High Goals",
   },
   {
     speaker: "Pat Summitt",
-    title: "Model the Change",
-    image: null,
+    title: "Invest in Yourself",
+    image: "/brand/film-room-pat-summitt-invest.jpg",
+    alt: "Pat Summitt in the Film Room lesson Invest in Yourself",
   },
 ] as const;
 
@@ -391,31 +389,20 @@ export function ChallengerLandingPage({
               {FILM_LESSONS.map((lesson) => (
                 <li
                   key={lesson.title}
-                  className="min-w-0 overflow-hidden rounded-3xl border border-[#e6dcc8] bg-white"
+                  className="min-w-0 overflow-hidden rounded-3xl border border-[#e8c872]/70 bg-white shadow-[0_16px_40px_-28px_rgba(7,20,34,0.7)]"
                 >
-                  {lesson.image ? (
-                    // Stored Film Room thumbnail URL. It is not a local file, so next/image is not configured for it.
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                  <div className="relative aspect-video bg-[#071422]">
+                    <Image
                       src={lesson.image}
-                      alt=""
-                      width={1920}
-                      height={1080}
-                      className="aspect-video h-auto w-full object-cover"
+                      alt={lesson.alt}
+                      fill
+                      sizes="(max-width: 640px) 100vw, 50vw"
+                      className="object-cover object-center"
                     />
-                  ) : (
-                    <div
-                      className="flex aspect-video items-center justify-center bg-[#071422] p-6"
-                      aria-hidden="true"
-                    >
-                      <p className="text-center font-serif text-3xl font-semibold leading-tight text-[#f3d48a]">
-                        {lesson.speaker}
-                      </p>
-                    </div>
-                  )}
-                  <div className="p-5 sm:p-6">
+                  </div>
+                  <div className="border-t border-[#e8c872]/50 p-5 sm:p-6">
                     <p className="text-lg font-semibold text-[#6b5424]">{lesson.speaker}</p>
-                    <h4 className="mt-2 font-serif text-2xl font-semibold leading-tight text-[#14110d] sm:text-3xl">
+                    <h4 className="mt-2 font-serif text-2xl font-semibold leading-tight text-[#14110d]">
                       {lesson.title}
                     </h4>
                   </div>
