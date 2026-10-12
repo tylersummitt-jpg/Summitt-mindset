@@ -205,14 +205,18 @@ export default async function HomePage() {
               )}
             </div>
           </div>
-          <div className="relative aspect-[4/3] w-full sm:aspect-[5/4] md:aspect-auto md:min-h-[480px] lg:min-h-[540px]">
+          <div className="relative aspect-[4/3] w-full sm:aspect-[5/4] md:aspect-auto md:min-h-[520px] lg:min-h-[600px]">
             <Image
-              src="/brand/ask-pat-coaching.jpg"
-              alt="Coach Pat Summitt coaching a player on the sideline"
+              src="/brand/pat-summitt-homepage-hero.jpg"
+              alt="Coach Pat Summitt coaching from the sideline in an orange suit"
               fill
               priority
               sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-cover object-[74%_30%] md:object-[82%_36%]"
+              className="object-cover object-[center_16%] sm:object-[center_20%] md:object-[center_28%]"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-neutral-950 to-transparent md:inset-y-0 md:left-0 md:h-full md:w-24 md:bg-gradient-to-r"
             />
           </div>
         </div>

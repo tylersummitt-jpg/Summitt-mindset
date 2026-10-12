@@ -18,7 +18,8 @@ describe("homepage hero copy hierarchy (source)", () => {
     );
     expect(home).not.toContain("whitespace-nowrap");
     expect(home).not.toContain("Coach Pat in your corner.");
-    expect(home).toContain("/brand/ask-pat-coaching.jpg");
+    expect(home).toContain("/brand/pat-summitt-homepage-hero.jpg");
+    expect(home).not.toContain("/brand/ask-pat-coaching.jpg");
     expect(home).not.toContain("home-hero-mobile");
     expect(home).not.toContain("home-hero-desktop");
     expect(home).not.toContain(

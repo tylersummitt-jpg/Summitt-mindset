@@ -19,39 +19,23 @@ const VICTORY_EXAMPLE =
 const LINDA_MESSAGES = [
   {
     speaker: "Coach Pat",
-    text: "Linda, remember when you told me you wanted more energy to enjoy life with your family?",
+    text: "Linda, you told me you wanted to make more time for your family. How's that going?",
   },
   {
     speaker: "Linda",
-    text: "I sure do. I was barely getting out for a walk back then.",
+    text: "Better! I've started putting my phone away when we're together.",
   },
   {
     speaker: "Coach Pat",
-    text: "And now? How's that walking goal coming along?",
+    text: "That's a win! Have you noticed a difference?",
   },
   {
     speaker: "Linda",
-    text: "I walked five days this week! I feel so much better.",
+    text: "Yes! Yesterday my grandson and I spent the whole afternoon playing cards. He told me it was his favorite day.",
   },
   {
     speaker: "Coach Pat",
-    text: "Five days! You've worked hard for that progress.",
-  },
-  {
-    speaker: "Linda",
-    text: "And Saturday, I took my grandson to the park. We played for hours.",
-  },
-  {
-    speaker: "Coach Pat",
-    text: "Think about that. A few months ago, you were worried about keeping up with him.",
-  },
-  {
-    speaker: "Linda",
-    text: "You're right. I hadn't thought about how much things have changed.",
-  },
-  {
-    speaker: "Coach Pat",
-    text: "That's why we remember these moments. You're not just reaching your goals, Linda. You're making memories along the way.",
+    text: "I'll make sure we remember that afternoon, Linda. Let's keep making time for what matters most.",
   },
 ] as const;
 
@@ -131,7 +115,7 @@ function TrialLink({
       href={href}
       data-growth-cta="trial"
       data-growth-surface={surface}
-      className={`inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#f97316] px-6 py-3 text-center text-lg font-bold leading-snug !text-[#111827] shadow-md shadow-black/20 hover:bg-[#fb923c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fdba74] focus-visible:ring-offset-2 sm:w-auto sm:min-w-[20rem] sm:px-8 sm:text-xl ${
+      className={`inline-flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#f97316] px-4 py-3 text-center text-base font-bold leading-snug !text-[#111827] shadow-md shadow-black/20 hover:bg-[#fb923c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fdba74] focus-visible:ring-offset-2 min-[390px]:px-6 min-[390px]:text-lg sm:w-auto sm:min-w-[20rem] sm:px-8 sm:text-xl ${
         onDark ? "focus-visible:ring-offset-[#071422]" : "focus-visible:ring-offset-[#f6f1e7]"
       }`}
     >
@@ -184,31 +168,31 @@ export function ChallengerLandingPage({
   return (
     <article className="min-w-0 overflow-x-clip bg-[#f6f1e7] text-[#14110d]">
       <header className="bg-[#071422] text-white">
-        <div className="mx-auto grid max-w-6xl min-w-0 gap-8 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-center lg:gap-12 lg:py-16 [@media(max-height:500px)]:py-4">
+        <div className="mx-auto grid max-w-6xl min-w-0 gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-center lg:gap-12 lg:py-16 [@media(max-height:500px)]:py-4">
           <div className="min-w-0">
-            <h1 className="font-serif text-[2rem] font-semibold leading-[1.15] tracking-tight text-white min-[390px]:text-4xl sm:text-5xl sm:leading-[1.1] [@media(max-height:500px)]:text-[1.85rem] [@media(max-height:500px)]:leading-tight sm:[@media(max-height:500px)]:text-[1.85rem]">
+            <h1 className="font-serif text-[1.85rem] font-semibold leading-[1.12] tracking-tight text-white min-[390px]:text-4xl sm:text-5xl sm:leading-[1.1] [@media(max-height:500px)]:text-[1.85rem] [@media(max-height:500px)]:leading-tight sm:[@media(max-height:500px)]:text-[1.85rem]">
               <span className="block">{HERO_LEAD}</span>
-              <span className="mt-2 block text-[#f3d48a] [@media(max-height:500px)]:mt-1">{HERO_SECOND}</span>
+              <span className="mt-1 block text-[#f3d48a] min-[390px]:mt-2 [@media(max-height:500px)]:mt-1">{HERO_SECOND}</span>
             </h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-white sm:text-xl [@media(max-height:500px)]:mt-3">
+            <p className="mt-3 max-w-xl text-lg leading-snug text-white min-[390px]:mt-5 min-[390px]:leading-relaxed sm:text-xl [@media(max-height:500px)]:mt-3">
               {HERO_SUPPORT}
             </p>
-            <div className="mt-7 [@media(max-height:500px)]:mt-4">
+            <div className="mt-5 min-[390px]:mt-7 [@media(max-height:500px)]:mt-4">
               <TrialLink href={href} label={primaryLabel} surface={surface} onDark />
             </div>
-            <div className="mt-4">
+            <div className="mt-3 min-[390px]:mt-4">
               <OfferLines offer={offer} showPrice={showPrice} tone="light" />
             </div>
           </div>
           <figure className="min-w-0">
-            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-3xl border border-white/10">
+            <div className="relative aspect-[3/2] w-full overflow-hidden rounded-3xl border border-[#e8c872]/40 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.85)]">
               <Image
-                src="/brand/about-leadership.jpg"
-                alt="Pat Summitt standing with two graduates in caps and gowns"
+                src="/brand/pat-summitt-challenger-hero.jpg"
+                alt="Pat Summitt standing behind eight national championship trophies"
                 fill
                 priority
-                sizes="(max-width: 1024px) 100vw, 46vw"
-                className="object-cover object-[center_18%]"
+                sizes="(max-width: 1024px) 100vw, 54vw"
+                className="object-cover object-[center_42%]"
               />
             </div>
           </figure>
@@ -259,16 +243,9 @@ export function ChallengerLandingPage({
             Coach Pat helps you work toward your goals and appreciate the moments that make life
             special.
           </p>
-          <div className="mt-8 min-w-0 md:rounded-[2rem] md:border md:border-[#d9d3c7] md:bg-[#F3F4F6] md:px-6 md:pb-8 md:pt-6">
-            <p className="text-lg font-bold leading-relaxed text-[#14110d] sm:text-xl">
-              Example conversation
-            </p>
-            <p className="mt-2 text-lg leading-relaxed text-[#241c14]">
-              This illustration is not a private member text thread.
-            </p>
-            <p className="mt-5 text-lg font-bold leading-relaxed text-[#14110d]">Coach Pat</p>
+          <div className="mt-8 min-w-0 md:rounded-[2rem] md:border md:border-[#d9d3c7] md:bg-[#F3F4F6] md:px-6 md:py-6">
             <ol
-              className="mt-4 space-y-3"
+              className="space-y-3"
               aria-label="Example text messages between Coach Pat and Linda"
             >
               {LINDA_MESSAGES.map((message) => {

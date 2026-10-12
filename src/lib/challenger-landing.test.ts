@@ -27,11 +27,13 @@ describe("become-proud challenger", () => {
     );
     expect(page).toContain("7 days free · $0 today · Then {offer.monthly}");
     expect(page).toContain("{offer.cancel}.");
-    expect(page).toContain('src="/brand/about-leadership.jpg"');
+    expect(page).toContain('src="/brand/pat-summitt-challenger-hero.jpg"');
+    expect(page).not.toContain("about-leadership.jpg");
     expect(page).not.toContain("ask-pat-coaching.jpg");
+    expect(page).not.toContain("pat-summitt-homepage-hero.jpg");
     expect(page).not.toContain("pat_statue_grandkids");
     expect(page).not.toContain("home-hero-");
-    expect(home).toContain("/brand/ask-pat-coaching.jpg");
+    expect(home).toContain("/brand/pat-summitt-homepage-hero.jpg");
     expect(home).toContain("Reach Your Goals.");
     expect(MEMBERSHIP_PUBLIC_OFFER.monthly).toBe("$29/month");
     expect(MEMBERSHIP_PUBLIC_OFFER.annual).toBe("$249/year");
@@ -40,15 +42,21 @@ describe("become-proud challenger", () => {
 
   it("shows Linda's example, two victory cards, and the bonus benefits", () => {
     expect(page).toContain("The More You Share, the More Personal It Gets.");
-    expect(page).toContain("Example conversation");
-    expect(page).toContain("This illustration is not a private member text thread.");
+    expect(page).not.toContain("Example conversation");
+    expect(page).not.toContain("This illustration is not a private member text thread.");
     expect(page).toContain(
-      "Linda, remember when you told me you wanted more energy to enjoy life with your family?"
+      "Linda, you told me you wanted to make more time for your family. How's that going?"
+    );
+    expect(page).toContain("Better! I've started putting my phone away when we're together.");
+    expect(page).toContain("That's a win! Have you noticed a difference?");
+    expect(page).toContain(
+      "Yes! Yesterday my grandson and I spent the whole afternoon playing cards. He told me it was his favorite day."
     );
     expect(page).toContain(
-      "That's why we remember these moments. You're not just reaching your goals, Linda. You're making memories along the way."
+      "I'll make sure we remember that afternoon, Linda. Let's keep making time for what matters most."
     );
     expect(page).not.toContain("Good morning, Judy!");
+    expect(page).not.toContain("Judy, how's our goal");
     expect(page).toContain("Walked Four Days This Week!");
     expect(page).toContain("An Afternoon at the Park");
     expect(page).toContain("Example Victory Room. These cards are illustrations, not a real member's saved moments.");

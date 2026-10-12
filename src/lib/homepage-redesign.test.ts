@@ -66,8 +66,17 @@ describe("homepage redesign phase 2", () => {
       "Example conversation. This is not a real member's text thread."
     );
     expect(sms).toContain("Example text messages between Coach Pat and Judy");
-    expect(sms).toContain("Good morning, Judy! You wanted to walk every day this week. How's that going?");
-    expect(sms).toContain("Then let's keep making progress and noticing those special moments!");
+    expect(sms.match(/speaker:/g)).toHaveLength(5);
+    expect(sms).toContain("Judy, how's our goal of walking four days a week?");
+    expect(sms).toContain("I did it! Four walks this week!");
+    expect(sms).toContain("That's a victory! Anything special happen along the way?");
+    expect(sms).toContain(
+      "My daughter joined me yesterday. We got ice cream afterward and laughed the whole way home."
+    );
+    expect(sms).toContain(
+      "I'll make sure we remember that one, Judy. Let's keep making progress next week!"
+    );
+    expect(sms).not.toContain("Good morning, Judy!");
     expect(sms).toContain("bg-[#E9E9EB]");
     expect(sms).toContain("bg-[#0E6B32]");
     expect(sms).toContain("text-white");

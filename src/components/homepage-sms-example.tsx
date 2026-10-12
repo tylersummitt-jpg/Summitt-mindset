@@ -1,39 +1,23 @@
 const MESSAGES = [
   {
     speaker: "Coach Pat",
-    text: "Good morning, Judy! You wanted to walk every day this week. How's that going?",
+    text: "Judy, how's our goal of walking four days a week?",
   },
   {
     speaker: "Judy",
-    text: "I've walked four days in a row!",
+    text: "I did it! Four walks this week!",
   },
   {
     speaker: "Coach Pat",
-    text: "That's real progress! What's helped you stick with it?",
+    text: "That's a victory! Anything special happen along the way?",
   },
   {
     speaker: "Judy",
-    text: "My granddaughter has been walking with me.",
+    text: "My daughter joined me yesterday. We got ice cream afterward and laughed the whole way home.",
   },
   {
     speaker: "Coach Pat",
-    text: "Look at that. You're getting healthier and spending time together.",
-  },
-  {
-    speaker: "Judy",
-    text: "We even stopped for ice cream yesterday. She told me all about school.",
-  },
-  {
-    speaker: "Coach Pat",
-    text: "That's a moment worth remembering. What was your favorite part?",
-  },
-  {
-    speaker: "Judy",
-    text: "Just hearing her laugh. I don't want to forget days like that.",
-  },
-  {
-    speaker: "Coach Pat",
-    text: "Then let's keep making progress and noticing those special moments!",
+    text: "I'll make sure we remember that one, Judy. Let's keep making progress next week!",
   },
 ] as const;
 
