@@ -219,6 +219,19 @@ function shown(readable: boolean, value: number): ProudTestCount {
   return readable ? value : "Not available";
 }
 
+/** Earliest real assignment or page view. Paid invoices are read from this time. */
+export function cohortInvoiceAnchorMs(args: {
+  exposures: readonly { occurredAtMs: number }[];
+  assignments: readonly { occurredAtMs: number; synthetic?: boolean }[];
+}): number | null {
+  let earliest: number | null = null;
+  for (const row of [...args.exposures, ...args.assignments]) {
+    if ("synthetic" in row && row.synthetic) continue;
+    if (earliest == null || row.occurredAtMs < earliest) earliest = row.occurredAtMs;
+  }
+  return earliest;
+}
+
 /** Invoice window for one exposure cohort. It does not take a dashboard date range. */
 export function experimentInvoiceWindow(args: {
   earliestExposureMs: number;
@@ -316,6 +329,28 @@ function daysSince(startOn: string | null, nowMs: number): number | null {
   const start = Date.parse(`${startOn}T00:00:00.000Z`);
   if (!Number.isFinite(start)) return null;
   return Math.floor((nowMs - start) / (24 * 60 * 60 * 1000));
+}
+
+function latestAssignmentLine(rows: readonly ProudTestAssignment[], nowMs: number): string {
+  let latest = 0;
+  for (const row of rows) {
+    if (row.synthetic) continue;
+    if (row.occurredAtMs > latest) latest = row.occurredAtMs;
+  }
+  if (latest <= 0) {
+    return "No assignment has been saved. Zero saved rows are not proof that nobody arrived.";
+  }
+  const ageHours = Math.max(0, Math.floor((nowMs - latest) / (60 * 60 * 1000)));
+  return `Latest saved assignment: ${new Date(latest).toISOString()} (${ageHours} hours before this report). Zero new rows are not proof that nobody arrived.`;
+}
+
+function labeledCounts(counts: Record<string, number>): Record<string, number> {
+  const next: Record<string, number> = {};
+  for (const [key, count] of Object.entries(counts)) {
+    const label = key === "other" ? "Unknown" : key;
+    next[label] = (next[label] ?? 0) + count;
+  }
+  return next;
 }
 
 export function summarizeProudTest(args: {
@@ -480,16 +515,32 @@ export function summarizeProudTest(args: {
   }
 
   let unknownTrials: ProudTestCount = args.trialsReadable ? 0 : "Not available";
+  let unlinkedTrials = 0;
+  let outsideExperimentTrials = 0;
+  let outsideWindowTrials = 0;
+  const startMs = args.startOn ? Date.parse(`${args.startOn}T00:00:00.000Z`) : null;
+  const inPeriod = (ms: number) => startMs == null || !Number.isFinite(startMs) || ms >= startMs;
   if (args.trialsReadable) {
+    for (const trial of args.trials ?? []) {
+      if (trial.clerkUserId?.trim()) continue;
+      if (inPeriod(trial.trialStartMs)) unlinkedTrials += 1;
+    }
     for (const trial of earliestTrials(args.trials ?? [])) {
+      if (!inPeriod(trial.trialStartMs)) continue;
       const clerkUserId = trial.clerkUserId ?? "";
       const link = links.get(clerkUserId);
-      if (!link) continue;
+      if (!link) {
+        unlinkedTrials += 1;
+        continue;
+      }
       const population = useAssigned ? assigned : exposed;
       const states = [...link.visitorIds]
         .map((visitorId) => ({ visitorId, state: population.get(visitorId) }))
         .filter((item): item is { visitorId: string; state: ExposureState } => item.state != null);
-      if (states.length === 0) continue;
+      if (states.length === 0) {
+        outsideExperimentTrials += 1;
+        continue;
+      }
       const variants = new Set(states.map((item) => item.state.variant));
       if (link.conflict || variants.has("split") || variants.size !== 1) {
         unknownTrials = Number(unknownTrials) + 1;
@@ -498,8 +549,13 @@ export function summarizeProudTest(args: {
       const match = states[0];
       const variant = match?.state.variant;
       if (!match || !variant || variant === "split") continue;
-      if (trial.trialStartMs < match.state.firstAtMs) continue;
-      if (trial.trialStartMs > match.state.firstAtMs + PROUD_TEST_TRIAL_WINDOW_MS) continue;
+      if (
+        trial.trialStartMs < match.state.firstAtMs ||
+        trial.trialStartMs > match.state.firstAtMs + PROUD_TEST_TRIAL_WINDOW_MS
+      ) {
+        outsideWindowTrials += 1;
+        continue;
+      }
       if (useAssigned) {
         const seen = exposed.get(match.visitorId);
         if (seen && (seen.variant === "split" || seen.variant !== variant)) {
@@ -530,13 +586,20 @@ export function summarizeProudTest(args: {
   }
 
   if (useAssigned && args.accountsReadable) {
+    const earliestAccount = new Map<string, number>();
     for (const account of args.accounts ?? []) {
       if (syntheticVisitors.has(account.visitorId)) continue;
-      const state = assigned.get(account.visitorId);
+      const prev = earliestAccount.get(account.visitorId);
+      if (prev == null || account.occurredAtMs < prev) {
+        earliestAccount.set(account.visitorId, account.occurredAtMs);
+      }
+    }
+    for (const [visitorId, occurredAtMs] of earliestAccount) {
+      const state = assigned.get(visitorId);
       if (!state || state.variant === "split") continue;
       const bucket = buckets[state.variant];
-      if (account.occurredAtMs < state.firstAtMs) bucket.priorAccounts.add(account.visitorId);
-      else bucket.accounts.add(account.visitorId);
+      if (occurredAtMs < state.firstAtMs) bucket.priorAccounts.add(visitorId);
+      else bucket.accounts.add(visitorId);
     }
   }
 
@@ -586,13 +649,48 @@ export function summarizeProudTest(args: {
     difference = `${gap.toFixed(1)} percentage points, challenger minus control. This is not a winner.`;
   }
   const elapsed = daysSince(args.startOn ?? null, nowMs);
+  let closedControl = 0;
+  let closedChallenger = 0;
+  let closedTrialsControl = 0;
+  let closedTrialsChallenger = 0;
+  let immatureAssigned = 0;
+  if (useAssigned) {
+    for (const [visitorId, state] of assigned) {
+      if (state.variant === "split") continue;
+      if (state.firstAtMs > nowMs - PROUD_TEST_TRIAL_WINDOW_MS) {
+        immatureAssigned += 1;
+        continue;
+      }
+      if (state.variant === "control") {
+        closedControl += 1;
+        if (buckets.control.trials.has(visitorId)) closedTrialsControl += 1;
+      } else {
+        closedChallenger += 1;
+        if (buckets.challenger.trials.has(visitorId)) closedTrialsChallenger += 1;
+      }
+    }
+  }
+  const controlCoverage =
+    assignedIds.control.size > 0 ? exposedIds.control.size / assignedIds.control.size : null;
+  const challengerCoverage =
+    assignedIds.challenger.size > 0
+      ? exposedIds.challenger.size / assignedIds.challenger.size
+      : null;
+  const attributionGap =
+    useAssigned &&
+    assignedIds.control.size >= 50 &&
+    assignedIds.challenger.size >= 50 &&
+    controlCoverage != null &&
+    challengerCoverage != null &&
+    Math.abs(controlCoverage - challengerCoverage) >= 0.15;
   const evidence = experimentEvidenceState({
     readable: useAssigned && args.trialsReadable && args.exposuresReadable,
     days: elapsed,
-    assignedA: assignedIds.control.size,
-    assignedB: assignedIds.challenger.size,
-    trialsA: buckets.control.trials.size,
-    trialsB: buckets.challenger.trials.size,
+    assignedA: closedControl,
+    assignedB: closedChallenger,
+    trialsA: closedTrialsControl,
+    trialsB: closedTrialsChallenger,
+    attributionGap,
   });
   const ctaRows = [...ctaClickers.entries()].map(([surface, people]) => {
     const proud = surface.startsWith("proud_");
@@ -698,6 +796,18 @@ export function summarizeProudTest(args: {
       : "No visitor was counted on both variants.",
     splitAssignments > 0 ? `${splitAssignments} visitors had two assignment records.` : "",
     `Trials that could not be tied to one visitor: ${unknownTrials}.`,
+    args.trialsReadable
+      ? `Stripe trials in this test period: ${buckets.control.trials.size + buckets.challenger.trials.size} tied to one page, ${outsideExperimentTrials} linked to people outside this test, ${outsideWindowTrials} linked but not inside the 7 days after assignment, ${unlinkedTrials} with no visitor link. Unlinked trials are Unknown and are not subtracted from either page. Apple memberships are excluded, not counted as zero.`
+      : "",
+    useAssigned
+      ? `Page-view coverage: Homepage ${exposedIds.control.size} of ${assignedIds.control.size} assigned, Become Proud ${exposedIds.challenger.size} of ${assignedIds.challenger.size} assigned.`
+      : "",
+    useAssigned
+      ? `${immatureAssigned} assigned visitors are still inside the 7-day trial window. They stay in the live assigned count and are left out of the winner review.`
+      : "",
+    useAssigned
+      ? latestAssignmentLine(args.assignments ?? [], nowMs)
+      : "",
     evidence.note,
   ]
     .filter(Boolean)
@@ -734,7 +844,7 @@ export function summarizeProudTest(args: {
       ? `${engagedParts.join(" | ")} Engaged time counts a visible tab and pauses after about 30 seconds without activity. It is not a measure of reading.`
       : "Engaged time could not be read.",
     deviceNote: useAssigned
-      ? `Device ${deviceLine(devices)}. System ${deviceLine(systems)}. Browser ${deviceLine(browsers)}. In-app ${deviceLine(apps)}.`
+      ? `Device ${deviceLine(labeledCounts(devices))}. System ${deviceLine(labeledCounts(systems))}. Browser ${deviceLine(labeledCounts(browsers))}. In-app ${deviceLine(labeledCounts(apps))}.`
       : "Not available",
     campaignNote: useAssigned
       ? campaignMixNote(

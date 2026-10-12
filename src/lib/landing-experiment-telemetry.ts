@@ -160,6 +160,7 @@ export function experimentEvidenceState(args: {
   assignedB: number;
   trialsA: number;
   trialsB: number;
+  attributionGap?: boolean;
 }): { state: EvidenceState; note: string } {
   if (!args.readable) {
     return {
@@ -179,10 +180,16 @@ export function experimentEvidenceState(args: {
   const comparable = args.assignedA > 0 && args.assignedB > 0 && Number.isFinite(se) && se > 0;
   const z = comparable ? diff / se : 0;
   const ahead = diff > 0 ? "Become Proud" : "Homepage";
+  if (args.attributionGap && (enoughToLook || enoughToConclude)) {
+    return {
+      state: "Measurement Problem",
+      note: "The two pages are not confirming page views at a similar rate. Do not call a winner from the trial gap until that difference is explained. Recent assignees are not treated as failures.",
+    };
+  }
   if (comparable && enoughToConclude && Math.abs(z) >= 2.58 && args.trialsA + args.trialsB >= 15) {
     return {
       state: "Actionable Winner",
-      note: `${ahead} is ahead on trial starts per assigned visitor. The gap clears a 99% interval, which is the bar used because these results are checked more than once. A person still has to record the decision. This screen will not switch the traffic.`,
+      note: `${ahead} is ahead on trial starts per visitor whose 7-day trial window has closed. The gap clears a 99% interval, which is the bar used because these results are checked more than once. A person still has to record the decision. This screen will not switch the traffic.`,
     };
   }
   if (comparable && enoughToLook && Math.abs(z) >= 1.96) {
@@ -194,12 +201,12 @@ export function experimentEvidenceState(args: {
   if (enoughToConclude) {
     return {
       state: "Inconclusive",
-      note: "Both pages have been watched for 28 days with at least 100 assigned visitors each. The trial-rate gap does not clear the review bar.",
+      note: "Both pages have been watched for 28 days with at least 100 visitors each whose 7-day trial window has closed. The trial-rate gap does not clear the review bar.",
     };
   }
   return {
     state: "Collecting Data",
-    note: "Keep the test running. A review needs 14 days and 100 assigned visitors on each page. A stronger review needs 28 days. Small early gaps are not a decision.",
+    note: "Keep the test running. The review uses only visitors whose 7-day trial window has already closed. It needs 14 days and 100 of those visitors on each page. A stronger review needs 28 days. People assigned more recently stay in the live counts and are not treated as failures.",
   };
 }
 
@@ -224,7 +231,7 @@ export type CampaignMix = { campaign: string; variant: Variant };
 export function campaignMixNote(rows: readonly CampaignMix[]): string {
   const totals = new Map<string, { control: number; challenger: number }>();
   for (const row of rows) {
-    const campaign = row.campaign.trim() || "(no campaign)";
+    const campaign = row.campaign.trim() || "Unknown";
     const prev = totals.get(campaign) ?? { control: 0, challenger: 0 };
     prev[row.variant] += 1;
     totals.set(campaign, prev);
@@ -232,7 +239,7 @@ export function campaignMixNote(rows: readonly CampaignMix[]): string {
   const warnings: string[] = [];
   for (const [campaign, counts] of totals) {
     const total = counts.control + counts.challenger;
-    if (total < 30 || campaign === "(no campaign)") continue;
+    if (total < 30 || campaign === "Unknown") continue;
     const controlShare = counts.control / total;
     if (Math.abs(controlShare - 0.5) >= 0.25) {
       warnings.push(
@@ -240,8 +247,10 @@ export function campaignMixNote(rows: readonly CampaignMix[]): string {
       );
     }
   }
+  const unknown =
+    "Visitors with no campaign name are labeled Unknown and stay in the trial rate.";
   if (warnings.length === 0) {
-    return "No large campaign imbalance is visible. Randomization is inside the shared entry, so a modest difference is expected.";
+    return `No large campaign imbalance is visible. Randomization is inside the shared entry, so a modest difference is expected. ${unknown}`;
   }
-  return `Campaign mix differs enough to inspect: ${warnings.slice(0, 3).join(" ")}`;
+  return `Campaign mix differs enough to inspect: ${warnings.slice(0, 3).join(" ")} ${unknown}`;
 }

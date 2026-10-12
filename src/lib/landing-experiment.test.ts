@@ -19,6 +19,7 @@ import {
   decideHomepageSplit,
   decideLandingEntry,
   decideProudTestEntry,
+  cohortInvoiceAnchorMs,
   experimentInvoiceWindow,
   exposureMatchesDestination,
   isLandingExperimentEntryPath,
@@ -371,6 +372,150 @@ describe("proud test outcomes", () => {
     expect(report.evidenceState).toBe("Collecting Data");
   });
 
+  it("keeps open trial windows and unlinked Stripe trials out of the winner math", () => {
+    const recent = NOW - 24 * 60 * 60 * 1000;
+    const report = summarizeProudTest({
+      loaded: true,
+      exposuresReadable: true,
+      paymentsReadable: true,
+      trialsReadable: true,
+      signalsReadable: true,
+      assignmentsReadable: true,
+      accountsReadable: true,
+      status: "running",
+      startOn: "2026-10-12",
+      assignments: [
+        {
+          visitorId: VISITOR,
+          variant: "control",
+          occurredAtMs: recent,
+          campaign: "",
+          device: "desktop",
+          os: "other",
+          browser: "other",
+          inApp: "none",
+          synthetic: false,
+        },
+      ],
+      exposures: [{ visitorId: VISITOR, variant: "control", occurredAtMs: recent }],
+      accounts: [
+        { visitorId: VISITOR, occurredAtMs: recent - 60_000 },
+        { visitorId: VISITOR, occurredAtMs: recent + 60_000 },
+      ],
+      identities: [
+        { clerkUserId: CLERK, visitorId: VISITOR },
+        { clerkUserId: "user_elsewhere", visitorId: OTHER },
+      ],
+      trials: [
+        {
+          clerkUserId: CLERK,
+          trialStartMs: recent + 8 * 24 * 60 * 60 * 1000,
+          trialEndMs: null,
+          status: "trialing",
+        },
+        {
+          clerkUserId: null,
+          trialStartMs: recent,
+          trialEndMs: null,
+          status: "trialing",
+        },
+        {
+          clerkUserId: "user_elsewhere",
+          trialStartMs: recent,
+          trialEndMs: null,
+          status: "trialing",
+        },
+      ],
+      payments: [],
+      signals: [],
+      nowMs: NOW,
+    });
+    const control = report.rows.find((row) => row.variant === "control");
+    expect(control?.assigned).toBe(1);
+    expect(control?.trials).toBe(0);
+    expect(control?.trialRate).toBe("0.0%");
+    expect(control?.accounts).toBe(0);
+    expect(control?.priorAccounts).toBe(1);
+    expect(report.unknownTrials).toBe(0);
+    expect(report.evidenceState).toBe("Collecting Data");
+    expect(report.coverage).toContain("still inside the 7-day trial window");
+    expect(report.coverage).toContain("1 with no visitor link");
+    expect(report.coverage).toContain("1 linked to people outside this test");
+    expect(report.coverage).toContain("not subtracted from either page");
+    expect(report.coverage).toContain("Apple memberships are excluded");
+    expect(report.deviceNote).toContain("Unknown");
+    expect(report.deviceNote).not.toContain("other");
+    expect(report.campaignNote).toContain("Unknown");
+  });
+
+  it("does not call a winner when page-view coverage differs sharply", () => {
+    const closedAt = NOW - 20 * 24 * 60 * 60 * 1000;
+    const assignments = [];
+    const exposures = [];
+    const identities = [];
+    const trials = [];
+    for (let i = 0; i < 100; i += 1) {
+      const controlId = `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
+      const challengerId = `11111111-1111-4111-8111-${String(i).padStart(12, "0")}`;
+      assignments.push(
+        {
+          visitorId: controlId,
+          variant: "control" as const,
+          occurredAtMs: closedAt,
+          campaign: "shared",
+          device: "mobile" as const,
+          os: "ios" as const,
+          browser: "safari" as const,
+          inApp: "none" as const,
+          synthetic: false,
+        },
+        {
+          visitorId: challengerId,
+          variant: "challenger" as const,
+          occurredAtMs: closedAt,
+          campaign: "shared",
+          device: "mobile" as const,
+          os: "ios" as const,
+          browser: "safari" as const,
+          inApp: "none" as const,
+          synthetic: false,
+        }
+      );
+      exposures.push({ visitorId: controlId, variant: "control" as const, occurredAtMs: closedAt });
+      if (i < 40) {
+        const clerk = `user_gap_${i}`;
+        identities.push({ clerkUserId: clerk, visitorId: controlId });
+        trials.push({
+          clerkUserId: clerk,
+          trialStartMs: closedAt + 60_000,
+          trialEndMs: null,
+          status: "trialing",
+        });
+      }
+    }
+    const report = summarizeProudTest({
+      loaded: true,
+      exposuresReadable: true,
+      paymentsReadable: true,
+      trialsReadable: true,
+      signalsReadable: true,
+      assignmentsReadable: true,
+      status: "running",
+      startOn: "2026-08-01",
+      assignments,
+      exposures,
+      identities,
+      trials,
+      payments: [],
+      signals: [],
+      nowMs: NOW,
+    });
+    expect(report.rows.find((row) => row.variant === "control")?.assigned).toBe(100);
+    expect(report.rows.find((row) => row.variant === "control")?.trials).toBe(40);
+    expect(report.evidenceState).toBe("Measurement Problem");
+    expect(report.evidenceNote).toContain("not confirming page views at a similar rate");
+  });
+
   it("does not credit a trial when the exposure disagrees with the assignment", () => {
     const report = summarizeProudTest({
       loaded: true,
@@ -499,6 +644,20 @@ describe("reusable landing destinations", () => {
     expect(
       exposureMatchesDestination({ viewedPath: "https://evil.test", officialPath: "/become-proud" })
     ).toBe(false);
+  });
+
+  it("starts the payment window at the earlier assignment when no page view was saved", () => {
+    const assignedAt = EXPOSED - 4 * 24 * 60 * 60 * 1000;
+    expect(
+      cohortInvoiceAnchorMs({
+        exposures: [{ occurredAtMs: EXPOSED }],
+        assignments: [
+          { occurredAtMs: assignedAt, synthetic: false },
+          { occurredAtMs: assignedAt - 86_400_000, synthetic: true },
+        ],
+      })
+    ).toBe(assignedAt);
+    expect(cohortInvoiceAnchorMs({ exposures: [], assignments: [] })).toBeNull();
   });
 
   it("keeps confirmed payments on the exposure cohort across dashboard ranges", () => {

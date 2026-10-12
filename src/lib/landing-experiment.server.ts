@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import type { AcquisitionCookiePayload } from "@/lib/marketing-attribution-pure";
 import type { LandingBillingInput } from "@/lib/landing-page-performance";
 import {
+  cohortInvoiceAnchorMs,
   experimentInvoiceWindow,
   exposureMatchesDestination,
   landingColumnPayload,
@@ -707,12 +708,10 @@ export async function loadLandingExperimentReports(args: {
       Promise.all(experiments.map((experiment) => readAssignments(experiment.id))),
       Promise.all(experiments.map((experiment) => readBehaviors(experiment.id))),
     ]);
-  let earliest: number | null = null;
-  for (const group of exposureGroups) {
-    for (const exposure of group.rows) {
-      if (earliest == null || exposure.occurredAtMs < earliest) earliest = exposure.occurredAtMs;
-    }
-  }
+  const earliest = cohortInvoiceAnchorMs({
+    exposures: exposureGroups.flatMap((group) => group.rows),
+    assignments: assignmentGroups.flatMap((group) => group.rows),
+  });
   let payments: ProudTestPayment[] = [];
   let paymentsReadable = false;
   if (args.billing.subscriptionsReadable && identities.complete) {

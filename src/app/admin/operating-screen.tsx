@@ -429,12 +429,16 @@ function LandingExperiments({ snapshot }: { snapshot: OperatingSnapshot }) {
           </p>
           <p>
             A higher percentage is not a winner. The screen says Collecting Data until 14 days
-            have passed and each page has 100 assigned visitors. Promising Direction means one
-            page is ahead, but that is not a reason to move the budget. Actionable Winner requires
-            28 days, 100 assigned visitors on each page, at least 15 tied trials, and a wider 99%
-            bar because these results are checked more than once. Inconclusive means that
-            observation happened and the gap is too small. Measurement Problem means the tracking
-            could not be read. This does not pick a winner. You record the decision.
+            have passed and each page has 100 visitors whose 7-day trial window has closed.
+            People assigned more recently stay in the live counts and are not treated as failures.
+            Promising Direction means one page is ahead, but that is not a reason to move the
+            budget. Actionable Winner requires 28 days, 100 closed-window visitors on each page,
+            at least 15 tied trials, and a wider 99% bar because these results are checked more
+            than once. A large gap in confirmed page views blocks that call. Inconclusive means
+            that observation happened and the gap is too small. Measurement Problem means the
+            tracking could not be read, or the pages are not being measured the same way. Stripe
+            trials with no visitor link are labeled Unknown and are not subtracted from either
+            page. This does not pick a winner. You record the decision.
           </p>
           <p>
             The app can prepare the planned test and count views, trials, and payments. You
