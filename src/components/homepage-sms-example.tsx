@@ -41,7 +41,7 @@ export function HomepageSmsExample() {
   return (
     <section
       aria-labelledby="sms-example-heading"
-      className="border-b border-[var(--border)] bg-white px-4 py-12 sm:px-6 sm:py-16"
+      className="border-b border-[var(--border)] bg-white px-4 pb-12 pt-8 sm:px-6 sm:pb-16 sm:pt-12"
     >
       <div className="mx-auto min-w-0 max-w-3xl break-words">
         <h2
@@ -52,9 +52,6 @@ export function HomepageSmsExample() {
         </h2>
         <p className="mt-4 text-lg leading-relaxed text-slate-800 sm:text-xl">
           Coach Pat helps you keep going toward your goals and notice the moments that make life special.
-        </p>
-        <p className="mt-6 text-lg font-semibold leading-relaxed text-slate-950">
-          {"Example conversation. This is not a real member's text thread."}
         </p>
         <div className="mt-6 min-w-0 md:mx-auto md:max-w-lg md:rounded-[2rem] md:border md:border-slate-300 md:bg-[#F3F4F6] md:px-5 md:pb-6 md:pt-5">
           <p className="text-lg font-bold leading-relaxed text-slate-950">Coach Pat</p>

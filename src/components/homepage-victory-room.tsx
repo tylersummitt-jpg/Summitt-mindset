@@ -141,10 +141,6 @@ export function HomepageVictoryRoom() {
                   </p>
                 ))}
               </div>
-              <p className="mt-4 text-lg leading-relaxed text-stone-200">
-                Example lifetime totals. They are not the number of victories in September.
-              </p>
-
               <h3 className="mt-8 font-serif text-2xl font-semibold tracking-tight text-stone-50 sm:text-3xl">
                 This Month&apos;s Victories
               </h3>
@@ -210,9 +206,6 @@ export function HomepageVictoryRoom() {
                   ))}
                 </tbody>
               </table>
-              <p className="mt-4 text-lg leading-relaxed text-stone-100">
-                A gold target is a Goal Win. A gold star is a Proud Moment.
-              </p>
             </div>
 
             <div className="mt-8 min-w-0 space-y-4 lg:mt-0">

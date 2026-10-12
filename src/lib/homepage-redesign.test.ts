@@ -59,12 +59,13 @@ describe("homepage redesign phase 2", () => {
     expect(MEMBERSHIP_PUBLIC_OFFER.cancel).toBe("Cancel anytime");
   });
 
-  it("labels the SMS thread as a fictional example", () => {
+  it("keeps Judy's conversation without the example disclaimer", () => {
     const sms = read("src/components/homepage-sms-example.tsx");
     expect(sms).toContain("A Little Conversation Can Change Your Day.");
-    expect(sms).toContain(
+    expect(sms).not.toContain(
       "Example conversation. This is not a real member's text thread."
     );
+    expect(sms).toContain("Example text messages between Coach Pat and Judy");
     expect(sms).toContain("Good morning, Judy! You wanted to walk every day this week. How's that going?");
     expect(sms).toContain("Then let's keep making progress and noticing those special moments!");
     expect(sms).toContain("bg-[#E9E9EB]");
@@ -84,7 +85,13 @@ describe("homepage redesign phase 2", () => {
     expect(room).toContain("The progress you make toward your goals.");
     expect(room).toContain("The special moments in your life you want to remember.");
     expect(room).toContain("Example Victory Room");
-    expect(room).toContain("Example lifetime totals. They are not the number of victories in September.");
+    expect(room).not.toContain(
+      "Example lifetime totals. They are not the number of victories in September."
+    );
+    expect(room).not.toContain("A gold target is a Goal Win. A gold star is a Proud Moment.");
+    expect(room).toContain(
+      "Example September 2026 calendar. A target marks a Goal Win. A star marks a Proud Moment. The marks in this month are not the lifetime totals."
+    );
     expect(room).toContain('value: "37"');
     expect(room).toContain('value: "7"');
     expect(room).toContain('value: "30"');

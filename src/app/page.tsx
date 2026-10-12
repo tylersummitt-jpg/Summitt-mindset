@@ -121,35 +121,10 @@ export default async function HomePage() {
           __html: JSON.stringify(brandSchema).replace(/</g, "\\u003c"),
         }}
       />
-      {/* Homepage hero — image-led, live HTML overlay */}
-      <section className="relative w-full overflow-hidden border-b border-[var(--border)] bg-neutral-950">
-        <div className="relative isolate min-h-[72vh] md:min-h-[80vh] w-full min-w-0">
-          <div className="absolute inset-0 md:hidden" aria-hidden>
-            <Image
-              src="/brand/home-hero-mobile.png"
-              alt=""
-              fill
-              sizes="100vw"
-              priority
-              className="object-cover object-[center_28%]"
-            />
-          </div>
-          <div className="absolute inset-0 hidden md:block" aria-hidden>
-            <Image
-              src="/brand/home-hero-desktop.png"
-              alt=""
-              fill
-              sizes="100vw"
-              priority
-              className="object-cover object-[center_30%] lg:object-center"
-            />
-          </div>
-          <div
-            className="absolute inset-0 z-[1] pointer-events-none bg-[linear-gradient(to_top,rgba(0,0,0,0.88)_0%,rgba(0,0,0,0.38)_42%,rgba(0,0,0,0.12)_58%,transparent_78%)] md:bg-[linear-gradient(90deg,rgba(0,0,0,0.94)_0%,rgba(0,0,0,0.52)_14%,rgba(0,0,0,0.2)_26%,rgba(0,0,0,0.06)_36%,transparent_46%)]"
-            aria-hidden
-          />
-          <div className="relative z-10 flex min-h-[72vh] md:min-h-[80vh] w-full max-w-6xl mx-auto min-w-0 flex-col justify-end px-4 sm:px-6 py-10 pb-12 md:mx-0 md:ml-6 lg:ml-10 xl:ml-12 md:mr-auto md:py-20 md:pb-24 md:justify-center md:items-start">
-            <div className="-mx-4 flex w-[calc(100%+2rem)] max-w-none flex-col gap-5 break-words bg-neutral-950 p-4 min-w-0 sm:-mx-6 sm:w-[calc(100%+3rem)] sm:p-5 md:mx-0 md:w-full md:max-w-2xl md:gap-8 md:bg-transparent md:p-0">
+      <section className="overflow-hidden border-b border-[var(--border)] bg-neutral-950">
+        <div className="grid w-full min-w-0 md:grid-cols-2 md:items-stretch">
+          <div className="relative z-10 flex min-w-0 items-center px-4 pb-6 pt-8 sm:px-6 sm:pt-10 md:py-12 md:pl-[max(1.5rem,calc((100vw-72rem)/2+2.5rem))] md:pr-10 lg:py-14 lg:pr-14">
+            <div className="flex w-full max-w-xl min-w-0 flex-col gap-5 break-words">
               <div>
                 <h1 className="max-w-xl text-[1.65rem] font-black leading-[1.15] tracking-tight text-white drop-shadow-sm min-[390px]:text-[1.85rem] sm:text-4xl md:text-5xl md:leading-[1.05]">
                   <span className="block">Reach Your Goals.</span>
@@ -229,6 +204,16 @@ export default async function HomePage() {
                 </>
               )}
             </div>
+          </div>
+          <div className="relative aspect-[4/3] w-full sm:aspect-[5/4] md:aspect-auto md:min-h-[480px] lg:min-h-[540px]">
+            <Image
+              src="/brand/ask-pat-coaching.jpg"
+              alt="Coach Pat Summitt coaching a player on the sideline"
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover object-[74%_30%] md:object-[82%_36%]"
+            />
           </div>
         </div>
       </section>
