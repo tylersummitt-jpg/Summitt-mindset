@@ -394,22 +394,17 @@ function LandingExperiments({ snapshot }: { snapshot: OperatingSnapshot }) {
         <summary className="cursor-pointer font-medium text-gray-900">How this works</summary>
         <div className="mt-3 space-y-2">
           <p>
-            We have two landing pages: the homepage and Become Proud. Only people who open the
-            entry link are randomized. A direct visit is not an assignment.
+            We have two landing pages: the homepage and Become Proud. Entry is automatic homepage
+            traffic — /. Eligible anonymous visitors are placed about half on each page. Meta,
+            Google, organic, social, email, and direct visits to / are in the same test.
           </p>
           <p>
-            A test compares two of those pages. It has one entry link, such as /go/proud-test.
-            Only people who use that link are in the test. Someone who opens a page on their own
-            is not in the test.
+            A direct visit to /become-proud is not an assignment. Signed-in members are not
+            enrolled. The old /go/proud-test link only redirects to /, where the split happens.
           </p>
           <p>
-            To make a test, create a planned experiment, type a short slug, and choose the two
-            pages. The link is /go/ plus that slug. You do not need a new page or a new route.
-          </p>
-          <p>
-            Start lets new visitors through that link get a page. Pause stops new people from
-            joining. People already in the test keep their page. Complete is where you record
-            the decision. The app does not pick a winner.
+            Pause stops new people from joining. People already in the test keep their page.
+            Complete is where you record the decision. The app does not pick a winner.
           </p>
           <p>
             Each person is placed once, about half on each page. The same person keeps the same
@@ -429,8 +424,8 @@ function LandingExperiments({ snapshot }: { snapshot: OperatingSnapshot }) {
             included. Changing Today or Last 7 Days on this dashboard does not change those numbers.
           </p>
           <p>
-            Ads, email, and people who arrive on their own are different traffic. This test only
-            compares people who came through the same entry link.
+            Everyone eligible who opens the homepage is in one population. A direct open of
+            Become Proud stays outside that population.
           </p>
           <p>
             A higher percentage is not a winner. The screen says Collecting Data until 14 days
@@ -464,7 +459,9 @@ function LandingExperimentResult({ test }: { test: OperatingSnapshot["landingExp
   return (
     <div className="space-y-3">
       <h3 className="text-base font-medium text-gray-900">{test.name}</h3>
-      {test.entrySlug ? (
+      {test.entrySlug === "proud-test" ? (
+        <p className="text-sm text-gray-700">Entry: Automatic homepage traffic — /</p>
+      ) : test.entrySlug ? (
         <p className="text-sm text-gray-700">Entry: /go/{test.entrySlug}</p>
       ) : null}
       <p className="text-sm text-gray-700">{test.note}</p>

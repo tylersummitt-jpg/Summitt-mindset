@@ -1,9 +1,11 @@
 /** Fixed registry id. Inserts use this id so a redeploy cannot create a second row. */
 export const PROUD_TEST_EXPERIMENT_ID = "b8c1e2a0-7d4f-4a1e-9c3b-6f0a1d2e4b70";
 
-export const PROUD_TEST_ENTRY_PATH = "/go/proud-test";
+export const PROUD_TEST_ENTRY_PATH = "/";
 
-export const PROUD_TEST_INSTRUMENTATION_VERSION = "2";
+export const PROUD_TEST_RETIRED_ENTRY_PATH = "/go/proud-test";
+
+export const PROUD_TEST_INSTRUMENTATION_VERSION = "3";
 
 export const PROUD_TEST_COOKIE = "sm_exp";
 
@@ -119,20 +121,20 @@ export const PROUD_TEST_DEFINITION = {
   name: "Homepage vs Become proud",
   area: "distribution" as const,
   hypothesis:
-    "Comparable visitors who enter through /go/proud-test and see /become-proud will start more genuine free trials than visitors who see the current homepage.",
+    "Eligible visitors who arrive at / and see /become-proud will start more genuine free trials than visitors who stay on the homepage.",
   control:
-    "Current homepage at /. Only visitors assigned at /go/proud-test while this experiment is running. A direct visit to / is not an assignment.",
+    "Current homepage at /. About half of eligible anonymous visitors to /. A direct visit to /become-proud is not an assignment.",
   challenger:
-    "Audience page /become-proud. About half of eligible visitors from the same entry URL. A direct visit to /become-proud is not an assignment.",
+    "Audience page /become-proud. About half of eligible anonymous visitors to /. A direct visit to /become-proud is not an assignment.",
   primaryOutcome: "Genuine Stripe free-trial starts per unique eligible assigned visitor.",
   decisionCriteria:
     "Primary metric: genuine Stripe free-trial starts per unique eligible assigned visitor. A trial counts when that visitor was assigned to one variant, the Clerk link is unambiguous, and the trial starts within 7 days after assignment. Missing exposures stay in the denominator. The exposed-visitor trial rate is a diagnostic. Paid outcomes: confirmed first payments and mature trial-to-paid. Do not judge paid conversion while trials are still running. past_due is not paid. Apple memberships are not included. Collecting data until 14 days have passed and each page has 100 assigned visitors. Promising direction when a 95% interval for the rate difference excludes a tie. Actionable review when 28 days have passed, each page has 100 assigned visitors, at least 15 trials have been tied to the test, and a 99% interval excludes a tie. The wider bar is used because the result is looked at more than once. Inconclusive when that observation is met and the interval includes a tie. Measurement problem when assignment or trial reads fail, or too many trials cannot be tied to one visitor. A higher click rate is not a decision. A person records the decision. This system does not select a winner.",
   secondaryOutcomes:
     "Join button clicks, checkout starts, confirmed first payments, and mature trial-to-paid conversion.",
   nextAction:
-    "Start this in the registry only when a selected campaign will use /go/proud-test. Do not send existing homepage visitors there.",
+    "Eligible anonymous visitors to / are assigned while this experiment is running. /go/proud-test only redirects to /. Signed-in members are not enrolled.",
   limitations:
-    "Apple memberships are not included. Deployment does not start this test. The entry URL assigns new visitors only while the status is running.",
+    "Apple memberships are not included. Eligible anonymous visitors to / are assigned while the status is running. /go/proud-test redirects to / and is not an entry. Signed-in members are not enrolled. Direct visits to /become-proud are not assignments.",
 };
 
 export function assignLandingVariant(
@@ -168,6 +170,7 @@ export function isPrefetchRequest(headers: {
   const purpose = `${headers.get("purpose") ?? ""} ${headers.get("sec-purpose") ?? ""} ${headers.get("x-purpose") ?? ""}`;
   if (/prefetch/i.test(purpose)) return true;
   if (headers.get("next-router-prefetch") === "1") return true;
+  if (headers.get("next-router-segment-prefetch") === "1") return true;
   if (headers.get("x-middleware-prefetch") === "1") return true;
   return false;
 }
@@ -299,5 +302,62 @@ export function decideProudTestEntry(args: {
     experimentId: args.experimentId ?? PROUD_TEST_EXPERIMENT_ID,
     destinations,
   });
+}
+
+/**
+ * Homepage entry. Control stays on /. Challenger is redirected once.
+ * Signed-in people, the native app, bots, and prefetch requests are ignored.
+ */
+export function decideHomepageSplit(args: {
+  signedIn: boolean;
+  nativeApp: boolean;
+  status: ProudTestStatus;
+  visitorId: string | null;
+  existingVariant: LandingVariant | null;
+  userAgent: string | null;
+  prefetch: boolean;
+}): {
+  action: "ignore" | "stay" | "redirect";
+  created: boolean;
+  variant: LandingVariant | null;
+  destination: ApprovedLandingDestination;
+} {
+  const ignored = {
+    action: "ignore" as const,
+    created: false,
+    variant: null,
+    destination: "/" as const,
+  };
+  if (args.signedIn || args.nativeApp) return ignored;
+  const decision = decideLandingEntry({
+    experimentId: PROUD_TEST_EXPERIMENT_ID,
+    status: args.status,
+    visitorId: args.visitorId,
+    existingVariant: args.existingVariant,
+    destinations: {
+      entrySlug: "proud-test",
+      controlPath: "/",
+      challengerPath: "/become-proud",
+    },
+    userAgent: args.userAgent,
+    prefetch: args.prefetch,
+  });
+  if (decision.destination !== "/") {
+    return {
+      action: "redirect",
+      created: decision.created,
+      variant: decision.variant,
+      destination: decision.destination,
+    };
+  }
+  if (decision.created && decision.variant) {
+    return {
+      action: "stay",
+      created: true,
+      variant: decision.variant,
+      destination: "/",
+    };
+  }
+  return ignored;
 }
 

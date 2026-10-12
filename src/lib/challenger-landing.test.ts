@@ -102,7 +102,7 @@ describe("become-proud challenger", () => {
     expect(page).toContain("!text-[#111827]");
     expect(page).toContain("min-h-14");
     expect(experiment).toContain('challenger: "/become-proud"');
-    expect(PROUD_TEST_DEFINITION.nextAction).toContain("Do not send existing homepage visitors");
+    expect(PROUD_TEST_DEFINITION.nextAction).toContain("Eligible anonymous visitors to /");
     expect(route).not.toContain("assignProudTestVariant");
     expect(page).not.toContain("assignProudTestVariant");
   });

@@ -35,6 +35,13 @@ export async function GET(
 ) {
   const { experimentSlug } = await context.params;
   const slug = parseEntrySlug(experimentSlug);
+  if (slug === "proud-test") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    const retired = NextResponse.redirect(url, 302);
+    retired.headers.set("cache-control", "private, no-store");
+    return retired;
+  }
   const experiment = slug
     ? await readLandingExperimentBySlug(slug).catch(() => "unavailable" as const)
     : "missing";

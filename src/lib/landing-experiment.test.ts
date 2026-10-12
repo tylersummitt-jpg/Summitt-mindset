@@ -16,6 +16,7 @@ import { growthPeriodUtcMs } from "@/lib/admin-subscriber-growth-pure";
 import {
   APPROVED_LANDING_DESTINATIONS,
   assignProudTestVariant,
+  decideHomepageSplit,
   decideLandingEntry,
   decideProudTestEntry,
   experimentInvoiceWindow,
@@ -309,7 +310,7 @@ describe("proud test outcomes", () => {
     expect(definition.decisionCriteria).toContain("100 assigned visitors");
     expect(definition.decisionCriteria).toContain("does not select a winner");
     expect(definition.decisionCriteria.length).toBeLessThanOrEqual(2000);
-    expect(PROUD_TEST_DEFINITION.nextAction).toContain("Do not send existing homepage visitors");
+    expect(PROUD_TEST_DEFINITION.nextAction).toContain("Eligible anonymous visitors to /");
   });
 
   it("keeps an assigned visitor in the trial denominator when the exposure is missing", () => {
@@ -561,7 +562,9 @@ describe("proud test stays off the homepage and Brooke's page", () => {
     expect(route).not.toContain(".insert(");
     expect(route).not.toContain("recordLandingExposures");
     expect(route).toContain("recordLandingAssignment");
+    expect(route).toContain("slug === \"proud-test\"");
     expect(route).toContain("decideLandingEntry");
+    expect(middleware).toContain("applyHomepageExperiment");
     expect(route).not.toContain("searchParams.get");
     expect(middleware).toContain('"/go/(.*)"');
     expect(isLandingExperimentEntryPath("/go/proud-test")).toBe(true);
@@ -569,6 +572,7 @@ describe("proud test stays off the homepage and Brooke's page", () => {
     expect(isLandingExperimentEntryPath("/go/https://evil.test")).toBe(false);
     expect(() => readFileSync(join(root, "src/app/go/proud-test/route.ts"), "utf8")).toThrow();
     expect(screen).toContain("Controlled landing test");
+    expect(screen).toContain("Automatic homepage traffic — /");
     const retentionAt = screen.indexOf("function RetentionBody");
     const retention = screen.slice(retentionAt);
     expect(screen.slice(0, retentionAt)).toContain("How this works");
@@ -593,5 +597,111 @@ describe("proud test stays off the homepage and Brooke's page", () => {
     expect(snapshot.report).toContain("CONTROLLED LANDING TEST");
     expect(snapshot.report).toContain("were not loaded");
     expect(snapshot.report).not.toMatch(/\bwon\b/i);
+  });
+});
+
+describe("homepage split", () => {
+  const browser = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36";
+
+  it("keeps control on the homepage and redirects the challenger", () => {
+    const control = decideHomepageSplit({
+      signedIn: false,
+      nativeApp: false,
+      status: "running",
+      visitorId: VISITOR,
+      existingVariant: null,
+      userAgent: browser,
+      prefetch: false,
+    });
+    const assigned = assignProudTestVariant(VISITOR);
+    if (assigned === "control") {
+      expect(control).toMatchObject({ action: "stay", destination: "/", created: true, variant: "control" });
+    } else {
+      expect(control).toMatchObject({
+        action: "redirect",
+        destination: "/become-proud",
+        created: true,
+        variant: "challenger",
+      });
+    }
+  });
+
+  it("splits many distinct visitors close to half and half", () => {
+    let control = 0;
+    for (let index = 0; index < 400; index += 1) {
+      const visitorId = `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
+      if (assignProudTestVariant(visitorId) === "control") control += 1;
+    }
+    expect(control).toBeGreaterThan(150);
+    expect(control).toBeLessThan(250);
+  });
+
+  it("keeps a returning visitor on the assigned page and ignores members, bots, and prefetch", () => {
+    expect(
+      decideHomepageSplit({
+        signedIn: false,
+        nativeApp: false,
+        status: "running",
+        visitorId: VISITOR,
+        existingVariant: "challenger",
+        userAgent: browser,
+        prefetch: false,
+      }).action
+    ).toBe("redirect");
+    expect(
+      decideHomepageSplit({
+        signedIn: false,
+        nativeApp: false,
+        status: "running",
+        visitorId: VISITOR,
+        existingVariant: "control",
+        userAgent: browser,
+        prefetch: false,
+      }).action
+    ).toBe("ignore");
+    expect(
+      decideHomepageSplit({
+        signedIn: true,
+        nativeApp: false,
+        status: "running",
+        visitorId: VISITOR,
+        existingVariant: null,
+        userAgent: browser,
+        prefetch: false,
+      }).action
+    ).toBe("ignore");
+    expect(
+      decideHomepageSplit({
+        signedIn: false,
+        nativeApp: false,
+        status: "running",
+        visitorId: VISITOR,
+        existingVariant: null,
+        userAgent: "curl/8.7.1",
+        prefetch: false,
+      }).action
+    ).toBe("ignore");
+    expect(
+      decideHomepageSplit({
+        signedIn: false,
+        nativeApp: false,
+        status: "paused",
+        visitorId: VISITOR,
+        existingVariant: null,
+        userAgent: browser,
+        prefetch: false,
+      }).action
+    ).toBe("ignore");
+    expect(
+      decideHomepageSplit({
+        signedIn: false,
+        nativeApp: false,
+        status: "paused",
+        visitorId: VISITOR,
+        existingVariant: "challenger",
+        userAgent: browser,
+        prefetch: false,
+      }).action
+    ).toBe("redirect");
   });
 });

@@ -11,6 +11,7 @@ import {
 export {
   APPROVED_LANDING_DESTINATIONS,
   assignProudTestVariant,
+  decideHomepageSplit,
   decideLandingEntry,
   decideProudTestEntry,
   exposureMatchesDestination,
@@ -354,13 +355,22 @@ export function summarizeProudTest(args: {
     challenger: "/become-proud" as const,
   };
   const entrySlug = args.entrySlug ?? "proud-test";
-  const noteParts = [
-    `This is the controlled comparison for /go/${entrySlug}. Direct visits to ${destinations.control} and ${destinations.challenger} are not included.`,
-    "A higher rate is not a winner. The registry holds the human decision.",
-    args.status === "running"
-      ? "New visitors at the entry URL are being assigned."
-      : "The entry URL is not assigning new visitors. Returning assigned visitors keep their version.",
-  ];
+  const homepageEntry = entrySlug === "proud-test";
+  const noteParts = homepageEntry
+    ? [
+        "Eligible anonymous visitors to / are assigned about half to the homepage and half to /become-proud. Direct visits to /become-proud are not assignments. Signed-in members are not enrolled.",
+        "A higher rate is not a winner. The registry holds the human decision.",
+        args.status === "running"
+          ? "New eligible visitors to the homepage are being assigned."
+          : "The homepage is not assigning new visitors. Returning assigned visitors keep their version.",
+      ]
+    : [
+        `This is the controlled comparison for /go/${entrySlug}. Direct visits to ${destinations.control} and ${destinations.challenger} are not included.`,
+        "A higher rate is not a winner. The registry holds the human decision.",
+        args.status === "running"
+          ? "New visitors at the entry URL are being assigned."
+          : "The entry URL is not assigning new visitors. Returning assigned visitors keep their version.",
+      ];
   if (!args.exposuresReadable) {
     return {
       loaded: true,
@@ -758,7 +768,11 @@ export function formatProudTestReport(report: ProudTestReport): string[] {
     report.note,
   ];
   if (!report.loaded) return lines;
-  if (report.entrySlug) lines.push(`Entry: /go/${report.entrySlug}`);
+  if (report.entrySlug === "proud-test") {
+    lines.push("Entry: Automatic homepage traffic — /");
+  } else if (report.entrySlug) {
+    lines.push(`Entry: /go/${report.entrySlug}`);
+  }
   lines.push(
     `Status: ${report.status}.`,
     `Evidence: ${report.evidence ?? "Not recorded."}`,

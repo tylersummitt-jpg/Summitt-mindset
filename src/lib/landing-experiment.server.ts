@@ -29,6 +29,7 @@ import {
   type ProudTestVariant,
 } from "@/lib/landing-experiment";
 import { mergeBehavior, parseClientEnvironment } from "@/lib/landing-experiment-telemetry";
+import { recordLandingAssignment as persistLandingAssignment } from "@/lib/landing-experiment-assign";
 import { plannedWritePayload } from "@/lib/operating-experiments";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -401,47 +402,9 @@ export async function recordLandingAssignment(args: {
   attribution: AcquisitionCookiePayload;
   userAgent: string | null;
   synthetic: boolean;
+  entryMode?: "homepage";
 }): Promise<void> {
-  const existing = await supabaseServer
-    .from("marketing_events")
-    .select("id")
-    .eq("event_type", "page_viewed")
-    .eq("visitor_id", args.visitorId)
-    .filter("metadata->>experiment_id", "eq", args.experimentId)
-    .filter("metadata->>experiment_record", "eq", "assignment")
-    .limit(1);
-  if (existing.error) {
-    console.warn("[landing-experiment] assignment lookup failed", { reason: existing.error.message });
-    return;
-  }
-  if ((existing.data ?? []).length > 0) return;
-  const environment = parseClientEnvironment(args.userAgent);
-  const { error } = await supabaseServer.from("marketing_events").insert({
-    event_type: "page_viewed",
-    visitor_id: args.visitorId,
-    path: `/go/${args.slug}`,
-    utm_source: args.attribution.utm_source,
-    utm_medium: args.attribution.utm_medium,
-    utm_campaign: args.attribution.utm_campaign,
-    utm_content: args.attribution.utm_content,
-    source_normalized: args.attribution.source_normalized,
-    is_paid_acquisition: args.attribution.is_paid_acquisition,
-    referrer_host: args.attribution.referrer_host,
-    metadata: {
-      experiment_id: args.experimentId,
-      experiment_variant: args.variant,
-      experiment_record: "assignment",
-      instrumentation_version: PROUD_TEST_INSTRUMENTATION_VERSION,
-      device: environment.device,
-      os: environment.os,
-      browser: environment.browser,
-      in_app: environment.inApp,
-      synthetic: args.synthetic,
-    },
-  });
-  if (error && (error as { code?: string }).code !== "23505") {
-    console.warn("[landing-experiment] assignment insert failed", { reason: error.message });
-  }
+  return persistLandingAssignment(args);
 }
 
 export async function recordLandingBehavior(args: {

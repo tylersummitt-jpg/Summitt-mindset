@@ -369,7 +369,9 @@ function experimentBlock(record: ExperimentRecord): string[] {
     `  Challenger: ${record.challenger}`,
     ...(record.entrySlug
       ? [
-          `  Entry: /go/${record.entrySlug}`,
+          record.entrySlug === "proud-test"
+            ? "  Entry: Automatic homepage traffic — /"
+            : `  Entry: /go/${record.entrySlug}`,
           `  Control page: ${record.controlPath ?? "Not recorded."}`,
           `  Challenger page: ${record.challengerPath ?? "Not recorded."}`,
         ]

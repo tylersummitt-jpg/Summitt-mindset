@@ -8,6 +8,7 @@ import {
   isCoachAttributionEnabled,
   isCoachAttributionPath,
 } from "@/lib/coach-attribution";
+import { applyHomepageExperiment } from "@/lib/homepage-experiment";
 import { isLandingExperimentEntryPath } from "@/lib/landing-experiment-shared";
 import { attachMarketingCookies } from "@/lib/marketing-middleware-cookies";
 import { isNativeSummittMindsetApp } from "@/lib/native-app/platform";
@@ -129,6 +130,26 @@ export default clerkMiddleware(async (auth, req) => {
       });
     }
     if (isLandingExperimentEntryPath(req.nextUrl.pathname)) return res;
+    if (
+      req.nextUrl.pathname === "/" &&
+      (req.method === "GET" || req.method === "HEAD") &&
+      !isNativeSummittMindsetApp(req.headers.get("user-agent"))
+    ) {
+      const { userId } = await auth();
+      const split = await applyHomepageExperiment(req, { signedIn: Boolean(userId) });
+      if (split) {
+        if (shouldSetCoachAttributionCookie) {
+          split.cookies.set(COACH_ATTRIBUTION_COOKIE_NAME, COACH_ATTRIBUTION_COOKIE_VALUE_COACH, {
+            path: "/",
+            maxAge: 60 * 60 * 24 * 30,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+            httpOnly: false,
+          });
+        }
+        return split;
+      }
+    }
     return attachMarketingCookies(req, res);
   }
 
