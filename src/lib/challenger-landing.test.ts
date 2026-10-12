@@ -59,7 +59,7 @@ describe("become-proud challenger", () => {
     expect(page).not.toContain("Judy, how's our goal");
     expect(page).toContain("Walked Four Days This Week!");
     expect(page).toContain("An Afternoon at the Park");
-    expect(page).toContain("Example Victory Room. These cards are illustrations, not a real member's saved moments.");
+    expect(page).not.toContain("Example Victory Room. These cards are illustrations, not a real member's saved moments.");
     expect(page).not.toContain('value: "37"');
     expect(page).toContain("And There's Even More Included.");
     expect(page).toContain("Ask Pat");

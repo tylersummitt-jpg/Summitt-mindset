@@ -12,8 +12,6 @@ const HERO_SUPPORT =
 const PRIMARY_CTA = "Put Coach Pat in My Corner";
 const BONUS_CTA = "Get Everything — Start Free";
 const BONUS_HEADING = "And There's Even More Included.";
-const VICTORY_EXAMPLE =
-  "Example Victory Room. These cards are illustrations, not a real member's saved moments.";
 
 const LINDA_MESSAGES = [
   {
@@ -313,9 +311,6 @@ export function ChallengerLandingPage({
             <p>The goals you reached. The challenges you overcame. The moments you never want to forget.</p>
             <p>Your Victory Room gives you a place to save those memories and see how far you&apos;ve come.</p>
           </div>
-          <p className="mt-8 text-lg font-semibold leading-relaxed text-[#f3d48a] sm:text-xl">
-            {VICTORY_EXAMPLE}
-          </p>
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             <article className="min-w-0 rounded-2xl border border-[#e8c872]/40 bg-[#0c1a2e] p-6 sm:p-7">
               <p className="flex items-center gap-2 text-lg font-semibold text-[#f3d48a]">
