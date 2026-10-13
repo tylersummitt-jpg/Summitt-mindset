@@ -49,5 +49,8 @@ export async function POST(req: Request) {
   if (result.status === "ticket") {
     return NextResponse.json({ status: "ticket", ticket: result.ticket }, { headers });
   }
+  if (result.status === "preserved") {
+    return NextResponse.json({ status: "preserved", next: "/post-sign-in" }, { headers });
+  }
   return NextResponse.json({ status: result.status }, { headers });
 }

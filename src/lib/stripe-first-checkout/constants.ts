@@ -32,7 +32,11 @@ export const CANARY_METADATA_KEY = "summittCanary";
 
 export const CANARY_METADATA_VALUE = "owner";
 
-export const BINDING_MAX_AGE_SECONDS = 60 * 60 * 3;
+/**
+ * Provisional browser-binding lifetime. Stripe Checkout Sessions last 24 hours.
+ * After Stripe returns expires_at, the stored binding and cookie use that time.
+ */
+export const BINDING_MAX_AGE_SECONDS = 60 * 60 * 24;
 
 export const HOLD_METADATA_KEY = "summittActivationHold";
 
@@ -43,5 +47,8 @@ export const STRIPE_FIRST_RESERVED_EMAIL_METADATA = "stripeFirstReservedEmail";
 
 /** Stripe subscription metadata. Records that the staff alert was sent. Not a hold. */
 export const UNPROTECTED_ALERTED_METADATA_KEY = "summittUnprotectedAlerted";
+
+/** Staff alert for a paid trial that never became a Clerk account. Not a customer email. */
+export const STRANDED_ALERTED_METADATA_KEY = "summittStrandedAlerted";
 
 export const SIGN_IN_TICKET_SECONDS = 60;

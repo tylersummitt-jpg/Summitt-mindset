@@ -394,6 +394,42 @@ export async function markHoldConfirmedAndReleased(args: {
   return (data?.length ?? 0) > 0;
 }
 
+/** Extends completion to the Checkout Session lifetime. Does not rotate the binding secret. */
+export async function alignBindingExpiry(args: {
+  intentId: string;
+  bindingExpiresAt: string;
+}): Promise<void> {
+  const { error } = await supabaseServer
+    .from("checkout_browser_intents")
+    .update({
+      binding_expires_at: args.bindingExpiresAt,
+      updated_at: nowIso(),
+    })
+    .eq("id", args.intentId)
+    .is("session_started_at", null);
+  if (error) logIntentError("binding_expiry", error.code);
+}
+
+export async function loadUnprovisionedPaidIntents(
+  offset = 0
+): Promise<CheckoutBrowserIntent[]> {
+  const { data, error } = await supabaseServer
+    .from("checkout_browser_intents")
+    .select("*")
+    .not("stripe_trial_confirmed_at", "is", null)
+    .not("stripe_subscription_id", "is", null)
+    .is("clerk_user_provisioned_at", null)
+    .is("sign_in_required_at", null)
+    .is("session_started_at", null)
+    .order("stripe_trial_confirmed_at", { ascending: true })
+    .range(offset, offset + 49);
+  if (error) {
+    logIntentError("load_stranded", error.code);
+    throw new Error("intent_load_failed");
+  }
+  return (data as CheckoutBrowserIntent[] | null) ?? [];
+}
+
 export async function updateIntentEmail(args: {
   intentId: string;
   email: string;

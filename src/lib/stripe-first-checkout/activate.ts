@@ -40,6 +40,15 @@ import {
   lookupClerkUserIdsByEmail,
 } from "@/lib/stripe-first-checkout/clerk-provision";
 import {
+  bindingMaxAgeSeconds,
+  duplicateTrialNextPath,
+  entitlementFromStoredSubscription,
+  priorCheckoutAction,
+  publicCheckoutFinishUrl,
+  type PriorSessionState,
+} from "@/lib/stripe-first-checkout/checkout-reliability";
+import {
+  alignBindingExpiry,
   attachCheckoutSession,
   confirmStripeTrial,
   deleteUnstartedLiveIntent,
@@ -60,12 +69,13 @@ import {
 import { reconcileActivationHold } from "@/lib/stripe-first-checkout/stripe-hold";
 import { recomputeMembershipFromAuthoritativeStripeSubscription } from "@/lib/summitt-membership-entitlement.server";
 import { resolveAppleMembershipGrantForUser } from "@/lib/summitt-membership-entitlement.server";
-import { isSummittEntitledFromSubscription } from "@/lib/summitt-subscription-membership";
+import { classifySummittMembership } from "@/lib/summitt-subscription-membership";
 
 export type ActivateResult =
   | { status: "ticket"; ticket: string }
   | { status: "sign_in_required" }
   | { status: "continue" }
+  | { status: "preserved" }
   | { status: "incomplete" }
   | { status: "unprotected" }
   | { status: "rejected" }
@@ -129,7 +139,12 @@ export async function beginHostedCheckout(args: {
     utmContent: string | null;
     sourceNormalized: string | null;
   };
-}): Promise<{ url: string; bindingSecret: string; sessionId: string }> {
+}): Promise<{
+  url: string;
+  bindingSecret: string;
+  sessionId: string;
+  bindingMaxAgeSeconds: number;
+}> {
   const publicCheckout = args.publicCheckout === true;
   let canary = false;
   let livemode = false;
@@ -245,19 +260,177 @@ export async function beginHostedCheckout(args: {
       sessionId: session.id,
     });
     if (!attached) throw new Error("intent_update_failed");
-    return { url: session.url, bindingSecret: binding.secret, sessionId: session.id };
+    const maxAgeSeconds = bindingMaxAgeSeconds(session.expires_at, Date.now());
+    await alignBindingExpiry({
+      intentId: intent.id,
+      bindingExpiresAt: new Date(Date.now() + maxAgeSeconds * 1000).toISOString(),
+    });
+    return {
+      url: session.url,
+      bindingSecret: binding.secret,
+      sessionId: session.id,
+      bindingMaxAgeSeconds: maxAgeSeconds,
+    };
   } catch (err) {
     if (canary && !session?.id) await deleteUnstartedLiveIntent(intent.id);
     throw err;
   }
 }
 
+function sessionState(status: string | null | undefined): PriorSessionState {
+  if (status === "open" || status === "complete" || status === "expired") return status;
+  return "unknown";
+}
+
+function stripeErrorCode(err: unknown): string {
+  if (!err || typeof err !== "object" || !("code" in err)) return "";
+  return typeof err.code === "string" ? err.code : "";
+}
+
+/**
+ * Expire only when the follow-up read is still expired.
+ * A payment that completes during expire stays "complete" and keeps its binding.
+ */
+async function retireOpenCheckoutSession(sessionId: string): Promise<PriorSessionState | "failed"> {
+  const stripe = stripeClient();
+  try {
+    await stripe.checkout.sessions.expire(sessionId);
+  } catch {
+    try {
+      const current = await stripe.checkout.sessions.retrieve(sessionId);
+      return sessionState(current.status);
+    } catch {
+      return "failed";
+    }
+  }
+  try {
+    const current = await stripe.checkout.sessions.retrieve(sessionId);
+    return sessionState(current.status);
+  } catch {
+    return "failed";
+  }
+}
+
+export type PublicCheckoutResume =
+  | {
+      action: "reuse" | "finish";
+      url: string;
+      bindingSecret: string;
+      maxAgeSeconds: number;
+    }
+  | { action: "replace" }
+  | { action: "keep" };
+
+/**
+ * Second public start. Reuses the open session, or expires it before a new
+ * binding is issued. Does not rotate the cookie when expiration is uncertain
+ * or when payment won the race.
+ */
+export async function resumeOrReplacePublicCheckout(args: {
+  bindingSecret: string | undefined;
+  plan: "monthly" | "annual";
+  request: Request;
+  /** Signed-in checkout must not leave an older anonymous session payable. */
+  displaceOpenSession?: boolean;
+}): Promise<PublicCheckoutResume> {
+  if (!args.bindingSecret) return { action: "replace" };
+  const intent = await loadIntentByBindingHash(hashCheckoutBinding(args.bindingSecret));
+  if (!intent?.stripe_checkout_session_id) return { action: "replace" };
+
+  const stripe = stripeClient();
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(intent.stripe_checkout_session_id);
+  } catch {
+    return { action: "keep" };
+  }
+  if (session.metadata?.[CANARY_METADATA_KEY] === CANARY_METADATA_VALUE) {
+    if (session.status === "open") {
+      const after = await retireOpenCheckoutSession(session.id);
+      const action = priorCheckoutAction({
+        status: "open",
+        samePlan: false,
+        hasUrl: false,
+        expireResult: after,
+      });
+      if (action === "replace") return { action: "replace" };
+      return { action: "keep" };
+    }
+    return { action: "replace" };
+  }
+
+  const status = sessionState(session.status);
+  const samePlan = session.metadata?.plan === args.plan;
+  const hasUrl = typeof session.url === "string" && session.url.length > 0;
+  let action = priorCheckoutAction({
+    status,
+    samePlan: args.displaceOpenSession ? false : samePlan,
+    hasUrl: args.displaceOpenSession ? false : hasUrl,
+  });
+  if (status === "open" && action !== "reuse") {
+    const after = await retireOpenCheckoutSession(session.id);
+    action = priorCheckoutAction({
+      status: "open",
+      samePlan,
+      hasUrl,
+      expireResult: after,
+    });
+    if (after === "complete") {
+      session = await stripe.checkout.sessions.retrieve(session.id);
+    }
+  }
+
+  const maxAgeSeconds = bindingMaxAgeSeconds(session.expires_at, Date.now());
+  if (action === "reuse" && session.url) {
+    await alignBindingExpiry({
+      intentId: intent.id,
+      bindingExpiresAt: new Date(Date.now() + maxAgeSeconds * 1000).toISOString(),
+    });
+    return {
+      action: "reuse",
+      url: session.url,
+      bindingSecret: args.bindingSecret,
+      maxAgeSeconds,
+    };
+  }
+  if (action === "finish") {
+    const origin = resolveStripeCheckoutReturnOrigin(args.request);
+    return {
+      action: "finish",
+      url: publicCheckoutFinishUrl(origin, session.id),
+      bindingSecret: args.bindingSecret,
+      maxAgeSeconds,
+    };
+  }
+  if (action === "replace") return { action: "replace" };
+  return { action: "keep" };
+}
+
+async function finishActivationHold(
+  intentId: string
+): Promise<{ status: "ready" } | { status: "preserved" } | { status: "retry" }> {
+  const hold = await reconcileActivationHold(intentId);
+  if (hold === "retry" || hold === "unprotected") return { status: "retry" };
+  if (hold === "preserved") return { status: "preserved" };
+  return { status: "ready" };
+}
+
 async function requireBoundIntent(bindingSecret: string): Promise<CheckoutBrowserIntent | null> {
   if (!bindingSecret) return null;
   const intent = await loadIntentByBindingHash(hashCheckoutBinding(bindingSecret));
   if (!intent) return null;
-  if (Date.parse(intent.binding_expires_at) < Date.now()) return null;
   if (!intent.stripe_checkout_session_id) return null;
+  if (Date.parse(intent.binding_expires_at) < Date.now()) {
+    try {
+      const session = await stripeClient().checkout.sessions.retrieve(
+        intent.stripe_checkout_session_id
+      );
+      const sessionExpiresMs = (session.expires_at ?? 0) * 1000;
+      if (!sessionExpiresMs || sessionExpiresMs < Date.now()) return null;
+    } catch {
+      return null;
+    }
+  }
   if (
     !hostedCompletionAllowed({
       bindingCookiePresent: true,
@@ -417,6 +590,9 @@ export async function activateHostedCheckout(args: {
     const intent = await requireBoundIntent(args.bindingSecret);
     if (!intent) return { status: "rejected" };
     if (intent.session_started_at && intent.clerk_user_provisioned_at) {
+      const finished = await finishActivationHold(intent.id);
+      if (finished.status === "retry") return { status: "retry" };
+      if (finished.status === "preserved") return { status: "preserved" };
       return { status: "continue" };
     }
     if (intent.sign_in_required_at && !intent.session_started_at) {
@@ -470,9 +646,9 @@ export async function confirmHostedSession(args: {
         if (!fresh?.session_started_at) return { status: "retry" };
       }
     }
-    const hold = await reconcileActivationHold(intent.id);
-    if (hold === "retry" || hold === "unprotected") return { status: "retry" };
-    if (hold === "preserved") {
+    const finished = await finishActivationHold(intent.id);
+    if (finished.status === "retry") return { status: "retry" };
+    if (finished.status === "preserved") {
       return { status: "preserved", next: "/post-sign-in" };
     }
     return { status: "ready", next: ONBOARDING_IDENTITY_PATH };
@@ -491,7 +667,7 @@ async function cancelUnlinkedTrial(subscriptionId: string) {
 async function existingEntitlement(args: {
   clerkUserId: string;
   newSubscriptionId: string;
-}): Promise<"apple" | "stripe" | "mismatch" | null> {
+}): Promise<"apple" | "stripe" | "paused" | "past_due" | "retry" | null> {
   const apple = await resolveAppleMembershipGrantForUser(args.clerkUserId);
   if (apple?.grantsAccess) return "apple";
 
@@ -502,19 +678,22 @@ async function existingEntitlement(args: {
       : "";
   if (!existingId || existingId === args.newSubscriptionId) return null;
 
+  let existing: Stripe.Subscription;
   try {
-    const existing = await stripeClient().subscriptions.retrieve(existingId);
-    if (!stripeKeyMatchesLivemode(process.env.STRIPE_SECRET_KEY, existing.livemode)) {
-      return "mismatch";
-    }
-    if (isSummittEntitledFromSubscription(existing)) return "stripe";
-    return null;
+    existing = await stripeClient().subscriptions.retrieve(existingId);
   } catch (err) {
-    const code =
-      err && typeof err === "object" && "code" in err ? String(err.code) : "";
-    if (code === "resource_missing") return "mismatch";
+    if (stripeErrorCode(err) === "resource_missing") {
+      return entitlementFromStoredSubscription({ kind: "missing" });
+    }
     throw err;
   }
+  if (!stripeKeyMatchesLivemode(process.env.STRIPE_SECRET_KEY, existing.livemode)) {
+    return entitlementFromStoredSubscription({ kind: "unavailable" });
+  }
+  return entitlementFromStoredSubscription({
+    kind: "found",
+    classification: classifySummittMembership(existing),
+  });
 }
 
 /**
@@ -546,6 +725,7 @@ export async function linkExistingHostedCheckout(args: {
       clerkUserId: args.clerkUserId,
       newSubscriptionId: intent.stripe_subscription_id,
     });
+    if (entitlement === "retry") return { status: "retry" };
     if (entitlement) {
       const current = await stripeClient().subscriptions.retrieve(intent.stripe_subscription_id);
       if (current.status !== "canceled") {
@@ -560,8 +740,8 @@ export async function linkExistingHostedCheckout(args: {
         if (fresh?.clerk_user_id !== args.clerkUserId) return { status: "retry" };
       }
       return {
-        status: entitlement === "mismatch" ? "not_linked" : "already_member",
-        next: "/post-sign-in",
+        status: "already_member",
+        next: duplicateTrialNextPath(entitlement),
       };
     }
 

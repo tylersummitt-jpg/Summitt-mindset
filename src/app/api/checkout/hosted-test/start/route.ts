@@ -9,7 +9,6 @@ import {
 } from "@/lib/landing-experiment-shared";
 import { beginHostedCheckout } from "@/lib/stripe-first-checkout/activate";
 import {
-  BINDING_MAX_AGE_SECONDS,
   CHECKOUT_BINDING_COOKIE,
   HOSTED_TEST_ACCESS_COOKIE,
 } from "@/lib/stripe-first-checkout/constants";
@@ -68,7 +67,7 @@ export async function POST(req: Request) {
     response.cookies.set(
       CHECKOUT_BINDING_COOKIE,
       started.bindingSecret,
-      cookieOptions(BINDING_MAX_AGE_SECONDS, mode === "canary")
+      cookieOptions(started.bindingMaxAgeSeconds, mode === "canary")
     );
     return response;
   } catch (err) {

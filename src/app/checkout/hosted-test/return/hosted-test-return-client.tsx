@@ -10,6 +10,7 @@ type ActivateBody = {
   status?: string;
   ticket?: string;
   signInUrl?: string;
+  next?: string;
 };
 
 export function HostedTestReturnClient({
@@ -41,6 +42,10 @@ export function HostedTestReturnClient({
 
       if (body?.status === "sign_in_required" && body.signInUrl) {
         window.location.assign(body.signInUrl);
+        return;
+      }
+      if (body?.status === "preserved") {
+        router.push(body.next || "/post-sign-in");
         return;
       }
       if (body?.status === "continue") {

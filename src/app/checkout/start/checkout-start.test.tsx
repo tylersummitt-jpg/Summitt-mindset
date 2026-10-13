@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -20,7 +20,9 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace, push: replace }),
 }));
 
-import CheckoutStartClient from "@/app/checkout/start/checkout-start-client";
+import CheckoutStartClient, {
+  CHECKOUT_CLERK_WAIT_MS,
+} from "@/app/checkout/start/checkout-start-client";
 
 const assign = vi.fn();
 
@@ -31,6 +33,8 @@ describe("/checkout/start hop", () => {
     replace.mockReset();
     assign.mockReset();
     userState = { isLoaded: true, isSignedIn: true };
+    vi.useRealTimers();
+    localStorage.clear();
   });
 
   it("server page redirects native and unsigned, links marketing before client Stripe", () => {
@@ -103,6 +107,49 @@ describe("/checkout/start hop", () => {
     expect(screen.getByText(/After checkout, you'll set up Coach Pat/i)).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("starts Stripe once when Clerk never loads, and uses the signed-in checkout if the server says so", async () => {
+    vi.useFakeTimers();
+    userState = { isLoaded: false, isSignedIn: false };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({ error: "signed_in" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ url: "https://checkout.stripe.test/member" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { assign },
+    });
+    render(<CheckoutStartClient />);
+    expect(fetchMock).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CHECKOUT_CLERK_WAIT_MS);
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/checkout/stripe-first/start",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/stripe/create-checkout-session",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CHECKOUT_CLERK_WAIT_MS);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(assign).toHaveBeenCalledWith("https://checkout.stripe.test/member");
   });
 
   it("unsigned annual client starts the annual Stripe-first checkout", async () => {

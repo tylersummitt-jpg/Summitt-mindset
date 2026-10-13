@@ -1,3 +1,4 @@
+import { auth } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
@@ -9,21 +10,21 @@ import {
 import { readMarketingCookiesFromRequest } from "@/lib/marketing-collect";
 import { SM_VISITOR_COOKIE } from "@/lib/marketing-attribution-pure";
 import { isNativeSummittMindsetApp } from "@/lib/native-app/platform";
-import { beginHostedCheckout } from "@/lib/stripe-first-checkout/activate";
 import {
-  BINDING_MAX_AGE_SECONDS,
-  CHECKOUT_BINDING_COOKIE,
-} from "@/lib/stripe-first-checkout/constants";
+  beginHostedCheckout,
+  resumeOrReplacePublicCheckout,
+} from "@/lib/stripe-first-checkout/activate";
+import { CHECKOUT_BINDING_COOKIE } from "@/lib/stripe-first-checkout/constants";
 
 export const runtime = "nodejs";
 
-function cookieOptions() {
+function cookieOptions(maxAge: number) {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
     path: "/",
-    maxAge: BINDING_MAX_AGE_SECONDS,
+    maxAge,
   };
 }
 
@@ -36,10 +37,42 @@ export async function POST(req: Request) {
   const plan = body?.plan === "annual" ? "annual" : body?.plan === "monthly" ? "monthly" : null;
   if (!plan) return NextResponse.json({ error: "plan_required" }, { status: 400 });
 
+  const { userId } = await auth();
   const jar = await cookies();
   const assignment = parseProudTestAssignment(jar.get(PROUD_TEST_COOKIE)?.value);
   const marketing = await readMarketingCookiesFromRequest(req).catch(() => null);
   try {
+    const prior = await resumeOrReplacePublicCheckout({
+      bindingSecret: jar.get(CHECKOUT_BINDING_COOKIE)?.value,
+      plan,
+      request: req,
+      displaceOpenSession: Boolean(userId),
+    });
+    if (prior.action === "keep") {
+      return NextResponse.json(
+        { error: "retry" },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (prior.action === "reuse" || prior.action === "finish") {
+      const response = NextResponse.json(
+        { url: prior.url },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+      response.cookies.set(
+        CHECKOUT_BINDING_COOKIE,
+        prior.bindingSecret,
+        cookieOptions(prior.maxAgeSeconds)
+      );
+      return response;
+    }
+    if (userId) {
+      return NextResponse.json(
+        { error: "signed_in" },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     const started = await beginHostedCheckout({
       request: req,
       plan,
@@ -71,7 +104,7 @@ export async function POST(req: Request) {
     response.cookies.set(
       CHECKOUT_BINDING_COOKIE,
       started.bindingSecret,
-      cookieOptions()
+      cookieOptions(started.bindingMaxAgeSeconds)
     );
     return response;
   } catch (err) {

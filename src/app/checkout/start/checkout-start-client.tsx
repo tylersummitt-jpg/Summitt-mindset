@@ -6,6 +6,29 @@ import { useRouter } from "next/navigation";
 import { checkoutPlanFromUnknown } from "@/lib/checkout-plan";
 
 const CHECKOUT_TIMEOUT_MS = 15000;
+export const CHECKOUT_CLERK_WAIT_MS = 4000;
+const CHECKOUT_START_LOCK = "sm_checkout_start_lock";
+const CHECKOUT_START_LOCK_MS = 15000;
+
+function claimCheckoutStart(): boolean {
+  try {
+    const now = Date.now();
+    const heldUntil = Number(localStorage.getItem(CHECKOUT_START_LOCK) || 0);
+    if (heldUntil > now) return false;
+    localStorage.setItem(CHECKOUT_START_LOCK, String(now + CHECKOUT_START_LOCK_MS));
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function releaseCheckoutStart(): void {
+  try {
+    localStorage.removeItem(CHECKOUT_START_LOCK);
+  } catch {
+    // A private browser can refuse storage. One start still proceeds.
+  }
+}
 
 export default function CheckoutStartClient({
   plan,
@@ -20,30 +43,52 @@ export default function CheckoutStartClient({
   const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
-    if (!isLoaded) return;
     if (startedRef.current) return;
-    startedRef.current = true;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), CHECKOUT_TIMEOUT_MS);
+    let clerkWait: number | undefined;
 
-    void (async () => {
+    async function readBody(res: Response): Promise<{ error?: string; action?: string; message?: string; url?: string }> {
+      return res.json().catch(() => ({}));
+    }
+
+    async function start(signedIn: boolean) {
+      if (startedRef.current) return;
+      if (!claimCheckoutStart()) {
+        setError("Checkout is already opening. Wait a moment and try again.");
+        return;
+      }
+      startedRef.current = true;
       try {
-        const res = await fetch(
-          isSignedIn
+        let res = await fetch(
+          signedIn
             ? "/api/stripe/create-checkout-session"
             : "/api/checkout/stripe-first/start",
           {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ plan: checkoutPlan }),
-          signal: controller.signal,
-        });
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ plan: checkoutPlan }),
+            signal: controller.signal,
+          }
+        );
+        if (!signedIn && res.status === 409) {
+          const first = await readBody(res);
+          if (first.error === "signed_in") {
+            res = await fetch("/api/stripe/create-checkout-session", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ plan: checkoutPlan }),
+              signal: controller.signal,
+            });
+          }
+        }
 
         if (!res.ok) {
           if (res.status === 409) {
-            const body = await res.json().catch(() => ({}));
+            const body = await readBody(res);
             const code = typeof body?.error === "string" ? body.error : "";
             if (code === "already_subscribed") {
               router.replace("/post-sign-in");
@@ -76,15 +121,11 @@ export default function CheckoutStartClient({
             router.replace("/subscribe");
             return;
           }
-          if (res.status === 401) {
-            setError("We couldn’t start checkout right now. Please try again.");
-            return;
-          }
           setError("We couldn’t start checkout right now. Please try again.");
           return;
         }
 
-        const data = await res.json().catch(() => ({}));
+        const data = await readBody(res);
         if (typeof data?.url !== "string" || !data.url) {
           setError("We couldn’t start checkout right now. Please try again.");
           return;
@@ -100,8 +141,22 @@ export default function CheckoutStartClient({
         setError("We couldn’t start checkout right now. Please try again.");
       } finally {
         clearTimeout(timeoutId);
+        releaseCheckoutStart();
       }
-    })();
+    }
+
+    if (isLoaded) {
+      void start(Boolean(isSignedIn));
+    } else {
+      clerkWait = window.setTimeout(() => {
+        void start(false);
+      }, CHECKOUT_CLERK_WAIT_MS);
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (clerkWait !== undefined) window.clearTimeout(clerkWait);
+    };
   }, [checkoutPlan, isLoaded, isSignedIn, router, retryNonce]);
 
   function handleRetry() {
