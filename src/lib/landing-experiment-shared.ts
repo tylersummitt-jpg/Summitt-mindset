@@ -175,6 +175,21 @@ export function isPrefetchRequest(headers: {
   return false;
 }
 
+/**
+ * True only for a navigation that will render the page and run the exposure beacon.
+ * HEAD, curl, and resource fetches are not document views.
+ */
+export function isExperimentDocumentRequest(args: {
+  method: string;
+  accept: string | null;
+  fetchDest: string | null;
+}): boolean {
+  if (args.method !== "GET") return false;
+  const dest = (args.fetchDest ?? "").trim().toLowerCase();
+  if (dest && dest !== "document") return false;
+  return (args.accept ?? "").toLowerCase().includes("text/html");
+}
+
 export type LandingAssignmentCookie = {
   experimentId: string;
   variant: LandingVariant;

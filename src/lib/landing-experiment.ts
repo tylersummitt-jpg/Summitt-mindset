@@ -17,6 +17,7 @@ export {
   exposureMatchesDestination,
   isApprovedLandingDestination,
   isLandingExperimentEntryPath,
+  isExperimentDocumentRequest,
   isLikelyBotUserAgent,
   isPrefetchRequest,
   landingAssignmentFromInput,

@@ -7,6 +7,7 @@ import {
 } from "@/lib/landing-experiment-assign";
 import {
   decideHomepageSplit,
+  isExperimentDocumentRequest,
   isPrefetchRequest,
   parseLandingAssignments,
   PROUD_TEST_COOKIE,
@@ -33,7 +34,15 @@ export async function applyHomepageExperiment(
 ): Promise<NextResponse | null> {
   try {
     if (req.nextUrl.pathname !== "/") return null;
-    if (req.method !== "GET" && req.method !== "HEAD") return null;
+    if (
+      !isExperimentDocumentRequest({
+        method: req.method,
+        accept: req.headers.get("accept"),
+        fetchDest: req.headers.get("sec-fetch-dest"),
+      })
+    ) {
+      return null;
+    }
     const nativeApp = isNativeSummittMindsetApp(req.headers.get("user-agent"));
     if (args.signedIn || nativeApp) return null;
 

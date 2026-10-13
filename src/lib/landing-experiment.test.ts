@@ -17,6 +17,7 @@ import {
   APPROVED_LANDING_DESTINATIONS,
   assignProudTestVariant,
   decideHomepageSplit,
+  isExperimentDocumentRequest,
   decideLandingEntry,
   decideProudTestEntry,
   cohortInvoiceAnchorMs,
@@ -862,5 +863,24 @@ describe("homepage split", () => {
         prefetch: false,
       }).action
     ).toBe("redirect");
+  });
+
+  it("does not treat curl, HEAD, or resource fetches as a page that can be exposed", () => {
+    const html = "text/html,application/xhtml+xml";
+    expect(
+      isExperimentDocumentRequest({ method: "GET", accept: html, fetchDest: "document" })
+    ).toBe(true);
+    expect(
+      isExperimentDocumentRequest({ method: "GET", accept: html, fetchDest: null })
+    ).toBe(true);
+    expect(
+      isExperimentDocumentRequest({ method: "HEAD", accept: html, fetchDest: "document" })
+    ).toBe(false);
+    expect(
+      isExperimentDocumentRequest({ method: "GET", accept: "*/*", fetchDest: null })
+    ).toBe(false);
+    expect(
+      isExperimentDocumentRequest({ method: "GET", accept: html, fetchDest: "empty" })
+    ).toBe(false);
   });
 });

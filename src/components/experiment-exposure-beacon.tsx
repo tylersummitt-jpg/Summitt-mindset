@@ -42,7 +42,6 @@ export function ExperimentExposureBeacon() {
     if (sent.current === key) return;
     try {
       if (window.sessionStorage.getItem(key) === "1") return;
-      window.sessionStorage.setItem(key, "1");
     } catch {
       // Private mode can block storage. The server still ignores a repeat exposure.
     }
@@ -58,9 +57,24 @@ export function ExperimentExposureBeacon() {
           path: pathname,
           experiment_exposure: true,
         }),
-      });
+      })
+        .then((response) => {
+          if (!response.ok) {
+            if (sent.current === key) sent.current = null;
+            return;
+          }
+          try {
+            window.sessionStorage.setItem(key, "1");
+          } catch {
+            // A later load may send the exposure again. The server keeps one row.
+          }
+        })
+        .catch(() => {
+          if (sent.current === key) sent.current = null;
+        });
     } catch {
       // Analytics must not affect the page.
+      if (sent.current === key) sent.current = null;
     }
   }, [pathname, isNative]);
 
