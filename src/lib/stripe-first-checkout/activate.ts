@@ -1,0 +1,491 @@
+import "server-only";
+
+import Stripe from "stripe";
+
+import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import { isVisitorId } from "@/lib/marketing-attribution-pure";
+import { resolveStripeCheckoutReturnOrigin } from "@/lib/stripe-checkout-return-origin";
+import {
+  BINDING_MAX_AGE_SECONDS,
+  HOLD_METADATA_KEY,
+  HOSTED_TEST_RETURN_PATH,
+  INTENT_METADATA_KEY,
+  ONBOARDING_IDENTITY_PATH,
+  STRIPE_FIRST_RESERVED_EMAIL_METADATA,
+} from "@/lib/stripe-first-checkout/constants";
+import { hostedCheckoutCredentialModeFromEnv } from "@/lib/stripe-first-checkout/credentials";
+import {
+  checkoutSessionBindingMatches,
+  hashCheckoutBinding,
+  newCheckoutBinding,
+} from "@/lib/stripe-first-checkout/binding";
+import {
+  createClerkSignInTicket,
+  createReservedClerkUser,
+  lookupClerkUserIdByExternalId,
+  lookupClerkUserIdsByEmail,
+} from "@/lib/stripe-first-checkout/clerk-provision";
+import {
+  attachCheckoutSession,
+  confirmStripeTrial,
+  insertCheckoutIntent,
+  loadIntentByBindingHash,
+  loadIntentById,
+  markClerkProvisioned,
+  markSessionStartedForExistingUser,
+  markSessionStartedForProvisionedUser,
+  markSignInRequired,
+  type CheckoutBrowserIntent,
+} from "@/lib/stripe-first-checkout/intent-store";
+import {
+  assessCheckoutSession,
+  readCheckoutIntentId,
+} from "@/lib/stripe-first-checkout/reconcile";
+import { reconcileActivationHold } from "@/lib/stripe-first-checkout/stripe-hold";
+import { recomputeMembershipFromAuthoritativeStripeSubscription } from "@/lib/summitt-membership-entitlement.server";
+import { resolveAppleMembershipGrantForUser } from "@/lib/summitt-membership-entitlement.server";
+import { isSummittEntitledFromSubscription } from "@/lib/summitt-subscription-membership";
+
+export type ActivateResult =
+  | { status: "ticket"; ticket: string }
+  | { status: "sign_in_required" }
+  | { status: "continue" }
+  | { status: "incomplete" }
+  | { status: "unprotected" }
+  | { status: "rejected" }
+  | { status: "retry" };
+
+export type ConfirmResult =
+  | { status: "ready"; next: string }
+  | { status: "preserved"; next: string }
+  | { status: "rejected" }
+  | { status: "retry" };
+
+export type LinkResult =
+  | { status: "linked"; next: string }
+  | { status: "already_member"; next: string }
+  | { status: "not_linked"; next: string }
+  | { status: "rejected" }
+  | { status: "retry" };
+
+function stripeClient(): Stripe {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("missing_stripe");
+  return new Stripe(key);
+}
+
+function assertTestCredentials() {
+  if (hostedCheckoutCredentialModeFromEnv() !== "test") {
+    throw new Error("test_credentials_required");
+  }
+}
+
+function priceIdForPlan(plan: "monthly" | "annual"): string | null {
+  const raw =
+    plan === "annual"
+      ? process.env.STRIPE_PRICE_ID_ANNUAL
+      : process.env.STRIPE_PRICE_ID_MONTHLY;
+  const priceId = raw?.trim() ?? "";
+  return priceId || null;
+}
+
+function submitMessage(plan: "monthly" | "annual"): string {
+  if (plan === "annual") {
+    return "**$0 due today.** 7 days free, then $249/year. Cancel anytime. After checkout, you'll set up Coach Pat.";
+  }
+  return "**$0 due today.** 7 days free, then $29/month. Cancel anytime. After checkout, you'll set up Coach Pat.";
+}
+
+export async function beginHostedCheckout(args: {
+  request: Request;
+  plan: "monthly" | "annual";
+  visitorCookie: string | null;
+  experimentId: string | null;
+  experimentVariant: "control" | "challenger" | null;
+}): Promise<{ url: string; bindingSecret: string }> {
+  assertTestCredentials();
+  const priceId = priceIdForPlan(args.plan);
+  if (!priceId) throw new Error("missing_price");
+
+  const binding = newCheckoutBinding();
+  const visitorId = isVisitorId(args.visitorCookie) ? args.visitorCookie : null;
+  const intent = await insertCheckoutIntent({
+    bindingHash: binding.hash,
+    bindingExpiresAt: new Date(Date.now() + BINDING_MAX_AGE_SECONDS * 1000).toISOString(),
+    visitorId,
+    experimentId: args.experimentId,
+    experimentVariant: args.experimentVariant,
+  });
+
+  const origin = resolveStripeCheckoutReturnOrigin(args.request);
+  const stripe = stripeClient();
+  const session = await stripe.checkout.sessions.create(
+    {
+      mode: "subscription",
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
+      custom_text: { submit: { message: submitMessage(args.plan) } },
+      metadata: {
+        [INTENT_METADATA_KEY]: intent.id,
+        plan: args.plan,
+        ...(visitorId ? { visitorId } : {}),
+        ...(args.experimentId && args.experimentVariant
+          ? {
+              experimentId: args.experimentId,
+              experimentVariant: args.experimentVariant,
+            }
+          : {}),
+      },
+      subscription_data: {
+        trial_period_days: 7,
+        metadata: {
+          [INTENT_METADATA_KEY]: intent.id,
+          plan: args.plan,
+          [HOLD_METADATA_KEY]: "pending",
+          ...(visitorId ? { visitorId } : {}),
+        },
+      },
+      success_url: `${origin}${HOSTED_TEST_RETURN_PATH}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/checkout/hosted-test?canceled=1`,
+    },
+    { idempotencyKey: `stripe-first-${intent.id}` }
+  );
+
+  if (session.livemode || !session.url) {
+    if (session.id) {
+      await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
+    }
+    throw new Error("livemode_refused");
+  }
+
+  const attached = await attachCheckoutSession({
+    intentId: intent.id,
+    sessionId: session.id,
+  });
+  if (!attached) throw new Error("intent_update_failed");
+  return { url: session.url, bindingSecret: binding.secret };
+}
+
+async function requireBoundIntent(bindingSecret: string): Promise<CheckoutBrowserIntent | null> {
+  if (!bindingSecret) return null;
+  const intent = await loadIntentByBindingHash(hashCheckoutBinding(bindingSecret));
+  if (!intent) return null;
+  if (Date.parse(intent.binding_expires_at) < Date.now()) return null;
+  if (intent.livemode) return null;
+  return intent;
+}
+
+async function requireTrial(intent: CheckoutBrowserIntent, sessionId: string) {
+  const stripe = stripeClient();
+  const session = await stripe.checkout.sessions.retrieve(sessionId);
+  const matches = checkoutSessionBindingMatches({
+    requestedSessionId: sessionId,
+    storedSessionId: intent.stripe_checkout_session_id,
+    retrievedSessionId: session.id,
+    retrievedIntentId: readCheckoutIntentId(session.metadata),
+    intentId: intent.id,
+  });
+  if (!matches || session.livemode !== false) return { session, proof: null };
+  const proof = await assessCheckoutSession(session);
+  return { session, proof };
+}
+
+async function protectTrial(intentId: string): Promise<ActivateResult | null> {
+  const hold = await reconcileActivationHold(intentId);
+  if (hold === "retry") return { status: "retry" };
+  if (hold === "unprotected") return { status: "unprotected" };
+  if (hold === "preserved") return { status: "incomplete" };
+  return null;
+}
+
+async function linkProviderIdentity(args: {
+  clerkUserId: string;
+  customerId: string;
+  subscriptionId: string;
+  plan: string | null;
+  markReservedCheckoutEmail?: boolean;
+}) {
+  const stripe = stripeClient();
+  await stripe.customers.update(args.customerId, {
+    metadata: { userId: args.clerkUserId },
+  });
+  await stripe.subscriptions.update(args.subscriptionId, {
+    metadata: {
+      userId: args.clerkUserId,
+      ...(args.plan ? { plan: args.plan } : {}),
+    },
+  });
+  const subscription = await stripe.subscriptions.retrieve(args.subscriptionId);
+  await updateClerkPublicMetadata(args.clerkUserId, {
+    stripeCustomerId: args.customerId,
+    stripeSubscriptionId: args.subscriptionId,
+    ...(args.markReservedCheckoutEmail
+      ? { [STRIPE_FIRST_RESERVED_EMAIL_METADATA]: true }
+      : {}),
+  });
+  await recomputeMembershipFromAuthoritativeStripeSubscription(
+    args.clerkUserId,
+    subscription
+  );
+}
+
+async function issueTicketIfNeeded(intent: CheckoutBrowserIntent): Promise<ActivateResult> {
+  const fresh = await loadIntentById(intent.id);
+  if (!fresh?.clerk_user_id || !fresh.clerk_user_provisioned_at || fresh.sign_in_required_at) {
+    return { status: "retry" };
+  }
+  if (fresh.session_started_at) return { status: "continue" };
+  const ticket = await createClerkSignInTicket(fresh.clerk_user_id);
+  return { status: "ticket", ticket };
+}
+
+async function provisionNewCustomer(
+  intent: CheckoutBrowserIntent,
+  email: string,
+  proof: Extract<Awaited<ReturnType<typeof assessCheckoutSession>>, { ok: true }>
+): Promise<ActivateResult> {
+  const externalUserId = await lookupClerkUserIdByExternalId(intent.id);
+  const emailUserIds = await lookupClerkUserIdsByEmail(email);
+  const emailOwnerIsSomeoneElse = emailUserIds.some((id) => id !== externalUserId);
+
+  if (emailOwnerIsSomeoneElse || (emailUserIds.length > 0 && !externalUserId)) {
+    const marked = await markSignInRequired(intent.id);
+    if (!marked) {
+      const fresh = await loadIntentById(intent.id);
+      if (fresh?.clerk_user_provisioned_at && fresh.clerk_user_id) {
+        return issueTicketIfNeeded(fresh);
+      }
+    }
+    return { status: "sign_in_required" };
+  }
+
+  let clerkUserId = externalUserId;
+  if (!clerkUserId) {
+    const created = await createReservedClerkUser({
+      email,
+      externalId: intent.id,
+    });
+    if ("conflict" in created) {
+      clerkUserId = await lookupClerkUserIdByExternalId(intent.id);
+      if (!clerkUserId) {
+        const taken = await lookupClerkUserIdsByEmail(email);
+        if (taken.length > 0) {
+          await markSignInRequired(intent.id);
+          return { status: "sign_in_required" };
+        }
+        return { status: "retry" };
+      }
+    } else {
+      clerkUserId = created.id;
+    }
+  }
+
+  const marked = await markClerkProvisioned({
+    intentId: intent.id,
+    clerkUserId,
+  });
+  if (!marked) {
+    const fresh = await loadIntentById(intent.id);
+    if (fresh?.sign_in_required_at && !fresh.clerk_user_provisioned_at) {
+      return { status: "sign_in_required" };
+    }
+    if (fresh?.clerk_user_id !== clerkUserId || !fresh.clerk_user_provisioned_at) {
+      return { status: "retry" };
+    }
+  }
+
+  const plan = proof.subscription.metadata?.plan;
+  await linkProviderIdentity({
+    clerkUserId,
+    customerId: proof.customerId,
+    subscriptionId: proof.subscriptionId,
+    plan: plan === "monthly" || plan === "annual" ? plan : null,
+    markReservedCheckoutEmail: true,
+  });
+  return issueTicketIfNeeded(intent);
+}
+
+/**
+ * Browser return. POST only. A copied success URL fails without the binding cookie.
+ * Does not sign into an existing Clerk account.
+ */
+export async function activateHostedCheckout(args: {
+  sessionId: string;
+  bindingSecret: string;
+}): Promise<ActivateResult> {
+  try {
+    assertTestCredentials();
+    const intent = await requireBoundIntent(args.bindingSecret);
+    if (!intent) return { status: "rejected" };
+    if (intent.session_started_at && intent.clerk_user_provisioned_at) {
+      return { status: "continue" };
+    }
+    if (intent.sign_in_required_at && !intent.session_started_at) {
+      return { status: "sign_in_required" };
+    }
+
+    const { proof } = await requireTrial(intent, args.sessionId);
+    if (!proof) return { status: "rejected" };
+    if (!proof.ok) {
+      return proof.reason === "retry" ? { status: "retry" } : { status: "incomplete" };
+    }
+
+    const saved = await confirmStripeTrial({
+      intentId: intent.id,
+      sessionId: args.sessionId,
+      customerId: proof.customerId,
+      subscriptionId: proof.subscriptionId,
+      email: proof.email,
+      trialEndIso: new Date(proof.trialEndUnix * 1000).toISOString(),
+    });
+    if (saved === "mismatch") return { status: "rejected" };
+
+    const blocked = await protectTrial(intent.id);
+    if (blocked) return blocked;
+
+    return provisionNewCustomer(intent, proof.email, proof);
+  } catch (err) {
+    console.error("[stripe-first] activate failed", {
+      reason: err instanceof Error ? err.message : "activate_failed",
+    });
+    return { status: "retry" };
+  }
+}
+
+export async function confirmHostedSession(args: {
+  bindingSecret: string;
+  clerkUserId: string;
+}): Promise<ConfirmResult> {
+  try {
+    assertTestCredentials();
+    const intent = await requireBoundIntent(args.bindingSecret);
+    if (!intent?.clerk_user_id || intent.clerk_user_id !== args.clerkUserId) {
+      return { status: "rejected" };
+    }
+    if (intent.sign_in_required_at || !intent.clerk_user_provisioned_at) {
+      return { status: "rejected" };
+    }
+    if (!intent.session_started_at) {
+      const started = await markSessionStartedForProvisionedUser(intent.id, args.clerkUserId);
+      if (!started) {
+        const fresh = await loadIntentById(intent.id);
+        if (!fresh?.session_started_at) return { status: "retry" };
+      }
+    }
+    const hold = await reconcileActivationHold(intent.id);
+    if (hold === "retry" || hold === "unprotected") return { status: "retry" };
+    if (hold === "preserved") {
+      return { status: "preserved", next: "/post-sign-in" };
+    }
+    return { status: "ready", next: ONBOARDING_IDENTITY_PATH };
+  } catch (err) {
+    console.error("[stripe-first] confirm session failed", {
+      reason: err instanceof Error ? err.message : "confirm_failed",
+    });
+    return { status: "retry" };
+  }
+}
+
+async function cancelUnlinkedTrial(subscriptionId: string) {
+  await stripeClient().subscriptions.cancel(subscriptionId);
+}
+
+async function existingEntitlement(args: {
+  clerkUserId: string;
+  newSubscriptionId: string;
+}): Promise<"apple" | "stripe" | "mismatch" | null> {
+  const apple = await resolveAppleMembershipGrantForUser(args.clerkUserId);
+  if (apple?.grantsAccess) return "apple";
+
+  const metadata = await getClerkPublicMetadata(args.clerkUserId);
+  const existingId =
+    typeof metadata.stripeSubscriptionId === "string"
+      ? metadata.stripeSubscriptionId.trim()
+      : "";
+  if (!existingId || existingId === args.newSubscriptionId) return null;
+
+  try {
+    const existing = await stripeClient().subscriptions.retrieve(existingId);
+    if (existing.livemode) return "mismatch";
+    if (isSummittEntitledFromSubscription(existing)) return "stripe";
+    return null;
+  } catch (err) {
+    const code =
+      err && typeof err === "object" && "code" in err ? String(err.code) : "";
+    if (code === "resource_missing") return "mismatch";
+    throw err;
+  }
+}
+
+/**
+ * Existing email path, after the person signs in with their email code.
+ * Does not set clerk_user_provisioned_at.
+ */
+export async function linkExistingHostedCheckout(args: {
+  bindingSecret: string;
+  clerkUserId: string;
+  signedInEmail: string;
+}): Promise<LinkResult> {
+  try {
+    assertTestCredentials();
+    const intent = await requireBoundIntent(args.bindingSecret);
+    if (!intent) return { status: "rejected" };
+    if (!intent.sign_in_required_at || intent.clerk_user_provisioned_at) {
+      return { status: "rejected" };
+    }
+    if (!intent.email || intent.email !== args.signedInEmail) {
+      return { status: "rejected" };
+    }
+    if (!intent.stripe_subscription_id || !intent.stripe_customer_id) {
+      return { status: "retry" };
+    }
+    const entitlement = await existingEntitlement({
+      clerkUserId: args.clerkUserId,
+      newSubscriptionId: intent.stripe_subscription_id,
+    });
+    if (entitlement) {
+      const current = await stripeClient().subscriptions.retrieve(intent.stripe_subscription_id);
+      if (current.status !== "canceled") {
+        await cancelUnlinkedTrial(intent.stripe_subscription_id);
+      }
+      const started = await markSessionStartedForExistingUser({
+        intentId: intent.id,
+        clerkUserId: args.clerkUserId,
+      });
+      if (!started && !intent.session_started_at) {
+        const fresh = await loadIntentById(intent.id);
+        if (fresh?.clerk_user_id !== args.clerkUserId) return { status: "retry" };
+      }
+      return {
+        status: entitlement === "mismatch" ? "not_linked" : "already_member",
+        next: "/post-sign-in",
+      };
+    }
+
+    await linkProviderIdentity({
+      clerkUserId: args.clerkUserId,
+      customerId: intent.stripe_customer_id,
+      subscriptionId: intent.stripe_subscription_id,
+      plan: null,
+    });
+    const started = await markSessionStartedForExistingUser({
+      intentId: intent.id,
+      clerkUserId: args.clerkUserId,
+    });
+    if (!started) {
+      const fresh = await loadIntentById(intent.id);
+      if (fresh?.clerk_user_id !== args.clerkUserId || !fresh.session_started_at) {
+        return { status: "retry" };
+      }
+    }
+    const hold = await reconcileActivationHold(intent.id);
+    if (hold === "retry" || hold === "unprotected") return { status: "retry" };
+    return { status: "linked", next: ONBOARDING_IDENTITY_PATH };
+  } catch (err) {
+    console.error("[stripe-first] link existing failed", {
+      reason: err instanceof Error ? err.message : "link_failed",
+    });
+    return { status: "retry" };
+  }
+}

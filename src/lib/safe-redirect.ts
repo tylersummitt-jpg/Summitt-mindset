@@ -19,6 +19,7 @@ const INTERNAL_PATH_ALLOWLIST = new Set([
   "/onboarding/complete",
   SUBSCRIBE_SUCCESS_PATH,
   "/checkout/start",
+  "/checkout/hosted-test/continue",
   "/ask-pat",
   "/film-room",
   "/dashboard",

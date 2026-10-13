@@ -32,6 +32,11 @@ import {
   isSmsReplicaFailureAfterClerkSuccess,
 } from "@/lib/summitt-membership-entitlement.server";
 import {
+  reconcileStripeFirstFromCheckoutSession,
+  reconcileStripeFirstSubscription,
+  readCheckoutIntentId,
+} from "@/lib/stripe-first-checkout/reconcile";
+import {
   isSummittEntitledFromSubscription,
   resolvePlanFromSubscription,
 } from "@/lib/summitt-subscription-membership";
@@ -345,6 +350,23 @@ export async function POST(req: NextRequest) {
           ? (session.metadata as any).userId
           : null;
 
+      const stripeFirstIntentId = readCheckoutIntentId(session.metadata);
+      if (stripeFirstIntentId && !userId) {
+        try {
+          const outcome = await reconcileStripeFirstFromCheckoutSession(session);
+          if (outcome === "retry") {
+            return releaseDedupeAndRetry(event.id, "stripe_first_hold");
+          }
+        } catch (err) {
+          console.error("[webhook] stripe-first checkout reconcile failed", {
+            event_id: event.id,
+            reason: webhookFailureReason(err),
+          });
+          return releaseDedupeAndRetry(event.id, "stripe_first_hold");
+        }
+        return acknowledgeProcessedStripeEvent(event.id);
+      }
+
       if (!userId) {
         console.warn("[webhook] checkout.session.completed missing userId", {
           event_id: event.id,
@@ -576,6 +598,21 @@ export async function POST(req: NextRequest) {
 
       const userId = await resolveUserIdForSubscription(subscription);
       if (!userId) {
+        const stripeFirstIntentId = readCheckoutIntentId(subscription.metadata);
+        if (stripeFirstIntentId) {
+          try {
+            const outcome = await reconcileStripeFirstSubscription(stripeFirstIntentId);
+            if (outcome === "retry") {
+              return releaseDedupeAndRetry(event.id, "stripe_first_hold");
+            }
+          } catch (err) {
+            console.error("[webhook] stripe-first subscription reconcile failed", {
+              event_id: event.id,
+              reason: webhookFailureReason(err),
+            });
+            return releaseDedupeAndRetry(event.id, "stripe_first_hold");
+          }
+        }
         console.warn("[webhook] subscription.updated missing userId", {
           event_id: event.id,
           subscription_id: subscription.id,
@@ -706,6 +743,22 @@ export async function POST(req: NextRequest) {
         return new NextResponse("Webhook error", { status: 500 });
       }
       membershipCommitted = true;
+
+      const stripeFirstIntentId = readCheckoutIntentId(subscription.metadata);
+      if (stripeFirstIntentId) {
+        try {
+          const outcome = await reconcileStripeFirstSubscription(stripeFirstIntentId);
+          if (outcome === "retry") {
+            return releaseDedupeAndRetry(event.id, "stripe_first_hold");
+          }
+        } catch (err) {
+          console.error("[webhook] stripe-first hold release failed", {
+            event_id: event.id,
+            reason: webhookFailureReason(err),
+          });
+          return releaseDedupeAndRetry(event.id, "stripe_first_hold");
+        }
+      }
 
       console.log("✅ customer.subscription.updated → metadata updated", userId);
     }

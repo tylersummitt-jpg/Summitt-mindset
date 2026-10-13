@@ -45,6 +45,8 @@ const isPublicRoute = createRouteMatcher([
   "/twilio",
   "/subscribe(.*)",
   "/checkout/start",
+  "/checkout/hosted-test(.*)",
+  "/api/checkout/hosted-test(.*)",
   "/daily-practice",
   "/ask-pat-preview",
   "/film-room-preview",

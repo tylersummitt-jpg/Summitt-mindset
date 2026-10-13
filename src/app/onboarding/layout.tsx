@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { OnboardingEmailBanner } from "@/components/onboarding-email-banner";
 import { OnboardingShellMain } from "@/components/onboarding-shell-main";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
@@ -9,6 +10,7 @@ import {
   inactiveMembershipRedirectPath,
   signInPathForClient,
 } from "@/lib/native-app/membership-paths";
+import { stripeFirstOnboardingEmail } from "@/lib/stripe-first-checkout/email-typo";
 
 /**
  * ======================================================
@@ -136,6 +138,17 @@ export default async function OnboardingLayout({
     userId: user.id,
   });
 
+  const checkoutEmail = stripeFirstOnboardingEmail({
+    publicMetadata: user.publicMetadata as Record<string, unknown>,
+    primaryEmailAddressId: user.primaryEmailAddressId,
+    emailAddresses: user.emailAddresses.map((email) => ({
+      id: email.id,
+      emailAddress: email.emailAddress,
+      verificationStatus: email.verification?.status ?? null,
+    })),
+  });
+  const emailBanner = checkoutEmail ? <OnboardingEmailBanner email={checkoutEmail} /> : null;
+
   const mdOnboarding = user.publicMetadata as Record<string, unknown> | undefined;
   const showCoachOnboardingBanner =
     mdOnboarding?.acquisitionSource === "coach" &&
@@ -216,10 +229,12 @@ export default async function OnboardingLayout({
         )}
         {coachCompleteHero ? (
           <div className="relative left-1/2 right-1/2 -mx-[50vw] w-screen max-w-[100vw] overflow-x-hidden">
+            {emailBanner}
             {children}
           </div>
         ) : (
           <section className="bg-white border rounded-xl shadow-sm p-8">
+            {emailBanner}
             {children}
           </section>
         )}

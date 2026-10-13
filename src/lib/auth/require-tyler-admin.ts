@@ -52,3 +52,12 @@ export async function requireTylerAdmin() {
   err.status = 403;
   throw err;
 }
+
+export async function isTylerAdminSession(): Promise<boolean> {
+  try {
+    await requireTylerAdmin();
+    return true;
+  } catch {
+    return false;
+  }
+}
