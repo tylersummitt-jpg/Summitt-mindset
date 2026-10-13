@@ -2,14 +2,18 @@
 
 import { useEffect, useState } from "react";
 
-export function HostedTestContinueClient() {
+export function HostedTestContinueClient({
+  linkPath = "/api/checkout/hosted-test/link",
+}: {
+  linkPath?: string;
+} = {}) {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const response = await fetch("/api/checkout/hosted-test/link", { method: "POST" });
+      const response = await fetch(linkPath, { method: "POST" });
       if (cancelled) return;
       const body = (await response.json().catch(() => null)) as {
         next?: string;
@@ -28,7 +32,7 @@ export function HostedTestContinueClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [linkPath]);
 
   return (
     <div className="mx-auto max-w-lg px-6 py-16">

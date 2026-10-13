@@ -268,7 +268,11 @@ export default async function HomePage() {
                 Try Summitt Mindset free for 7 days.
               </p>
               <p className="text-lg leading-relaxed text-white sm:text-xl">
-                Then {MEMBERSHIP_PUBLIC_OFFER.monthly}, or choose {MEMBERSHIP_PUBLIC_OFFER.annual}.
+                Then {MEMBERSHIP_PUBLIC_OFFER.monthly}, or choose{" "}
+                <Link href="/checkout/start?plan=annual" className="underline underline-offset-4">
+                  {MEMBERSHIP_PUBLIC_OFFER.annual}
+                </Link>
+                .
               </p>
               <p className="text-lg font-semibold leading-relaxed text-white sm:text-xl">
                 {MEMBERSHIP_PUBLIC_OFFER.cancel}.

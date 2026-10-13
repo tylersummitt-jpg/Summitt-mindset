@@ -118,9 +118,11 @@ describe("paused membership UX wiring (source)", () => {
     expect(panel).toContain(
       "`/sign-up?redirect_url=${encodeURIComponent(subscribeReturnPath)}`"
     );
+    expect(panel).toContain('"/checkout/start?plan=annual"');
+    expect(panel).toContain('"/checkout/start"');
   });
 
-  it("unsigned consumer subscribe goes to sign-up; coach keeps src=coach sign-up", () => {
+  it("unsigned consumer subscribe opens Stripe-first checkout; coach keeps src=coach sign-up", () => {
     const panel = read("src/app/subscribe/subscribe-checkout-panel.tsx");
     expect(panel).toContain(
       "`/sign-up?redirect_url=${encodeURIComponent(subscribeReturnPath)}`"

@@ -247,9 +247,8 @@ function accountInput(args: {
   eventsComplete: boolean;
   sessions: Map<string, CensusSessionEvidence | "unreadable">;
 }): CensusAccountInput {
-  const subscriptionId = clerkStripeSubscriptionId(
-    (args.user.public_metadata || {}) as Record<string, unknown>
-  );
+  const publicMetadata = (args.user.public_metadata || {}) as Record<string, unknown>;
+  const subscriptionId = clerkStripeSubscriptionId(publicMetadata);
   let stripe: CensusStripeEvidence = "no_subscription_id";
   if (subscriptionId) {
     stripe = args.stripeById.get(subscriptionId) ?? "lookup_failed";
@@ -280,6 +279,7 @@ function accountInput(args: {
     unreadSessionIds,
     creationFailed: mine.some((event) => event.eventType === "checkout_creation_failed"),
     eventsComplete: args.eventsComplete,
+    stripeFirstProvisioning: publicMetadata.stripeFirstReservedEmail === true,
   };
 }
 

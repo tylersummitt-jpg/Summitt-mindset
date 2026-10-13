@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { isVisitorId } from "@/lib/marketing-attribution-pure";
+import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { resolveStripeCheckoutReturnOrigin } from "@/lib/stripe-checkout-return-origin";
 import {
   BINDING_MAX_AGE_SECONDS,
@@ -12,6 +13,9 @@ import {
   CANARY_METADATA_VALUE,
   HOLD_METADATA_KEY,
   HOSTED_TEST_RETURN_PATH,
+  PUBLIC_CHECKOUT_FLOW_KEY,
+  PUBLIC_CHECKOUT_FLOW_VALUE,
+  PUBLIC_CHECKOUT_RETURN_PATH,
   INTENT_METADATA_KEY,
   ONBOARDING_IDENTITY_PATH,
   STRIPE_FIRST_RESERVED_EMAIL_METADATA,
@@ -21,6 +25,8 @@ import {
   checkoutSessionIdempotencyKey,
   hostedCheckoutCredentialModeFromEnv,
   hostedCompletionAllowed,
+  stripeFirstServerLivemode,
+  stripeKeyMatchesLivemode,
 } from "@/lib/stripe-first-checkout/credentials";
 import {
   checkoutSessionBindingMatches,
@@ -114,28 +120,47 @@ export async function beginHostedCheckout(args: {
   visitorCookie: string | null;
   experimentId: string | null;
   experimentVariant: "control" | "challenger" | null;
-}): Promise<{ url: string; bindingSecret: string }> {
-  const mode = assertHostedCredentials();
-  const canary = mode === "canary";
-  const liveIntentExists = canary ? await liveCanaryIntentExists() : false;
-  if (
-    !canaryCheckoutStartAllowed({
-      mode,
-      plan: args.plan,
-      liveIntentExists,
-    })
-  ) {
-    throw new Error(liveIntentExists ? "canary_already_used" : "hosted_checkout_refused");
+  /** Public signup. Does not use the owner-canary switch. */
+  publicCheckout?: boolean;
+  attribution?: {
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
+    utmContent: string | null;
+    sourceNormalized: string | null;
+  };
+}): Promise<{ url: string; bindingSecret: string; sessionId: string }> {
+  const publicCheckout = args.publicCheckout === true;
+  let canary = false;
+  let livemode = false;
+  if (publicCheckout) {
+    const serverLivemode = stripeFirstServerLivemode({
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+      clerkSecretKey: process.env.CLERK_SECRET_KEY,
+    });
+    if (serverLivemode == null) throw new Error("hosted_credentials_required");
+    livemode = serverLivemode;
+  } else {
+    const mode = assertHostedCredentials();
+    canary = mode === "canary";
+    livemode = canary;
+    const liveIntentExists = canary ? await liveCanaryIntentExists() : false;
+    if (
+      !canaryCheckoutStartAllowed({
+        mode,
+        plan: args.plan,
+        liveIntentExists,
+      })
+    ) {
+      throw new Error(liveIntentExists ? "canary_already_used" : "hosted_checkout_refused");
+    }
   }
   const priceId = priceIdForPlan(args.plan);
   if (!priceId) throw new Error("missing_price");
 
   const binding = newCheckoutBinding();
-  const visitorId = canary
-    ? null
-    : isVisitorId(args.visitorCookie)
-      ? args.visitorCookie
-      : null;
+  const visitorId =
+    canary || !isVisitorId(args.visitorCookie) ? null : args.visitorCookie;
   const experimentId = canary ? null : args.experimentId;
   const experimentVariant = canary ? null : args.experimentVariant;
   const intent = await insertCheckoutIntent({
@@ -144,7 +169,7 @@ export async function beginHostedCheckout(args: {
     visitorId,
     experimentId,
     experimentVariant,
-    livemode: canary,
+    livemode,
   });
 
   const origin = resolveStripeCheckoutReturnOrigin(args.request);
@@ -161,9 +186,19 @@ export async function beginHostedCheckout(args: {
           [INTENT_METADATA_KEY]: intent.id,
           plan: args.plan,
           ...(canary ? { [CANARY_METADATA_KEY]: CANARY_METADATA_VALUE } : {}),
+          ...(publicCheckout
+            ? { [PUBLIC_CHECKOUT_FLOW_KEY]: PUBLIC_CHECKOUT_FLOW_VALUE }
+            : {}),
           ...(visitorId ? { visitorId } : {}),
           ...(experimentId && experimentVariant
             ? { experimentId, experimentVariant }
+            : {}),
+          ...(args.attribution?.utmSource ? { utm_source: args.attribution.utmSource } : {}),
+          ...(args.attribution?.utmMedium ? { utm_medium: args.attribution.utmMedium } : {}),
+          ...(args.attribution?.utmCampaign ? { utm_campaign: args.attribution.utmCampaign } : {}),
+          ...(args.attribution?.utmContent ? { utm_content: args.attribution.utmContent } : {}),
+          ...(args.attribution?.sourceNormalized
+            ? { sourceNormalized: args.attribution.sourceNormalized }
             : {}),
         },
         subscription_data: {
@@ -173,18 +208,28 @@ export async function beginHostedCheckout(args: {
             plan: args.plan,
             [HOLD_METADATA_KEY]: "pending",
             ...(canary ? { [CANARY_METADATA_KEY]: CANARY_METADATA_VALUE } : {}),
+            ...(publicCheckout
+              ? { [PUBLIC_CHECKOUT_FLOW_KEY]: PUBLIC_CHECKOUT_FLOW_VALUE }
+              : {}),
             ...(visitorId ? { visitorId } : {}),
+            ...(experimentId && experimentVariant
+              ? { experimentId, experimentVariant }
+              : {}),
           },
         },
-        success_url: `${origin}${HOSTED_TEST_RETURN_PATH}?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${origin}/checkout/hosted-test?canceled=1`,
+        success_url: `${origin}${
+          publicCheckout ? PUBLIC_CHECKOUT_RETURN_PATH : HOSTED_TEST_RETURN_PATH
+        }?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: publicCheckout
+          ? `${origin}/checkout/start?canceled=1${args.plan === "annual" ? "&plan=annual" : ""}`
+          : `${origin}/checkout/hosted-test?canceled=1`,
       },
       {
         idempotencyKey: checkoutSessionIdempotencyKey(intent.id),
       }
     );
 
-    if (!session.url || session.livemode !== canary) {
+    if (!session.url || session.livemode !== livemode) {
       const expired = session.id
         ? await stripe.checkout.sessions
             .expire(session.id)
@@ -192,7 +237,7 @@ export async function beginHostedCheckout(args: {
             .catch(() => false)
         : false;
       if (canary && expired) await deleteUnstartedLiveIntent(intent.id);
-      throw new Error(canary ? "livemode_required" : "livemode_refused");
+      throw new Error(livemode ? "livemode_required" : "livemode_refused");
     }
 
     const attached = await attachCheckoutSession({
@@ -200,7 +245,7 @@ export async function beginHostedCheckout(args: {
       sessionId: session.id,
     });
     if (!attached) throw new Error("intent_update_failed");
-    return { url: session.url, bindingSecret: binding.secret };
+    return { url: session.url, bindingSecret: binding.secret, sessionId: session.id };
   } catch (err) {
     if (canary && !session?.id) await deleteUnstartedLiveIntent(intent.id);
     throw err;
@@ -299,8 +344,9 @@ async function provisionNewCustomer(
   const emailUserIds = await lookupClerkUserIdsByEmail(email);
   const emailOwnerIsSomeoneElse = emailUserIds.some((id) => id !== externalUserId);
 
+  const ownerCanary = proof.subscription.metadata?.[CANARY_METADATA_KEY] === CANARY_METADATA_VALUE;
   if (emailOwnerIsSomeoneElse || (emailUserIds.length > 0 && !externalUserId)) {
-    if (intent.livemode) return { status: "rejected" };
+    if (ownerCanary) return { status: "rejected" };
     const marked = await markSignInRequired(intent.id);
     if (!marked) {
       const fresh = await loadIntentById(intent.id);
@@ -322,7 +368,7 @@ async function provisionNewCustomer(
       if (!clerkUserId) {
         const taken = await lookupClerkUserIdsByEmail(email);
         if (taken.length > 0) {
-          if (intent.livemode) return { status: "rejected" };
+          if (ownerCanary) return { status: "rejected" };
           await markSignInRequired(intent.id);
           return { status: "sign_in_required" };
         }
@@ -355,6 +401,7 @@ async function provisionNewCustomer(
     plan: plan === "monthly" || plan === "annual" ? plan : null,
     markReservedCheckoutEmail: true,
   });
+  await linkMarketingVisitorToClerkUser(clerkUserId);
   return issueTicketIfNeeded(intent);
 }
 
@@ -373,7 +420,6 @@ export async function activateHostedCheckout(args: {
       return { status: "continue" };
     }
     if (intent.sign_in_required_at && !intent.session_started_at) {
-      if (intent.livemode) return { status: "rejected" };
       return { status: "sign_in_required" };
     }
 
@@ -458,7 +504,9 @@ async function existingEntitlement(args: {
 
   try {
     const existing = await stripeClient().subscriptions.retrieve(existingId);
-    if (existing.livemode) return "mismatch";
+    if (!stripeKeyMatchesLivemode(process.env.STRIPE_SECRET_KEY, existing.livemode)) {
+      return "mismatch";
+    }
     if (isSummittEntitledFromSubscription(existing)) return "stripe";
     return null;
   } catch (err) {
@@ -479,8 +527,6 @@ export async function linkExistingHostedCheckout(args: {
   signedInEmail: string;
 }): Promise<LinkResult> {
   try {
-    if (hostedCheckoutCredentialModeFromEnv() !== "test") return { status: "rejected" };
-    assertHostedCredentials();
     const intent = await requireBoundIntent(args.bindingSecret);
     if (!intent) return { status: "rejected" };
     if (!intent.sign_in_required_at || intent.clerk_user_provisioned_at) {
@@ -491,6 +537,10 @@ export async function linkExistingHostedCheckout(args: {
     }
     if (!intent.stripe_subscription_id || !intent.stripe_customer_id) {
       return { status: "retry" };
+    }
+    const opened = await stripeClient().subscriptions.retrieve(intent.stripe_subscription_id);
+    if (opened.metadata?.[CANARY_METADATA_KEY] === CANARY_METADATA_VALUE) {
+      return { status: "rejected" };
     }
     const entitlement = await existingEntitlement({
       clerkUserId: args.clerkUserId,
@@ -533,6 +583,7 @@ export async function linkExistingHostedCheckout(args: {
     }
     const hold = await reconcileActivationHold(intent.id);
     if (hold === "retry" || hold === "unprotected") return { status: "retry" };
+    await linkMarketingVisitorToClerkUser(args.clerkUserId);
     return { status: "linked", next: ONBOARDING_IDENTITY_PATH };
   } catch (err) {
     console.error("[stripe-first] link existing failed", {

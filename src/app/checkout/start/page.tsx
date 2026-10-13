@@ -2,10 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import {
-  checkoutPlanFromSearchValue,
-  signUpHrefForCheckoutStart,
-} from "@/lib/checkout-plan";
+import { checkoutPlanFromSearchValue } from "@/lib/checkout-plan";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
@@ -41,14 +38,12 @@ export default async function CheckoutStartPage({
   const plan = checkoutPlanFromSearchValue(sp.plan);
 
   const user = await currentUser();
-  if (!user?.id) {
-    redirect(signUpHrefForCheckoutStart(plan));
-  }
-
-  try {
-    await linkMarketingVisitorToClerkUser(user.id);
-  } catch {
-    // fail-open: analytics must never change checkout
+  if (user?.id) {
+    try {
+      await linkMarketingVisitorToClerkUser(user.id);
+    } catch {
+      // fail-open: analytics must never change checkout
+    }
   }
 
   return <CheckoutStartClient plan={plan} />;

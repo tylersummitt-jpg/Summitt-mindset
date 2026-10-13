@@ -4,6 +4,15 @@ export const HOSTED_TEST_RETURN_PATH = "/checkout/hosted-test/return";
 
 export const HOSTED_TEST_CONTINUE_PATH = "/checkout/hosted-test/continue";
 
+export const PUBLIC_CHECKOUT_RETURN_PATH = "/checkout/return";
+
+export const PUBLIC_CHECKOUT_CONTINUE_PATH = "/checkout/continue";
+
+/** Distinguishes a public Stripe-first session from the owner canary and the old Clerk-first checkout. */
+export const PUBLIC_CHECKOUT_FLOW_KEY = "summittCheckoutFlow";
+
+export const PUBLIC_CHECKOUT_FLOW_VALUE = "stripe_first";
+
 export const ONBOARDING_IDENTITY_PATH = "/onboarding/identity";
 
 /** HttpOnly gate minted by an admin. Not a checkout binding. */

@@ -215,10 +215,10 @@ describe("hosted test credentials and binding", () => {
 });
 
 describe("public checkout stays on the current path", () => {
-  it("keeps signed-out website trial buttons on Clerk sign-up", () => {
+  it("sends signed-out website trial buttons to Stripe-first checkout", () => {
     expect(
       marketingAcquisitionHref({ isNativeApp: false, isSignedIn: false })
-    ).toBe(`/sign-up?redirect_url=${encodeURIComponent("/checkout/start")}`);
+    ).toBe("/checkout/start");
     expect(marketingAcquisitionHref({ isNativeApp: false, isSignedIn: true })).toBe(
       "/subscribe"
     );
@@ -228,6 +228,7 @@ describe("public checkout stays on the current path", () => {
   });
 
   it("allows the existing-account return and not a checkout session in the sign-in redirect", () => {
+    expect(sanitizeInternalRedirectUrl("/checkout/continue")).toBe("/checkout/continue");
     expect(sanitizeInternalRedirectUrl("/checkout/hosted-test/continue")).toBe(
       "/checkout/hosted-test/continue"
     );
@@ -245,6 +246,25 @@ describe("public checkout stays on the current path", () => {
     expect(webhook).toContain("stripe_webhook_events");
     expect(webhook).toContain("missing userId");
     expect(webhook).toContain("stripeFirstIntentId && !userId");
+  });
+
+  it("public activation uses the existing-account sign-in path and not the owner canary", () => {
+    const start = readFileSync("src/app/api/checkout/stripe-first/start/route.ts", "utf8");
+    const activate = readFileSync("src/app/api/checkout/stripe-first/activate/route.ts", "utf8");
+    const hostedActivate = readFileSync(
+      "src/app/api/checkout/hosted-test/activate/route.ts",
+      "utf8"
+    );
+    expect(start).toContain("publicCheckout: true");
+    expect(start).not.toContain("STRIPE_FIRST_CANARY_ENABLED");
+    expect(start).not.toContain("HOSTED_TEST_ACCESS_COOKIE");
+    expect(activate).toContain("PUBLIC_CHECKOUT_CONTINUE_PATH");
+    expect(activate).not.toContain('!== "test"');
+    expect(hostedActivate).toContain('!== "test"');
+    expect(readFileSync("src/lib/admin-subscriber-growth.ts", "utf8")).toContain(
+      'sub.metadata?.summittCanary !== "owner"'
+    );
+    expect(readFileSync("src/lib/nonmember-census.ts", "utf8")).toContain("unverified_trial");
   });
 
   it("retries activation without starting another checkout", () => {
@@ -281,7 +301,8 @@ describe("owner canary authorization", () => {
     expect(activate).not.toContain("stripe-first-owner-canary");
     expect(activate).toContain("CANARY_METADATA_KEY");
     expect(read("src/lib/stripe-first-checkout/constants.ts")).toContain("summittCanary");
-    expect(activate).toContain('if (intent.livemode) return { status: "rejected" }');
+    expect(activate).toContain("publicCheckout");
+    expect(activate).toContain("PUBLIC_CHECKOUT_FLOW_KEY");
   });
 
   it("requires the browser authorization on every canary action", () => {
@@ -321,7 +342,7 @@ describe("owner canary authorization", () => {
   it("does not let the canary cookie sign into an existing account", () => {
     const activate = read("src/lib/stripe-first-checkout/activate.ts");
     const link = activate.indexOf("export async function linkExistingHostedCheckout");
-    expect(activate.slice(link)).toContain('!== "test"');
+    expect(activate.slice(link)).toContain("CANARY_METADATA_KEY");
     expect(activate.slice(link)).toContain('{ status: "rejected" }');
     const activateRoute = read("src/app/api/checkout/hosted-test/activate/route.ts");
     expect(activateRoute).toContain('hostedCheckoutCredentialModeFromEnv() !== "test"');

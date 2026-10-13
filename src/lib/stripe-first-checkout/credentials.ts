@@ -98,6 +98,22 @@ export function canaryCheckoutStartAllowed(args: {
   return args.plan === "monthly" && !args.liveIntentExists;
 }
 
+/**
+ * Public checkout uses the server's real Stripe and Clerk keys.
+ * Live with live, or test with test. A request cannot choose the mode.
+ * The owner-canary switch is not an input.
+ */
+export function stripeFirstServerLivemode(env: {
+  stripeSecretKey?: string | null;
+  clerkSecretKey?: string | null;
+}): boolean | null {
+  const stripe = env.stripeSecretKey ?? "";
+  const clerk = env.clerkSecretKey ?? "";
+  if (stripe.startsWith("sk_live_") && clerk.startsWith("sk_live_")) return true;
+  if (stripe.startsWith("sk_test_") && clerk.startsWith("sk_test_")) return false;
+  return null;
+}
+
 export function stripeKeyMatchesLivemode(
   stripeSecretKey: string | null | undefined,
   livemode: boolean

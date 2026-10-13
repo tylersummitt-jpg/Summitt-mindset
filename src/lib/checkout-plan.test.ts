@@ -101,9 +101,12 @@ describe("consumer checkout plan wiring (source)", () => {
     expect(src).not.toContain("$120");
   });
 
-  it("checkout-start unsigned bounce preserves plan via helper; attribution hop unchanged", () => {
+  it("checkout-start keeps plan selection and does not bounce unsigned visitors to Clerk", () => {
     const page = readSrc("src/app/checkout/start/page.tsx");
-    expect(page).toContain("signUpHrefForCheckoutStart");
+    expect(page).not.toContain("signUpHrefForCheckoutStart");
+    expect(readSrc("src/app/checkout/start/checkout-start-client.tsx")).toContain(
+      "/api/checkout/stripe-first/start"
+    );
     expect(page).toContain("checkoutPlanFromSearchValue");
     expect(page).toContain("linkMarketingVisitorToClerkUser(user.id)");
     expect(page.indexOf("if (isNativeApp)")).toBeLessThan(
@@ -132,7 +135,8 @@ describe("consumer checkout plan wiring (source)", () => {
     expect(readSrc("src/lib/native-app/native-safe-marketing-cta.ts")).not.toContain(
       "plan=annual"
     );
-    expect(readSrc("src/app/page.tsx")).not.toContain("plan=annual");
+    expect(readSrc("src/app/page.tsx")).toContain('href="/checkout/start?plan=annual"');
+    expect(readSrc("src/app/page.tsx")).not.toContain("checkout-plan");
     expect(readSrc("src/components/Navbar.tsx")).not.toContain("plan=annual");
     expect(readSrc("src/lib/safe-redirect.ts")).not.toContain("plan=annual");
   });

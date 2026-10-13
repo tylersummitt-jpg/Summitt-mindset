@@ -79,7 +79,7 @@ async function readOptionalAttribution(req: Request): Promise<{
 
 async function insertCheckoutEvent(row: {
   eventType: "checkout_opened" | "checkout_creation_failed";
-  clerkUserId: string;
+  clerkUserId: string | null;
   visitorId: string | null;
   attribution: {
     utm_source: string | null;
@@ -164,6 +164,40 @@ export async function trackFreshCheckoutSession(
     }
   } catch (err) {
     logCheckoutTrack("fresh session tracking threw", err);
+  }
+}
+
+/**
+ * Public Stripe-first checkout opened before a Clerk user exists.
+ * The owner canary does not call this.
+ */
+export async function trackStripeFirstCheckoutOpened(args: {
+  req: Request;
+  plan: CheckoutPlan;
+  sessionId: string;
+  experimentId: string | null;
+  experimentVariant: string | null;
+}): Promise<void> {
+  try {
+    if (!isCheckoutSessionId(args.sessionId)) return;
+    const link = await readOptionalAttribution(args.req);
+    await insertCheckoutEvent({
+      eventType: "checkout_opened",
+      clerkUserId: null,
+      visitorId: link.visitorId,
+      attribution: link.attribution,
+      metadata: {
+        checkout_session_id: args.sessionId,
+        track: CHECKOUT_TRACKING_VERSION,
+        plan: args.plan,
+        channel: "web",
+        funnel: "stripe_first",
+        ...(args.experimentId ? { experiment_id: args.experimentId } : {}),
+        ...(args.experimentVariant ? { experiment_variant: args.experimentVariant } : {}),
+      },
+    });
+  } catch (err) {
+    logCheckoutTrack("stripe-first checkout_opened threw", err);
   }
 }
 

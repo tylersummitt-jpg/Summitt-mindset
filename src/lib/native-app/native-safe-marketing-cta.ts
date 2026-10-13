@@ -6,8 +6,6 @@
 import { APP_SIGN_IN_PATH } from "@/lib/app-sign-in/app-sign-in-constants";
 import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
 
-const BROWSER_SIGN_UP_CHECKOUT_START = `/sign-up?redirect_url=${encodeURIComponent("/checkout/start")}`;
-
 export function marketingAcquisitionHref(options: {
   isNativeApp: boolean;
   isSignedIn: boolean;
@@ -15,7 +13,7 @@ export function marketingAcquisitionHref(options: {
   if (options.isNativeApp) {
     return options.isSignedIn ? APP_MEMBERSHIP_PATH : APP_SIGN_IN_PATH;
   }
-  return options.isSignedIn ? "/subscribe" : BROWSER_SIGN_UP_CHECKOUT_START;
+  return options.isSignedIn ? "/subscribe" : "/checkout/start";
 }
 
 export function marketingTrialCtaLabel(isNativeApp: boolean): string {

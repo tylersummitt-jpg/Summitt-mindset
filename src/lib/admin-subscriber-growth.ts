@@ -1176,7 +1176,7 @@ export async function loadSubscriberGrowthDashboard(args: {
   const attributions = attributionLoad.rows;
   const attrByClerk = new Map(attributions.map((a) => [a.clerk_user_id, a] as const));
 
-  const sourceFilteredSubs =
+  const sourceFilteredSubs = (
     source === "all"
       ? stripeSubs
       : stripeSubs.filter((sub) => {
@@ -1185,7 +1185,8 @@ export async function loadSubscriberGrowthDashboard(args: {
           const attr = attrByClerk.get(clerk);
           if (!attr) return false;
           return attributionMatchesDashboardSource(attr.source_normalized, source);
-        });
+        })
+  ).filter((sub) => sub.metadata?.summittCanary !== "owner");
 
   const eventsWindowStart = period.startMs;
   const marketing = await loadMarketingEvents({

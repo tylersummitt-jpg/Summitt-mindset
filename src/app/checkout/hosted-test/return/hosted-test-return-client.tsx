@@ -12,7 +12,13 @@ type ActivateBody = {
   signInUrl?: string;
 };
 
-export function HostedTestReturnClient() {
+export function HostedTestReturnClient({
+  activatePath = "/api/checkout/hosted-test/activate",
+  confirmPath = "/api/checkout/hosted-test/confirm-session",
+}: {
+  activatePath?: string;
+  confirmPath?: string;
+} = {}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isLoaded, signIn, setActive } = useSignIn();
@@ -25,7 +31,7 @@ export function HostedTestReturnClient() {
     let cancelled = false;
 
     void (async () => {
-      const response = await fetch("/api/checkout/hosted-test/activate", {
+      const response = await fetch(activatePath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId }),
@@ -62,12 +68,12 @@ export function HostedTestReturnClient() {
             throw new Error("ticket_incomplete");
           }
           await setActive({ session: attempt.createdSessionId });
-          let confirmed = await fetch("/api/checkout/hosted-test/confirm-session", {
+          let confirmed = await fetch(confirmPath, {
             method: "POST",
           });
           if (confirmed.status === 401) {
             await new Promise((resolve) => setTimeout(resolve, 400));
-            confirmed = await fetch("/api/checkout/hosted-test/confirm-session", {
+            confirmed = await fetch(confirmPath, {
               method: "POST",
             });
           }
@@ -101,7 +107,7 @@ export function HostedTestReturnClient() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, router, sessionId, setActive, signIn]);
+  }, [activatePath, confirmPath, isLoaded, router, sessionId, setActive, signIn]);
 
   return (
     <div className="mx-auto max-w-lg px-6 py-16">

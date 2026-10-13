@@ -60,7 +60,11 @@ export default function SubscribeCheckoutPanel() {
         "[subscribe] user not signed in; redirecting to auth with return path"
       );
       setLoadingPlan(null);
-      const authHref = `/sign-up?redirect_url=${encodeURIComponent(subscribeReturnPath)}`;
+      const authHref = isCoachExperience
+        ? `/sign-up?redirect_url=${encodeURIComponent(subscribeReturnPath)}`
+        : plan === "annual"
+          ? "/checkout/start?plan=annual"
+          : "/checkout/start";
       router.push(authHref);
       return;
     }

@@ -3,10 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import {
-  checkoutPlanFromUnknown,
-  signUpHrefForCheckoutStart,
-} from "@/lib/checkout-plan";
+import { checkoutPlanFromUnknown } from "@/lib/checkout-plan";
 
 const CHECKOUT_TIMEOUT_MS = 15000;
 
@@ -16,7 +13,6 @@ export default function CheckoutStartClient({
   plan?: string;
 }) {
   const checkoutPlan = checkoutPlanFromUnknown(plan);
-  const signUpHref = signUpHrefForCheckoutStart(checkoutPlan);
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
   const startedRef = useRef(false);
@@ -25,10 +21,6 @@ export default function CheckoutStartClient({
 
   useEffect(() => {
     if (!isLoaded) return;
-    if (!isSignedIn) {
-      router.replace(signUpHref);
-      return;
-    }
     if (startedRef.current) return;
     startedRef.current = true;
 
@@ -37,7 +29,11 @@ export default function CheckoutStartClient({
 
     void (async () => {
       try {
-        const res = await fetch("/api/stripe/create-checkout-session", {
+        const res = await fetch(
+          isSignedIn
+            ? "/api/stripe/create-checkout-session"
+            : "/api/checkout/stripe-first/start",
+          {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -81,7 +77,7 @@ export default function CheckoutStartClient({
             return;
           }
           if (res.status === 401) {
-            router.replace(signUpHref);
+            setError("We couldn’t start checkout right now. Please try again.");
             return;
           }
           setError("We couldn’t start checkout right now. Please try again.");
@@ -106,7 +102,7 @@ export default function CheckoutStartClient({
         clearTimeout(timeoutId);
       }
     })();
-  }, [checkoutPlan, isLoaded, isSignedIn, router, retryNonce, signUpHref]);
+  }, [checkoutPlan, isLoaded, isSignedIn, router, retryNonce]);
 
   function handleRetry() {
     startedRef.current = false;

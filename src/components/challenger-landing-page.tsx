@@ -497,7 +497,11 @@ export function ChallengerLandingPage({
               <p>Start with 7 days free.</p>
               <p>$0 today.</p>
               <p>
-                Then {offer.monthly}, or choose {offer.annual}.
+                Then {offer.monthly}, or choose{" "}
+                <Link href="/checkout/start?plan=annual" className="underline underline-offset-4">
+                  {offer.annual}
+                </Link>
+                .
               </p>
               <p>{offer.cancel}.</p>
             </div>

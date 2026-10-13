@@ -44,7 +44,7 @@ describe("native-safe marketing CTA helper", () => {
     ).toBe("/app/membership");
     expect(
       marketingAcquisitionHref({ isNativeApp: false, isSignedIn: false })
-    ).toBe(`/sign-up?redirect_url=${encodeURIComponent("/checkout/start")}`);
+    ).toBe("/checkout/start");
     expect(
       marketingAcquisitionHref({ isNativeApp: false, isSignedIn: true })
     ).toBe("/subscribe");
@@ -54,11 +54,9 @@ describe("native-safe marketing CTA helper", () => {
     expect(shouldShowMarketingPricingCopy(true)).toBe(false);
   });
 
-  it("Navbar consumer Start Free Trial uses sign-up; Sign In and coach stay put", () => {
+  it("Navbar consumer Start Free Trial opens Stripe-first checkout; Sign In and coach stay put", () => {
     const nav = readSrc("src/components/Navbar.tsx");
-    expect(nav).toContain(
-      'SIGN_UP_WITH_SUBSCRIBE_REDIRECT = `/sign-up?redirect_url=${encodeURIComponent("/checkout/start")}`'
-    );
+    expect(nav).toContain('SIGN_UP_WITH_SUBSCRIBE_REDIRECT = "/checkout/start"');
     expect(nav).toContain(
       'SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT = `/sign-up?redirect_url=${encodeURIComponent("/subscribe?src=coach")}`'
     );

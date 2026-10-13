@@ -47,7 +47,7 @@ describe("/checkout/start hop", () => {
       page.indexOf("return <CheckoutStartClient")
     );
     expect(page).toContain("fail-open");
-    expect(page).toContain("signUpHrefForCheckoutStart");
+    expect(page).not.toContain("signUpHrefForCheckoutStart");
     expect(page).toContain("checkoutPlanFromSearchValue");
     expect(page).toContain("return <CheckoutStartClient plan={plan} />");
     expect(page).not.toContain("src=coach");
@@ -57,18 +57,36 @@ describe("/checkout/start hop", () => {
     expect(page).not.toContain("$120");
   });
 
-  it("middleware treats /checkout/start as public so unsigned users can reach Sign Up", () => {
+  it("middleware treats /checkout/start as public so unsigned visitors can open Stripe", () => {
     const mw = readFileSync(join(process.cwd(), "src/middleware.ts"), "utf8");
     expect(mw).toContain('"/checkout/start"');
   });
 
-  it("unsigned client redirects to Sign Up", async () => {
+  it("unsigned client starts Stripe-first checkout and does not open Clerk sign-up", async () => {
     userState = { isLoaded: true, isSignedIn: false };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: "https://checkout.stripe.test/public" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { assign },
+    });
     render(<CheckoutStartClient />);
     await waitFor(() => {
-      expect(replace).toHaveBeenCalledWith(
-        `/sign-up?redirect_url=${encodeURIComponent("/checkout/start")}`
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/checkout/stripe-first/start",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ plan: "monthly" }),
+        })
       );
+    });
+    expect(replace).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith("https://checkout.stripe.test/public");
     });
   });
 
@@ -87,17 +105,28 @@ describe("/checkout/start hop", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("unsigned annual client bounce preserves sibling plan=annual", async () => {
+  it("unsigned annual client starts the annual Stripe-first checkout", async () => {
     userState = { isLoaded: true, isSignedIn: false };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: "https://checkout.stripe.test/annual" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { assign },
+    });
     render(<CheckoutStartClient plan="annual" />);
     await waitFor(() => {
-      expect(replace).toHaveBeenCalledWith(
-        `/sign-up?plan=annual&redirect_url=${encodeURIComponent("/checkout/start")}`
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/checkout/stripe-first/start",
+        expect.objectContaining({
+          body: JSON.stringify({ plan: "annual" }),
+        })
       );
     });
-    expect(replace.mock.calls[0][0]).not.toContain(
-      encodeURIComponent("/checkout/start?plan=annual")
-    );
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("signed-in consumer POSTs monthly only and assigns Stripe URL", async () => {

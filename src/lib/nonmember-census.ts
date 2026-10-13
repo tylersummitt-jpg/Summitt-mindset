@@ -65,6 +65,8 @@ export type CensusAccountInput = {
   unreadSessionIds: number;
   creationFailed: boolean;
   eventsComplete: boolean;
+  /** Stripe-first account whose trial is not linked yet. Not an abandoned signup. */
+  stripeFirstProvisioning?: boolean;
 };
 
 export type CensusAccountJudgment =
@@ -114,6 +116,13 @@ export function judgeCensusAccount(input: CensusAccountInput): CensusAccountJudg
   }
   if (input.apple === "grant" || isMemberClass(input.stripe)) {
     return { kind: "member" };
+  }
+  if (
+    input.stripeFirstProvisioning === true &&
+    input.stripe !== "ended" &&
+    !hasEndedSubscription(input)
+  ) {
+    return { kind: "unknown", reason: "unverified_trial" };
   }
   if (input.sessions.some((session) => isMemberClass(session.subscription))) {
     return { kind: "member" };
