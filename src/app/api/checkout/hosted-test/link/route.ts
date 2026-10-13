@@ -4,14 +4,24 @@ import { NextResponse } from "next/server";
 
 import { getClerkIdentity } from "@/lib/stripe-first-checkout/clerk-provision";
 import { linkExistingHostedCheckout } from "@/lib/stripe-first-checkout/activate";
-import { CHECKOUT_BINDING_COOKIE } from "@/lib/stripe-first-checkout/constants";
-import { hostedCheckoutCredentialModeFromEnv } from "@/lib/stripe-first-checkout/credentials";
+import {
+  CHECKOUT_BINDING_COOKIE,
+  HOSTED_TEST_ACCESS_COOKIE,
+} from "@/lib/stripe-first-checkout/constants";
+import {
+  hostedCheckoutCredentialModeFromEnv,
+  hostedCheckoutRequestAuthorized,
+} from "@/lib/stripe-first-checkout/credentials";
 import { normalizeCheckoutEmail } from "@/lib/stripe-first-checkout/email-typo";
 
 export const runtime = "nodejs";
 
 export async function POST() {
   if (hostedCheckoutCredentialModeFromEnv() !== "test") {
+    return NextResponse.json({ error: "refused" }, { status: 404 });
+  }
+  const jar = await cookies();
+  if (!hostedCheckoutRequestAuthorized(jar.get(HOSTED_TEST_ACCESS_COOKIE)?.value)) {
     return NextResponse.json({ error: "refused" }, { status: 404 });
   }
   const { userId } = await auth();
@@ -21,7 +31,6 @@ export async function POST() {
   const email = normalizeCheckoutEmail(identity?.primaryEmail ?? "");
   if (!email) return NextResponse.json({ error: "rejected" }, { status: 403 });
 
-  const jar = await cookies();
   const result = await linkExistingHostedCheckout({
     bindingSecret: jar.get(CHECKOUT_BINDING_COOKIE)?.value ?? "",
     clerkUserId: userId,

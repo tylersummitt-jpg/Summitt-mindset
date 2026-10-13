@@ -61,3 +61,14 @@ export async function isTylerAdminSession(): Promise<boolean> {
     return false;
   }
 }
+
+/** Tyler only. Brooke's admin id cannot arm the owner canary. */
+export async function isTylerOwnerSession(): Promise<boolean> {
+  try {
+    const { userId } = await auth();
+    const tylerId = normalizeUserId(process.env.TYLER_CLERK_USER_ID);
+    return Boolean(userId && tylerId && userId === tylerId);
+  } catch {
+    return false;
+  }
+}

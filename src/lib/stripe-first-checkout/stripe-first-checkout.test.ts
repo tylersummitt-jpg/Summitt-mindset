@@ -7,7 +7,13 @@ import {
   unconfirmedOnboardingEmail,
 } from "@/lib/stripe-first-checkout/email-typo";
 import { unprotectedAlertAlreadySent } from "@/lib/stripe-first-checkout/hold-decision";
-import { hostedCheckoutCredentialMode } from "@/lib/stripe-first-checkout/credentials";
+import {
+  canaryCheckoutStartAllowed,
+  checkoutSessionIdempotencyKey,
+  hostedCheckoutCredentialMode,
+  hostedCompletionAllowed,
+  hostedStartAllowed,
+} from "@/lib/stripe-first-checkout/credentials";
 import {
   hostedTestAccessIsValid,
   signHostedTestAccess,
@@ -96,16 +102,83 @@ describe("hosted test credentials and binding", () => {
     ).toBe("test");
     expect(
       hostedCheckoutCredentialMode({
+        stripeSecretKey: "sk_test_123",
+        clerkSecretKey: "sk_test_456",
+        canaryEnabled: "true",
+      })
+    ).toBe("test");
+    expect(
+      hostedCheckoutCredentialMode({
         stripeSecretKey: "sk_live_123",
         clerkSecretKey: "sk_test_456",
+        canaryEnabled: "true",
       })
     ).toBe("refused");
     expect(
       hostedCheckoutCredentialMode({
         stripeSecretKey: "sk_test_123",
         clerkSecretKey: "sk_live_456",
+        canaryEnabled: "true",
       })
     ).toBe("refused");
+    expect(
+      hostedCheckoutCredentialMode({
+        stripeSecretKey: "sk_live_123",
+        clerkSecretKey: "sk_live_456",
+      })
+    ).toBe("refused");
+    expect(
+      hostedCheckoutCredentialMode({
+        stripeSecretKey: "sk_live_123",
+        clerkSecretKey: "sk_live_456",
+        canaryEnabled: "TRUE",
+      })
+    ).toBe("refused");
+    expect(
+      hostedCheckoutCredentialMode({
+        stripeSecretKey: "sk_live_123",
+        clerkSecretKey: "sk_live_456",
+        canaryEnabled: "true",
+      })
+    ).toBe("canary");
+  });
+
+  it("allows one monthly canary start and leaves test plans alone", () => {
+    expect(
+      canaryCheckoutStartAllowed({
+        mode: "canary",
+        plan: "monthly",
+        liveIntentExists: false,
+      })
+    ).toBe(true);
+    expect(
+      canaryCheckoutStartAllowed({
+        mode: "canary",
+        plan: "annual",
+        liveIntentExists: false,
+      })
+    ).toBe(false);
+    expect(
+      canaryCheckoutStartAllowed({
+        mode: "canary",
+        plan: "monthly",
+        liveIntentExists: true,
+      })
+    ).toBe(false);
+    expect(
+      canaryCheckoutStartAllowed({
+        mode: "test",
+        plan: "annual",
+        liveIntentExists: true,
+      })
+    ).toBe(true);
+    expect(
+      canaryCheckoutStartAllowed({
+        mode: "refused",
+        plan: "monthly",
+        liveIntentExists: false,
+      })
+    ).toBe(false);
   });
 
   it("expires and rejects a tampered access token", () => {
@@ -193,5 +266,135 @@ describe("public checkout stays on the current path", () => {
       true
     );
     expect(unprotectedAlertAlreadySent({}, "intent-1")).toBe(false);
+  });
+});
+
+describe("owner canary authorization", () => {
+  const read = (path: string) => readFileSync(path, "utf8");
+
+  it("keeps the live monthly trial and does not use the development price", () => {
+    const activate = read("src/lib/stripe-first-checkout/activate.ts");
+    expect(activate).toContain("trial_period_days: 7");
+    expect(activate).toContain("process.env.STRIPE_PRICE_ID_MONTHLY");
+    expect(activate).not.toContain("19.99");
+    expect(activate).toContain("checkoutSessionIdempotencyKey");
+    expect(activate).not.toContain("stripe-first-owner-canary");
+    expect(activate).toContain("CANARY_METADATA_KEY");
+    expect(read("src/lib/stripe-first-checkout/constants.ts")).toContain("summittCanary");
+    expect(activate).toContain('if (intent.livemode) return { status: "rejected" }');
+  });
+
+  it("requires the browser authorization on every canary action", () => {
+    for (const path of [
+      "src/app/api/checkout/hosted-test/start/route.ts",
+      "src/app/api/checkout/hosted-test/link/route.ts",
+      "src/app/checkout/hosted-test/continue/page.tsx",
+    ]) {
+      const source = read(path);
+      expect(source).toContain("HOSTED_TEST_ACCESS_COOKIE");
+      expect(source).toContain("hostedCheckoutRequestAuthorized");
+    }
+    for (const path of [
+      "src/app/api/checkout/hosted-test/activate/route.ts",
+      "src/app/api/checkout/hosted-test/confirm-session/route.ts",
+      "src/app/checkout/hosted-test/return/page.tsx",
+    ]) {
+      const source = read(path);
+      expect(source).toContain("CHECKOUT_BINDING_COOKIE");
+      expect(source).toContain("hostedCompletionBrowserPresent");
+      expect(source).not.toContain("hostedCheckoutRequestAuthorized");
+    }
+    const link = read("src/app/api/checkout/hosted-test/link/route.ts");
+    expect(link).toContain('hostedCheckoutCredentialModeFromEnv() !== "test"');
+    const access = read("src/app/api/checkout/hosted-test/access/route.ts");
+    expect(access).toContain("isTylerOwnerSession");
+    expect(access).toContain("httpOnly: true");
+    expect(access).toContain('sameSite: "lax"');
+    expect(access).toContain("CANARY_ACCESS_MAX_AGE_SECONDS");
+    const start = read("src/app/api/checkout/hosted-test/start/route.ts");
+    expect(start).not.toContain("body?.livemode");
+    expect(start).not.toContain("body?.mode");
+    expect(start).not.toContain('from "@clerk/nextjs/server"');
+    expect(start).toContain('mode === "canary" ? null');
+  });
+
+  it("does not let the canary cookie sign into an existing account", () => {
+    const activate = read("src/lib/stripe-first-checkout/activate.ts");
+    const link = activate.indexOf("export async function linkExistingHostedCheckout");
+    expect(activate.slice(link)).toContain('!== "test"');
+    expect(activate.slice(link)).toContain('{ status: "rejected" }');
+    const activateRoute = read("src/app/api/checkout/hosted-test/activate/route.ts");
+    expect(activateRoute).toContain('hostedCheckoutCredentialModeFromEnv() !== "test"');
+    expect(activateRoute).not.toContain("console.log");
+  });
+
+  it("keys Stripe retries to one intent and still allows only one canary start", () => {
+    expect(checkoutSessionIdempotencyKey("intent-a")).toBe("stripe-first-intent-a");
+    expect(checkoutSessionIdempotencyKey(" intent-a ")).toBe(
+      checkoutSessionIdempotencyKey("intent-a")
+    );
+    expect(checkoutSessionIdempotencyKey("intent-a")).not.toBe(
+      checkoutSessionIdempotencyKey("intent-b")
+    );
+    expect(() => checkoutSessionIdempotencyKey("  ")).toThrow("intent_required");
+    expect(
+      canaryCheckoutStartAllowed({
+        mode: "canary",
+        plan: "monthly",
+        liveIntentExists: true,
+      })
+    ).toBe(false);
+  });
+
+  it("expires the owner cookie for new starts and still finishes a stored checkout", () => {
+    expect(hostedStartAllowed({ mode: "canary", accessCookieValid: true })).toBe(true);
+    expect(hostedStartAllowed({ mode: "canary", accessCookieValid: false })).toBe(false);
+    expect(hostedStartAllowed({ mode: "refused", accessCookieValid: true })).toBe(false);
+    expect(
+      hostedCompletionAllowed({
+        bindingCookiePresent: true,
+        sessionStored: true,
+        intentLivemode: true,
+        serverMode: "canary",
+      })
+    ).toBe(true);
+    expect(
+      hostedCompletionAllowed({
+        bindingCookiePresent: true,
+        sessionStored: true,
+        intentLivemode: true,
+        serverMode: "refused",
+      })
+    ).toBe(true);
+    expect(
+      hostedCompletionAllowed({
+        bindingCookiePresent: false,
+        sessionStored: true,
+        intentLivemode: true,
+        serverMode: "canary",
+      })
+    ).toBe(false);
+    expect(
+      hostedCompletionAllowed({
+        bindingCookiePresent: true,
+        sessionStored: false,
+        intentLivemode: true,
+        serverMode: "refused",
+      })
+    ).toBe(false);
+  });
+
+  it("leaves webhook reconciliation and normal billing outside the canary switch", () => {
+    const webhook = read("src/app/api/stripe/webhook/route.ts");
+    const reconcile = read("src/lib/stripe-first-checkout/reconcile.ts");
+    const hold = read("src/lib/stripe-first-checkout/stripe-hold.ts");
+    const checkout = read("src/app/api/stripe/create-checkout-session/route.ts");
+    const cancel = read("src/lib/account-deletion/cancel-subscription.ts");
+    for (const source of [webhook, reconcile, hold, checkout, cancel]) {
+      expect(source).not.toContain("STRIPE_FIRST_CANARY_ENABLED");
+      expect(source).not.toContain("hostedCheckoutCredentialMode");
+    }
+    expect(webhook).toContain("stripeFirstIntentId && !userId");
+    expect(checkout).toContain("trial_period_days: 7");
   });
 });

@@ -7,21 +7,23 @@ import {
   parseProudTestAssignment,
   PROUD_TEST_COOKIE,
 } from "@/lib/landing-experiment-shared";
-import { hostedTestAccessIsValid } from "@/lib/stripe-first-checkout/access-token";
 import { beginHostedCheckout } from "@/lib/stripe-first-checkout/activate";
 import {
   BINDING_MAX_AGE_SECONDS,
   CHECKOUT_BINDING_COOKIE,
   HOSTED_TEST_ACCESS_COOKIE,
 } from "@/lib/stripe-first-checkout/constants";
-import { hostedCheckoutCredentialModeFromEnv } from "@/lib/stripe-first-checkout/credentials";
+import {
+  hostedCheckoutCredentialModeFromEnv,
+  hostedCheckoutRequestAuthorized,
+} from "@/lib/stripe-first-checkout/credentials";
 
 export const runtime = "nodejs";
 
-function cookieOptions(maxAge: number) {
+function cookieOptions(maxAge: number, canary: boolean) {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: canary || process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
     path: "/",
     maxAge,
@@ -29,7 +31,8 @@ function cookieOptions(maxAge: number) {
 }
 
 export async function POST(req: Request) {
-  if (hostedCheckoutCredentialModeFromEnv() !== "test") {
+  const mode = hostedCheckoutCredentialModeFromEnv();
+  if (mode !== "test" && mode !== "canary") {
     return NextResponse.json({ error: "refused" }, { status: 404 });
   }
   if (isNativeSummittMindsetApp(req.headers.get("user-agent"))) {
@@ -37,23 +40,24 @@ export async function POST(req: Request) {
   }
 
   const jar = await cookies();
-  const allowed = hostedTestAccessIsValid(
-    jar.get(HOSTED_TEST_ACCESS_COOKIE)?.value,
-    process.env.CLERK_SECRET_KEY ?? "",
-    Date.now()
-  );
-  if (!allowed) return NextResponse.json({ error: "refused" }, { status: 404 });
+  if (!hostedCheckoutRequestAuthorized(jar.get(HOSTED_TEST_ACCESS_COOKIE)?.value)) {
+    return NextResponse.json({ error: "refused" }, { status: 404 });
+  }
 
   const body = (await req.json().catch(() => null)) as { plan?: unknown } | null;
   const plan = body?.plan === "annual" ? "annual" : body?.plan === "monthly" ? "monthly" : null;
   if (!plan) return NextResponse.json({ error: "plan_required" }, { status: 400 });
+  if (mode === "canary" && plan !== "monthly") {
+    return NextResponse.json({ error: "refused" }, { status: 404 });
+  }
 
-  const assignment = parseProudTestAssignment(jar.get(PROUD_TEST_COOKIE)?.value);
+  const assignment =
+    mode === "canary" ? null : parseProudTestAssignment(jar.get(PROUD_TEST_COOKIE)?.value);
   try {
     const started = await beginHostedCheckout({
       request: req,
       plan,
-      visitorCookie: jar.get(SM_VISITOR_COOKIE)?.value ?? null,
+      visitorCookie: mode === "canary" ? null : (jar.get(SM_VISITOR_COOKIE)?.value ?? null),
       experimentId: assignment?.experimentId ?? null,
       experimentVariant: assignment?.variant ?? null,
     });
@@ -64,13 +68,18 @@ export async function POST(req: Request) {
     response.cookies.set(
       CHECKOUT_BINDING_COOKIE,
       started.bindingSecret,
-      cookieOptions(BINDING_MAX_AGE_SECONDS)
+      cookieOptions(BINDING_MAX_AGE_SECONDS, mode === "canary")
     );
     return response;
   } catch (err) {
-    console.error("[stripe-first] start failed", {
-      reason: err instanceof Error ? err.message : "start_failed",
-    });
+    const reason = err instanceof Error ? err.message : "start_failed";
+    console.error("[stripe-first] start failed", { reason });
+    if (reason === "canary_already_used") {
+      return NextResponse.json(
+        { error: "canary_used" },
+        { status: 409, headers: { "Cache-Control": "no-store" } }
+      );
+    }
     return NextResponse.json({ error: "retry" }, { status: 503 });
   }
 }

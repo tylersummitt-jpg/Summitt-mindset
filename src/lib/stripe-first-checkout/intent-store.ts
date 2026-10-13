@@ -49,18 +49,43 @@ export function holdView(row: CheckoutBrowserIntent): HoldIntentView {
   };
 }
 
+export async function liveCanaryIntentExists(): Promise<boolean> {
+  const { data, error } = await supabaseServer
+    .from("checkout_browser_intents")
+    .select("id")
+    .eq("livemode", true)
+    .limit(1);
+  if (error) {
+    logIntentError("canary_exists", error.code);
+    throw new Error("intent_load_failed");
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+/** Removes an owner-canary row only when no Checkout Session was stored. */
+export async function deleteUnstartedLiveIntent(intentId: string): Promise<void> {
+  const { error } = await supabaseServer
+    .from("checkout_browser_intents")
+    .delete()
+    .eq("id", intentId)
+    .eq("livemode", true)
+    .is("stripe_checkout_session_id", null);
+  if (error) logIntentError("canary_rollback", error.code);
+}
+
 export async function insertCheckoutIntent(args: {
   bindingHash: string;
   bindingExpiresAt: string;
   visitorId: string | null;
   experimentId: string | null;
   experimentVariant: string | null;
+  livemode: boolean;
 }): Promise<CheckoutBrowserIntent> {
   const { data, error } = await supabaseServer
     .from("checkout_browser_intents")
     .insert({
       binding_hash: args.bindingHash,
-      livemode: false,
+      livemode: args.livemode,
       visitor_id: args.visitorId,
       experiment_id: args.experimentId,
       experiment_variant: args.experimentVariant,
