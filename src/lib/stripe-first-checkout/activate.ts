@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { isVisitorId } from "@/lib/marketing-attribution-pure";
+import { parsePersonalVideoId } from "@/lib/personal-videos/analytics";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { resolveStripeCheckoutReturnOrigin } from "@/lib/stripe-checkout-return-origin";
 import {
@@ -139,6 +140,8 @@ export async function beginHostedCheckout(args: {
     utmContent: string | null;
     sourceNormalized: string | null;
   };
+  /** Ready personal video visited in the last 30 days. Omitted from canary checkout. */
+  personalVideoId?: string | null;
 }): Promise<{
   url: string;
   bindingSecret: string;
@@ -178,6 +181,7 @@ export async function beginHostedCheckout(args: {
     canary || !isVisitorId(args.visitorCookie) ? null : args.visitorCookie;
   const experimentId = canary ? null : args.experimentId;
   const experimentVariant = canary ? null : args.experimentVariant;
+  const personalVideoId = publicCheckout ? parsePersonalVideoId(args.personalVideoId) : null;
   const intent = await insertCheckoutIntent({
     bindingHash: binding.hash,
     bindingExpiresAt: new Date(Date.now() + BINDING_MAX_AGE_SECONDS * 1000).toISOString(),
@@ -215,6 +219,7 @@ export async function beginHostedCheckout(args: {
           ...(args.attribution?.sourceNormalized
             ? { sourceNormalized: args.attribution.sourceNormalized }
             : {}),
+          ...(personalVideoId ? { personalVideoId } : {}),
         },
         subscription_data: {
           trial_period_days: 7,
@@ -230,6 +235,7 @@ export async function beginHostedCheckout(args: {
             ...(experimentId && experimentVariant
               ? { experimentId, experimentVariant }
               : {}),
+            ...(personalVideoId ? { personalVideoId } : {}),
           },
         },
         success_url: `${origin}${

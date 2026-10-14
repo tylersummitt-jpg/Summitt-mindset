@@ -87,6 +87,7 @@ describe("personal video rules", () => {
     expect(navbar).toContain('label: "Film Room"');
     expect(studio).toContain("isTylerOwnerSession");
     expect(client).not.toContain("VIMEO_ACCESS_TOKEN");
+    expect(client).toContain("Mark as sent");
     expect(upload).toContain("process.env.VIMEO_ACCESS_TOKEN");
     expect(read("src/app/api/admin/personal-videos/route.ts")).toContain(
       "{ id: video.id, uploadLink: created.uploadLink }"

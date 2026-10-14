@@ -48,6 +48,10 @@ import {
   type DistributionIntelligence,
 } from "@/lib/distribution-intelligence";
 import {
+  unreadablePersonalVideoDistribution,
+  type PersonalVideoDistribution,
+} from "@/lib/personal-videos/analytics";
+import {
   buildNonmemberRecovery,
   formatNonmemberRecovery,
   type NonmemberRecovery,
@@ -158,6 +162,7 @@ export type OperatingSnapshot = {
   landingExperiments: ProudTestReport[];
   retentionIntelligence: RetentionIntelligence;
   distributionIntelligence: DistributionIntelligence;
+  personalVideos: PersonalVideoDistribution;
   nonmemberRecovery: NonmemberRecovery;
   recoveryAutomation: RecoveryAttention;
   limitations: string[];
@@ -776,6 +781,7 @@ export function buildOperatingSnapshot(args: {
   landingExperiments?: ProudTestReport[];
   retentionIntelligence?: RetentionIntelligence;
   recoveryAutomation?: RecoveryAttention;
+  personalVideos?: PersonalVideoDistribution;
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
@@ -859,6 +865,11 @@ export function buildOperatingSnapshot(args: {
     landingExperiments,
     retentionIntelligence,
     distributionIntelligence,
+    personalVideos:
+      args.personalVideos ??
+      unreadablePersonalVideoDistribution(
+        "Personal video results could not be read. Do not treat that as zero."
+      ),
     nonmemberRecovery,
     recoveryAutomation,
     limitations: [

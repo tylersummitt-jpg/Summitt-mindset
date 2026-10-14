@@ -24,6 +24,9 @@ import {
 } from "@/lib/marketing-attribution-pure";
 import { parseContentProduction } from "@/lib/content-production";
 import { isNativeSummittMindsetAppRequestFromRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
+import { isTylerAdminSession } from "@/lib/auth/require-tyler-admin";
+import { isPersonalVideoEventType, parsePersonalVideoId } from "@/lib/personal-videos/analytics";
+import { insertPersonalVideoEvent } from "@/lib/personal-videos/analytics.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +58,18 @@ export async function POST(req: NextRequest) {
     }
 
     const cookies = await readMarketingCookiesFromRequest(req);
+    if (isPersonalVideoEventType(eventType)) {
+      if (await isTylerAdminSession()) return collectFailOpenResponse();
+      const personalVideoId = parsePersonalVideoId(rec.personal_video_id);
+      if (!cookies.visitorId || !personalVideoId) return collectFailOpenResponse();
+      await insertPersonalVideoEvent({
+        eventType,
+        visitorId: cookies.visitorId,
+        personalVideoId,
+        attribution: cookies.attribution,
+      });
+      return collectFailOpenResponse();
+    }
     if (!cookies.visitorId || !cookies.attribution) {
       return collectFailOpenResponse();
     }

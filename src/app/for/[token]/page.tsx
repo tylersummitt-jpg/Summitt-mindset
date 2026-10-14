@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PersonalVideoPlayer, PersonalVideoTrialLink } from "@/components/personal-video-engagement";
+import { isTylerAdminSession } from "@/lib/auth/require-tyler-admin";
 import { buildVimeoPlayerEmbedUrl } from "@/lib/vimeo-player-embed";
 import { MEMBERSHIP_PUBLIC_OFFER } from "@/lib/membership-public-offer";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
@@ -31,6 +32,7 @@ export default async function PersonalVideoPage({
   }
   if (!video) notFound();
   const native = await isNativeSummittMindsetAppRequest();
+  const track = !native && !(await isTylerAdminSession());
   const trialHref = native
     ? marketingAcquisitionHref({ isNativeApp: true, isSignedIn: false })
     : "/checkout/start";
@@ -42,26 +44,20 @@ export default async function PersonalVideoPage({
         <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Summitt Mindset</p>
         <h1 className="mt-3 text-3xl font-semibold leading-tight">A Personal Message From Tyler Summitt</h1>
         {playerSrc ? (
-          <div className="relative mt-8 aspect-video overflow-hidden rounded-2xl bg-black">
-            <iframe
-              title="A personal message from Tyler Summitt"
-              src={playerSrc}
-              className="absolute inset-0 h-full w-full"
-              allow="fullscreen; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
+          <PersonalVideoPlayer playerSrc={playerSrc} personalVideoId={video.id} track={track} />
         ) : (
           <p className="mt-8 text-stone-300">This video is not ready yet.</p>
         )}
         {playerSrc ? (
           <div className="mt-6">
-            <Link
+            <PersonalVideoTrialLink
               href={trialHref}
+              personalVideoId={video.id}
+              track={track && !native}
               className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-[var(--brand)] px-6 py-3 text-center text-base font-semibold !text-[#111827] shadow-md shadow-orange-500/20 transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8"
             >
               {native ? "Sign in" : "Start My 7-Day Free Trial"}
-            </Link>
+            </PersonalVideoTrialLink>
             {native ? null : (
               <p className="mt-4 text-sm leading-6 text-stone-300">
                 {MEMBERSHIP_PUBLIC_OFFER.dueToday}. {MEMBERSHIP_PUBLIC_OFFER.trial}, then{" "}

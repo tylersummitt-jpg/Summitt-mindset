@@ -68,6 +68,7 @@ import {
   type HomepageVideoScopedQuery,
 } from "@/lib/admin-homepage-video";
 import { HOMEPAGE_VIDEO_EVENT_TYPES } from "@/lib/homepage-video";
+import { PERSONAL_VIDEO_EVENT_TYPES } from "@/lib/personal-videos/analytics";
 import { attributionMatchesDashboardSource } from "@/lib/marketing-attribution-pure";
 import { isLikelySmsComplianceOrOptOutTurn } from "@/lib/v2-sms-conversation-brain-eligibility";
 import { isAppleRowCurrentlyGranting } from "@/lib/summitt-membership-entitlement";
@@ -635,7 +636,11 @@ async function loadMarketingEvents(args: {
       .select(
         "event_type, visitor_id, occurred_at, source_normalized, is_paid_acquisition, referrer_host, utm_source, utm_campaign, utm_content, clerk_user_id, metadata"
       )
-      .not("event_type", "in", `(${HOMEPAGE_VIDEO_EVENT_TYPES.join(",")})`)
+      .not(
+        "event_type",
+        "in",
+        `(${[...HOMEPAGE_VIDEO_EVENT_TYPES, ...PERSONAL_VIDEO_EVENT_TYPES].join(",")})`
+      )
       .lt("occurred_at", new Date(args.endMs).toISOString())
       .order("occurred_at", { ascending: true })
       .range(from, from + MARKETING_EVENT_PAGE - 1);

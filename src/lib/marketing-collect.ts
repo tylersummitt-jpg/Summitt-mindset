@@ -42,6 +42,9 @@ export const MARKETING_EVENT_TYPES = [
   "homepage_video_started",
   "homepage_video_50",
   "homepage_video_completed",
+  "personal_video_visited",
+  "personal_video_played",
+  "personal_video_cta_clicked",
 ] as const;
 
 export type MarketingEventType = (typeof MARKETING_EVENT_TYPES)[number];
@@ -53,6 +56,9 @@ export const CLIENT_COLLECT_EVENT_TYPES = [
   "homepage_video_started",
   "homepage_video_50",
   "homepage_video_completed",
+  "personal_video_visited",
+  "personal_video_played",
+  "personal_video_cta_clicked",
 ] as const;
 
 export type ClientCollectEventType = (typeof CLIENT_COLLECT_EVENT_TYPES)[number];

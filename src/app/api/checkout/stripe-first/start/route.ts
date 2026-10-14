@@ -8,7 +8,8 @@ import {
   PROUD_TEST_COOKIE,
 } from "@/lib/landing-experiment-shared";
 import { readMarketingCookiesFromRequest } from "@/lib/marketing-collect";
-import { SM_VISITOR_COOKIE } from "@/lib/marketing-attribution-pure";
+import { isVisitorId, SM_VISITOR_COOKIE } from "@/lib/marketing-attribution-pure";
+import { latestReadyPersonalVideoId } from "@/lib/personal-videos/analytics.server";
 import { isNativeSummittMindsetApp } from "@/lib/native-app/platform";
 import {
   beginHostedCheckout,
@@ -73,11 +74,17 @@ export async function POST(req: Request) {
       );
     }
 
+    const visitorCookie = jar.get(SM_VISITOR_COOKIE)?.value ?? marketing?.visitorId ?? null;
+    let personalVideoId: string | null = null;
+    if (isVisitorId(visitorCookie)) {
+      personalVideoId = await latestReadyPersonalVideoId(visitorCookie).catch(() => null);
+    }
     const started = await beginHostedCheckout({
       request: req,
       plan,
       publicCheckout: true,
-      visitorCookie: jar.get(SM_VISITOR_COOKIE)?.value ?? marketing?.visitorId ?? null,
+      visitorCookie,
+      personalVideoId,
       experimentId: assignment?.experimentId ?? null,
       experimentVariant: assignment?.variant ?? null,
       attribution: marketing?.attribution

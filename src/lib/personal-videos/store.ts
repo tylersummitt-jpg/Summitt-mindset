@@ -13,6 +13,7 @@ export type PersonalVideoRecord = {
   vimeoVideoId: string;
   status: PersonalVideoStatus;
   createdAt: string;
+  linkSentAt: string | null;
   watchPath: string | null;
 };
 
@@ -22,6 +23,7 @@ type Row = {
   vimeo_video_id: string;
   status: string;
   created_at: string;
+  link_sent_at?: string | null;
 };
 
 function asRecord(row: Row): PersonalVideoRecord | null {
@@ -39,6 +41,7 @@ function asRecord(row: Row): PersonalVideoRecord | null {
     vimeoVideoId: row.vimeo_video_id,
     status: row.status,
     createdAt: row.created_at,
+    linkSentAt: typeof row.link_sent_at === "string" ? row.link_sent_at : null,
     watchPath: watchPathForStatus(row.public_token, row.status),
   };
 }
@@ -54,7 +57,7 @@ export async function insertPersonalVideo(args: {
       vimeo_video_id: args.vimeoVideoId,
       status: "uploading",
     })
-    .select("id, public_token, vimeo_video_id, status, created_at")
+    .select("id, public_token, vimeo_video_id, status, created_at, link_sent_at")
     .single();
   if (error || !data) throw new Error("personal_video_save_failed");
   const record = asRecord(data as Row);
@@ -63,19 +66,44 @@ export async function insertPersonalVideo(args: {
 }
 
 export async function listPersonalVideos(): Promise<PersonalVideoRecord[]> {
+  const records: PersonalVideoRecord[] = [];
+  for (let from = 0; from < 2000; from += 200) {
+    const { data, error } = await supabaseServer
+      .from("personal_videos")
+      .select("id, public_token, vimeo_video_id, status, created_at, link_sent_at")
+      .order("created_at", { ascending: false })
+      .range(from, from + 199);
+    if (error) throw new Error("personal_video_list_failed");
+    const batch = data ?? [];
+    for (const row of batch) {
+      const record = asRecord(row as Row);
+      if (record) records.push(record);
+    }
+    if (batch.length < 200) break;
+  }
+  return records;
+}
+
+export async function markPersonalVideoSent(id: string): Promise<PersonalVideoRecord | null> {
+  const existing = await getPersonalVideo(id);
+  if (!existing || existing.status !== "ready") return null;
+  if (existing.linkSentAt) return existing;
+  const sentAt = new Date().toISOString();
   const { data, error } = await supabaseServer
     .from("personal_videos")
-    .select("id, public_token, vimeo_video_id, status, created_at")
-    .order("created_at", { ascending: false })
-    .limit(100);
-  if (error) throw new Error("personal_video_list_failed");
-  return (data ?? []).map((row) => asRecord(row as Row)).filter((row): row is PersonalVideoRecord => row != null);
+    .update({ link_sent_at: sentAt, updated_at: sentAt })
+    .eq("id", id)
+    .is("link_sent_at", null)
+    .select("id, public_token, vimeo_video_id, status, created_at, link_sent_at")
+    .maybeSingle();
+  if (error) throw new Error("personal_video_update_failed");
+  return data ? asRecord(data as Row) : getPersonalVideo(id);
 }
 
 export async function getPersonalVideo(id: string): Promise<PersonalVideoRecord | null> {
   const { data, error } = await supabaseServer
     .from("personal_videos")
-    .select("id, public_token, vimeo_video_id, status, created_at")
+    .select("id, public_token, vimeo_video_id, status, created_at, link_sent_at")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error("personal_video_load_failed");
@@ -86,7 +114,7 @@ export async function getPersonalVideoByToken(token: string): Promise<PersonalVi
   if (!isPersonalVideoToken(token)) return null;
   const { data, error } = await supabaseServer
     .from("personal_videos")
-    .select("id, public_token, vimeo_video_id, status, created_at")
+    .select("id, public_token, vimeo_video_id, status, created_at, link_sent_at")
     .eq("public_token", token)
     .maybeSingle();
   if (error) throw new Error("personal_video_load_failed");
@@ -101,7 +129,7 @@ export async function updatePersonalVideoStatus(
     .from("personal_videos")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id)
-    .select("id, public_token, vimeo_video_id, status, created_at")
+    .select("id, public_token, vimeo_video_id, status, created_at, link_sent_at")
     .maybeSingle();
   if (error) throw new Error("personal_video_update_failed");
   return data ? asRecord(data as Row) : null;

@@ -27,6 +27,8 @@ import {
 } from "@/lib/retention-intelligence";
 import { loadRecoveryAttention } from "@/lib/recovery.server";
 import { emptyRecoveryAttention, type RecoveryAttention } from "@/lib/recovery-report";
+import { loadPersonalVideoDistribution } from "@/lib/personal-videos/analytics.server";
+import { unreadablePersonalVideoDistribution } from "@/lib/personal-videos/analytics";
 
 export async function loadOperatingSnapshot(args: {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -161,6 +163,20 @@ export async function loadOperatingSnapshot(args: {
     });
   }
 
+  let personalVideos = unreadablePersonalVideoDistribution(
+    "Personal video results could not be read. Do not treat that as zero."
+  );
+  try {
+    personalVideos = await loadPersonalVideoDistribution({
+      subscriptions: growth.retentionSubscriptions?.subs ?? null,
+      subscriptionsComplete: growth.retentionSubscriptions?.complete === true,
+    });
+  } catch (err) {
+    console.warn("[operating] personal video distribution failed", {
+      reason: err instanceof Error ? err.message : "personal_video_distribution_failed",
+    });
+  }
+
   return buildOperatingSnapshot({
     growth,
     challengeAttention,
@@ -173,5 +189,6 @@ export async function loadOperatingSnapshot(args: {
     landingExperiments,
     retentionIntelligence,
     recoveryAutomation,
+    personalVideos,
   });
 }

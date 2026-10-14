@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { CopyBusinessReportButton } from "@/app/admin/copy-business-report-button";
 import { DistributionIntelligencePanel } from "@/app/admin/distribution-intelligence-panel";
+import type { PersonalVideoDistribution } from "@/lib/personal-videos/analytics";
 import { NonmemberRecoveryPanel } from "@/app/admin/nonmember-recovery-panel";
 import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
@@ -190,6 +191,62 @@ export function OperatingScreen({
         </pre>
       </section>
     </div>
+  );
+}
+
+function PersonalVideosSection({ report }: { report: PersonalVideoDistribution }) {
+  const count = (value: number | null) => (report.eventsReadable ? String(value ?? 0) : "Not available");
+  const billing = (value: number | null) => (report.billingReadable ? String(value ?? 0) : "Not available");
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-gray-900">Personal Videos</h2>
+        <Link href="/admin/personal-videos" className="text-sm text-gray-800 underline">
+          Open Personal Video Studio
+        </Link>
+      </div>
+      <p className="text-sm text-gray-700">{report.note}</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Metric label="Links marked sent" value={report.linksSent == null ? "Not available" : String(report.linksSent)} note="Manual sent marks. Created videos are not this count." />
+        <Metric label="Links visited" value={report.linksVisited == null ? "Not available" : String(report.linksVisited)} note="Sent links with at least one recorded visit." />
+        <Metric label="Link visit rate" value={report.linkVisitRate} note="Links visited / links marked sent." />
+        <Metric label="Unique visitors" value={report.uniqueVisitors} note="Distinct browsers. This is not the link visit rate." />
+        <Metric label="Video plays" value={report.plays} note={report.playRate} />
+        <Metric label="CTA clicks" value={report.ctaClicks} note={report.ctaRate} />
+        <Metric label="Attributed free trials" value={report.trials} note={report.trialRate} />
+        <Metric label="Attributed paying subscribers" value={report.paid} note={report.paidRate} />
+      </div>
+      {report.rows.length === 0 ? null : (
+        <div className="overflow-x-auto rounded border border-gray-200 bg-white">
+          <table className="min-w-full text-left text-sm text-gray-800">
+            <thead className="border-b border-gray-200 text-xs text-gray-500">
+              <tr>
+                <th className="px-3 py-2 font-medium">Created</th>
+                <th className="px-3 py-2 font-medium">Sent</th>
+                <th className="px-3 py-2 font-medium">Visits</th>
+                <th className="px-3 py-2 font-medium">Plays</th>
+                <th className="px-3 py-2 font-medium">CTA clicks</th>
+                <th className="px-3 py-2 font-medium">Trials</th>
+                <th className="px-3 py-2 font-medium">Paid</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.rows.map((row) => (
+                <tr key={row.id} className="border-b border-gray-100 last:border-0">
+                  <td className="px-3 py-2 whitespace-nowrap">{row.createdAt.slice(0, 10)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{row.sentAt ? row.sentAt.slice(0, 10) : "Not sent"}</td>
+                  <td className="px-3 py-2">{count(row.visitors)}</td>
+                  <td className="px-3 py-2">{count(row.plays)}</td>
+                  <td className="px-3 py-2">{count(row.ctaClicks)}</td>
+                  <td className="px-3 py-2">{billing(row.trials)}</td>
+                  <td className="px-3 py-2">{billing(row.paid)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -388,6 +445,8 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
           </ul>
         )}
       </section>
+
+      <PersonalVideosSection report={snapshot.personalVideos} />
 
       <DistributionIntelligencePanel intel={snapshot.distributionIntelligence} />
 

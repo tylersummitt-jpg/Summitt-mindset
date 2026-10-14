@@ -18,6 +18,7 @@ type RecentVideo = {
   status: VideoStatus;
   createdAt: string;
   watchPath: string | null;
+  linkSentAt: string | null;
 };
 
 type Phase = "camera" | "recording" | "preview" | "saving" | "processing" | "ready" | "error";
@@ -296,6 +297,17 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
     setRecent((current) => (current ?? []).map((item) => (item.id === video.id ? video : item)));
   }
 
+  async function markSent(id: string) {
+    const response = await fetch(`/api/admin/personal-videos/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sent: true }),
+    });
+    if (!response.ok) return;
+    const video = (await response.json()) as RecentVideo;
+    setRecent((current) => (current ?? []).map((item) => (item.id === video.id ? { ...item, ...video } : item)));
+  }
+
   async function removeVideo(id: string) {
     const response = await fetch(`/api/admin/personal-videos/${id}`, { method: "DELETE" });
     if (!response.ok) {
@@ -423,7 +435,10 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
                       timeStyle: "short",
                     })}
                   </p>
-                  <p className="text-xs uppercase tracking-wide text-stone-500">{video.status}</p>
+                  <p className="text-xs uppercase tracking-wide text-stone-500">
+                    {video.status}
+                    {video.linkSentAt ? " · Sent" : ""}
+                  </p>
                 </div>
                 <div className="flex gap-3 text-sm">
                   {video.watchPath ? (
@@ -434,6 +449,13 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
                       <a className="underline" href={video.watchPath} target="_blank" rel="noreferrer">
                         Watch
                       </a>
+                      {video.linkSentAt ? (
+                        <span>Sent</span>
+                      ) : (
+                        <button type="button" className="underline" onClick={() => void markSent(video.id)}>
+                          Mark as sent
+                        </button>
+                      )}
                     </>
                   ) : (
                     <button type="button" className="underline" onClick={() => void checkOne(video.id)}>

@@ -432,11 +432,11 @@ describe("homepage video cohort", () => {
     const legacyStart = loader.indexOf("async function loadMarketingEvents");
     const legacyEnd = loader.indexOf("async function loadScopedMarketingEvents");
     const legacy = loader.slice(legacyStart, legacyEnd);
+    expect(legacy).toContain("HOMEPAGE_VIDEO_EVENT_TYPES");
+    expect(legacy).toContain("PERSONAL_VIDEO_EVENT_TYPES");
+    expect(legacy).toContain('.not(');
     expect(legacy).toContain(
-      '.not("event_type", "in", `(${HOMEPAGE_VIDEO_EVENT_TYPES.join(",")})`)'
-    );
-    expect(legacy).toContain(
-      '"event_type, visitor_id, occurred_at, source_normalized, is_paid_acquisition, referrer_host, utm_source, utm_campaign, utm_content, clerk_user_id"'
+      '"event_type, visitor_id, occurred_at, source_normalized, is_paid_acquisition, referrer_host, utm_source, utm_campaign, utm_content, clerk_user_id, metadata"'
     );
     expect(loader.slice(legacyEnd)).not.toContain(
       '.not("event_type", "in", `(${HOMEPAGE_VIDEO_EVENT_TYPES.join(",")})`)'

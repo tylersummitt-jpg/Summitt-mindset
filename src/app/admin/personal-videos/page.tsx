@@ -22,6 +22,7 @@ export default async function PersonalVideosPage() {
           status: video.status,
           createdAt: video.createdAt,
           watchPath: video.watchPath,
+          linkSentAt: video.linkSentAt,
         })) ?? null
       }
     />

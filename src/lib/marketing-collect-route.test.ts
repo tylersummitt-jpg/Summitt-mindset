@@ -265,6 +265,9 @@ describe("internal marketing event types", () => {
       "homepage_video_started",
       "homepage_video_50",
       "homepage_video_completed",
+      "personal_video_visited",
+      "personal_video_played",
+      "personal_video_cta_clicked",
     ]);
     expect(MARKETING_EVENT_TYPES).toEqual([
       "page_viewed",
@@ -284,6 +287,9 @@ describe("internal marketing event types", () => {
       "homepage_video_started",
       "homepage_video_50",
       "homepage_video_completed",
+      "personal_video_visited",
+      "personal_video_played",
+      "personal_video_cta_clicked",
     ]);
     expect(SERVER_AUTHORITATIVE_EVENT_TYPES).toHaveLength(11);
   });
