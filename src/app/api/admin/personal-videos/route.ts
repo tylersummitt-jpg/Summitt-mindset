@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { isTylerOwnerSession } from "@/lib/auth/require-tyler-admin";
-import { isPersonalVideoByteSize, newPersonalVideoToken } from "@/lib/personal-videos/personal-video";
+import { newPersonalVideoToken } from "@/lib/personal-videos/personal-video";
+import { isPersonalVideoByteSize } from "@/lib/personal-videos/upload-limit";
 import { insertPersonalVideo, listPersonalVideos } from "@/lib/personal-videos/store";
 import { createPersonalVimeoUpload, deletePersonalVimeoVideo } from "@/lib/personal-videos/vimeo";
 

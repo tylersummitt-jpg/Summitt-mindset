@@ -1,7 +1,12 @@
 import { randomBytes } from "crypto";
 
+export {
+  isPersonalVideoByteSize,
+  PERSONAL_VIDEO_MAX_BYTES,
+  PERSONAL_VIDEO_TOO_LARGE_MESSAGE,
+} from "@/lib/personal-videos/upload-limit";
+
 export const PERSONAL_VIDEO_EMBED_DOMAIN = "summittmindset.com";
-export const PERSONAL_VIDEO_MAX_BYTES = 80 * 1024 * 1024;
 
 export const PERSONAL_VIDEO_STATUSES = ["uploading", "processing", "ready", "failed"] as const;
 export type PersonalVideoStatus = (typeof PERSONAL_VIDEO_STATUSES)[number];
@@ -21,10 +26,6 @@ export function vimeoIdFromUri(uri: unknown): string | null {
   if (typeof uri !== "string") return null;
   const id = uri.split("/").filter(Boolean).pop() ?? "";
   return VIMEO_ID_RE.test(id) ? id : null;
-}
-
-export function isPersonalVideoByteSize(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= PERSONAL_VIDEO_MAX_BYTES;
 }
 
 export function personalVideoCreateBody(byteSize: number) {

@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import { isLandingExperimentEntryPath } from "@/lib/landing-experiment-shared";
 import { isMarketingPageViewPath } from "@/lib/marketing-attribution-pure";
 import {
-  isPersonalVideoByteSize,
   isPersonalVideoToken,
   isVimeoUploadLink,
   newPersonalVideoToken,
@@ -15,6 +14,11 @@ import {
   vimeoIdFromUri,
   watchPathForStatus,
 } from "@/lib/personal-videos/personal-video";
+import {
+  isPersonalVideoByteSize,
+  PERSONAL_VIDEO_MAX_BYTES,
+  PERSONAL_VIDEO_TOO_LARGE_MESSAGE,
+} from "@/lib/personal-videos/upload-limit";
 
 const root = process.cwd();
 
@@ -35,6 +39,12 @@ describe("personal video rules", () => {
     expect(isVimeoUploadLink("https://files.tus.vimeo.com/upload")).toBe(true);
     expect(isVimeoUploadLink("http://files.tus.vimeo.com/upload")).toBe(false);
     expect(isPersonalVideoByteSize(0)).toBe(false);
+    expect(PERSONAL_VIDEO_MAX_BYTES).toBe(320 * 1024 * 1024);
+    expect(isPersonalVideoByteSize(PERSONAL_VIDEO_MAX_BYTES)).toBe(true);
+    expect(isPersonalVideoByteSize(PERSONAL_VIDEO_MAX_BYTES + 1)).toBe(false);
+    expect(PERSONAL_VIDEO_TOO_LARGE_MESSAGE).toBe(
+      "This recording is larger than 320 MB. Record a shorter video, then try Save Video again."
+    );
     const ready = {
       status: "available",
       transcode: { status: "complete" },
@@ -88,6 +98,15 @@ describe("personal video rules", () => {
     expect(studio).toContain("isTylerOwnerSession");
     expect(client).not.toContain("VIMEO_ACCESS_TOKEN");
     expect(client).toContain("Mark as sent");
+    expect(client).toContain('from "@/lib/personal-videos/upload-limit"');
+    expect(client).toContain("PERSONAL_VIDEO_TOO_LARGE_MESSAGE");
+    expect(client).toContain('body?.error === "invalid_video"');
+    expect(read("src/app/api/admin/personal-videos/route.ts")).toContain(
+      'from "@/lib/personal-videos/upload-limit"'
+    );
+    expect(read("src/lib/personal-videos/personal-video.ts")).toContain(
+      'from "@/lib/personal-videos/upload-limit"'
+    );
     expect(upload).toContain("process.env.VIMEO_ACCESS_TOKEN");
     expect(read("src/app/api/admin/personal-videos/route.ts")).toContain(
       "{ id: video.id, uploadLink: created.uploadLink }"

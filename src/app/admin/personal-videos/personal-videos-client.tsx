@@ -10,6 +10,10 @@ import {
   createRecordingSink,
   previewNeedsDurationSeek,
 } from "@/lib/personal-videos/recording";
+import {
+  isPersonalVideoByteSize,
+  PERSONAL_VIDEO_TOO_LARGE_MESSAGE,
+} from "@/lib/personal-videos/upload-limit";
 
 type VideoStatus = "uploading" | "processing" | "ready" | "failed";
 
@@ -217,6 +221,11 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
       showEmptyRecording();
       return;
     }
+    if (!isPersonalVideoByteSize(blob.size)) {
+      setMessage(PERSONAL_VIDEO_TOO_LARGE_MESSAGE);
+      setPhase("error");
+      return;
+    }
     setPhase("saving");
     setProgress(0);
     setMessage("Uploading to Vimeo…");
@@ -228,9 +237,17 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ byteSize: blob.size }),
       });
-      const body = (await created.json().catch(() => null)) as { id?: string; uploadLink?: string } | null;
+      const body = (await created.json().catch(() => null)) as {
+        id?: string;
+        uploadLink?: string;
+        error?: string;
+      } | null;
       if (!created.ok || !body?.id || !body.uploadLink) {
-        setMessage("Vimeo did not accept this recording. Try Save Video again.");
+        setMessage(
+          body?.error === "invalid_video"
+            ? PERSONAL_VIDEO_TOO_LARGE_MESSAGE
+            : "Vimeo did not accept this recording. Try Save Video again."
+        );
         setPhase("error");
         return;
       }
