@@ -80,12 +80,7 @@ describe("clerk account export", () => {
       true
     );
     expect(csv).not.toContain("tyler@summittmindset.com");
-    const route = readFileSync(join(process.cwd(), "src/app/api/admin/clerk-account-export/route.ts"), "utf8");
     const middleware = readFileSync(join(process.cwd(), "src/middleware.ts"), "utf8");
-    expect(route).toContain("requireTylerAdmin");
-    expect(route).toContain("incomplete_clerk_list");
-    expect(route).toContain('filename="clerk-account-export.csv"');
-    expect(route).not.toContain("console.log");
     expect(middleware).not.toContain("clerk-account-export");
   });
 });

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
-import { IncompleteClerkExportError, buildClerkAccountExport } from "@/lib/clerk-account-export.server";
+import {
+  IncompleteHistoricalCohortError,
+  buildHistoricalNeverSubscriberCsvExport,
+} from "@/lib/historical-never-subscriber.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,26 +25,27 @@ export async function GET() {
     return denied(err);
   }
   try {
-    const result = await buildClerkAccountExport();
+    const result = await buildHistoricalNeverSubscriberCsvExport();
     return new NextResponse(result.csv, {
       status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": 'attachment; filename="clerk-account-export.csv"',
+        "Content-Disposition": 'attachment; filename="historical-never-subscriber.csv"',
         "Cache-Control": "no-store",
-        "X-Export-Examined": String(result.counts.examined),
-        "X-Export-Excluded-Test": String(result.counts.excludedTest),
-        "X-Export-Active": String(result.counts.active),
-        "X-Export-Former": String(result.counts.former),
-        "X-Export-Verified-Never": String(result.counts.verifiedNeverSubscriber),
-        "X-Export-Unknown": String(result.counts.unknown),
+        "X-Export-Cohort": String(result.counts.cohort),
+        "X-Export-Test-Internal": String(result.counts.testInternal),
+        "X-Export-Former": String(result.counts.confirmedFormer),
+        "X-Export-Active": String(result.counts.activeMembership),
+        "X-Export-Strong-Never": String(result.counts.strongNeverSubscriber),
+        "X-Export-Unknown": String(result.counts.unknownIncomplete),
+        "X-Export-Prospects": String(result.counts.prospects),
       },
     });
   } catch (err) {
-    if (err instanceof IncompleteClerkExportError) {
+    if (err instanceof IncompleteHistoricalCohortError) {
       return NextResponse.json({ error: "incomplete_clerk_list" }, { status: 503 });
     }
-    console.error("[clerk-account-export] failed");
+    console.error("[historical-never-subscriber] failed");
     return NextResponse.json({ error: "export_failed" }, { status: 503 });
   }
 }

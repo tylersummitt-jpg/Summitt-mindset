@@ -320,8 +320,8 @@ function accountInput(args: {
   };
 }
 
-export async function buildClerkAccountExport(now = new Date()): Promise<{
-  csv: string;
+export async function loadClerkCensusRows(now = new Date()): Promise<{
+  rows: ClerkExportRow[];
   counts: ClerkExportCounts;
 }> {
   const users = await listEveryClerkUser();
@@ -377,5 +377,13 @@ export async function buildClerkAccountExport(now = new Date()): Promise<{
       reason: classified.reason,
     });
   }
-  return { csv: buildClerkAccountExportCsv(counts, rows), counts };
+  return { rows, counts };
+}
+
+export async function buildClerkAccountExport(now = new Date()): Promise<{
+  csv: string;
+  counts: ClerkExportCounts;
+}> {
+  const census = await loadClerkCensusRows(now);
+  return { csv: buildClerkAccountExportCsv(census.counts, census.rows), counts: census.counts };
 }
