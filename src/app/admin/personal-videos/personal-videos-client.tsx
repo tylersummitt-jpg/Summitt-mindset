@@ -2,6 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import {
+  RECORDING_EMPTY_MESSAGE,
+  RECORDING_TIMESLICE_MS,
+  canSaveRecording,
+  chooseRecordingMime,
+  createRecordingSink,
+  previewNeedsDurationSeek,
+} from "@/lib/personal-videos/recording";
+
 type VideoStatus = "uploading" | "processing" | "ready" | "failed";
 
 type RecentVideo = {
@@ -12,12 +21,6 @@ type RecentVideo = {
 };
 
 type Phase = "camera" | "recording" | "preview" | "saving" | "processing" | "ready" | "error";
-
-function preferredMime(): string {
-  if (typeof MediaRecorder === "undefined") return "";
-  const types = ["video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
-  return types.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
-}
 
 function uploadToVimeo(uploadLink: string, blob: Blob, onProgress: (percent: number) => void) {
   return new Promise<void>((resolve, reject) => {
@@ -48,7 +51,6 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
   const liveRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const [phase, setPhase] = useState<Phase>("camera");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [blob, setBlob] = useState<Blob | null>(null);
@@ -68,8 +70,10 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
         return;
       }
       try {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: { sampleRate: { ideal: 48000 }, channelCount: { ideal: 1 } },
           video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
         });
         if (cancelled) {
@@ -97,54 +101,104 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
 
   useEffect(() => {
     return () => {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
 
-  function stopCamera() {
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  function releaseStream() {
     recorderRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
+    if (liveRef.current) liveRef.current.srcObject = null;
     setCameraReady(false);
+  }
+
+  function showEmptyRecording() {
+    setBlob(null);
+    setPreviewUrl((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    setMessage(RECORDING_EMPTY_MESSAGE);
+    setPhase("error");
   }
 
   function startRecording() {
     const stream = streamRef.current;
-    const mimeType = preferredMime();
+    const mimeType =
+      typeof MediaRecorder !== "undefined" && typeof MediaRecorder.isTypeSupported === "function"
+        ? chooseRecordingMime(navigator.userAgent, (type) => MediaRecorder.isTypeSupported(type))
+        : "";
     if (!stream || typeof MediaRecorder === "undefined" || !mimeType) {
       setMessage("This browser cannot record video.");
       setPhase("error");
       return;
     }
-    chunksRef.current = [];
+    const sink = createRecordingSink(mimeType);
     const recorder = new MediaRecorder(stream, { mimeType });
     recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunksRef.current.push(event.data);
+      sink.push(event.data);
     };
     recorder.onstop = () => {
-      const next = new Blob(chunksRef.current, { type: recorder.mimeType || mimeType });
-      const url = URL.createObjectURL(next);
+      sink.beginStop();
+    };
+    recorder.onerror = () => {
+      if (recorder.state === "inactive") {
+        sink.beginStop();
+        return;
+      }
+      try {
+        recorder.stop();
+      } catch {
+        sink.beginStop();
+      }
+    };
+    recorderRef.current = recorder;
+    try {
+      recorder.start(RECORDING_TIMESLICE_MS);
+    } catch {
+      setMessage("This browser cannot record video.");
+      setPhase("error");
+      return;
+    }
+    setPhase("recording");
+    setMessage(null);
+    void sink.finished.then((recorded) => {
+      releaseStream();
+      if (!canSaveRecording(recorded)) {
+        showEmptyRecording();
+        return;
+      }
+      const url = URL.createObjectURL(recorded);
       setPreviewUrl((current) => {
         if (current) URL.revokeObjectURL(current);
         return url;
       });
-      setBlob(next);
-      stopCamera();
+      setBlob(recorded);
+      setMessage(null);
       setPhase("preview");
-    };
-    recorderRef.current = recorder;
-    recorder.start();
-    setPhase("recording");
-    setMessage(null);
+    });
   }
 
   function stopRecording() {
     const recorder = recorderRef.current;
-    if (recorder && recorder.state !== "inactive") recorder.stop();
+    if (!recorder || recorder.state !== "recording") return;
+    try {
+      recorder.requestData();
+    } catch {
+      // stop() still asks the browser for the final chunk.
+    }
+    recorder.stop();
   }
 
   function rerecord() {
+    releaseStream();
     setBlob(null);
     setWatchPath(null);
     setCopied(false);
@@ -158,7 +212,10 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
   }
 
   async function saveVideo() {
-    if (!blob) return;
+    if (!canSaveRecording(blob)) {
+      showEmptyRecording();
+      return;
+    }
     setPhase("saving");
     setProgress(0);
     setMessage("Uploading to Vimeo…");
@@ -255,9 +312,33 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
 
       <div className="mt-6 overflow-hidden rounded-2xl bg-black shadow-sm">
         {previewUrl && phase !== "camera" && phase !== "recording" ? (
-          <video src={previewUrl} className="aspect-video w-full" controls playsInline />
+          <video
+            key={previewUrl}
+            src={previewUrl}
+            className="aspect-video w-full"
+            controls
+            playsInline
+            preload="auto"
+            onLoadedMetadata={(event) => {
+              const video = event.currentTarget;
+              if (!previewNeedsDurationSeek(video.duration)) return;
+              video.muted = true;
+              void video
+                .play()
+                .then(() => {
+                  video.pause();
+                  video.currentTime = 0;
+                  video.muted = false;
+                })
+                .catch(() => undefined);
+            }}
+          />
+        ) : phase === "error" ? (
+          <div className="flex aspect-video items-center justify-center px-6 text-center text-sm text-white">
+            {message ?? RECORDING_EMPTY_MESSAGE}
+          </div>
         ) : (
-          <video ref={liveRef} className="aspect-video w-full" muted playsInline autoPlay />
+          <video key="live" ref={liveRef} className="aspect-video w-full" muted playsInline autoPlay />
         )}
       </div>
 
@@ -281,24 +362,23 @@ export function PersonalVideosClient({ initialRecent }: { initialRecent: RecentV
             Stop
           </button>
         ) : null}
+        {canSaveRecording(blob) && (phase === "preview" || phase === "error") ? (
+          <button
+            type="button"
+            onClick={() => void saveVideo()}
+            className="rounded-full bg-stone-900 px-6 py-3 text-sm font-semibold text-white"
+          >
+            Save Video
+          </button>
+        ) : null}
         {phase === "preview" || phase === "error" ? (
-          <>
-            <button
-              type="button"
-              onClick={() => void saveVideo()}
-              disabled={!blob}
-              className="rounded-full bg-stone-900 px-6 py-3 text-sm font-semibold text-white disabled:opacity-40"
-            >
-              Save Video
-            </button>
-            <button
-              type="button"
-              onClick={rerecord}
-              className="rounded-full border border-stone-300 px-6 py-3 text-sm font-semibold text-stone-800"
-            >
-              Rerecord
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={rerecord}
+            className="rounded-full border border-stone-300 px-6 py-3 text-sm font-semibold text-stone-800"
+          >
+            Rerecord
+          </button>
         ) : null}
         {phase === "ready" && watchPath ? (
           <>
