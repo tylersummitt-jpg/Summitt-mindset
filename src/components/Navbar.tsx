@@ -80,7 +80,7 @@ export function Navbar() {
   if (pathname?.startsWith("/for/")) {
     return (
       <header className="border-b border-[var(--border)] bg-[var(--surface)]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <Link href="/" className="min-w-0 font-semibold text-lg tracking-tight text-[var(--text)]">
             <span>Summitt</span> <span>Mindset</span>
           </Link>

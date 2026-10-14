@@ -76,6 +76,7 @@ describe("personal video rules", () => {
     const personalHeader = navbar.slice(navbar.indexOf('pathname?.startsWith("/for/")'));
     expect(personalHeader).toContain("Summitt");
     const personalHeaderOnly = personalHeader.slice(0, personalHeader.indexOf("const startFreeTrialHref"));
+    expect(personalHeaderOnly).toContain("w-full max-w-6xl");
     expect(personalHeaderOnly).toContain("Learn More →");
     expect(personalHeaderOnly).toContain('href="/"');
     expect(personalHeaderOnly).not.toContain("Victory Room");
