@@ -58,7 +58,7 @@ export default async function PersonalVideoPage({
           <div className="mt-6">
             <Link
               href={trialHref}
-              className="inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-4 text-center text-base font-semibold text-stone-950"
+              className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-[var(--brand)] px-6 py-3 text-center text-base font-semibold !text-[#111827] shadow-md shadow-orange-500/20 transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 md:px-8"
             >
               {native ? "Sign in" : "Start My 7-Day Free Trial"}
             </Link>

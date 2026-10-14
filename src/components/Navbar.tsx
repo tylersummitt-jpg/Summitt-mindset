@@ -77,6 +77,18 @@ export function Navbar() {
     return null;
   }
 
+  if (pathname?.startsWith("/for/")) {
+    return (
+      <header className="border-b border-[var(--border)] bg-[var(--surface)]">
+        <div className="max-w-6xl mx-auto px-4 py-3">
+          <Link href="/" className="font-semibold text-lg tracking-tight text-[var(--text)]">
+            <span>Summitt</span> <span>Mindset</span>
+          </Link>
+        </div>
+      </header>
+    );
+  }
+
   const startFreeTrialHref = isCoachLeadershipKitPath(pathname)
     ? SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT
     : SIGN_UP_WITH_SUBSCRIBE_REDIRECT;
