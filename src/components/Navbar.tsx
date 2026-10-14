@@ -80,9 +80,15 @@ export function Navbar() {
   if (pathname?.startsWith("/for/")) {
     return (
       <header className="border-b border-[var(--border)] bg-[var(--surface)]">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          <Link href="/" className="font-semibold text-lg tracking-tight text-[var(--text)]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
+          <Link href="/" className="min-w-0 font-semibold text-lg tracking-tight text-[var(--text)]">
             <span>Summitt</span> <span>Mindset</span>
+          </Link>
+          <Link
+            href="/"
+            className="shrink-0 text-sm font-semibold text-[var(--text)] underline decoration-[var(--border)] underline-offset-4 hover:decoration-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:rounded"
+          >
+            Learn More →
           </Link>
         </div>
       </header>

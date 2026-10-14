@@ -63,18 +63,11 @@ export default async function PersonalVideoPage({
               {native ? "Sign in" : "Start My 7-Day Free Trial"}
             </Link>
             {native ? null : (
-              <>
-                <p className="mt-4 text-sm leading-6 text-stone-300">
-                  {MEMBERSHIP_PUBLIC_OFFER.dueToday}. {MEMBERSHIP_PUBLIC_OFFER.trial}, then{" "}
-                  {MEMBERSHIP_PUBLIC_OFFER.monthly} or {MEMBERSHIP_PUBLIC_OFFER.annual}.{" "}
-                  {MEMBERSHIP_PUBLIC_OFFER.cancel}.
-                </p>
-                <p className="mt-2 text-sm">
-                  <Link href="/checkout/start?plan=annual" className="underline">
-                    Or start the annual plan
-                  </Link>
-                </p>
-              </>
+              <p className="mt-4 text-sm leading-6 text-stone-300">
+                {MEMBERSHIP_PUBLIC_OFFER.dueToday}. {MEMBERSHIP_PUBLIC_OFFER.trial}, then{" "}
+                {MEMBERSHIP_PUBLIC_OFFER.monthly} or {MEMBERSHIP_PUBLIC_OFFER.annual}.{" "}
+                {MEMBERSHIP_PUBLIC_OFFER.cancel}.
+              </p>
             )}
           </div>
         ) : null}
