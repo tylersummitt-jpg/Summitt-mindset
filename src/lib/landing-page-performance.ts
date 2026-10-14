@@ -575,6 +575,7 @@ export function toLandingBilling(args: {
   const clerkBySub = new Map<string, string>();
   const trials: LandingTrialSeed[] = [];
   for (const sub of args.subs) {
+    if (sub.metadata?.summittCanary === "owner") continue;
     if (!isLikelySummittStripeSubscription(sub, args.recognizedPriceIds)) continue;
     const clerkUserId = sub.metadata?.userId?.trim() || null;
     if (clerkUserId) clerkBySub.set(sub.id, clerkUserId);

@@ -480,6 +480,23 @@ describe("landing page trial and paid attribution", () => {
       },
     ]);
     expect(billing.payments).toEqual([{ clerkUserId: CLERK, paidAtMs: 180000 }]);
+    const withCanary = toLandingBilling({
+      subscriptionsReadable: true,
+      paymentsReadable: true,
+      recognizedPriceIds: new Set(["price_123"]),
+      subs: [
+        {
+          id: "sub_canary",
+          status: "trialing",
+          trial_start: 100,
+          trial_end: 200,
+          metadata: { userId: "user_owner", summittCanary: "owner", plan: "monthly" },
+        },
+      ],
+      paidInvoices: [{ subscriptionId: "sub_canary", paidAtUnix: 180 }],
+    });
+    expect(withCanary.trials).toEqual([]);
+    expect(withCanary.payments).toEqual([]);
     expect(toLandingBilling({
       subscriptionsReadable: false,
       paymentsReadable: false,

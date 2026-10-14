@@ -88,13 +88,19 @@ export type OperatingSnapshot = {
   timezone: string;
   distribution: {
     visitors: string;
+    trialClicks: string;
+    checkoutSessions: string;
+    stripeFirstCheckouts: string;
+    clerkFirstCheckouts: string;
     trialStarts: string;
+    stripeFirstTrials: string;
     visitorToTrial: string;
     trialToPaid: string;
     newPayingMembers: string;
     accountsCreated: string;
     trialsPerDay: string;
     goal: string;
+    checkoutNote: string;
   };
   checkout: {
     joinClicks: string;
@@ -141,6 +147,8 @@ export type OperatingSnapshot = {
   sources: Array<{
     label: string;
     visitors: string;
+    trialClicks: string;
+    checkouts: string;
     trials: string;
     paid: string;
   }>;
@@ -181,13 +189,20 @@ function percentText(value: number | null): string {
 function topSources(rows: TrafficSourceRow[]) {
   return [...rows]
     .filter(
-      (row) => (row.trialsStarted ?? 0) > 0 || (row.visitors ?? 0) > 0
+      (row) =>
+        (row.trialsStarted ?? 0) > 0 ||
+        (row.visitors ?? 0) > 0 ||
+        (row.trialClicks ?? 0) > 0 ||
+        (row.checkoutSessions ?? 0) > 0 ||
+        (row.paidConversions ?? 0) > 0
     )
     .sort((a, b) => (b.trialsStarted ?? -1) - (a.trialsStarted ?? -1))
-    .slice(0, 5)
+    .slice(0, 8)
     .map((row) => ({
       label: row.firstTouchLabel || "Unknown",
       visitors: countText(row.visitors),
+      trialClicks: countText(row.trialClicks),
+      checkouts: countText(row.checkoutSessions),
       trials: countText(row.trialsStarted),
       paid: countText(row.paidConversions),
     }));
@@ -489,7 +504,7 @@ function buildLimitations(args: {
     "Completed trial means the session is complete and the subscription has a trial start. The trial-start number elsewhere on this page is still the existing subscription count.",
     "A completed checkout without a verified trial start is unknown. This page does not guess why someone left.",
     "Technical creation failures never became a session, so they are not inside the session total.",
-    "Visitors, join clicks, accounts, checkout sessions, and trial starts are different counts, so no single step-to-step rate is shown.",
+    "Visitors, Start Free Trial clicks, Checkout Sessions, trial starts, and paying members are different counts. A Checkout Session is not a trial. A Clerk account is not a trial.",
     "A Stripe customer id is not proof that someone paid or started a trial.",
     "Cancellation reasons written by members are not on this page. Weekly Feedback has their words. Observed cancellations are counts, not reasons.",
     "Historical Stripe webhook completion is unverified. Older event rows are kept so they are not processed again. A row from before the completion marker is not proof the event finished successfully.",
@@ -585,7 +600,7 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
       ? ["No source rows for this range."]
       : snapshot.sources.map(
           (source) =>
-            `- ${source.label}: visitors ${source.visitors}, trials ${source.trials}, paid ${source.paid}`
+            `- ${source.label}: visitors ${source.visitors}, trial clicks ${source.trialClicks}, checkout started ${source.checkouts}, trials ${source.trials}, paid ${source.paid}`
         );
   const nextSteps = [
     ...snapshot.actions.map((action) => `- ${action.nextStep}`),
@@ -606,6 +621,9 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     "",
     "DISTRIBUTION",
     `Unique visitors: ${snapshot.distribution.visitors}`,
+    `Start Free Trial clicks: ${snapshot.distribution.trialClicks}`,
+    `Checkout sessions created: ${snapshot.distribution.checkoutSessions}`,
+    snapshot.distribution.checkoutNote,
     `Trial starts: ${snapshot.distribution.trialStarts}`,
     `Visitor-to-trial: ${snapshot.distribution.visitorToTrial}`,
     `Trial-to-paid: ${snapshot.distribution.trialToPaid}`,
@@ -622,8 +640,8 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     snapshot.checkout.cutover,
     snapshot.checkout.definitions,
     snapshot.checkout.stepRate,
-    `Join clicks: ${snapshot.checkout.joinClicks}`,
-    `Checkout sessions started: ${snapshot.checkout.sessions}`,
+    `Start Free Trial clicks: ${snapshot.checkout.joinClicks}`,
+    `Stamped sessions in this outcome list: ${snapshot.checkout.sessions}`,
     `Completed trial: ${snapshot.checkout.completedTrial}`,
     `Still pending: ${snapshot.checkout.pending}`,
     `Expired: ${snapshot.checkout.expired}`,
@@ -739,8 +757,8 @@ function checkoutText(measurement: CheckoutMeasurement): OperatingSnapshot["chec
     noVisitorMatch: countText(measurement.noVisitorMatch),
     unknownSource: countText(measurement.unknownSource),
     stepRate:
-      "Not shown. Visitors, join clicks, accounts, checkout sessions, and trial starts are different counts.",
-    cutover: `Instrumentation version ${CHECKOUT_TRACKING_VERSION}. Checkout starts are Stripe Checkout Sessions marked summittCheckoutTrack=${CHECKOUT_TRACKING_VERSION}. Earlier sessions are not included.`,
+      "Not shown. Visitors, Start Free Trial clicks, Checkout Sessions, trial starts, and paying members are different counts.",
+    cutover: `Instrumentation version ${CHECKOUT_TRACKING_VERSION}. The outcome list below is Checkout Sessions stamped summittCheckoutTrack=${CHECKOUT_TRACKING_VERSION}. Public Stripe-first sessions are counted from checkout_opened events, including sessions without that stamp. A session in either list is not a free trial.`,
     definitions:
       "Pending is still open and under 24 hours. Expired is Stripe's expired status. Incomplete is still open after 24 hours. Those are separate. Completed trial requires a subscription trial start. Creation failures are not sessions. This does not say why someone left.",
   };
@@ -791,7 +809,12 @@ export function buildOperatingSnapshot(args: {
     timezone: args.growth.timezone,
     distribution: {
       visitors: countText(period.uniqueVisitors),
+      trialClicks: countText(period.freeTrialButtonClicks),
+      checkoutSessions: countText(period.checkoutSessionsCreated),
+      stripeFirstCheckouts: countText(period.stripeFirstCheckoutSessions),
+      clerkFirstCheckouts: countText(period.clerkFirstCheckoutSessions),
       trialStarts: countText(period.freeTrialsStarted),
+      stripeFirstTrials: countText(period.stripeFirstTrialsStarted),
       visitorToTrial: percentText(
         conversionRate(period.freeTrialsStarted, period.uniqueVisitors)
       ),
@@ -800,6 +823,7 @@ export function buildOperatingSnapshot(args: {
       accountsCreated: countText(period.accountsCreated),
       trialsPerDay,
       goal: `Goal: ${DAILY_NEW_TRIAL_GOAL} new trials per day. This is a target, not a measured result.`,
+      checkoutNote: `Stripe-first checkout sessions: ${countText(period.stripeFirstCheckoutSessions)}. Clerk-first checkout sessions: ${countText(period.clerkFirstCheckoutSessions)}. Stripe-first trials: ${countText(period.stripeFirstTrialsStarted)}. Public signup became Stripe-first in October 2026. Older checkout sessions are not relabeled. The owner canary is excluded.`,
     },
     checkout: {
       ...checkoutText(checkout),

@@ -13,6 +13,7 @@ import {
   computeVisitorCohortTable,
   computeTrialOnboardingFunnel,
   conversionRate,
+  checkoutOpenFields,
   clerkUserIdFromStripeSub,
   emptyUnknownTrialOnboardingFunnel,
   uniqueClerksWithFirstMeaningfulReply,
@@ -54,6 +55,7 @@ import {
   ROAD_TO_500_DEADLINE_DATE_KEY,
   ROAD_TO_500_TARGET,
   selectLatestTrialSeeds,
+  summarizeCheckoutOpens,
   addDaysToDateKey,
   isStripeFreeWeekRunning,
   SUBSCRIBER_GROWTH_TZ,
@@ -481,7 +483,7 @@ describe("trial cohort metrics", () => {
     expect(result.period.cancelledDuringTrial).toBe(1);
     expect(result.period.finishedTrialWithoutPaid).toBe(1);
     expect(result.period.paidFullyEnded).toBe(0);
-    expect(result.period.funnelConversions[4]).toBeNull();
+    expect(result.period.funnelConversions[3]).toBeNull();
   });
 
   it("still counts trial-to-paid when the user later canceled", () => {
@@ -2382,7 +2384,7 @@ describe("trial onboarding funnel", () => {
     });
     expect(funnel.trialStarted).toBe(1);
     expect(result.period.freeTrialsStarted).toBe(2);
-    expect(result.period.funnelConversions).toHaveLength(5);
+    expect(result.period.funnelConversions).toHaveLength(4);
   });
 
   it("counts identity v1 once and ignores later versions", () => {
@@ -2528,7 +2530,7 @@ describe("trial onboarding funnel", () => {
     });
     expect(result.period.freeTrialsStarted).toBe(1);
     expect(result.period.trialsConvertedToPaid).toBe(1);
-    expect(result.period.funnelConversions).toHaveLength(5);
+    expect(result.period.funnelConversions).toHaveLength(4);
     expect(result).not.toHaveProperty("trialOnboardingFunnel");
     expect("trialOnboardingFunnel" in result.period).toBe(false);
   });
@@ -2876,6 +2878,228 @@ describe("visitor cohort acquisition table", () => {
     });
     expect(capped.rows).toHaveLength(50_000);
     expect(capped.complete).toBe(false);
+  });
+});
+
+describe("stripe-first acquisition reporting", () => {
+  function checkoutEvent(partial: Partial<MarketingEventRow>): MarketingEventRow {
+    return {
+      event_type: "checkout_opened",
+      visitor_id: "visitor_1",
+      occurred_at: "2026-10-14T15:00:00.000Z",
+      source_normalized: "meta",
+      is_paid_acquisition: true,
+      referrer_host: null,
+      utm_source: "facebook",
+      utm_campaign: "fall",
+      utm_content: "ad1",
+      clerk_user_id: null,
+      checkout_session_id: "cs_public",
+      checkout_funnel: "stripe_first",
+      ...partial,
+    };
+  }
+
+  it("counts one Checkout Session once and keeps Clerk-first separate from Stripe-first", () => {
+    const parsed = checkoutOpenFields({
+      checkout_session_id: "cs_marked",
+      funnel: "stripe_first",
+    });
+    expect(parsed.checkout_funnel).toBe("stripe_first");
+    expect(checkoutOpenFields({ checkout_session_id: "cs_old" }).checkout_funnel).toBeNull();
+    expect(checkoutOpenFields({ summittCanary: "owner", funnel: "stripe_first" }).checkout_funnel).toBe(
+      "owner_canary"
+    );
+
+    const summary = summarizeCheckoutOpens([
+      checkoutEvent({ checkout_session_id: "cs_new", checkout_funnel: "stripe_first" }),
+      checkoutEvent({ checkout_session_id: "cs_new", checkout_funnel: "stripe_first" }),
+      checkoutEvent({ checkout_session_id: "cs_old", checkout_funnel: null }),
+      checkoutEvent({ checkout_session_id: "cs_canary", checkout_funnel: "owner_canary" }),
+      checkoutEvent({ checkout_session_id: null, checkout_funnel: "stripe_first" }),
+    ]);
+    expect(summary).toEqual({ sessions: 2, stripeFirst: 1, clerkFirst: 1 });
+  });
+
+  it("does not count a checkout session or a Clerk account as a free trial", () => {
+    const result = computeGrowthSnapshot({
+      stripeSubs: [],
+      appleGranting: [],
+      appleCancelRequestedStillActive: [],
+      recognizedPriceIds: RECOGNIZED,
+      nowUnix: NOW_UNIX,
+      startMs: 0,
+      endMs: NOW.getTime() + 86_400_000,
+      accountsCreated: 6,
+      stripeRevenueCents: 0,
+      stripeListComplete: true,
+      appleQueryComplete: true,
+      uniqueVisitors: 10,
+      freeTrialButtonClicks: 5,
+      checkoutSessionsCreated: 4,
+      stripeFirstCheckoutSessions: 3,
+      clerkFirstCheckoutSessions: 1,
+    });
+    expect(result.period.accountsCreated).toBe(6);
+    expect(result.period.checkoutSessionsCreated).toBe(4);
+    expect(result.period.freeTrialsStarted).toBe(0);
+    expect(result.period.trialsConvertedToPaid).toBe(0);
+    expect(result.period.funnelConversions[0]).toBe(conversionRate(5, 10));
+    expect(result.period.funnelConversions[1]).toBe(conversionRate(4, 5));
+    expect(result.period.funnelConversions[2]).toBe(0);
+    expect(result.period.funnelConversions[3]).toBeNull();
+  });
+
+  it("counts monthly and annual trials and leaves the owner canary out", () => {
+    const trialStart = NOW_UNIX - 3_600;
+    const result = snapshot({
+      stripeSubs: [
+        stripeSub({
+          id: "monthly",
+          status: "trialing",
+          trial_start: trialStart,
+          metadata: {
+            userId: "user_monthly",
+            plan: "monthly",
+            summittCheckoutFlow: "stripe_first",
+          },
+        }),
+        stripeSub({
+          id: "annual",
+          status: "trialing",
+          trial_start: trialStart,
+          metadata: {
+            userId: "user_annual",
+            plan: "annual",
+            summittCheckoutFlow: "stripe_first",
+          },
+          items: {
+            data: [
+              {
+                price: {
+                  id: "price_annual_current",
+                  unit_amount: 19900,
+                  recurring: { interval: "year" },
+                },
+              },
+            ],
+          },
+        }),
+        stripeSub({
+          id: "canary",
+          status: "trialing",
+          trial_start: trialStart,
+          metadata: {
+            userId: "user_owner",
+            plan: "monthly",
+            summittCanary: "owner",
+            summittCheckoutFlow: "stripe_first",
+          },
+        }),
+        stripeSub({
+          id: "legacy",
+          status: "trialing",
+          trial_start: trialStart,
+          metadata: { userId: "user_legacy", plan: "monthly" },
+        }),
+      ],
+    });
+    expect(result.period.freeTrialsStarted).toBe(3);
+    expect(result.period.stripeFirstTrialsStarted).toBe(2);
+    expect(result.period.freeTrialsStarted).not.toBe(4);
+  });
+
+  it("does not assign a checkout with no stored source to Direct", () => {
+    const rows = aggregateTrafficSourceRows({
+      events: [
+        checkoutEvent({
+          checkout_session_id: "cs_meta",
+          source_normalized: "meta",
+        }),
+        checkoutEvent({
+          checkout_session_id: "cs_meta",
+          source_normalized: "google",
+        }),
+        checkoutEvent({
+          checkout_session_id: "cs_unknown",
+          source_normalized: null,
+          visitor_id: null,
+        }),
+        {
+          event_type: "trial_cta_clicked",
+          visitor_id: "visitor_1",
+          occurred_at: "2026-10-14T14:00:00.000Z",
+          source_normalized: "meta",
+          is_paid_acquisition: true,
+          referrer_host: null,
+          utm_source: "facebook",
+          utm_campaign: "fall",
+          utm_content: "ad1",
+          clerk_user_id: null,
+        },
+      ],
+      attributions: [],
+      trialClerkIds: [],
+      activatedClerkIds: [],
+      paidConversionClerkIds: [],
+      adSpend: [],
+      sourceFilter: "all",
+    });
+    const meta = rows.find((row) => row.sourceNormalized === "meta");
+    const google = rows.find((row) => row.sourceNormalized === "google");
+    const direct = rows.find((row) => row.sourceNormalized === "direct");
+    expect(meta?.checkoutSessions).toBe(1);
+    expect(meta?.trialClicks).toBe(1);
+    expect(google).toBeUndefined();
+    expect(direct?.checkoutSessions ?? 0).toBe(0);
+  });
+
+  it("counts a visitor checkout once and ignores the owner canary", () => {
+    const todayKey = "2026-09-24";
+    const window = visitorCohortWindowUtcMs("today", todayKey)!;
+    const result = computeVisitorCohortTable({
+      events: [
+        {
+          event_type: "page_viewed",
+          visitor_id: "v1",
+          occurred_at: new Date(window.startMs).toISOString(),
+          source_normalized: "direct",
+          is_paid_acquisition: false,
+          referrer_host: null,
+          utm_source: null,
+          utm_campaign: null,
+          utm_content: null,
+          clerk_user_id: null,
+        },
+        checkoutEvent({
+          visitor_id: "v1",
+          checkout_session_id: "cs_v1",
+          source_normalized: "direct",
+        }),
+        checkoutEvent({
+          visitor_id: "v1",
+          checkout_session_id: "cs_v1",
+          source_normalized: "direct",
+        }),
+        checkoutEvent({
+          visitor_id: "v1",
+          checkout_session_id: "cs_canary",
+          checkout_funnel: "owner_canary",
+        }),
+      ],
+      attributions: [],
+      stripeSubs: [],
+      onboardingCompletedAtByClerkId: new Map(),
+      sourceFilter: "all",
+      todayDateKey: todayKey,
+      marketingEventsComplete: true,
+      stripeListComplete: true,
+      attributionComplete: true,
+      onboardingComplete: true,
+    });
+    const today = result.rows.find((row) => row.span === "today");
+    expect(today?.startedCheckout.count).toBe(1);
+    expect(today?.startedFreeTrial.count).toBe(0);
   });
 });
 

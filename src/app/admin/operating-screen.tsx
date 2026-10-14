@@ -208,28 +208,34 @@ function CheckoutFunnel({ snapshot }: { snapshot: OperatingSnapshot }) {
           note="Unique people with a recorded page view."
         />
         <Metric
-          label="Join clicks"
-          value={c.joinClicks}
+          label="Start Free Trial clicks"
+          value={snapshot.distribution.trialClicks}
           note="Recorded trial_cta_clicked events. A click is not a checkout start."
         />
         <Metric
-          label="Accounts created"
-          value={snapshot.distribution.accountsCreated}
-          note="Existing Clerk account count for this range."
-        />
-        <Metric
           label="Checkout started"
-          value={c.sessions}
-          note="Marked Checkout Sessions, not unique people and not Stripe customer ids."
+          value={snapshot.distribution.checkoutSessions}
+          note="Distinct checkout_opened Checkout Session ids. A session is not a free trial."
         />
         <Metric
           label="Trials started"
           value={snapshot.distribution.trialStarts}
-          note="Existing subscription trial starts. Not a second definition."
+          note="Stripe subscriptions whose free trial started. Monthly and annual both count. Not a checkout session."
+        />
+        <Metric
+          label="Paying subscribers"
+          value={snapshot.distribution.newPayingMembers}
+          note="Trials whose free week ended in this range and became paid. Not every new invoice."
+        />
+        <Metric
+          label="Account creation"
+          value={snapshot.distribution.accountsCreated}
+          note="Clerk accounts created in this range. Not a trial and not a checkout."
         />
       </div>
+      <p className="text-sm text-gray-700">{snapshot.distribution.checkoutNote}</p>
       <h3 className="text-base font-semibold text-gray-900">
-        What happened to those checkout sessions
+        Stamped Checkout Session outcomes
       </h3>
       <div className="grid gap-3 sm:grid-cols-2">
         <Metric label="Completed trial" value={c.completedTrial} />
@@ -304,6 +310,12 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
     <>
       <section className="grid gap-3 sm:grid-cols-2">
         <Metric label="Unique visitors" value={d.visitors} />
+        <Metric label="Start Free Trial clicks" value={d.trialClicks} />
+        <Metric
+          label="Checkout started"
+          value={d.checkoutSessions}
+          note="Distinct Checkout Sessions. Not a free trial."
+        />
         <Metric label="Trial starts" value={d.trialStarts} />
         <Metric
           label="Visitor-to-trial"
@@ -320,7 +332,11 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
           value={d.newPayingMembers}
           note="Mature trials in this range that converted. Not every new invoice."
         />
-        <Metric label="Accounts created" value={d.accountsCreated} />
+        <Metric
+          label="Account creation"
+          value={d.accountsCreated}
+          note="Clerk accounts. Not a trial and not a checkout."
+        />
         <Metric label="Trials per day in this range" value={d.trialsPerDay} />
       </section>
 
@@ -346,7 +362,13 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
       />
 
       <section className="space-y-2">
-        <h2 className="text-lg font-semibold text-gray-900">Where trials came from</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Where visitors and subscribers came from</h2>
+        <p className="text-sm text-gray-600">
+          Visitor, Start Free Trial click, Checkout Session with a stored source, free trial,
+          then paying subscriber. Meta, Google, organic social, email, referral, direct, and UTM
+          rows stay on the source already stored. A person who cannot be matched is not assigned
+          a source. The homepage test of / and /become-proud is unchanged.
+        </p>
         {snapshot.sources.length === 0 ? (
           <p className="text-sm text-gray-600">No source rows for this range.</p>
         ) : (
@@ -358,7 +380,8 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
               >
                 <span className="font-medium">{source.label}</span>
                 {": "}
-                {source.visitors} visitors, {source.trials} trials, {source.paid}{" "}
+                {source.visitors} visitors, {source.trialClicks} trial clicks,{" "}
+                {source.checkouts} checkout started, {source.trials} trials, {source.paid}{" "}
                 paid
               </li>
             ))}
@@ -418,8 +441,10 @@ function LandingExperiments({ snapshot }: { snapshot: OperatingSnapshot }) {
           </p>
           <p>
             A free trial counts when Stripe starts a real trial within 7 days of assignment and
-            we can tie that person to one page. Creating an account is not a trial. A button click
+            we can tie that person to one page. Creating an account is not a trial. A Clerk
+            account created after Stripe is still account creation, not a trial. A button click
             is not a checkout. A checkout session is not proof the hosted checkout page was seen.
+            Public signup is Stripe-first. Assignment to / or /become-proud is unchanged.
             A confirmed payment is a paid invoice after that trial. Apple memberships are not
             included. Changing Today or Last 7 Days on this dashboard does not change those numbers.
           </p>

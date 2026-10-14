@@ -21,6 +21,8 @@ export type DistributionMetricRow = {
   content: string;
   production: string;
   visitors: string;
+  trialClicks: string;
+  checkouts: string;
   trials: string;
   paid: string;
   trialToPaid: string;
@@ -83,7 +85,7 @@ export function buildDistributionIntelligence(args: {
 
   return {
     readable: true,
-    note: "Visitors, trials, and paid members use this date range and the existing first-touch rows. Retention uses the paid-membership cohort and does not follow the date range. Someone who arrived through two campaigns can be counted in two visitor rows. Trials and paid members stay on one first-touch row.",
+    note: "Each row can show visitors, Start Free Trial clicks, Checkout Sessions with a stored source, free trials, and paying members. Retention uses the paid-membership cohort and does not follow the date range. Someone who arrived through two campaigns can be counted in two visitor rows. Trials and paid members stay on one first-touch row. A Checkout Session with no stored source stays in the checkout total and is not assigned to a channel.",
     observational:
       "These comparisons are observational. A Meta ad and a LinkedIn post do not reach the same people. A higher rate, including Brooke-created versus AI-assisted, is not proof of causation, and it is not a reason to spend more.",
     channels: shownChannels.map((row) => presentChannel(row, args.spendReadable, args.retentionReady)),
@@ -98,7 +100,9 @@ export function buildDistributionIntelligence(args: {
       "Cold email, newsletters, and Pinterest can still be classified as Direct by the existing source classifier.",
       "Production class is Unknown unless a future tracked visit stored Brooke-created, AI-assisted, or Hybrid. Older posts are not classified.",
       "Apple memberships are outside the paid retention cohort because a first Apple payment time is not stored.",
-      "Social likes, views, and shares are not in this table. A click is not a free trial.",
+      "Social likes, views, and shares are not in this table. A click is not a checkout. A Checkout Session is not a free trial.",
+      "Public Stripe-first sessions are checkout_opened rows marked stripe_first. Older Clerk-first sessions have no stripe_first marker and stay in the checkout count. They are not relabeled.",
+      "The owner canary is excluded. A Clerk account created after Stripe is account creation, not a trial.",
     ],
     recommendedStep:
       "Use a tracking link on the next post if its results should be separable. Do not move budget from a small or incomplete row.",
@@ -121,14 +125,14 @@ export function formatDistributionIntelligence(intel: DistributionIntelligence):
   if (intel.channels.length === 0) lines.push("No channel rows in this range.");
   for (const row of intel.channels.slice(0, 5)) {
     lines.push(
-      `${row.channel}: visitors ${row.visitors}, trials ${row.trials}, paid ${row.paid}, trial-to-paid ${row.trialToPaid}, retention ${row.retention}, spend ${row.spend}.`
+      `${row.channel}: visitors ${row.visitors}, trial clicks ${row.trialClicks}, checkout started ${row.checkouts}, trials ${row.trials}, paid ${row.paid}, trial-to-paid ${row.trialToPaid}, retention ${row.retention}, spend ${row.spend}.`
     );
   }
   lines.push("Content");
   if (intel.content.length === 0) lines.push("No content rows in this range.");
   for (const row of intel.content.slice(0, 5)) {
     lines.push(
-      `${row.platform} · ${row.campaign} · ${row.content} · ${row.production}: visitors ${row.visitors}, trials ${row.trials}, paid ${row.paid}, retention ${row.retention}, spend ${row.spend}.`
+      `${row.platform} · ${row.campaign} · ${row.content} · ${row.production}: visitors ${row.visitors}, trial clicks ${row.trialClicks}, checkout started ${row.checkouts}, trials ${row.trials}, paid ${row.paid}, retention ${row.retention}, spend ${row.spend}.`
     );
   }
   if (intel.hiddenContent > 0) lines.push(`${intel.hiddenContent} more content rows are on Distribution only.`);
@@ -139,6 +143,8 @@ export function formatDistributionIntelligence(intel: DistributionIntelligence):
 type ChannelAcc = {
   channel: string;
   visitors: number;
+  trialClicks: number;
+  checkouts: number;
   trials: number;
   paid: number;
   spendCents: number | null;
@@ -165,6 +171,8 @@ function rollupChannels(args: {
     const channel = channelFromTraffic(row);
     const acc = map.get(channel) ?? emptyChannel(channel);
     acc.visitors += row.visitors ?? 0;
+    acc.trialClicks += row.trialClicks ?? 0;
+    acc.checkouts += row.checkoutSessions ?? 0;
     acc.trials += row.trialsStarted ?? 0;
     acc.paid += row.paidConversions ?? 0;
     if (args.spendReadable && row.advertisingSpendCents != null && !row.utmContent) {
@@ -200,6 +208,8 @@ function rollupContent(args: {
         content: row.utmContent || "Unknown",
       });
     acc.visitors += row.visitors ?? 0;
+    acc.trialClicks += row.trialClicks ?? 0;
+    acc.checkouts += row.checkoutSessions ?? 0;
     acc.trials += row.trialsStarted ?? 0;
     acc.paid += row.paidConversions ?? 0;
     map.set(key, acc);
@@ -245,6 +255,8 @@ function presentChannel(
     content: "",
     production: "",
     visitors: String(row.visitors),
+    trialClicks: String(row.trialClicks),
+    checkouts: String(row.checkouts),
     trials: String(row.trials),
     paid: String(row.paid),
     trialToPaid: rate(row.paid, row.trials),
@@ -268,6 +280,8 @@ function presentContent(
     content: row.content,
     production: row.production,
     visitors: String(row.visitors),
+    trialClicks: String(row.trialClicks),
+    checkouts: String(row.checkouts),
     trials: String(row.trials),
     paid: String(row.paid),
     trialToPaid: rate(row.paid, row.trials),
@@ -366,6 +380,8 @@ function emptyChannel(channel: string): ChannelAcc {
   return {
     channel,
     visitors: 0,
+    trialClicks: 0,
+    checkouts: 0,
     trials: 0,
     paid: 0,
     spendCents: null,

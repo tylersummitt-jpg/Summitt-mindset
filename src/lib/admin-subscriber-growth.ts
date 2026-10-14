@@ -26,6 +26,7 @@ import {
   emptyUnknownSnapshot,
   emptyUnknownTrialOnboardingFunnel,
   assemblePagedRows,
+  checkoutOpenFields,
   computeTrialOnboardingFunnel,
   computeVisitorCohortTable,
   emptyVisitorCohortTable,
@@ -41,6 +42,7 @@ import {
   parseGrowthDateRange,
   parseGrowthTrafficSource,
   selectLatestTrialSeeds,
+  summarizeCheckoutOpens,
   stripeSubscriberIdentity,
   SUBSCRIBER_GROWTH_TZ,
   unixSecondsInPeriod,
@@ -631,7 +633,7 @@ async function loadMarketingEvents(args: {
     let q = supabaseServer
       .from("marketing_events")
       .select(
-        "event_type, visitor_id, occurred_at, source_normalized, is_paid_acquisition, referrer_host, utm_source, utm_campaign, utm_content, clerk_user_id"
+        "event_type, visitor_id, occurred_at, source_normalized, is_paid_acquisition, referrer_host, utm_source, utm_campaign, utm_content, clerk_user_id, metadata"
       )
       .not("event_type", "in", `(${HOMEPAGE_VIDEO_EVENT_TYPES.join(",")})`)
       .lt("occurred_at", new Date(args.endMs).toISOString())
@@ -647,13 +649,18 @@ async function loadMarketingEvents(args: {
     }
     const batch = data ?? [];
     for (const raw of batch) {
-      if (typeof raw.event_type !== "string" || typeof raw.visitor_id !== "string") continue;
-      if (typeof raw.occurred_at !== "string") continue;
+      if (typeof raw.event_type !== "string" || typeof raw.occurred_at !== "string") continue;
+      const visitorId = typeof raw.visitor_id === "string" ? raw.visitor_id : null;
+      if (!visitorId && raw.event_type !== "checkout_opened") continue;
       const at = Date.parse(raw.occurred_at);
       if (Number.isFinite(at) && (earliestMs == null || at < earliestMs)) earliestMs = at;
+      const checkout =
+        raw.event_type === "checkout_opened"
+          ? checkoutOpenFields(raw.metadata)
+          : { checkout_session_id: null, checkout_funnel: null };
       rows.push({
         event_type: raw.event_type,
-        visitor_id: raw.visitor_id,
+        visitor_id: visitorId,
         occurred_at: raw.occurred_at,
         source_normalized:
           typeof raw.source_normalized === "string" ? raw.source_normalized : null,
@@ -663,6 +670,8 @@ async function loadMarketingEvents(args: {
         utm_campaign: typeof raw.utm_campaign === "string" ? raw.utm_campaign : null,
         utm_content: typeof raw.utm_content === "string" ? raw.utm_content : null,
         clerk_user_id: typeof raw.clerk_user_id === "string" ? raw.clerk_user_id : null,
+        checkout_session_id: checkout.checkout_session_id,
+        checkout_funnel: checkout.checkout_funnel,
       });
     }
     if (batch.length < MARKETING_EVENT_PAGE) {
@@ -1028,7 +1037,7 @@ async function loadTrialOnboardingFunnel(args: {
 export async function loadSubscriberGrowthDashboard(args: {
   searchParams?: Record<string, string | string[] | undefined>;
   now?: Date;
-  /** Operating snapshot only. Brooke's page leaves this unset. */
+  /** Operating snapshot only. The growth page leaves this unset. */
   retentionInputs?: boolean;
 }): Promise<SubscriberGrowthDashboardData> {
   const now = args.now ?? new Date();
@@ -1093,7 +1102,7 @@ export async function loadSubscriberGrowthDashboard(args: {
     try {
       const stripe = new Stripe(key);
       const listed = await listStripeSubscriptions(stripe);
-      stripeSubs = listed.subs;
+      stripeSubs = listed.subs.filter((sub) => sub.metadata?.summittCanary !== "owner");
       stripeListComplete = listed.complete;
       if (!listed.complete) {
         warnings.push(
@@ -1210,13 +1219,14 @@ export async function loadSubscriberGrowthDashboard(args: {
   const uniqueVisitors: MetricNumber = trackingAvailable
     ? new Set(
         eventsForPeriod
-          .filter((e) => e.event_type === "page_viewed")
+          .filter((e) => e.event_type === "page_viewed" && e.visitor_id)
           .map((e) => e.visitor_id)
       ).size
     : null;
   const ctaClicks: MetricNumber = trackingAvailable
     ? eventsForPeriod.filter((e) => e.event_type === "trial_cta_clicked").length
     : null;
+  const checkoutSummary = trackingAvailable ? summarizeCheckoutOpens(eventsForPeriod) : null;
 
   let accountsCreated: MetricNumber = null;
   if (source === "all") {
@@ -1377,6 +1387,9 @@ export async function loadSubscriberGrowthDashboard(args: {
     paidInvoiceSubIds,
     uniqueVisitors,
     freeTrialButtonClicks: ctaClicks,
+    checkoutSessionsCreated: checkoutSummary?.sessions ?? null,
+    stripeFirstCheckoutSessions: checkoutSummary?.stripeFirst ?? null,
+    clerkFirstCheckoutSessions: checkoutSummary?.clerkFirst ?? null,
     activatedWithin24h: activationQueryComplete ? activatedIds.size : null,
     advertisingSpend,
     newPaidAttributedToAds,

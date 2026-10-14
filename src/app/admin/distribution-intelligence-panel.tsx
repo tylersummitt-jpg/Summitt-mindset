@@ -40,9 +40,9 @@ export function DistributionIntelligencePanel({
           <summary className="cursor-pointer font-medium text-gray-900">How this works</summary>
           <div className="mt-3 space-y-2">
             <p>
-              Channel performance counts visitors, trials, and confirmed paying members by the
-              first place we can name. Content performance does the same for one campaign and
-              one post or ad.
+              Channel performance counts visitors, Start Free Trial clicks, Checkout Sessions
+              with a stored source, free trials, and confirmed paying members. Content
+              performance does the same for one campaign and one post, ad, or email.
             </p>
             <p>
               A channel is the platform or source, such as Instagram or Meta ads. A campaign is
@@ -149,6 +149,8 @@ function MetricList({
           </h3>
           {mode === "content" ? <p>Production: {row.production}</p> : null}
           <p>Visitors: {row.visitors}</p>
+          <p>Start Free Trial clicks: {row.trialClicks}</p>
+          <p>Checkout started: {row.checkouts}</p>
           <p>Trials: {row.trials}</p>
           <p>Confirmed paying members: {row.paid}</p>
           <p>Trial-to-paid: {row.trialToPaid}</p>

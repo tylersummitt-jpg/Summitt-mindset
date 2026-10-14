@@ -195,7 +195,8 @@ describe("checkout funnel on the shared report", () => {
     expect(snapshot.checkout.sessions).toBe("5");
     expect(snapshot.checkout.joinClicks).toBe("8");
     expect(snapshot.checkout.stepRate).toContain("Not shown");
-    expect(snapshot.report).toContain("Checkout sessions started: 5");
+    expect(snapshot.report).toContain("Stamped sessions in this outcome list: 5");
+    expect(snapshot.report).toContain("Checkout sessions created:");
     expect(snapshot.report).toContain("Expired: 2");
     expect(snapshot.report).toContain("Incomplete after 24 hours: 1");
     expect(snapshot.actions.map((action) => action.id)).not.toContain("checkout-creation-failed");

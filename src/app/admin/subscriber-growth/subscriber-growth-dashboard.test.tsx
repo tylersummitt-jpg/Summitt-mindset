@@ -42,6 +42,8 @@ function organicRow(
     sourceNormalized: "organic_social",
     utmCampaign: "organic",
     visitors: 84,
+    trialClicks: 0,
+    checkoutSessions: 0,
     accounts: 11,
     trialsStarted: 4,
     activated: 3,
@@ -126,7 +128,7 @@ describe("subscriber growth organic platform table", () => {
 
     expect(screen.getAllByText("First touch").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Post / ad").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Accounts").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Accounts created").length).toBeGreaterThan(0);
     expect(screen.getByText("Tracking Link Builder")).toBeTruthy();
     expect(screen.getAllByText("Instagram").length).toBeGreaterThan(0);
     expect(screen.getAllByText("story_psm047").length).toBeGreaterThan(0);
@@ -150,7 +152,7 @@ describe("subscriber growth organic platform table", () => {
     expect(card.getByText("Instagram")).toBeTruthy();
     expect(card.getByText("story_psm047")).toBeTruthy();
     expect(card.getByText("Visitors")).toBeTruthy();
-    expect(card.getByText("Accounts")).toBeTruthy();
+    expect(card.getByText("Accounts created")).toBeTruthy();
     expect(card.getByText("Trials")).toBeTruthy();
     expect(card.getByText("Campaign: organic")).toBeTruthy();
   });
@@ -170,6 +172,8 @@ describe("subscriber growth organic platform table", () => {
             utmCampaign: "spring",
             utmContent: "ad1",
             visitors: 3,
+            trialClicks: 1,
+            checkoutSessions: 1,
             accounts: 1,
             trialsStarted: 1,
             activated: 1,
@@ -306,6 +310,10 @@ describe("subscriber growth slice 1 self-explanatory copy", () => {
     expect(screen.getAllByText("Paid subscriber churn rate").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Cost per paid subscriber").length).toBeGreaterThan(0);
     expect(screen.getByText("From website visit to paid member")).toBeTruthy();
+    expect(screen.getAllByText("Start Free Trial clicks").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Stripe Checkout sessions created").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Account creation").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Older Clerk-first checkout sessions/)).toBeTruthy();
     expect(screen.getAllByText("Answered first morning check in 24 hours").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Also called: Activated within 24 hours").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Stripe cash collected").length).toBeGreaterThan(0);

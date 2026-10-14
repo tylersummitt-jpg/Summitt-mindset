@@ -71,7 +71,9 @@ const TRAFFIC_TABLE_HEADINGS = [
   "Campaign",
   "Post / ad",
   "Visitors",
-  "Accounts",
+  "Trial clicks",
+  "Checkout started",
+  "Accounts created",
   "Trials",
   "Answered morning check",
   "Paid",
@@ -233,6 +235,7 @@ function FunnelStep({
   label,
   count,
   conversion,
+  conversionLead,
   alsoCalled,
   note,
 }: {
@@ -240,6 +243,7 @@ function FunnelStep({
   label: string;
   count: string;
   conversion: string;
+  conversionLead?: string;
   alsoCalled?: string;
   note?: string;
 }) {
@@ -252,7 +256,7 @@ function FunnelStep({
         {count}
       </div>
       <div className="text-[10px] text-gray-500">
-        from prior: {conversion}
+        {conversionLead ?? "from prior"}: {conversion}
       </div>
       {note ? <p className="mt-1 text-[10px] leading-snug text-gray-500">{note}</p> : null}
     </div>
@@ -263,7 +267,7 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
   {
     term: "Accounts created",
     meaning:
-      "People who created a Summitt account during the selected dates. When source is All, this is every new account, not only people we can tie to a tracking link.",
+      "Clerk account creation during the selected dates. This is not a free trial and not a paying subscription. When source is All, this is every new account, not only people we can tie to a tracking link. A Stripe-first customer may get a Clerk account after checkout.",
   },
   {
     term: "Active annual subscribers",
@@ -369,7 +373,13 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
   },
   {
     term: "Free-trial button clicks",
-    meaning: "How many times someone clicked a start-trial button. This is clicks, not people.",
+    meaning:
+      "How many times someone clicked Start Free Trial. Also shown as Start Free Trial clicks. This is clicks, not people, and not a checkout.",
+  },
+  {
+    term: "Clerk-first checkout",
+    meaning:
+      "A Checkout Session created after a Clerk account already existed. These sessions have no stripe_first marker. They stay in the checkout total and are not called Stripe-first.",
   },
   {
     term: "Free trials started",
@@ -530,6 +540,16 @@ const GLOSSARY: Array<{ term: string; meaning: string }> = [
     term: "Started a free week today",
     meaning:
       "A Stripe trial whose free week began today in Eastern Time. Apple has no free trial.",
+  },
+  {
+    term: "Stripe Checkout sessions created",
+    meaning:
+      "Distinct Stripe Checkout Session ids recorded as checkout_opened in the selected dates. A repeated delivery of the same session counts once. Creating a session is not a free trial. The owner canary is excluded. Sessions marked stripe_first are the public signup flow. Sessions without that marker are Clerk-first.",
+  },
+  {
+    term: "Stripe-first checkout",
+    meaning:
+      "A public Checkout Session whose stored funnel is stripe_first. The customer does not create a Clerk account before checkout. This began for public signup in October 2026. Older activity is not relabeled.",
   },
   {
     term: "Stripe cash collected",
@@ -698,36 +718,39 @@ export default function SubscriberGrowthDashboard({
     deadlineDateKey: ROAD_TO_2500_DEADLINE_DATE_KEY,
   });
 
-  const funnel = [
+  const funnel: Array<{
+    label: string;
+    count: string;
+    note: string;
+    conversionLead?: string;
+    conversion?: string;
+  }> = [
     {
       label: "Unique website visitors",
       count: formatUnknownableCount(snapshot.period.uniqueVisitors),
+      note: "Distinct browsers with a page view in the selected dates.",
     },
     {
-      label: "Free-trial button clicks",
+      label: "Start Free Trial clicks",
       count: formatUnknownableCount(snapshot.period.freeTrialButtonClicks),
+      note: "Clicks divided by visitors. One person can click more than once. A click is not a checkout.",
     },
     {
-      label: "Accounts created",
-      count: formatUnknownableCount(snapshot.period.accountsCreated),
+      label: "Stripe Checkout sessions created",
+      count: formatUnknownableCount(snapshot.period.checkoutSessionsCreated),
+      note: "Distinct Checkout Session ids divided by clicks. A session is not a free trial.",
     },
     {
       label: "Free trials started",
       count: formatUnknownableCount(snapshot.period.freeTrialsStarted),
-    },
-    {
-      label: "Answered first morning check in 24 hours",
-      count: formatMaybeAvailableCount(
-        snapshot.period.activatedWithin24h,
-        data.activationQueryComplete
-      ),
-      alsoCalled: "Also called: Activated within 24 hours",
-      note: "They finished onboarding, set a current goal, received Coach Pat's morning check, and replied — all within 24 hours of starting the trial. This is a strict test. A member can be engaged and still not meet it.",
+      note: "Trial subscriptions divided by checkout sessions. Monthly and annual both count. A Clerk account alone is not a trial.",
     },
     {
       label: "Trials converted to paid",
       count: formatUnknownableCount(snapshot.period.trialsConvertedToPaid),
-      note: "Paid conversion uses finished trials, not the same 24-hour check group, so this step does not show a from-prior percentage.",
+      conversionLead: "of finished trials",
+      conversion: formatUnknownablePercent(snapshot.period.trialToPaidRate),
+      note: "Paying conversions divided by Stripe trials whose free week ended in this period. Not divided by trials that started in the period, and not by checkout sessions.",
     },
   ];
 
@@ -977,27 +1000,55 @@ export default function SubscriberGrowthDashboard({
           From website visit to paid member
         </h2>
         <p className="mb-1.5 text-[10px] text-gray-500">
-          Selected period. Conversion is {UNKNOWN_METRIC} when adjacent stages
-          use incompatible tracking windows.
+          Selected period. Public signup is Stripe-first as of October 2026:
+          website, Start Free Trial, Stripe Checkout, then Coach Pat onboarding.
+          Checkout sessions marked stripe_first:{" "}
+          {formatUnknownableCount(snapshot.period.stripeFirstCheckoutSessions)}.
+          Older Clerk-first checkout sessions:{" "}
+          {formatUnknownableCount(snapshot.period.clerkFirstCheckoutSessions)}.
+          Stripe-first trials started:{" "}
+          {formatUnknownableCount(snapshot.period.stripeFirstTrialsStarted)}.
+          Older sessions are not relabeled. The owner canary is excluded. A
+          session with no stored source stays in the checkout total and is not
+          assigned to a channel.
         </p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-6">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
           {funnel.map((step, index) => (
             <FunnelStep
               key={step.label}
               step={index + 1}
               label={step.label}
               count={step.count}
-              alsoCalled={step.alsoCalled}
               note={step.note}
+              conversionLead={step.conversionLead}
               conversion={
-                index === 0
+                step.conversion ??
+                (index === 0
                   ? "—"
                   : formatUnknownablePercent(
                       snapshot.period.funnelConversions[index - 1] ?? null
-                    )
+                    ))
               }
             />
           ))}
+        </div>
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <MetricCard
+            label="Account creation"
+            value={formatUnknownableCount(snapshot.period.accountsCreated)}
+            scope="Selected period · Clerk accounts"
+            note="This is account creation, not a subscription step. A Stripe-first customer may get a Clerk account after checkout. That account is not a free trial by itself."
+          />
+          <MetricCard
+            label="Answered first morning check in 24 hours"
+            value={formatMaybeAvailableCount(
+              snapshot.period.activatedWithin24h,
+              data.activationQueryComplete
+            )}
+            scope="Selected period · trial start cohort"
+            alsoCalled="Also called: Activated within 24 hours"
+            note="They finished onboarding, set a current goal, received Coach Pat's morning check, and replied — all within 24 hours of starting the trial. This is a strict test. A member can be engaged and still not meet it."
+          />
         </div>
       </section>
 
@@ -1009,10 +1060,11 @@ export default function SubscriberGrowthDashboard({
         </p>
         <p className="mb-1.5 text-[10px] text-gray-500">
           Each row is the browsers whose first tracked page view fell in that
-          Eastern Time window. Trial clicks, accounts, free trials, and finished
-          onboarding still count if they happen after that window, so Today is
-          still in progress. A visitor is a browser cookie, not a guaranteed
-          unique person.
+          Eastern Time window. Trial clicks, checkout sessions, account
+          creation, free trials, and finished onboarding still count if they
+          happen after that window, so Today is still in progress. A visitor is
+          a browser cookie, not a guaranteed unique person. Account creation is
+          not a free trial. A checkout session is not a free trial.
         </p>
         <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table className="w-full text-left text-[11px]">
@@ -1021,7 +1073,8 @@ export default function SubscriberGrowthDashboard({
                 <th className="px-2 py-1.5 font-medium">Cohort</th>
                 <th className="px-2 py-1.5 font-medium">Visitors</th>
                 <th className="px-2 py-1.5 font-medium">Clicked trial</th>
-                <th className="px-2 py-1.5 font-medium">Created account</th>
+                <th className="px-2 py-1.5 font-medium">Checkout started</th>
+                <th className="px-2 py-1.5 font-medium">Account created</th>
                 <th className="px-2 py-1.5 font-medium">Started free trial</th>
                 <th className="px-2 py-1.5 font-medium">Finished onboarding</th>
               </tr>
@@ -1035,6 +1088,9 @@ export default function SubscriberGrowthDashboard({
                   </td>
                   <td className="px-2 py-2">
                     <CohortStage cell={row.clickedTrial} />
+                  </td>
+                  <td className="px-2 py-2">
+                    <CohortStage cell={row.startedCheckout} />
                   </td>
                   <td className="px-2 py-2">
                     <CohortStage cell={row.createdAccount} />
@@ -1247,10 +1303,13 @@ export default function SubscriberGrowthDashboard({
           Where new members come from
         </h2>
         <p className="mb-1.5 text-[10px] text-gray-500">
-          Each row shows the first visit we recorded for that person. Later
-          clicks do not replace it. Uses the selected date and source filters.
-          Marketing attribution is only available from the tracking start date
-          shown above.
+          Each row shows the first visit we recorded for that person, then
+          Start Free Trial clicks, Checkout Sessions stored with that source,
+          account creation, free trials, and paying members. A checkout with no
+          stored source is not placed on a row. Later clicks do not replace the
+          first visit. Uses the selected date and source filters. Marketing
+          attribution is only available from the tracking start date shown
+          above.
         </p>
         <p className="mb-1.5 text-[10px] text-gray-500">
           First landing page is not tracked reliably yet. We record marketing
@@ -1321,6 +1380,12 @@ export default function SubscriberGrowthDashboard({
                           {formatUnknownableCount(row.visitors)}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums">
+                          {formatUnknownableCount(row.trialClicks)}
+                        </td>
+                        <td className="px-2 py-1.5 tabular-nums">
+                          {formatUnknownableCount(row.checkoutSessions)}
+                        </td>
+                        <td className="px-2 py-1.5 tabular-nums">
                           {formatUnknownableCount(row.accounts)}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums">
@@ -1376,7 +1441,19 @@ export default function SubscriberGrowthDashboard({
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-gray-500">Accounts</dt>
+                          <dt className="text-gray-500">Trial clicks</dt>
+                          <dd className="tabular-nums">
+                            {formatUnknownableCount(row.trialClicks)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Checkout started</dt>
+                          <dd className="tabular-nums">
+                            {formatUnknownableCount(row.checkoutSessions)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-gray-500">Accounts created</dt>
                           <dd className="tabular-nums">
                             {formatUnknownableCount(row.accounts)}
                           </dd>

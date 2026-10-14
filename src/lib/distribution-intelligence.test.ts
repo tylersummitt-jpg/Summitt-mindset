@@ -39,6 +39,8 @@ function traffic(patch: Partial<TrafficSourceRow>): TrafficSourceRow {
     utmCampaign: "spring",
     utmContent: "post_reel_1",
     visitors: 10,
+    trialClicks: 4,
+    checkoutSessions: 2,
     accounts: 2,
     trialsStarted: 4,
     activated: 1,
@@ -81,6 +83,8 @@ describe("distribution channel and content", () => {
     });
     expect(intel.channels[0]?.channel).toBe("Instagram");
     expect(intel.channels[0]?.visitors).toBe("5");
+    expect(intel.channels[0]?.trialClicks).toBe("8");
+    expect(intel.channels[0]?.checkouts).toBe("4");
     expect(intel.channels[0]?.trials).toBe("2");
     expect(intel.channels[0]?.paid).toBe("1");
     expect(intel.channels[0]?.trialToPaid).toBe("50% (1 of 2)");

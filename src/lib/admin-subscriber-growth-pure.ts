@@ -1053,6 +1053,13 @@ export type TrafficSourceRow = {
   utmCampaign: string;
   utmContent: string;
   visitors: MetricNumber;
+  /** Start Free Trial clicks recorded on this row. Clicks, not people. */
+  trialClicks: MetricNumber;
+  /**
+   * Distinct Checkout Session ids stored on this row.
+   * A session with no stored source is not placed here.
+   */
+  checkoutSessions: MetricNumber;
   accounts: MetricNumber;
   trialsStarted: MetricNumber;
   activated: MetricNumber;
@@ -1073,9 +1080,15 @@ export type MarketingAttributionRow = {
   utm_content: string | null;
 };
 
+/** Matches public checkout metadata.funnel. Not applied to older Clerk-first sessions. */
+export const STRIPE_FIRST_CHECKOUT_FUNNEL = "stripe_first";
+
+/** Owner-canary checkout rows are excluded from acquisition counts. */
+export const OWNER_CANARY_CHECKOUT_FUNNEL = "owner_canary";
+
 export type MarketingEventRow = {
   event_type: string;
-  visitor_id: string;
+  visitor_id: string | null;
   occurred_at: string;
   source_normalized: string | null;
   is_paid_acquisition: boolean;
@@ -1084,7 +1097,71 @@ export type MarketingEventRow = {
   utm_campaign: string | null;
   utm_content: string | null;
   clerk_user_id: string | null;
+  /** Present on checkout_opened. Used to count each Checkout Session once. */
+  checkout_session_id?: string | null;
+  /** stripe_first, owner_canary, or null for an older Clerk-first session. */
+  checkout_funnel?: string | null;
 };
+
+export type CheckoutOpenSummary = {
+  sessions: number;
+  stripeFirst: number;
+  clerkFirst: number;
+};
+
+/** Reads checkout_opened metadata. Does not invent a session id. */
+export function checkoutOpenFields(metadata: unknown): {
+  checkout_session_id: string | null;
+  checkout_funnel: string | null;
+} {
+  if (!metadata || typeof metadata !== "object") {
+    return { checkout_session_id: null, checkout_funnel: null };
+  }
+  const rec = metadata as Record<string, unknown>;
+  const sessionRaw = rec.checkout_session_id;
+  const sessionId = typeof sessionRaw === "string" ? sessionRaw.trim() : "";
+  const funnelRaw = rec.funnel;
+  const funnel = typeof funnelRaw === "string" ? funnelRaw.trim() : "";
+  const canary =
+    rec.summittCanary === "owner" ||
+    rec.canary === "owner" ||
+    funnel === OWNER_CANARY_CHECKOUT_FUNNEL;
+  return {
+    checkout_session_id: sessionId || null,
+    checkout_funnel: canary ? OWNER_CANARY_CHECKOUT_FUNNEL : funnel || null,
+  };
+}
+
+/**
+ * Distinct Checkout Sessions from checkout_opened rows.
+ * A repeated session id counts once. The owner canary is left out.
+ * Rows without a session id are not counted. Missing funnel is Clerk-first.
+ */
+export function summarizeCheckoutOpens(
+  events: readonly MarketingEventRow[]
+): CheckoutOpenSummary {
+  const seen = new Set<string>();
+  let stripeFirst = 0;
+  let clerkFirst = 0;
+  for (const ev of events) {
+    if (ev.event_type !== "checkout_opened") continue;
+    if (ev.checkout_funnel === OWNER_CANARY_CHECKOUT_FUNNEL) continue;
+    const sessionId = ev.checkout_session_id?.trim() ?? "";
+    if (!sessionId || seen.has(sessionId)) continue;
+    seen.add(sessionId);
+    if (ev.checkout_funnel === STRIPE_FIRST_CHECKOUT_FUNNEL) stripeFirst += 1;
+    else clerkFirst += 1;
+  }
+  return { sessions: seen.size, stripeFirst, clerkFirst };
+}
+
+export function isOwnerCanaryStripeSubscription(sub: GrowthStripeSubscription): boolean {
+  return sub.metadata?.summittCanary === "owner";
+}
+
+export function isStripeFirstSubscription(sub: GrowthStripeSubscription): boolean {
+  return sub.metadata?.summittCheckoutFlow === STRIPE_FIRST_CHECKOUT_FUNNEL;
+}
 
 export type HumanFirstTouchFields = {
   source_normalized?: string | null;
@@ -1304,8 +1381,43 @@ export function aggregateTrafficSourceRows(args: {
   };
 
   const visitors = new Map<string, Set<string>>();
+  const trialClicks = new Map<string, number>();
+  const checkoutSessions = new Map<string, Set<string>>();
+  const seenCheckoutSessions = new Set<string>();
   for (const ev of args.events) {
-    if (ev.event_type !== "page_viewed") continue;
+    if (ev.event_type === "trial_cta_clicked") {
+      const source = ev.source_normalized ?? "direct";
+      if (!matches(source)) continue;
+      const key = rememberGrain(
+        source,
+        trafficFieldsFromEvent(ev),
+        ev.utm_campaign ?? "",
+        ev.utm_content ?? ""
+      );
+      trialClicks.set(key, (trialClicks.get(key) ?? 0) + 1);
+      continue;
+    }
+    if (ev.event_type === "checkout_opened") {
+      if (ev.checkout_funnel === OWNER_CANARY_CHECKOUT_FUNNEL) continue;
+      const sessionId = ev.checkout_session_id?.trim() ?? "";
+      const source = ev.source_normalized;
+      if (!sessionId || seenCheckoutSessions.has(sessionId) || !source || !matches(source)) {
+        if (sessionId) seenCheckoutSessions.add(sessionId);
+        continue;
+      }
+      seenCheckoutSessions.add(sessionId);
+      const key = rememberGrain(
+        source,
+        trafficFieldsFromEvent(ev),
+        ev.utm_campaign ?? "",
+        ev.utm_content ?? ""
+      );
+      const set = checkoutSessions.get(key) ?? new Set();
+      set.add(sessionId);
+      checkoutSessions.set(key, set);
+      continue;
+    }
+    if (ev.event_type !== "page_viewed" || !ev.visitor_id) continue;
     const source = ev.source_normalized ?? "direct";
     if (!matches(source)) continue;
     const key = rememberGrain(
@@ -1385,6 +1497,8 @@ export function aggregateTrafficSourceRows(args: {
 
   const keys = new Set([
     ...visitors.keys(),
+    ...trialClicks.keys(),
+    ...checkoutSessions.keys(),
     ...accounts.keys(),
     ...trials.keys(),
     ...activated.keys(),
@@ -1416,6 +1530,8 @@ export function aggregateTrafficSourceRows(args: {
       utmCampaign,
       utmContent,
       visitors: visitors.get(key)?.size ?? 0,
+      trialClicks: trialClicks.get(key) ?? 0,
+      checkoutSessions: checkoutSessions.get(key)?.size ?? 0,
       accounts: accounts.get(key)?.size ?? 0,
       trialsStarted: trials.get(key)?.size ?? 0,
       activated: activated.get(key)?.size ?? 0,
@@ -1644,7 +1760,11 @@ export type GrowthDashboardSnapshot = {
     accountsCreated: MetricNumber;
     uniqueVisitors: MetricNumber;
     freeTrialButtonClicks: MetricNumber;
+    checkoutSessionsCreated: MetricNumber;
+    stripeFirstCheckoutSessions: MetricNumber;
+    clerkFirstCheckoutSessions: MetricNumber;
     freeTrialsStarted: MetricNumber;
+    stripeFirstTrialsStarted: MetricNumber;
     activatedWithin24h: MetricNumber;
     trialsConvertedToPaid: MetricNumber;
     cancelledDuringTrial: MetricNumber;
@@ -1655,13 +1775,11 @@ export type GrowthDashboardSnapshot = {
     advertisingSpend: MetricNumber;
     newPaidAttributedToAds: MetricNumber;
     paymentFailed: MetricNumber;
-    funnelConversions: [
-      MetricNumber,
-      MetricNumber,
-      MetricNumber,
-      MetricNumber,
-      MetricNumber,
-    ];
+    /**
+     * Visitors → clicks, clicks → checkout sessions, checkout sessions → trials started.
+     * The fourth rate stays empty: paid conversion uses finished trials, not trials started.
+     */
+    funnelConversions: [MetricNumber, MetricNumber, MetricNumber, MetricNumber];
   };
   trafficRows: TrafficSourceRow[];
   notes: {
@@ -1738,7 +1856,11 @@ export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {
     accountsCreated: null,
     uniqueVisitors: null,
     freeTrialButtonClicks: null,
+    checkoutSessionsCreated: null,
+    stripeFirstCheckoutSessions: null,
+    clerkFirstCheckoutSessions: null,
     freeTrialsStarted: null,
+    stripeFirstTrialsStarted: null,
     activatedWithin24h: null,
     trialsConvertedToPaid: null,
     cancelledDuringTrial: null,
@@ -1749,7 +1871,7 @@ export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {
     advertisingSpend: null,
     newPaidAttributedToAds: null,
     paymentFailed: null,
-    funnelConversions: [null, null, null, null, null],
+    funnelConversions: [null, null, null, null],
   };
 }
 
@@ -1815,6 +1937,9 @@ export function computeGrowthSnapshot(input: {
   paidInvoiceSubIds?: ReadonlySet<string>;
   uniqueVisitors?: MetricNumber;
   freeTrialButtonClicks?: MetricNumber;
+  checkoutSessionsCreated?: MetricNumber;
+  stripeFirstCheckoutSessions?: MetricNumber;
+  clerkFirstCheckoutSessions?: MetricNumber;
   activatedWithin24h?: MetricNumber;
   advertisingSpend?: MetricNumber;
   newPaidAttributedToAds?: MetricNumber;
@@ -1860,8 +1985,10 @@ export function computeGrowthSnapshot(input: {
 
   const paidInvoiceSubIds = input.paidInvoiceSubIds ?? new Set<string>();
 
-  const summitSubs = input.stripeSubs.filter((sub) =>
-    isLikelySummittStripeSubscription(sub, input.recognizedPriceIds)
+  const summitSubs = input.stripeSubs.filter(
+    (sub) =>
+      isLikelySummittStripeSubscription(sub, input.recognizedPriceIds) &&
+      !isOwnerCanaryStripeSubscription(sub)
   );
 
   const paidStripeByIdentity = new Map<string, GrowthStripeSubscription>();
@@ -1978,26 +2105,21 @@ export function computeGrowthSnapshot(input: {
     input.startMs < input.instrumentationStartMs;
 
   const trialsStartedCount = unknownIfIncomplete(trialsStarted.length, stripeOk);
+  const stripeFirstTrialsStarted = unknownIfIncomplete(
+    trialsStarted.filter((sub) => isStripeFirstSubscription(sub)).length,
+    stripeOk
+  );
+  const checkoutSessions = input.checkoutSessionsCreated ?? null;
   const visitorsToClicks = conversionRate(
     input.freeTrialButtonClicks ?? null,
     input.uniqueVisitors ?? null
   );
-  const clicksToAccounts = eventsPartial
+  const clicksToCheckouts = eventsPartial
     ? null
-    : conversionRate(
-        input.accountsCreated,
-        input.freeTrialButtonClicks ?? null
-      );
-  const accountsToTrials = conversionRate(
-    trialsStartedCount,
-    input.accountsCreated
-  );
-  const trialsToActivated = conversionRate(
-    input.activatedWithin24h ?? null,
-    trialsStartedCount
-  );
-  // Activated is the trial_start cohort; paid conversion is the mature trial_end cohort.
-  const activatedToPaid = null;
+    : conversionRate(checkoutSessions, input.freeTrialButtonClicks ?? null);
+  const checkoutsToTrials = conversionRate(trialsStartedCount, checkoutSessions);
+  // Paid conversion is the mature trial_end cohort, not trials started in this period.
+  const startedToPaid = null;
 
   const period: GrowthDashboardSnapshot["period"] = {
     trialToPaidRate: unknownIfIncomplete(
@@ -2017,7 +2139,11 @@ export function computeGrowthSnapshot(input: {
     accountsCreated: input.accountsCreated,
     uniqueVisitors: input.uniqueVisitors ?? null,
     freeTrialButtonClicks: input.freeTrialButtonClicks ?? null,
+    checkoutSessionsCreated: checkoutSessions,
+    stripeFirstCheckoutSessions: input.stripeFirstCheckoutSessions ?? null,
+    clerkFirstCheckoutSessions: input.clerkFirstCheckoutSessions ?? null,
     freeTrialsStarted: trialsStartedCount,
+    stripeFirstTrialsStarted,
     activatedWithin24h: input.activatedWithin24h ?? null,
     trialsConvertedToPaid: unknownIfIncomplete(converted.length, stripeOk),
     cancelledDuringTrial: unknownIfIncomplete(
@@ -2036,10 +2162,9 @@ export function computeGrowthSnapshot(input: {
     paymentFailed: input.paymentFailedPeriod ?? null,
     funnelConversions: [
       visitorsToClicks,
-      clicksToAccounts,
-      accountsToTrials,
-      trialsToActivated,
-      activatedToPaid,
+      clicksToCheckouts,
+      checkoutsToTrials,
+      startedToPaid,
     ],
   };
 
@@ -2081,6 +2206,7 @@ export type VisitorCohortRow = {
   label: string;
   visitors: MetricNumber;
   clickedTrial: VisitorCohortCell;
+  startedCheckout: VisitorCohortCell;
   createdAccount: VisitorCohortCell;
   startedFreeTrial: VisitorCohortCell;
   finishedOnboarding: VisitorCohortCell;
@@ -2115,6 +2241,7 @@ export function emptyVisitorCohortTable(): VisitorCohortTable {
       label: VISITOR_COHORT_LABEL[span],
       visitors: null,
       clickedTrial: emptyCohortCell(),
+      startedCheckout: emptyCohortCell(),
       createdAccount: emptyCohortCell(),
       startedFreeTrial: emptyCohortCell(),
       finishedOnboarding: emptyCohortCell(),
@@ -2189,12 +2316,22 @@ export function computeVisitorCohortTable(args: {
 
   const firstPage = new Map<string, { at: number; source: string | null }>();
   const ctaVisitors = new Set<string>();
+  const checkoutVisitors = new Set<string>();
+  const seenCheckoutSessions = new Set<string>();
   for (const ev of args.events) {
     if (ev.event_type === "trial_cta_clicked") {
-      ctaVisitors.add(ev.visitor_id);
+      if (ev.visitor_id) ctaVisitors.add(ev.visitor_id);
       continue;
     }
-    if (ev.event_type !== "page_viewed") continue;
+    if (ev.event_type === "checkout_opened") {
+      if (ev.checkout_funnel === OWNER_CANARY_CHECKOUT_FUNNEL) continue;
+      const sessionId = ev.checkout_session_id?.trim() ?? "";
+      if (!sessionId || seenCheckoutSessions.has(sessionId)) continue;
+      seenCheckoutSessions.add(sessionId);
+      if (ev.visitor_id) checkoutVisitors.add(ev.visitor_id);
+      continue;
+    }
+    if (ev.event_type !== "page_viewed" || !ev.visitor_id) continue;
     const at = Date.parse(ev.occurred_at);
     if (!Number.isFinite(at)) continue;
     const prev = firstPage.get(ev.visitor_id);
@@ -2218,6 +2355,7 @@ export function computeVisitorCohortTable(args: {
   const trialClerkIds = new Set<string>();
   if (args.stripeListComplete && args.attributionComplete) {
     for (const sub of args.stripeSubs) {
+      if (isOwnerCanaryStripeSubscription(sub)) continue;
       if (sub.trial_start == null || !Number.isFinite(sub.trial_start)) continue;
       const clerk = clerkUserIdFromStripeSub(sub);
       if (clerk) trialClerkIds.add(clerk);
@@ -2249,11 +2387,13 @@ export function computeVisitorCohortTable(args: {
     }
     const visitors = cohort.length;
     let clicked = 0;
+    let checkouts = 0;
     let accounts = 0;
     let trials = 0;
     let onboarded = 0;
     for (const visitorId of cohort) {
       if (ctaVisitors.has(visitorId)) clicked += 1;
+      if (checkoutVisitors.has(visitorId)) checkouts += 1;
       const clerks = clerksByVisitor.get(visitorId);
       if (!clerks || clerks.size === 0) continue;
       accounts += 1;
@@ -2276,6 +2416,7 @@ export function computeVisitorCohortTable(args: {
       label: VISITOR_COHORT_LABEL[span],
       visitors,
       clickedTrial: cohortCell(clicked, visitors),
+      startedCheckout: cohortCell(checkouts, visitors),
       createdAccount: cohortCell(accountCount, visitors),
       startedFreeTrial: cohortCell(trialCount, visitors),
       finishedOnboarding: cohortCell(onboardCount, visitors),
