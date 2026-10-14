@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
+import { isTylerOwnerSession, requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
 
 /**
  * ======================================================
@@ -17,6 +17,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   await requireTylerAdmin();
+  const tyler = await isTylerOwnerSession();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -71,6 +72,11 @@ export default async function AdminLayout({
             >
               Account Deletions
             </Link>
+            {tyler ? (
+              <Link href="/admin/personal-videos" className="text-gray-700 underline hover:text-gray-900">
+                Personal Videos
+              </Link>
+            ) : null}
           </nav>
         </div>
       </header>
