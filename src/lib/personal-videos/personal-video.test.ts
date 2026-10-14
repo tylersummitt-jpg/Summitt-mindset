@@ -9,6 +9,9 @@ import {
   isVimeoUploadLink,
   newPersonalVideoToken,
   personalVideoCreateBody,
+  personalVideoPosterOk,
+  personalVideoPosterSeconds,
+  personalVideoPosterStep,
   personalVideoPrivacyOk,
   readinessFromVimeo,
   vimeoIdFromUri,
@@ -49,8 +52,20 @@ describe("personal video rules", () => {
       status: "available",
       transcode: { status: "complete" },
       privacy: { view: "disable", embed: "whitelist", download: false },
+      pictures: { type: "custom", active: true },
     };
+    expect(personalVideoPosterOk(ready)).toBe(true);
+    expect(personalVideoPosterOk({ pictures: { type: "default", active: true } })).toBe(false);
+    expect(personalVideoPosterSeconds(174)).toBe(2);
+    expect(personalVideoPosterSeconds(1)).toBe(0.5);
+    expect(personalVideoPosterSeconds(undefined)).toBe(2);
+    expect(personalVideoPosterStep([{ type: "custom", active: true, uri: "/videos/1/pictures/2" }])).toBe("keep");
+    expect(personalVideoPosterStep([{ type: "custom", active: false, uri: "/videos/1/pictures/2" }])).toBe(
+      "activate"
+    );
+    expect(personalVideoPosterStep([{ type: "default", active: true }])).toBe("create");
     expect(readinessFromVimeo(ready)).toBe("ready");
+    expect(readinessFromVimeo({ ...ready, pictures: { type: "default", active: true } })).toBe("processing");
     expect(readinessFromVimeo({ ...ready, privacy: { view: "anybody", embed: "public", download: false } })).toBe(
       "failed"
     );
@@ -107,6 +122,16 @@ describe("personal video rules", () => {
     expect(read("src/lib/personal-videos/personal-video.ts")).toContain(
       'from "@/lib/personal-videos/upload-limit"'
     );
+    const repair = upload.slice(
+      upload.indexOf("export async function repairPersonalVideoPoster"),
+      upload.indexOf("export async function repairReadyPersonalVideoPosters")
+    );
+    expect(repair).toContain("/videos/${vimeoId}/pictures");
+    expect(repair).toContain("time: personalVideoPosterSeconds");
+    expect(repair).toContain("active: true");
+    expect(repair).not.toContain("privacy");
+    expect(read("src/app/api/admin/personal-videos/[id]/route.ts")).toContain("repairPersonalVideoPoster");
+    expect(read("src/app/admin/personal-videos/page.tsx")).toContain("repairReadyPersonalVideoPosters");
     expect(upload).toContain("process.env.VIMEO_ACCESS_TOKEN");
     expect(read("src/app/api/admin/personal-videos/route.ts")).toContain(
       "{ id: video.id, uploadLink: created.uploadLink }"

@@ -7,7 +7,11 @@ import {
   markPersonalVideoSent,
   updatePersonalVideoStatus,
 } from "@/lib/personal-videos/store";
-import { deletePersonalVimeoVideo, readPersonalVimeoVideo } from "@/lib/personal-videos/vimeo";
+import {
+  deletePersonalVimeoVideo,
+  readPersonalVimeoVideo,
+  repairPersonalVideoPoster,
+} from "@/lib/personal-videos/vimeo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +45,11 @@ export async function GET(_request: Request, context: Context) {
   const { id } = await context.params;
   const existing = await getPersonalVideo(id).catch(() => null);
   if (!existing) return NextResponse.json({ error: "missing" }, { status: 404 });
-  if (existing.status === "ready" || existing.status === "failed") {
+  if (existing.status === "failed") {
+    return NextResponse.json(payload(existing), { headers: { "Cache-Control": "no-store" } });
+  }
+  if (existing.status === "ready") {
+    await repairPersonalVideoPoster(existing.vimeoVideoId).catch(() => false);
     return NextResponse.json(payload(existing), { headers: { "Cache-Control": "no-store" } });
   }
   try {
