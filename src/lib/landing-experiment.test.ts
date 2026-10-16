@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import nextConfig from "../../next.config";
+
 import { buildOperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { emptyHomepageVideoReport } from "@/lib/admin-homepage-video";
 import {
@@ -715,6 +717,8 @@ describe("proud test stays off the homepage and Brooke's page", () => {
     const middleware = readFileSync(join(root, "src/middleware.ts"), "utf8");
     expect(home).not.toContain("proud-test");
     expect(home).not.toContain("assignProudTestVariant");
+    expect(home).toContain("marketingAcquisitionHref");
+    expect(home).toContain('"/checkout/start?plan=annual"');
     expect(become).not.toContain("proud-test");
     expect(brooke).not.toContain("Controlled landing test");
     expect(brooke).not.toContain("proud-test");
@@ -762,31 +766,43 @@ describe("proud test stays off the homepage and Brooke's page", () => {
 
 describe("homepage split", () => {
   const browser = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36";
+  const stay = {
+    action: "ignore" as const,
+    created: false,
+    variant: null,
+    destination: "/" as const,
+  };
 
-  it("keeps control on the homepage and redirects the challenger", () => {
-    const control = decideHomepageSplit({
-      signedIn: false,
-      nativeApp: false,
-      status: "running",
-      visitorId: VISITOR,
-      existingVariant: null,
-      userAgent: browser,
-      prefetch: false,
-    });
-    const assigned = assignProudTestVariant(VISITOR);
-    if (assigned === "control") {
-      expect(control).toMatchObject({ action: "stay", destination: "/", created: true, variant: "control" });
-    } else {
-      expect(control).toMatchObject({
-        action: "redirect",
-        destination: "/become-proud",
-        created: true,
-        variant: "challenger",
-      });
+  it("keeps every homepage visitor on /, including a stored challenger", () => {
+    for (const status of ["running", "paused", "completed", "unavailable"] as const) {
+      for (const existingVariant of [null, "control", "challenger"] as const) {
+        expect(
+          decideHomepageSplit({
+            signedIn: false,
+            nativeApp: false,
+            status,
+            visitorId: VISITOR,
+            existingVariant,
+            userAgent: browser,
+            prefetch: false,
+          })
+        ).toEqual(stay);
+      }
     }
+    expect(
+      decideHomepageSplit({
+        signedIn: true,
+        nativeApp: false,
+        status: "running",
+        visitorId: null,
+        existingVariant: "challenger",
+        userAgent: "curl/8.7.1",
+        prefetch: true,
+      })
+    ).toEqual(stay);
   });
 
-  it("splits many distinct visitors close to half and half", () => {
+  it("still hashes other landing assignments without using them on the homepage", () => {
     let control = 0;
     for (let index = 0; index < 400; index += 1) {
       const visitorId = `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
@@ -794,42 +810,6 @@ describe("homepage split", () => {
     }
     expect(control).toBeGreaterThan(150);
     expect(control).toBeLessThan(250);
-  });
-
-  it("keeps a returning visitor on the assigned page and ignores members, bots, and prefetch", () => {
-    expect(
-      decideHomepageSplit({
-        signedIn: false,
-        nativeApp: false,
-        status: "running",
-        visitorId: VISITOR,
-        existingVariant: "challenger",
-        userAgent: browser,
-        prefetch: false,
-      }).action
-    ).toBe("redirect");
-    expect(
-      decideHomepageSplit({
-        signedIn: false,
-        nativeApp: false,
-        status: "running",
-        visitorId: VISITOR,
-        existingVariant: "control",
-        userAgent: browser,
-        prefetch: false,
-      }).action
-    ).toBe("ignore");
-    expect(
-      decideHomepageSplit({
-        signedIn: true,
-        nativeApp: false,
-        status: "running",
-        visitorId: VISITOR,
-        existingVariant: null,
-        userAgent: browser,
-        prefetch: false,
-      }).action
-    ).toBe("ignore");
     expect(
       decideHomepageSplit({
         signedIn: false,
@@ -837,32 +817,10 @@ describe("homepage split", () => {
         status: "running",
         visitorId: VISITOR,
         existingVariant: null,
-        userAgent: "curl/8.7.1",
-        prefetch: false,
-      }).action
-    ).toBe("ignore");
-    expect(
-      decideHomepageSplit({
-        signedIn: false,
-        nativeApp: false,
-        status: "paused",
-        visitorId: VISITOR,
-        existingVariant: null,
         userAgent: browser,
         prefetch: false,
-      }).action
-    ).toBe("ignore");
-    expect(
-      decideHomepageSplit({
-        signedIn: false,
-        nativeApp: false,
-        status: "paused",
-        visitorId: VISITOR,
-        existingVariant: "challenger",
-        userAgent: browser,
-        prefetch: false,
-      }).action
-    ).toBe("redirect");
+      }).destination
+    ).toBe("/");
   });
 
   it("does not treat curl, HEAD, or resource fetches as a page that can be exposed", () => {
@@ -882,5 +840,48 @@ describe("homepage split", () => {
     expect(
       isExperimentDocumentRequest({ method: "GET", accept: html, fetchDest: "empty" })
     ).toBe(false);
+  });
+});
+
+describe("become proud redirect", () => {
+  it("sends /become-proud to / and keeps query parameters without a loop", async () => {
+    const redirects = await nextConfig.redirects();
+    const become = redirects.find((rule) => rule.source === "/become-proud");
+    expect(become).toMatchObject({ destination: "/", permanent: false });
+    expect(become?.destination).not.toContain("?");
+    expect(redirects.some((rule) => rule.source === "/")).toBe(false);
+
+    function nextPath(pathname: string): string | null {
+      const rule = redirects.find((item) => item.source === pathname);
+      if (!rule || typeof rule.destination !== "string") return null;
+      return new URL(rule.destination, "https://summittmindset.com").pathname;
+    }
+
+    function follow(start: string): string[] {
+      const hops = [start];
+      let current = start;
+      for (let hop = 0; hop < 5; hop += 1) {
+        const next = nextPath(current);
+        if (!next) return hops;
+        expect(hops).not.toContain(next);
+        hops.push(next);
+        current = next;
+      }
+      return hops;
+    }
+
+    expect(follow("/")).toEqual(["/"]);
+    expect(follow("/become-proud")).toEqual(["/become-proud", "/"]);
+    expect(follow("/leadership")).toEqual(["/leadership", "/become-proud", "/"]);
+    expect(follow("/daily-coaching")).toEqual(["/daily-coaching", "/become-proud", "/"]);
+    expect(follow("/life-worth-remembering")).toEqual([
+      "/life-worth-remembering",
+      "/become-proud",
+      "/",
+    ]);
+
+    const search = "?utm_source=facebook&utm_medium=paid&fbclid=IwAR123&gclid=Cj0KC";
+    const destination = new URL(String(become?.destination), "https://summittmindset.com");
+    expect(destination.pathname + (destination.search || search)).toBe(`/${search}`);
   });
 });

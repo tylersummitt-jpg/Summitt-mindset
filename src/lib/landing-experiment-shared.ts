@@ -320,10 +320,11 @@ export function decideProudTestEntry(args: {
 }
 
 /**
- * Homepage entry. Control stays on /. Challenger is redirected once.
- * Signed-in people, the native app, bots, and prefetch requests are ignored.
+ * Homepage entry is closed. Every visitor stays on /.
+ * Status, visitor id, and a stored sm_exp challenger cookie do not redirect.
+ * Other experiments still use decideLandingEntry.
  */
-export function decideHomepageSplit(args: {
+export function decideHomepageSplit(_args: {
   signedIn: boolean;
   nativeApp: boolean;
   status: ProudTestStatus;
@@ -337,42 +338,12 @@ export function decideHomepageSplit(args: {
   variant: LandingVariant | null;
   destination: ApprovedLandingDestination;
 } {
-  const ignored = {
-    action: "ignore" as const,
+  void _args;
+  return {
+    action: "ignore",
     created: false,
     variant: null,
-    destination: "/" as const,
+    destination: "/",
   };
-  if (args.signedIn || args.nativeApp) return ignored;
-  const decision = decideLandingEntry({
-    experimentId: PROUD_TEST_EXPERIMENT_ID,
-    status: args.status,
-    visitorId: args.visitorId,
-    existingVariant: args.existingVariant,
-    destinations: {
-      entrySlug: "proud-test",
-      controlPath: "/",
-      challengerPath: "/become-proud",
-    },
-    userAgent: args.userAgent,
-    prefetch: args.prefetch,
-  });
-  if (decision.destination !== "/") {
-    return {
-      action: "redirect",
-      created: decision.created,
-      variant: decision.variant,
-      destination: decision.destination,
-    };
-  }
-  if (decision.created && decision.variant) {
-    return {
-      action: "stay",
-      created: true,
-      variant: decision.variant,
-      destination: "/",
-    };
-  }
-  return ignored;
 }
 

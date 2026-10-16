@@ -8,9 +8,16 @@ const retiredLandingRedirects = [
   { source: "/life-worth-remembering", destination: "/become-proud", permanent: true },
 ] as const;
 
+/** Temporary. Query strings stay on the request because this destination has none. */
+const becomeProudRedirect = {
+  source: "/become-proud",
+  destination: "/",
+  permanent: false,
+} as const;
+
 const nextConfig: NextConfig = {
   async redirects() {
-    return [...SOCIAL_BIO_REDIRECTS, ...retiredLandingRedirects];
+    return [...SOCIAL_BIO_REDIRECTS, ...retiredLandingRedirects, becomeProudRedirect];
   },
   outputFileTracingIncludes: {
     "/api/onboarding/complete": [
