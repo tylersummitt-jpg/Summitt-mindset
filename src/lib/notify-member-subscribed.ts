@@ -21,13 +21,17 @@ function resolveSubjectLabel(args: NotifyMemberSubscribedInternalArgs): string {
   return "unknown";
 }
 
+export type MemberNotifyOutcome = "sent" | "skipped" | "failed";
+
 /**
- * Internal alert when a regular member completes Stripe Checkout subscription (webhook only).
- * Fail-soft: never throws; webhook must succeed even if email fails.
+ * Internal alert when a regular member completes Stripe Checkout.
+ * Fail-soft: never throws. Callers decide whether a "failed" outcome should retry.
+ * "skipped" means the server is not configured to send, so retrying will not help.
  */
 export async function notifyMemberSubscribedInternal(
-  args: NotifyMemberSubscribedInternalArgs
-): Promise<void> {
+  args: NotifyMemberSubscribedInternalArgs,
+  options?: { idempotencyKey?: string }
+): Promise<MemberNotifyOutcome> {
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.COACH_KIT_NOTIFY_EMAIL?.trim();
 
@@ -35,14 +39,14 @@ export async function notifyMemberSubscribedInternal(
     console.warn(
       "RESEND_API_KEY missing, skipping member subscription notification"
     );
-    return;
+    return "skipped";
   }
 
   if (!to) {
     console.warn(
       "COACH_KIT_NOTIFY_EMAIL missing, skipping member subscription notification"
     );
-    return;
+    return "skipped";
   }
 
   const from =
@@ -87,15 +91,24 @@ export async function notifyMemberSubscribedInternal(
 
   try {
     const resend = new Resend(apiKey);
-    await resend.emails.send({
-      from,
-      to,
-      subject,
-      text,
-      html,
-    });
+    const payload = { from, to, subject, text, html };
+    const result = options?.idempotencyKey
+      ? await resend.emails.send(payload, {
+          idempotencyKey: options.idempotencyKey,
+        })
+      : await resend.emails.send(payload);
+    const messageId = result.data?.id?.trim() ?? "";
+    if (result.error || !messageId) {
+      console.warn(
+        "Member subscription notification email failed:",
+        result.error?.message ?? "missing_id"
+      );
+      return "failed";
+    }
+    return "sent";
   } catch (err) {
     console.warn("Member subscription notification email failed:", err);
+    return "failed";
   }
 }
 

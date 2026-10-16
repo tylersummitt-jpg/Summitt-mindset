@@ -64,13 +64,20 @@ import {
   type CheckoutBrowserIntent,
 } from "@/lib/stripe-first-checkout/intent-store";
 import {
+  isOwnerCanaryMetadata,
+  notifyConfirmedStripeFirstTrial,
+} from "@/lib/stripe-first-checkout/member-notify";
+import {
   assessCheckoutSession,
   readCheckoutIntentId,
 } from "@/lib/stripe-first-checkout/reconcile";
 import { reconcileActivationHold } from "@/lib/stripe-first-checkout/stripe-hold";
 import { recomputeMembershipFromAuthoritativeStripeSubscription } from "@/lib/summitt-membership-entitlement.server";
 import { resolveAppleMembershipGrantForUser } from "@/lib/summitt-membership-entitlement.server";
-import { classifySummittMembership } from "@/lib/summitt-subscription-membership";
+import {
+  classifySummittMembership,
+  resolvePlanFromSubscription,
+} from "@/lib/summitt-subscription-membership";
 
 export type ActivateResult =
   | { status: "ticket"; ticket: string }
@@ -605,7 +612,7 @@ export async function activateHostedCheckout(args: {
       return { status: "sign_in_required" };
     }
 
-    const { proof } = await requireTrial(intent, args.sessionId);
+    const { session, proof } = await requireTrial(intent, args.sessionId);
     if (!proof) return { status: "rejected" };
     if (!proof.ok) {
       return proof.reason === "retry" ? { status: "retry" } : { status: "incomplete" };
@@ -620,6 +627,29 @@ export async function activateHostedCheckout(args: {
       trialEndIso: new Date(proof.trialEndUnix * 1000).toISOString(),
     });
     if (saved === "mismatch") return { status: "rejected" };
+
+    if (saved === "saved" || saved === "already") {
+      try {
+        await notifyConfirmedStripeFirstTrial({
+          ownerCanary:
+            isOwnerCanaryMetadata(session.metadata) ||
+            isOwnerCanaryMetadata(proof.subscription.metadata),
+          subscriptionStatus: proof.subscription.status,
+          paused: proof.subscription.pause_collection != null,
+          clerkUserId: intent.clerk_user_id,
+          email: proof.email,
+          name: session.customer_details?.name ?? null,
+          phone: session.customer_details?.phone ?? null,
+          customerId: proof.customerId,
+          subscriptionId: proof.subscriptionId,
+          checkoutSessionId: session.id,
+          plan: resolvePlanFromSubscription(proof.subscription),
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.warn("[stripe-first] member notification failed", err);
+      }
+    }
 
     const blocked = await protectTrial(intent.id);
     if (blocked) return blocked;

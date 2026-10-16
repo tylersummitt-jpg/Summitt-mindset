@@ -5,9 +5,14 @@ import Stripe from "stripe";
 import { INTENT_METADATA_KEY } from "@/lib/stripe-first-checkout/constants";
 import { stripeKeyMatchesLivemode } from "@/lib/stripe-first-checkout/credentials";
 import { confirmStripeTrial, loadIntentById } from "@/lib/stripe-first-checkout/intent-store";
+import {
+  isOwnerCanaryMetadata,
+  notifyConfirmedStripeFirstTrial,
+} from "@/lib/stripe-first-checkout/member-notify";
 import { reconcileActivationHold } from "@/lib/stripe-first-checkout/stripe-hold";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
 import { normalizeCheckoutEmail } from "@/lib/stripe-first-checkout/email-typo";
+import { resolvePlanFromSubscription } from "@/lib/summitt-subscription-membership";
 
 export type TrialProof =
   | {
@@ -137,6 +142,25 @@ export async function reconcileStripeFirstFromCheckoutSession(
   }
 
   const hold = await reconcileActivationHold(intentId);
+  if (saved === "saved" || saved === "already") {
+    const notified = await notifyConfirmedStripeFirstTrial({
+      ownerCanary:
+        isOwnerCanaryMetadata(session.metadata) ||
+        isOwnerCanaryMetadata(proof.subscription.metadata),
+      subscriptionStatus: proof.subscription.status,
+      paused: proof.subscription.pause_collection != null,
+      clerkUserId: intent.clerk_user_id,
+      email: proof.email,
+      name: session.customer_details?.name ?? null,
+      phone: session.customer_details?.phone ?? null,
+      customerId: proof.customerId,
+      subscriptionId: proof.subscriptionId,
+      checkoutSessionId: session.id,
+      plan: resolvePlanFromSubscription(proof.subscription),
+      timestamp: new Date().toISOString(),
+    });
+    if (notified === "failed") return "retry";
+  }
   return hold === "retry" ? "retry" : "ack";
 }
 

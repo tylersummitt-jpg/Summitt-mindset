@@ -98,11 +98,24 @@ vi.mock("@/lib/sms-audience-sync", () => ({
   syncSmsAudience: (...args: unknown[]) => syncSmsMock(...args),
 }));
 
+const notifyCoachMock = vi.fn();
+const notifyMemberMock = vi.fn();
 vi.mock("@/lib/notify-coach-subscribed", () => ({
-  notifyCoachSubscribedInternal: vi.fn(),
+  notifyCoachSubscribedInternal: (...args: unknown[]) => notifyCoachMock(...args),
 }));
 vi.mock("@/lib/notify-member-subscribed", () => ({
-  notifyMemberSubscribedInternal: vi.fn(),
+  notifyMemberSubscribedInternal: (...args: unknown[]) => notifyMemberMock(...args),
+}));
+
+const reconcileCheckoutMock = vi.fn(async () => "ack" as const);
+vi.mock("@/lib/stripe-first-checkout/reconcile", () => ({
+  readCheckoutIntentId: (metadata: { checkoutIntentId?: string } | null | undefined) => {
+    const value = metadata?.checkoutIntentId;
+    return typeof value === "string" && value.trim() ? value.trim() : null;
+  },
+  reconcileStripeFirstFromCheckoutSession: (...args: unknown[]) =>
+    reconcileCheckoutMock(...args),
+  reconcileStripeFirstSubscription: vi.fn(async () => "ack"),
 }));
 
 const evaluateUnlockMock = vi.fn();
@@ -624,6 +637,80 @@ describe("Stripe webhook Phase 3 membership cutover", () => {
     });
     expect(maybeStartTrialMock).toHaveBeenCalledTimes(1);
     expect(maybeSubscribeMock).not.toHaveBeenCalled();
+    expect(notifyMemberMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clerkUserId: "user_1",
+        stripeCustomerId: "cus_1",
+        stripeSubscriptionId: "sub_1",
+        checkoutSessionId: "cs_trial",
+        subscriptionStatus: "trialing",
+        plan: "monthly",
+      })
+    );
+    expect(notifyCoachMock).not.toHaveBeenCalled();
+  });
+
+  it("coach checkout uses the coach notification, not the member one", async () => {
+    retrieveSubMock.mockResolvedValue(
+      activeSub({
+        status: "trialing",
+        metadata: { userId: "user_1", summittAcquisition: "coach" },
+      })
+    );
+    getClerkUserMock.mockResolvedValue({
+      primary_email_address_id: "em_1",
+      email_addresses: [{ id: "em_1", email_address: "coach@example.com" }],
+      first_name: "Pat",
+      last_name: "Coach",
+    });
+    constructEventMock.mockReturnValue({
+      id: "evt_coach",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_coach",
+          client_reference_id: "user_1",
+          subscription: "sub_1",
+          customer: "cus_1",
+          metadata: { userId: "user_1", summittAcquisition: "coach" },
+        },
+      },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(notifyCoachMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        coachEmail: "coach@example.com",
+        clerkUserId: "user_1",
+        source: "coach",
+        plan: "monthly",
+      })
+    );
+    expect(notifyMemberMock).not.toHaveBeenCalled();
+  });
+
+  it("stripe-first checkout does not use the Clerk-first member notification", async () => {
+    constructEventMock.mockReturnValue({
+      id: "evt_stripe_first",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_sf",
+          client_reference_id: null,
+          subscription: "sub_sf",
+          customer: "cus_sf",
+          metadata: { checkoutIntentId: "intent_1" },
+        },
+      },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(reconcileCheckoutMock).toHaveBeenCalledTimes(1);
+    expect(notifyMemberMock).not.toHaveBeenCalled();
+    expect(notifyCoachMock).not.toHaveBeenCalled();
+    expect(updateClerkMock).not.toHaveBeenCalled();
   });
 
   it("paused Stripe + Apple active → subscribed monthly", async () => {
