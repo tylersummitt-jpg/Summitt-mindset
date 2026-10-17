@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1039,6 +1040,7 @@ const ADMIN_COUNT_KEYS: (keyof TylerTextOverviewAdminCounts)[] = [
 export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOverviewDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { getToken } = useAuth();
   const isEveningPage = isEveningDashboardSendSlot(sendSlot);
 
   const [rows, setRows] = useState<TylerTextOverviewAdminDraftRow[]>([]);
@@ -1402,9 +1404,17 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
       for (;;) {
         if (generateAllChainAbortRef.current) break;
 
+        const token = await getToken();
+        if (typeof token !== "string" || token.trim().length === 0) {
+          throw new Error("missing_clerk_session_token");
+        }
+
         const res = await fetch(ttoGenerateAllEndpoint(bulkUiSlot), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
             draft_for_day_key: dayKey,
             ...(audienceClerkUserIds

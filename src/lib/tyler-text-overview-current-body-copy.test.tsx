@@ -19,6 +19,12 @@ import {
   SMS_DAILY_PRODUCTION_SEND_SLOT,
 } from "@/lib/tyler-text-overview-types";
 
+vi.mock("@clerk/nextjs", () => ({
+  useAuth: () => ({
+    getToken: vi.fn(async () => "test-session-token"),
+  }),
+}));
+
 vi.mock("next/navigation", () => ({
   useSearchParams: () => ({
     get: (key: string) => (key === "draft_for_day_key" ? "2026-10-05" : null),
