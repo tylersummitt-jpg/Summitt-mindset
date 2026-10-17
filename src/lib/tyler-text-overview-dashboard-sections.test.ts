@@ -35,6 +35,11 @@ import {
   TTO_WRITER_OPENAI_ERROR_HEADING,
   openAiErrorForensicLines,
 } from "@/lib/tyler-text-overview-dashboard-sections";
+import {
+  SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
+  SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+} from "@/lib/tyler-text-overview-types";
 import type { TylerTextOverviewAdminDraftRow } from "@/lib/tyler-text-overview-types";
 
 function baseRow(
@@ -187,6 +192,7 @@ describe("tyler-text-overview-dashboard-sections", () => {
     const blocks = buildProvenanceExplanationBlocks(
       baseRow({
         draftId: null,
+        sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
         rowState: "no_draft_yet",
         notebookDisplayMode: "writer_skipped_unknown",
         notebookFamily: "writer_skipped",
@@ -196,7 +202,51 @@ describe("tyler-text-overview-dashboard-sections", () => {
     );
     const text = blocks.map((b) => b.text).join("\n");
     expect(text).toContain("MISSING MORNING DRAFT — GENERATION INCOMPLETE");
+    expect(text).toContain(
+      "No live Morning draft exists for this user, day, and slot. This row cannot send. No generation provenance is available because no draft overlay was loaded."
+    );
+    expect(text).not.toContain("MISSING EVENING DRAFT");
+    expect(text).not.toContain("No live Evening draft");
     expect(text).not.toContain("OpenAI writer was not called");
+  });
+
+  it("no_draft_yet evening provenance names the Evening slot", () => {
+    const blocks = buildProvenanceExplanationBlocks(
+      baseRow({
+        draftId: null,
+        sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        rowState: "no_draft_yet",
+        notebookDisplayMode: "writer_skipped_unknown",
+        notebookFamily: "writer_skipped",
+        writerOpenAiMessages: [],
+        notebookMessageCount: 0,
+      })
+    );
+    const text = blocks.map((b) => b.text).join("\n");
+    expect(blocks[0]).toEqual({
+      kind: "headline",
+      text: "MISSING EVENING DRAFT — GENERATION INCOMPLETE",
+    });
+    expect(blocks[1]).toEqual({
+      kind: "detail",
+      text: "No live Evening draft exists for this user, day, and slot. This row cannot send. No generation provenance is available because no draft overlay was loaded.",
+    });
+    expect(text).not.toContain("MISSING MORNING DRAFT");
+    expect(text).not.toContain("No live Morning draft");
+    expect(text).not.toContain("OpenAI writer was not called");
+  });
+
+  it("an existing Evening draft keeps its provenance and is not called a missing draft", () => {
+    const blocks = buildProvenanceExplanationBlocks(
+      baseRow({
+        sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        rowState: "draft_current",
+      })
+    );
+    const text = blocks.map((b) => b.text).join("\n");
+    expect(text).toContain("intentionally skipped");
+    expect(text).not.toContain("MISSING EVENING DRAFT");
+    expect(text).not.toContain("MISSING MORNING DRAFT");
   });
 
   it("generation linkage error is explicit and not remapped to no-draft copy", () => {
@@ -247,6 +297,23 @@ describe("weekly raw notebook / provenance", () => {
     expect(copy.isExactPrimaryInput).toBe(false);
     expect(copy.messages).toEqual([]);
     expect(copy.emptyMessage).toBe(WEEKLY_RAW_NOTEBOOK_LEGACY_OR_MISSING_MESSAGE);
+  });
+
+  it("missing weekly drafts stay on the weekly provenance path", () => {
+    const blocks = buildWeeklyProvenanceExplanationBlocks(
+      baseRow({
+        draftId: null,
+        sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
+        rowState: "no_draft_yet",
+        writerOpenAiMessages: [],
+        notebookMessageCount: 0,
+      })
+    );
+    const text = blocks.map((b) => b.text).join("\n");
+    expect(text).toContain(WEEKLY_RAW_NOTEBOOK_LEGACY_OR_MISSING_MESSAGE);
+    expect(text).not.toContain("MISSING MORNING DRAFT");
+    expect(text).not.toContain("MISSING EVENING DRAFT");
+    expect(text).not.toContain("No live Evening draft");
   });
 
   it("sent and no-send rows still get weekly provenance", () => {

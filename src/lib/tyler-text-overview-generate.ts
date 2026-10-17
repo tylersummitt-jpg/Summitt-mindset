@@ -896,6 +896,8 @@ export type TylerTextOverviewMorningDraftResult =
       generationId: string;
       body: string | null;
       machineShouldSend: boolean;
+      /** Present when this completed generation is an exact intentional SPACE. */
+      machineNoSendReason?: string | null;
       writerPromptPath: string | null;
       supersedeFailed: boolean;
       currentDraftProtected?: boolean;
@@ -1286,6 +1288,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       generationId: persisted.generationId,
       body: null,
       machineShouldSend: false,
+      machineNoSendReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
       writerPromptPath: null,
       supersedeFailed: persisted.supersedeFailed,
       currentDraftProtected: persisted.currentDraftProtected,

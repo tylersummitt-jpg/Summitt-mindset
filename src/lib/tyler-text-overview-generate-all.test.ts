@@ -21,6 +21,7 @@ type GenRow = {
   id: string;
   machine_draft_body: string | null;
   machine_should_send?: boolean | null;
+  machine_no_send_reason?: string | null;
 };
 
 const draftStore = vi.hoisted(() => [] as DraftRow[]);
@@ -147,12 +148,18 @@ function setDraft(partial: Partial<DraftRow> & { clerk_user_id: string; send_slo
   else draftStore.push(row);
 }
 
-function setGen(id: string, body: string | null, machineShouldSend?: boolean) {
+function setGen(
+  id: string,
+  body: string | null,
+  machineShouldSend?: boolean,
+  machineNoSendReason?: string | null
+) {
   const idx = genStore.findIndex((g) => g.id === id);
   const row: GenRow = {
     id,
     machine_draft_body: body,
     machine_should_send: machineShouldSend,
+    machine_no_send_reason: machineNoSendReason ?? null,
   };
   if (idx >= 0) genStore[idx] = row;
   else genStore.push(row);
@@ -351,7 +358,7 @@ describe("classifyTtoGenerateAllMember", () => {
     ).toBe("failed_or_incomplete");
   });
 
-  it("omitted reason keeps Morning/Evening null-body rows retryable", () => {
+  it("omitted reason keeps a blank current row retryable", () => {
     expect(
       classifyTtoGenerateAllMember({
         draft: {
@@ -375,22 +382,6 @@ describe("classifyTtoGenerateAllMember", () => {
         machineNoSendReason: "intentional_space",
       })
     ).toBe("pending");
-  });
-
-  it("Morning/Evening frozen-audience classification does not pass a no-send reason", () => {
-    const source = readFileSync(
-      join(process.cwd(), "src/lib/tyler-text-overview-generate-all.ts"),
-      "utf8"
-    );
-    const frozen = source.slice(
-      source.indexOf("async function loadMachineBodiesByGenerationId"),
-      source.indexOf("export function generateAllSoftFailureError")
-    );
-    expect(frozen).toContain(
-      "classifyTtoGenerateAllMember({ draft, machineDraftBody: body })"
-    );
-    expect(frozen).not.toContain("machineNoSendReason");
-    expect(frozen).toContain('.select("id, machine_draft_body")');
   });
 });
 
@@ -651,6 +642,267 @@ describe("processGenerateAllChunk / Generate All", () => {
     expect(result.already_sent).toBe(1);
     expect(result.skippedAlreadySent).toBe(1);
     expect(generateMorningUserMock).toHaveBeenCalledTimes(1);
+  });
+
+  function seedCurrentBlank(args: {
+    userId: string;
+    slot: string;
+    genId: string;
+    reason: string | null;
+  }) {
+    setGen(args.genId, null, false, args.reason);
+    setDraft({
+      clerk_user_id: args.userId,
+      send_slot: args.slot,
+      status: "current",
+      current_generation_id: args.genId,
+      edited_by_tyler: false,
+      current_body_source: "machine",
+      current_body_to_send: null,
+    });
+  }
+
+  it("fresh Morning intentional SPACE is complete, not failed, and not regenerated", async () => {
+    generateMorningUserMock.mockImplementation(async (args: {
+      audienceUser: { clerk_user_id: string };
+    }) => {
+      const id = args.audienceUser.clerk_user_id;
+      const genId = `gen-space-${id}`;
+      seedCurrentBlank({
+        userId: id,
+        slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+        genId,
+        reason: "intentional_space",
+      });
+      return {
+        ok: true,
+        body: null,
+        machineShouldSend: false,
+        machineNoSendReason: "intentional_space",
+        generationId: genId,
+        supersedeFailed: false,
+        currentDraftProtected: false,
+      };
+    });
+
+    const first = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a"],
+    });
+    if ("status" in first) throw new Error("unexpected");
+    expect(first.failures).toEqual([]);
+    expect(first.generated_this_chunk).toBe(1);
+    expect(first.generated_complete).toBe(1);
+    expect(first.failed).toBe(0);
+    expect(first.remaining).toBe(0);
+    expect(first.is_complete).toBe(true);
+    expect(generateMorningUserMock).toHaveBeenCalledTimes(1);
+
+    const resume = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a"],
+    });
+    if ("status" in resume) throw new Error("unexpected");
+    expect(resume.processed_this_chunk).toBe(0);
+    expect(resume.generated_complete).toBe(1);
+    expect(resume.failed).toBe(0);
+    expect(resume.remaining).toBe(0);
+    expect(generateMorningUserMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("fresh Evening intentional SPACE is complete, not failed, and not regenerated", async () => {
+    generateEveningUserMock.mockImplementation(async (args: { clerkUserId: string }) => {
+      const genId = `gen-space-${args.clerkUserId}`;
+      seedCurrentBlank({
+        userId: args.clerkUserId,
+        slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        genId,
+        reason: "intentional_space",
+      });
+      return {
+        ok: true,
+        body: null,
+        machineShouldSend: false,
+        machineNoSendReason: "intentional_space",
+        generationId: genId,
+        supersedeFailed: false,
+        currentDraftProtected: false,
+      };
+    });
+
+    const first = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a"],
+    });
+    if ("status" in first) throw new Error("unexpected");
+    expect(first.failures).toEqual([]);
+    expect(first.generated_this_chunk).toBe(1);
+    expect(first.generated_complete).toBe(1);
+    expect(first.failed).toBe(0);
+    expect(first.remaining).toBe(0);
+    expect(first.is_complete).toBe(true);
+    expect(generateEveningUserMock).toHaveBeenCalledTimes(1);
+    expect(generateMorningUserMock).not.toHaveBeenCalled();
+
+    const resume = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a"],
+    });
+    if ("status" in resume) throw new Error("unexpected");
+    expect(resume.processed_this_chunk).toBe(0);
+    expect(resume.generated_complete).toBe(1);
+    expect(resume.remaining).toBe(0);
+    expect(generateEveningUserMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("existing Morning intentional SPACE is complete and not regenerated", async () => {
+    seedCurrentBlank({
+      userId: "user_a",
+      slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      genId: "gen-space-morning",
+      reason: "intentional_space",
+    });
+    const result = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a"],
+    });
+    if ("status" in result) throw new Error("unexpected");
+    expect(generateMorningUserMock).not.toHaveBeenCalled();
+    expect(result.processed_this_chunk).toBe(0);
+    expect(result.generated_complete).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.remaining).toBe(0);
+    expect(result.is_complete).toBe(true);
+  });
+
+  it("existing Evening intentional SPACE is complete and not regenerated", async () => {
+    seedCurrentBlank({
+      userId: "user_a",
+      slot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      genId: "gen-space-evening",
+      reason: "intentional_space",
+    });
+    const result = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a"],
+    });
+    if ("status" in result) throw new Error("unexpected");
+    expect(generateEveningUserMock).not.toHaveBeenCalled();
+    expect(result.processed_this_chunk).toBe(0);
+    expect(result.generated_complete).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.remaining).toBe(0);
+    expect(result.is_complete).toBe(true);
+  });
+
+  it("empty technical failure stays failed and is retried", async () => {
+    seedCurrentBlank({
+      userId: "user_a",
+      slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      genId: "gen-fail-a",
+      reason: "openai_request_failed",
+    });
+    generateMorningUserMock.mockImplementation(async () => ({
+      ok: true,
+      body: null,
+      machineShouldSend: false,
+      machineNoSendReason: "openai_request_failed",
+      generationId: "gen-fail-a",
+      supersedeFailed: false,
+      currentDraftProtected: false,
+    }));
+
+    const first = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a"],
+    });
+    if ("status" in first) throw new Error("unexpected");
+    expect(first.failures).toEqual([
+      expect.objectContaining({ clerkUserId: "user_a", error: "openai_request_failed" }),
+    ]);
+    expect(first.generated_this_chunk).toBe(0);
+    expect(first.generated_complete).toBe(0);
+    expect(first.failed).toBe(1);
+    expect(first.remaining).toBe(1);
+    expect(first.is_complete).toBe(false);
+    expect(generateMorningUserMock).toHaveBeenCalledTimes(1);
+
+    const retry = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a"],
+    });
+    if ("status" in retry) throw new Error("unexpected");
+    expect(retry.processed_this_chunk).toBe(1);
+    expect(retry.failed).toBe(1);
+    expect(retry.remaining).toBe(1);
+    expect(generateMorningUserMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("a near-miss SPACE reason does not count as complete", async () => {
+    seedCurrentBlank({
+      userId: "user_a",
+      slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      genId: "gen-near",
+      reason: " intentional_space",
+    });
+    const result = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a"],
+    });
+    if ("status" in result) throw new Error("unexpected");
+    expect(generateMorningUserMock).toHaveBeenCalledTimes(1);
+    expect(result.generated_complete).toBe(1);
+    expect(result.failed).toBe(0);
+  });
+
+  it("Tyler blank and already-sent stay protected even if the generation reason is SPACE", async () => {
+    setGen("gen-tyler-blank", null, false, "intentional_space");
+    setDraft({
+      clerk_user_id: "user_a",
+      status: "current",
+      current_generation_id: "gen-tyler-blank",
+      edited_by_tyler: true,
+      current_body_source: "tyler_edit",
+      current_body_to_send: "",
+    });
+    setGen("gen-sent", null, false, "intentional_space");
+    setDraft({
+      clerk_user_id: "user_b",
+      status: "sent",
+      current_generation_id: "gen-sent",
+      current_body_to_send: "already went out",
+    });
+    const result = await processGenerateAllChunk({
+      draftForDayKey: DAY,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      now: NOW,
+      audienceClerkUserIds: ["user_a", "user_b"],
+    });
+    if ("status" in result) throw new Error("unexpected");
+    expect(generateMorningUserMock).not.toHaveBeenCalled();
+    expect(result.protected_complete).toBe(1);
+    expect(result.already_sent).toBe(1);
+    expect(result.generated_complete).toBe(0);
+    expect(result.remaining).toBe(0);
+    expect(result.is_complete).toBe(true);
   });
 
   it("noncurrent skipped", async () => {

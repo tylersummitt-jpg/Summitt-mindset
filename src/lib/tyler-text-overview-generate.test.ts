@@ -1899,6 +1899,7 @@ describe("canonical batch persists one day across US timezones", () => {
     expect(runInterpreterMock).toHaveBeenCalled();
     expect(result.body).toBeNull();
     expect(result.machineShouldSend).toBe(false);
+    expect(result.machineNoSendReason).toBe("intentional_space");
     expect(db.generations[0]?.machine_should_send).toBe(false);
     expect(db.generations[0]?.machine_draft_body).toBeNull();
     expect(db.generations[0]?.machine_no_send_reason).toBe("intentional_space");

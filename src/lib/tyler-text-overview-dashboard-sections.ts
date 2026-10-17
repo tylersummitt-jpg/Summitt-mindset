@@ -4,9 +4,10 @@ import {
   notebookDisplayHeadline,
   notebookDisplaySubtext,
 } from "@/lib/tyler-text-overview-notebook-display";
-import type {
-  TylerTextOverviewAdminDraftRow,
-  TylerTextOverviewOpenAiErrorPanel,
+import {
+  SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+  type TylerTextOverviewAdminDraftRow,
+  type TylerTextOverviewOpenAiErrorPanel,
 } from "@/lib/tyler-text-overview-types";
 
 export const ADMIN_INTERPRETATION_LINE = "Admin interpretation — not sent to OpenAI.";
@@ -338,14 +339,19 @@ export function buildProvenanceExplanationBlocks(
   row: TylerTextOverviewAdminDraftRow
 ): ProvenanceExplanationBlock[] {
   if (row.rowState === "no_draft_yet") {
+    const eveningMissingDraft = row.sendSlot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT;
     return [
       {
         kind: "headline",
-        text: "MISSING MORNING DRAFT — GENERATION INCOMPLETE",
+        text: eveningMissingDraft
+          ? "MISSING EVENING DRAFT — GENERATION INCOMPLETE"
+          : "MISSING MORNING DRAFT — GENERATION INCOMPLETE",
       },
       {
         kind: "detail",
-        text: "No live Morning draft exists for this user, day, and slot. This row cannot send. No generation provenance is available because no draft overlay was loaded.",
+        text: eveningMissingDraft
+          ? "No live Evening draft exists for this user, day, and slot. This row cannot send. No generation provenance is available because no draft overlay was loaded."
+          : "No live Morning draft exists for this user, day, and slot. This row cannot send. No generation provenance is available because no draft overlay was loaded.",
       },
     ];
   }

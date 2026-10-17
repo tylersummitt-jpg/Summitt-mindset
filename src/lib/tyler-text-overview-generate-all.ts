@@ -120,12 +120,11 @@ function toAudienceRow(member: AudienceMember): TylerTextOverviewAudienceRow {
  * - Tyler provenance (edited_by_tyler / tyler_edit) → protected_complete
  * - Successful nonempty machine_draft_body → generated_complete (skip; do not redo)
  * - Nonblank current body without Tyler provenance still skips (body pin)
- * - Exact machine_no_send_reason intentional_space, when the caller passes it → generated_complete
- * - Blank/missing machine generation on current → failed_or_incomplete (retryable)
+ * - Exact machine_no_send_reason intentional_space on the current generation → generated_complete
+ * - Blank/missing machine generation on current, without that exact reason → failed_or_incomplete (retryable)
  *
- * Morning/Evening callers omit machineNoSendReason. Omitting it preserves their
- * current null-body retry. Only the exact reason string counts; a false
- * machine_should_send or a metadata flag does not.
+ * Morning/Evening resume loads machine_no_send_reason from the current generation.
+ * Only the exact reason string counts; a false machine_should_send or a metadata flag does not.
  */
 export function classifyTtoGenerateAllMember(args: {
   draft: DraftClassifyRow | null;
@@ -215,10 +214,15 @@ async function loadDraftRowsForAudience(args: {
   return out;
 }
 
-async function loadMachineBodiesByGenerationId(
+type LinkedGenerationFacts = {
+  body: string | null;
+  machineNoSendReason: string | null;
+};
+
+async function loadLinkedGenerationFacts(
   generationIds: string[]
-): Promise<Map<string, string | null>> {
-  const out = new Map<string, string | null>();
+): Promise<Map<string, LinkedGenerationFacts>> {
+  const out = new Map<string, LinkedGenerationFacts>();
   const unique = [...new Set(generationIds.filter(Boolean))];
   if (unique.length === 0) return out;
 
@@ -227,7 +231,7 @@ async function loadMachineBodiesByGenerationId(
     const slice = unique.slice(i, i + chunkSize);
     const { data, error } = await supabaseServer
       .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-      .select("id, machine_draft_body")
+      .select("id, machine_draft_body, machine_no_send_reason")
       .in("id", slice);
     if (error) {
       throw new Error(`tto_generate_all_generation_lookup_failed:${error.message}`);
@@ -235,10 +239,11 @@ async function loadMachineBodiesByGenerationId(
     for (const row of data ?? []) {
       const id = typeof row.id === "string" ? row.id : "";
       if (!id) continue;
-      out.set(
-        id,
-        typeof row.machine_draft_body === "string" ? row.machine_draft_body : null
-      );
+      out.set(id, {
+        body: typeof row.machine_draft_body === "string" ? row.machine_draft_body : null,
+        machineNoSendReason:
+          typeof row.machine_no_send_reason === "string" ? row.machine_no_send_reason : null,
+      });
     }
   }
   return out;
@@ -255,14 +260,21 @@ async function classifyFrozenAudience(args: {
     const d = drafts.get(id);
     if (d?.current_generation_id) genIds.push(d.current_generation_id);
   }
-  const bodies = await loadMachineBodiesByGenerationId(genIds);
+  const linked = await loadLinkedGenerationFacts(genIds);
   const classes = new Map<string, TtoGenerateAllMemberClass>();
   for (const id of args.clerkUserIds) {
     const draft = drafts.get(id) ?? null;
-    const body = draft?.current_generation_id
-      ? bodies.get(draft.current_generation_id) ?? null
-      : null;
-    classes.set(id, classifyTtoGenerateAllMember({ draft, machineDraftBody: body }));
+    const facts = draft?.current_generation_id
+      ? linked.get(draft.current_generation_id)
+      : undefined;
+    classes.set(
+      id,
+      classifyTtoGenerateAllMember({
+        draft,
+        machineDraftBody: facts?.body ?? null,
+        machineNoSendReason: facts?.machineNoSendReason ?? null,
+      })
+    );
   }
   return classes;
 }
@@ -394,6 +406,9 @@ async function generateOneUser(args: {
       if (!result.ok) {
         return { ok: false, error: result.error ?? result.reason };
       }
+      if (result.machineNoSendReason === MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE) {
+        return { ok: true, protected: result.currentDraftProtected === true };
+      }
       const softError = generateAllSoftFailureError(result);
       if (softError) {
         return { ok: false, error: softError };
@@ -408,6 +423,9 @@ async function generateOneUser(args: {
     });
     if (!result.ok) {
       return { ok: false, error: result.error ?? result.reason };
+    }
+    if (result.machineNoSendReason === MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE) {
+      return { ok: true, protected: result.currentDraftProtected === true };
     }
     const softError = generateAllSoftFailureError(result);
     if (softError) {
