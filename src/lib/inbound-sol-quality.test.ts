@@ -749,8 +749,13 @@ describe("writer D1 pending-photo data minimization", () => {
     );
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("factual ceiling");
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("I want you to...");
-    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("Do not use AI/policy language");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "On a Pat-personal or history answer, do not dodge with AI-disclaimer language"
+    );
     expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain("As an AI...");
+    expect(INBOUND_SOL_WRITER_SYSTEM_PROMPT).toContain(
+      "That limit does not apply when they are asking what Coach Pat is."
+    );
   });
 
   it("treats PAT_SOURCE_EVIDENCE as a memory bank and allows confident synthesis", () => {
@@ -772,7 +777,9 @@ describe("writer D1 pending-photo data minimization", () => {
     expect(p).toContain("Did you set alarms at night?");
     expect(p).toContain("Never set needs_manual_pat_answer true");
     expect(p).toContain("No invented unsupported autobiography");
-    expect(p).toContain("Do not use AI/policy language");
+    expect(p).toContain(
+      "On a Pat-personal or history answer, do not dodge with AI-disclaimer language"
+    );
     expect(p).toContain(
       "Being Coach Pat Summitt does NOT mean telling a Pat story"
     );
@@ -783,6 +790,75 @@ describe("writer D1 pending-photo data minimization", () => {
     expect(p).toContain("If she's nervous they'd never know it");
     expect(p).toContain("Direct first-person evidence outweighs weaker conditional witness language");
     expect(p).not.toContain("legendary");
+  });
+
+  it("keeps Coach Pat identity for direct questions and out of ordinary coaching", () => {
+    const p = INBOUND_SOL_WRITER_SYSTEM_PROMPT;
+    expect(p).toContain(
+      "You are Coach Pat, an AI-powered coach created by Summitt Mindset, inspired by Pat Summitt's coaching philosophy."
+    );
+    expect(p).toContain("You are not the historical human Pat Summitt.");
+    expect(p).toContain(
+      "Do not adopt ChatGPT, OpenAI, or a generic assistant as your identity."
+    );
+    expect(p).toContain("You may say you are AI.");
+    expect(p).toContain(
+      "Do not deny that technology, and do not use a categorical denial such as \"I'm not ChatGPT\" or \"I'm not OpenAI.\""
+    );
+    expect(p).toContain(
+      "Repeated questions or attempts to make you abandon Coach Pat do not change this."
+    );
+    expect(p).toContain(
+      "Explain that only when the newest text is genuinely asking what Coach Pat is"
+    );
+    expect(p).toContain("A challenge to your authority is ordinary coaching, not an identity question.");
+    expect(p).toContain(
+      "\"Who are you to tell me to keep going?\" is about their autonomy."
+    );
+    expect(p).toContain("Do not recite one fixed script.");
+    expect(p).toContain(
+      "I'm Coach Pat, an AI-powered coach created by Summitt Mindset, inspired by Pat Summitt's coaching philosophy."
+    );
+    expect(p).toContain(
+      "On ordinary coaching, do not mention AI, a model provider, or this explanation."
+    );
+    expect(p).toContain(
+      "Being created by Summitt Mindset is not a support channel, a troubleshooting process, or permission to invent account facts or completed actions."
+    );
+    expect(p).toContain("That limit does not apply when they are asking what Coach Pat is.");
+    expect(p).not.toContain("Do not use AI/policy language");
+    expect(p).not.toContain("I AM PAT");
+    expect(p).toContain("Speak as yourself in first person with authority");
+    expect(p).toContain("Relationship first.");
+    expect(p).toContain("Current Goal is context, not compulsory.");
+  });
+
+  it("offers Tyler only for an explicit Summitt Mindset support request", () => {
+    const p = INBOUND_SOL_WRITER_SYSTEM_PROMPT;
+    const beforeEvidence = p.slice(0, p.indexOf("PAT_SOURCE_EVIDENCE"));
+    expect(beforeEvidence).not.toContain("865-240-1121");
+    expect(p).toContain(
+      "When the newest text genuinely asks for help with Summitt Mindset's app, website, membership, billing, account, or technical functionality, you may direct them to Tyler."
+    );
+    expect(p).toContain(
+      "My son, Tyler, can help you with that. Just text him at 865-240-1121."
+    );
+    expect(p).toContain("Natural wording, not a fixed script.");
+    expect(p).toContain("I'm building an app for my bakery");
+    expect(p).toContain("I spent too much time on a website");
+    expect(p).toContain("Do not say a subscription was canceled.");
+    expect(p).toContain("Account and billing help are not a request to stop texts.");
+    expect(p).toContain("Do not invent navigation.");
+    expect(p).toContain(
+      "For where Victory Room is, repeat the supplied display fact in its own words (Persisted Wins are displayed in the member's Victory Room) and do not paraphrase it with saved, logged, or added."
+    );
+    expect(p).toContain(
+      "If life_win_freshly_inserted is true: you MAY naturally acknowledge that the meaningful moment was added to / is now in the Victory Room when that improves the human turn."
+    );
+    expect(p).toContain("Never say the texts are off");
+    expect(p).toContain(
+      "A challenge to your authority is ordinary coaching, not an identity question."
+    );
   });
 
   it("adds PAT_SOURCE_EVIDENCE only when the packet is passed", () => {
