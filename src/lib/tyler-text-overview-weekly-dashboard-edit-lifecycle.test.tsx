@@ -414,6 +414,51 @@ describe("weekly dashboard edit lifecycle", () => {
     expect(screen.getAllByText("Save changes before sending.").length).toBeGreaterThan(0);
   });
 
+  it("shows Mayes and the clerk id, and keeps Mayes when save omits the name", async () => {
+    const user = userEvent.setup();
+    const mayes = weeklyRow({
+      draftId: "draft-mayes",
+      clerkUserId: "user_mayes",
+      preferredName: "Mayes",
+      currentBodyToSend: "server body",
+    });
+    render(<TylerTextOverviewWeeklyDashboard />);
+    await settleInitial([mayes]);
+
+    const card = rowCard("Mayes");
+    expect(within(card).getByText("user_mayes")).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Save Weekly Text" })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Send Weekly Text" })).toBeTruthy();
+    expect(within(card).getByRole("button", { name: "Regenerate Weekly Draft" })).toBeTruthy();
+
+    const box = within(card).getByRole("textbox");
+    await user.clear(box);
+    await user.type(box, "local mayes draft");
+    await user.click(within(card).getByRole("button", { name: "Save Weekly Text" }));
+    await waitFor(() => expect(actionRequests.length).toBe(1));
+    resolveDeferred(actionRequests[0], {
+      ok: true,
+      row: {
+        ...mayes,
+        preferredName: null,
+        currentBodyToSend: "authoritative mayes body",
+        editedByTyler: true,
+        currentBodySource: "tyler_edit",
+      },
+    });
+    await screen.findByText("Saved. Draft only — did not send.");
+    const saved = rowCard("Mayes");
+    expect(within(saved).getByText("user_mayes")).toBeTruthy();
+    expect(within(saved).getByRole("textbox")).toHaveProperty(
+      "value",
+      "authoritative mayes body"
+    );
+    expect(screen.queryByDisplayValue("server body")).toBeNull();
+    expect(within(saved).getByRole("button", { name: "Save Weekly Text" })).toBeTruthy();
+    expect(within(saved).getByRole("button", { name: "Send Weekly Text" })).toBeTruthy();
+    expect(within(saved).getByRole("button", { name: "Regenerate Weekly Draft" })).toBeTruthy();
+  });
+
   it("replaces local edits after a confirmed bulk apply", async () => {
     const user = userEvent.setup();
     const alpha = weeklyRow({

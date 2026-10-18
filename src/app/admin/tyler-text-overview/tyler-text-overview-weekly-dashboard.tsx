@@ -100,6 +100,15 @@ function weeklyDraftBody(value: string | null | undefined): string {
   return value ?? "";
 }
 
+/** Display-only. A save response without a real name must not blank the card. */
+function preferredNameKeptAfterWeeklySave(
+  updatedName: string | null | undefined,
+  existingName: string | null
+): string | null {
+  if (typeof updatedName === "string" && updatedName.trim()) return updatedName;
+  return existingName;
+}
+
 function isWeeklyDraftDirty(row: TylerTextOverviewAdminDraftRow, edits: EditState): boolean {
   if (!row.draftId) return false;
   const edited = edits[row.draftId] ?? "";
@@ -345,7 +354,17 @@ export default function TylerTextOverviewWeeklyDashboard() {
       }
       const updated = json.row as TylerTextOverviewAdminDraftRow;
       setRows((prev) => {
-        const next = prev.map((r) => (r.draftId === updated.draftId ? updated : r));
+        const next = prev.map((r) =>
+          r.draftId === updated.draftId
+            ? {
+                ...updated,
+                preferredName: preferredNameKeptAfterWeeklySave(
+                  updated.preferredName,
+                  r.preferredName
+                ),
+              }
+            : r
+        );
         rowsRef.current = next;
         return next;
       });
@@ -874,6 +893,11 @@ export default function TylerTextOverviewWeeklyDashboard() {
                 className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-5"
               >
                 <section className="space-y-3">
+                  {row.preferredName?.trim() ? (
+                    <p className="text-lg font-semibold text-gray-900">
+                      {row.preferredName.trim()}
+                    </p>
+                  ) : null}
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
                       {rowStateLabel(row.rowState, sendSlot)}
@@ -893,12 +917,6 @@ export default function TylerTextOverviewWeeklyDashboard() {
                       </span>
                     )}
                   </div>
-                  {row.preferredName ? (
-                    <div>
-                      <p className="text-xs font-medium text-gray-500">preferred_name</p>
-                      <p className="mt-1 text-sm font-medium text-gray-900">{row.preferredName}</p>
-                    </div>
-                  ) : null}
                   <div>
                     <p className="text-xs font-medium text-gray-500">clerk_user_id</p>
                     <p className="mt-1 font-mono text-sm text-gray-900 break-all">
