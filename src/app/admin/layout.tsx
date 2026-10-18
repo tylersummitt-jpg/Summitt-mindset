@@ -73,9 +73,14 @@ export default async function AdminLayout({
               Account Deletions
             </Link>
             {tyler ? (
-              <Link href="/admin/personal-videos" className="text-gray-700 underline hover:text-gray-900">
-                Personal Videos
-              </Link>
+              <>
+                <Link href="/admin/personal-videos" className="text-gray-700 underline hover:text-gray-900">
+                  Personal Videos
+                </Link>
+                <Link href="/admin/keepsakes" className="text-gray-700 underline hover:text-gray-900">
+                  Keepsake Studio
+                </Link>
+              </>
             ) : null}
           </nav>
         </div>

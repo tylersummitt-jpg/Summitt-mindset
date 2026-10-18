@@ -24,6 +24,7 @@
     "html2canvas": "^1.4.1",
     "next": "^16.0.5",
     "openai": "^6.9.1",
+    "pdf-lib": "1.17.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "resend": "^6.9.3",
