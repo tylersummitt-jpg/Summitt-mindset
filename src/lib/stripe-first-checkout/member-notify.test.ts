@@ -32,6 +32,10 @@ vi.mock("resend", () => ({
   },
 }));
 
+vi.mock("@/lib/meta-capi-stripe-conversions", () => ({
+  maybeEmitMetaStartTrialFromCheckout: vi.fn(async () => undefined),
+}));
+
 import { notifyMemberSubscribedInternal } from "@/lib/notify-member-subscribed";
 import {
   notifyConfirmedStripeFirstTrial,

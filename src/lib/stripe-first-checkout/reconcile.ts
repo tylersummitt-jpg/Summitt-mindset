@@ -2,6 +2,7 @@ import "server-only";
 
 import Stripe from "stripe";
 
+import { maybeEmitMetaStartTrialFromCheckout } from "@/lib/meta-capi-stripe-conversions";
 import { INTENT_METADATA_KEY } from "@/lib/stripe-first-checkout/constants";
 import { stripeKeyMatchesLivemode } from "@/lib/stripe-first-checkout/credentials";
 import { confirmStripeTrial, loadIntentById } from "@/lib/stripe-first-checkout/intent-store";
@@ -143,10 +144,30 @@ export async function reconcileStripeFirstFromCheckoutSession(
 
   const hold = await reconcileActivationHold(intentId);
   if (saved === "saved" || saved === "already") {
+    const ownerCanary =
+      isOwnerCanaryMetadata(session.metadata) ||
+      isOwnerCanaryMetadata(proof.subscription.metadata);
+    if (!ownerCanary) {
+      try {
+        const created = session.created;
+        const clerkUserId = intent.clerk_user_id;
+        await maybeEmitMetaStartTrialFromCheckout({
+          subscription: proof.subscription,
+          userId:
+            typeof clerkUserId === "string" && clerkUserId.trim()
+              ? clerkUserId.trim()
+              : null,
+          eventCreatedUnix:
+            typeof created === "number" && Number.isFinite(created)
+              ? Math.floor(created)
+              : Math.floor(Date.now() / 1000),
+        });
+      } catch {
+        console.warn("[stripe-first] Meta StartTrial isolated failure");
+      }
+    }
     const notified = await notifyConfirmedStripeFirstTrial({
-      ownerCanary:
-        isOwnerCanaryMetadata(session.metadata) ||
-        isOwnerCanaryMetadata(proof.subscription.metadata),
+      ownerCanary,
       subscriptionStatus: proof.subscription.status,
       paused: proof.subscription.pause_collection != null,
       clerkUserId: intent.clerk_user_id,
