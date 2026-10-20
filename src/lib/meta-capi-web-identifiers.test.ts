@@ -17,9 +17,11 @@ vi.mock("@/lib/native-app/is-native-summitt-mindset-app-request", () => ({
 
 import {
   loadMetaCapiWebIdentifiersForUser,
+  matchFromCheckoutRequest,
   metaCapiWebIdentifiersPresenceForUser,
   persistMetaCapiWebIdentifiersFromCheckoutRequest,
   purgeMetaCapiWebIdentifiersForUser,
+  saveMetaCapiWebMatchForUser,
 } from "@/lib/meta-capi-web-identifiers";
 
 function chain(result: { data: unknown; error: unknown }) {
@@ -225,5 +227,126 @@ describe("meta_capi_web_identifiers store", () => {
     await expect(metaCapiWebIdentifiersPresenceForUser("user_abc")).resolves.toBe(
       "unknown"
     );
+  });
+
+  it("prefers a valid _fbc cookie over a constructed fbclid", async () => {
+    const observed = "2026-09-01T12:00:00.000Z";
+    const acq = encodeURIComponent(
+      JSON.stringify({
+        v: 1,
+        first_touch_at: observed,
+        utm_source: "facebook",
+        utm_medium: "paid",
+        utm_campaign: null,
+        utm_content: null,
+        gclid_present: false,
+        fbclid_present: true,
+        referrer_host: null,
+        source_normalized: "meta",
+        is_paid_acquisition: true,
+        source_detail: null,
+        meta_fbclid: "OtherId",
+        meta_fbclid_observed_at: observed,
+      })
+    );
+    const match = await matchFromCheckoutRequest(
+      new Request("https://summittmindset.com/api/checkout/stripe-first/start", {
+        headers: {
+          cookie: `_fbc=fb.1.1700000000000.AbCdEf; _fbp=fb.1.1700000000000.1234567890; sm_acq=${acq}`,
+          "user-agent": "Mozilla/5.0 Returning",
+          "x-forwarded-for": "8.8.8.8",
+        },
+      })
+    );
+    expect(match).toEqual({
+      fbc: "fb.1.1700000000000.AbCdEf",
+      fbp: "fb.1.1700000000000.1234567890",
+      clientIpAddress: "8.8.8.8",
+      clientUserAgent: "Mozilla/5.0 Returning",
+    });
+  });
+
+  it("constructs fbc from the first real fbclid when _fbc is missing and does not invent fbp", async () => {
+    const observed = "2026-09-01T12:00:00.000Z";
+    const acq = encodeURIComponent(
+      JSON.stringify({
+        v: 1,
+        first_touch_at: observed,
+        utm_source: "facebook",
+        utm_medium: "paid",
+        utm_campaign: null,
+        utm_content: null,
+        gclid_present: false,
+        fbclid_present: true,
+        referrer_host: null,
+        source_normalized: "meta",
+        is_paid_acquisition: true,
+        source_detail: null,
+        meta_fbclid: "AbCdEf",
+        meta_fbclid_observed_at: observed,
+      })
+    );
+    const match = await matchFromCheckoutRequest(
+      new Request("https://summittmindset.com/api/checkout/stripe-first/start", {
+        headers: {
+          cookie: `sm_acq=${acq}`,
+          "user-agent": "Mozilla/5.0",
+          "x-forwarded-for": "8.8.8.8",
+        },
+      })
+    );
+    expect(match.fbc).toBe(`fb.1.${Date.parse(observed)}.AbCdEf`);
+    expect(match.fbp).toBeNull();
+  });
+
+  it("drops invalid match fields instead of storing them", async () => {
+    const match = await matchFromCheckoutRequest(
+      new Request("https://summittmindset.com/api/checkout/stripe-first/start", {
+        headers: {
+          cookie: "_fbc=not-valid; _fbp=also-bad",
+          "user-agent": "Mozilla/5.0",
+          "x-forwarded-for": "10.1.1.1, 192.168.0.4",
+        },
+      })
+    );
+    expect(match).toEqual({
+      fbc: null,
+      fbp: null,
+      clientIpAddress: null,
+      clientUserAgent: "Mozilla/5.0",
+    });
+  });
+
+  it("does not replace an fbc already stored for the Clerk user", async () => {
+    const query = chain({
+      data: {
+        clerk_user_id: "user_abc",
+        meta_fbclid: "OldId",
+        meta_fbclid_observed_at: "2026-09-01T12:00:00.000Z",
+        meta_fbc: "fb.1.1700000000000.OldFbc",
+        meta_fbp: null,
+        client_ip: null,
+        client_user_agent: null,
+      },
+      error: null,
+    });
+    fromMock.mockReturnValue(query);
+    await saveMetaCapiWebMatchForUser({
+      userId: "user_abc",
+      match: {
+        fbc: "fb.1.1700000000000.NewFbc",
+        fbp: "fb.1.1700000000000.1234567890",
+        clientIpAddress: "8.8.8.8",
+        clientUserAgent: "Mozilla/5.0",
+      },
+    });
+    expect(query.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta_fbc: "fb.1.1700000000000.OldFbc",
+        meta_fbp: "fb.1.1700000000000.1234567890",
+        client_ip: "8.8.8.8",
+      })
+    );
+    expect(query.insert).not.toHaveBeenCalled();
   });
 });

@@ -17,8 +17,13 @@ import {
 
 export const META_CAPI_GRAPH_VERSION = "v21.0" as const;
 export const META_CAPI_TIMEOUT_MS = 2000 as const;
-export const META_CAPI_EVENT_SOURCE_URL =
-  "https://www.summittmindset.com/subscribe" as const;
+/** Signed-in Clerk-first checkout. Apex host, public page. */
+export const META_CAPI_CLERK_CHECKOUT_SOURCE_URL =
+  "https://summittmindset.com/subscribe" as const;
+/** Stripe-first checkout start. Apex host, public page. */
+export const META_CAPI_STRIPE_FIRST_SOURCE_URL =
+  "https://summittmindset.com/checkout/start" as const;
+export const META_CAPI_EVENT_SOURCE_URL = META_CAPI_CLERK_CHECKOUT_SOURCE_URL;
 
 export type MetaCapiStandardEvent = "StartTrial" | "Subscribe";
 
@@ -33,6 +38,7 @@ export type MetaCapiSendInput = {
   fbp?: string | null;
   clientIpAddress?: string | null;
   clientUserAgent?: string | null;
+  eventSourceUrl?: string | null;
 };
 
 export type MetaCapiSendResult =
@@ -74,6 +80,16 @@ export function hashMetaExternalId(clerkUserId: string | null | undefined): stri
   return createHash("sha256").update(trimmed, "utf8").digest("hex");
 }
 
+function resolveEventSourceUrl(raw: string | null | undefined): string {
+  if (
+    raw === META_CAPI_STRIPE_FIRST_SOURCE_URL ||
+    raw === META_CAPI_CLERK_CHECKOUT_SOURCE_URL
+  ) {
+    return raw;
+  }
+  return META_CAPI_EVENT_SOURCE_URL;
+}
+
 export function buildMetaCapiEventPayload(input: MetaCapiSendInput): Record<string, unknown> {
   const userData: Record<string, string> = {};
   if (input.externalIdHash && /^[a-f0-9]{64}$/.test(input.externalIdHash)) {
@@ -93,7 +109,7 @@ export function buildMetaCapiEventPayload(input: MetaCapiSendInput): Record<stri
     event_time: input.eventTime,
     event_id: input.eventId,
     action_source: "website",
-    event_source_url: META_CAPI_EVENT_SOURCE_URL,
+    event_source_url: resolveEventSourceUrl(input.eventSourceUrl),
   };
 
   if (Object.keys(userData).length > 0) {
@@ -112,6 +128,22 @@ export function buildMetaCapiEventPayload(input: MetaCapiSendInput): Record<stri
 
 function capiUrl(pixelId: string): string {
   return `https://graph.facebook.com/${META_CAPI_GRAPH_VERSION}/${pixelId}/events`;
+}
+
+/**
+ * Graph success is HTTP 2xx and a numeric events_received of at least 1.
+ * A 2xx body that omits the count, or reports zero, is not delivery.
+ * The body is never logged.
+ */
+async function graphEventsReceived(res: Response): Promise<number> {
+  try {
+    const parsed: unknown = await res.json();
+    if (!parsed || typeof parsed !== "object") return 0;
+    const received = (parsed as { events_received?: unknown }).events_received;
+    return typeof received === "number" && Number.isFinite(received) ? received : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -167,6 +199,15 @@ export async function sendMetaCapiEvent(
           status: res.status,
         });
         return { ok: false, reason: `http_${res.status}` };
+      }
+      const received = await graphEventsReceived(res);
+      if (received < 1) {
+        console.warn("[meta-capi] graph events_received", {
+          event_name: input.eventName,
+          event_id: input.eventId,
+          status: res.status,
+        });
+        return { ok: false, reason: "events_received" };
       }
       return { ok: true };
     } catch (err) {

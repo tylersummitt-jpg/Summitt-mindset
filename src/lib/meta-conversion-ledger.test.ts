@@ -143,4 +143,60 @@ describe("meta-conversion-ledger", () => {
     });
     expect(result.status).toBe("unavailable");
   });
+
+  it("treats an event at the seven-day boundary as still eligible and the next second as too old", async () => {
+    const { metaConversionEventWithinMaxAge, META_CONVERSION_MAX_EVENT_AGE_SECONDS } =
+      await import("./meta-conversion-ledger");
+    const now = 1_800_000_000;
+    expect(
+      metaConversionEventWithinMaxAge(now - META_CONVERSION_MAX_EVENT_AGE_SECONDS, now)
+    ).toBe(true);
+    expect(
+      metaConversionEventWithinMaxAge(now - META_CONVERSION_MAX_EVENT_AGE_SECONDS - 1, now)
+    ).toBe(false);
+  });
+
+  it("lists at most 20 unsent rows inside the age window and old enough to retry", async () => {
+    const nowMs = Date.parse("2026-10-19T12:00:00.000Z");
+    const limit = vi.fn(async () => ({ data: [], error: null }));
+    const order = vi.fn(() => ({ limit }));
+    const lte = vi.fn(() => ({ order }));
+    const gte = vi.fn(() => ({ lte }));
+    const is = vi.fn(() => ({ gte }));
+    const select = vi.fn(() => ({ is }));
+    fromMock.mockImplementation(() => ({ select }));
+    const {
+      listRetryableMetaConversions,
+      META_CONVERSION_MAX_EVENT_AGE_SECONDS,
+      META_CONVERSION_RETRY_BATCH_LIMIT,
+      META_CONVERSION_RETRY_MIN_AGE_MS,
+    } = await import("./meta-conversion-ledger");
+    await listRetryableMetaConversions(nowMs);
+    expect(fromMock).toHaveBeenCalledWith("meta_conversion_events");
+    expect(is).toHaveBeenCalledWith("sent_at", null);
+    expect(gte).toHaveBeenCalledWith(
+      "event_time",
+      Math.floor(nowMs / 1000) - META_CONVERSION_MAX_EVENT_AGE_SECONDS
+    );
+    expect(lte).toHaveBeenCalledWith(
+      "created_at",
+      new Date(nowMs - META_CONVERSION_RETRY_MIN_AGE_MS).toISOString()
+    );
+    expect(order).toHaveBeenCalledWith("created_at", { ascending: true });
+    expect(limit).toHaveBeenCalledWith(META_CONVERSION_RETRY_BATCH_LIMIT);
+    expect(META_CONVERSION_RETRY_BATCH_LIMIT).toBe(20);
+  });
+
+  it("re-reads sent_at and treats a missing row as already handled", async () => {
+    const maybeSingle = vi.fn(async () => ({ data: { sent_at: null }, error: null }));
+    const eq = vi.fn(() => ({ maybeSingle }));
+    const select = vi.fn(() => ({ eq }));
+    fromMock.mockImplementation(() => ({ select }));
+    const { isMetaConversionUnsent } = await import("./meta-conversion-ledger");
+    await expect(isMetaConversionUnsent("row-1")).resolves.toBe(true);
+    maybeSingle.mockResolvedValue({ data: { sent_at: "2026-10-19T12:00:00.000Z" }, error: null });
+    await expect(isMetaConversionUnsent("row-1")).resolves.toBe(false);
+    maybeSingle.mockResolvedValue({ data: null, error: { code: "XX" } });
+    await expect(isMetaConversionUnsent("row-1")).resolves.toBe(false);
+  });
 });

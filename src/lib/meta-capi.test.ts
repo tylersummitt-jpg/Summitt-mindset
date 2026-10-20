@@ -69,7 +69,7 @@ describe("meta-capi", () => {
     expect(userData.fbp).toBe("fb.1.1700000000000.1234567890");
     expect(userData.client_ip_address).toBe("8.8.8.8");
     expect(userData.client_user_agent).toBe("Mozilla/5.0 TestBrowser");
-    expect(payload.event_source_url).toBe("https://www.summittmindset.com/subscribe");
+    expect(payload.event_source_url).toBe("https://summittmindset.com/subscribe");
     expect(payload.event_name).toBe("StartTrial");
     expect(payload.action_source).toBe("website");
     const json = JSON.stringify(payload);
@@ -278,5 +278,77 @@ describe("meta-capi", () => {
       (fetchMock.mock.calls[0]?.[1] as { body: string }).body
     ) as { test_event_code?: string };
     expect(body.test_event_code).toBe("TEST12345");
+  });
+
+  it("uses the Stripe-first checkout URL only when that public page is requested", async () => {
+    const { buildMetaCapiEventPayload } = await import("./meta-capi");
+    const stripeFirst = buildMetaCapiEventPayload({
+      eventName: "StartTrial",
+      eventTime: 1700000000,
+      eventId: "start_trial:sub_1",
+      eventSourceUrl: "https://summittmindset.com/checkout/start",
+    });
+    expect(stripeFirst.event_source_url).toBe("https://summittmindset.com/checkout/start");
+    const ignored = buildMetaCapiEventPayload({
+      eventName: "Subscribe",
+      eventTime: 1700000000,
+      eventId: "subscribe:sub_1",
+      value: 29,
+      currency: "USD",
+      eventSourceUrl: "https://evil.example/checkout/start",
+    });
+    expect(ignored.event_source_url).toBe("https://summittmindset.com/subscribe");
+  });
+
+  it("accepts delivery only when Graph returns 2xx and events_received >= 1", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ events_received: 1, messages: ["do-not-log-body"] }),
+    });
+    const { sendMetaCapiEvent } = await import("./meta-capi");
+    const result = await sendMetaCapiEvent({
+      eventName: "StartTrial",
+      eventTime: 1700000000,
+      eventId: "start_trial:sub_1",
+    });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("does not treat HTTP 200 with events_received 0 as delivery and does not log the body", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ events_received: 0, fbtrace_id: "trace-secret-body" }),
+    });
+    const { sendMetaCapiEvent } = await import("./meta-capi");
+    const result = await sendMetaCapiEvent({
+      eventName: "Subscribe",
+      eventTime: 1700000000,
+      eventId: "subscribe:sub_1",
+      value: 29,
+      currency: "USD",
+    });
+    expect(result).toEqual({ ok: false, reason: "events_received" });
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("trace-secret-body");
+    warn.mockRestore();
+  });
+
+  it("does not treat a 2xx body without events_received as delivery", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error("invalid json");
+      },
+    });
+    const { sendMetaCapiEvent } = await import("./meta-capi");
+    const result = await sendMetaCapiEvent({
+      eventName: "StartTrial",
+      eventTime: 1700000000,
+      eventId: "start_trial:sub_1",
+    });
+    expect(result).toEqual({ ok: false, reason: "events_received" });
   });
 });

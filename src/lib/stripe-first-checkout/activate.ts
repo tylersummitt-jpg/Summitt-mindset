@@ -3,6 +3,10 @@ import "server-only";
 import Stripe from "stripe";
 
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import {
+  matchFromCheckoutRequest,
+  saveMetaCapiWebMatchForUser,
+} from "@/lib/meta-capi-web-identifiers";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { isVisitorId } from "@/lib/marketing-attribution-pure";
 import { parsePersonalVideoId } from "@/lib/personal-videos/analytics";
@@ -57,7 +61,9 @@ import {
   liveCanaryIntentExists,
   loadIntentByBindingHash,
   loadIntentById,
+  loadIntentBySubscriptionId,
   markClerkProvisioned,
+  saveCheckoutMatchFields,
   markSessionStartedForExistingUser,
   markSessionStartedForProvisionedUser,
   markSignInRequired,
@@ -114,6 +120,42 @@ function assertHostedCredentials(): "test" | "canary" {
     throw new Error("hosted_credentials_required");
   }
   return mode;
+}
+
+async function captureCheckoutMatch(intentId: string, request: Request): Promise<void> {
+  try {
+    const match = await matchFromCheckoutRequest(request);
+    await saveCheckoutMatchFields({
+      intentId,
+      fbc: match.fbc,
+      fbp: match.fbp,
+      clientIp: match.clientIpAddress,
+      clientUserAgent: match.clientUserAgent,
+    });
+  } catch {
+    console.warn("[stripe-first] checkout match capture failed");
+  }
+}
+
+async function copyCheckoutMatchToClerkUser(
+  subscriptionId: string,
+  clerkUserId: string
+): Promise<void> {
+  try {
+    const intent = await loadIntentBySubscriptionId(subscriptionId);
+    if (!intent) return;
+    await saveMetaCapiWebMatchForUser({
+      userId: clerkUserId,
+      match: {
+        fbc: intent.meta_fbc,
+        fbp: intent.meta_fbp,
+        clientIpAddress: intent.client_ip,
+        clientUserAgent: intent.client_user_agent,
+      },
+    });
+  } catch {
+    console.warn("[stripe-first] checkout match copy failed");
+  }
 }
 
 function priceIdForPlan(plan: "monthly" | "annual"): string | null {
@@ -197,6 +239,10 @@ export async function beginHostedCheckout(args: {
     experimentVariant,
     livemode,
   });
+
+  if (!canary) {
+    await captureCheckoutMatch(intent.id, args.request);
+  }
 
   const origin = resolveStripeCheckoutReturnOrigin(args.request);
   const stripe = stripeClient();
@@ -399,6 +445,7 @@ export async function resumeOrReplacePublicCheckout(args: {
       intentId: intent.id,
       bindingExpiresAt: new Date(Date.now() + maxAgeSeconds * 1000).toISOString(),
     });
+    await captureCheckoutMatch(intent.id, args.request);
     return {
       action: "reuse",
       url: session.url,
@@ -509,6 +556,7 @@ async function linkProviderIdentity(args: {
     args.clerkUserId,
     subscription
   );
+  await copyCheckoutMatchToClerkUser(args.subscriptionId, args.clerkUserId);
 }
 
 async function issueTicketIfNeeded(intent: CheckoutBrowserIntent): Promise<ActivateResult> {

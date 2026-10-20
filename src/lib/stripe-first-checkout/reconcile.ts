@@ -2,7 +2,11 @@ import "server-only";
 
 import Stripe from "stripe";
 
-import { maybeEmitMetaStartTrialFromCheckout } from "@/lib/meta-capi-stripe-conversions";
+import { META_CAPI_STRIPE_FIRST_SOURCE_URL } from "@/lib/meta-capi";
+import {
+  maybeEmitMetaStartTrialFromCheckout,
+  metaStartTrialEventUnix,
+} from "@/lib/meta-capi-stripe-conversions";
 import { INTENT_METADATA_KEY } from "@/lib/stripe-first-checkout/constants";
 import { stripeKeyMatchesLivemode } from "@/lib/stripe-first-checkout/credentials";
 import { confirmStripeTrial, loadIntentById } from "@/lib/stripe-first-checkout/intent-store";
@@ -157,10 +161,17 @@ export async function reconcileStripeFirstFromCheckoutSession(
             typeof clerkUserId === "string" && clerkUserId.trim()
               ? clerkUserId.trim()
               : null,
-          eventCreatedUnix:
-            typeof created === "number" && Number.isFinite(created)
-              ? Math.floor(created)
-              : Math.floor(Date.now() / 1000),
+          eventCreatedUnix: metaStartTrialEventUnix(
+            proof.subscription,
+            typeof created === "number" && Number.isFinite(created) ? created : 0
+          ),
+          eventSourceUrl: META_CAPI_STRIPE_FIRST_SOURCE_URL,
+          webMatch: {
+            fbc: intent.meta_fbc ?? null,
+            fbp: intent.meta_fbp ?? null,
+            clientIpAddress: intent.client_ip ?? null,
+            clientUserAgent: intent.client_user_agent ?? null,
+          },
         });
       } catch {
         console.warn("[stripe-first] Meta StartTrial isolated failure");

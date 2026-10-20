@@ -31,6 +31,7 @@ vi.mock("@/lib/stripe-first-checkout/intent-store", () => ({
   liveCanaryIntentExists: vi.fn(),
   loadIntentByBindingHash: (...args: unknown[]) => loadBindingMock(...args),
   loadIntentById: (...args: unknown[]) => loadIdMock(...args),
+  loadIntentBySubscriptionId: vi.fn(async () => null),
   markClerkProvisioned: (...args: unknown[]) => markProvisionedMock(...args),
   markSessionStartedForExistingUser: vi.fn(),
   markSessionStartedForProvisionedUser: vi.fn(),
@@ -66,6 +67,16 @@ vi.mock("@/lib/clerk-rest", () => ({
 
 vi.mock("@/lib/marketing-account-link", () => ({
   linkMarketingVisitorToClerkUser: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/meta-capi-web-identifiers", () => ({
+  matchFromCheckoutRequest: vi.fn(async () => ({
+    fbc: null,
+    fbp: null,
+    clientIpAddress: null,
+    clientUserAgent: null,
+  })),
+  saveMetaCapiWebMatchForUser: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/summitt-membership-entitlement.server", () => ({

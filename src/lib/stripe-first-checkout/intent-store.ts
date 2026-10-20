@@ -1,5 +1,16 @@
 import "server-only";
 
+import {
+  listPendingMetaConversionsForSubscription,
+  metaConversionEventWithinMaxAge,
+} from "@/lib/meta-conversion-ledger";
+import { loadMetaCapiWebIdentifiersForUser } from "@/lib/meta-capi-web-identifiers";
+import {
+  sanitizeMetaClientIp,
+  sanitizeMetaClientUserAgent,
+  sanitizeMetaFbc,
+  sanitizeMetaFbp,
+} from "@/lib/meta-capi-web-identifier-validation";
 import { supabaseServer } from "@/lib/supabase-server";
 import { unixFromIso } from "@/lib/stripe-first-checkout/hold-decision";
 import type { HoldIntentView } from "@/lib/stripe-first-checkout/hold-decision";
@@ -29,7 +40,15 @@ export type CheckoutBrowserIntent = {
   hold_released_at: string | null;
   created_at: string;
   updated_at: string;
+  meta_fbc: string | null;
+  meta_fbp: string | null;
+  client_ip: string | null;
+  client_user_agent: string | null;
 };
+
+export const CHECKOUT_MATCH_PAYMENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+const CHECKOUT_MATCH_CLEANUP_LIMIT = 40;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -147,6 +166,220 @@ export async function loadLatestIntentForClerkUser(
   }
   const row = data?.[0];
   return (row as CheckoutBrowserIntent | undefined) ?? null;
+}
+
+export async function loadIntentBySubscriptionId(
+  subscriptionId: string
+): Promise<CheckoutBrowserIntent | null> {
+  const subId = subscriptionId.trim();
+  if (!subId) return null;
+  const { data, error } = await supabaseServer
+    .from("checkout_browser_intents")
+    .select("*")
+    .eq("stripe_subscription_id", subId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) {
+    logIntentError("load_subscription", error.code);
+    throw new Error("intent_load_failed");
+  }
+  const row = data?.[0];
+  return (row as CheckoutBrowserIntent | undefined) ?? null;
+}
+
+/**
+ * Fill empty match columns only. Never replaces an fbc already stored.
+ * Fail-open: checkout continues when this write fails.
+ */
+export async function saveCheckoutMatchFields(args: {
+  intentId: string;
+  fbc: string | null;
+  fbp: string | null;
+  clientIp: string | null;
+  clientUserAgent: string | null;
+}): Promise<void> {
+  try {
+    const intentId = args.intentId.trim();
+    if (!intentId) return;
+    const fbc = sanitizeMetaFbc(args.fbc);
+    const fbp = sanitizeMetaFbp(args.fbp);
+    const clientIp = sanitizeMetaClientIp(args.clientIp);
+    const clientUserAgent = sanitizeMetaClientUserAgent(args.clientUserAgent);
+    if (!fbc && !fbp && !clientIp && !clientUserAgent) return;
+    const existing = await loadIntentById(intentId);
+    if (!existing) return;
+    const patch: Record<string, string> = {};
+    if (!existing.meta_fbc && fbc) patch.meta_fbc = fbc;
+    if (!existing.meta_fbp && fbp) patch.meta_fbp = fbp;
+    if (!existing.client_ip && clientIp) patch.client_ip = clientIp;
+    if (!existing.client_user_agent && clientUserAgent) {
+      patch.client_user_agent = clientUserAgent;
+    }
+    if (Object.keys(patch).length === 0) return;
+    patch.updated_at = nowIso();
+    const { error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .update(patch)
+      .eq("id", intentId);
+    if (error) logIntentError("save_match", error.code);
+  } catch {
+    console.warn("[stripe-first] checkout match save failed");
+  }
+}
+
+export async function clearCheckoutMatchFields(intentId: string): Promise<void> {
+  try {
+    const id = intentId.trim();
+    if (!id) return;
+    const { error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .update({
+        meta_fbc: null,
+        meta_fbp: null,
+        client_ip: null,
+        client_user_agent: null,
+        updated_at: nowIso(),
+      })
+      .eq("id", id);
+    if (error) logIntentError("clear_match", error.code);
+  } catch {
+    console.warn("[stripe-first] checkout match clear failed");
+  }
+}
+
+/** Account deletion. Throws when the write fails so deletion does not complete. */
+export async function clearCheckoutMatchFieldsForClerkUser(
+  clerkUserId: string | null | undefined
+): Promise<void> {
+  const uid = typeof clerkUserId === "string" ? clerkUserId.trim() : "";
+  if (!uid) return;
+  const { error } = await supabaseServer
+    .from("checkout_browser_intents")
+    .update({
+      meta_fbc: null,
+      meta_fbp: null,
+      client_ip: null,
+      client_user_agent: null,
+      updated_at: nowIso(),
+    })
+    .eq("clerk_user_id", uid);
+  if (error) {
+    logIntentError("clear_match_user", error.code);
+    throw new Error("checkout_match_clear_failed");
+  }
+}
+
+export function shouldClearCheckoutMatch(args: {
+  nowMs: number;
+  stripeSubscriptionId: string | null;
+  bindingExpiresAt: string | null;
+  clerkUserId: string | null;
+  clerkCopyPresent: boolean;
+  pendingInWindow: boolean;
+  trialEndAt: string | null;
+}): boolean {
+  if (args.pendingInWindow) return false;
+  const bindingMs = args.bindingExpiresAt ? Date.parse(args.bindingExpiresAt) : Number.NaN;
+  if (!args.stripeSubscriptionId) {
+    return Number.isFinite(bindingMs) && bindingMs <= args.nowMs;
+  }
+  if (args.clerkUserId && args.clerkCopyPresent) return true;
+  const trialMs = args.trialEndAt ? Date.parse(args.trialEndAt) : Number.NaN;
+  const windowEnd = Number.isFinite(trialMs)
+    ? trialMs + CHECKOUT_MATCH_PAYMENT_WINDOW_MS
+    : Number.isFinite(bindingMs)
+      ? bindingMs + CHECKOUT_MATCH_PAYMENT_WINDOW_MS
+      : args.nowMs + 1;
+  return args.nowMs >= windowEnd;
+}
+
+function intentHasMatch(row: CheckoutBrowserIntent): boolean {
+  return Boolean(row.meta_fbc || row.meta_fbp || row.client_ip || row.client_user_agent);
+}
+
+const MATCH_CLEANUP_COLUMNS =
+  "id, stripe_subscription_id, binding_expires_at, clerk_user_id, stripe_trial_end_at, meta_fbc, meta_fbp, client_ip, client_user_agent";
+
+const MATCH_PRESENT_FILTER =
+  "meta_fbc.not.is.null,meta_fbp.not.is.null,client_ip.not.is.null,client_user_agent.not.is.null";
+
+async function clearListedCheckoutMatches(
+  rows: CheckoutBrowserIntent[],
+  nowMs: number
+): Promise<void> {
+  const nowUnix = Math.floor(nowMs / 1000);
+  for (const row of rows) {
+    if (!row?.id || !intentHasMatch(row)) continue;
+    const subscriptionId =
+      typeof row.stripe_subscription_id === "string" ? row.stripe_subscription_id.trim() : "";
+    let pendingInWindow = false;
+    if (subscriptionId) {
+      const pending = await listPendingMetaConversionsForSubscription(subscriptionId);
+      pendingInWindow = pending.some((item) =>
+        metaConversionEventWithinMaxAge(item.event_time, nowUnix)
+      );
+    }
+    let clerkCopyPresent = false;
+    const clerkUserId =
+      typeof row.clerk_user_id === "string" && row.clerk_user_id.trim()
+        ? row.clerk_user_id.trim()
+        : null;
+    if (clerkUserId) {
+      const copied = await loadMetaCapiWebIdentifiersForUser(clerkUserId);
+      clerkCopyPresent = Boolean(
+        copied && (copied.fbc || copied.fbp || copied.clientIpAddress || copied.clientUserAgent)
+      );
+    }
+    if (
+      !shouldClearCheckoutMatch({
+        nowMs,
+        stripeSubscriptionId: subscriptionId || null,
+        bindingExpiresAt: row.binding_expires_at ?? null,
+        clerkUserId,
+        clerkCopyPresent,
+        pendingInWindow,
+        trialEndAt: row.stripe_trial_end_at ?? null,
+      })
+    ) {
+      continue;
+    }
+    await clearCheckoutMatchFields(row.id);
+  }
+}
+
+/**
+ * Hourly cleanup. Expired checkouts with no subscription are cleared on their
+ * own bounded query so in-window trials cannot occupy every slot.
+ * A subscription keeps match data while a conversion is still inside seven days,
+ * or until the first payment window ends, unless the Clerk copy is already stored.
+ */
+export async function clearStaleCheckoutMatchFields(nowMs: number = Date.now()): Promise<void> {
+  const now = new Date(nowMs).toISOString();
+  try {
+    const { data, error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .select(MATCH_CLEANUP_COLUMNS)
+      .is("stripe_subscription_id", null)
+      .lt("binding_expires_at", now)
+      .or(MATCH_PRESENT_FILTER)
+      .limit(CHECKOUT_MATCH_CLEANUP_LIMIT);
+    if (error) logIntentError("list_abandoned_match_cleanup", error.code);
+    else if (data) await clearListedCheckoutMatches(data as CheckoutBrowserIntent[], nowMs);
+  } catch {
+    console.warn("[stripe-first] abandoned checkout match cleanup failed");
+  }
+  try {
+    const { data, error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .select(MATCH_CLEANUP_COLUMNS)
+      .not("stripe_subscription_id", "is", null)
+      .or(MATCH_PRESENT_FILTER)
+      .limit(CHECKOUT_MATCH_CLEANUP_LIMIT);
+    if (error) logIntentError("list_match_cleanup", error.code);
+    else if (data) await clearListedCheckoutMatches(data as CheckoutBrowserIntent[], nowMs);
+  } catch {
+    console.warn("[stripe-first] checkout match cleanup failed");
+  }
 }
 
 export async function attachCheckoutSession(args: {

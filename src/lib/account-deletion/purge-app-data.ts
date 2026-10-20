@@ -257,6 +257,19 @@ export async function purgeAppDataForDeletion(
           message: "meta_capi_web_identifiers_purge_incomplete",
         };
       }
+      try {
+        const { clearCheckoutMatchFieldsForClerkUser } = await import(
+          "@/lib/stripe-first-checkout/intent-store"
+        );
+        await clearCheckoutMatchFieldsForClerkUser(clerkUserId);
+      } catch {
+        console.warn("[purgeAppDataForDeletion] checkout match cleanup failed");
+        return {
+          ok: false,
+          code: "internal_error",
+          message: "checkout_match_purge_incomplete",
+        };
+      }
     }
 
     return {

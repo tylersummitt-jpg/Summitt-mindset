@@ -34,6 +34,23 @@ vi.mock("resend", () => ({
 
 vi.mock("@/lib/meta-capi-stripe-conversions", () => ({
   maybeEmitMetaStartTrialFromCheckout: vi.fn(async () => undefined),
+  metaStartTrialEventUnix: (
+    subscription: { trial_start?: number | null; created?: number | null },
+    fallbackUnix: number
+  ) => {
+    const trialStart = subscription.trial_start;
+    if (typeof trialStart === "number" && Number.isFinite(trialStart) && trialStart > 0) {
+      return Math.floor(trialStart);
+    }
+    const created = subscription.created;
+    if (typeof created === "number" && Number.isFinite(created) && created > 0) {
+      return Math.floor(created);
+    }
+    if (typeof fallbackUnix === "number" && Number.isFinite(fallbackUnix) && fallbackUnix > 0) {
+      return Math.floor(fallbackUnix);
+    }
+    return Math.floor(Date.now() / 1000);
+  },
 }));
 
 import { notifyMemberSubscribedInternal } from "@/lib/notify-member-subscribed";

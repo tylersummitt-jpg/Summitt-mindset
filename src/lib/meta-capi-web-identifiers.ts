@@ -271,3 +271,111 @@ export async function persistMetaCapiWebIdentifiersFromCheckoutRequest(args: {
     console.warn("[meta-capi-web-identifiers] persist unexpected");
   }
 }
+
+const EMPTY_WEB_MATCH: MetaCapiWebMatch = {
+  fbc: null,
+  fbp: null,
+  clientIpAddress: null,
+  clientUserAgent: null,
+};
+
+/**
+ * Checkout-start match from the browser request.
+ * A valid _fbc cookie wins. Otherwise fbc is built from the first real fbclid.
+ * _fbp is stored only when the cookie is already a valid browser id. Never invented.
+ */
+export async function matchFromCheckoutRequest(req: Request): Promise<MetaCapiWebMatch> {
+  try {
+    if (isNativeSummittMindsetAppRequestFromRequest(req)) return { ...EMPTY_WEB_MATCH };
+    const cookies = parseCookieMap(req.headers.get("cookie"));
+    const cookieFbc = sanitizeMetaFbc(cookies.get("_fbc") ?? null);
+    const cookieFbp = sanitizeMetaFbp(cookies.get("_fbp") ?? null);
+    const marketing = await readMarketingCookiesFromRequest(req);
+    const fbclid = sanitizeMetaFbclid(marketing.attribution?.meta_fbclid ?? null);
+    const observedAt =
+      typeof marketing.attribution?.meta_fbclid_observed_at === "string"
+        ? marketing.attribution.meta_fbclid_observed_at
+        : null;
+    const constructed =
+      fbclid && observedAt ? constructFbcFromRealFbclid(fbclid, observedAt) : null;
+    return {
+      fbc: cookieFbc || constructed,
+      fbp: cookieFbp,
+      clientIpAddress: clientIpFromRequestHeaders(req.headers),
+      clientUserAgent: sanitizeMetaClientUserAgent(req.headers.get("user-agent")),
+    };
+  } catch {
+    return { ...EMPTY_WEB_MATCH };
+  }
+}
+
+/**
+ * Copy checkout match onto the Clerk row after a real user id exists.
+ * An fbc already stored for that user is left in place.
+ */
+export async function saveMetaCapiWebMatchForUser(args: {
+  userId: string | null | undefined;
+  match: MetaCapiWebMatch;
+}): Promise<void> {
+  try {
+    const uid = typeof args.userId === "string" ? args.userId.trim() : "";
+    if (!uid) return;
+    const incomingFbc = sanitizeMetaFbc(args.match.fbc);
+    const incomingFbp = sanitizeMetaFbp(args.match.fbp);
+    const incomingIp = sanitizeMetaClientIp(args.match.clientIpAddress);
+    const incomingUa = sanitizeMetaClientUserAgent(args.match.clientUserAgent);
+    if (!incomingFbc && !incomingFbp && !incomingIp && !incomingUa) return;
+
+    const { data: existingRaw, error: selectError } = await supabaseServer
+      .from(META_CAPI_WEB_IDENTIFIERS_TABLE)
+      .select(
+        "clerk_user_id, meta_fbclid, meta_fbclid_observed_at, meta_fbc, meta_fbp, client_ip, client_user_agent"
+      )
+      .eq("clerk_user_id", uid)
+      .maybeSingle();
+    if (selectError) {
+      console.warn("[meta-capi-web-identifiers] copy lookup failed");
+      return;
+    }
+
+    const existing = asRow((existingRaw as Record<string, unknown> | null) ?? null);
+    const nextFbc = sanitizeMetaFbc(existing?.meta_fbc ?? null) || incomingFbc;
+    const nextFbp = sanitizeMetaFbp(existing?.meta_fbp ?? null) || incomingFbp;
+    const nextIp = sanitizeMetaClientIp(existing?.client_ip ?? null) || incomingIp;
+    const nextUa = sanitizeMetaClientUserAgent(existing?.client_user_agent ?? null) || incomingUa;
+    const updatedAt = new Date().toISOString();
+
+    if (!existing) {
+      const { error } = await supabaseServer.from(META_CAPI_WEB_IDENTIFIERS_TABLE).insert({
+        clerk_user_id: uid,
+        meta_fbclid: null,
+        meta_fbclid_observed_at: null,
+        meta_fbc: nextFbc,
+        meta_fbp: nextFbp,
+        client_ip: nextIp,
+        client_user_agent: nextUa,
+        updated_at: updatedAt,
+      });
+      if (error && (error as { code?: string }).code !== "23505") {
+        console.warn("[meta-capi-web-identifiers] copy insert failed");
+      }
+      return;
+    }
+
+    const { error } = await supabaseServer
+      .from(META_CAPI_WEB_IDENTIFIERS_TABLE)
+      .update({
+        meta_fbc: nextFbc,
+        meta_fbp: nextFbp,
+        client_ip: nextIp,
+        client_user_agent: nextUa,
+        updated_at: updatedAt,
+      })
+      .eq("clerk_user_id", uid);
+    if (error) {
+      console.warn("[meta-capi-web-identifiers] copy update failed");
+    }
+  } catch {
+    console.warn("[meta-capi-web-identifiers] copy unexpected");
+  }
+}

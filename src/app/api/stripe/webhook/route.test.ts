@@ -14,6 +14,16 @@ vi.mock("@/lib/meta-capi-stripe-conversions", () => ({
   maybeEmitMetaSubscribeFromInvoicePaid: maybeSubscribeMock,
 }));
 
+const loadIntentBySubMock = vi.fn(async () => null);
+vi.mock("@/lib/stripe-first-checkout/intent-store", () => ({
+  loadIntentBySubscriptionId: (...args: unknown[]) => loadIntentBySubMock(...args),
+}));
+
+beforeEach(() => {
+  loadIntentBySubMock.mockReset();
+  loadIntentBySubMock.mockResolvedValue(null);
+});
+
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {
     from: (table: string) => {
@@ -1043,6 +1053,99 @@ describe("Stripe webhook Meta CAPI fail-open wiring", () => {
       summittSubscribed: true,
       summittPlan: "monthly",
     });
+  });
+
+  it("first paid invoice before Clerk linkage emits Subscribe and does not change membership", async () => {
+    const intent = {
+      id: "intent_1",
+      stripe_subscription_id: "sub_1",
+      clerk_user_id: null,
+      meta_fbc: "fb.1.1700000000000.AbCdEf",
+      meta_fbp: "fb.1.1700000000000.1234567890",
+      client_ip: "8.8.8.8",
+      client_user_agent: "Mozilla/5.0 PreClerk",
+    };
+    loadIntentBySubMock.mockResolvedValue(intent);
+    retrieveSubMock.mockResolvedValue(
+      activeSub({
+        status: "active",
+        metadata: { checkoutIntentId: "intent_1" },
+      })
+    );
+    constructEventMock.mockReturnValue({
+      id: "evt_paid_before_clerk",
+      type: "invoice.paid",
+      created: 1_700_000_100,
+      data: { object: invoiceForSub() },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ received: true });
+    expect(maybeSubscribeMock).toHaveBeenCalledTimes(1);
+    expect(maybeSubscribeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: null,
+        checkoutIntent: intent,
+        subscription: expect.objectContaining({ id: "sub_1" }),
+      })
+    );
+    expect(loadIntentBySubMock).toHaveBeenCalledTimes(1);
+    expect(updateClerkMock).not.toHaveBeenCalled();
+    expect(syncSmsMock).not.toHaveBeenCalled();
+    expect(maybeStartTrialMock).not.toHaveBeenCalled();
+  });
+
+  it("owner canary invoice before Clerk linkage does not emit Subscribe", async () => {
+    loadIntentBySubMock.mockResolvedValue({ id: "intent_canary" });
+    retrieveSubMock.mockResolvedValue(
+      activeSub({
+        status: "active",
+        metadata: { summittCanary: "owner" },
+      })
+    );
+    constructEventMock.mockReturnValue({
+      id: "evt_paid_canary",
+      type: "invoice.paid",
+      created: 1_700_000_100,
+      data: { object: invoiceForSub() },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(maybeSubscribeMock).not.toHaveBeenCalled();
+    expect(updateClerkMock).not.toHaveBeenCalled();
+  });
+
+  it("invoice before Clerk linkage without a checkout intent does not emit Subscribe", async () => {
+    retrieveSubMock.mockResolvedValue(activeSub({ status: "active", metadata: {} }));
+    constructEventMock.mockReturnValue({
+      id: "evt_paid_no_intent",
+      type: "invoice.paid",
+      created: 1_700_000_100,
+      data: { object: invoiceForSub() },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(maybeSubscribeMock).not.toHaveBeenCalled();
+    expect(updateClerkMock).not.toHaveBeenCalled();
+  });
+
+  it("Subscribe failure before Clerk linkage still acknowledges the invoice", async () => {
+    loadIntentBySubMock.mockResolvedValue({ id: "intent_1" });
+    maybeSubscribeMock.mockRejectedValue(new Error("meta down"));
+    retrieveSubMock.mockResolvedValue(activeSub({ status: "active", metadata: {} }));
+    constructEventMock.mockReturnValue({
+      id: "evt_paid_meta_isolated",
+      type: "invoice.paid",
+      created: 1_700_000_100,
+      data: { object: invoiceForSub() },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(200);
+    expect(updateClerkMock).not.toHaveBeenCalled();
   });
 
   it("invoice.payment_failed does not emit Subscribe", async () => {

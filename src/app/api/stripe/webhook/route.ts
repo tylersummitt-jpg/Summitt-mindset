@@ -26,6 +26,8 @@ import {
   maybeEmitMetaStartTrialFromCheckout,
   maybeEmitMetaSubscribeFromInvoicePaid,
 } from "@/lib/meta-capi-stripe-conversions";
+import { loadIntentBySubscriptionId } from "@/lib/stripe-first-checkout/intent-store";
+import { isOwnerCanaryMetadata } from "@/lib/stripe-first-checkout/member-notify";
 import {
   isRetryableMembershipSourceOrClerkFailure,
   recomputeMembershipFromAuthoritativeStripeSubscription,
@@ -914,6 +916,21 @@ export async function POST(req: NextRequest) {
         console.warn("[webhook] invoice.paid missing userId", {
           event_id: event.id,
         });
+        try {
+          const intent = await loadIntentBySubscriptionId(subscription.id);
+          if (intent && !isOwnerCanaryMetadata(subscription.metadata)) {
+            await maybeEmitMetaSubscribeFromInvoicePaid({
+              stripe,
+              invoice,
+              subscription,
+              userId: null,
+              eventCreatedUnix: event.created,
+              checkoutIntent: intent,
+            });
+          }
+        } catch {
+          console.warn("[webhook] Meta Subscribe before Clerk linkage isolated failure");
+        }
         return acknowledgeProcessedStripeEvent(event.id);
       }
 

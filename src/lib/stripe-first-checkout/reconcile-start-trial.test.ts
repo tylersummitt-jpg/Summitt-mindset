@@ -130,6 +130,13 @@ describe("Stripe-first Meta StartTrial", () => {
       subscription: expect.objectContaining({ id: "sub_1", status: "trialing" }),
       userId: null,
       eventCreatedUnix: 1_700_000_000,
+      eventSourceUrl: "https://summittmindset.com/checkout/start",
+      webMatch: {
+        fbc: null,
+        fbp: null,
+        clientIpAddress: null,
+        clientUserAgent: null,
+      },
     });
     expect(metaStartTrialEventId("sub_1")).toBe("start_trial:sub_1");
     const passedUserId = startTrialMock.mock.calls[0]?.[0]?.userId;
@@ -137,10 +144,42 @@ describe("Stripe-first Meta StartTrial", () => {
     expect(passedUserId).not.toBe("not created yet");
   });
 
+  it("passes checkout match fields and Stripe trial_start for a monthly trial", async () => {
+    loadIntentMock.mockResolvedValue(
+      intent({
+        meta_fbc: "fb.1.1700000000000.AbCdEf",
+        meta_fbp: "fb.1.1700000000000.1234567890",
+        client_ip: "8.8.8.8",
+        client_user_agent: "Mozilla/5.0 TestBrowser",
+      })
+    );
+    retrieveSubMock.mockResolvedValue(
+      subscription({ trial_start: 1_700_000_100, created: 1_700_000_050 })
+    );
+
+    const outcome = await reconcileStripeFirstFromCheckoutSession(session() as never);
+
+    expect(outcome).toBe("ack");
+    expect(startTrialMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: null,
+        eventCreatedUnix: 1_700_000_100,
+        eventSourceUrl: "https://summittmindset.com/checkout/start",
+        webMatch: {
+          fbc: "fb.1.1700000000000.AbCdEf",
+          fbp: "fb.1.1700000000000.1234567890",
+          clientIpAddress: "8.8.8.8",
+          clientUserAgent: "Mozilla/5.0 TestBrowser",
+        },
+      })
+    );
+  });
+
   it("invokes StartTrial for a verified annual Stripe-first trial", async () => {
     retrieveSubMock.mockResolvedValue(
       subscription({
         id: "sub_annual",
+        trial_start: 1_700_000_200,
         metadata: { plan: "annual" },
         items: {
           data: [{ price: { id: ANNUAL, recurring: { interval: "year" } } }],
@@ -158,6 +197,8 @@ describe("Stripe-first Meta StartTrial", () => {
       expect.objectContaining({
         subscription: expect.objectContaining({ id: "sub_annual" }),
         userId: null,
+        eventCreatedUnix: 1_700_000_200,
+        eventSourceUrl: "https://summittmindset.com/checkout/start",
       })
     );
     expect(metaStartTrialEventId("sub_annual")).toBe("start_trial:sub_annual");
